@@ -4,7 +4,6 @@ import {
     ISceneLog,
     AttackType,
     HoCMath,
-    TeamVals,
     AttackVals,
     Unit,
     GridMath,
@@ -44,6 +43,8 @@ export interface ISandboxButtonContext {
      * so all action buttons (incl. the purely-local spellbook overlay) must be disabled.
      */
     canControlCurrentActiveUnit(): boolean;
+    /** True when another living teammate still has an uncompleted turn later in the current lap. */
+    hasUnactedTeammateInCurrentLap(unit: Unit): boolean;
 
     getVisibleState(): IVisibleState | undefined;
 }
@@ -98,14 +99,6 @@ export class ButtonManager {
             return false;
         }
 
-        const lowerTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.LOWER);
-        const upperTeamUnitsAlive = fightState.getTeamUnitsAlive(TeamVals.UPPER);
-        const unitTeam = currentActiveUnit.getTeam();
-
-        const moreThanOneUnitAlive =
-            (unitTeam === TeamVals.LOWER && lowerTeamUnitsAlive > 1) ||
-            (unitTeam === TeamVals.UPPER && upperTeamUnitsAlive > 1);
-
         const unitId = currentActiveUnit.getId();
         const inHourglassQueue = fightState.hourglassIncludes(unitId);
         const hasAlreadyMadeTurn = fightState.hasAlreadyMadeTurn(unitId);
@@ -116,7 +109,12 @@ export class ButtonManager {
             (currentActiveUnit as unknown as { getHasHourglassed?: () => boolean }).getHasHourglassed?.() ?? false;
         const hasAlreadyHourglass = syncedHourglassed || fightState.hasAlreadyHourglass(unitId);
 
-        if (moreThanOneUnitAlive && !inHourglassQueue && !hasAlreadyMadeTurn && !hasAlreadyHourglass) {
+        if (
+            this.context.hasUnactedTeammateInCurrentLap(currentActiveUnit) &&
+            !inHourglassQueue &&
+            !hasAlreadyMadeTurn &&
+            !hasAlreadyHourglass
+        ) {
             return true;
         }
         return false;

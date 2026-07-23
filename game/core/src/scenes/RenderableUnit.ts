@@ -20,6 +20,7 @@ import {
     HoCConfig,
     SpellHelper,
     FightStateManager,
+    AllAbilities,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
@@ -135,6 +136,23 @@ const DODGE_GHOST_LIFE_MS = 300;
 const DODGE_GHOST_ALPHA = 0.35;
 const DODGE_GHOST_TINT = 0xaaffcc; // faint green wash so the trail reads "bullet time", not "unit copy"
 const DODGE_BLUR_STRENGTH = 2.5;
+// Uneven, stable frost deposits around a normalized unit silhouette. Keeping this layout fixed prevents
+// the frozen shell from crawling or pulsing while still avoiding a mechanical, evenly-spaced border.
+const FREEZE_FROST_PATCHES = [
+    [-0.84, -0.95, 0.15],
+    [-0.38, -0.99, 0.11],
+    [0.12, -0.96, 0.17],
+    [0.7, -0.92, 0.13],
+    [0.96, -0.63, 0.14],
+    [0.99, -0.08, 0.17],
+    [0.93, 0.52, 0.12],
+    [0.66, 0.94, 0.17],
+    [0.08, 0.99, 0.12],
+    [-0.46, 0.95, 0.16],
+    [-0.95, 0.6, 0.13],
+    [-0.99, 0.08, 0.18],
+    [-0.94, -0.52, 0.12],
+] as const;
 function dodgeEaseOutCubic(t: number): number {
     const u = 1 - t;
     return 1 - u * u * u;
@@ -207,6 +225,11 @@ export class RenderableUnit extends Unit {
     // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
     // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
+    // Ice "crust" encasing a unit under the "Freeze" status (drawn over the sprite, above the icy tint).
+    private freezeCrust?: Graphics;
+    // Additive light layer over the ice crust: a sheen raking across + caustic sparks drifting inside the
+    // shell. Separate Graphics so the light blends additively (glows) while the frost stays normal-blend.
+    private freezeLight?: Graphics;
     // Water Shield dissolve burst: a one-shot ring-snap + droplet spray fired the instant the shield is
     // consumed (the buff disappears while the unit is still alive).
     private waterShieldWasActive = false;
@@ -256,6 +279,8 @@ export class RenderableUnit extends Unit {
         ru.badgeAmountOverride = undefined;
         ru.activeAura = undefined;
         ru.waterShieldAura = undefined;
+        ru.freezeCrust = undefined;
+        ru.freezeLight = undefined;
         ru.waterShieldBreakGfx = undefined;
         ru.waterShieldBreakStartMs = undefined;
         ru.waterShieldWasActive = false;
@@ -481,12 +506,12 @@ export class RenderableUnit extends Unit {
                 worldRoot,
                 this.stunContainer,
                 this.stunSprite,
-                "stun_256",
+                "stop",
                 pos,
                 props,
-                -1,
-                1,
-                this.isSkippingForDisplay(),
+                0,
+                0,
+                this.shouldShowStopIcon(),
             );
             this.stunContainer = r.container;
             this.stunSprite = r.sprite;
@@ -581,7 +606,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = visible && this.isSkippingForDisplay();
+            this.stunContainer.visible = visible && this.shouldShowStopIcon();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = visible && this.shouldShowRespondTag();
@@ -607,7 +632,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = !active && visible && this.isSkippingForDisplay();
+            this.stunContainer.visible = !active && visible && this.shouldShowStopIcon();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
@@ -692,6 +717,14 @@ export class RenderableUnit extends Unit {
             this.updateWaterShieldAura(worldRoot, gs, pos);
         } else if (this.waterShieldAura) {
             this.waterShieldAura.visible = false;
+        }
+
+        // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
+        if (!this.isDead() && this.hasEffectActive("Freeze")) {
+            this.updateFreezeCrust(worldRoot, gs, pos);
+        } else {
+            if (this.freezeCrust) this.freezeCrust.visible = false;
+            if (this.freezeLight) this.freezeLight.visible = false;
         }
         // The shield is permanent until it absorbs a hit, so a still-alive unit losing the buff means it
         // just broke — kick off the one-shot dissolve burst at that instant.
@@ -795,6 +828,156 @@ export class RenderableUnit extends Unit {
             const r = ringR * 0.72;
             g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
         }
+    }
+    /** An ice crust encasing a "Freeze"-status unit: a frosted pane with soft buildup and branching veins. */
+    private updateFreezeCrust(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.freezeCrust) {
+            this.freezeCrust = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.freezeCrust);
+        } else if (this.freezeCrust.parent !== worldRoot) {
+            worldRoot.addChild(this.freezeCrust);
+        }
+        // Sit just above the sprite so the frost reads as a shell over the unit (below the badge at +1).
+        this.freezeCrust.zIndex = 4000 - pos.y + 0.5;
+        this.freezeCrust.visible = true;
+
+        const cell = gs.getCellSize();
+        const half = cell * (this.getUnitProperties().size === 2 ? 1.02 : 0.56);
+        const t = performance.now() / 1000;
+        const shimmer = 0.5 + 0.5 * Math.sin(t * 1.6);
+        const ice = 0xbfe8ff;
+        const iceBright = 0xeaf7ff;
+        const g = this.freezeCrust;
+        g.clear();
+
+        // A softly rounded frozen pane, with a second diffuse rim that gives the shell some thickness.
+        const corner = half * 0.18;
+        g.roundRect(pos.x - half, pos.y - half, half * 2, half * 2, corner)
+            .fill({ color: ice, alpha: 0.08 + 0.035 * shimmer })
+            .stroke({ color: iceBright, alpha: 0.44 + 0.08 * shimmer, width: 1.4 });
+        const rimInset = half * 0.045;
+        g.roundRect(
+            pos.x - half + rimInset,
+            pos.y - half + rimInset,
+            (half - rimInset) * 2,
+            (half - rimInset) * 2,
+            corner * 0.82,
+        ).stroke({ color: ice, alpha: 0.2 + 0.05 * shimmer, width: half * 0.055 });
+
+        // Frost collects in short, bowed deposits along the edge. Rounded strokes avoid both the old sharp
+        // wedges and a ring of circular blobs; only their shared translucency shimmers.
+        for (let i = 0; i < FREEZE_FROST_PATCHES.length; i++) {
+            const [nx, ny, normalizedRadius] = FREEZE_FROST_PATCHES[i];
+            const len = Math.hypot(nx, ny) || 1;
+            const outwardX = nx / len;
+            const outwardY = ny / len;
+            const perpendicularX = -outwardY;
+            const perpendicularY = outwardX;
+            const side = (((i * 5) % 7) - 3) / 3;
+            const radius = half * normalizedRadius;
+            const baseX = pos.x + nx * half;
+            const baseY = pos.y + ny * half;
+            const startX = baseX - perpendicularX * radius * (0.9 + Math.abs(side) * 0.15);
+            const startY = baseY - perpendicularY * radius * (0.9 + Math.abs(side) * 0.15);
+            const endX = baseX + perpendicularX * radius * (0.78 - side * 0.08);
+            const endY = baseY + perpendicularY * radius * (0.78 - side * 0.08);
+            g.moveTo(startX, startY).quadraticCurveTo(
+                baseX - outwardX * radius * (0.38 + Math.abs(side) * 0.08),
+                baseY - outwardY * radius * (0.38 + Math.abs(side) * 0.08),
+                endX,
+                endY,
+            );
+        }
+        g.stroke({
+            color: ice,
+            alpha: 0.22 + 0.06 * shimmer,
+            width: half * 0.065,
+            cap: "round",
+            join: "round",
+        });
+
+        // Fine, bent frost veins grow inward from selected deposits. Small side branches break up the radial
+        // pattern without producing filled wedges or sharp triangular silhouettes.
+        for (let i = 0; i < FREEZE_FROST_PATCHES.length; i += 2) {
+            const [nx, ny] = FREEZE_FROST_PATCHES[i];
+            const len = Math.hypot(nx, ny) || 1;
+            const outwardX = nx / len;
+            const outwardY = ny / len;
+            const perpendicularX = -outwardY;
+            const perpendicularY = outwardX;
+            const startX = pos.x + nx * half;
+            const startY = pos.y + ny * half;
+            const depth = half * (0.2 + (i % 3) * 0.035);
+            const bend = half * ((((i * 5) % 7) - 3) * 0.018);
+            const midX = startX - outwardX * depth * 0.55 + perpendicularX * bend;
+            const midY = startY - outwardY * depth * 0.55 + perpendicularY * bend;
+            const tipX = startX - outwardX * depth - perpendicularX * bend * 0.6;
+            const tipY = startY - outwardY * depth - perpendicularY * bend * 0.6;
+            const branchSide = i % 4 === 0 ? 1 : -1;
+            g.moveTo(startX, startY).lineTo(midX, midY).lineTo(tipX, tipY);
+            g.moveTo(midX, midY).lineTo(
+                midX - outwardX * half * 0.07 + perpendicularX * half * 0.09 * branchSide,
+                midY - outwardY * half * 0.07 + perpendicularY * half * 0.09 * branchSide,
+            );
+        }
+        g.stroke({ color: iceBright, alpha: 0.3 + 0.1 * shimmer, width: 1, cap: "round", join: "round" });
+
+        // Three restrained highlights pulse in place instead of orbiting around the unit.
+        for (let i = 0; i < 3; i++) {
+            const [nx, ny] = FREEZE_FROST_PATCHES[i * 4 + 1];
+            const glintX = pos.x + nx * half * 0.82;
+            const glintY = pos.y + ny * half * 0.82;
+            const twinkle = 0.5 + 0.5 * Math.sin(t * 3.2 + i * 2.3);
+            const glintRadius = half * (0.018 + 0.008 * twinkle);
+            g.moveTo(glintX - glintRadius, glintY).lineTo(glintX + glintRadius, glintY);
+            g.moveTo(glintX, glintY - glintRadius).lineTo(glintX, glintY + glintRadius);
+            g.stroke({ color: iceBright, alpha: 0.35 + 0.4 * twinkle, width: 1, cap: "round" });
+        }
+
+        // --- play of light INSIDE the ice ---
+        // A separate additive layer so these read as luminous refractions rather than paint: a slow sheen
+        // rakes across the frozen pane while a handful of caustic sparks drift and breathe deep in the shell.
+        if (!this.freezeLight) {
+            this.freezeLight = new Graphics();
+            this.freezeLight.blendMode = "add";
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.freezeLight);
+        } else if (this.freezeLight.parent !== worldRoot) {
+            worldRoot.addChild(this.freezeLight);
+        }
+        // Just above the crust (+0.5), still below the badge (+1).
+        this.freezeLight.zIndex = 4000 - pos.y + 0.55;
+        this.freezeLight.visible = true;
+        const gl = this.freezeLight;
+        gl.clear();
+
+        // Caustic sparks: soft points of light, each wandering an independent slow path and breathing on its
+        // own cycle. Held well inside the pane (±0.46·half) so they read as refractions within the ice.
+        for (let i = 0; i < 4; i++) {
+            const cx = pos.x + Math.sin(t * (0.55 + i * 0.17) + i * 1.7) * half * 0.46;
+            const cy = pos.y + Math.cos(t * (0.63 + i * 0.13) + i * 2.6) * half * 0.46;
+            const breathe = 0.5 + 0.5 * Math.sin(t * (1.1 + i * 0.4) + i * 1.3);
+            const r = half * (0.05 + 0.035 * breathe);
+            gl.circle(cx, cy, r).fill({ color: ice, alpha: 0.05 + 0.06 * breathe });
+            gl.circle(cx, cy, r * 0.45).fill({ color: 0xffffff, alpha: 0.05 + 0.11 * breathe });
+        }
+
+        // A glancing sheen rakes across the pane on a loop — brightest mid-pass, fading to nothing at the
+        // ends (which also hides the instant its tips would cross the rounded corners). The bar lies along
+        // the main diagonal and travels perpendicular to its own length.
+        const sweepPhase = (t % 4.6) / 4.6;
+        const sweepPos = -1 + 2 * sweepPhase;
+        const sweepFade = Math.sin(sweepPhase * Math.PI);
+        const sweepCx = pos.x + sweepPos * half * 0.72;
+        const sweepCy = pos.y - sweepPos * half * 0.72;
+        const sweepArm = half * 0.44;
+        gl.moveTo(sweepCx - sweepArm, sweepCy - sweepArm)
+            .lineTo(sweepCx + sweepArm, sweepCy + sweepArm)
+            .stroke({ color: ice, alpha: 0.2 * sweepFade, width: half * 0.06, cap: "round" });
+        gl.moveTo(sweepCx - sweepArm * 0.82, sweepCy - sweepArm * 0.82)
+            .lineTo(sweepCx + sweepArm * 0.82, sweepCy + sweepArm * 0.82)
+            .stroke({ color: 0xffffff, alpha: 0.26 * sweepFade, width: 1.4, cap: "round" });
     }
     /**
      * One-shot "dissolve" burst played when the Water Shield absorbs a hit and breaks: a brief inner splash,
@@ -1108,6 +1291,14 @@ export class RenderableUnit extends Unit {
             this.waterShieldAura.destroy({ children: true });
             this.waterShieldAura = undefined;
         }
+        if (this.freezeCrust) {
+            this.freezeCrust.destroy({ children: true });
+            this.freezeCrust = undefined;
+        }
+        if (this.freezeLight) {
+            this.freezeLight.destroy({ children: true });
+            this.freezeLight = undefined;
+        }
         if (this.waterShieldBreakGfx) {
             this.waterShieldBreakGfx.destroy({ children: true });
             this.waterShieldBreakGfx = undefined;
@@ -1331,6 +1522,15 @@ export class RenderableUnit extends Unit {
      */
     private isSkippingForDisplay(): boolean {
         return this.skippingThisTurnSynced || this.isSkippingThisTurn();
+    }
+    /**
+     * Whether to draw the "stop" corner icon on the board. A skipping unit normally shows it — EXCEPT under
+     * "Freeze", where the ice crust already reads as "this unit can't act", so the icon would just clutter
+     * the frozen shell. The hourglass stays suppressed regardless: that keys off isSkippingForDisplay, which
+     * Freeze keeps true. (Up-next/ALT views have no ice crust, so their stop icon is unaffected by this.)
+     */
+    private shouldShowStopIcon(): boolean {
+        return this.isSkippingForDisplay() && !this.hasEffectActive("Freeze");
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by
@@ -1590,6 +1790,11 @@ export class RenderableUnit extends Unit {
         this.effectFlashColor = 0x4dff9e; // bright green (keeps a positive, "buffed" feel)
     }
     private currentEffectTint(): number {
+        // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
+        // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
+        if (this.hasEffectActive("Freeze")) {
+            return 0x8ec6ff;
+        }
         if (!this.effectFlashStartMs) return 0xffffff;
         const DURATION = 650;
         const t = (performance.now() - this.effectFlashStartMs) / DURATION;
@@ -1630,11 +1835,30 @@ export class RenderableUnit extends Unit {
      * its world position, and the sprite scale (which includes the y-up flip). Call before
      * destroyVisuals(), while the sprite still exists.
      */
-    public getShatterInfo(): { texture: Texture; x: number; y: number; scaleX: number; scaleY: number } | null {
+    public getShatterInfo(): {
+        texture: Texture;
+        x: number;
+        y: number;
+        scaleX: number;
+        scaleY: number;
+        frozenShellHalf?: number;
+    } | null {
         const s = this.sprite;
         if (!s || !s.texture) return null;
         const pos = this.getPosition();
-        return { texture: s.texture, x: pos.x, y: pos.y, scaleX: s.scale.x, scaleY: s.scale.y };
+        const freezeBounds = this.freezeCrust?.getLocalBounds();
+        const frozenShellHalf =
+            freezeBounds && freezeBounds.width > 1 && freezeBounds.height > 1
+                ? Math.max(freezeBounds.width, freezeBounds.height) * 0.5
+                : undefined;
+        return {
+            texture: s.texture,
+            x: pos.x,
+            y: pos.y,
+            scaleX: s.scale.x,
+            scaleY: s.scale.y,
+            frozenShellHalf,
+        };
     }
     private ensureStackPowerIndicator(
         worldRoot: Container,
@@ -2404,6 +2628,41 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(
                 devourEssenceAbility.getName(),
                 devourEssenceAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Crafted Double Punch / Crafted Double Shot (from the Blacksmith's Craft) land a SECOND attack for a
+        // stack-scaled fraction of the damage — power/5 * stackPower + luck, i.e. 20/40/60/80/100% + luck —
+        // unlike the base Double Punch/Shot which always land a full second hit. Show the live scaled % (it
+        // was reading a flat 100% because nothing refreshed the {} with the calculated multiplier).
+        for (const craftedName of ["Crafted Double Punch", "Crafted Double Shot"]) {
+            const craftedAbility = this.getAbility(craftedName);
+            if (craftedAbility) {
+                const percentage = Number(
+                    (this.calculateAbilityMultiplier(craftedAbility, _synergyAbilityPowerIncrease) * 100).toFixed(0),
+                );
+                this.refreshAbiltyDescription(
+                    craftedAbility.getName(),
+                    craftedAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
+        }
+
+        // Blacksmith Tools (Craft): the four per-ally outcome chances shift with the caster's live luck
+        // (getCraftChances). Fill them at display time like every other ability's {} — otherwise, with no
+        // per-ability block, the description falls back to the flat power-0 value and reads "0%" everywhere.
+        const blacksmithToolsAbility = this.getAbility("Blacksmith Tools");
+        if (blacksmithToolsAbility) {
+            const { stun, nothing, double, frozen } = AllAbilities.getCraftChances(this.getLuck());
+            this.refreshAbiltyDescription(
+                blacksmithToolsAbility.getName(),
+                blacksmithToolsAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace("{}", double.toString())
+                    .replace("{}", frozen.toString())
+                    .replace("{}", stun.toString())
+                    .replace("{}", nothing.toString()),
             );
         }
     }

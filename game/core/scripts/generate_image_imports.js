@@ -18,9 +18,9 @@ const SEGMENT_NAME_TO_IMPORT_NAME = {
     8: "eight",
     9: "nine",
 };
-const EXCLUDED_IMAGE_FILES = new Set([
-    "stop.webp", // Legacy skip badge; UI uses icon_skip_black.webp directly.
-]);
+// stop.webp is intentionally registered (key "stop") — the on-unit / Alt-view / UpNext "stopped" (skip)
+// badge shown for Stun / Blindness / Freeze, replacing the old stun_256 corner icon.
+const EXCLUDED_IMAGE_FILES = new Set([]);
 
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 

@@ -83,6 +83,17 @@ describe("resolveLineTeamFlag", () => {
         expect(resolveLineTeamFlag("12 Medusa killed by Petrifying Gaze", m)).toBe("🟢");
     });
 
+    test("craft result lines flag the active caster's team even for a mirrored ally", () => {
+        // Blacksmith casts Craft on its allies; an "Elf" fielded by both teams is ambiguous by name, but
+        // the craft always targets the active caster's OWN allies, so the lines take the caster's side.
+        const m = indexed(["Elf", GREEN], ["Elf", RED], ["Blacksmith", RED]);
+        const activeRedBlacksmith = { name: "Blacksmith", team: RED };
+        expect(resolveLineTeamFlag("Elf was crafted with Crafted Frozen Bow", m, activeRedBlacksmith)).toBe("🔴");
+        expect(resolveLineTeamFlag("Elf's craft found nothing to improve", m, activeRedBlacksmith)).toBe("🔴");
+        expect(resolveLineTeamFlag("Elf's craft failed", m, activeRedBlacksmith)).toBe("🔴");
+        expect(resolveLineTeamFlag("Elf's craft backfired — stunned", m, activeRedBlacksmith)).toBe("🔴");
+    });
+
     describe("mirror match (same creature on both teams)", () => {
         // Beholder-vs-Beholder: the name is ambiguous, so without the active-unit hint nothing flags.
         const m = indexed(["Beholder", GREEN], ["Beholder", RED]);

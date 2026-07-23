@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import { Container, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
@@ -33,9 +33,29 @@ const makeInfo = () => ({
 
 type VisualsInternals = {
     shatterGroups: unknown[];
+    iceBreaks: {
+        container: Container;
+        body: Container;
+        iceShell: Container;
+        crystals: {
+            node: Container;
+            x: number;
+            y: number;
+            delay: number;
+            life: number;
+            large: boolean;
+        }[];
+    }[];
     cleaveDeaths: unknown[];
     dissolveDeaths: unknown[];
     abilitySteals: { payload: Container; arrived: boolean }[];
+    craftForges: {
+        container: Container;
+        anvil: Container;
+        hammer: Container;
+        contactY: number;
+        sparks: unknown[];
+    }[];
 };
 const internals = (visuals: CombatVisuals): VisualsInternals => visuals as unknown as VisualsInternals;
 
@@ -83,6 +103,35 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
     });
 
+    test("a frozen death bypasses the normal variants and breaks into large crystals plus small splinters", () => {
+        Math.random = () => 0.25;
+        const { visuals } = makeVisuals();
+        visuals.noteDeathBlow("frozen-unit", "melee", { x: 1, y: 0 });
+        visuals.spawnDeathVfx({ ...makeInfo(), frozenShellHalf: 42 }, "frozen-unit", true);
+
+        expect(internals(visuals).iceBreaks.length).toBe(1);
+        expect(internals(visuals).shatterGroups.length).toBe(0);
+        expect(internals(visuals).cleaveDeaths.length).toBe(0);
+        expect(internals(visuals).dissolveDeaths.length).toBe(0);
+
+        const iceBreak = internals(visuals).iceBreaks[0];
+        const large = iceBreak.crystals.filter((crystal) => crystal.large);
+        const small = iceBreak.crystals.filter((crystal) => !crystal.large);
+        expect(large.length).toBeGreaterThanOrEqual(6);
+        expect(small.length).toBeGreaterThan(large.length);
+        expect(iceBreak.body.visible).toBe(true);
+        expect(iceBreak.iceShell.visible).toBe(true);
+        expect(iceBreak.iceShell.getLocalBounds().width).toBeGreaterThan(iceBreak.body.width);
+
+        const firstCrystal = iceBreak.crystals[0];
+        const start = { x: firstCrystal.x, y: firstCrystal.y };
+        visuals.update(0.14);
+        expect(iceBreak.body.visible).toBe(false);
+        expect(iceBreak.iceShell.visible).toBe(false);
+        expect(firstCrystal.node.visible).toBe(true);
+        expect(firstCrystal.node.position).not.toMatchObject(start);
+    });
+
     test("a blow is consumed by the death it colors — a second death of the same id falls back to the mirror", () => {
         Math.random = () => 0.25;
         const { visuals } = makeVisuals();
@@ -126,7 +175,7 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(alongBlow[0] + alongBlow[1]).toBeGreaterThan(0);
     });
 
-    test("all three animations run to completion and tear their containers down", () => {
+    test("all death animations run to completion and tear their containers down", () => {
         Math.random = () => 0.25;
         const { visuals, attached } = makeVisuals();
         visuals.noteDeathBlow("melee-kill", "melee", { x: 1, y: 0.5 });
@@ -134,11 +183,13 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         visuals.spawnDeathVfx(makeInfo(), "melee-kill");
         visuals.spawnDeathVfx(makeInfo(), "range-kill");
         visuals.spawnDeathVfx(makeInfo(), "spell-kill"); // no blow -> mirror
-        expect(attached.length).toBe(3);
+        visuals.spawnDeathVfx(makeInfo(), "frozen-kill", true);
+        expect(attached.length).toBe(4);
         for (let i = 0; i < 80; i++) {
             visuals.update(0.05); // 4 simulated seconds, far past every effect's life
         }
         expect(internals(visuals).shatterGroups.length).toBe(0);
+        expect(internals(visuals).iceBreaks.length).toBe(0);
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
         for (const container of attached) {
@@ -153,9 +204,11 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         visuals.noteDeathBlow("u2", "range");
         visuals.spawnDeathVfx(makeInfo(), "u1");
         visuals.spawnDeathVfx(makeInfo(), "u2");
+        visuals.spawnDeathVfx(makeInfo(), "frozen-unit", true);
         visuals.clear();
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
+        expect(internals(visuals).iceBreaks.length).toBe(0);
         // u2's blow was consumed and the registry cleared: a re-death of either id is a mirror shatter.
         visuals.spawnDeathVfx(makeInfo(), "u2");
         expect(internals(visuals).shatterGroups.length).toBe(1);
@@ -201,5 +254,35 @@ describe("Predatory Assimilation ability-steal VFX", () => {
         expect(arrived).toBe(false);
         expect(internals(visuals).abilitySteals.length).toBe(0);
         expect(attached[0].destroyed).toBe(true);
+    });
+});
+
+describe("Blacksmith Craft forge VFX", () => {
+    test("keeps the anvil upright and low while the hammer strikes through a circular arc", () => {
+        const { visuals, attached } = makeVisuals();
+        const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        const durationMs = visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+        textureFrom.mockRestore();
+        const forge = internals(visuals).craftForges[0];
+
+        expect(durationMs).toBe(1500);
+        expect(attached).toEqual([forge.container]);
+        expect(forge.container.position.x).toBe(100);
+        expect(forge.container.position.y).toBeGreaterThan(200);
+        expect(forge.container.scale.y).toBe(-1); // cancels worldRoot's y flip for upright source art
+        expect(forge.anvil.y).toBeGreaterThan(forge.contactY);
+
+        const pivot = { x: forge.hammer.x, y: forge.hammer.y };
+        const impactRotation = forge.hammer.rotation;
+        visuals.update(0.21); // halfway through the 0.42s cycle: hammer is raised
+        const raisedRotation = forge.hammer.rotation;
+        expect(raisedRotation - impactRotation).toBeGreaterThan(1);
+        expect(forge.hammer.position).toMatchObject(pivot);
+
+        visuals.update(0.1); // crosses the first impact at phase 0.72
+        expect(forge.hammer.rotation).toBeLessThan(raisedRotation - 1);
+        expect(forge.hammer.position).toMatchObject(pivot);
+        expect(forge.sparks.length).toBeGreaterThan(0);
     });
 });
