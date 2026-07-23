@@ -514,6 +514,7 @@ export class AIController {
                     pathHelper: this.context.getPathHelper(),
                     attackHandler: this.context.getAttackHandler(),
                     fightProperties: FightStateManager.getInstance().getFightProperties(),
+                    decisionOrigin: "root",
                 });
             } catch (err) {
                 // Never regress to a dead turn: a strategy throw drops us onto the proven findTarget path.

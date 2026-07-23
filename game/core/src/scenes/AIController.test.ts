@@ -382,11 +382,12 @@ describe("AIController", () => {
             expect(decideTurn).toHaveBeenCalledTimes(1);
             const [decidedUnit, decidedCtx] = decideTurn.mock.calls[0] as unknown as [
                 RenderableUnit,
-                { grid: unknown; matrix: unknown },
+                { grid: unknown; matrix: unknown; decisionOrigin?: "root" | "rollout" },
             ];
             expect(decidedUnit).toBe(unit);
             expect(decidedCtx.grid).toBe(grid);
             expect(decidedCtx.matrix).toBe(matrix);
+            expect(decidedCtx.decisionOrigin).toBe("root");
             // (iii) wait_turn is applied via applyGameAction and the AI lock is released (no animation).
             expect(appliedActions).toEqual([{ type: "wait_turn", unitId: unit.getId() }]);
             expect(controller.performingAction).toBe(false);
