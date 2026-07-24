@@ -2441,6 +2441,7 @@ export class CombatVisuals {
 
         const icon = new Sprite(opts.iconTexture);
         icon.anchor.set(0.5);
+        icon.tint = opts.success ? 0xffffff : 0x9a9a9a; // desaturate the rune on a failed enchant
         const iconBaseScale = (cellSize * 0.72) / (opts.iconTexture.width || 256);
         icon.scale.set(0.001);
         icon.position.set(0, -cellSize * 0.55); // above the unit (local -y = up)
@@ -2567,8 +2568,14 @@ export class CombatVisuals {
                     const rr = e.cellSize * (0.42 * (1 - rp * 0.6));
                     e.ring.circle(0, 0, rr).stroke({ width: 2 * (1 - rp), color: 0x888888, alpha: (1 - rp) * 0.5 });
                     const pop = Math.min(1, rp / 0.25);
-                    e.label.position.y = -e.cellSize * 0.28 + e.cellSize * 0.5 * rp; // drifts DOWN (screen y-down)
-                    e.label.alpha = rp < 0.65 ? pop : Math.max(0, 1 - (rp - 0.65) / 0.35);
+                    // Show the (desaturated) rune rising before the "Failed" text, mirroring the success layout,
+                    // so a failed cast still reads as a rune attempt rather than a bare label.
+                    const fade = rp < 0.65 ? pop : Math.max(0, 1 - (rp - 0.65) / 0.35);
+                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.position.y = -e.cellSize * (0.55 + 0.3 * easeOutCubic(rp));
+                    e.icon.alpha = fade * 0.9;
+                    e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
+                    e.label.alpha = fade;
                     e.label.scale.set(0.9);
                 }
                 const grav = e.cellSize * (e.success ? 6 : 9);

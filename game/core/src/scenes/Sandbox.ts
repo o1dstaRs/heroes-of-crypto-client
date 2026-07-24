@@ -5833,6 +5833,13 @@ export class Sandbox extends PixiScene {
                 this.popEffectOnUnit(renderable, name, stackIndex++, "debuff");
             }
             for (const name of diff.newBuffs) {
+                // Armor Rune / Weapon Rune play a dedicated attempt->resolve VFX (playEnchantResult) in the
+                // local cast path, so skip the generic buff-applied pop here — otherwise the rune bubbles up
+                // a second time on a successful enchant. Ranked has no playEnchantResult and pops via its own
+                // path, so this sandbox-only reconcile skip doesn't touch it.
+                if (name === "Armor Rune" || name === "Weapon Rune") {
+                    continue;
+                }
                 this.popEffectOnUnit(renderable, name, stackIndex++, "buff");
             }
         }
