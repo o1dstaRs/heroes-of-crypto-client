@@ -1,0 +1,287 @@
+<title>Artifact Balance — Heroes of Crypto</title>
+<style>
+  :root {
+    --bg: #f5f4f0; --panel: #ffffff; --panel-2: #faf9f6;
+    --ink: #1c2230; --ink-soft: #55607a; --ink-faint: #8b93a7;
+    --line: #e4e2db; --line-soft: #eeece6;
+    --accent: #b8862f; --accent-soft: #e9d9b4;
+    --good: #2f9e5f; --good-bg: #e4f2e9;
+    --bad: #c8483f; --bad-bg: #f6e4e2;
+    --mid: #8790a3; --mid-bg: #ecebe6;
+    --track: #e7e5dd; --center: #b9b4a6;
+    --shadow: 0 1px 2px rgba(28,34,48,.05), 0 8px 24px rgba(28,34,48,.06);
+    --mono: "SF Mono", "JetBrains Mono", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161d; --panel: #1b1e27; --panel-2: #20242f;
+      --ink: #e9eaf0; --ink-soft: #a2a9bd; --ink-faint: #6f7791;
+      --line: #2a2e3a; --line-soft: #242833;
+      --accent: #e0b45c; --accent-soft: #4a3c1e;
+      --good: #56c98a; --good-bg: #17301f;
+      --bad: #e97a70; --bad-bg: #331a17;
+      --mid: #7d879d; --mid-bg: #262a35;
+      --track: #2b2f3b; --center: #454b5c;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f4f0; --panel: #ffffff; --panel-2: #faf9f6; --ink: #1c2230; --ink-soft: #55607a;
+    --ink-faint: #8b93a7; --line: #e4e2db; --line-soft: #eeece6; --accent: #b8862f; --accent-soft: #e9d9b4;
+    --good: #2f9e5f; --good-bg: #e4f2e9; --bad: #c8483f; --bad-bg: #f6e4e2; --mid: #8790a3; --mid-bg: #ecebe6;
+    --track: #e7e5dd; --center: #b9b4a6; --shadow: 0 1px 2px rgba(28,34,48,.05), 0 8px 24px rgba(28,34,48,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161d; --panel: #1b1e27; --panel-2: #20242f; --ink: #e9eaf0; --ink-soft: #a2a9bd;
+    --ink-faint: #6f7791; --line: #2a2e3a; --line-soft: #242833; --accent: #e0b45c; --accent-soft: #4a3c1e;
+    --good: #56c98a; --good-bg: #17301f; --bad: #e97a70; --bad-bg: #331a17; --mid: #7d879d; --mid-bg: #262a35;
+    --track: #2b2f3b; --center: #454b5c; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px);
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 10px; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(30px, 5vw, 46px); line-height: 1.05; margin: 0 0 12px; letter-spacing: -.01em; text-wrap: balance; }
+  .sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 15px; }
+  .sub b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .chip { font-size: 12px; font-family: var(--mono); color: var(--ink-soft); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; white-space: nowrap; }
+  .chip b { color: var(--ink); }
+
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 30px; }
+  @media (max-width: 640px) { .summary { grid-template-columns: 1fr; } }
+  .call { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .call h3 { margin: 0 0 12px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; }
+  .call.up h3 { color: var(--good); }
+  .call.down h3 { color: var(--bad); }
+  .call ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .call li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .call .nm { font-weight: 600; }
+  .call .val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink-soft); }
+  .call .val b { color: var(--ink); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: flex-end; margin-bottom: 18px; }
+  .ctl { display: flex; flex-direction: column; gap: 7px; }
+  .ctl > span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--ink-soft); padding: 6px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap; transition: background .12s, color .12s; }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  thead th { text-align: right; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; padding: 14px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; cursor: pointer; user-select: none; background: var(--panel-2); }
+  thead th:first-child { text-align: left; padding-left: 18px; }
+  thead th.viz { text-align: center; cursor: default; }
+  thead th .arrow { color: var(--accent); font-size: 10px; }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--line-soft); text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: var(--panel-2); }
+  td.name { text-align: left; padding-left: 18px; font-weight: 600; letter-spacing: -.005em; }
+  td.rank { color: var(--ink-faint); font-family: var(--mono); font-size: 12px; }
+  .num { font-family: var(--mono); font-size: 13px; }
+  .muted { color: var(--ink-soft); }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; letter-spacing: .02em; }
+  .pill.g { color: var(--good); background: var(--good-bg); }
+  .pill.b { color: var(--bad); background: var(--bad-bg); }
+  .pill.m { color: var(--mid); background: var(--mid-bg); }
+  .lift.pos { color: var(--good); }
+  .lift.neg { color: var(--bad); }
+
+  .ci { width: 260px; }
+  td.ciwrap { padding: 8px 12px; }
+  .track { position: relative; height: 26px; }
+  .track .axis { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--track); }
+  .track .center { position: absolute; top: 3px; bottom: 3px; width: 1px; background: var(--center); }
+  .track .whisk { position: absolute; top: 50%; height: 4px; transform: translateY(-50%); border-radius: 3px; opacity: .55; }
+  .track .cap { position: absolute; top: 50%; width: 1.5px; height: 11px; transform: translateY(-50%); opacity: .7; }
+  .track .dot { position: absolute; top: 50%; width: 11px; height: 11px; border-radius: 50%; transform: translate(-50%,-50%); border: 2px solid var(--panel); }
+  .g-c { background: var(--good); } .b-c { background: var(--bad); } .m-c { background: var(--mid); }
+  .scaleline { display: flex; justify-content: space-between; font-size: 10px; font-family: var(--mono); color: var(--ink-faint); padding: 0 12px 10px; }
+
+  footer { margin-top: 26px; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
+  footer b { color: var(--ink); }
+  footer .note { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 14px 0 22px; font-size: 12.5px; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow">Heroes of Crypto · AI Balance Lab</div>
+    <h1 id="title">Artifact Balance</h1>
+    <p class="sub" id="sub"></p>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <section class="summary" id="summary"></section>
+
+  <div class="controls">
+    <div class="ctl"><span>Tier</span><div class="seg" id="segTier"></div></div>
+    <div class="ctl"><span>Cohort</span><div class="seg" id="segCohort"></div></div>
+    <div class="ctl"><span>Map</span><div class="seg" id="segMap"></div></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--good)"></i> above field (CI &gt; 50%)</span>
+    <span><i class="sw" style="background:var(--mid)"></i> balanced (CI spans 50%)</span>
+    <span><i class="sw" style="background:var(--bad)"></i> below field (CI &lt; 50%)</span>
+    <span class="muted">— win% is decisive, artifact-holder vs a different-artifact opponent</span>
+  </div>
+
+  <div class="panel">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-k="rank">#</th>
+            <th data-k="name" style="text-align:left">Artifact</th>
+            <th data-k="winRate">Win %</th>
+            <th data-k="liftPp">Lift</th>
+            <th class="viz">95% CI vs 50%</th>
+            <th data-k="games">Fights</th>
+            <th data-k="wld" style="cursor:default">W–L–D</th>
+            <th data-k="pickRate">Pick %</th>
+            <th data-k="sig" style="cursor:default">Verdict</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="scaleline"><span>40%</span><span>45%</span><span>50%</span><span>55%</span><span>60%</span></div>
+  </div>
+
+  <footer>
+    <p class="note"><b>How to read it.</b> Each fight in the measurable slice gives both sides a random artifact of this tier (never mirrored, never the same creature roster), so a win% is that artifact <b>relative to the field</b>, not versus "no artifact" — the field centers a touch under 50% from draw handling and roster noise. Read the <b>ranking and lift</b>, and treat the <b>whisker</b> (95% Wilson CI) as the real signal: green when it clears 50%, red when it sits below, grey when it straddles. Per-cohort and per-map slices carry fewer fights, so their whiskers widen. <b>Maps:</b> Open = Normal board, Lava = lava center, Mountains = two destructible blocks; <b>Live</b> aggregates all three.</p>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/{};
+(function () {
+  const $ = (s, r=document) => r.querySelector(s);
+  const rowsEl = $("#rows"), summaryEl = $("#summary");
+  const M = DATA.meta || {};
+  const state = { tier: "t1", cohort: (M.cohorts||["all"])[0], map: (M.maps||["all"])[0], sort: "winRate", dir: -1 };
+  const CO_LABEL = { "all":"All", "ranked-draft":"Ranked draft", "uniform-mixed":"Uniform mixed", "cross-archetype":"Cross-archetype", "ranged-heavy":"Ranged-heavy", "ground-melee":"Ground-melee", "flyer-heavy":"Flyer-heavy", "caster-support":"Caster-support" };
+  // Map ids are protocol GridVals: 1=NORMAL(Open), 2=WATER_CENTER, 3=LAVA_CENTER, 4=BLOCK_CENTER(Mountains).
+  const MAP_LABEL = { "all":"All maps", "live":"Live", "1":"Open", "2":"Water", "3":"Lava", "4":"Mountains" };
+  const titleCase = (s) => s.replace(/\b\w/g, c => c.toUpperCase());
+
+  // ---- header (driven entirely by the injected metadata) ----
+  $("#title").textContent = M.title || "Artifact Balance";
+  const dt = M.generatedAt ? new Date(M.generatedAt) : null;
+  const dstr = dt ? dt.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : "";
+  const cohortCount = (M.cohorts||[]).filter(c => c !== "all").length;
+  $("#sub").innerHTML = `<b>${(M.totalFights||0).toLocaleString()}</b> self-play fights · <b>${M.profile||"v0.8"}</b> mirror policy · ${cohortCount} cohort${cohortCount===1?"":"s"}${dstr?` · ${dstr}`:""}`;
+  const chips = [];
+  if (M.policy) chips.push(["policy", M.policy]);
+  if (M.explorationRate != null) chips.push(["exploration", `${Math.round(M.explorationRate*100)}%/component`]);
+  if (M.gamesPerCohort) chips.push(["fights/cohort", M.gamesPerCohort.toLocaleString()]);
+  if (M.seed != null) chips.push(["seed", String(M.seed)]);
+  chips.push(["CI", "95% Wilson"]);
+  $("#chips").innerHTML = chips.map(([k,v]) => `<span class="chip">${k} <b>${v}</b></span>`).join("");
+
+  // CI viz scale: win% in [38,62] onto the track (50% = centre)
+  const LO = 38, HI = 62;
+  const pos = (w) => Math.max(0, Math.min(100, ((w*100 - LO) / (HI - LO)) * 100));
+  const sigOf = (e) => e.ciLow > 0.5 ? "g" : e.ciHigh < 0.5 ? "b" : "m";
+  const SIG_LABEL = { g:"Strong", b:"Weak", m:"Balanced" };
+
+  function seg(id, opts, key) {
+    const host = $(id); host.innerHTML = "";
+    opts.forEach(([val, label]) => {
+      const b = document.createElement("button");
+      b.textContent = label; b.setAttribute("aria-pressed", state[key] === val);
+      b.onclick = () => { state[key] = val; [...host.children].forEach(c => c.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); render(); };
+      host.appendChild(b);
+    });
+  }
+  const tiers = []; if ((DATA.t1||[]).length) tiers.push(["t1","Tier 1"]); if ((DATA.t2||[]).length) tiers.push(["t2","Tier 2"]);
+  if (!tiers.some(t => t[0] === state.tier)) state.tier = tiers[0] ? tiers[0][0] : "t1";
+  seg("#segTier", tiers, "tier");
+  seg("#segCohort", (M.cohorts||["all"]).map(c => [c, CO_LABEL[c] || titleCase(c.replace(/-/g," "))]), "cohort");
+  seg("#segMap", (M.maps||["all"]).map(m => [m, MAP_LABEL[m] || ("Map "+m)]), "map");
+
+  const current = () => (DATA[state.tier]||[]).filter(e => e.cohort === state.cohort && e.map === state.map);
+  function sorted(list) {
+    const k = state.sort, d = state.dir;
+    return [...list].sort((a,b) => {
+      if (k === "name") return a.name.localeCompare(b.name) * d * -1;
+      let av, bv;
+      if (k === "wld") { av = a.wins; bv = b.wins; }
+      else if (k === "rank") { av = a.winRate; bv = b.winRate; }
+      else { av = a[k]; bv = b[k]; }
+      return (av - bv) * d;
+    });
+  }
+  const fp = (x, n=1) => (x*100).toFixed(n);
+
+  function render() {
+    const list = sorted(current());
+    renderSummary(current());
+    rowsEl.innerHTML = "";
+    if (!list.length) { rowsEl.innerHTML = `<tr><td colspan="9" class="muted" style="text-align:center;padding:28px">No fights recorded for this slice.</td></tr>`; return; }
+    list.forEach((e, i) => {
+      const sig = sigOf(e), cls = sig + "-c";
+      const wPos = pos(e.winRate), loPos = pos(e.ciLow), hiPos = pos(e.ciHigh);
+      const liftCls = e.liftPp >= 0 ? "pos" : "neg";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="rank">${i+1}</td>
+        <td class="name">${e.name}</td>
+        <td class="num"><b>${fp(e.winRate)}%</b></td>
+        <td class="num lift ${liftCls}">${e.liftPp>=0?"+":""}${e.liftPp.toFixed(1)}</td>
+        <td class="ciwrap">
+          <div class="ci"><div class="track">
+            <div class="axis"></div>
+            <div class="center" style="left:${pos(0.5)}%"></div>
+            <div class="whisk ${cls}" style="left:${loPos}%; width:${Math.max(0,hiPos-loPos)}%"></div>
+            <div class="cap ${cls}" style="left:${loPos}%"></div>
+            <div class="cap ${cls}" style="left:${hiPos}%"></div>
+            <div class="dot ${cls}" style="left:${wPos}%"></div>
+          </div></div>
+        </td>
+        <td class="num muted">${e.games.toLocaleString()}</td>
+        <td class="num muted">${e.wins}–${e.losses}–${e.draws}</td>
+        <td class="num muted">${fp(e.pickRate,1)}%</td>
+        <td><span class="pill ${sig}">${SIG_LABEL[sig]}</span></td>`;
+      rowsEl.appendChild(tr);
+    });
+  }
+
+  function renderSummary(list) {
+    const byWin = [...list].sort((a,b)=>b.winRate-a.winRate);
+    const up = byWin.filter(e=>e.ciLow>0.5).slice(0,4);
+    const down = byWin.filter(e=>e.ciHigh<0.5).slice(-4).reverse();
+    const li = (e)=>`<li><span class="nm">${e.name}</span><span class="val"><b>${fp(e.winRate)}%</b> · ${e.liftPp>=0?"+":""}${e.liftPp.toFixed(1)}pp</span></li>`;
+    const empty = `<li class="muted" style="justify-content:flex-start">None clear the 95% bar in this slice.</li>`;
+    summaryEl.innerHTML = `
+      <div class="call up"><h3>▲ Above the field</h3><ul>${up.length?up.map(li).join(""):empty}</ul></div>
+      <div class="call down"><h3>▼ Below the field</h3><ul>${down.length?down.map(li).join(""):empty}</ul></div>`;
+  }
+
+  document.querySelectorAll("thead th[data-k]").forEach(th => {
+    const k = th.dataset.k;
+    if (k === "wld") return;
+    th.addEventListener("click", () => {
+      if (state.sort === k) state.dir *= -1; else { state.sort = k; state.dir = (k === "name") ? 1 : -1; }
+      document.querySelectorAll("thead th .arrow").forEach(a=>a.remove());
+      const ar = document.createElement("span"); ar.className="arrow"; ar.textContent = state.dir>0?" ▲":" ▼"; th.appendChild(ar);
+      render();
+    });
+  });
+  render();
+})();
+</script>
