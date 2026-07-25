@@ -6991,9 +6991,23 @@ export class Sandbox extends PixiScene {
             const gs = this.sc_sceneSettings.getGridSettings();
             const aCenter = attacker.getVisualCenter(gs);
 
-            const rTarget = target as RenderableUnit;
+            // Draw the number over the unit the engine ACTUALLY hit, not the clicked one. A plain
+            // (non-piercing) shot stops at the first enemy on its line of fire, so when somebody screens
+            // the aimed target the damage belongs to the SCREEN — the projectile already flies there
+            // (see the interception resolution above), and this is what puts the number there too.
+            // `unitPosition`/`unitIsSmall` come from the engine's own damage payload, so they still
+            // resolve when the hit KILLED the victim and its sprite is already gone; the ranked replay
+            // path reads exactly the same fields (showReplayAttackDamage).
+            const primaryVictimId = damageForAnimation.unitId ?? target.getId();
+            const damagedUnit = this.unitsHolder.getAllUnits().get(primaryVictimId) ?? target;
+            const rTarget = damagedUnit as RenderableUnit;
             const tVis =
-                typeof rTarget.getVisualCenter === "function" ? rTarget.getVisualCenter(gs) : target.getPosition();
+                damageForAnimation.unitPosition &&
+                (damageForAnimation.unitPosition.x || damageForAnimation.unitPosition.y)
+                    ? damageForAnimation.unitPosition
+                    : typeof rTarget.getVisualCenter === "function"
+                      ? rTarget.getVisualCenter(gs)
+                      : damagedUnit.getPosition();
 
             // Calculate trajectory direction (Attacker -> Target)
             const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
@@ -7007,7 +7021,7 @@ export class Sandbox extends PixiScene {
 
                 // Push text out by radius + margin
                 // Small unit radius ~0.5 cell, Large ~1.0 cell. Add extra margin.
-                const targetRadius = target.isSmallSize() ? gs.getCellSize() * 0.5 : gs.getCellSize() * 1.0;
+                const targetRadius = damageForAnimation.unitIsSmall ? gs.getCellSize() * 0.5 : gs.getCellSize() * 1.0;
                 const margin = gs.getCellSize() * 0.5;
                 spawnPos.x += ndx * (targetRadius + margin);
                 spawnPos.y += ndy * (targetRadius + margin);
@@ -7016,9 +7030,10 @@ export class Sandbox extends PixiScene {
                 spawnPos.y += gs.getCellSize();
             }
 
-            // Calculation of actual dead count (Stack Size Diff)
-            const targetAfterAmount = target.getAmountAlive();
-            const targetDiedCount = Math.max(0, targetBeforeAmount - targetAfterAmount);
+            // Calculation of actual dead count (Stack Size Diff) — read from whoever actually took the
+            // hit, using the pre-attack snapshot so an intercepted shot counts the SCREEN's losses.
+            const damagedBeforeAmount = unitSnapshots.get(primaryVictimId)?.amount ?? targetBeforeAmount;
+            const targetDiedCount = Math.max(0, damagedBeforeAmount - damagedUnit.getAmountAlive());
 
             if (damageForAnimation.hits && damageForAnimation.hits.length > 0) {
                 const totalHits = damageForAnimation.hits.length;

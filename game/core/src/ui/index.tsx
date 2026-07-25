@@ -357,6 +357,10 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
             try {
                 const snapshot = await fetchRankedPlaySnapshot(gameId);
+                if (!snapshot) {
+                    // Still drafting — there is no fight to observe yet.
+                    return false;
+                }
                 const e2ePlayerId = readE2ePlayerId();
                 const e2ePlayer = e2ePlayerId
                     ? snapshot.players.find((player) => player.playerId === e2ePlayerId)
@@ -429,9 +433,11 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
         let cancelled = false;
         fetchRankedPlaySnapshot(gameId)
-            .then(() => {
+            // undefined = the game is still drafting (204), which is the COMMON case for a match that
+            // just formed. Route to pick, exactly as a thrown error used to.
+            .then((snapshot) => {
                 if (!cancelled) {
-                    setRouteMode("play");
+                    setRouteMode(snapshot ? "play" : "pick");
                 }
             })
             .catch(() => {
@@ -459,8 +465,9 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         let cancelled = false;
         const probePlaySnapshot = async () => {
             try {
-                await fetchRankedPlaySnapshot(gameId);
-                if (!cancelled) {
+                // undefined = still drafting (204). Only a real snapshot means the handoff happened.
+                const snapshot = await fetchRankedPlaySnapshot(gameId);
+                if (snapshot && !cancelled) {
                     setRouteMode("play");
                 }
             } catch {

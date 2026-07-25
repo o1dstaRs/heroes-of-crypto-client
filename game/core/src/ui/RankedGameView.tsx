@@ -552,7 +552,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 
     const refreshSnapshot = useCallback(async () => {
         const nextSnapshot = await fetchRankedPlaySnapshot(gameId);
-        applySnapshot(nextSnapshot);
+        // undefined = the game is still drafting (204); there is nothing to reconcile against yet.
+        if (nextSnapshot) {
+            applySnapshot(nextSnapshot);
+        }
     }, [applySnapshot, gameId]);
 
     const clearReplayTimers = useCallback(() => {
@@ -942,7 +945,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 } else {
                     await waitForAuthoritativePlayback();
                     const fresh = await fetchRankedPlaySnapshot(gameId);
-                    applySnapshot(fresh, { forceBoardRebuild: rejected });
+                    // A fight in progress always has a snapshot; undefined would mean the game left PLAY
+                    // under us (finished/abandoned), in which case there is nothing to apply.
+                    if (fresh) {
+                        applySnapshot(fresh, { forceBoardRebuild: rejected });
+                    }
                 }
                 if (rejected) {
                     pendingTurnResolutionRef.current = false;
@@ -1490,9 +1497,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             void (async () => {
                 let latestSnapshot = snapshotRef.current;
                 try {
-                    latestSnapshot = await fetchRankedPlaySnapshot(gameId, {
-                        authorization: effectiveLocalModelConfig.authorization,
-                    });
+                    // Keep the last known snapshot if the game is still drafting (204) — same fallback
+                    // this already uses for a failed fetch.
+                    latestSnapshot =
+                        (await fetchRankedPlaySnapshot(gameId, {
+                            authorization: effectiveLocalModelConfig.authorization,
+                        })) ?? snapshotRef.current;
                 } catch {
                     latestSnapshot = snapshotRef.current;
                 }
