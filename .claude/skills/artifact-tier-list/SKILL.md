@@ -1,6 +1,6 @@
 ---
 name: artifact-tier-list
-description: Generate an interactive HTML artifact tier-list report from Heroes of Crypto a13 self-play. Runs (or reuses) the measure_ai_meta_cohorts simulation to produce win-rate rankings for Tier-1/Tier-2 artifacts across cohorts and terrain maps, then renders a self-contained, filterable HTML report with 95% CI whiskers. Use when the user asks to measure artifacts, (re)generate the artifact tier list, or refresh the artifact meta/balance report.
+description: Generate an interactive HTML tier-list report from Heroes of Crypto a13 self-play — for artifacts (Tier 1/2) or for creatures. Runs (or reuses) the measure_ai_meta_cohorts simulation to produce win-rate rankings across cohorts and terrain maps, then renders a self-contained, filterable HTML report with 95% CI whiskers. Use when the user asks to measure artifacts or units/creatures, (re)generate a tier list, or refresh the meta/balance report.
 ---
 
 # Artifact Tier-List Report
@@ -40,6 +40,20 @@ Reads `rankings.artifactsT1` / `artifactsT2` + `provenance` and emits a fully da
 cohort filter, terrain-map filter, Tier-1/Tier-2 toggle, sortable table, and a 95% Wilson-CI whisker
 per artifact centered on 50%. Header (title, fight count, profile, seed, date) comes from the summary.
 
+For **creatures** instead of artifacts, same summary, sibling script:
+
+```
+bun .claude/skills/artifact-tier-list/scripts/build_units_report.ts <summary.json> <out.html> \
+    [--title="..."] [--images=<dir>] [--cache=<dir>]
+```
+
+Reads `rankings.units` and swaps the tier toggle for a **level** filter (1–4). Creature art is inlined
+as base64 (the Artifact CSP blocks external hosts): it uses `game/core/images/<key>_128.webp`, and for
+the large creatures that ship only at 256/512 it downscales once with `cwebp` into the cache dir. Adds
+an **HP Δ** column (average end-of-fight health margin — how decisively a creature wins, not just how
+often). Armies are level-balanced, so each level's mean sits at 50% and the same 50% line reads
+correctly in every slice; the CI track spans 28–72% because creatures spread far wider than artifacts.
+
 Then **publish it** with the Artifact tool (favicon ⚔️). To update an existing report in place, republish
 the same file path in-session, or pass its URL as `url`.
 
@@ -58,6 +72,8 @@ the same file path in-session, or pass its URL as `url`.
 
 - `scripts/build_report.ts` — summary → self-contained HTML (extraction + template injection).
 - `scripts/report_template.html` — the HTML shell (theme-aware, terrain labels, `/*__DATA__*/` marker).
+- `scripts/build_units_report.ts` — same, for creatures; also inlines the creature art.
+- `scripts/units_template.html` — the creature shell (level filter, art column, HP Δ).
 
 ## Regenerating repeatedly
 
