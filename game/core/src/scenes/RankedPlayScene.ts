@@ -1289,11 +1289,41 @@ export class RankedPlayScene extends Sandbox {
     protected override canSelectUnitForPlacement(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() === this.viewerTeam;
     }
-    // The drag-to-split placement gesture positions the peeled-off stack locally. In ranked the split
-    // is server-authoritative (the split_unit action carries no target cell), so it is disabled here
-    // until the server accepts a target-cell (or a split-then-drag) flow. See Sandbox.commitPlacementSplit.
+    // The drag-to-split placement gesture works in ranked now that split_unit carries the peeled stack's
+    // target cells, so the server splits AND places in one authoritative action. See commitPlacementSplit.
     protected override placementSplitEnabled(): boolean {
-        return false;
+        return true;
+    }
+    /**
+     * Ranked drag-split. The sandbox peels the stack locally (create unit -> place_unit -> decrement source);
+     * here the whole gesture rides in a single `split_unit` carrying the dragged cells, and the new stack
+     * comes back on the next authoritative snapshot.
+     *
+     * We deliberately do NOT peel optimistically first: the client would have to invent a unit id the server
+     * never agreed to, and reconciling that against the server's own split-off is exactly the desync this
+     * design avoids. The local validation below is only so an illegal drag fails instantly instead of after
+     * a round-trip — the server re-checks all of it.
+     */
+    protected override commitPlacementSplit(source: Unit, amount: number, targetCells: HoCMath.XY[]): boolean {
+        const transport = this.sc_gameActionTransport;
+        if (!transport) {
+            return super.commitPlacementSplit(source, amount, targetCells);
+        }
+        if (this.viewerTeam === undefined || source.getTeam() !== this.viewerTeam) {
+            return false;
+        }
+        if (amount < 1 || amount >= source.getAmountAlive()) {
+            return false;
+        }
+        if (!this.canSplitUnitWithCommonRules(source)) {
+            return false;
+        }
+        if (!this.isValidEmptySplitTarget(targetCells, source.getTeam())) {
+            return false;
+        }
+
+        transport({ type: "split_unit", unitId: source.getId(), amount, cells: targetCells });
+        return true;
     }
     /**
      * Suppress hover visuals (move silhouette, attack highlights, spell targeting) when the
@@ -1977,16 +2007,30 @@ export class RankedPlayScene extends Sandbox {
                     return undefined;
                 }
                 return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
-            case "spell_cast":
+            case "spell_cast": {
+                // How much was actually restored, which only the engine knows (magic resist, Holy Cross
+                // and the missing-HP cap all move it). The sandbox log says "... for N hp"; ranked read
+                // the same wording as a bare "cast Heal on X" until the event started carrying it.
+                const healedTotal = (event.healed ?? []).reduce((sum, entry) => sum + entry.amount, 0);
+                const healSuffix = healedTotal > 0 ? ` for ${healedTotal} hp` : "";
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
                 // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and
                 // read fine from the spell name.
                 if (!event.targetId) {
-                    return `${nameOf(event.casterId)} cast ${event.spellName}`;
+                    // A mass heal touches many allies: report the total restored and how many it reached,
+                    // rather than one line per unit (the sandbox engine's per-unit lines) — the ranked log
+                    // is a compact tail, and the roll-up is what a player actually reads mid-fight.
+                    const healedCount = (event.healed ?? []).length;
+                    const massHealSuffix =
+                        healedTotal > 0
+                            ? `${healSuffix} across ${healedCount} unit${healedCount === 1 ? "" : "s"}`
+                            : "";
+                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}`;
                 }
                 return event.targetId === event.casterId
-                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves`
-                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}`;
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}`;
+            }
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM
                     ? "Fight finished! Draw!"

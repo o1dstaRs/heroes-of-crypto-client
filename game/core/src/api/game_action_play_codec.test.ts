@@ -218,6 +218,19 @@ describe("createPlayActionFromGameAction", () => {
                 amount: 3,
             },
         );
+
+        // The drag-split gesture names where the peeled stack lands; the sidebar's Split button does not.
+        expect(
+            createPlayActionFromGameAction(
+                { type: "split_unit", unitId: "u4", amount: 3, cells: [{ x: 5, y: 6 }] },
+                envelope,
+            ),
+        ).toMatchObject({
+            type: PlayActionType.SPLIT_UNIT,
+            unitId: "u4",
+            amount: 3,
+            cells: [{ x: 5, y: 6 }],
+        });
     });
 
     it("maps request_additional_time carrying the requesting team", () => {
@@ -314,6 +327,15 @@ describe("createGameActionFromPlayAction", () => {
                 amount: 4,
             }),
         ).toEqual({ type: "split_unit", unitId: "u3", amount: 4 });
+
+        expect(
+            createGameActionFromPlayAction({
+                type: PlayActionType.SPLIT_UNIT,
+                unitId: "u3",
+                amount: 4,
+                cells: [{ x: 5, y: 6 }],
+            }),
+        ).toEqual({ type: "split_unit", unitId: "u3", amount: 4, cells: [{ x: 5, y: 6 }] });
 
         expect(
             createGameActionFromPlayAction({ type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: TeamVals.LOWER }),

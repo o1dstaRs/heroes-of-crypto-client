@@ -9057,7 +9057,7 @@ export class Sandbox extends PixiScene {
             { x: cell.x + 1, y: cell.y + 1 },
         ];
     }
-    private isValidEmptySplitTarget(cells: HoCMath.XY[], team: TeamType): boolean {
+    protected isValidEmptySplitTarget(cells: HoCMath.XY[], team: TeamType): boolean {
         const allowed = this.placementManager.getAllowedPlacementCellHashesForTeam(team);
         if (!allowed) return false;
         if (cells.some((c) => !allowed.has((c.x << 4) | c.y))) return false;
@@ -9938,7 +9938,7 @@ export class Sandbox extends PixiScene {
             FightStateManager.getInstance().getFightProperties().getNumberOfUnitsAvailableForPlacement(action.team)
         );
     }
-    private canSplitUnitWithCommonRules(unit: Unit): boolean {
+    protected canSplitUnitWithCommonRules(unit: Unit): boolean {
         const maxUnits = FightStateManager.getInstance()
             .getFightProperties()
             .getNumberOfUnitsAvailableForPlacement(unit.getTeam());

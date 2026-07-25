@@ -139,6 +139,10 @@ export const createPlayActionFromGameAction = (
                 type: PlayActionType.SPLIT_UNIT,
                 unitId: action.unitId,
                 amount: action.amount,
+                // Present only for the drag-split gesture; the sidebar's Split button sends none and the
+                // server leaves the peeled stack unplaced. `cells` is a generic wire field already encoded
+                // for every action type, so carrying it here needs no protocol change.
+                ...(action.cells?.length ? { cells: action.cells } : {}),
             });
         case "delete_unit":
             return withEnvelope(envelope, { type: PlayActionType.DELETE_UNIT, unitId: action.unitId });
@@ -273,7 +277,12 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
             return action.unitId ? { type: "delete_unit", unitId: action.unitId } : undefined;
         case PlayActionType.SPLIT_UNIT:
             return action.unitId && typeof action.amount === "number"
-                ? { type: "split_unit", unitId: action.unitId, amount: action.amount }
+                ? {
+                      type: "split_unit",
+                      unitId: action.unitId,
+                      amount: action.amount,
+                      ...(action.cells?.length ? { cells: action.cells } : {}),
+                  }
                 : undefined;
         case PlayActionType.REQUEST_ADDITIONAL_TIME:
             return typeof action.team === "number"
