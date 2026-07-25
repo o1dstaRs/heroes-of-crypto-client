@@ -285,4 +285,37 @@ describe("Blacksmith Craft forge VFX", () => {
         expect(forge.hammer.position).toMatchObject(pivot);
         expect(forge.sparks.length).toBeGreaterThan(0);
     });
+
+    test("survives a board rebuild's clear, then still tears itself down when it ends", () => {
+        const { visuals } = makeVisuals();
+        const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+        textureFrom.mockRestore();
+        const forge = internals(visuals).craftForges[0];
+        visuals.update(0.15);
+
+        // Ranked hydrates the whole board on the snapshot that lands ~150ms into the 1.5s cast; the forge
+        // is a detached world overlay, so it must keep playing rather than be wiped with the units.
+        visuals.clear({ keepDetachedOverlays: true });
+        expect(internals(visuals).craftForges.length).toBe(1);
+        expect(forge.container.destroyed).toBe(false);
+
+        visuals.update(1.5);
+        expect(internals(visuals).craftForges.length).toBe(0);
+        expect(forge.container.destroyed).toBe(true);
+    });
+
+    test("a full clear still drops an in-flight forge", () => {
+        const { visuals } = makeVisuals();
+        const forgeTexture = new Texture({ source: new TextureSource({ width: 128, height: 128 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(forgeTexture);
+        visuals.spawnCraftForge({ x: 100, y: 200 }, 80);
+        textureFrom.mockRestore();
+        const forge = internals(visuals).craftForges[0];
+
+        visuals.clear();
+        expect(internals(visuals).craftForges.length).toBe(0);
+        expect(forge.container.destroyed).toBe(true);
+    });
 });

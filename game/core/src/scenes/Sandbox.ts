@@ -1833,7 +1833,11 @@ export class Sandbox extends PixiScene {
             this.grid.cleanupCenterObstacle();
         }
         this.hoverManager.clear();
-        this.combatVisuals.clear();
+        // Rebuilding the board invalidates unit-anchored VFX, but not the world overlays describing an
+        // event that already resolved (Craft forge, damage numbers, buff/debuff pops) — those keep playing
+        // out. In ranked this rebuild fires on the snapshot that lands right after a replayed action, so
+        // clearing them wholesale cut the Craft forge (and its result pops) off almost immediately.
+        this.combatVisuals.clear({ keepDetachedOverlays: true });
         this.rangedProjectiles.clear();
 
         const existingUnits = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
@@ -3716,13 +3720,18 @@ export class Sandbox extends PixiScene {
         }
 
         const result = this.createActionEngine().apply(action);
+        // Forge cast animation only (outcome-independent); the per-ally results come from the
+        // authoritative snapshot, not this local re-roll — see the note at the capture above.
+        // Spawned BEFORE the result branch and never gated on it: the record is authoritative (the server
+        // already resolved this cast), while the local re-apply is best-effort and in ranked is routinely
+        // rejected — the caster is marked as having acted, its Craft charge is already spent in a synced
+        // snapshot (`spell_not_available`), or the turn has handed over. Gating the animation on
+        // `result.completed` therefore swallowed the whole forge in ranked while it always played in sandbox.
+        if (isCraftCast) {
+            this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize());
+        }
         if (result.completed) {
             this.cleanupAfterSpell(result.events, unitSnapshot);
-            if (isCraftCast) {
-                // Forge cast animation only (outcome-independent); the per-ally results come from the
-                // authoritative snapshot, not this local re-roll — see the note at the capture above.
-                this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize());
-            }
         } else {
             // Engine re-apply rejected during replay (e.g. turn already handed over) — apply the
             // authoritative events directly so deaths/turn advance still happen; amounts reconcile from

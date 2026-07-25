@@ -1110,12 +1110,24 @@ export class CombatVisuals {
         Texture.from(images.craft_anvil);
         Texture.from(images.craft_hammer);
     }
-    /** Destroy all floating numbers immediately (e.g. on fight end / restart). */
-    public clear(): void {
-        for (const ft of this.floatingTexts) {
-            ft.container.destroy();
+    /**
+     * Destroy all combat VFX immediately (e.g. on fight end / restart / scene teardown).
+     *
+     * `keepDetachedOverlays` is for the board REBUILD (hydrateSceneState), which destroys and recreates
+     * every unit: it keeps the self-contained world overlays that merely describe something that already
+     * happened and expire on their own — the Craft forge, damage numbers, buff/debuff pops — while still
+     * dropping everything anchored to the units/board being torn down (death shatters, ability-steal arcs,
+     * area effects). Ranked full-hydrates on any snapshot whose unit mechanics drifted, which lands ~150ms
+     * into a 1.5s Craft forge; without this the cast animation was wiped almost as soon as it started.
+     */
+    public clear(options?: { keepDetachedOverlays?: boolean }): void {
+        const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
+        if (!keepDetachedOverlays) {
+            for (const ft of this.floatingTexts) {
+                ft.container.destroy();
+            }
+            this.floatingTexts.length = 0;
         }
-        this.floatingTexts.length = 0;
         for (const group of this.shatterGroups) {
             group.container.destroy({ children: true });
         }
@@ -1145,10 +1157,12 @@ export class CombatVisuals {
             chain.container.destroy({ children: true });
         }
         this.chainLightnings.length = 0;
-        for (const dp of this.debuffPops) {
-            dp.container.destroy();
+        if (!keepDetachedOverlays) {
+            for (const dp of this.debuffPops) {
+                dp.container.destroy();
+            }
+            this.debuffPops.length = 0;
         }
-        this.debuffPops.length = 0;
         for (const steal of this.abilitySteals) {
             steal.container.destroy({ children: true });
         }
@@ -1157,10 +1171,12 @@ export class CombatVisuals {
             claw.container.destroy({ children: true });
         }
         this.clawSlashes.length = 0;
-        for (const forge of this.craftForges) {
-            forge.container.destroy({ children: true });
+        if (!keepDetachedOverlays) {
+            for (const forge of this.craftForges) {
+                forge.container.destroy({ children: true });
+            }
+            this.craftForges.length = 0;
         }
-        this.craftForges.length = 0;
         for (const enchant of this.enchants) {
             enchant.container.destroy({ children: true });
         }
