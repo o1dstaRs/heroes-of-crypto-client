@@ -838,6 +838,17 @@ export class Sandbox extends PixiScene {
     protected shouldRenderMoraleInline(): boolean {
         return true;
     }
+    /**
+     * Whether the poison DoT tick VFX (green number + drifting cloud) is rendered inline from engine
+     * events. True in the sandbox; RankedPlayScene overrides it to false and renders it from the
+     * authoritative journal instead. poison_ticked is emitted in the turn-advance batch (activateNextUnit),
+     * the SAME journal entry as Morale/Armageddon, and rides the replayed player action — so without this
+     * suppression the ranked local replay would render each tick once AND renderNewlyAppliedPoison a second
+     * time (a double green number + double cloud).
+     */
+    protected shouldRenderPoisonInline(): boolean {
+        return true;
+    }
     protected getUnplacedUnitBenchGroupKey(_unitState: SandboxSceneUnitState): string {
         return "default";
     }
@@ -3371,7 +3382,7 @@ export class Sandbox extends PixiScene {
             }
             const shatterInfo = unit.getShatterInfo();
             if (shatterInfo) {
-                this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasEffectActive("Freeze"));
+                this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasStatusEffect("Freeze"));
             }
             unit.destroyVisuals();
         }
@@ -3560,8 +3571,14 @@ export class Sandbox extends PixiScene {
         // the authoritative replay (the opponent's cast, and in ranked the local player's own — the live
         // path defers to replay there) still renders the forge + per-ally results. targetCell is set only for
         // the area craft cast; single-target / swap (Castling) spells use targetId and skip this.
-        const craftBefore =
-            action.targetCell !== undefined ? this.snapshotCraftTargets(action.targetCell, caster) : undefined;
+        // Only the forge CAST animation is replayed for Craft (area cast). The per-ally RESULTS
+        // (weapon/Stun/"No effect") and any rune-enchant success/"Failed" are DELIBERATELY NOT rendered from
+        // the replay: it re-runs the spell with local crypto-secure RNG (createActionEngine reconciles only
+        // amounts from the next snapshot, NOT the discrete roll), so an outcome-dependent pop here would be a
+        // ~random wrong result. The authoritative outcome instead arrives via the snapshot — a resulting Stun
+        // pops through processDebuffPops, and a crafted weapon / rune buff shows in the unit's panel. The
+        // forge itself is outcome-independent, so it is safe to play.
+        const isCraftCast = action.spellName === "Craft";
         const craftCasterPos = { ...caster.getPosition() };
 
         // Castling (POSITION_CHANGE) swaps the caster with a target. Re-running the engine during
@@ -3650,12 +3667,10 @@ export class Sandbox extends PixiScene {
         const result = this.createActionEngine().apply(action);
         if (result.completed) {
             this.cleanupAfterSpell(result.events, unitSnapshot);
-            if (craftBefore) {
-                // Same forge sequence as the live path: anvil + hammer strikes over the Blacksmith, then
-                // reveal each ally's crafted result (weapon grant / Stun / "No effect") once it finishes.
-                // Reuses spawnCraftForge + popCraftResults (both-paths pattern) so it's written once.
-                const forgeMs = this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize()) ?? 0;
-                setTimeout(() => this.popCraftResults(craftBefore), forgeMs + 80);
+            if (isCraftCast) {
+                // Forge cast animation only (outcome-independent); the per-ally results come from the
+                // authoritative snapshot, not this local re-roll — see the note at the capture above.
+                this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize());
             }
         } else {
             // Engine re-apply rejected during replay (e.g. turn already handed over) — apply the
@@ -4029,7 +4044,7 @@ export class Sandbox extends PixiScene {
                 if (isDead) {
                     const shatterInfo = utd.getShatterInfo();
                     if (shatterInfo) {
-                        this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, utd.hasEffectActive("Freeze"));
+                        this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, utd.hasStatusEffect("Freeze"));
                     }
                 }
                 // console.log(`Sandbox: calling destroyVisuals for ${unitId}`);
@@ -5574,8 +5589,12 @@ export class Sandbox extends PixiScene {
                 if (tex) {
                     this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, gained, 0, "buff");
                 }
-            } else if (!prev.stunned && unit.hasEffectActive("Stun")) {
-                this.popEffectOnUnit(unit, "Stun", 0, "debuff");
+            } else if (!prev.stunned && unit.hasStatusEffect("Stun")) {
+                // Stun outcome: intentionally NO pop here. The generic effect-diff already pops a newly
+                // gained Stun from applied_effects/debuffs — processDebuffPops in ranked (which now runs on
+                // the replayed Craft), reconcileEffectVisuals in sandbox — so popping it again here would
+                // double it (~1.58s apart, after the forge). We still branch (rather than fall through) so a
+                // stun isn't mislabelled as a "No effect" fail below.
             } else {
                 // Failed craft: plain dark-grey "No effect!" text, no icon.
                 this.combatVisuals?.showCraftFail(unit.getPosition());
@@ -9770,10 +9789,10 @@ export class Sandbox extends PixiScene {
         return result.completed;
     }
     /**
-     * Poison DoT tick VFX — the green damage number + drifting poison cloud on the poisoned unit. Shared
-     * by the local engine-event loop (applyTurnEngineEvents) and the ranked authoritative-journal handler
-     * (RankedPlayScene.applyAuthoritativeVfx) so the animation is written ONCE and fires in both Sandbox
-     * and ranked play instead of drifting Sandbox-only.
+     * Poison DoT tick VFX — the green damage number + drifting poison cloud on the poisoned unit. Shared by
+     * the local engine-event loop (applyTurnEngineEvents, gated by shouldRenderPoisonInline) and the ranked
+     * journal handler (RankedPlayScene.renderNewlyAppliedPoison) so the animation is written ONCE and fires
+     * in both Sandbox and ranked play instead of drifting Sandbox-only.
      */
     protected renderPoisonTickVfx(unit: RenderableUnit, damage: number, unitsDied: number): void {
         const pos = unit.getPosition();
@@ -9832,7 +9851,7 @@ export class Sandbox extends PixiScene {
                     break;
                 case "poison_ticked": {
                     const poisoned = unitSnapshot.get(event.unitId);
-                    if (poisoned) {
+                    if (poisoned && this.shouldRenderPoisonInline()) {
                         this.renderPoisonTickVfx(poisoned, event.damage, event.unitsDied);
                     }
                     shouldRefreshVisibleState = true;
@@ -10141,7 +10160,7 @@ export class Sandbox extends PixiScene {
         // noted) from the unit's current sprite before tearing it down.
         const shatterInfo = unit.getShatterInfo();
         if (shatterInfo) {
-            this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasEffectActive("Freeze"));
+            this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasStatusEffect("Freeze"));
         }
 
         this.layoutVersion++;

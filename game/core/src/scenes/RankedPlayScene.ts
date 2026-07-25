@@ -514,6 +514,8 @@ export class RankedPlayScene extends Sandbox {
     // Same journal-driven, once-per-sequence pattern for the lap-start Morale/Dismorale pops.
     private moraleVfxGameId = "";
     private moraleVfxSequence = -1;
+    private poisonVfxGameId = "";
+    private poisonVfxSequence = -1;
     // Remembers every unit's name (and team) as it appears in snapshots, so log lines for units
     // that have since died — and dropped out of the live snapshot — still resolve a real name.
     private readonly rankedUnitNamesById = new Map<string, string>();
@@ -588,13 +590,6 @@ export class RankedPlayScene extends Sandbox {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 const info = u?.getShatterInfo();
                 if (info && u) this.combatVisuals?.spawnDeathVfx(info, event.unitId, u.hasStatusEffect("Freeze"));
-            } else if (event.type === "poison_ticked") {
-                // Poison DoT VFX (green number + drifting cloud), shared with Sandbox's applyTurnEngineEvents
-                // via renderPoisonTickVfx so it's written once and fires in ranked too (was Sandbox-only).
-                // The authoritative journal already carries poison_ticked — it drives the scene log — so no
-                // server/transport change is needed here.
-                const poisoned = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
-                if (poisoned) this.renderPoisonTickVfx(poisoned, event.damage, event.unitsDied);
             }
         }
     }
@@ -893,8 +888,13 @@ export class RankedPlayScene extends Sandbox {
             // during that ally's hit — emits no unit_destroyed of its own, so it rides only the snapshot;
             // deferring the whole apply until idle then lets the next rebuild remove it un-shattered (no
             // death animation). shatterNewlyDeadUnits is idempotent — getShatterInfo() is null once a
-            // sprite is torn down — so this can't double-shatter a unit the replay already handled.
-            this.shatterNewlyDeadUnits(snapshot);
+            // sprite is torn down — so this can't double-shatter a unit the replay already handled. Gate on
+            // a NON-stale snapshot (mirror the latestSequence guard below): a late/out-of-order fallback
+            // poll must not shatter a unit that is alive in the current sequence — that would flicker a
+            // resurrection.
+            if (snapshot.latestSequence >= this.lastAuthoritativeSequence) {
+                this.shatterNewlyDeadUnits(snapshot);
+            }
             return;
         }
         const boardSignature = this.createBoardSignature(snapshot);
@@ -923,6 +923,7 @@ export class RankedPlayScene extends Sandbox {
         this.renderNewlyAppliedArmageddon(snapshot);
         // Lap-start Morale/Dismorale pops, also off the journal (excluded from the generic effect diff).
         this.renderNewlyAppliedMorale(snapshot);
+        this.renderNewlyAppliedPoison(snapshot);
         this.shatterNewlyDeadUnits(snapshot);
         const state = authoritativeSnapshotToSandboxSceneState(snapshot, { hideOpponentPlacements: true });
         // Self-heal an active-unit desync: the server says a unit is active but on our board that unit
@@ -1059,6 +1060,8 @@ export class RankedPlayScene extends Sandbox {
         // Same for the lap-start Morale/Dismorale pops.
         this.moraleVfxGameId = "";
         this.moraleVfxSequence = -1;
+        this.poisonVfxGameId = "";
+        this.poisonVfxSequence = -1;
         // Re-baseline effect pops so the replay's first snapshot seeds silently instead of bursting.
         this.effectPopsGameId = "";
         this.effectPopsSequence = -1;
@@ -1942,6 +1945,11 @@ export class RankedPlayScene extends Sandbox {
     protected override shouldRenderMoraleInline(): boolean {
         return false;
     }
+    /** Ranked renders poison DoT ticks from the journal (renderNewlyAppliedPoison), not inline — otherwise
+     * the replayed action that carries poison_ticked renders each tick a second time. Same as morale/wave. */
+    protected override shouldRenderPoisonInline(): boolean {
+        return false;
+    }
     /**
      * Render the lap-start Morale (green) / Dismorale (violet) pops from the authoritative journal. The
      * `morale_applied` events ride on the lap-flipping action's journal entry (the scene log reads them
@@ -1975,6 +1983,46 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         this.moraleVfxSequence = maxSequence;
+    }
+    /**
+     * Render the poison DoT tick VFX (green number + drifting cloud) from the authoritative journal, exactly
+     * like Morale/Armageddon. poison_ticked is emitted in the turn-advance batch (activateNextUnit, every
+     * poisoned unit's turn start) and rides the REPLAYED player action's journal entry — so the inherited
+     * applyTurnEngineEvents replay path would render it inline; shouldRenderPoisonInline() is overridden to
+     * false in ranked to suppress that, making this the SOLE ranked renderer (no double green number/cloud).
+     * (scene.applyAuthoritativeVfx, where the first attempt lived, is dead — ApplyAuthoritativeVfx has no
+     * callers.) Deduped by a per-game high-water sequence so each tick pops once and history on (re)join
+     * isn't replayed.
+     */
+    private renderNewlyAppliedPoison(snapshot: AuthoritativeGameSnapshot): void {
+        const journalTail = snapshot.journalTail;
+        if (!journalTail?.length) {
+            return;
+        }
+        const sorted = [...journalTail].sort((a, b) => a.sequence - b.sequence);
+        const maxSequence = sorted[sorted.length - 1].sequence;
+        if (this.poisonVfxGameId !== snapshot.gameId) {
+            this.poisonVfxGameId = snapshot.gameId;
+            this.poisonVfxSequence = maxSequence;
+            return;
+        }
+        if (maxSequence <= this.poisonVfxSequence) {
+            return;
+        }
+        for (const entry of sorted) {
+            if (entry.sequence <= this.poisonVfxSequence) {
+                continue;
+            }
+            for (const event of this.parseJournalEvents(entry)) {
+                if (event.type === "poison_ticked") {
+                    const poisoned = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
+                    if (poisoned) {
+                        this.renderPoisonTickVfx(poisoned, event.damage, event.unitsDied);
+                    }
+                }
+            }
+        }
+        this.poisonVfxSequence = maxSequence;
     }
     /**
      * Render the Armageddon wave's floating damage + screen shake from the authoritative snapshot's
