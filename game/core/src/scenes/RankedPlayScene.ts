@@ -351,6 +351,11 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // creature config. These survive the client's adjustBaseStats recompute because it
                 // preserves initialUnitProperties.morale/speed (synergy bonus is re-derived on top).
                 morale: unitState.morale,
+                // The server's morale is FINAL — base + synergy + artifact deltas + everything gained and
+                // lost during the fight. Without this flag adjustBaseStats rebuilt it from the base we just
+                // seeded (which already contains those deltas) and subtracted Cursed Ward again on every
+                // refreshUnits(), so one artifact read as -12/-18. Mirrors luck_authoritative below.
+                morale_authoritative: true,
                 speed: unitState.speed || baseProperties.speed,
                 // Luck is the server's already-rolled effective value (incl. the per-turn spread and
                 // auras like Leprechaun's Luck Aura). luck_authoritative tells adjustBaseStats to keep

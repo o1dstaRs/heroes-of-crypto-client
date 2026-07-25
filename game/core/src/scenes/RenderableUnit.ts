@@ -20,6 +20,7 @@ import {
     HoCConfig,
     SpellHelper,
     FightStateManager,
+    AbilityHelper,
     AllAbilities,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
@@ -2154,8 +2155,15 @@ export class RenderableUnit extends Unit {
         // Double Punch
         const doublePunchAbility = this.getAbility("Double Punch");
         if (doublePunchAbility) {
+            // Fold in the Dual Strike Charm artifact — the same helper the damage path uses — so the
+            // hovered total is what the second strike actually lands, not just stack power and luck.
             const percentage = Number(
-                (this.calculateAbilityMultiplier(doublePunchAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+                (
+                    AbilityHelper.withDualStrikeCharm(
+                        this.calculateAbilityMultiplier(doublePunchAbility, _synergyAbilityPowerIncrease),
+                        this,
+                    ) * 100
+                ).toFixed(2),
             );
             this.refreshAbiltyDescription(
                 doublePunchAbility.getName(),
@@ -2190,8 +2198,15 @@ export class RenderableUnit extends Unit {
         // Double Shot
         const doubleShotAbility = this.getAbility("Double Shot");
         if (doubleShotAbility) {
+            // Fold in the Dual Strike Charm artifact — the same helper the damage path uses — so the
+            // hovered total is what the second strike actually lands, not just stack power and luck.
             const percentage = Number(
-                (this.calculateAbilityMultiplier(doubleShotAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+                (
+                    AbilityHelper.withDualStrikeCharm(
+                        this.calculateAbilityMultiplier(doubleShotAbility, _synergyAbilityPowerIncrease),
+                        this,
+                    ) * 100
+                ).toFixed(2),
             );
             this.refreshAbiltyDescription(
                 doubleShotAbility.getName(),
@@ -2702,7 +2717,12 @@ export class RenderableUnit extends Unit {
             const craftedAbility = this.getAbility(craftedName);
             if (craftedAbility) {
                 const percentage = Number(
-                    (this.calculateAbilityMultiplier(craftedAbility, _synergyAbilityPowerIncrease) * 100).toFixed(0),
+                    (
+                        AbilityHelper.withDualStrikeCharm(
+                            this.calculateAbilityMultiplier(craftedAbility, _synergyAbilityPowerIncrease),
+                            this,
+                        ) * 100
+                    ).toFixed(0),
                 );
                 this.refreshAbiltyDescription(
                     craftedAbility.getName(),

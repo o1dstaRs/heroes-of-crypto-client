@@ -34,6 +34,16 @@ export interface IVisibleImpact {
     isAura: boolean;
     /** Permanently removed by Predatory Assimilation; retained only so the sidebar can show STOLEN. */
     isStolen?: boolean;
+    /**
+     * An ARTIFACT that amplifies this ability (today: Dual Strike Charm on the double-attack abilities).
+     * The ability's own % already includes it — this is what lets the tooltip show WHERE the extra came
+     * from, with the artifact's art, instead of the player seeing an unexplained bigger number.
+     */
+    amplifiedBy?: {
+        name: string;
+        textureName: string;
+        percent: number;
+    };
 }
 
 export interface IVisibleOverallImpact {

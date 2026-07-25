@@ -506,6 +506,20 @@ export abstract class PixiScene {
             : unitProperties.abilities.filter((name) => !stolenAbilities.has(name));
         const displayedAbilityNames = [...new Set([...unitProperties.abilities, ...stolenAbilityNames])];
 
+        // ARTIFACT Dual Strike Charm amplifies the SECOND strike of the double-attack abilities. Its buff
+        // is applied per unit at placement, so read it straight off the properties and hand the artifact's
+        // identity to the tooltip — the ability's own % already folds the bonus in (RenderableUnit uses the
+        // same withDualStrikeCharm helper as the damage path), and this is what says where it came from.
+        const dualStrikeCharmIndex = unitProperties.applied_buffs.indexOf(AbilityHelper.DUAL_STRIKE_CHARM_BUFF);
+        const dualStrikeCharm =
+            dualStrikeCharmIndex >= 0
+                ? {
+                      name: AbilityHelper.DUAL_STRIKE_CHARM_BUFF,
+                      textureName: buffDebuffTextureName(AbilityHelper.DUAL_STRIKE_CHARM_BUFF),
+                      percent: unitProperties.applied_buffs_powers[dualStrikeCharmIndex] ?? 0,
+                  }
+                : undefined;
+
         for (const abilityName of displayedAbilityNames) {
             const activeIndex = unitProperties.abilities.indexOf(abilityName);
             const configured = getAbilityDisplayMetadata(abilityName);
@@ -532,6 +546,10 @@ export abstract class PixiScene {
                 isStackPowered,
                 isAura,
                 isStolen: stolenAbilities.has(abilityName),
+                amplifiedBy:
+                    dualStrikeCharm && AbilityHelper.DUAL_STRIKE_ABILITY_NAMES.includes(abilityName)
+                        ? dualStrikeCharm
+                        : undefined,
             });
         }
 

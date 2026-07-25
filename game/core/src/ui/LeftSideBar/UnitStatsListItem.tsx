@@ -398,6 +398,23 @@ const AbilityCell: React.FC<{
                             <br />
                         </React.Fragment>
                     ))}
+                    {ability.amplifiedBy && (
+                        // The percentage above ALREADY includes this artifact. Name it, with its own art,
+                        // so a boosted number reads as "the charm is working" rather than as a mystery.
+                        <Box
+                            component="span"
+                            sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, marginTop: 0.5 }}
+                        >
+                            <Box
+                                component="img"
+                                // @ts-ignore: images index signature
+                                src={images[ability.amplifiedBy.textureName]}
+                                alt=""
+                                sx={{ width: 16, height: 16, borderRadius: "20%", flex: "none" }}
+                            />
+                            {`includes +${ability.amplifiedBy.percent}% from ${ability.amplifiedBy.name}`}
+                        </Box>
+                    )}
                 </>
             }
             sx={commonTooltipSx}

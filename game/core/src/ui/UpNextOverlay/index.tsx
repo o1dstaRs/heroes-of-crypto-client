@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { HoCConstants, TeamVals, TeamType } from "@heroesofcrypto/common";
+import { TeamVals, TeamType } from "@heroesofcrypto/common";
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { nextLapHazard } from "../nextLapHazard";
 import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { resolveUnitImage } from "../unitImage";
@@ -113,12 +114,10 @@ export const UpNextOverlay: React.FC = () => {
     const upperChartPct =
         chartMetric === "damage" ? (lastSample?.upperDamagePct ?? 0) : (lastSample?.upperKilledPct ?? 0);
 
+    // Same rule as the bottom-centre NextLapHazardBadge / the MessageBox icon (see nextLapHazard).
+    const hazard = nextLapHazard(visibleState);
     let defaultIcon =
-        visibleState.lapNumber !== undefined &&
-        visibleState.numberOfLapsTillNarrowing !== undefined &&
-        visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
-        visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 &&
-        visibleState.lapsNarrowed < HoCConstants.MAX_NARROWING_LAPS_TOTAL ? (
+        hazard?.kind === "narrowing" ? (
             <Tooltip title="The map will narrow after this turn." placement="top" sx={{ zIndex: 9999 }}>
                 <ZoomInMapIcon sx={{ color: "white", pb: 2, width: 50, height: 50 }} />
             </Tooltip>
@@ -126,7 +125,7 @@ export const UpNextOverlay: React.FC = () => {
             <React.Fragment />
         );
 
-    if (visibleState.lapNumber && visibleState.lapNumber >= HoCConstants.NUMBER_OF_LAPS_FIRST_ARMAGEDDON) {
+    if (hazard?.kind === "armageddon") {
         defaultIcon = (
             <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ zIndex: 9999 }}>
                 <Box component="img" src={meteorIconDataUrl} sx={{ width: 50, height: 50, pb: 2 }} />

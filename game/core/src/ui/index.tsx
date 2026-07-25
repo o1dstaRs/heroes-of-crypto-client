@@ -19,6 +19,7 @@ import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
 import { IWindowSize } from "../scenes/VisibleState";
@@ -173,6 +174,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     <UpNextOverlay />
                     <FightFinishedOverlay />
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
+                    {!isLoading && started && <NextLapHazardBadge />}
                     {!isLoading && replayPlaybackActive && (
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />

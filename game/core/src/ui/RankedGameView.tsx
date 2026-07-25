@@ -67,6 +67,7 @@ import RightSideBar from "./RightSideBar";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { RankedFinishedActions } from "./RankedFinishedActions";
 import { WalletLinker } from "./WalletLinker";
@@ -1658,6 +1659,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
                     {gameStarted && <RankedSynergiesPanel snapshot={snapshot} userTeam={userTeam} />}
                     {gameStarted && <UpNextOverlay />}
+                    {gameStarted && <NextLapHazardBadge />}
                     {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
                     )}

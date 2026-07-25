@@ -316,9 +316,15 @@ export class Sandbox extends PixiScene {
     private readonly aiControlledTeams = new Set<TeamType>();
     // AIController manages AI decision-making (created in constructor after super())
     private aiController!: AIController;
-    // Sandbox turn-timeout takeover: count consecutive missed turns. The 1st is played by a one-shot AI
-    // turn; the 2nd in a row turns the AI toggle on. Reset whenever the human acts.
+    // Sandbox turn-timeout takeover: count consecutive missed turns. The 1st is played by the grace turn
+    // (see runSandboxGraceTurn) or, once that is spent, a one-shot AI turn; the 2nd in a row turns the AI
+    // toggle on. Reset whenever the human acts.
     private sandboxConsecutiveTimeouts = 0;
+    // Whether this fight's single grace turn has been spent. Mirrors the server's per-player allowance
+    // (play_session.ts graceTurnUsedByPlayer); the sandbox has one human at the keyboard, so one latch
+    // matches the global consecutive counter above. Cleared on start_fight, never on a human action —
+    // the allowance is once per FIGHT, not once per streak of missed turns.
+    private sandboxGraceTurnUsed = false;
     private hasInitializedLap = false;
     /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
     private atlasesPrewarmed = false;
@@ -6314,6 +6320,24 @@ export class Sandbox extends PixiScene {
         }
 
         this.hoverManager.drawAOEArea(cells);
+        // Trajectory line to the impact cell — the same arrow a single-target ranged hover draws. The
+        // 3x3 outline alone showed WHERE the splash lands but not the path the throw takes to get
+        // there, so the player couldn't see what the shot crosses: a unit standing in the way
+        // intercepts it and drags the whole splash back onto itself (getAreaThrowImpactCell), and on
+        // BLOCK_CENTER the line is the only cue that the throw passes over the mountain corridor.
+        // Drawn AFTER clearAttackVisuals() above, which wipes the previous frame's arrow.
+        const activeUnit = this.currentActiveUnit;
+        if (activeUnit instanceof RenderableUnit) {
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const mouseCell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+            const impactCell = mouseCell ? this.getAreaThrowImpactCell(activeUnit, mouseCell) : undefined;
+            const impactPos = impactCell
+                ? GridMath.getPositionForCell(impactCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
+                : undefined;
+            if (impactPos) {
+                this.hoverManager.drawAttackArrow(activeUnit.getVisualCenter(gs), impactPos);
+            }
+        }
         // Outline every unit caught in the splash in red — same highlight as a single target.
         for (const affectedGroup of affectedGroups) {
             for (const affectedUnit of affectedGroup) {
@@ -6433,14 +6457,17 @@ export class Sandbox extends PixiScene {
         if (occupantId && occupantId !== "L" && occupantId !== "W") {
             return undefined; // aiming at an enemy unit → single-target preview handles it
         }
-        // A unit standing on the trajectory intercepts the throw, so center the splash on it
-        // (matches the engine's projection) instead of the empty cell behind it.
-        const targetCell = this.attackHandler.projectAreaThrowTargetCell(
-            this.unitsHolder.getAllUnits(),
-            unit,
-            mouseCell,
-        );
+        const targetCell = this.getAreaThrowImpactCell(unit, mouseCell);
         return [...GridMath.getCellsAroundCell(gs, targetCell), targetCell];
+    }
+    /**
+     * The cell an Area Throw actually lands on when aimed at `mouseCell` — the splash CENTRE. A unit
+     * standing on the trajectory intercepts the throw, so the engine re-centres it on that unit
+     * (projectAreaThrowTargetCell) instead of letting it reach the empty cell behind. Shared by the
+     * 3x3 preview and the hover trajectory so the drawn line always ends where the splash will.
+     */
+    private getAreaThrowImpactCell(unit: Unit, mouseCell: HoCMath.XY): HoCMath.XY {
+        return this.attackHandler.projectAreaThrowTargetCell(this.unitsHolder.getAllUnits(), unit, mouseCell);
     }
     /** Execute an Area Throw at the clicked cell. Returns true if it handled the click. */
     private attemptAreaThrowAttack(worldPos: HoCMath.XY): boolean {
@@ -8366,13 +8393,23 @@ export class Sandbox extends PixiScene {
                             rangeDivisor = 2; // Penalty
                         }
 
-                        // distance-based penalties
-                        // We use the guaranteed non-null finalArrowEndPos
-                        const distRes = HoCMath.getDistance(arrowStartPos, finalArrowEndPos) / GridConstants.STEP;
+                        // Distance falloff. Ask the ENGINE (getRangeAttackDivisor) rather than re-deriving
+                        // it: damage halves for EVERY full shot-distance crossed and caps at 1/8, and the
+                        // Sniper ability negates it entirely. The rule here used to be a single
+                        // "further than one shot distance -> 1/2" step, so a shot two or three range-bands
+                        // out was predicted at half damage while the engine actually dealt a quarter or an
+                        // eighth — the hover over-promised on exactly the long shots where the penalty
+                        // matters most. Same call the engine makes, so prediction and resolution agree.
+                        // The attacker position is deliberately LEFT TO DEFAULT (getPosition()) rather than
+                        // passed as arrowStartPos: the engine measures falloff from the unit's position,
+                        // while arrowStartPos is its VISUAL centre — for a large (2x2) shooter those differ,
+                        // and feeding the visual centre here would put the hover in a different band than
+                        // the shot it is predicting, right at a boundary.
                         if (isRangeAttackContext) {
-                            if (distRes > this.currentActiveUnit.getRangeShotDistance()) {
-                                rangeDivisor = 2;
-                            }
+                            rangeDivisor = this.attackHandler.getRangeAttackDivisor(
+                                this.currentActiveUnit,
+                                finalArrowEndPos,
+                            );
                         }
 
                         // Double Shot Logic (Legacy check) — Crafted Double Shot behaves identically.
@@ -8622,7 +8659,14 @@ export class Sandbox extends PixiScene {
                             totalMaxKills += enemy.calculatePossibleLosses(sMaxFinal);
                         }
 
-                        const dmgStr = totalMinDmg === totalMaxDmg ? `${totalMinDmg}` : `${totalMinDmg}-${totalMaxDmg}`;
+                        const dmgSpreadStr =
+                            totalMinDmg === totalMaxDmg ? `${totalMinDmg}` : `${totalMinDmg}-${totalMaxDmg}`;
+                        // Show the distance falloff band on every ranged hover — 1/1 at full strength, then
+                        // 1/2, 1/4, 1/8 as the shot crosses each shot-distance. Always shown (not only when
+                        // it bites) so the player can read the drop-off WHILE choosing where to shoot from,
+                        // rather than inferring it from a damage number that quietly got smaller. Melee
+                        // hovers keep the bare number: the divisor is a ranged-only rule.
+                        const dmgStr = isRangeAttackContext ? `🎯1/${rangeDivisor}  ${dmgSpreadStr}` : dmgSpreadStr;
                         let killStr: string | undefined;
                         let iconPath: string | undefined;
 
@@ -9254,6 +9298,7 @@ export class Sandbox extends PixiScene {
             // can recreate the identical fight (supply is re-applied on the next startScene).
             this.lastFightSnapshot = this.captureFightSnapshot();
             this.hasInitializedLap = false;
+            this.sandboxGraceTurnUsed = false;
             const action: GameAction = { type: "start_fight" };
             const unitSnapshot = this.snapshotRenderableUnits();
             const startResult = this.createActionEngine().apply(action);
@@ -9431,9 +9476,10 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setLastPlacement(undefined);
 
             // --- A. TURN TIMER LOGIC ---
-            // On a missed turn we no longer auto-skip: the AI plays the turn. A 2nd missed turn in a row
-            // flips the AI toggle on (so the AI keeps playing until the player turns it off via the AI
-            // button). Skipping is only a fallback if the AI can't act.
+            // On a missed turn we no longer auto-skip. The FIRST miss of the fight plays a fixed safe
+            // default (hourglass, else Luck Shield); every later miss is played by the AI. A 2nd missed
+            // turn in a row flips the AI toggle on (so the AI keeps playing until the player turns it off
+            // via the AI button). Skipping is only a fallback if neither can act.
             if (
                 !this.sc_gameActionTransport &&
                 !this.replayPlaybackActive &&
@@ -9449,9 +9495,19 @@ export class Sandbox extends PixiScene {
                     this.aiController.isAIActive = true;
                     this.buttonManager.refreshButtons(true);
                     this.sc_visibleStateUpdateNeeded = true;
-                } else if (!this.aiController.forceCurrentTurn(300)) {
-                    // First miss: the AI plays just this turn. If it can't, fall back to a skip.
-                    this.finishTurn(false, "timeout");
+                } else {
+                    // First miss of the FIGHT buys the grace turn instead of an AI-played one. The
+                    // allowance is burned even when the engine refuses both defaults, so it stays once per
+                    // fight rather than retrying on the next miss (matches the server). A spent grace — or
+                    // a refused one — falls through to the one-shot AI turn, then to a bare skip.
+                    let played = false;
+                    if (!this.sandboxGraceTurnUsed) {
+                        this.sandboxGraceTurnUsed = true;
+                        played = this.runSandboxGraceTurn();
+                    }
+                    if (!played && !this.aiController.forceCurrentTurn(300)) {
+                        this.finishTurn(false, "timeout");
+                    }
                 }
             }
 
@@ -10693,6 +10749,33 @@ export class Sandbox extends PixiScene {
         if (typeof window !== "undefined" && (window as unknown as { __hocTurnTrace?: boolean }).__hocTurnTrace) {
             console.log(`[turn-lag] ${label}: ${(performance.now() - startMs).toFixed(1)}ms`);
         }
+    }
+    /**
+     * Play this fight's one grace turn: hourglass if the engine accepts it, Luck Shield if not. The engine
+     * owns "is the hourglass available" (wait_turn rejects with `hourglass_not_available` when the unit has
+     * no unacted teammate, already waited this round, etc.), so this asks rather than re-deriving the rule.
+     * Both actions complete the unit's turn, so neither can leave it dangling into another timeout.
+     *
+     * Returns false only if the engine refused BOTH, leaving the caller to fall back to the AI.
+     */
+    private runSandboxGraceTurn(): boolean {
+        if (!this.currentActiveUnit) {
+            return false;
+        }
+        const unitId = this.currentActiveUnit.getId();
+        const actions: GameAction[] = [
+            { type: "wait_turn", unitId },
+            { type: "defend_turn", unitId },
+        ];
+        for (const action of actions) {
+            const unitSnapshot = this.snapshotRenderableUnits();
+            const result = this.createActionEngine().apply(action);
+            if (result.completed) {
+                this.applyTurnEngineEvents(result.events, unitSnapshot);
+                return true;
+            }
+        }
+        return false;
     }
     protected finishTurn = (isHourglass = false, skipReason?: "effect" | "timeout"): void => {
         if (!this.currentActiveUnit) {
