@@ -3555,6 +3555,15 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitSnapshot = this.snapshotRenderableUnits();
 
+        // Craft (ALLIES_AREA area cast): capture the pre-cast state NOW so the forge result pops can diff it
+        // after the engine applies — mirroring the live castAreaSpellAtCell path so a Craft resolved through
+        // the authoritative replay (the opponent's cast, and in ranked the local player's own — the live
+        // path defers to replay there) still renders the forge + per-ally results. targetCell is set only for
+        // the area craft cast; single-target / swap (Castling) spells use targetId and skip this.
+        const craftBefore =
+            action.targetCell !== undefined ? this.snapshotCraftTargets(action.targetCell, caster) : undefined;
+        const craftCasterPos = { ...caster.getPosition() };
+
         // Castling (POSITION_CHANGE) swaps the caster with a target. Re-running the engine during
         // replay is unreliable here (validateTurnAction can reject — the turn has handed over), so apply
         // the swap from authoritative truth: take both units' post-cast cells from the record's
@@ -3641,6 +3650,13 @@ export class Sandbox extends PixiScene {
         const result = this.createActionEngine().apply(action);
         if (result.completed) {
             this.cleanupAfterSpell(result.events, unitSnapshot);
+            if (craftBefore) {
+                // Same forge sequence as the live path: anvil + hammer strikes over the Blacksmith, then
+                // reveal each ally's crafted result (weapon grant / Stun / "No effect") once it finishes.
+                // Reuses spawnCraftForge + popCraftResults (both-paths pattern) so it's written once.
+                const forgeMs = this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize()) ?? 0;
+                setTimeout(() => this.popCraftResults(craftBefore), forgeMs + 80);
+            }
         } else {
             // Engine re-apply rejected during replay (e.g. turn already handed over) — apply the
             // authoritative events directly so deaths/turn advance still happen; amounts reconcile from
@@ -9753,6 +9769,17 @@ export class Sandbox extends PixiScene {
         this.applyTurnEngineEvents(result.events, unitSnapshot);
         return result.completed;
     }
+    /**
+     * Poison DoT tick VFX — the green damage number + drifting poison cloud on the poisoned unit. Shared
+     * by the local engine-event loop (applyTurnEngineEvents) and the ranked authoritative-journal handler
+     * (RankedPlayScene.applyAuthoritativeVfx) so the animation is written ONCE and fires in both Sandbox
+     * and ranked play instead of drifting Sandbox-only.
+     */
+    protected renderPoisonTickVfx(unit: RenderableUnit, damage: number, unitsDied: number): void {
+        const pos = unit.getPosition();
+        this.combatVisuals?.showFloatingDamage(pos, damage, undefined, unitsDied, "#7be639", "#123d0a");
+        this.combatVisuals?.spawnPoisonCloud(pos, this.sc_sceneSettings.getGridSettings().getCellSize());
+    }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const armageddonWaves = new Set<number>();
         let shouldRefreshVisibleState = false;
@@ -9806,18 +9833,7 @@ export class Sandbox extends PixiScene {
                 case "poison_ticked": {
                     const poisoned = unitSnapshot.get(event.unitId);
                     if (poisoned) {
-                        this.combatVisuals?.showFloatingDamage(
-                            poisoned.getPosition(),
-                            event.damage,
-                            undefined,
-                            event.unitsDied,
-                            "#7be639",
-                            "#123d0a",
-                        );
-                        this.combatVisuals?.spawnPoisonCloud(
-                            poisoned.getPosition(),
-                            this.sc_sceneSettings.getGridSettings().getCellSize(),
-                        );
+                        this.renderPoisonTickVfx(poisoned, event.damage, event.unitsDied);
                     }
                     shouldRefreshVisibleState = true;
                     break;

@@ -180,6 +180,23 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         changed = true;
     }
 
+    // Mirror buffs the authoritative snapshot no longer lists — e.g. a spent Water Shield, which the
+    // engine deletes server-side in applyDamage. This animation-preserving reconcile skips the board
+    // rebuild that would otherwise resync buffs, so without this a consumed buff lingers on the live unit:
+    // its frame-driven aura (the Water Shield ring) keeps drawing and the sidebar keeps listing it.
+    // deleteBuff removes it from BOTH this.buffs (what hasBuffActive/the ring read) and applied_buffs
+    // (what the panel reads); doing it on the SAME persistent sprite — not via a destroy/rebuild — is also
+    // what lets the one-shot break dissolve fire, since that keys off the buff going active -> inactive
+    // between frames. Additions still ride the rebuild/debuff-pop paths. Trusts the authoritative buff
+    // list exactly as the full rebuild already does.
+    const authoritativeBuffs = new Set(properties.applied_buffs ?? []);
+    for (const buffName of unit.getBuffs().map((buff) => buff.getName())) {
+        if (!authoritativeBuffs.has(buffName)) {
+            unit.deleteBuff(buffName);
+            changed = true;
+        }
+    }
+
     return changed;
 };
 
@@ -570,7 +587,14 @@ export class RankedPlayScene extends Sandbox {
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 const info = u?.getShatterInfo();
-                if (info && u) this.combatVisuals?.spawnDeathVfx(info, event.unitId, u.hasEffectActive("Freeze"));
+                if (info && u) this.combatVisuals?.spawnDeathVfx(info, event.unitId, u.hasStatusEffect("Freeze"));
+            } else if (event.type === "poison_ticked") {
+                // Poison DoT VFX (green number + drifting cloud), shared with Sandbox's applyTurnEngineEvents
+                // via renderPoisonTickVfx so it's written once and fires in ranked too (was Sandbox-only).
+                // The authoritative journal already carries poison_ticked — it drives the scene log — so no
+                // server/transport change is needed here.
+                const poisoned = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
+                if (poisoned) this.renderPoisonTickVfx(poisoned, event.damage, event.unitsDied);
             }
         }
     }
@@ -864,6 +888,13 @@ export class RankedPlayScene extends Sandbox {
         // animating (we don't advance sequence/signature here, so the next snapshot re-syncs once idle).
         // skipBoardRebuild snapshots are safe — they never hydrate — so they still pass through.
         if (!options?.skipBoardRebuild && !options?.forceBoardRebuild && this.isPlayingActionAnimation()) {
+            // Even while another action animates, shatter any unit the snapshot already reports dead. A
+            // side-effect death — e.g. a Flesh Shield bearer killed by absorbing damage dealt to an ally
+            // during that ally's hit — emits no unit_destroyed of its own, so it rides only the snapshot;
+            // deferring the whole apply until idle then lets the next rebuild remove it un-shattered (no
+            // death animation). shatterNewlyDeadUnits is idempotent — getShatterInfo() is null once a
+            // sprite is torn down — so this can't double-shatter a unit the replay already handled.
+            this.shatterNewlyDeadUnits(snapshot);
             return;
         }
         const boardSignature = this.createBoardSignature(snapshot);
@@ -2018,7 +2049,7 @@ export class RankedPlayScene extends Sandbox {
             if (!shatterInfo) {
                 continue;
             }
-            this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId(), renderable.hasEffectActive("Freeze"));
+            this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId(), renderable.hasStatusEffect("Freeze"));
             // Drop the dead unit's visuals now so the imminent rebuild/skip doesn't leave it on the board,
             // and so a repeated snapshot can't shatter it twice (getShatterInfo is null after this).
             renderable.destroyVisuals();

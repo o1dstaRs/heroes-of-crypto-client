@@ -720,7 +720,7 @@ export class RenderableUnit extends Unit {
         }
 
         // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
-        if (!this.isDead() && this.hasEffectActive("Freeze")) {
+        if (!this.isDead() && this.hasStatusEffect("Freeze")) {
             this.updateFreezeCrust(worldRoot, gs, pos);
         } else {
             if (this.freezeCrust) this.freezeCrust.visible = false;
@@ -1530,7 +1530,7 @@ export class RenderableUnit extends Unit {
      * Freeze keeps true. (Up-next/ALT views have no ice crust, so their stop icon is unaffected by this.)
      */
     private shouldShowStopIcon(): boolean {
-        return this.isSkippingForDisplay() && !this.hasEffectActive("Freeze");
+        return this.isSkippingForDisplay() && !this.hasStatusEffect("Freeze");
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by
@@ -1792,7 +1792,7 @@ export class RenderableUnit extends Unit {
     private currentEffectTint(): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
         // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
-        if (this.hasEffectActive("Freeze")) {
+        if (this.hasStatusEffect("Freeze")) {
             return 0x8ec6ff;
         }
         if (!this.effectFlashStartMs) return 0xffffff;
@@ -1829,6 +1829,18 @@ export class RenderableUnit extends Unit {
             atlasFramesCache.set(config.cacheKey, frames);
         }
         return frames[0];
+    }
+    /**
+     * True when the named EFFECT is active — from the live effect list (Sandbox drives it as a real
+     * this.effects entry) OR folded into the authoritative debuffs (ranked: the server ships
+     * applied_effects concatenated into the snapshot's `debuffs` — see play_session.ts — so a
+     * frozen/stunned unit never gets a client-side runtime effect). Frame-driven effect visuals — the
+     * Freeze ice crust, the icy death shatter — MUST key off this, not hasEffectActive, or they never fire
+     * in ranked. Safe in Sandbox: applied_debuffs never holds effect names there, so it reduces to
+     * hasEffectActive.
+     */
+    public hasStatusEffect(name: string): boolean {
+        return this.hasEffectActive(name) || (this.unitProperties.applied_debuffs ?? []).includes(name);
     }
     /**
      * Capture what's needed to spawn a "broken mirror" death shatter: the current sprite texture,
