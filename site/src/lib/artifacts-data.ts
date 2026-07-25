@@ -44,7 +44,11 @@ export const artifacts: Artifact[] = [
     t1("swift_boots", "Swift Boots", "Increases melee units' movement by 25% of their base steps."),
     t1("winged_boots", "Winged Boots", "Grants +1 base movement distance to all flying units."),
     t1("dual_strike_charm", "Dual Strike Charm", "A unit's second attack deals 50% extra damage."),
-    t1("wounding_charm", "Wounding Charm", "Adds +1 Deep Wounds stack for the whole army."),
+    t1(
+        "wounding_charm",
+        "Wounding Charm",
+        "Grants the whole army Deep Wounds Level 1: each attack or response stacks +6% damage amplification on the target.",
+    ),
     t1("cursed_ward", "Cursed Ward", "Cursed: +3 luck but -6 morale for the whole army.", true),
     t1(
         "hunters_longbow",

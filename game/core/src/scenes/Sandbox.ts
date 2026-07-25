@@ -8311,12 +8311,7 @@ export class Sandbox extends PixiScene {
                         // 4. Deep Wounds (Target Effect -> Attacker Bonus); read it from the unit that
                         // actually receives the shot (the interceptor, if any).
                         const deepWoundsEffect = damageUnit.getEffect("Deep Wounds");
-                        if (
-                            deepWoundsEffect &&
-                            (this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 1") ||
-                                this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 2") ||
-                                this.currentActiveUnit.hasAbilityActive("Deep Wounds Level 3"))
-                        ) {
+                        if (deepWoundsEffect && AllAbilities.hasAnyDeepWoundsAbility(this.currentActiveUnit)) {
                             multiplier *= 1 + deepWoundsEffect.getPower() / 100;
                         }
 

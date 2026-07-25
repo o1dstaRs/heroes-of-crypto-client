@@ -2491,49 +2491,27 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
         }
 
-        // Deep Wounds Level 1
-        const deepWoundsLevel1Ability = this.getAbility("Deep Wounds Level 1");
-        if (deepWoundsLevel1Ability) {
-            this.refreshAbiltyDescription(
-                deepWoundsLevel1Ability.getName(),
-                deepWoundsLevel1Ability
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(deepWoundsLevel1Ability, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
-        }
-
-        // Deep Wounds Level 2
-        const deepWoundsLevel2Ability = this.getAbility("Deep Wounds Level 2");
-        if (deepWoundsLevel2Ability) {
-            this.refreshAbiltyDescription(
-                deepWoundsLevel2Ability.getName(),
-                deepWoundsLevel2Ability
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(deepWoundsLevel2Ability, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
-        }
-
-        // Deep Wounds Level 3
-        const deepWoundsLevel3Ability = this.getAbility("Deep Wounds Level 3");
-        if (deepWoundsLevel3Ability) {
-            this.refreshAbiltyDescription(
-                deepWoundsLevel3Ability.getName(),
-                deepWoundsLevel3Ability
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(deepWoundsLevel3Ability, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
+        // Deep Wounds Levels 0..3 — same card shape at four strengths; Level 0 is the one the Wounding
+        // Charm artifact grants army-wide, and it can sit alongside a native card on the same unit.
+        for (const deepWoundsName of [
+            "Deep Wounds Level 0",
+            "Deep Wounds Level 1",
+            "Deep Wounds Level 2",
+            "Deep Wounds Level 3",
+        ]) {
+            const deepWoundsAbility = this.getAbility(deepWoundsName);
+            if (deepWoundsAbility) {
+                this.refreshAbiltyDescription(
+                    deepWoundsAbility.getName(),
+                    deepWoundsAbility
+                        .getDesc()
+                        .join("\n")
+                        .replace(
+                            /\{\}/g,
+                            this.calculateAbilityCount(deepWoundsAbility, _synergyAbilityPowerIncrease).toString(),
+                        ),
+                );
+            }
         }
 
         // Blind Fury
