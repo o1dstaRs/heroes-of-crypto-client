@@ -21,6 +21,7 @@ import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
+import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
@@ -129,6 +130,10 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+
+    // Themed in-game cursor (applied globally via document.body.style.cursor). Mounted at the app
+    // root so the cursor covers the whole screen, not just the battle canvas.
+    useGameCursor();
 
     useEffect(() => {
         manager.SetGameActionTransport(gameActionTransport);

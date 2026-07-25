@@ -939,6 +939,7 @@ export class PixiGameManager {
                 unitLevel: this.m_scene.sc_hoverUnitLevel,
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
+                isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
             });
             this.lastSentEmptyHoverInfo = false;
         } else if (!this.lastSentEmptyHoverInfo) {
