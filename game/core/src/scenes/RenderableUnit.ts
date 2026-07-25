@@ -2491,25 +2491,27 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
         }
 
-        // Deep Wounds Levels 0..3 — same card shape at four strengths; Level 0 is the one the Wounding
-        // Charm artifact grants army-wide, and it can sit alongside a native card on the same unit.
-        for (const deepWoundsName of [
+        // Deep Wounds Levels 0..3 — same card shape at four strengths, and a unit can hold more than one
+        // (the Wounding Charm artifact grants Level 1 on top of a higher native card). They resolve as a
+        // SINGLE application whose powers stack with luck counted once, so every card shows that one total
+        // rather than its own isolated number, which would not sum to what the unit actually applies.
+        const deepWoundsAbilities = [
             "Deep Wounds Level 0",
             "Deep Wounds Level 1",
             "Deep Wounds Level 2",
             "Deep Wounds Level 3",
-        ]) {
-            const deepWoundsAbility = this.getAbility(deepWoundsName);
-            if (deepWoundsAbility) {
+        ]
+            .map((deepWoundsName) => this.getAbility(deepWoundsName))
+            .filter((ability) => ability !== undefined);
+        if (deepWoundsAbilities.length) {
+            const deepWoundsCount = this.calculateDeepWoundsCount(
+                deepWoundsAbilities,
+                _synergyAbilityPowerIncrease,
+            ).toString();
+            for (const deepWoundsAbility of deepWoundsAbilities) {
                 this.refreshAbiltyDescription(
                     deepWoundsAbility.getName(),
-                    deepWoundsAbility
-                        .getDesc()
-                        .join("\n")
-                        .replace(
-                            /\{\}/g,
-                            this.calculateAbilityCount(deepWoundsAbility, _synergyAbilityPowerIncrease).toString(),
-                        ),
+                    deepWoundsAbility.getDesc().join("\n").replace(/\{\}/g, deepWoundsCount),
                 );
             }
         }
