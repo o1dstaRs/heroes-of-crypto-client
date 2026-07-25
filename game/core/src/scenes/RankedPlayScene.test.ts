@@ -300,6 +300,103 @@ describe("ranked placement scene state", () => {
         expect(flyer.getSteps()).toBe(stepsWhileBroken);
     });
 
+    test("collapses the Visible debuff the ranked seam applies on top of the snapshot's own entry", () => {
+        FightStateManager.getInstance().reset();
+        const tigerCell = { x: 4, y: 4 };
+        const enemyCell = { x: 5, y: 4 };
+        const state = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    id: "tiger",
+                    name: "White Tiger",
+                    creatureId: CreatureVals.WHITE_TIGER,
+                    team: TeamVals.LOWER,
+                    placed: true,
+                    baseCell: tigerCell,
+                    cells: [tigerCell],
+                    // The server ships its engine's own applied_debuffs verbatim, so a White Tiger with an
+                    // enemy inside its Disguise Aura arrives already carrying Visible.
+                    debuffs: ["Visible"],
+                    debuffLaps: [1],
+                    debuffDescriptions: ["This unit is visible."],
+                }),
+                unitState({
+                    id: "enemy",
+                    team: TeamVals.UPPER,
+                    placed: true,
+                    baseCell: enemyCell,
+                    cells: [enemyCell],
+                }),
+            ]),
+            phase: 2,
+            fightStarted: true,
+            currentLap: 1,
+        });
+
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const grid = new Grid(gridSettings, GridVals.NORMAL);
+        const unitsHolder = new UnitsHolder(grid);
+        const place = (id: string, cell: { x: number; y: number }): RenderableUnit => {
+            const properties = state.units.find((unit) => unit.properties.id === id)!.properties;
+            const effectFactory = new EffectFactory();
+            const unit = RenderableUnit.fromBase(
+                Unit.createUnit(
+                    structuredClone(properties),
+                    gridSettings,
+                    properties.team,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effectFactory),
+                    effectFactory,
+                    false,
+                ),
+                undefined as never,
+            );
+            const position = GridMath.getPositionForCell(
+                cell,
+                gridSettings.getMinX(),
+                gridSettings.getStep(),
+                gridSettings.getHalfStep(),
+            );
+            unit.setPosition(position.x, position.y);
+            grid.occupyCell(cell, unit.getId(), unit.getTeam(), unit.getAttackRange(), false, false);
+            unitsHolder.addUnit(unit);
+            return unit;
+        };
+        const tiger = place("tiger", tigerCell);
+        place("enemy", enemyCell);
+
+        expect(tiger.getUnitProperties().applied_debuffs).toEqual(["Visible"]);
+
+        unitsHolder.refreshAuraEffectsForAllUnits();
+        unitsHolder.refreshStackPowerForAllUnits();
+
+        // Reproduces the report: ranked fills the DISPLAY arrays but leaves this.debuffs empty, so common's
+        // "if (!u.hasDebuffActive('Visible'))" guard sees nothing and appends a SECOND entry — the sidebar
+        // then lists Visible twice. If this expectation ever drops to 1, common stopped diverging and the
+        // collapse below is redundant rather than wrong.
+        expect(tiger.getUnitProperties().applied_debuffs.filter((name) => name === "Visible")).toHaveLength(2);
+
+        expect(tiger.dropDuplicateAppliedDisplayEntries()).toBe(true);
+        const properties = tiger.getUnitProperties();
+        expect(properties.applied_debuffs.filter((name) => name === "Visible")).toHaveLength(1);
+        expect(properties.applied_debuffs_laps).toHaveLength(properties.applied_debuffs.length);
+        expect(properties.applied_debuffs_descriptions).toHaveLength(properties.applied_debuffs.length);
+        expect(properties.applied_debuffs_powers).toHaveLength(properties.applied_debuffs.length);
+        // The kept entry is the snapshot's, so the HUD keeps the server's laps/description.
+        expect(properties.applied_debuffs_descriptions[properties.applied_debuffs.indexOf("Visible")]).toBe(
+            "This unit is visible.",
+        );
+        expect(tiger.hasDebuffActive("Visible")).toBe(true);
+    });
+
     test("suppresses only the redundant Angelic Host beneficiary marker on its active provider", () => {
         expect(shouldDisplayAppliedBuff("Angelic Host", ["Angelic Host"])).toBe(false);
         expect(shouldDisplayAppliedBuff("Angelic Host", [])).toBe(true);

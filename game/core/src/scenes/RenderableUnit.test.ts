@@ -10,6 +10,7 @@ import {
     GridSettings,
     HoCConfig,
     HoCLib,
+    Spell,
     TeamVals,
     Unit,
     UnitVals,
@@ -17,7 +18,7 @@ import {
     type TeamType,
 } from "@heroesofcrypto/common";
 
-import { RenderableUnit } from "./RenderableUnit";
+import { dropDuplicateAppliedEntries, RenderableUnit } from "./RenderableUnit";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -113,6 +114,63 @@ describe("RenderableUnit runtime spell synchronization", () => {
         queen.renderSpells(1);
         expect(spellBookLayer.children.length).toBeGreaterThan(0);
         expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
+    });
+});
+
+describe("RenderableUnit applied buff/debuff display de-duplication", () => {
+    test("collapses a repeated name onto its first entry", () => {
+        const names = ["Visible", "Hidden", "Visible"];
+        const laps = [3, 2, 1];
+        const descriptions = ["from the snapshot", "hidden", "re-applied locally"];
+        const powers = [0, 0, 7];
+
+        expect(dropDuplicateAppliedEntries(names, laps, descriptions, powers)).toBe(true);
+        expect(names).toEqual(["Visible", "Hidden"]);
+        expect(laps).toEqual([3, 2]);
+        expect(descriptions).toEqual(["from the snapshot", "hidden"]);
+        expect(powers).toEqual([0, 0]);
+    });
+
+    test("leaves a list without repeats untouched", () => {
+        const names = ["Visible", "Hidden"];
+        expect(dropDuplicateAppliedEntries(names, [1, 1], ["a", "b"], [0, 0])).toBe(false);
+        expect(names).toEqual(["Visible", "Hidden"]);
+    });
+
+    test("refuses to splice arrays that are already desynced", () => {
+        const names = ["Visible", "Visible"];
+        expect(dropDuplicateAppliedEntries(names, [1], ["a", "b"], [0, 0])).toBe(false);
+        expect(names).toHaveLength(2);
+    });
+
+    test("leaves a single Visible on a unit that carries it twice (the ranked double-render)", () => {
+        const tiger = createRenderableUnit(TeamVals.UPPER, "Nature", "White Tiger", "white_tiger_512");
+        const visible = new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Visible"), amount: 1 });
+        // Ranked shape: the snapshot seeds one display entry, common's guarded re-apply appends another.
+        tiger.applyDebuff(visible);
+        tiger.applyDebuff(visible);
+        expect(tiger.getUnitProperties().applied_debuffs).toEqual(["Visible", "Visible"]);
+
+        expect(tiger.dropDuplicateAppliedDisplayEntries()).toBe(true);
+
+        const properties = tiger.getUnitProperties();
+        expect(properties.applied_debuffs).toEqual(["Visible"]);
+        expect(properties.applied_debuffs_laps).toHaveLength(1);
+        expect(properties.applied_debuffs_descriptions).toHaveLength(1);
+        expect(properties.applied_debuffs_powers).toHaveLength(1);
+        expect(tiger.dropDuplicateAppliedDisplayEntries()).toBe(false);
+    });
+
+    test("collapses a duplicated buff the same way", () => {
+        const tiger = createRenderableUnit(TeamVals.UPPER, "Nature", "White Tiger", "white_tiger_512");
+        const hidden = new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Hidden"), amount: 1 });
+        tiger.applyBuff(hidden);
+        tiger.applyBuff(hidden);
+
+        expect(tiger.dropDuplicateAppliedDisplayEntries()).toBe(true);
+        expect(tiger.getUnitProperties().applied_buffs).toEqual(["Hidden"]);
+        expect(tiger.getUnitProperties().applied_buffs_laps).toHaveLength(1);
+        expect(tiger.hasBuffActive("Hidden")).toBe(true);
     });
 });
 
