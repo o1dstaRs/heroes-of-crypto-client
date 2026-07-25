@@ -164,6 +164,34 @@ function dodgeEaseOutBack(t: number): number {
     return 1 + c3 * u * u * u + c1 * u * u;
 }
 /**
+ * Drop every repeated name from a display list and its three parallel arrays, keeping the FIRST entry.
+ * Returns true when something was removed. Exported for tests.
+ */
+export const dropDuplicateAppliedEntries = (
+    names: string[],
+    laps: number[],
+    descriptions: string[],
+    powers: number[],
+): boolean => {
+    // Same precondition Unit.deleteBuff/deleteDebuff use: only touch entries while all four arrays are
+    // parallel — splicing desynced arrays would corrupt the very alignment this is meant to preserve.
+    if (names.length !== laps.length || names.length !== descriptions.length || names.length !== powers.length) {
+        return false;
+    }
+    let removed = false;
+    for (let i = names.length - 1; i >= 0; i--) {
+        if (names.indexOf(names[i]) === i) {
+            continue;
+        }
+        names.splice(i, 1);
+        laps.splice(i, 1);
+        descriptions.splice(i, 1);
+        powers.splice(i, 1);
+        removed = true;
+    }
+    return removed;
+};
+/**
  * Unit + Pixi visualization (sprite, stack badge, spawn animation).
  * We never `new RenderableUnit` directly; instead we "upgrade"
  * an existing Unit via `RenderableUnit.fromBase`.
@@ -1841,6 +1869,49 @@ export class RenderableUnit extends Unit {
      */
     public hasStatusEffect(name: string): boolean {
         return this.hasEffectActive(name) || (this.unitProperties.applied_debuffs ?? []).includes(name);
+    }
+    /**
+     * Ranked-only: the client never runs applyDamage, so the engine's `waterShieldSpent` flag stays false
+     * and the client's OWN seeding pass (unitsHolder.trySeedWaterShield) re-grants a Water Shield the server
+     * already consumed — in the SAME synchronous snapshot-apply that just pruned it, so the ring never
+     * blinks off and the break dissolve never fires. Deriving "spent" from the authoritative snapshot (the
+     * unit has the innate Water Shield ability but the snapshot no longer lists the buff) and setting the
+     * flag here makes trySeedWaterShield short-circuit, so the buff stays pruned. `waterShieldSpent` is
+     * protected on the common Unit, accessible here since RenderableUnit extends it.
+     */
+    public markWaterShieldSpent(): void {
+        this.waterShieldSpent = true;
+    }
+    /**
+     * Ranked-only repair: collapse repeated names in the DISPLAY arrays (applied_buffs/applied_debuffs plus
+     * their parallel laps/description/power arrays) so the sidebar lists each buff once.
+     *
+     * In ranked the snapshot seeds those display arrays (getUnitPropertiesFromAuthoritativeState) while the
+     * OBJECT arrays — this.buffs/this.debuffs — are deliberately left empty, because stats already arrive
+     * authoritative and rebuilding the objects would make adjustBaseStats double-apply them. Common's own
+     * recompute then guards on the OBJECT arrays ("if (!u.hasDebuffActive('Visible')) u.applyDebuff(…)" in
+     * refreshStackPowerForAllUnits, same shape for the Hidden buff and for Made of Fire/Water), sees nothing,
+     * and appends a SECOND display entry on top of the seeded one — which is how White Tiger's Visible/Hidden
+     * came to render twice. The engine treats buffs/debuffs as unique by name (getBuff/hasBuffActive match on
+     * name, deleteBuff removes every entry with that name), so collapsing to the first occurrence loses
+     * nothing — and the first occurrence is the snapshot's, i.e. authoritative laps + server-filled text.
+     * `unitProperties` is protected on the common Unit, accessible here since RenderableUnit extends it.
+     */
+    public dropDuplicateAppliedDisplayEntries(): boolean {
+        const properties = this.unitProperties;
+        const buffsCollapsed = dropDuplicateAppliedEntries(
+            properties.applied_buffs,
+            properties.applied_buffs_laps,
+            properties.applied_buffs_descriptions,
+            properties.applied_buffs_powers,
+        );
+        const debuffsCollapsed = dropDuplicateAppliedEntries(
+            properties.applied_debuffs,
+            properties.applied_debuffs_laps,
+            properties.applied_debuffs_descriptions,
+            properties.applied_debuffs_powers,
+        );
+        return buffsCollapsed || debuffsCollapsed;
     }
     /**
      * Capture what's needed to spawn a "broken mirror" death shatter: the current sprite texture,

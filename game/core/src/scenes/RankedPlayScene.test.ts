@@ -25,6 +25,7 @@ import {
     rankedUnitAliveHealth,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
+    multiHitSceneLogLines,
     restoreRankedStepsMoraleMultiplier,
     shouldPublishRankedFinish,
 } from "./RankedPlayScene";
@@ -730,5 +731,60 @@ describe("ranked placement scene state", () => {
         expect(rankedUnitAliveHealth(healthy)).toBe(100);
         expect(rankedUnitStartHealth(wounded) - rankedUnitAliveHealth(wounded)).toBe(6);
         expect(rankedUnitStartHealth(losses) - rankedUnitAliveHealth(losses)).toBe(27);
+    });
+});
+
+describe("ranked multi-hit scene log", () => {
+    // Berserker's Double Punch: the authoritative journal carries ONE unit_attacked event whose
+    // damage.amount (11) is the SUM of both strikes, with the per-strike breakdown in hits[]. Ranked
+    // must report the two strikes it animated, not a single 11-damage hit.
+    const doublePunch = {
+        amount: 11,
+        hits: [
+            { amount: 7, unitsDied: 0 },
+            { amount: 4, unitsDied: 1 },
+        ],
+    } as never;
+
+    test("logs one line per landed strike, with that strike's own damage and kills", () => {
+        expect(multiHitSceneLogLines(doublePunch, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
+            "🟢 Berserker ⚔️ Peasant (7)",
+            "🟢 Berserker ⚔️ Peasant (4) 💀 1",
+        ]);
+    });
+
+    test("omits the team flag when the attacker has none", () => {
+        expect(multiHitSceneLogLines(doublePunch, "Berserker", "Peasant", "⚔️", "")).toEqual([
+            "Berserker ⚔️ Peasant (7)",
+            "Berserker ⚔️ Peasant (4) 💀 1",
+        ]);
+    });
+
+    test("leaves single-hit, dodged and splash attacks to the existing lines", () => {
+        const singleHit = { amount: 7, hits: [{ amount: 7, unitsDied: 0 }] } as never;
+        const dodged = { ...(doublePunch as object), missed: true } as never;
+        const splashed = {
+            ...(doublePunch as object),
+            splash: [{ unitId: "a", amount: 3, unitsDied: 0 }],
+        } as never;
+
+        expect(multiHitSceneLogLines(singleHit, "Peasant", "Orc", "⚔️", "🟢")).toEqual([]);
+        expect(multiHitSceneLogLines(dodged, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([]);
+        expect(multiHitSceneLogLines(splashed, "Cyclops", "Peasant", "🏹💥", "🟢")).toEqual([]);
+        expect(multiHitSceneLogLines(undefined, "Peasant", "Orc", "⚔️", "🟢")).toEqual([]);
+    });
+
+    test("skips a strike that neither damaged nor killed (a whiffed second punch)", () => {
+        const secondWhiffed = {
+            amount: 7,
+            hits: [
+                { amount: 7, unitsDied: 0 },
+                { amount: 0, unitsDied: 0 },
+            ],
+        } as never;
+
+        expect(multiHitSceneLogLines(secondWhiffed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
+            "🟢 Berserker ⚔️ Peasant (7)",
+        ]);
     });
 });

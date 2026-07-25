@@ -330,7 +330,11 @@ export function AuthProvider({ children }: Props) {
             payload: {
                 user: {
                     ...state.user,
+                    // ResponseMe/ResponseEnqueue toObject() use the snake_case field, so clearing only
+                    // `matchMakingQueueAddedTime` left a stale enqueue timestamp behind (same class of
+                    // bug as `isActive` vs `is_active`). Zero both spellings.
                     matchMakingQueueAddedTime: 0,
+                    match_making_queue_added_time: 0,
                 } as AuthUserType,
             },
         });

@@ -193,6 +193,14 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     for (const buffName of unit.getBuffs().map((buff) => buff.getName())) {
         if (!authoritativeBuffs.has(buffName)) {
             unit.deleteBuff(buffName);
+            // A consumed Water Shield would be re-granted by the seeding pass (trySeedWaterShield) in the
+            // SAME apply (refreshStackPowerForAllUnits runs right after this reconcile), because the client
+            // never set waterShieldSpent. Mark it spent so the seeding skips it — else the ring never clears
+            // and the break dissolve never fires. Keyed on the delete, so it only fires for a buff that WAS
+            // present and the authoritative snapshot dropped (i.e. genuinely consumed, never pre-fight).
+            if (buffName === "Water Shield") {
+                unit.markWaterShieldSpent();
+            }
             changed = true;
         }
     }
@@ -419,6 +427,38 @@ interface RankedFightRosterEntry {
     smallTextureName: string;
     start: number;
 }
+
+/**
+ * One scene-log line per landed strike of a MULTI-HIT attack — Double Punch / Double Shot and the
+ * Crafted variants the Blacksmith grants. The engine pushes one `hits[]` entry per strike and folds
+ * their sum into `damage.amount`, so the caller suppresses the single aggregate line and each strike
+ * is reported here with its OWN damage and kills.
+ *
+ * Returns [] for anything that must not be split this way: a single-hit attack, a fully dodged strike
+ * (nothing landed), and a splash/AOE shot (splashLogLines already writes a line per splashed unit).
+ */
+export const multiHitSceneLogLines = (
+    damage: IVisibleDamage | undefined,
+    attackerName: string,
+    targetName: string,
+    icon: string,
+    flag: string,
+): string[] => {
+    const hits = damage?.hits;
+    if (!damage || !hits || hits.length < 2 || damage.missed || damage.splash?.length) {
+        return [];
+    }
+    const lines: string[] = [];
+    for (const hit of hits) {
+        if (hit.amount <= 0 && hit.unitsDied <= 0) {
+            continue;
+        }
+        const kills = hit.unitsDied > 0 ? ` 💀 ${hit.unitsDied}` : "";
+        const text = `${attackerName} ${icon} ${targetName} (${hit.amount})${kills}`;
+        lines.push(flag ? `${flag} ${text}` : text);
+    }
+    return lines;
+};
 
 export const rankedUnitStartAmount = (unit: SandboxSceneUnitState): number =>
     Math.max(0, Math.floor(unit.properties.amount_alive)) + Math.max(0, Math.floor(unit.properties.amount_died));
@@ -733,18 +773,15 @@ export class RankedPlayScene extends Sandbox {
             }
             this.unitDebuffs.set(unitState.id, currentDebuffs);
             this.unitBuffs.set(unitState.id, currentBuffs);
-            if (diff.flash === "debuff") {
-                unit.flashDebuffDarken();
-            } else if (diff.flash === "buff") {
-                unit.flashBuffApplied();
-            }
-            let stackIndex = 0;
-            for (const name of diff.newDebuffs) {
-                this.popEffectOnUnit(unit, name, stackIndex++, "debuff");
-            }
-            for (const name of diff.newBuffs) {
-                this.popEffectOnUnit(unit, name, stackIndex++, "buff");
-            }
+            // Diffed eagerly (above) so a mid-animation snapshot can't drop the effect, but ANIMATED only
+            // once the strike that applied it connects: the server resolves an action — and this snapshot
+            // lands — while the replayed arrow is still flying or the attacker is still walking in.
+            this.queueOrPlayEffectPops({
+                unit,
+                flash: diff.flash,
+                debuffs: [...diff.newDebuffs],
+                buffs: [...diff.newBuffs],
+            });
         }
         for (const id of [...this.unitDebuffs.keys()]) {
             if (!seen.has(id)) {
@@ -1023,6 +1060,30 @@ export class RankedPlayScene extends Sandbox {
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
 
         this.hydrateSceneState(state);
+        // hydrateSceneState re-runs refreshStackPowerForAllUnits -> trySeedWaterShield, which RE-GRANTS a
+        // Water Shield onto the freshly-built (waterShieldSpent=false) units even when the server already
+        // consumed it. The authoritative `state` is the truth: a unit with the innate Water Shield ability
+        // whose authoritative buffs no longer list it has spent it. Prune the re-seeded buff + mark it spent
+        // so it stays gone (else the ring re-shows on every full rebuild). Only during a started fight —
+        // pre-fight the shield simply isn't seeded yet.
+        if (snapshot.fightStarted) {
+            const authoritativelyShielded = new Set(
+                state.units
+                    .filter((u) => (u.properties.applied_buffs ?? []).includes("Water Shield"))
+                    .map((u) => u.properties.id),
+            );
+            for (const unit of this.unitsHolder.getAllUnits().values()) {
+                const ru = unit as RenderableUnit;
+                if (
+                    ru.hasAbilityActive("Water Shield") &&
+                    ru.hasBuffActive("Water Shield") &&
+                    !authoritativelyShielded.has(ru.getId())
+                ) {
+                    ru.deleteBuff("Water Shield");
+                    ru.markWaterShieldSpent();
+                }
+            }
+        }
         // hydrateSceneState resets FightStateManager; reapply the authoritative scalar it just cleared.
         if (restoreRankedStepsMoraleMultiplier(snapshot.stepsMoraleMultiplier)) {
             this.refreshUnits();
@@ -1620,6 +1681,11 @@ export class RankedPlayScene extends Sandbox {
                 for (const splashLine of this.splashLogLines(event, unitNames)) {
                     lines.push(splashLine);
                 }
+                // Multi-hit attacks (Double Punch / Double Shot) log one line per strike — the single
+                // aggregate line is suppressed above, since damage.amount is the sum of both hits.
+                for (const hitLine of this.multiHitLogLines(event, unitNames)) {
+                    lines.push(hitLine);
+                }
                 // Secondary-damage abilities (Fire Shield / Chain Lightning / Petrifying Gaze / Magic
                 // Mirror) ride on the attack's damage payload — each gets its own follow-up log line.
                 for (const secondaryLine of this.secondaryLogLines(event, unitNames)) {
@@ -1659,6 +1725,29 @@ export class RankedPlayScene extends Sandbox {
             lines.push(flag ? `${flag} ${text}` : text);
         }
         return lines;
+    }
+    /**
+     * One scene-log line per landed strike of a MULTI-HIT attack — Double Punch / Double Shot and the
+     * Crafted variants the Blacksmith grants. The engine pushes one damage.hits[] entry per strike and
+     * folds their sum into damage.amount, so eventToSceneLogLine suppresses the aggregate line and each
+     * strike is reported here with its OWN damage and kills.
+     *
+     * This is the ranked counterpart of two lines the sandbox gets for free: there the engine writes the
+     * second strike itself (processDoublePunchAbility / processDoubleShotAbility call sceneLog.updateLog),
+     * but ranked suppresses that text channel and rebuilds the log from the authoritative journal, whose
+     * single unit_attacked event carries the whole combo. Without this the second punch was silent.
+     */
+    private multiHitLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
+        if (event.type !== "unit_attacked") {
+            return [];
+        }
+        return multiHitSceneLogLines(
+            event.damage,
+            unitNames.get(event.attackerId) ?? "Unit",
+            unitNames.get(event.targetId) ?? "Unit",
+            this.attackIcon(event.attackType, event.damage),
+            this.logTeamFlag(event.attackerId),
+        );
     }
     /** Log lines for secondary-damage abilities carried on an attack's damage payload. */
     private secondaryLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
@@ -1866,6 +1955,13 @@ export class RankedPlayScene extends Sandbox {
                 // one line per affected unit via splashLogLines() and suppress the misleading single
                 // "(0)" primary line here.
                 if (event.damage.splash?.length) {
+                    return undefined;
+                }
+                // Multi-hit attacks (Double Punch / Double Shot and their Crafted variants) fold BOTH
+                // strikes into damage.amount, so one line would report a single big hit for what the
+                // player watched land twice. multiHitLogLines() emits one line per strike instead —
+                // suppress the aggregate here, exactly as the splash branch above does.
+                if ((event.damage.hits?.length ?? 0) > 1) {
                     return undefined;
                 }
                 return `${nameOf(event.attackerId)} ${this.attackIcon(event.attackType, event.damage)} ${nameOf(event.targetId)} (${event.damage.amount})${this.killSuffix(event.damage)}`;
@@ -2701,6 +2797,13 @@ export class RankedPlayScene extends Sandbox {
                     unit.deleteDebuff("Range Null Field Aura");
                 }
             }
+            // The snapshot seeds the display arrays while this.buffs/this.debuffs stay empty (see
+            // getUnitPropertiesFromAuthoritativeState), so common's guarded re-applies — and the Hidden
+            // apply just above — append a SECOND copy of a buff/debuff the snapshot already listed, and
+            // the sidebar renders it twice (reported for White Tiger's Visible/Hidden). Collapse them
+            // here: this runs at the tail of every snapshot apply, after hydrate/refreshStackPower have
+            // had their say on all three snapshot paths, and again before each AI decision.
+            (unit as RenderableUnit).dropDuplicateAppliedDisplayEntries();
         }
     }
     protected override ensureAuthoritativeAuraState(): void {

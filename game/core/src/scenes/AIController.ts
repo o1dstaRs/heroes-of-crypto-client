@@ -2,6 +2,7 @@ import {
     AI,
     AttackVals,
     DEFAULT_AI_VERSION,
+    aiVersionForUnit,
     getAIStrategy,
     Grid,
     GridMath,
@@ -507,7 +508,13 @@ export class AIController {
         if (USE_STRATEGY) {
             let strategyActions: GameAction[] = [];
             try {
-                strategyActions = getAIStrategy(DEFAULT_AI_VERSION).decideTurn(currentUnit, {
+                // A mindless unit ("AI Driven": Berserker, Frenzied Boar) is pinned to v0.1 — see common's
+                // ai/unit_ai_overrides. This is the single client decision point, so it covers every way
+                // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
+                // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
+                // Keeps the client in step with battle_engine, which resolves the same rule.
+                const unitAiVersion = aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
+                strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, {
                     grid: this.context.getGrid(),
                     matrix: this.context.getGridMatrix(),
                     unitsHolder: this.context.getUnitsHolder(),

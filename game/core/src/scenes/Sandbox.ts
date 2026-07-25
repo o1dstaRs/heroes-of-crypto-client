@@ -60,7 +60,7 @@ import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
-import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects, type EffectFlash } from "./effect_pops";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
@@ -91,6 +91,17 @@ interface IUnitFightSnapshot {
     properties: UnitProperties;
     team: TeamType;
     position: HoCMath.XY;
+}
+
+/**
+ * One unit's freshly-applied effects, captured by the diff but not yet animated. Kept as a per-unit
+ * batch (rather than one entry per effect) so the pops keep their stacking order when they finally play.
+ */
+interface IPendingEffectPop {
+    unit: RenderableUnit;
+    flash: EffectFlash;
+    debuffs: string[];
+    buffs: string[];
 }
 
 /** Full board snapshot taken at fight start (pre-supply) for "Rematch". */
@@ -216,6 +227,10 @@ export class Sandbox extends PixiScene {
     // sight so fight start doesn't burst every existing effect.
     private readonly shownDebuffsByUnit = new Map<string, Set<string>>();
     private readonly shownBuffsByUnit = new Map<string, Set<string>>();
+    // Buff/debuff pops whose strike hasn't connected yet — see queueOrPlayEffectPops. Held while an
+    // attack animation is in flight (projectile still travelling, melee still approaching) and released
+    // at impact by flushEffectPops, so an effect never pops before the blow that applied it lands.
+    private pendingEffectPops: IPendingEffectPop[] = [];
     private readonly abilityFactory: AbilityFactory;
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
@@ -1533,6 +1548,14 @@ export class Sandbox extends PixiScene {
             this.hoverManager.setSilhouetteLocked(false);
             this.hoverManager.clearHoverSilhouette(true);
         }
+
+        // Safety drain for held buff/debuff pops (queueOrPlayEffectPops). The impact hooks cover every
+        // attack, but an effect can also be applied mid-move or mid-spell — and a replay can be cut short
+        // by the hang watchdog. Releasing them the instant nothing is in flight means a queued pop is at
+        // worst slightly late, never swallowed (the failure mode the eager diff exists to prevent).
+        if (this.pendingEffectPops.length && !this.isStrikeInFlight()) {
+            this.flushEffectPops();
+        }
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
@@ -2556,7 +2579,12 @@ export class Sandbox extends PixiScene {
      *   3. SNAPSHOT-DRIVEN effects (debuff/buff icon pops, death shatter, board-wide waves) are NOT part
      *      of the attack replay — wire them into RankedPlayScene's snapshot path (processDebuffPops /
      *      shatterNewlyDeadUnits / renderNewlyAppliedArmageddon), diffed BEFORE the board-rebuild guards
-     *      so a mid-animation snapshot can't drop them.
+     *      so a mid-animation snapshot can't drop them. DIFF EARLY, ANIMATE AT IMPACT: the snapshot lands
+     *      when the SERVER resolves the action, which is well before the replayed projectile arrives or
+     *      the attacker finishes walking in, so animating on the diff pops the icon ahead of the blow.
+     *      Route the animation through queueOrPlayEffectPops — it holds the pop while a strike is in
+     *      flight and flushEffectPops releases it here at impact (with a per-frame drain as the
+     *      backstop, so holding can never swallow one).
      *
      * Retaliation note: playReplayRetaliation currently renders only the responder's return shot +
      * damage, not its ability sweeps — mirror any of these helpers there if a counter needs the full VFX.
@@ -2867,6 +2895,18 @@ export class Sandbox extends PixiScene {
         // animation (showAttackMissedVfx) is the reaction, so no knockback on top of it.
         if (attackEvent.attackType !== "range" && !attackEvent.damage.missed) {
             this.applyReplayHitKnockback(target, attacker);
+            // Double Punch / Crafted Double Punch land a SECOND melee strike inside the SAME action, so
+            // the engine records two damage.hits[] entries and showReplayAttackDamage staggers a number
+            // for each. The single swing above covered only the first, so the second punch drew its
+            // number with no strike behind it — visible to BOTH sides in ranked, where even your own
+            // melee is deferred to this authoritative replay (shouldDeferActionToAuthoritativeReplay).
+            // Lunge once per extra hit on the same ATTACK_HIT_STAGGER_MS cadence as the numbers, which
+            // is exactly what the live path does (executeAttackSequence's per-hit applyRecoil loop).
+            // The ranged counterpart already exists as the double-shot second projectile above.
+            const landedHits = attackEvent.damage.hits?.length ?? 0;
+            for (let hitIndex = 1; hitIndex < landedHits; hitIndex++) {
+                setTimeout(() => this.applyReplayLunge(attacker, target), hitIndex * ATTACK_HIT_STAGGER_MS);
+            }
         }
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
@@ -3203,6 +3243,11 @@ export class Sandbox extends PixiScene {
         // authoritative damage.deepWounds so it fires per-application (not once via the effect diff) and
         // matches between the live sandbox and the ranked replay.
         this.spawnDeepWoundsClaws(damage.deepWounds);
+
+        // IMPACT. Release any buff/debuff pop this strike applied — the diff ran when the snapshot
+        // arrived (before the projectile/approach finished), so the icons wait here to land with the
+        // damage numbers rather than ahead of the blow.
+        this.flushEffectPops();
 
         // AOE attacks (Cyclops' Large Caliber, Gargantuan's Area Throw) carry a per-affected-unit
         // breakdown. Draw a floating number on EVERY splashed unit at its own position — including
@@ -5858,25 +5903,16 @@ export class Sandbox extends PixiScene {
             if (renderable.isDead()) {
                 continue;
             }
-            if (diff.flash === "debuff") {
-                renderable.flashDebuffDarken();
-            } else if (diff.flash === "buff") {
-                renderable.flashBuffApplied();
-            }
-            let stackIndex = 0;
-            for (const name of diff.newDebuffs) {
-                this.popEffectOnUnit(renderable, name, stackIndex++, "debuff");
-            }
-            for (const name of diff.newBuffs) {
+            this.queueOrPlayEffectPops({
+                unit: renderable,
+                flash: diff.flash,
+                debuffs: [...diff.newDebuffs],
                 // Armor Rune / Weapon Rune play a dedicated attempt->resolve VFX (playEnchantResult) in the
                 // local cast path, so skip the generic buff-applied pop here — otherwise the rune bubbles up
                 // a second time on a successful enchant. Ranked has no playEnchantResult and pops via its own
                 // path, so this sandbox-only reconcile skip doesn't touch it.
-                if (name === "Armor Rune" || name === "Weapon Rune") {
-                    continue;
-                }
-                this.popEffectOnUnit(renderable, name, stackIndex++, "buff");
-            }
+                buffs: [...diff.newBuffs].filter((name) => name !== "Armor Rune" && name !== "Weapon Rune"),
+            });
         }
         for (const id of [...this.shownDebuffsByUnit.keys()]) {
             if (!seen.has(id)) {
@@ -5906,6 +5942,62 @@ export class Sandbox extends PixiScene {
         }
     }
     /** Pop a freshly-applied effect's spell icon + name over a unit (shared by sandbox + ranked). */
+    /**
+     * True while a strike is still travelling — a projectile in flight, a melee approach/lunge, or any
+     * authoritative replay record mid-playback. Effects applied by that strike are ALREADY in the data
+     * (ranked diffs the snapshot the moment the server resolves the action, well before the replayed
+     * arrow lands), so popping them here would show the debuff before the blow that caused it.
+     */
+    protected isStrikeInFlight(): boolean {
+        return this.replayPlaybackActive || this.isPlayingActionAnimation();
+    }
+    /**
+     * Animate a batch of freshly-applied effects, or hold it until the strike connects. The diff itself
+     * always runs eagerly (see the ABILITY VFX CONTRACT — a mid-animation snapshot must never DROP an
+     * effect); only the animation waits. flushEffectPops releases the queue at impact, and
+     * stepMoveAnimation drains it unconditionally once nothing is in flight, so a queued pop can never be
+     * swallowed even if an attack ends without reaching its impact hook.
+     */
+    protected queueOrPlayEffectPops(entry: IPendingEffectPop): void {
+        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
+            return;
+        }
+        if (this.isStrikeInFlight()) {
+            this.pendingEffectPops.push(entry);
+            return;
+        }
+        this.playEffectPops(entry);
+    }
+    /** Release every held pop. Called at impact (next to the damage numbers) and as a safety drain. */
+    protected flushEffectPops(): void {
+        if (!this.pendingEffectPops.length) {
+            return;
+        }
+        const queued = this.pendingEffectPops;
+        this.pendingEffectPops = [];
+        for (const entry of queued) {
+            this.playEffectPops(entry);
+        }
+    }
+    private playEffectPops(entry: IPendingEffectPop): void {
+        // Re-check liveness at play time, not queue time: the strike that applied the effect may have
+        // killed the unit while the pop was held, and a dead unit's sprite is torn down.
+        if (entry.unit.isDead()) {
+            return;
+        }
+        if (entry.flash === "debuff") {
+            entry.unit.flashDebuffDarken();
+        } else if (entry.flash === "buff") {
+            entry.unit.flashBuffApplied();
+        }
+        let stackIndex = 0;
+        for (const name of entry.debuffs) {
+            this.popEffectOnUnit(entry.unit, name, stackIndex++, "debuff");
+        }
+        for (const name of entry.buffs) {
+            this.popEffectOnUnit(entry.unit, name, stackIndex++, "buff");
+        }
+    }
     protected popEffectOnUnit(
         unit: RenderableUnit,
         effectName: string,
@@ -6837,6 +6929,8 @@ export class Sandbox extends PixiScene {
             // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
             // wounder shows two). Shared helper — the ranked replay fires the same one in showReplayAttackDamage.
             this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds);
+            // IMPACT (live melee) — same contract as the replay path: pops land with the strike.
+            this.flushEffectPops();
         }
 
         // Predatory Assimilation is event-gated: draw the victim -> Queen transfer only when the engine

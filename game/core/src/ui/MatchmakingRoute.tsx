@@ -34,6 +34,17 @@ const STORAGE_KEY = "accessToken";
 const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.events);
 const rankedBackgroundUrl = new URL("../../images/background_dark.webp", import.meta.url).toString();
 
+/** m:ss for a queue wait (h:mm:ss past the hour, which realistically never happens). */
+const formatQueueDuration = (totalSeconds: number): string => {
+    const seconds = Math.max(0, Math.floor(totalSeconds));
+    const minutes = Math.floor(seconds / 60);
+    const paddedSeconds = String(seconds % 60).padStart(2, "0");
+    if (minutes < 60) {
+        return `${minutes}:${paddedSeconds}`;
+    }
+    return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${paddedSeconds}`;
+};
+
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -67,6 +78,9 @@ export const MatchmakingRoute: React.FC = () => {
         };
     }, []);
     const [pendingGameId, setPendingGameId] = useState("");
+    // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
+    // the server's own enqueue timestamp is still in flight.
+    const [searchStartedAt, setSearchStartedAt] = useState(0);
     const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
@@ -79,6 +93,18 @@ export const MatchmakingRoute: React.FC = () => {
     const cooldownTill = Number(user?.match_making_cooldown_till ?? 0) || 0;
     const penaltySeconds = cooldownTill > nowMs ? Math.ceil((cooldownTill - nowMs) / 1000) : 0;
     const penalized = penaltySeconds > 0;
+
+    // How long we have been looking for an opponent. The server's match_making_queue_added_time is the
+    // authority — it survives a page reload and a re-queue keeps the original enqueue timestamp — so take
+    // whichever start is earlier, with the local one covering the gap before POST /queue answers.
+    const isSearching = state === "searching";
+    const queueAddedAtMs = Number(user?.match_making_queue_added_time ?? 0) || 0;
+    const searchAnchorMs =
+        searchStartedAt > 0 && queueAddedAtMs > 0
+            ? Math.min(searchStartedAt, queueAddedAtMs)
+            : searchStartedAt || queueAddedAtMs;
+    const queueElapsedLabel =
+        isSearching && searchAnchorMs > 0 ? formatQueueDuration((nowMs - searchAnchorMs) / 1000) : "";
 
     // A logged-in but email-unverified account (is_active === false) cannot enter matchmaking:
     // the server rejects POST /queue with "Activate your account to join the matchmaking queue".
@@ -158,21 +184,27 @@ export const MatchmakingRoute: React.FC = () => {
         void me().catch(() => undefined);
     }, [me]);
 
-    // Tick the countdown while a penalty is active, then stop once it elapses.
+    // Tick while the queue timer runs or a penalty is active; the penalty tick stops once it elapses.
     useEffect(() => {
-        if (cooldownTill <= Date.now()) {
+        if (!isSearching && cooldownTill <= Date.now()) {
             return undefined;
         }
         setNowMs(Date.now());
         const id = window.setInterval(() => {
             const t = Date.now();
             setNowMs(t);
-            if (t >= cooldownTill) {
+            if (!isSearching && t >= cooldownTill) {
                 window.clearInterval(id);
             }
         }, 500);
         return () => window.clearInterval(id);
-    }, [cooldownTill]);
+    }, [cooldownTill, isSearching]);
+
+    // Stamp the local queue-entry time on every path into the searching state (the Find button, and a
+    // stream update that puts us back in the queue), and drop it once the search is over.
+    useEffect(() => {
+        setSearchStartedAt((previous) => (isSearching ? previous || Date.now() : 0));
+    }, [isSearching]);
 
     useEffect(() => {
         let cancelled = false;
@@ -776,6 +808,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 </>
                             )}
                             <Box
+                                title={queueElapsedLabel ? `Searching for ${queueElapsedLabel}` : undefined}
                                 sx={{
                                     position: "relative",
                                     zIndex: 1,
@@ -807,6 +840,27 @@ export const MatchmakingRoute: React.FC = () => {
                                     <CheckCircleRoundedIcon />
                                 ) : state === "starting-ai" ? (
                                     <SmartToyRoundedIcon />
+                                ) : queueElapsedLabel ? (
+                                    // Ticking text is hidden from the aria-live region above so screen
+                                    // readers get the status line instead of a reading every second.
+                                    <Stack spacing={0} alignItems="center" aria-hidden="true">
+                                        <Typography
+                                            level="h3"
+                                            sx={{
+                                                color: presentation.accent,
+                                                lineHeight: 0.95,
+                                                fontVariantNumeric: "tabular-nums",
+                                            }}
+                                        >
+                                            {queueElapsedLabel}
+                                        </Typography>
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
+                                        >
+                                            IN QUEUE
+                                        </Typography>
+                                    </Stack>
                                 ) : penalized ? (
                                     <TimerRoundedIcon />
                                 ) : needsActivation || state === "error" ? (
