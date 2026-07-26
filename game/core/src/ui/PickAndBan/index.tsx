@@ -26,6 +26,7 @@ import {
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
+import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
@@ -1150,6 +1151,25 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     } = usePickBanEvents();
     const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
+
+    // Pre-game perk auto-commit: when the draft enters the PERK phase and the player hasn't committed
+    // a perk yet (perk === 0), immediately commit the one they chose in the lobby (persisted in
+    // localStorage). This makes the PERK phase effectively invisible — the player already chose their
+    // doctrine before queuing, so the draft skips straight to BUNDLE. Fires once per PERK entry; the
+    // server-echoed perk (perk > 0) then locks the panel and the phase advances.
+    useEffect(() => {
+        if (pickPhase !== PickPhaseVals.PERK || perk !== 0 || busy) {
+            return;
+        }
+        const storedPerk = getPreGamePerk();
+        if (storedPerk === Perk.Perk.NO_PERK) {
+            return;
+        }
+        void sendPerk(storedPerk);
+        // No setBusy here: sendPerk is a fire-and-forget POST; the panel re-renders locked once the
+        // server echoes perk > 0 via the pick-events stream. A transient busy guard isn't needed
+        // because perk !== 0 (the guard above) prevents re-entry once committed.
+    }, [pickPhase, perk, busy, sendPerk]);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
     // Creature currently hovered anywhere in the draft — its stats + abilities show in the left detail panel.
@@ -1231,14 +1251,21 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
 
     let panel: React.ReactNode = <CircularProgress />;
     if (pickPhase === PickPhaseVals.PERK) {
-        // Doctrine-only phase: choose one scouting doctrine.
-        panel = (
-            <PerkPanel
-                disabled={disabled || perkLocked}
-                selected={perkLocked ? perk : selectedValue}
-                onSelect={(id) => void send(id, () => sendPerk(id))}
-            />
-        );
+        // Pre-game perk auto-commit: if the player already chose a doctrine in the lobby (persisted),
+        // the PERK phase is a brief pass-through — show a spinner while the auto-commit lands and the
+        // server advances the phase, instead of flashing the chooser. Only fall back to the manual
+        // PerkPanel when there is no pre-game perk to commit (e.g. storage unavailable).
+        if (getPreGamePerk() === Perk.Perk.NO_PERK) {
+            panel = (
+                <PerkPanel
+                    disabled={disabled || perkLocked}
+                    selected={perkLocked ? perk : selectedValue}
+                    onSelect={(id) => void send(id, () => sendPerk(id))}
+                />
+            );
+        }
+        // Otherwise panel stays <CircularProgress />: the auto-commit useEffect fires, the server
+        // echoes perk > 0, the daemon advances to BUNDLE, and this branch stops rendering.
     } else if (pickPhase === PickPhaseVals.INITIAL_PICK) {
         // Starting-bundle phase: choose one bundle {L1 + L2 + Tier-1 artifact}.
         panel = (
