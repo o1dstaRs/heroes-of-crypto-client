@@ -2054,6 +2054,18 @@ export class RankedPlayScene extends Sandbox {
                 const killed = damagedEntries.reduce((sum, entry) => sum + entry.unitsDied, 0);
                 const damageSuffix =
                     damagedTotal > 0 ? ` for ${damagedTotal} damage${killed > 0 ? ` 💀 ${killed}` : ""}` : "";
+                // The Angel's Resurrection: how many stacks actually came back, which again only the engine
+                // knows (the raise is capped by the caster's cumulative max hp and scaled by Holy Cross).
+                // Matches the sandbox wording — whole stacks when any were raised, otherwise the hp topped up.
+                const resurrectedEntries = event.resurrected ?? [];
+                const raisedTotal = resurrectedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+                const restoredHpTotal = resurrectedEntries.reduce((sum, entry) => sum + entry.hp, 0);
+                const resurrectSuffix =
+                    raisedTotal > 0
+                        ? ` for ${raisedTotal} unit${raisedTotal === 1 ? "" : "s"}`
+                        : restoredHpTotal > 0
+                          ? ` for ${restoredHpTotal} hp`
+                          : "";
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
                 // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and
                 // read fine from the spell name.
@@ -2075,8 +2087,8 @@ export class RankedPlayScene extends Sandbox {
                     return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}`;
                 }
                 return event.targetId === event.casterId
-                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}`
-                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}`;
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}`;
             }
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM

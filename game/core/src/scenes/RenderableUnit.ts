@@ -2449,11 +2449,14 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Absolving Arrow (Monk) — the FIRST lift's chance rides the stack (25% -> 100%) and is luck-free,
-        // so the tooltip reads absolvingArrowFirstLiftChance, not the generic apply chance.
+        // Absolving Arrow (Monk) — the FIRST lift's chance is the stack-and-luck curve (20% per stack at the
+        // card's power of 100), read through absolvingArrowFirstLiftChance so the tooltip prints exactly the
+        // figure the lift rolls against.
         const absolvingArrowAbility = this.getAbility(AllAbilities.ABSOLVING_ARROW_NAME);
         if (absolvingArrowAbility) {
-            const percentage = Number(AllAbilities.absolvingArrowFirstLiftChance(this).toFixed(2));
+            const percentage = Number(
+                AllAbilities.absolvingArrowFirstLiftChance(this, _synergyAbilityPowerIncrease).toFixed(2),
+            );
             this.refreshAbiltyDescription(
                 absolvingArrowAbility.getName(),
                 absolvingArrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),

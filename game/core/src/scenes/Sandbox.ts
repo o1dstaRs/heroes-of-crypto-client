@@ -170,6 +170,57 @@ interface PlacementBenchHitBox {
 export const ATTACK_HIT_STAGGER_MS = 240;
 
 /**
+ * Remaining hit points of each center mountain after an `obstacle_attacked` event.
+ *
+ * A current server sends both sides, and they are simply authoritative. An older one sends only the
+ * TOTAL, and the old fallback (FightProperties.setObstacleHitsLeft) re-split that total LEFT-FIRST —
+ * `left = min(3, total)`. With both mountains up (3+3), mining the LEFT one walks the total 6→5→4→3
+ * while that split reports left=3 the whole way and silently drains the RIGHT mountain instead: the
+ * rock the player is actually hitting shows no damage and can never be broken, which is exactly the
+ * "can't kill the mountain in ranked, no HP reduced" report. Subtract the landed hits from the side
+ * the strike actually landed on instead — `targetPosition` is the struck world point, so anything at
+ * or right of the board's center line is the right-hand mountain.
+ */
+export const nextObstacleHits = (
+    event: Extract<GameEvent, { type: "obstacle_attacked" }>,
+    current: { left: number; right: number },
+    boardCenterX: number,
+): { left: number; right: number } => {
+    if (event.hitsAfterLeft !== undefined && event.hitsAfterRight !== undefined) {
+        return { left: event.hitsAfterLeft, right: event.hitsAfterRight };
+    }
+    const landed = Math.max(0, event.hitsBefore - event.hitsAfter);
+    if ((event.targetPosition?.x ?? boardCenterX) >= boardCenterX) {
+        return { left: current.left, right: Math.max(0, current.right - landed) };
+    }
+    return { left: Math.max(0, current.left - landed), right: current.right };
+};
+
+/**
+ * Split an area attack's `splash` payload into one bucket per wave.
+ *
+ * The engine folds every wave of a single area attack into one ordered `splash` array: each wave
+ * appends its own entry per unit it damaged, so a unit hit by both waves of a Double Shot appears
+ * twice (wave 1 first). Bucketing by how many times a unit has already been seen therefore recovers
+ * the waves, and the bucket count IS the number of throws whose damage landed — which is what drives
+ * the projectile count, since it survives a ranked replay where the attacker's ability flags do not.
+ *
+ * Returns `[]` for an empty/absent payload, so callers can treat "no waves" as "nothing to show".
+ * Kept pure so it can be unit-tested without a scene.
+ */
+export const splitAreaThrowWaves = (splash: IVisibleDamage["splash"]): NonNullable<IVisibleDamage["splash"]>[] => {
+    const waves: NonNullable<IVisibleDamage["splash"]>[] = [];
+    const seenCountByUnitId = new Map<string, number>();
+    for (const entry of splash ?? []) {
+        const waveIndex = seenCountByUnitId.get(entry.unitId) ?? 0;
+        seenCountByUnitId.set(entry.unitId, waveIndex + 1);
+        (waves[waveIndex] ??= []).push(entry);
+    }
+    // A wave that damaged nobody leaves a hole; collapse so `waves.length` stays a true wave count.
+    return waves.filter((wave) => wave?.length);
+};
+
+/**
  * Which units an attack exchange burns, and how big each burn reads — the rule behind
  * Sandbox.spawnFireDamageVfx, kept pure so it can be unit-tested without a scene.
  *
@@ -6227,76 +6278,48 @@ export class Sandbox extends PixiScene {
             splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
         }
 
+        // Each leg is a RICOCHET: a curve TRUNCATED at the single unit it struck (or the terminal flourish
+        // loop, which strikes nobody). So fly the whole leg, then land that one victim's number + blood + push
+        // right where the disc ended — shoved the way the disc was travelling as it arrived. Short arcs (an
+        // adjacent victim caught on the very first cell) still land the hit; they just skip the flight.
         let discEnd: HoCMath.XY | undefined;
+        let lastDir: HoCMath.XY = { x: 0, y: 1 };
         for (const arc of damage?.chakramArcs ?? []) {
             const points = arc.cells
                 .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                 .filter((position): position is HoCMath.XY => !!position);
-            if (points.length < 2) {
+            if (!points.length) {
                 continue;
             }
+            const arrival = points[points.length - 1];
+            if (points.length >= 2) {
+                await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
+                lastDir = this.chakramWorldDir(points[points.length - 2], arrival);
+            } else if (discEnd) {
+                lastDir = this.chakramWorldDir(discEnd, arrival);
+            }
+            discEnd = arrival;
+
+            // The engine truncates a connecting leg at its one victim, so land it here as the disc arrives.
             const hitIds =
                 (arc as { hitUnitIds?: string[] }).hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []);
-
-            // Fly the circle but PAUSE at each victim (in the order the engine says the disc reached them) to
-            // land its number + blood + push RIGHT THEN — so it reads as "hit whoever it went through", not
-            // everyone flashing at once before the disc has looped out to them.
-            let flownIdx = 0;
             for (const unitId of hitIds) {
                 const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
                 if (!unit) {
                     continue;
                 }
-                // Mirror the engine's clip test (CHAKRAM_CATCH_RADIUS in common's chakram_ability): the disc
-                // catches whoever it passes within a cell of, measured against ALL of a large unit's cells.
-                // Matching the exact ring cell instead would leave targetIdx unfound for most real hits —
-                // enemies rarely sit on the precise rounded ring — and every number would then pile up at the
-                // end of the loop rather than landing as the disc sweeps past each victim.
-                const unitCells = unit.isSmallSize() ? [unit.getBaseCell()] : unit.getCells();
-                let targetIdx = -1;
-                for (let i = flownIdx; i < arc.cells.length && i < points.length && targetIdx < 0; i += 1) {
-                    for (const uc of unitCells) {
-                        if (Math.hypot(arc.cells[i].x - uc.x, arc.cells[i].y - uc.y) <= 1) {
-                            targetIdx = i;
-                            break;
-                        }
-                    }
-                }
-                if (targetIdx < 0) {
-                    targetIdx = points.length - 1;
-                }
-                const segment = points.slice(flownIdx, targetIdx + 1);
-                if (segment.length >= 2) {
-                    await this.rangedProjectiles.fireAlongPath(segment, { big, chakram: true });
-                }
-                flownIdx = targetIdx;
-
-                // Land the hit in the disc's travel direction here: floating damage + a blood slash + a small
-                // shove the way the disc flew.
                 const center = unit.getVisualCenter(gs);
-                const dir =
-                    segment.length >= 2
-                        ? this.chakramWorldDir(segment[segment.length - 2], segment[segment.length - 1])
-                        : { x: 0, y: 1 };
                 const dmg = splashByUnit.get(unitId);
                 if (dmg && dmg.amount > 0) {
-                    this.combatVisuals?.showFloatingDamage(center, dmg.amount, dir, dmg.unitsDied);
+                    this.combatVisuals?.showFloatingDamage(center, dmg.amount, lastDir, dmg.unitsDied);
                 }
-                this.combatVisuals?.spawnSlash(center, cellSize, dir);
-                unit.applyRecoil(dir.x * cellSize * 0.16, dir.y * cellSize * 0.16);
+                this.combatVisuals?.spawnSlash(center, cellSize, lastDir);
+                unit.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
             }
-
-            // Finish the loop, then remember where the disc ended for the flight home.
-            const rest = points.slice(flownIdx);
-            if (rest.length >= 2) {
-                await this.rangedProjectiles.fireAlongPath(rest, { big, chakram: true });
-            }
-            discEnd = points[points.length - 1];
         }
 
-        // Home to Zena at the very end. Each leg was already a full circle, so no extra loop — and no
-        // client-side random flank (the engine owns every sweep). A throw with no bounce flies back from the
-        // primary impact.
+        // Home to Zena at the very end — the engine owns every sweep, so there is no client-side loop or random
+        // flank here. A throw with no bounce (no arcs) flies back from the primary impact.
         if (!discEnd && primaryTarget) {
             discEnd = GridMath.getPositionForCell(
                 primaryTarget.getBaseCell(),
@@ -7208,37 +7231,26 @@ export class Sandbox extends PixiScene {
         }
         const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(areaEvent?.damage.secondary, muzzle, 180);
         const splash = areaEvent?.damage.splash;
-        if (isDoubleShot) {
-            // The engine resolved BOTH waves in the single apply() above, and `splash` carries two entries per
-            // surviving unit — wave 1 then wave 2 (double_shot_ability appends the second). Split by first vs
-            // later occurrence per unit, show wave 1 NOW (shot 1 has landed), fire shot 2, then show wave 2 as
-            // IT lands. A unit killed by wave 1 has no wave-2 entry, so it simply gets one number. Each split
-            // has at most one entry per unit, so showSplashDamage draws them immediately (no internal stagger)
-            // and the real gap comes from the second projectile's flight.
-            const wave1: NonNullable<typeof splash> = [];
-            const wave2: NonNullable<typeof splash> = [];
-            const seenUnitIds = new Set<string>();
-            for (const entry of splash ?? []) {
-                if (seenUnitIds.has(entry.unitId)) {
-                    wave2.push(entry);
-                } else {
-                    seenUnitIds.add(entry.unitId);
-                    wave1.push(entry);
-                }
-            }
-            const shownWave1 = this.showSplashDamage(wave1, muzzle);
+        // The engine resolved EVERY wave in the single apply() above, and `splash` carries one entry per
+        // surviving unit per wave — wave 1 then wave 2 (double_shot_ability appends the second). Show each
+        // wave as ITS OWN throw lands, so the numbers pop in sync with the projectile instead of all
+        // arriving at the end. A unit killed by wave 1 has no wave-2 entry, so it simply gets one number.
+        //
+        // The throw count is driven by the DAMAGE the engine actually dealt, not by hasAbilityActive():
+        // ranked replays this action against an attacker rebuilt from the authoritative snapshot, where
+        // the ability check has been observed false for the opponent's Gargantuan — which silently
+        // dropped the second throw while the damage (read from this same splash payload) stayed correct.
+        // Two entries for one unit means two waves landed, so two projectiles must fly. The ability flag
+        // still matters only when wave 2 dealt no damage at all — it missed, or wave 1 already killed
+        // everything — because then there is no splash evidence of it to read.
+        const waves = splitAreaThrowWaves(splash);
+        const throwCount = Math.max(waves.length, isDoubleShot ? 2 : 1);
+        let shownAnyWave = this.showSplashDamage(waves[0] ?? [], muzzle);
+        for (let throwIndex = 1; throwIndex < throwCount; throwIndex++) {
             await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
-            const shownWave2 = this.showSplashDamage(wave2, muzzle);
-            if (!shownWave1 && !shownWave2) {
-                this.combatVisuals.showDamageVisualsFromDiff(
-                    preState,
-                    effectiveCell,
-                    undefined,
-                    undefined,
-                    fleshShieldDamageByUnit,
-                );
-            }
-        } else if (!this.showSplashDamage(splash, muzzle)) {
+            shownAnyWave = this.showSplashDamage(waves[throwIndex] ?? [], muzzle) || shownAnyWave;
+        }
+        if (!shownAnyWave) {
             this.combatVisuals.showDamageVisualsFromDiff(
                 preState,
                 effectiveCell,
@@ -7545,6 +7557,14 @@ export class Sandbox extends PixiScene {
             damageForAnimation.secondary = attackEvent.damage.secondary?.map((entry) => ({
                 ...entry,
                 position: { ...entry.position },
+            }));
+            // Carry Zena's Chakram ricochet circles (the per-leg swept cells + who each clipped) so the disc
+            // actually FLIES its loops in the LIVE sandbox path. Without this, the reconstructed
+            // damageForAnimation dropped chakramArcs and the disc just returned home with no circle at all.
+            // (The ranked replay passes the event's damage straight through, so it was already fine there.)
+            damageForAnimation.chakramArcs = attackEvent.damage.chakramArcs?.map((arc) => ({
+                ...arc,
+                cells: arc.cells.map((cell) => ({ ...cell })),
             }));
             attackActionEvents = result.events;
             scheduleAttackCleanupWatchdog();
@@ -11012,6 +11032,14 @@ export class Sandbox extends PixiScene {
         this.combatVisuals?.showFloatingDamage(pos, damage, undefined, unitsDied, "#7be639", "#123d0a");
         this.combatVisuals?.spawnPoisonCloud(pos, this.sc_sceneSettings.getGridSettings().getCellSize());
     }
+    /**
+     * Golden burst for a stack coming back — the Angel's cast Resurrection and a unit's own self-raise both
+     * land here. Shared rather than inlined at each call site so ranked's live and replay paths render it
+     * identically to the sandbox (the recurring "works in sandbox, missing in ranked" trap).
+     */
+    protected renderResurrectionVfx(position: HoCMath.XY): void {
+        this.combatVisuals?.spawnResurrectionBurst(position, this.sc_sceneSettings.getGridSettings().getCellSize());
+    }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const armageddonWaves = new Set<number>();
         let shouldRefreshVisibleState = false;
@@ -11159,23 +11187,35 @@ export class Sandbox extends PixiScene {
                     this.finishFight(event.winningTeam, { mechanicsAlreadyApplied: true });
                     shouldRefreshVisibleState = true;
                     break;
-                case "obstacle_attacked":
+                case "obstacle_attacked": {
                     // Reflect the recorded mountain damage authoritatively, so the center hit-bar drops
                     // during replay even though we don't re-run the strike through the engine.
                     // ensureCenterTerrainSprite() redraws the bar from this each frame, and hides a
-                    // mountain entirely once its hits reach 0. Apply PER-MOUNTAIN so the side that was
-                    // actually struck loses HP — the total-only field can't say which one, and splitting
-                    // it left-first dropped the wrong sprite (attacking the left mountain showed the
-                    // right one losing HP). Fall back to the total for events from an older server.
-                    if (event.hitsAfterLeft !== undefined && event.hitsAfterRight !== undefined) {
-                        FightStateManager.getInstance()
-                            .getFightProperties()
-                            .setObstacleHitsPerMountain(event.hitsAfterLeft, event.hitsAfterRight);
-                    } else {
-                        FightStateManager.getInstance().getFightProperties().setObstacleHitsLeft(event.hitsAfter);
+                    // mountain entirely once its hits reach 0.
+                    const obstacleFightProps = FightStateManager.getInstance().getFightProperties();
+                    const gsObstacle = this.sc_sceneSettings.getGridSettings();
+                    const nextHits = nextObstacleHits(
+                        event,
+                        {
+                            left: obstacleFightProps.getObstacleHitsLeftLeft(),
+                            right: obstacleFightProps.getObstacleHitsLeftRight(),
+                        },
+                        (gsObstacle.getMinX() + gsObstacle.getMaxX()) * 0.5,
+                    );
+                    obstacleFightProps.setObstacleHitsPerMountain(nextHits.left, nextHits.right);
+                    // A mountain the server just destroyed has to stop blocking the board here too:
+                    // ranked never runs the engine for the strike (which is what clears the side in
+                    // sandbox), so without this its cells stay occupied — and the rock stays
+                    // unattackable-through — until the next full board rebuild.
+                    const clearedLeft = nextHits.left <= 0 && this.grid.clearMountainSide(false);
+                    const clearedRight = nextHits.right <= 0 && this.grid.clearMountainSide(true);
+                    if (clearedLeft || clearedRight) {
+                        this.gridMatrix = this.grid.getMatrix();
+                        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
                     }
                     shouldRefreshVisibleState = true;
                     break;
+                }
                 case "morale_applied":
                     // Lap-start Morale/Dismorale gets its own pop (excluded from the generic buff/debuff
                     // diff so it doesn't re-surface on later effects). Sandbox renders it live here; ranked
@@ -11200,8 +11240,14 @@ export class Sandbox extends PixiScene {
                 case "unit_moved":
                 case "unit_placed":
                 case "unit_split":
-                case "spell_cast":
                 case "next_unit_selected":
+                    shouldRefreshVisibleState = true;
+                    break;
+                case "spell_cast":
+                    // A RESURRECT cast reports what it raised; play the burst over each stack it brought back.
+                    for (const raised of event.resurrected ?? []) {
+                        this.renderResurrectionVfx(raised.position);
+                    }
                     shouldRefreshVisibleState = true;
                     break;
                 case "vine_placed": {
@@ -11445,6 +11491,7 @@ export class Sandbox extends PixiScene {
 
         unit.setPosition(event.position.x, event.position.y);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+        this.renderResurrectionVfx(event.position);
         unit.playOneShotAnimation("death", () => {
             unit.setVisualGhost(true);
             setTimeout(() => {

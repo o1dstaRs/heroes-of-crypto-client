@@ -488,6 +488,22 @@ interface IHealBurst {
     life: number;
     motes: { angle: number; radius: number; speed: number }[];
 }
+// Resurrection: the heal burst's bigger, golden sibling. Longer-lived and taller because a raise is a far
+// rarer, more consequential event than a top-up — it should read from across the board.
+const RESURRECT_BURST_Z = 2160;
+const RESURRECT_BURST_LIFE = 1.5; // seconds
+const RESURRECT_GOLD = 0xffd76a;
+const RESURRECT_PALE = 0xfff3c4;
+
+interface IResurrectBurst {
+    graphics: Graphics;
+    pos: HoCMath.XY;
+    age: number;
+    life: number;
+    /** Height of the light column, in world units — scaled off the cell size at spawn. */
+    columnHeight: number;
+    motes: { angle: number; radius: number; speed: number; rise: number; size: number }[];
+}
 const ICE_BREAK_BURST_S = 0.085;
 const ICE_BREAK_COLORS = [0x91d8ff, 0xbdeaff, 0x6fc5f2, 0xd9f6ff] as const;
 
@@ -512,6 +528,7 @@ export class CombatVisuals {
     private fireBurns: IFireBurn[] = [];
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
+    private resurrectBursts: IResurrectBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
@@ -1311,6 +1328,7 @@ export class CombatVisuals {
         this.stepFireBurns(dt);
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
+        this.stepResurrectBursts(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
         this.stepAbilitySteals(dt);
@@ -3302,6 +3320,85 @@ export class CombatVisuals {
                 speed: 34 + (i % 4) * 9,
             })),
         });
+    }
+    /**
+     * Resurrection: a column of golden light with two ground rings pushing out of it and motes streaming
+     * upward — the heal burst's louder sibling, for the rarer event of a stack actually coming back.
+     *
+     * Same contract as every effect here: pure Graphics (nothing to load, so raising several stacks costs
+     * nothing to spawn) and stepped from the scene's dt loop, so it pauses with the board rather than
+     * running on through a frozen scene.
+     */
+    public spawnResurrectionBurst(pos: HoCMath.XY, cellSize: number): void {
+        const graphics = new Graphics();
+        this.context.attachToWorldRoot(graphics, RESURRECT_BURST_Z);
+        this.resurrectBursts.push({
+            graphics,
+            pos: { x: pos.x, y: pos.y },
+            age: 0,
+            life: RESURRECT_BURST_LIFE,
+            columnHeight: cellSize * 2.6,
+            motes: Array.from({ length: 16 }, (_, i) => ({
+                angle: (i / 16) * Math.PI * 2 + (i % 2) * 0.2,
+                radius: cellSize * (0.1 + (i % 3) * 0.07),
+                speed: cellSize * (0.35 + (i % 4) * 0.12),
+                rise: cellSize * (1.1 + (i % 5) * 0.28),
+                size: 3 + (i % 3),
+            })),
+        });
+    }
+    private stepResurrectBursts(dt: number): void {
+        for (let i = this.resurrectBursts.length - 1; i >= 0; i--) {
+            const burst = this.resurrectBursts[i];
+            burst.age += dt;
+            if (burst.age >= burst.life) {
+                burst.graphics.destroy();
+                this.resurrectBursts.splice(i, 1);
+                continue;
+            }
+            const t = burst.age / burst.life;
+            const eased = 1 - (1 - t) * (1 - t);
+            const fade = 1 - t;
+            const g = burst.graphics;
+            g.clear();
+
+            // The column: brightest at the ground and tapering as it climbs, so the light reads as coming
+            // UP out of the board. worldRoot is y-up, so a positive y offset rises.
+            const columnAlpha = (t < 0.25 ? t / 0.25 : fade) * 0.5;
+            const columnWidth = burst.columnHeight * 0.22 * (1 - 0.35 * eased);
+            for (let segment = 0; segment < 4; segment += 1) {
+                const bottom = (segment / 4) * burst.columnHeight * eased;
+                const height = (burst.columnHeight * eased) / 4;
+                g.rect(burst.pos.x - columnWidth / 2, burst.pos.y + bottom, columnWidth, height).fill({
+                    color: segment < 2 ? RESURRECT_PALE : RESURRECT_GOLD,
+                    alpha: columnAlpha * (1 - segment / 5),
+                });
+            }
+
+            // Two ground rings, the second trailing the first, so the raise pulses rather than blinks.
+            g.circle(burst.pos.x, burst.pos.y, burst.columnHeight * (0.12 + eased * 0.4)).stroke({
+                width: 5,
+                color: RESURRECT_GOLD,
+                alpha: 0.7 * fade,
+            });
+            const trailing = Math.max(0, eased - 0.25);
+            g.circle(burst.pos.x, burst.pos.y, burst.columnHeight * (0.12 + trailing * 0.4)).stroke({
+                width: 3,
+                color: RESURRECT_PALE,
+                alpha: 0.45 * fade,
+            });
+
+            // Motes spiralling up out of the ring.
+            for (const mote of burst.motes) {
+                const r = mote.radius + eased * mote.speed;
+                const angle = mote.angle + eased * 1.1;
+                g.circle(
+                    burst.pos.x + Math.cos(angle) * r,
+                    burst.pos.y + Math.sin(angle) * r * 0.45 + eased * mote.rise,
+                    mote.size,
+                ).fill({ color: RESURRECT_PALE, alpha: 0.9 * fade });
+            }
+        }
     }
     private stepHealBursts(dt: number): void {
         for (let i = this.healBursts.length - 1; i >= 0; i--) {
