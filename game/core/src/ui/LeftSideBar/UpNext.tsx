@@ -20,7 +20,7 @@ const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString()
 const hourglassImg = images.hourglass;
 
 const queueItemTransition = {
-    type: "spring",
+    type: "spring" as const,
     stiffness: 420,
     damping: 34,
     mass: 0.7,

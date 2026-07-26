@@ -72,7 +72,7 @@ const toRangeDivisorString = (hoverInfo: IHoverInfo): string => {
     return `🎯 ${hoverInfo.damageRangeDivisor}`;
 };
 
-const generalInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
+const generalInfoElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
     if (!hoverInfo.information?.length) {
         return <></>;
     }
@@ -91,7 +91,7 @@ const generalInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
     );
 };
 
-const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
+const unitInfoElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
     if (!hoverInfo.unitName || !hoverInfo.attackType) {
         return <></>;
     }
@@ -124,7 +124,7 @@ const unitInfoElement = (hoverInfo: IHoverInfo): JSX.Element => {
     );
 };
 
-const unitAttackElement = (hoverInfo: IHoverInfo): JSX.Element => {
+const unitAttackElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
     if (!hoverInfo.attackType || !(hoverInfo.damageSpread || hoverInfo.damageRangeDivisor)) {
         return <></>;
     }

@@ -64,7 +64,7 @@ export const FightLog = ({ text }: { text: string }) => {
     const [copied, setCopied] = useState(false);
     const prevLinesRef = useRef<string[]>([]);
     const idRef = useRef(0);
-    const copyResetRef = useRef<ReturnType<typeof setTimeout>>();
+    const copyResetRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => {
         const lines = splitLines(text);
