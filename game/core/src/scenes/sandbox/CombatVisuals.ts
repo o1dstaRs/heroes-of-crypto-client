@@ -40,6 +40,105 @@ interface IShatterGroup {
     shards: IShard[];
 }
 
+interface IIceCrystal {
+    node: Graphics;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    spin: number;
+    delay: number;
+    life: number;
+    gravity: number;
+    drag: number;
+    large: boolean;
+}
+
+interface IIceBreak {
+    container: Container;
+    body: Sprite;
+    iceShell: Graphics;
+    crackFlash: Graphics;
+    crystals: IIceCrystal[];
+    age: number;
+    burstAt: number;
+}
+
+interface IDeathVfxInfo {
+    texture: Texture;
+    x: number;
+    y: number;
+    scaleX: number;
+    scaleY: number;
+    frozenShellHalf?: number;
+}
+
+/** What killed a unit — recorded before its death visuals spawn so the animation can match the blow. */
+export type DeathBlowKind = "melee" | "range";
+
+interface ICleaveHalf {
+    node: Container; // full unit sprite masked to one side of the cut
+    vx: number;
+    vy: number;
+    rotSpeed: number;
+}
+
+interface ICleaveDeath {
+    container: Container;
+    halves: ICleaveHalf[];
+    streak: Graphics; // slash flash swept along the cut, redrawn each frame
+    dropsGfx: Graphics; // blood droplets shed from the rip, redrawn each frame
+    drops: ISlashDrop[];
+    cutU: HoCMath.XY; // unit vector along the cut line
+    cutLen: number; // half-length of the flash sweep
+    streakWidth: number; // base stroke width of the flash (scales with the unit)
+    age: number;
+    life: number;
+    releaseAt: number; // when the halves let go of each other
+    halfLife: number; // seconds each half lives after release
+}
+
+interface IDissolveShard {
+    sprite: Sprite;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    delay: number; // when the erosion wave reaches this shard
+    age: number;
+    life: number; // seconds from release
+    baseScaleX: number;
+    baseScaleY: number;
+    swayAmp: number; // ash-flutter lateral sway
+    swayFreq: number;
+    swayPhase: number;
+    rotSpeed: number;
+}
+
+interface IDissolveSpark {
+    sprite: Sprite;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+}
+
+interface IDissolveDeath {
+    container: Container;
+    shards: IDissolveShard[];
+    tracer: Graphics; // the killing shot's streak through the body, redrawn each frame
+    tracerFrom: HoCMath.XY;
+    tracerTo: HoCMath.XY;
+    tracerWidth: number;
+    flash: Sprite; // impact flash at the unit's center
+    flashScale: number;
+    sparks: IDissolveSpark[]; // exit-side sparks — the shot punches THROUGH
+    dirPerp: HoCMath.XY; // unit vector perpendicular to the shot — the shards' flutter axis
+    age: number;
+    life: number;
+}
+
 interface IFireParticle {
     sprite: Sprite;
     age: number; // seconds; negative means still delayed — the breath wave hasn't reached it yet
@@ -56,6 +155,75 @@ interface IFireParticle {
 interface IFireSweep {
     container: Container;
     particles: IFireParticle[];
+}
+
+/** One ember, smoke puff or core flash of a fire-damage burst (see spawnFireBurn). */
+interface IFireBurnParticle {
+    sprite: Sprite;
+    age: number; // seconds; negative while the particle is still waiting to be born
+    life: number;
+    x: number;
+    y: number;
+    riseY: number;
+    driftX: number;
+    startScale: number;
+    endScale: number;
+    peakAlpha: number;
+    fadeInFraction: number;
+    rot: number;
+    spin: number;
+}
+
+interface IFireBurn {
+    container: Container;
+    particles: IFireBurnParticle[];
+}
+
+interface IForgeSpark {
+    gfx: Graphics;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number; // world px/s; gravity drags the spark back down after it flies off the anvil
+    age: number;
+    life: number;
+}
+
+interface ICraftForge {
+    container: Container;
+    anvil: Sprite;
+    hammer: Sprite;
+    sparks: IForgeSpark[];
+    anvilBaseY: number;
+    contactX: number; // where the hammer head lands on the anvil top (spark origin x)
+    contactY: number; // where the hammer head lands on the anvil top (spark origin y)
+    cellSize: number;
+    age: number; // seconds since spawn
+    life: number; // total seconds of the cast animation
+    cycle: number; // seconds per hammer strike
+    impactsDone: number; // strikes whose sparks have already fired
+    impactFlash: number; // 0..1, set to 1 on each strike then decays (anvil recoil)
+}
+
+interface IEnchantMote {
+    gfx: Graphics;
+    ang: number; // orbit angle
+    startR: number; // starting orbit radius (world px); spirals inward during the gather
+}
+
+interface IEnchant {
+    container: Container; // counter-flipped (scale.y = -1) so local coords are screen-style (y down)
+    ring: Graphics; // the runic ring, redrawn each frame
+    icon: Sprite; // the enchant scroll icon that pops up on success
+    label: PixiText; // "+N armor/attack" (success) or "Failed" (fail)
+    motes: IEnchantMote[];
+    sparks: IForgeSpark[]; // resolve burst (bright on success, grey ash on fail)
+    iconBaseScale: number;
+    tint: number;
+    success: boolean;
+    cellSize: number;
+    age: number;
+    resolved: boolean; // whether the resolve burst has fired
 }
 
 interface IChainBolt {
@@ -130,6 +298,24 @@ interface IDebuffPop {
     riseY: number;
 }
 
+interface IAbilitySteal {
+    container: Container;
+    web: Graphics;
+    rings: Graphics;
+    payload: Container;
+    payloadGlow: Sprite;
+    trail: Sprite[];
+    stolenLabel: PixiText;
+    from: HoCMath.XY;
+    to: HoCMath.XY;
+    control: HoCMath.XY;
+    cellSize: number;
+    age: number;
+    life: number;
+    arrived: boolean;
+    onArrival?: () => void;
+}
+
 // Tuning for the floating damage numbers.
 const FT_LIFE = 0.8; // seconds on screen
 const FT_RISE = 72; // world px the number floats up
@@ -152,6 +338,18 @@ const DP_FADE_IN = 0.1; // seconds to fade in
 const DP_FADE_OUT_FROM = 0.48; // fraction of life after which it fades out (earlier = quicker evaporate)
 const DP_Z = 2100; // above the damage numbers (2000) so the debuff reads on top
 
+// Tuning for Predatory Assimilation's ability transfer. Three lime strands cinch the stolen card out
+// of the victim and carry it into Arachna Queen. The palette deliberately matches the permanent
+// STOLEN overlay in the sidebar so the board moment and the resulting unit state read as one mechanic.
+const ABILITY_STEAL_Z = 2180;
+const ABILITY_STEAL_LIFE = 0.82;
+const ABILITY_STEAL_TRAVEL = 0.46;
+const ABILITY_STEAL_WEB_REVEAL = 0.16;
+const ABILITY_STEAL_FADE_FROM = 0.54;
+const ABILITY_STEAL_TINT = 0x9acd32;
+const ABILITY_STEAL_CORE = 0xf2ffd0;
+const ABILITY_STEAL_TRAIL_COUNT = 6;
+
 // Tuning for the Black Dragon's Fire Breath sweep — a line of embers that rushes from the attacker
 // through every unit the breath burns. Timed to land with the strike: a tiny lead so the fire erupts
 // right as the lunge connects (not before), then a FAST sweep so it reaches the target as the damage
@@ -162,6 +360,19 @@ const FIRE_PARTICLE_LIFE = 0.55; // seconds each ember lives
 const FIRE_RISE = 30; // world px an ember floats up over its life
 const FIRE_Z = 1900; // above units (~1000), below the damage numbers (2000) / death shatter (4500)
 const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → flame orange → spark gold
+// Tuning for the fire-DAMAGE burst (spawnFireBurn): the flare that erupts on a unit taking fire damage
+// — Fire Shield reflect, the units a dragon's breath burns through, a Fireforged Sword strike. Embers
+// snap in with the damage number and burn out fast; the smoke curls up behind them and lingers, which
+// is what sells it as "burned" rather than "hit".
+const BURN_FLAME_COUNT = 13;
+const BURN_SMOKE_COUNT = 6;
+const BURN_FLAME_LIFE = 0.46; // seconds an ember burns
+const BURN_SMOKE_LIFE = 0.92; // seconds a smoke puff drifts before it dissipates
+const BURN_FLASH_LIFE = 0.2; // the bright core pop at the moment of the burn
+const BURN_SMOKE_TINTS = [0x4a423c, 0x39322d, 0x5c5148]; // warm soot greys, tinted off the ember texture
+const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
+const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
+const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
 
 // Tuning for Thunderbird's Chain Lightning — a purple bolt that jumps from the attacker through the
 // target and on to each chained enemy. Like the fire sweep, it's timed to the strike (small lead so
@@ -191,6 +402,14 @@ const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail or
 // angle, then it fades while a few droplets of blood drip down. An irregular, tapered, slightly-curved
 // shape (not a clean line) reads as an open wound rather than a drawn stroke.
 const SLASH_Z = 2050; // over the unit sprite (~1000), about level with the damage numbers
+const CRAFT_Z = 2060; // Craft's anvil/hammer, just over the slash layer
+const CRAFT_FORGE_LIFE = 1.5; // seconds — the full Craft cast animation (snappy)
+const CRAFT_STRIKE_CYCLE = 0.42; // seconds per hammer strike (~3 strikes across the cast)
+const CRAFT_HAMMER_RAISED_ANGLE = -0.45;
+const CRAFT_HAMMER_IMPACT_ANGLE = -2.1;
+const ENCHANT_Z = 2066; // Armor Rune/Weapon attempt-then-resolve VFX, just over the craft forge
+const ENCHANT_LIFE = 1.45; // seconds — full attempt -> resolve
+const ENCHANT_GATHER = 0.5; // seconds of the "trying" gather before it resolves (caller passes the per-spell tint)
 const SLASH_WOUND_LIFE = 0.5; // seconds the gash itself stays before it has faded
 const SLASH_DROP_LIFE = 0.85; // a blood droplet's max life as it drips and fades
 const SLASH_GRAVITY = 1000; // world px/s^2 pulling droplets down (the drip)
@@ -212,6 +431,66 @@ const CLAW_GLOW = 0xff6a14; // outer orange glow (the torn flesh)
 const CLAW_MID = 0xff9a3a; // mid flame-orange body
 const CLAW_CORE = 0xffe6b0; // hot near-white core down each gash
 
+// Tuning for the MELEE death "cleave" — the killing blow tears the dying stack in TWO along a jagged,
+// near-vertical rip: a white-hot slash flash sweeps the cut first, the body holds together for a beat
+// (so the eye registers the intact unit + flash), then the halves let go — shoved apart and away from
+// the attacker, toppling under gravity while a few drops of blood shed from the rip. Reads heavy and
+// physical, unlike the mirror shatter's 36-piece radial burst.
+const CLEAVE_Z = 4500; // same layer as the mirror shatter
+const CLEAVE_RELEASE_S = 0.09; // beat between the flash and the halves letting go
+const CLEAVE_HALF_LIFE = 0.72; // seconds each half lives after release (fall + fade)
+const CLEAVE_FADE_FROM = 0.5; // fraction of a half's life after which it fades out
+const CLEAVE_GRAVITY = 700; // world px/s^2 — the halves are heavy; they drop faster than mirror shards
+const CLEAVE_STREAK_LIFE = 0.22; // seconds the slash flash lives in total
+const CLEAVE_STREAK_SWEEP_S = 0.07; // seconds for the flash tip to sweep the full cut
+const CLEAVE_DROP_GRAVITY = 900; // world px/s^2 on the shed blood droplets
+const CLEAVE_GLOW = 0xff4a26; // outer hot-red glow of the slash flash
+const CLEAVE_MID = 0xffb199; // mid warm body
+const CLEAVE_CORE = 0xffffff; // white-hot core
+
+// Tuning for the RANGE death "dissolve" — the killing shot punches THROUGH the stack: a pale-gold
+// tracer streak + impact flash first, then the body erodes into a wave of shards that release from the
+// entry side through to the exit side, carried along the shot's direction, slowing under drag and
+// fluttering down like ash (lateral sway, shrink, soft fade) while a few sparks fly out the far side.
+// Directional and airy where the mirror shatter is radial and the cleave is heavy.
+const DISSOLVE_Z = 4500;
+const DISSOLVE_COLS = 8;
+const DISSOLVE_ROWS = 8;
+const DISSOLVE_WAVE_S = 0.2; // seconds for the erosion wave to cross the whole body
+const DISSOLVE_WAVE_JITTER_S = 0.02; // per-shard wavefront noise — small, so the front stays crisp
+const DISSOLVE_LIFE_MIN = 0.55; // a shard's minimum life once released
+const DISSOLVE_LIFE_VAR = 0.3;
+const DISSOLVE_FADE_FROM = 0.45; // fraction of a shard's life after which it fades
+// Shard speeds scale with the BODY SIZE (not absolute px) so the debris is visibly thrown along the
+// shot for units of any size: at speed ≈ 2-3.6 bodies/s with this drag, a shard travels roughly a
+// body length or two along the shot line before the ash-fall takes over — the angle must READ.
+const DISSOLVE_SPEED_MIN = 2.0; // body-lengths/s carried along the shot at release
+const DISSOLVE_SPEED_VAR = 1.6;
+const DISSOLVE_CONE = 0.55; // perpendicular spread as a fraction of the body — tight = directional
+const DISSOLVE_DRAG = 2.0; // 1/s exponential decay of shard velocity — the burst slows into a drift
+const DISSOLVE_SINK = 110; // world px/s^2 gentle pull down once the burst has slowed (ash fall)
+const DISSOLVE_TRACER_LIFE = 0.18; // seconds the shot streak stays
+const DISSOLVE_FLASH_LIFE = 0.2; // seconds the impact flash stays
+const DISSOLVE_TRACER_TINT = 0xffe9c2; // pale hot gold — a physical shot, not a spell
+const DISSOLVE_SPARK_TINT = 0xffe9b8;
+
+// Frozen death: the intact icy body cracks for one beat, then releases a mixture of heavy crystal chunks
+// and quick splinters. Different size/physics bands keep it from reading as a uniform particle explosion.
+const ICE_BREAK_Z = 4550;
+// Heal burst sits just under the floating numbers so the "+N" always reads on top of its own glow.
+const HEAL_BURST_Z = 2150;
+const HEAL_BURST_LIFE = 0.72; // seconds
+
+interface IHealBurst {
+    graphics: Graphics;
+    pos: HoCMath.XY;
+    age: number;
+    life: number;
+    motes: { angle: number; radius: number; speed: number }[];
+}
+const ICE_BREAK_BURST_S = 0.085;
+const ICE_BREAK_COLORS = [0x91d8ff, 0xbdeaff, 0x6fc5f2, 0xd9f6ff] as const;
+
 const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 const easeOutBack = (t: number): number => {
     const c1 = 1.70158;
@@ -223,17 +502,33 @@ export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
+    private iceBreaks: IIceBreak[] = [];
+    private cleaveDeaths: ICleaveDeath[] = [];
+    private dissolveDeaths: IDissolveDeath[] = [];
+    // Kill attribution, keyed by the dying unit's id: noted from the lethal attack event (only units
+    // in unitIdsDied land here), consumed by spawnDeathVfx when the death visuals spawn.
+    private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
+    private fireBurns: IFireBurn[] = [];
+    private poisonClouds: IFireSweep[] = [];
+    private healBursts: IHealBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
+    private craftForges: ICraftForge[] = [];
+    private enchants: IEnchant[] = [];
+    private abilitySteals: IAbilitySteal[] = [];
     private debuffStyle?: TextStyle;
     private buffStyle?: TextStyle;
     private missStyle?: TextStyle;
+    private absorbedLabelStyle?: TextStyle;
+    private stolenLabelStyle?: TextStyle;
+    private stolenAbilityNameStyle?: TextStyle;
     // Soft radial ember texture, built once and reused for every Fire Breath sweep.
     private fireTexture?: Texture;
+    private poisonTexture?: Texture;
     // Soft radial white-light texture, built once and reused for the Skewer Strike light orb + trail.
     private lightTexture?: Texture;
     // Damage/count text styles are reused across strikes — building a fresh TextStyle per hit is
@@ -332,17 +627,64 @@ export class CombatVisuals {
         }
         return this.missStyle;
     }
-    /**
-     * Pop a "MISS" label over a unit that dodged an attack (Dodge / Small Specie / Boar Saliva). Reuses
-     * the floating-text rise/fade so it reads like a damage number but in neutral white. Drifts along the
-     * attack line when a direction is given. Same path in sandbox and ranked.
-     */
-    public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
-        const container = new Container();
-        const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
-        label.anchor.set(0.5);
-        container.addChild(label);
-
+    private getAbsorbedLabelStyle(): TextStyle {
+        if (!this.absorbedLabelStyle) {
+            this.absorbedLabelStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 28,
+                fontWeight: "900",
+                fill: "#fff36d",
+                stroke: { color: "#5c4600", width: 5 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.absorbedLabelStyle;
+    }
+    private getStolenLabelStyle(): TextStyle {
+        if (!this.stolenLabelStyle) {
+            this.stolenLabelStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 34,
+                fontWeight: "900",
+                fill: "#d7ff66",
+                stroke: { color: "#172400", width: 6 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 5,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.stolenLabelStyle;
+    }
+    private getStolenAbilityNameStyle(): TextStyle {
+        if (!this.stolenAbilityNameStyle) {
+            this.stolenAbilityNameStyle = new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 20,
+                fontWeight: "900",
+                fill: "#f4ffd7",
+                stroke: { color: "#172400", width: 4 },
+                dropShadow: {
+                    color: "#000000",
+                    blur: 4,
+                    angle: Math.PI / 6,
+                    distance: 2,
+                },
+            });
+        }
+        return this.stolenAbilityNameStyle;
+    }
+    /** Put an upright container into the shared damage/MISS rise, drift, pop and fade animation. */
+    private enqueueFloatingContainer(container: Container, pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        // Anti-overlap: if numbers are already floating near this spot, stack this one
+        // above them instead of drawing on top.
         const baseX = pos.x;
         const baseY = pos.y + 20;
         let stack = 0;
@@ -351,9 +693,11 @@ export class CombatVisuals {
             const dy = other.container.y - baseY;
             if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
         }
+
         const startX = baseX;
         const startY = baseY + stack * FT_STACK_STEP;
 
+        // Drift along the full hit trajectory (both axes), with a small alternating fan for stacked text.
         let driftX = 0;
         let driftY = 0;
         if (direction) {
@@ -380,6 +724,75 @@ export class CombatVisuals {
             driftX,
             driftY,
         });
+    }
+    /**
+     * Pop a "MISS" label over a unit that dodged an attack (Dodge / Small Specie / Boar Saliva). Reuses
+     * the floating-text rise/fade so it reads like a damage number but in neutral white. Drifts along the
+     * attack line when a direction is given. Same path in sandbox and ranked.
+     */
+    public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
+     * Craft "failed" result: a plain dark-grey "No effect!" label with NO icon, reusing the floating-text
+     * rise/fade. Deliberately unlike the icon pops used for a successful craft so a dud reads as nothing.
+     */
+    public showCraftFail(pos: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "No effect!",
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 30,
+                fontWeight: "900",
+                fill: "#4a4a4a", // muted dark grey — "nothing happened"
+                stroke: { color: "#dfe4ea", width: 4 }, // light halo so it reads on a dark board
+                dropShadow: { color: "#000000", blur: 3, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos);
+    }
+    /**
+     * Show Flesh Shield damage on its owner as a positive, yellow two-line value. The label distinguishes
+     * redirected damage from an ordinary hit while the shared floating-text lifecycle keeps both paths in
+     * visual sync. `unitsDied` belongs only to this absorbed chunk, so its skull never duplicates a primary
+     * or response hit's losses.
+     */
+    public showFloatingAbsorbed(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
+        const container = new Container();
+        const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
+        label.anchor.set(0.5);
+        label.position.set(0, -34);
+
+        const amountText = new PixiText({
+            text: `${amount}`,
+            style: this.getDamageStyle("#fff36d", "#5c4600"),
+        });
+        amountText.anchor.set(0.5);
+        amountText.position.set(0, 16);
+        container.addChild(label, amountText);
+
+        if (unitsDied && unitsDied > 0) {
+            const skullTex = Texture.from(images.skull || "/skull.webp");
+            const skullSprite = new Sprite(skullTex);
+            skullSprite.anchor.set(0.5);
+            skullSprite.width = 40;
+            skullSprite.height = 40;
+
+            const countText = new PixiText({ text: `${unitsDied}`, style: this.getCountStyle() });
+            countText.anchor.set(0.5);
+            skullSprite.position.set(-25, 72);
+            countText.position.set(25, 72);
+            container.addChild(skullSprite, countText);
+        }
+
+        this.enqueueFloatingContainer(container, pos, direction);
     }
     /**
      * Pop a freshly-applied effect's spell icon + name over a unit. `kind` only changes the name's
@@ -424,6 +837,272 @@ export class CombatVisuals {
         this.debuffPops.push({ container, age: 0, life: DP_LIFE, startX, startY, riseY: DP_RISE });
     }
     /**
+     * Predatory Assimilation: pull the stolen ability out of the victim and into Arachna Queen. A
+     * three-strand web briefly connects the units while the ability card rides a lime glow along a
+     * curved path. `onArrival` lets the scene flash the Queen exactly when the card reaches her.
+     */
+    public spawnAbilitySteal(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        cellSize: number,
+        abilityName: string,
+        iconTexture?: Texture,
+        onArrival?: () => void,
+    ): void {
+        if (Math.hypot(to.x - from.x, to.y - from.y) < 1) {
+            onArrival?.();
+            return;
+        }
+
+        const container = new Container();
+        const web = new Graphics();
+        const rings = new Graphics();
+        web.blendMode = "add";
+        rings.blendMode = "add";
+        container.addChild(web, rings);
+
+        const lightTexture = this.getLightTexture();
+        const trail: Sprite[] = [];
+        for (let i = 0; i < ABILITY_STEAL_TRAIL_COUNT; i++) {
+            const mote = new Sprite(lightTexture);
+            mote.anchor.set(0.5);
+            mote.blendMode = "add";
+            mote.tint = ABILITY_STEAL_TINT;
+            mote.visible = false;
+            container.addChild(mote);
+            trail.push(mote);
+        }
+
+        // Counter-flip this payload against the y-up world root so the stolen card and its name remain
+        // upright while moving in world coordinates. The glow itself is radial, so the flip is invisible.
+        const payload = new Container();
+        const payloadGlow = new Sprite(lightTexture);
+        payloadGlow.anchor.set(0.5);
+        payloadGlow.blendMode = "add";
+        payloadGlow.tint = ABILITY_STEAL_TINT;
+        payloadGlow.width = cellSize * 1.05;
+        payloadGlow.height = cellSize * 1.05;
+        payload.addChild(payloadGlow);
+
+        const iconSize = cellSize * 0.5;
+        if (iconTexture && iconTexture !== Texture.EMPTY) {
+            const icon = new Sprite(iconTexture);
+            icon.anchor.set(0.5);
+            icon.width = iconSize;
+            icon.height = iconSize;
+            const frame = new Graphics();
+            frame.roundRect(-iconSize * 0.54, -iconSize * 0.54, iconSize * 1.08, iconSize * 1.08, iconSize * 0.14);
+            frame.stroke({ width: Math.max(2, cellSize * 0.035), color: ABILITY_STEAL_CORE, alpha: 0.95 });
+            payload.addChild(icon, frame);
+        }
+
+        const abilityLabel = new PixiText({ text: abilityName, style: this.getStolenAbilityNameStyle() });
+        abilityLabel.anchor.set(0.5);
+        abilityLabel.position.set(0, iconTexture ? iconSize * 0.82 : 0);
+        const maxLabelWidth = cellSize * 1.75;
+        // Avoid asking Pixi to rasterize/measure the text here (which would make the rare first steal
+        // pay that cost on its impact frame and breaks headless tests). Arial Black at 20px averages
+        // roughly 11px per character; this estimate is only used to cap unusually long names.
+        const estimatedLabelWidth = abilityName.length * 11;
+        if (estimatedLabelWidth > maxLabelWidth) {
+            abilityLabel.scale.set(maxLabelWidth / estimatedLabelWidth);
+        }
+        payload.addChild(abilityLabel);
+        payload.scale.set(0.45, -0.45);
+        container.addChild(payload);
+
+        const stolenLabel = new PixiText({ text: "STOLEN", style: this.getStolenLabelStyle() });
+        stolenLabel.anchor.set(0.5);
+        stolenLabel.position.set(from.x, from.y + cellSize * 0.62);
+        stolenLabel.scale.set(0.5, -0.5);
+        stolenLabel.alpha = 0;
+        container.addChild(stolenLabel);
+
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.hypot(dx, dy);
+        const nx = -dy / len;
+        const ny = dx / len;
+        const bend = Math.min(cellSize * 0.72, len * 0.24);
+        // Alternate the bend deterministically by direction so repeated steals do not always bow toward
+        // the same screen edge, while both ranked clients still render the exact same path.
+        const bendSign = dx * dy >= 0 ? 1 : -1;
+        const control = {
+            x: (from.x + to.x) * 0.5 + nx * bend * bendSign,
+            y: (from.y + to.y) * 0.5 + ny * bend * bendSign,
+        };
+
+        this.context.attachToWorldRoot(container, ABILITY_STEAL_Z);
+        this.abilitySteals.push({
+            container,
+            web,
+            rings,
+            payload,
+            payloadGlow,
+            trail,
+            stolenLabel,
+            from: { ...from },
+            to: { ...to },
+            control,
+            cellSize,
+            age: 0,
+            life: ABILITY_STEAL_LIFE,
+            arrived: false,
+            onArrival,
+        });
+    }
+    private abilityStealPoint(steal: IAbilitySteal, t: number, strand = 0): HoCMath.XY {
+        const clamped = Math.max(0, Math.min(1, t));
+        const oneMinus = 1 - clamped;
+        const x =
+            oneMinus * oneMinus * steal.from.x +
+            2 * oneMinus * clamped * steal.control.x +
+            clamped * clamped * steal.to.x;
+        const y =
+            oneMinus * oneMinus * steal.from.y +
+            2 * oneMinus * clamped * steal.control.y +
+            clamped * clamped * steal.to.y;
+        if (!strand) {
+            return { x, y };
+        }
+        const tx = 2 * oneMinus * (steal.control.x - steal.from.x) + 2 * clamped * (steal.to.x - steal.control.x);
+        const ty = 2 * oneMinus * (steal.control.y - steal.from.y) + 2 * clamped * (steal.to.y - steal.control.y);
+        const tangentLength = Math.hypot(tx, ty) || 1;
+        const taper = Math.sin(Math.PI * clamped);
+        const webWidth = steal.cellSize * 0.13 * taper;
+        const wobble = Math.sin(clamped * Math.PI * 5 + strand * 1.7) * steal.cellSize * 0.022 * taper;
+        const offset = strand * webWidth + wobble;
+        return { x: x + (-ty / tangentLength) * offset, y: y + (tx / tangentLength) * offset };
+    }
+    private traceAbilityStealStrand(steal: IAbilitySteal, strand: number, reveal: number): void {
+        const segments = 24;
+        const first = this.abilityStealPoint(steal, 0, strand);
+        steal.web.moveTo(first.x, first.y);
+        const visibleSegments = Math.max(1, Math.ceil(segments * reveal));
+        for (let i = 1; i <= visibleSegments; i++) {
+            const t = Math.min(reveal, i / segments);
+            const point = this.abilityStealPoint(steal, t, strand);
+            steal.web.lineTo(point.x, point.y);
+        }
+    }
+    private drawAbilityStealWeb(steal: IAbilitySteal, reveal: number, alpha: number): void {
+        steal.web.clear();
+        for (const strand of [-1, 0, 1]) {
+            this.traceAbilityStealStrand(steal, strand, reveal);
+            steal.web.stroke({
+                width: steal.cellSize * 0.06,
+                color: ABILITY_STEAL_TINT,
+                alpha: alpha * 0.25,
+                cap: "round",
+                join: "round",
+            });
+            this.traceAbilityStealStrand(steal, strand, reveal);
+            steal.web.stroke({
+                width: Math.max(1.5, steal.cellSize * 0.016),
+                color: strand === 0 ? ABILITY_STEAL_CORE : ABILITY_STEAL_TINT,
+                alpha: alpha * (strand === 0 ? 0.95 : 0.72),
+                cap: "round",
+                join: "round",
+            });
+        }
+
+        // Short cross-threads make the tether read as Arachna's web rather than a generic spell beam.
+        for (let t = 0.14; t < reveal; t += 0.14) {
+            const a = this.abilityStealPoint(steal, t, -1);
+            const b = this.abilityStealPoint(steal, t, 1);
+            steal.web.moveTo(a.x, a.y);
+            steal.web.lineTo(b.x, b.y);
+        }
+        steal.web.stroke({
+            width: Math.max(1, steal.cellSize * 0.01),
+            color: ABILITY_STEAL_CORE,
+            alpha: alpha * 0.5,
+            cap: "round",
+        });
+    }
+    private stepAbilitySteals(dt: number): void {
+        for (let i = this.abilitySteals.length - 1; i >= 0; i--) {
+            const steal = this.abilitySteals[i];
+            steal.age += dt;
+            if (!steal.arrived && steal.age >= ABILITY_STEAL_TRAVEL) {
+                steal.arrived = true;
+                steal.onArrival?.();
+            }
+            if (steal.age >= steal.life) {
+                steal.container.destroy({ children: true });
+                this.abilitySteals.splice(i, 1);
+                continue;
+            }
+
+            const fade =
+                steal.age <= ABILITY_STEAL_FADE_FROM
+                    ? 1
+                    : 1 - (steal.age - ABILITY_STEAL_FADE_FROM) / Math.max(0.001, steal.life - ABILITY_STEAL_FADE_FROM);
+            const reveal = Math.min(1, steal.age / ABILITY_STEAL_WEB_REVEAL);
+            this.drawAbilityStealWeb(steal, reveal, Math.max(0, fade));
+
+            const travelProgress = Math.min(1, steal.age / ABILITY_STEAL_TRAVEL);
+            const easedTravel = easeOutCubic(travelProgress);
+            const payloadPoint = this.abilityStealPoint(steal, easedTravel);
+            steal.payload.position.set(payloadPoint.x, payloadPoint.y);
+            const pop = Math.min(1, steal.age / 0.14);
+            const payloadScale = 0.45 + 0.55 * easeOutBack(pop);
+            steal.payload.scale.set(payloadScale, -payloadScale);
+            steal.payload.alpha = Math.max(0, fade);
+            steal.payloadGlow.rotation += dt * 2.8;
+            steal.payloadGlow.alpha = 0.72 + Math.sin(steal.age * 28) * 0.2;
+
+            for (let trailIndex = 0; trailIndex < steal.trail.length; trailIndex++) {
+                const mote = steal.trail[trailIndex];
+                const p = travelProgress - (trailIndex + 1) * 0.055;
+                if (p <= 0 || fade <= 0) {
+                    mote.visible = false;
+                    continue;
+                }
+                const point = this.abilityStealPoint(steal, easeOutCubic(Math.min(1, p)));
+                const strength = 1 - trailIndex / steal.trail.length;
+                const size = steal.cellSize * (0.5 * strength + 0.16);
+                mote.visible = true;
+                mote.position.set(point.x, point.y);
+                mote.width = size;
+                mote.height = size;
+                mote.alpha = fade * strength * 0.52;
+            }
+
+            const labelPop = Math.min(1, steal.age / 0.12);
+            const labelScale = 0.5 + 0.5 * easeOutBack(labelPop);
+            steal.stolenLabel.scale.set(labelScale, -labelScale);
+            steal.stolenLabel.y = steal.from.y + steal.cellSize * (0.62 + 0.2 * easeOutCubic(steal.age / steal.life));
+            steal.stolenLabel.alpha = Math.max(0, Math.min(1, steal.age / 0.07)) * fade;
+
+            steal.rings.clear();
+            const extractProgress = Math.min(1, steal.age / 0.32);
+            const extractRadius = steal.cellSize * (0.58 - extractProgress * 0.3);
+            steal.rings.circle(steal.from.x, steal.from.y, extractRadius);
+            steal.rings.stroke({
+                width: steal.cellSize * 0.045,
+                color: ABILITY_STEAL_TINT,
+                alpha: fade * (1 - extractProgress * 0.45),
+            });
+            const arrivalProgress = Math.max(
+                0,
+                Math.min(1, (steal.age - ABILITY_STEAL_TRAVEL * 0.72) / (steal.life - ABILITY_STEAL_TRAVEL * 0.72)),
+            );
+            if (arrivalProgress > 0) {
+                steal.rings.circle(
+                    steal.to.x,
+                    steal.to.y,
+                    steal.cellSize * (0.18 + 0.78 * easeOutCubic(arrivalProgress)),
+                );
+                steal.rings.stroke({
+                    width: steal.cellSize * 0.055,
+                    color: ABILITY_STEAL_CORE,
+                    alpha: (1 - arrivalProgress) * 0.9,
+                });
+            }
+        }
+    }
+    /**
      * Render the damage/count text once, off-screen, so the one-time font rasterization + text-shader
      * compilation happen during scene load instead of stalling the first move+attack landing frame.
      */
@@ -441,7 +1120,22 @@ export class CombatVisuals {
         const miss = new PixiText({ text: "MISS", style: this.getMissStyle() });
         miss.anchor.set(0.5);
         miss.position.set(0, 110);
-        container.addChild(dmg, count, miss);
+        const absorbedLabel = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
+        absorbedLabel.anchor.set(0.5);
+        absorbedLabel.position.set(0, 165);
+        const absorbedValue = new PixiText({
+            text: "0",
+            style: this.getDamageStyle("#fff36d", "#5c4600"),
+        });
+        absorbedValue.anchor.set(0.5);
+        absorbedValue.position.set(0, 210);
+        const stolenLabel = new PixiText({ text: "STOLEN", style: this.getStolenLabelStyle() });
+        stolenLabel.anchor.set(0.5);
+        stolenLabel.position.set(0, 255);
+        const stolenName = new PixiText({ text: "Ability", style: this.getStolenAbilityNameStyle() });
+        stolenName.anchor.set(0.5);
+        stolenName.position.set(0, 300);
+        container.addChild(dmg, count, miss, absorbedLabel, absorbedValue, stolenLabel, stolenName);
         // Far off-screen + barely visible: renders once (compiling the shader / uploading glyphs)
         // without any visible flash, then update() destroys it on the next tick.
         container.position.set(-100000, -100000);
@@ -457,33 +1151,93 @@ export class CombatVisuals {
             driftX: 0,
             driftY: 0,
         });
+        // Warm the Craft forge textures so the first cast's anvil/hammer don't pop in a frame late.
+        Texture.from(images.craft_anvil);
+        Texture.from(images.craft_hammer);
     }
-    /** Destroy all floating numbers immediately (e.g. on fight end / restart). */
-    public clear(): void {
-        for (const ft of this.floatingTexts) {
-            ft.container.destroy();
+    /**
+     * Destroy all combat VFX immediately (e.g. on fight end / restart / scene teardown).
+     *
+     * `keepDetachedOverlays` is for the board REBUILD (hydrateSceneState), which destroys and recreates
+     * every unit: it keeps the self-contained world overlays that merely describe something that already
+     * happened and expire on their own — the Craft forge, damage numbers, buff/debuff pops — while still
+     * dropping everything anchored to the units/board being torn down (death shatters, ability-steal arcs,
+     * area effects). Ranked full-hydrates on any snapshot whose unit mechanics drifted, which lands ~150ms
+     * into a 1.5s Craft forge; without this the cast animation was wiped almost as soon as it started.
+     */
+    public clear(options?: { keepDetachedOverlays?: boolean }): void {
+        const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
+        if (!keepDetachedOverlays) {
+            for (const ft of this.floatingTexts) {
+                ft.container.destroy();
+            }
+            this.floatingTexts.length = 0;
         }
-        this.floatingTexts.length = 0;
         for (const group of this.shatterGroups) {
             group.container.destroy({ children: true });
         }
         this.shatterGroups.length = 0;
+        for (const iceBreak of this.iceBreaks) {
+            iceBreak.container.destroy({ children: true });
+        }
+        this.iceBreaks.length = 0;
+        for (const cleave of this.cleaveDeaths) {
+            cleave.container.destroy({ children: true });
+        }
+        this.cleaveDeaths.length = 0;
+        for (const dissolve of this.dissolveDeaths) {
+            dissolve.container.destroy({ children: true });
+        }
+        this.dissolveDeaths.length = 0;
+        this.deathBlowByUnitId.clear();
         for (const sweep of this.fireSweeps) {
             sweep.container.destroy({ children: true });
         }
         this.fireSweeps.length = 0;
+        if (!keepDetachedOverlays) {
+            // Same family as the craft forge: a self-expiring world overlay describing a hit that already
+            // landed, so a ranked board rebuild must not cut it short.
+            for (const burn of this.fireBurns) {
+                burn.container.destroy({ children: true });
+            }
+            this.fireBurns.length = 0;
+        }
+        for (const cloud of this.poisonClouds) {
+            cloud.container.destroy({ children: true });
+        }
+        this.poisonClouds.length = 0;
+        for (const burst of this.healBursts) {
+            burst.graphics.destroy();
+        }
+        this.healBursts.length = 0;
         for (const chain of this.chainLightnings) {
             chain.container.destroy({ children: true });
         }
         this.chainLightnings.length = 0;
-        for (const dp of this.debuffPops) {
-            dp.container.destroy();
+        if (!keepDetachedOverlays) {
+            for (const dp of this.debuffPops) {
+                dp.container.destroy();
+            }
+            this.debuffPops.length = 0;
         }
-        this.debuffPops.length = 0;
+        for (const steal of this.abilitySteals) {
+            steal.container.destroy({ children: true });
+        }
+        this.abilitySteals.length = 0;
         for (const claw of this.clawSlashes) {
             claw.container.destroy({ children: true });
         }
         this.clawSlashes.length = 0;
+        if (!keepDetachedOverlays) {
+            for (const forge of this.craftForges) {
+                forge.container.destroy({ children: true });
+            }
+            this.craftForges.length = 0;
+        }
+        for (const enchant of this.enchants) {
+            enchant.container.destroy({ children: true });
+        }
+        this.enchants.length = 0;
     }
     public update(dt: number) {
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
@@ -550,11 +1304,20 @@ export class CombatVisuals {
         }
 
         this.stepShatters(dt);
+        this.stepIceBreaks(dt);
+        this.stepCleaveDeaths(dt);
+        this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
+        this.stepFireBurns(dt);
+        this.stepPoisonClouds(dt);
+        this.stepHealBursts(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
+        this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
         this.stepClawSlashes(dt);
+        this.stepCraftForges(dt);
+        this.stepEnchants(dt);
     }
     /**
      * "Broken mirror" death effect: slice the unit's current texture into a grid of shards that
@@ -652,10 +1415,699 @@ export class CombatVisuals {
             }
         }
     }
+    private createIceCrystal(width: number, height: number, color: number, large: boolean): Graphics {
+        const crystal = new Graphics();
+        if (large) {
+            crystal
+                .poly([
+                    0,
+                    -height * 0.5,
+                    width * 0.5,
+                    -height * 0.12,
+                    width * 0.34,
+                    height * 0.33,
+                    0,
+                    height * 0.5,
+                    -width * 0.36,
+                    height * 0.31,
+                    -width * 0.5,
+                    -height * 0.13,
+                ])
+                .fill({ color, alpha: 0.78 })
+                .stroke({ color: 0xeafaff, alpha: 0.9, width: 1, join: "round" });
+            crystal
+                .poly([0, -height * 0.5, width * 0.5, -height * 0.12, 0, height * 0.08])
+                .fill({ color: 0xf1fcff, alpha: 0.34 });
+            crystal
+                .poly([0, height * 0.08, width * 0.34, height * 0.33, 0, height * 0.5])
+                .fill({ color: 0x469dce, alpha: 0.3 });
+            crystal
+                .moveTo(0, -height * 0.5)
+                .lineTo(0, height * 0.5)
+                .moveTo(-width * 0.5, -height * 0.13)
+                .lineTo(0, height * 0.08)
+                .stroke({ color: 0xeafaff, alpha: 0.45, width: 0.8, cap: "round" });
+        } else {
+            crystal
+                .poly([0, -height * 0.5, width * 0.5, height * 0.12, 0, height * 0.5, -width * 0.45, height * 0.08])
+                .fill({ color, alpha: 0.86 })
+                .stroke({ color: 0xf1fcff, alpha: 0.85, width: 0.7, join: "round" });
+            crystal
+                .moveTo(0, -height * 0.42)
+                .lineTo(0, height * 0.38)
+                .stroke({ color: 0xffffff, alpha: 0.45, width: 0.55, cap: "round" });
+        }
+        return crystal;
+    }
+    private spawnIceBreak(info: IDeathVfxInfo): boolean {
+        const frame = info.texture?.frame;
+        if (!frame || frame.width <= 1 || frame.height <= 1) return false;
+
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+        const bodySize = Math.min(worldW, worldH);
+        if (bodySize <= 1) return false;
+        const shellHalf = Math.max(info.frozenShellHalf ?? Math.max(worldW, worldH) * 0.54, bodySize * 0.54);
+        const shellSize = shellHalf * 2;
+
+        const container = new Container();
+        container.position.set(info.x, info.y);
+        this.context.attachToWorldRoot(container, ICE_BREAK_Z);
+
+        // Preserve the dying unit for a very short crack beat after its live sprite is torn down.
+        const body = new Sprite(info.texture);
+        body.anchor.set(0.5);
+        body.scale.set(info.scaleX, info.scaleY);
+        body.tint = 0x9fdcff;
+        body.alpha = 0.92;
+        container.addChild(body);
+
+        // Rebuild the same square frozen pane the live unit occupied so the kill starts from its existing
+        // silhouette instead of dropping the shell and briefly reading as a circular ice cast.
+        const iceShell = new Graphics();
+        const shellCorner = shellHalf * 0.18;
+        iceShell
+            .roundRect(-shellHalf, -shellHalf, shellSize, shellSize, shellCorner)
+            .fill({ color: 0xbfe8ff, alpha: 0.1 })
+            .stroke({ color: 0xeaf7ff, alpha: 0.54, width: 1.4 });
+        const rimInset = shellHalf * 0.045;
+        iceShell
+            .roundRect(
+                -shellHalf + rimInset,
+                -shellHalf + rimInset,
+                shellSize - rimInset * 2,
+                shellSize - rimInset * 2,
+                shellCorner * 0.82,
+            )
+            .stroke({ color: 0xbfe8ff, alpha: 0.26, width: shellHalf * 0.055 });
+        container.addChild(iceShell);
+
+        const crackFlash = new Graphics();
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+            const rayX = Math.cos(angle);
+            const rayY = Math.sin(angle);
+            const edgeDistance = (shellHalf * (0.78 + Math.random() * 0.16)) / Math.max(Math.abs(rayX), Math.abs(rayY));
+            const endX = rayX * edgeDistance;
+            const endY = rayY * edgeDistance;
+            const bendX = -Math.sin(angle) * bodySize * (Math.random() - 0.5) * 0.1;
+            const bendY = Math.cos(angle) * bodySize * (Math.random() - 0.5) * 0.1;
+            const midX = endX * 0.5 + bendX;
+            const midY = endY * 0.5 + bendY;
+            crackFlash.moveTo(0, 0).lineTo(midX, midY).lineTo(endX, endY);
+            if (i % 2 === 0) {
+                crackFlash
+                    .moveTo(midX, midY)
+                    .lineTo(midX - Math.sin(angle) * bodySize * 0.1, midY + Math.cos(angle) * bodySize * 0.1);
+            }
+        }
+        crackFlash.stroke({
+            color: 0xf4fdff,
+            alpha: 0.95,
+            width: Math.max(1, bodySize * 0.012),
+            cap: "round",
+            join: "round",
+        });
+        container.addChild(crackFlash);
+
+        const sizeScale = Math.max(1, Math.min(2, shellSize / 128));
+        const largeCount = Math.round(6 + (sizeScale - 1) * 4);
+        const smallCount = Math.round(14 + (sizeScale - 1) * 14);
+        const crystals: IIceCrystal[] = [];
+        const addCrystal = (large: boolean): void => {
+            const height = large ? shellSize * (0.2 + Math.random() * 0.13) : shellSize * (0.06 + Math.random() * 0.1);
+            const width = height * (large ? 0.28 + Math.random() * 0.22 : 0.2 + Math.random() * 0.2);
+            const color = ICE_BREAK_COLORS[Math.floor(Math.random() * ICE_BREAK_COLORS.length)];
+            const node = this.createIceCrystal(width, height, color, large);
+            const x = (Math.random() - 0.5) * shellSize * (large ? 1.36 : 1.76);
+            const y = (Math.random() - 0.5) * shellSize * (large ? 1.36 : 1.76);
+            const fallbackAngle = Math.random() * Math.PI * 2;
+            const distance = Math.hypot(x, y);
+            const outwardX = distance > shellSize * 0.04 ? x / distance : Math.cos(fallbackAngle);
+            const outwardY = distance > shellSize * 0.04 ? y / distance : Math.sin(fallbackAngle);
+            const spread = (Math.random() - 0.5) * (large ? 0.45 : 0.7);
+            const dirX = outwardX * Math.cos(spread) - outwardY * Math.sin(spread);
+            const dirY = outwardX * Math.sin(spread) + outwardY * Math.cos(spread);
+            const speed = shellSize * (large ? 0.65 + Math.random() * 0.65 : 1.5 + Math.random() * 1.2);
+            node.position.set(x, y);
+            node.rotation = Math.random() * Math.PI * 2;
+            node.visible = false;
+            container.addChild(node);
+            crystals.push({
+                node,
+                x,
+                y,
+                vx: dirX * speed,
+                vy: dirY * speed + shellSize * (large ? 0.35 + Math.random() * 0.35 : 0.45 + Math.random() * 0.45),
+                spin: (Math.random() - 0.5) * (large ? 6 : 16),
+                delay: ICE_BREAK_BURST_S + Math.random() * (large ? 0.035 : 0.065),
+                life: large ? 0.76 + Math.random() * 0.34 : 0.44 + Math.random() * 0.3,
+                gravity: shellSize * (large ? 3.8 : 5.2),
+                drag: large ? 0.32 : 0.75,
+                large,
+            });
+        };
+        for (let i = 0; i < largeCount; i++) addCrystal(true);
+        for (let i = 0; i < smallCount; i++) addCrystal(false);
+
+        this.iceBreaks.push({
+            container,
+            body,
+            iceShell,
+            crackFlash,
+            crystals,
+            age: 0,
+            burstAt: ICE_BREAK_BURST_S,
+        });
+        return true;
+    }
+    private stepIceBreaks(dt: number): void {
+        const fadeFrom = 0.62;
+        for (let i = this.iceBreaks.length - 1; i >= 0; i--) {
+            const iceBreak = this.iceBreaks[i];
+            iceBreak.age += dt;
+            if (iceBreak.age < iceBreak.burstAt) {
+                const crackT = iceBreak.age / iceBreak.burstAt;
+                iceBreak.body.alpha = 0.92 * (1 - crackT * 0.25);
+                iceBreak.iceShell.alpha = 1 - crackT * 0.12;
+                iceBreak.crackFlash.alpha = 1 - crackT * 0.35;
+            } else {
+                iceBreak.body.visible = false;
+                iceBreak.iceShell.visible = false;
+                const burstFlashT = (iceBreak.age - iceBreak.burstAt) / 0.09;
+                iceBreak.crackFlash.visible = burstFlashT < 1;
+                iceBreak.crackFlash.alpha = Math.max(0, (1 - burstFlashT) * 0.62);
+                const flashScale = 1 + Math.min(1, burstFlashT) * 0.18;
+                iceBreak.crackFlash.scale.set(flashScale);
+            }
+
+            for (let c = iceBreak.crystals.length - 1; c >= 0; c--) {
+                const crystal = iceBreak.crystals[c];
+                const elapsed = iceBreak.age - crystal.delay;
+                if (elapsed < 0) continue;
+                crystal.node.visible = true;
+                const lifeT = elapsed / crystal.life;
+                if (lifeT >= 1) {
+                    crystal.node.destroy();
+                    iceBreak.crystals.splice(c, 1);
+                    continue;
+                }
+                crystal.vy -= crystal.gravity * dt;
+                const drag = Math.exp(-crystal.drag * dt);
+                crystal.vx *= drag;
+                crystal.vy *= drag;
+                crystal.x += crystal.vx * dt;
+                crystal.y += crystal.vy * dt;
+                crystal.node.position.set(crystal.x, crystal.y);
+                crystal.node.rotation += crystal.spin * dt;
+                const releaseScale = 0.7 + 0.3 * easeOutCubic(Math.min(1, lifeT / 0.12));
+                crystal.node.scale.set(releaseScale);
+                crystal.node.alpha =
+                    lifeT > fadeFrom ? 1 - (lifeT - fadeFrom) / (1 - fadeFrom) : crystal.large ? 0.96 : 0.9;
+            }
+
+            if (iceBreak.crystals.length === 0) {
+                iceBreak.container.destroy({ children: true });
+                this.iceBreaks.splice(i, 1);
+            }
+        }
+    }
+    /**
+     * Record what killed a unit (and the blow's direction, attacker → victim) BEFORE its death
+     * visuals spawn, so spawnDeathVfx can pick a kill-specific animation. Only note units that
+     * actually died from the blow (the engine's unitIdsDied) — noting mere hits would misattribute
+     * a later death by spell to the earlier attack.
+     */
+    public noteDeathBlow(unitId: string, kind: DeathBlowKind, dir?: HoCMath.XY): void {
+        this.deathBlowByUnitId.set(unitId, { kind, dir });
+    }
+    /**
+     * Death-visuals dispatcher: a melee kill has a 50% chance of the "cleave" (torn in two) and a
+     * ranged kill a 50% chance of the "dissolve" (shot through into drifting ash) — otherwise, and
+     * for any death with no recorded blow (spells, armageddon, narrowing…), the classic broken-mirror
+     * shatter. Consumes the recorded blow so a stale entry can never color a later death.
+     */
+    public spawnDeathVfx(info: IDeathVfxInfo, unitId?: string, frozen = false): void {
+        const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
+        if (unitId) {
+            this.deathBlowByUnitId.delete(unitId);
+        }
+        // A frozen stack always cracks into mixed-size crystals, however the killing blow was delivered.
+        if (frozen && this.spawnIceBreak(info)) {
+            return;
+        }
+        if (blow && Math.random() < 0.5) {
+            if (blow.kind === "melee") {
+                this.spawnCleaveDeath(info, blow.dir);
+            } else {
+                this.spawnDissolveDeath(info, blow.dir);
+            }
+        } else {
+            this.spawnShatter(info);
+        }
+    }
+    /**
+     * Melee death "cleave": a slash flash sweeps a jagged cut through the unit PERPENDICULAR to the
+     * strike line (`dir`, attacker → victim); the body holds intact for a beat, then the two masked
+     * halves let go — separating along the blow and shoved away from the attacker, toppling under
+     * gravity and shedding a few drops of blood from the rip.
+     */
+    private spawnCleaveDeath(
+        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
+        dir?: HoCMath.XY,
+    ): void {
+        const tex = info.texture;
+        const source = tex?.source;
+        const frame = tex?.frame;
+        if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
+
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+
+        const container = new Container();
+        this.context.attachToWorldRoot(container, CLEAVE_Z);
+        container.position.set(info.x, info.y);
+
+        // Shove direction: away from the attacker; sideways at random when the blow's origin is unknown.
+        let px = dir?.x ?? 0;
+        let py = dir?.y ?? 0;
+        const pLen = Math.hypot(px, py);
+        const hadDir = pLen >= 0.001;
+        if (!hadDir) {
+            const a = Math.random() * Math.PI * 2;
+            px = Math.cos(a);
+            py = Math.sin(a);
+        } else {
+            px /= pLen;
+            py /= pLen;
+        }
+
+        // The cut runs PERPENDICULAR to the strike line (attacker center → struck unit), with a small
+        // random blade lean, jagged along its length so it reads as torn flesh, not a laser slice: a
+        // horizontal blow cleaves the body into left/right halves, a strike from below cuts it at the
+        // waist, a diagonal blow cuts diagonally — and the halves then separate ALONG the blow.
+        // Without a known direction, fall back to a mostly-vertical random cut. All coordinates are
+        // unit-local (the container sits at the unit's center).
+        let ux: number;
+        let uy: number;
+        if (hadDir) {
+            const lean = (Math.random() - 0.5) * 0.4;
+            const cs = Math.cos(lean);
+            const sn = Math.sin(lean);
+            // perp(strike line), rotated by the blade lean.
+            ux = -py * cs - px * sn;
+            uy = px * cs - py * sn;
+        } else {
+            const lean = (0.25 + Math.random() * 0.35) * (Math.random() < 0.5 ? -1 : 1);
+            ux = Math.sin(lean);
+            uy = Math.cos(lean);
+        }
+        // The slash flash sweeps from the +cutLen end toward -cutLen: orient the tangent so the
+        // stroke comes DOWN along the cut (random for a horizontal cut, e.g. a waist cut).
+        if (uy < -0.05 || (Math.abs(uy) <= 0.05 && Math.random() < 0.5)) {
+            ux = -ux;
+            uy = -uy;
+        }
+        const nx = uy;
+        const ny = -ux; // cut normal — the halves separate along ±n (≈ the strike line when known)
+        const cutLen = 0.62 * Math.hypot(worldW, worldH); // past the sprite corners on both ends
+
+        const SEGS = 7;
+        const jags: HoCMath.XY[] = [];
+        for (let i = 0; i <= SEGS; i++) {
+            const t = -cutLen + (2 * cutLen * i) / SEGS;
+            const wobble = i === 0 || i === SEGS ? 0 : (Math.random() - 0.5) * worldW * 0.09;
+            jags.push({ x: ux * t + nx * wobble, y: uy * t + ny * wobble });
+        }
+
+        const halves: ICleaveHalf[] = [];
+        const FAR = cutLen * 2.5;
+        for (const side of [1, -1]) {
+            const half = new Container();
+            const sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            // Same orientation as the dying unit (scaleY carries the y-up flip).
+            sprite.scale.set(info.scaleX, info.scaleY);
+            // Mask this copy to one side of the jagged cut: the cut polyline, closed far out along ±n.
+            const maskG = new Graphics();
+            maskG.moveTo(jags[0].x, jags[0].y);
+            for (let i = 1; i < jags.length; i++) {
+                maskG.lineTo(jags[i].x, jags[i].y);
+            }
+            maskG.lineTo(jags[SEGS].x + nx * FAR * side, jags[SEGS].y + ny * FAR * side);
+            maskG.lineTo(jags[0].x + nx * FAR * side, jags[0].y + ny * FAR * side);
+            maskG.closePath();
+            maskG.fill({ color: 0xffffff });
+            half.addChild(sprite, maskG);
+            half.mask = maskG;
+            container.addChild(half);
+
+            const sep = 55 + Math.random() * 35; // lateral separation along the cut normal
+            halves.push({
+                node: half,
+                vx: nx * sep * side + px * (70 + Math.random() * 50),
+                vy: ny * sep * side + py * (70 + Math.random() * 50) * 0.5 + 30 + Math.random() * 30,
+                rotSpeed: -side * (0.6 + Math.random() * 0.8),
+            });
+        }
+
+        // Blood shed from the rip: droplets spray perpendicular to the cut as the halves let go
+        // (negative age holds them until the release beat).
+        const drops: ISlashDrop[] = [];
+        const bodyR = 0.45 * Math.min(worldW, worldH);
+        const dropCount = 8 + Math.floor(Math.random() * 4);
+        for (let d = 0; d < dropCount; d++) {
+            const along = (Math.random() - 0.5) * 2 * bodyR;
+            const side = Math.random() < 0.5 ? 1 : -1;
+            drops.push({
+                x: ux * along + nx * side * 2,
+                y: uy * along + ny * side * 2,
+                vx: nx * side * (120 + Math.random() * 140) + ux * (Math.random() - 0.5) * 120,
+                vy: ny * side * (120 + Math.random() * 140) + uy * (Math.random() - 0.5) * 120,
+                r: 1.6 + Math.random() * 2.2,
+                age: -CLEAVE_RELEASE_S - Math.random() * 0.05,
+                life: 0.3 + Math.random() * 0.25,
+            });
+        }
+        const dropsGfx = new Graphics();
+        container.addChild(dropsGfx);
+
+        const streak = new Graphics();
+        streak.blendMode = "add";
+        container.addChild(streak);
+
+        this.cleaveDeaths.push({
+            container,
+            halves,
+            streak,
+            dropsGfx,
+            drops,
+            cutU: { x: ux, y: uy },
+            cutLen,
+            streakWidth: Math.max(3, worldH * 0.05),
+            age: 0,
+            life: CLEAVE_RELEASE_S + CLEAVE_HALF_LIFE,
+            releaseAt: CLEAVE_RELEASE_S,
+            halfLife: CLEAVE_HALF_LIFE,
+        });
+    }
+    private stepCleaveDeaths(dt: number): void {
+        for (let i = this.cleaveDeaths.length - 1; i >= 0; i--) {
+            const cd = this.cleaveDeaths[i];
+            cd.age += dt;
+            if (cd.age >= cd.life) {
+                cd.container.destroy({ children: true });
+                this.cleaveDeaths.splice(i, 1);
+                continue;
+            }
+
+            // Slash flash: the tip sweeps the cut top-to-bottom fast, then the whole streak fades.
+            cd.streak.clear();
+            if (cd.age < CLEAVE_STREAK_LIFE) {
+                const sweepT = Math.min(1, cd.age / CLEAVE_STREAK_SWEEP_S);
+                const tip = cd.cutLen - 2 * cd.cutLen * easeOutCubic(sweepT);
+                const fade =
+                    cd.age <= CLEAVE_STREAK_SWEEP_S
+                        ? 1
+                        : 1 - (cd.age - CLEAVE_STREAK_SWEEP_S) / (CLEAVE_STREAK_LIFE - CLEAVE_STREAK_SWEEP_S);
+                const x0 = cd.cutU.x * cd.cutLen;
+                const y0 = cd.cutU.y * cd.cutLen;
+                const x1 = cd.cutU.x * tip;
+                const y1 = cd.cutU.y * tip;
+                const w = cd.streakWidth;
+                cd.streak.moveTo(x0, y0);
+                cd.streak.lineTo(x1, y1);
+                cd.streak.stroke({ width: w * 3.2, color: CLEAVE_GLOW, alpha: 0.3 * fade, cap: "round" });
+                cd.streak.moveTo(x0, y0);
+                cd.streak.lineTo(x1, y1);
+                cd.streak.stroke({ width: w * 1.4, color: CLEAVE_MID, alpha: 0.7 * fade, cap: "round" });
+                cd.streak.moveTo(x0, y0);
+                cd.streak.lineTo(x1, y1);
+                cd.streak.stroke({ width: w * 0.55, color: CLEAVE_CORE, alpha: fade, cap: "round" });
+            }
+
+            // The halves hold together until the release beat, then slide apart, topple, and fade.
+            if (cd.age >= cd.releaseAt) {
+                const ht = (cd.age - cd.releaseAt) / cd.halfLife;
+                const alpha = ht > CLEAVE_FADE_FROM ? 1 - (ht - CLEAVE_FADE_FROM) / (1 - CLEAVE_FADE_FROM) : 1;
+                for (const half of cd.halves) {
+                    half.vy -= CLEAVE_GRAVITY * dt;
+                    half.node.x += half.vx * dt;
+                    half.node.y += half.vy * dt;
+                    half.node.rotation += half.rotSpeed * dt;
+                    half.node.alpha = Math.max(0, alpha);
+                }
+            }
+
+            // Blood droplets from the rip (unit-local coords; world y-up so gravity subtracts).
+            const gfx = cd.dropsGfx;
+            gfx.clear();
+            for (const drop of cd.drops) {
+                drop.age += dt;
+                if (drop.age < 0 || drop.age >= drop.life) {
+                    continue;
+                }
+                drop.vy -= CLEAVE_DROP_GRAVITY * dt;
+                drop.x += drop.vx * dt;
+                drop.y += drop.vy * dt;
+                const dropAlpha = 1 - drop.age / drop.life;
+                gfx.circle(drop.x, drop.y, drop.r * (0.7 + 0.3 * dropAlpha));
+                gfx.fill({ color: SLASH_DROP, alpha: 0.9 * dropAlpha });
+            }
+        }
+    }
+    /**
+     * Ranged death "dissolve": the killing shot punches through — a tracer streak + impact flash,
+     * then the body erodes into a wave of shards released entry-side first, carried along the shot's
+     * direction (`dir`, attacker → victim), slowing under drag and fluttering down like ash while a
+     * few sparks fly out the exit side.
+     */
+    private spawnDissolveDeath(
+        info: { texture: Texture; x: number; y: number; scaleX: number; scaleY: number },
+        dir?: HoCMath.XY,
+    ): void {
+        const tex = info.texture;
+        const source = tex?.source;
+        const frame = tex?.frame;
+        if (!source || !frame || frame.width <= 1 || frame.height <= 1) return;
+
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+
+        // Shot direction; a mostly-horizontal random one when the origin is unknown.
+        let dx = dir?.x ?? 0;
+        let dy = dir?.y ?? 0;
+        const dLen = Math.hypot(dx, dy);
+        if (dLen < 0.001) {
+            const a = (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.6;
+            dx = Math.cos(a);
+            dy = Math.sin(a);
+        } else {
+            dx /= dLen;
+            dy /= dLen;
+        }
+        const perpX = -dy;
+        const perpY = dx;
+
+        const container = new Container();
+        this.context.attachToWorldRoot(container, DISSOLVE_Z);
+
+        const COLS = DISSOLVE_COLS;
+        const ROWS = DISSOLVE_ROWS;
+        const tileTexW = frame.width / COLS;
+        const tileTexH = frame.height / ROWS;
+        const tileWorldW = worldW / COLS;
+        const tileWorldH = worldH / ROWS;
+        const bodyR = 0.5 * Math.hypot(worldW, worldH);
+
+        const shards: IDissolveShard[] = [];
+        let lastRelease = 0;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const subTex = new Texture({
+                    source,
+                    frame: new Rectangle(frame.x + c * tileTexW, frame.y + r * tileTexH, tileTexW, tileTexH),
+                });
+                const shard = new Sprite(subTex);
+                shard.anchor.set(0.5);
+                // Same orientation as the dying unit (scaleY carries the y-up flip); texture row 0 is
+                // the top of the image, so walk rows top-down to keep the composite upright.
+                shard.scale.set(info.scaleX, info.scaleY);
+                const sx = info.x - worldW / 2 + (c + 0.5) * tileWorldW;
+                const sy = info.y + worldH / 2 - (r + 0.5) * tileWorldH;
+                shard.position.set(sx, sy);
+                container.addChild(shard);
+
+                // The erosion wave enters on the side facing the shooter and crosses the body in
+                // DISSOLVE_WAVE_S — shards release in shot order, so the unit visibly erodes THROUGH.
+                const along = (sx - info.x) * dx + (sy - info.y) * dy;
+                const delay =
+                    ((along + bodyR) / (2 * bodyR)) * DISSOLVE_WAVE_S + Math.random() * DISSOLVE_WAVE_JITTER_S;
+                // A tight cone along the shot: strong carry in the shot direction, modest spread
+                // across it — the debris streams away at the ATTACK ANGLE, whatever it is.
+                const bodyMax = Math.max(worldW, worldH);
+                const speed = bodyMax * (DISSOLVE_SPEED_MIN + Math.random() * DISSOLVE_SPEED_VAR);
+                const spread = bodyMax * DISSOLVE_CONE * (Math.random() - 0.5);
+                const life = DISSOLVE_LIFE_MIN + Math.random() * DISSOLVE_LIFE_VAR;
+                lastRelease = Math.max(lastRelease, delay + life);
+                shards.push({
+                    sprite: shard,
+                    x: sx,
+                    y: sy,
+                    vx: dx * speed + perpX * spread,
+                    vy: dy * speed + perpY * spread + 18,
+                    delay,
+                    age: 0,
+                    life,
+                    baseScaleX: info.scaleX,
+                    baseScaleY: info.scaleY,
+                    swayAmp: 5 + Math.random() * 8,
+                    swayFreq: 6 + Math.random() * 4,
+                    swayPhase: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 4,
+                });
+            }
+        }
+
+        // The shot's tracer through the body + an impact flash at the center. Asymmetric on purpose:
+        // short on the entry side, long past the exit side — it reads as the shot PASSING THROUGH
+        // along its actual flight line.
+        const tracer = new Graphics();
+        tracer.blendMode = "add";
+        container.addChild(tracer);
+        const tracerEntryR = 0.7 * Math.hypot(worldW, worldH);
+        const tracerExitR = 1.25 * Math.hypot(worldW, worldH);
+
+        const lightTex = this.getLightTexture();
+        const flash = new Sprite(lightTex);
+        flash.anchor.set(0.5);
+        flash.blendMode = "add";
+        flash.tint = DISSOLVE_TRACER_TINT;
+        flash.position.set(info.x, info.y);
+        container.addChild(flash);
+        const flashScale = (worldH * 0.85) / Math.max(1, lightTex.width || 64);
+
+        // Sparks out the exit side — the shot goes THROUGH.
+        const sparks: IDissolveSpark[] = [];
+        const sparkCount = 6;
+        const sparkBody = Math.max(worldW, worldH);
+        let sparkLife = 0;
+        for (let s = 0; s < sparkCount; s++) {
+            const sprite = new Sprite(lightTex);
+            sprite.anchor.set(0.5);
+            sprite.blendMode = "add";
+            sprite.tint = DISSOLVE_SPARK_TINT;
+            sprite.scale.set(flashScale * 0.28);
+            container.addChild(sprite);
+            const life = 0.2 + Math.random() * 0.15;
+            sparkLife = Math.max(sparkLife, life);
+            sparks.push({
+                sprite,
+                x: info.x + dx * bodyR * 0.4,
+                y: info.y + dy * bodyR * 0.4,
+                vx: dx * sparkBody * (2.6 + Math.random() * 1.4) + perpX * (Math.random() - 0.5) * sparkBody,
+                vy: dy * sparkBody * (2.6 + Math.random() * 1.4) + perpY * (Math.random() - 0.5) * sparkBody,
+                life,
+            });
+        }
+
+        this.dissolveDeaths.push({
+            container,
+            shards,
+            tracer,
+            tracerFrom: { x: info.x - dx * tracerEntryR, y: info.y - dy * tracerEntryR },
+            tracerTo: { x: info.x + dx * tracerExitR, y: info.y + dy * tracerExitR },
+            tracerWidth: Math.max(2.5, worldH * 0.035),
+            flash,
+            flashScale,
+            sparks,
+            dirPerp: { x: perpX, y: perpY },
+            age: 0,
+            life: Math.max(lastRelease, DISSOLVE_TRACER_LIFE, DISSOLVE_FLASH_LIFE, sparkLife) + 0.02,
+        });
+    }
+    private stepDissolveDeaths(dt: number): void {
+        for (let i = this.dissolveDeaths.length - 1; i >= 0; i--) {
+            const dd = this.dissolveDeaths[i];
+            dd.age += dt;
+            if (dd.age >= dd.life) {
+                dd.container.destroy({ children: true });
+                this.dissolveDeaths.splice(i, 1);
+                continue;
+            }
+
+            // Tracer: full-bright with the impact, gone in a couple of frames' worth of afterglow.
+            dd.tracer.clear();
+            if (dd.age < DISSOLVE_TRACER_LIFE) {
+                const fade = 1 - dd.age / DISSOLVE_TRACER_LIFE;
+                const w = dd.tracerWidth;
+                dd.tracer.moveTo(dd.tracerFrom.x, dd.tracerFrom.y);
+                dd.tracer.lineTo(dd.tracerTo.x, dd.tracerTo.y);
+                dd.tracer.stroke({ width: w * 3, color: DISSOLVE_TRACER_TINT, alpha: 0.28 * fade, cap: "round" });
+                dd.tracer.moveTo(dd.tracerFrom.x, dd.tracerFrom.y);
+                dd.tracer.lineTo(dd.tracerTo.x, dd.tracerTo.y);
+                dd.tracer.stroke({ width: w, color: 0xffffff, alpha: fade, cap: "round" });
+            }
+
+            // Impact flash: springs open with the hit, then dissipates.
+            if (dd.age < DISSOLVE_FLASH_LIFE) {
+                const pop = easeOutCubic(Math.min(1, dd.age / 0.09));
+                dd.flash.scale.set(dd.flashScale * (0.45 + 0.7 * pop));
+                dd.flash.alpha = 1 - dd.age / DISSOLVE_FLASH_LIFE;
+            } else if (dd.flash.visible) {
+                dd.flash.visible = false;
+            }
+
+            // Exit-side sparks: fast, additive, quickly gone.
+            for (const spark of dd.sparks) {
+                if (dd.age >= spark.life) {
+                    if (spark.sprite.visible) spark.sprite.visible = false;
+                    continue;
+                }
+                spark.x += spark.vx * dt;
+                spark.y += spark.vy * dt;
+                spark.sprite.position.set(spark.x, spark.y);
+                spark.sprite.alpha = 1 - dd.age / spark.life;
+            }
+
+            // The erosion wave: shards stay composed until the wave reaches them, then get carried
+            // along the shot, slow under drag, and flutter down like ash — sway, shrink, soft fade.
+            const drag = Math.exp(-DISSOLVE_DRAG * dt);
+            for (const s of dd.shards) {
+                s.age += dt;
+                if (s.age < s.delay) {
+                    continue; // still part of the (eroding) body
+                }
+                const a = s.age - s.delay;
+                const t = a / s.life;
+                if (t >= 1) {
+                    if (s.sprite.visible) s.sprite.visible = false;
+                    continue;
+                }
+                s.vx *= drag;
+                s.vy = s.vy * drag - DISSOLVE_SINK * dt;
+                s.x += s.vx * dt;
+                s.y += s.vy * dt;
+                // Ash flutter: lateral sway ACROSS the flight line (not world-x), ramping in as the
+                // burst slows — so the flutter reads correctly at any attack angle.
+                const sway = Math.sin(a * s.swayFreq + s.swayPhase) * s.swayAmp * Math.min(1, a * 2);
+                s.sprite.position.set(s.x + dd.dirPerp.x * sway, s.y + dd.dirPerp.y * sway);
+                s.sprite.rotation += s.rotSpeed * dt;
+                const shrink = 1 - 0.65 * t;
+                s.sprite.scale.set(s.baseScaleX * shrink, s.baseScaleY * shrink);
+                s.sprite.alpha = t > DISSOLVE_FADE_FROM ? 1 - (t - DISSOLVE_FADE_FROM) / (1 - DISSOLVE_FADE_FROM) : 1;
+            }
+        }
+    }
     /** Soft white→amber→transparent radial ember, drawn once and tinted per particle. */
     private getFireTexture(): Texture {
         if (this.fireTexture) {
             return this.fireTexture;
+        }
+        // Headless (tests): no DOM to rasterize the radial gradient on — a plain white texture keeps the
+        // particle path alive, same as the poison/light textures below.
+        if (typeof document === "undefined") {
+            return Texture.WHITE;
         }
         const size = 64;
         const canvas = document.createElement("canvas");
@@ -678,6 +2130,10 @@ export class CombatVisuals {
     private getLightTexture(): Texture {
         if (this.lightTexture) {
             return this.lightTexture;
+        }
+        // Headless (tests): no DOM to rasterize the radial gradient on — a plain white texture works.
+        if (typeof document === "undefined") {
+            return Texture.WHITE;
         }
         const size = 64;
         const canvas = document.createElement("canvas");
@@ -751,6 +2207,132 @@ export class CombatVisuals {
         }
         this.fireSweeps.push({ container, particles });
     }
+    /**
+     * Fire-DAMAGE burst on a single unit: a bright core flash, a spray of embers that snap in and burn
+     * out, and slower soot puffs curling up behind them. Used wherever damage is fire — the Efreet's
+     * Fire Shield reflect, each unit a Black Dragon's breath burns through, and a Fireforged Sword
+     * strike. `scale` trims the whole thing for smaller burns (a reflect is less than a dragon breath).
+     */
+    public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize * scale);
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+
+        // Core flash — one wide, near-white bloom right at the moment of the burn.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xfff0c0;
+        push(flash, {
+            age: 0,
+            life: BURN_FLASH_LIFE,
+            x: center.x,
+            y: center.y,
+            riseY: size * 0.08,
+            driftX: 0,
+            startScale: (size * 0.55) / texW,
+            endScale: (size * 1.35) / texW,
+            peakAlpha: 0.85,
+            fadeInFraction: 0.12,
+            rot: 0,
+            spin: 0,
+        });
+
+        for (let i = 0; i < BURN_FLAME_COUNT; i++) {
+            const rand = Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const radius = size * 0.34 * Math.sqrt(Math.random());
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                // Staggered ignition so the burst crackles rather than appearing as one puff.
+                age: -Math.random() * 0.09,
+                life: BURN_FLAME_LIFE * (0.75 + 0.5 * rand),
+                x: center.x + Math.cos(angle) * radius,
+                y: center.y + Math.sin(angle) * radius,
+                riseY: size * (0.35 + 0.35 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.3,
+                startScale: (size * (0.3 + 0.28 * rand)) / texW,
+                endScale: (size * (0.1 + 0.12 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.08,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 5,
+            });
+        }
+
+        for (let i = 0; i < BURN_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                // Smoke is born as the flames start dying, so it reads as their aftermath.
+                age: -(0.1 + Math.random() * 0.22),
+                life: BURN_SMOKE_LIFE * (0.8 + 0.4 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.42,
+                y: center.y + (Math.random() - 0.5) * size * 0.24,
+                riseY: size * (0.75 + 0.5 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.5,
+                startScale: (size * (0.26 + 0.16 * rand)) / texW,
+                endScale: (size * (0.7 + 0.4 * rand)) / texW,
+                peakAlpha: 0.42,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.6,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    private stepFireBurns(dt: number): void {
+        for (let i = this.fireBurns.length - 1; i >= 0; i--) {
+            const burn = this.fireBurns[i];
+            let anyPending = false;
+            for (const p of burn.particles) {
+                p.age += dt;
+                if (p.age < 0) {
+                    anyPending = true; // not born yet
+                    continue;
+                }
+                if (p.age >= p.life) {
+                    if (p.sprite.visible) {
+                        p.sprite.visible = false;
+                    }
+                    continue;
+                }
+                anyPending = true;
+                const t = p.age / p.life;
+                const e = easeOutCubic(t);
+                p.sprite.visible = true;
+                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+                const scale = p.startScale + (p.endScale - p.startScale) * e;
+                p.sprite.scale.set(scale, scale);
+                p.rot += p.spin * dt;
+                p.sprite.rotation = p.rot;
+                const alpha =
+                    t < p.fadeInFraction
+                        ? (t / p.fadeInFraction) * p.peakAlpha
+                        : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
+                p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+            }
+            if (!anyPending) {
+                burn.container.destroy({ children: true });
+                this.fireBurns.splice(i, 1);
+            }
+        }
+    }
     private stepFireSweeps(dt: number): void {
         for (let i = this.fireSweeps.length - 1; i >= 0; i--) {
             const sweep = this.fireSweeps[i];
@@ -786,6 +2368,437 @@ export class CombatVisuals {
             if (!anyPending) {
                 sweep.container.destroy({ children: true });
                 this.fireSweeps.splice(i, 1);
+            }
+        }
+    }
+    /** Soft green→transparent radial puff, drawn once and tinted per particle — one wisp of the toxic cloud. */
+    private getPoisonTexture(): Texture {
+        if (this.poisonTexture) {
+            return this.poisonTexture;
+        }
+        // Headless (tests): no DOM to rasterize on — a plain white texture keeps the particle path alive.
+        if (typeof document === "undefined") {
+            return Texture.WHITE;
+        }
+        const size = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return Texture.WHITE;
+        }
+        const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        grad.addColorStop(0.0, "rgba(226,255,188,0.95)");
+        grad.addColorStop(0.35, "rgba(126,226,86,0.7)");
+        grad.addColorStop(0.7, "rgba(60,170,54,0.3)");
+        grad.addColorStop(1.0, "rgba(28,120,42,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        this.poisonTexture = Texture.from(canvas);
+        return this.poisonTexture;
+    }
+    /**
+     * Poison tick VFX: a puff of toxic-green gas rises off the poisoned unit at the start of its turn
+     * (driven by the `poison_ticked` engine event). Particles pop in, float up, SWELL, and fade — the
+     * fire-ember lifecycle but green and expanding (billowing gas) instead of shrinking (burning ember).
+     * Shared by the live sandbox and the ranked replay (both route the event through applyTurnEngineEvents).
+     */
+    public spawnPoisonCloud(center: HoCMath.XY, cellSize: number): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getPoisonTexture();
+        const texW = tex.width || 64;
+        const particles: IFireParticle[] = [];
+        for (let k = 0; k < 14; k++) {
+            const rand = Math.random();
+            const jitter = cellSize * 0.34;
+            const sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            sprite.blendMode = "add";
+            sprite.tint = POISON_TINTS[Math.floor(Math.random() * POISON_TINTS.length)];
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({
+                sprite,
+                age: -Math.random() * 0.18, // slight stagger so the cloud billows up rather than popping at once
+                life: POISON_PARTICLE_LIFE * (0.75 + 0.5 * rand),
+                x: center.x + (Math.random() - 0.5) * jitter,
+                y: center.y + (Math.random() - 0.5) * jitter * 0.5,
+                riseY: POISON_RISE * (0.7 + 0.7 * rand),
+                driftX: (Math.random() - 0.5) * cellSize * 0.3,
+                baseScale: (cellSize * (0.34 + 0.4 * rand)) / texW,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 2.4,
+            });
+        }
+        this.poisonClouds.push({ container, particles });
+    }
+    private stepPoisonClouds(dt: number): void {
+        for (let i = this.poisonClouds.length - 1; i >= 0; i--) {
+            const cloud = this.poisonClouds[i];
+            let anyPending = false;
+            for (const p of cloud.particles) {
+                p.age += dt;
+                if (p.age < 0) {
+                    anyPending = true; // still staggered in
+                    continue;
+                }
+                if (p.age >= p.life) {
+                    if (p.sprite.visible) {
+                        p.sprite.visible = false;
+                    }
+                    continue;
+                }
+                anyPending = true;
+                const t = p.age / p.life;
+                const e = easeOutCubic(t);
+                p.sprite.visible = true;
+                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+                // Toxic gas SWELLS as it rises (embers shrink; poison billows out).
+                const scale = p.baseScale * (0.5 + 1.15 * e);
+                p.sprite.scale.set(scale, scale);
+                p.rot += p.spin * dt;
+                p.sprite.rotation = p.rot;
+                const alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;
+                p.sprite.alpha = Math.max(0, Math.min(1, alpha)) * 0.85;
+            }
+            if (!anyPending) {
+                cloud.container.destroy({ children: true });
+                this.poisonClouds.splice(i, 1);
+            }
+        }
+    }
+    /** Blacksmith's Craft cast: an upright anvil and a hammer swinging around its grip, just above the caster. */
+    public spawnCraftForge(center: HoCMath.XY, cellSize: number): number {
+        const container = new Container();
+        // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
+        // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
+        container.scale.set(1, -1);
+        container.position.set(center.x, center.y + cellSize * 0.7);
+        this.context.attachToWorldRoot(container, CRAFT_Z);
+
+        const anvilTex = Texture.from(images.craft_anvil);
+        const hammerTex = Texture.from(images.craft_hammer);
+
+        // The anvil art carries transparent padding, so its visible top is about 27% down the source image.
+        const anvil = new Sprite(anvilTex);
+        anvil.anchor.set(0.5, 0.5);
+        const anvilW = cellSize * 1.4;
+        const anvilH = anvilW * ((anvilTex.height || 1) / (anvilTex.width || 1));
+        anvil.width = anvilW;
+        anvil.height = anvilH;
+        const anvilBaseY = cellSize * 0.34;
+        anvil.position.set(0, anvilBaseY);
+        const anvilTopY = anvilBaseY - anvilH * 0.23; // 0.5 - 0.27 content-top fraction
+
+        // Pivot at the grip near the handle's end. The lower-left face of the mallet is the strike point;
+        // placing that point on the anvil at the impact angle makes the whole head follow a real circular arc.
+        const hammer = new Sprite(hammerTex);
+        hammer.anchor.set(0.5, 0.94);
+        const hammerH = cellSize * 1.15;
+        hammer.width = hammerH * ((hammerTex.width || 1) / (hammerTex.height || 1));
+        hammer.height = hammerH;
+        const contactX = cellSize * 0.02;
+        const contactY = anvilTopY + cellSize * 0.025;
+        const strikeOffsetX = (0.23 - hammer.anchor.x) * hammer.width;
+        const strikeOffsetY = (0.16 - hammer.anchor.y) * hammer.height;
+        const impactCos = Math.cos(CRAFT_HAMMER_IMPACT_ANGLE);
+        const impactSin = Math.sin(CRAFT_HAMMER_IMPACT_ANGLE);
+        const impactOffsetX = strikeOffsetX * impactCos - strikeOffsetY * impactSin;
+        const impactOffsetY = strikeOffsetX * impactSin + strikeOffsetY * impactCos;
+        hammer.position.set(contactX - impactOffsetX, contactY - impactOffsetY);
+        hammer.rotation = CRAFT_HAMMER_IMPACT_ANGLE;
+
+        container.addChild(anvil, hammer);
+        container.alpha = 0;
+
+        this.craftForges.push({
+            container,
+            anvil,
+            hammer,
+            sparks: [],
+            anvilBaseY,
+            contactX,
+            contactY,
+            cellSize,
+            age: 0,
+            life: CRAFT_FORGE_LIFE,
+            cycle: CRAFT_STRIKE_CYCLE,
+            impactsDone: 0,
+            impactFlash: 0,
+        });
+        return CRAFT_FORGE_LIFE * 1000;
+    }
+    private spawnForgeSparks(forge: ICraftForge): void {
+        const count = 11;
+        for (let k = 0; k < count; k++) {
+            const gfx = new Graphics();
+            const r = forge.cellSize * (0.02 + Math.random() * 0.035);
+            const color = Math.random() < 0.5 ? 0xfff2a0 : 0xffab36;
+            gfx.circle(0, 0, r).fill({ color, alpha: 1 });
+            gfx.blendMode = "add";
+            gfx.position.set(forge.contactX, forge.contactY);
+            forge.container.addChild(gfx);
+            const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.95; // fan upward off the anvil
+            const spd = forge.cellSize * (1.6 + Math.random() * 2.8);
+            forge.sparks.push({
+                gfx,
+                x: forge.contactX,
+                y: forge.contactY,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd,
+                age: 0,
+                life: 0.34 + Math.random() * 0.28,
+            });
+        }
+    }
+    private stepCraftForges(dt: number): void {
+        const easeIn = (x: number): number => x * x * x;
+        const impactPhase = 0.72; // fraction of a cycle at which the head lands on the anvil
+        for (let i = this.craftForges.length - 1; i >= 0; i--) {
+            const forge = this.craftForges[i];
+            forge.age += dt;
+            const t = forge.age / forge.life;
+            if (t >= 1) {
+                forge.container.destroy({ children: true });
+                this.craftForges.splice(i, 1);
+                continue;
+            }
+
+            // Group fade: in over the first 0.12s, hold, out over the last 0.2s.
+            let groupAlpha = 1;
+            if (forge.age < 0.12) {
+                groupAlpha = forge.age / 0.12;
+            } else if (t > 0.86) {
+                groupAlpha = 1 - (t - 0.86) / 0.14;
+            }
+            forge.container.alpha = Math.max(0, Math.min(1, groupAlpha));
+
+            // Recover around the fixed grip, then accelerate through the same circular arc into the strike.
+            // Holding the impact angle through the cycle boundary keeps each repeated hit continuous.
+            const phase = (forge.age % forge.cycle) / forge.cycle;
+            let swing: number; // 0 = raised, 1 = striking face on the anvil
+            if (phase < 0.55) {
+                swing = 1 - easeOutCubic(phase / 0.55);
+            } else if (phase < impactPhase) {
+                swing = easeIn((phase - 0.55) / (impactPhase - 0.55));
+            } else {
+                swing = 1;
+            }
+            forge.hammer.rotation =
+                CRAFT_HAMMER_RAISED_ANGLE + (CRAFT_HAMMER_IMPACT_ANGLE - CRAFT_HAMMER_RAISED_ANGLE) * swing;
+
+            // Fire sparks the first frame each strike lands (age past (n + impactPhase) * cycle).
+            const impactsOccurred =
+                forge.age >= impactPhase * forge.cycle
+                    ? Math.floor((forge.age - impactPhase * forge.cycle) / forge.cycle) + 1
+                    : 0;
+            if (impactsOccurred > forge.impactsDone && groupAlpha > 0.4) {
+                forge.impactsDone = impactsOccurred;
+                forge.impactFlash = 1;
+                this.spawnForgeSparks(forge);
+            }
+
+            // Anvil recoil: a quick downward jolt on impact that springs back.
+            if (forge.impactFlash > 0) {
+                forge.impactFlash = Math.max(0, forge.impactFlash - dt * 8);
+            }
+            forge.anvil.y = forge.anvilBaseY + forge.impactFlash * forge.cellSize * 0.04;
+
+            // Advance sparks (upward burst dragged down by gravity, fading out).
+            const gravity = forge.cellSize * 9;
+            for (let s = forge.sparks.length - 1; s >= 0; s--) {
+                const sp = forge.sparks[s];
+                sp.age += dt;
+                if (sp.age >= sp.life) {
+                    sp.gfx.destroy();
+                    forge.sparks.splice(s, 1);
+                    continue;
+                }
+                sp.vy += gravity * dt;
+                sp.x += sp.vx * dt;
+                sp.y += sp.vy * dt;
+                sp.gfx.position.set(sp.x, sp.y);
+                sp.gfx.alpha = 1 - sp.age / sp.life;
+            }
+        }
+    }
+    /**
+     * Blacksmith's Armor Rune / Weapon Rune result over the target: a short "trying" gather (a runic ring
+     * tightens while motes of the enchant colour spiral in), then a RESOLVE — on success a ring-burst + the scroll
+     * icon popping up with "+N armor/attack"; on the 50% miss a grey fizzle + "Failed". Returns its duration (ms).
+     */
+    public spawnEnchantResult(
+        center: HoCMath.XY,
+        cellSize: number,
+        opts: { tint: number; iconTexture: Texture; label: string; success: boolean },
+    ): number {
+        const container = new Container();
+        // worldRoot is y-up; counter-flip so local coords are screen-style (y down) and the icon/text stay upright.
+        container.scale.set(1, -1);
+        container.position.set(center.x, center.y);
+        this.context.attachToWorldRoot(container, ENCHANT_Z);
+
+        const ring = new Graphics();
+        container.addChild(ring);
+
+        const icon = new Sprite(opts.iconTexture);
+        icon.anchor.set(0.5);
+        icon.tint = opts.success ? 0xffffff : 0x9a9a9a; // desaturate the rune on a failed enchant
+        const iconBaseScale = (cellSize * 0.72) / (opts.iconTexture.width || 256);
+        icon.scale.set(0.001);
+        icon.position.set(0, -cellSize * 0.55); // above the unit (local -y = up)
+        icon.alpha = 0;
+        container.addChild(icon);
+
+        const label = new PixiText({
+            text: opts.label,
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 26,
+                fontWeight: "900",
+                fill: opts.success ? "#8ef08a" : "#b8b8b8",
+                stroke: { color: opts.success ? "#123d10" : "#2a2a2a", width: 4 },
+                dropShadow: { color: "#000000", blur: 3, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
+        label.anchor.set(0.5);
+        label.position.set(0, -cellSize * 0.1);
+        label.alpha = 0;
+        container.addChild(label);
+
+        const motes: IEnchantMote[] = [];
+        const moteCount = 10;
+        for (let i = 0; i < moteCount; i++) {
+            const gfx = new Graphics();
+            gfx.circle(0, 0, cellSize * 0.035).fill({ color: opts.tint, alpha: 1 });
+            gfx.blendMode = "add";
+            gfx.alpha = 0;
+            container.addChild(gfx);
+            motes.push({ gfx, ang: (i / moteCount) * Math.PI * 2, startR: cellSize * (0.7 + 0.18 * (i % 3)) });
+        }
+
+        this.enchants.push({
+            container,
+            ring,
+            icon,
+            label,
+            motes,
+            sparks: [],
+            iconBaseScale,
+            tint: opts.tint,
+            success: opts.success,
+            cellSize,
+            age: 0,
+            resolved: false,
+        });
+        return ENCHANT_LIFE * 1000;
+    }
+    private spawnEnchantBurst(e: IEnchant): void {
+        const count = e.success ? 12 : 7;
+        for (let k = 0; k < count; k++) {
+            const gfx = new Graphics();
+            const r = e.cellSize * (0.02 + Math.random() * 0.03);
+            const color = e.success ? (Math.random() < 0.5 ? e.tint : 0xfff2b0) : 0x9a9a9a;
+            gfx.circle(0, 0, r).fill({ color, alpha: 1 });
+            if (e.success) {
+                gfx.blendMode = "add";
+            }
+            e.container.addChild(gfx);
+            const ang = Math.random() * Math.PI * 2;
+            const spd = e.cellSize * (e.success ? 1.6 + Math.random() * 2.2 : 0.6 + Math.random());
+            e.sparks.push({
+                gfx,
+                x: 0,
+                y: -e.cellSize * 0.1,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd - (e.success ? e.cellSize * 1.2 : 0),
+                age: 0,
+                life: 0.4 + Math.random() * 0.3,
+            });
+        }
+    }
+    private stepEnchants(dt: number): void {
+        const easeIn = (x: number): number => x * x * x;
+        const TAU = Math.PI * 2;
+        for (let i = this.enchants.length - 1; i >= 0; i--) {
+            const e = this.enchants[i];
+            e.age += dt;
+            if (e.age / ENCHANT_LIFE >= 1) {
+                e.container.destroy({ children: true });
+                this.enchants.splice(i, 1);
+                continue;
+            }
+            e.ring.clear();
+            if (e.age < ENCHANT_GATHER) {
+                // GATHER ("trying"): the ring tightens + runes orbit; motes spiral inward and brighten.
+                const gp = e.age / ENCHANT_GATHER;
+                const rr = e.cellSize * (0.6 - 0.18 * gp);
+                e.ring.circle(0, 0, rr).stroke({ width: 2, color: e.tint, alpha: 0.25 + 0.5 * gp });
+                for (let k = 0; k < 8; k++) {
+                    const a = (k / 8) * TAU + e.age * 3;
+                    e.ring
+                        .circle(Math.cos(a) * rr, Math.sin(a) * rr, e.cellSize * 0.03)
+                        .fill({ color: e.tint, alpha: 0.5 * gp });
+                }
+                for (const m of e.motes) {
+                    const r = m.startR * (1 - easeIn(gp));
+                    const a = m.ang + e.age * 5;
+                    m.gfx.position.set(Math.cos(a) * r, Math.sin(a) * r);
+                    m.gfx.alpha = gp;
+                    m.gfx.scale.set(0.5 + gp);
+                }
+            } else {
+                const rp = (e.age - ENCHANT_GATHER) / (ENCHANT_LIFE - ENCHANT_GATHER); // 0..1
+                if (!e.resolved) {
+                    e.resolved = true;
+                    this.spawnEnchantBurst(e);
+                }
+                for (const m of e.motes) {
+                    m.gfx.alpha = Math.max(0, m.gfx.alpha - dt * 6);
+                }
+                if (e.success) {
+                    const rr = e.cellSize * (0.42 + easeOutCubic(rp));
+                    e.ring.circle(0, 0, rr).stroke({ width: 3 * (1 - rp), color: e.tint, alpha: (1 - rp) * 0.8 });
+                    const pop = Math.min(1, rp / 0.28);
+                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.position.y = -e.cellSize * (0.55 + 0.35 * easeOutCubic(rp));
+                    e.icon.alpha = rp < 0.7 ? pop : Math.max(0, 1 - (rp - 0.7) / 0.3);
+                    e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
+                    e.label.alpha = e.icon.alpha;
+                    e.label.scale.set(0.6 + 0.4 * easeOutBack(pop));
+                } else {
+                    const rr = e.cellSize * (0.42 * (1 - rp * 0.6));
+                    e.ring.circle(0, 0, rr).stroke({ width: 2 * (1 - rp), color: 0x888888, alpha: (1 - rp) * 0.5 });
+                    const pop = Math.min(1, rp / 0.25);
+                    // Show the (desaturated) rune rising before the "Failed" text, mirroring the success layout,
+                    // so a failed cast still reads as a rune attempt rather than a bare label.
+                    const fade = rp < 0.65 ? pop : Math.max(0, 1 - (rp - 0.65) / 0.35);
+                    e.icon.scale.set(e.iconBaseScale * (0.5 + 0.5 * easeOutBack(pop)));
+                    e.icon.position.y = -e.cellSize * (0.55 + 0.3 * easeOutCubic(rp));
+                    e.icon.alpha = fade * 0.9;
+                    e.label.position.y = e.icon.position.y + e.cellSize * 0.5;
+                    e.label.alpha = fade;
+                    e.label.scale.set(0.9);
+                }
+                const grav = e.cellSize * (e.success ? 6 : 9);
+                for (let s = e.sparks.length - 1; s >= 0; s--) {
+                    const sp = e.sparks[s];
+                    sp.age += dt;
+                    if (sp.age >= sp.life) {
+                        sp.gfx.destroy();
+                        e.sparks.splice(s, 1);
+                        continue;
+                    }
+                    sp.vy += grav * dt;
+                    sp.x += sp.vx * dt;
+                    sp.y += sp.vy * dt;
+                    sp.gfx.position.set(sp.x, sp.y);
+                    sp.gfx.alpha = 1 - sp.age / sp.life;
+                }
             }
         }
     }
@@ -1249,59 +3262,84 @@ export class CombatVisuals {
 
             container.addChild(skullSprite, countText);
         }
-
-        // Anti-overlap: if numbers are already floating near this spot, stack this one
-        // above them instead of drawing on top.
-        const baseX = pos.x;
-        const baseY = pos.y + 20;
-        let stack = 0;
-        for (const other of this.floatingTexts) {
-            const dx = other.container.x - baseX;
-            const dy = other.container.y - baseY;
-            if (dx * dx + dy * dy < FT_STACK_DIST * FT_STACK_DIST) stack++;
+        this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
+     * Floating "+N" over a healed unit, plus a soft restorative burst so a heal reads at a glance as the
+     * opposite of a hit. Deliberately green-on-dark-green and drifted with NO direction vector: a heal has
+     * no attacker to be pushed away from, and passing one would drag the number off the unit it belongs to.
+     * Driven off the engine's authoritative `healed[]`, so the number is what was ACTUALLY restored after
+     * magic resist, Holy Cross and the missing-HP cap — not the spell's nominal power.
+     */
+    public showFloatingHeal(pos: HoCMath.XY, amount: number): void {
+        if (amount <= 0) {
+            return;
         }
-
-        const startX = baseX;
-        const startY = baseY + stack * FT_STACK_STEP;
-
-        // Drift along the FULL hit trajectory (both axes), so the number follows the attack line —
-        // including a counter-attack's responder->attacker line, which is often vertical and used to
-        // only ever float straight up (direction.y was dropped). It still rises (riseY) for legibility.
-        let driftX = 0;
-        let driftY = 0;
-        if (direction) {
-            const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-            if (len > 0.001) {
-                driftX = (direction.x / len) * FT_DRIFT;
-                driftY = (direction.y / len) * FT_DRIFT;
+        const container = new Container();
+        const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#66ff99", "#0b3d1e") });
+        healText.anchor.set(0.5);
+        container.addChild(healText);
+        this.enqueueFloatingContainer(container, pos);
+        this.spawnHealBurst(pos);
+    }
+    /**
+     * Expanding ring of rising motes under a healed unit — the restorative counterpart of the death
+     * shatter. Pure Graphics (no texture), so a mass heal covering six units costs nothing to spawn.
+     * Stepped from the scene's dt loop like every other effect here (NOT requestAnimationFrame), so it
+     * pauses with the scene instead of running on while the board is frozen.
+     */
+    private spawnHealBurst(pos: HoCMath.XY): void {
+        const graphics = new Graphics();
+        this.context.attachToWorldRoot(graphics, HEAL_BURST_Z);
+        this.healBursts.push({
+            graphics,
+            pos: { x: pos.x, y: pos.y },
+            age: 0,
+            life: HEAL_BURST_LIFE,
+            motes: Array.from({ length: 8 }, (_, i) => ({
+                angle: (i / 8) * Math.PI * 2,
+                radius: 8 + (i % 3) * 4,
+                speed: 34 + (i % 4) * 9,
+            })),
+        });
+    }
+    private stepHealBursts(dt: number): void {
+        for (let i = this.healBursts.length - 1; i >= 0; i--) {
+            const burst = this.healBursts[i];
+            burst.age += dt;
+            if (burst.age >= burst.life) {
+                burst.graphics.destroy();
+                this.healBursts.splice(i, 1);
+                continue;
+            }
+            const t = burst.age / burst.life;
+            const eased = 1 - (1 - t) * (1 - t);
+            const fade = 1 - t;
+            const g = burst.graphics;
+            g.clear();
+            // Ground ring pushing outward and fading.
+            g.circle(burst.pos.x, burst.pos.y, 18 + eased * 46).stroke({
+                width: 4,
+                color: 0x66ff99,
+                alpha: 0.55 * fade,
+            });
+            // Motes rising out of the ring. worldRoot is y-up, so a POSITIVE y offset rises.
+            for (const mote of burst.motes) {
+                const r = mote.radius + eased * mote.speed;
+                g.circle(
+                    burst.pos.x + Math.cos(mote.angle) * r,
+                    burst.pos.y + Math.sin(mote.angle) * r * 0.45 + eased * 46,
+                    4,
+                ).fill({ color: 0xaaffcc, alpha: 0.85 * fade });
             }
         }
-        // Slight alternating fan so stacked numbers don't form a rigid column.
-        if (stack > 0) driftX += (stack % 2 === 0 ? 1 : -1) * 10 * stack;
-
-        // Initial transform; update() animates the pop/rise/fade from here.
-        container.scale.set(FT_START_SCALE, -FT_START_SCALE);
-        container.alpha = 0;
-        container.position.set(startX, startY);
-
-        this.context.attachToWorldRoot(container, 2000);
-
-        this.floatingTexts.push({
-            container,
-            age: 0,
-            life: FT_LIFE,
-            startX,
-            startY,
-            riseY: FT_RISE,
-            driftX,
-            driftY,
-        });
     }
     public showDamageVisualsFromDiff(
         preState: Map<string, { hp: number; amount: number }>,
         attackerCell?: HoCMath.XY,
         ignoredUnitIds?: Set<string>,
         forcedDirection?: HoCMath.XY,
+        alreadyDisplayedByUnit?: ReadonlyMap<string, { amount: number; unitsDied: number }>,
     ): void {
         const gs = this.context.getGridSettings();
         const unitsHolder = this.context.getUnitsHolder();
@@ -1322,8 +3360,15 @@ export class CombatVisuals {
             const newTotal = u.getCumulativeHp();
 
             if (newTotal < oldState.hp) {
-                const diff = oldState.hp - newTotal;
-                const unitsDied = Math.max(0, oldState.amount - u.getAmountAlive());
+                const alreadyDisplayed = alreadyDisplayedByUnit?.get(id);
+                const diff = Math.max(0, oldState.hp - newTotal - (alreadyDisplayed?.amount ?? 0));
+                const unitsDied = Math.max(
+                    0,
+                    oldState.amount - u.getAmountAlive() - (alreadyDisplayed?.unitsDied ?? 0),
+                );
+                if (diff <= 0) {
+                    continue;
+                }
 
                 let direction: HoCMath.XY | undefined = forcedDirection;
                 if (!direction && attackerCell) {

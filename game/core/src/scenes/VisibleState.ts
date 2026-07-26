@@ -32,6 +32,18 @@ export interface IVisibleImpact {
     stackPower: number;
     isStackPowered: boolean;
     isAura: boolean;
+    /** Permanently removed by Predatory Assimilation; retained only so the sidebar can show STOLEN. */
+    isStolen?: boolean;
+    /**
+     * An ARTIFACT that amplifies this ability (today: Dual Strike Charm on the double-attack abilities).
+     * The ability's own % already includes it — this is what lets the tooltip show WHERE the extra came
+     * from, with the artifact's art, instead of the player seeing an unexplained bigger number.
+     */
+    amplifiedBy?: {
+        name: string;
+        textureName: string;
+        percent: number;
+    };
 }
 
 export interface IVisibleOverallImpact {
@@ -97,6 +109,8 @@ export interface IVisibleState {
     lapsNarrowed: number;
     /** Whether the local AI toggle is currently on (drives the "AI Toggle On" badge). */
     aiToggleOn?: boolean;
+    /** Whether a fight replay is currently playing back (drives the bottom-left "Exit Replay" button). */
+    replayPlaybackActive?: boolean;
     /** Set when the fight ends: which team won (LOWER = green, UPPER = red). */
     teamWin?: TeamType;
     /** Set when the fight ends: casualty stats for the Fight Finished overlay. */
@@ -129,6 +143,10 @@ export interface IHoverInfo {
     unitLevel: number;
     unitMovementType: MovementType;
     information: string[];
+    // True while the cursor is hovering an enemy unit that the active unit can attack. Drives the
+    // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
+    // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.
+    isHoveringAttackTarget?: boolean;
 }
 
 export interface IWindowSize {

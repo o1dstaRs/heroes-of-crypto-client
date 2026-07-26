@@ -330,7 +330,11 @@ export function AuthProvider({ children }: Props) {
             payload: {
                 user: {
                     ...state.user,
+                    // ResponseMe/ResponseEnqueue toObject() use the snake_case field, so clearing only
+                    // `matchMakingQueueAddedTime` left a stale enqueue timestamp behind (same class of
+                    // bug as `isActive` vs `is_active`). Zero both spellings.
                     matchMakingQueueAddedTime: 0,
+                    match_making_queue_added_time: 0,
                 } as AuthUserType,
             },
         });
@@ -491,7 +495,14 @@ export function AuthProvider({ children }: Props) {
             },
         });
 
+        // 204 / empty body = the player has no current game. That is the ordinary state on the
+        // matchmaking route (and after a match ends), so the server reports it as a status rather than a
+        // 404. Return null explicitly: an empty protobuf deserializes CLEANLY into a GamePublic with an
+        // empty id rather than throwing, which would read as a real game and send callers chasing it.
         const reponseData = res.data;
+        if (res.status === 204 || !reponseData || (reponseData as ArrayBuffer).byteLength === 0) {
+            return null;
+        }
         return GamePublic.deserializeBinary(reponseData).toObject();
     }, []);
 

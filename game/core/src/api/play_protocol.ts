@@ -36,6 +36,10 @@ export const PlayActionType = {
 
 export type PlayActionTypeValue = (typeof PlayActionType)[keyof typeof PlayActionType];
 
+// Existing `reason` field sentinel used only on MOVE_UNIT. It is intentionally not a new protobuf field:
+// old clients retain move-is-the-turn behavior, while a new client can request one planned follow-up.
+export const PLAY_MOVE_CONTINUE_TURN_REASON = "continue_turn";
+
 export const PlayEventKind = {
     UNKNOWN: 0,
     SNAPSHOT: 1,
@@ -99,6 +103,10 @@ export interface PlayUnitState {
     debuffDescriptions?: string[];
     /** Names of buffs currently active on the unit; used to animate newly-applied ones. */
     buffs?: string[];
+    /** Remaining laps per buff, parallel to `buffs` — drives the ranked HUD's buff list. */
+    buffLaps?: number[];
+    /** Display-ready description per buff, parallel to `buffs` (power already substituted in). */
+    buffDescriptions?: string[];
     /** True if the unit already retaliated (replied) this lap — drives the respond tag. */
     responded?: boolean;
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked
@@ -113,6 +121,18 @@ export interface PlayUnitState {
     /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order — lets ranked
      * sync used-up scroll counts (the client never runs the cast engine). */
     spellAmounts?: number[];
+    /** The unit's LIVE ability names. Ranked rebuilds each unit from the base creature config (which lists
+     * every ability), so this lets the client drop a consumable ability (e.g. Angel's Resurrection) — and
+     * its ability-derived spellbook entry — once the server has spent it. */
+    abilities?: string[];
+    /** Ability names permanently removed by Predatory Assimilation (proto field 33). */
+    stolenAbilities?: string[];
+    /** Whether Web Aura locked this unit's movement at the start of its current turn (proto field 34). */
+    webMovementLocked: boolean;
+    /** Exact remaining spell entries (duplicates are remaining casts), authoritative when field 36 is true. */
+    spellEntries?: string[];
+    /** Distinguishes an authoritative empty spellbook from a legacy server that omitted field 35. */
+    spellEntriesAuthoritative: boolean;
 }
 
 export interface PlayJournalEntry {
@@ -145,6 +165,11 @@ export interface PlaySnapshot {
     latestSequence: number;
     serverTimeMs: number;
     placementDeadlineMs: number;
+    // Split-placement sub-stage: 0 = Setup (augments/synergies), 1 = Board (positioning). Always 1 for a
+    // legacy single-window placement. `placementSplit` gates the two-stage UX. Default 1/false on older
+    // servers (decoder), i.e. the combined placement.
+    placementStage: number;
+    placementSplit: boolean;
     currentTurnStartMs: number;
     currentTurnEndMs: number;
     units: PlayUnitState[];
@@ -155,6 +180,8 @@ export interface PlaySnapshot {
     maxUpperUnits: number;
     narrowingLayers: number;
     centerDried: boolean;
+    /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
+    stepsMoraleMultiplier?: number;
     upNext: string[];
     damageStats: PlayDamageStatistic[];
     /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
@@ -192,6 +219,16 @@ export interface PlaySnapshot {
      * servers (decoder defaults to []). */
     lowerSynergies?: string[];
     upperSynergies?: string[];
+    /** Each team's starting army broken down per creature type, captured once at fight start and never
+     * pruned afterward — unlike `units`, which only ever lists CURRENTLY-existing stacks (a fully-wiped
+     * stack is removed server-side and never reappears in a later snapshot). Parallel arrays:
+     * creatureIds[i] fielded in amounts[i]. Lets a cold-loaded/reloaded finished game render a correct
+     * per-creature casualty breakdown even for a team that lost an entire creature type. Empty before
+     * the fight starts; absent from older servers (decoder defaults to []). */
+    lowerStartRosterCreatureIds?: number[];
+    lowerStartRosterAmounts?: number[];
+    upperStartRosterCreatureIds?: number[];
+    upperStartRosterAmounts?: number[];
 }
 
 export interface PlayAction {
@@ -311,6 +348,14 @@ class ProtoWriter {
     }
     private varint(value: number | bigint): void {
         let nextValue = BigInt(value);
+        // A negative int32/int64 is encoded as its 64-bit two's-complement — a full 10-byte varint — per
+        // the protobuf spec (protobufjs and the server's decoder both expect this). Without the mask a
+        // negative number never exceeds 0x7f, so the loop is skipped and it's emitted as ONE corrupt byte.
+        // That silently broke every value that can go negative on the wire — notably a left-mountain's
+        // negative world-X in an OBSTACLE_ATTACK's target cell, so ranked mountain hits never landed.
+        if (nextValue < 0n) {
+            nextValue &= 0xffffffffffffffffn;
+        }
         while (nextValue > 0x7fn) {
             this.bytes.push(Number((nextValue & 0x7fn) | 0x80n));
             nextValue >>= 7n;
@@ -349,6 +394,15 @@ class ProtoReader {
             throw new Error("Unexpected end of protobuf float");
         }
         const value = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 4).getFloat32(0, true);
+        this.offset = end;
+        return value;
+    }
+    public float64(): number {
+        const end = this.offset + 8;
+        if (end > this.bytes.length) {
+            throw new Error("Unexpected end of protobuf double");
+        }
+        const value = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 8).getFloat64(0, true);
         this.offset = end;
         return value;
     }
@@ -420,9 +474,12 @@ const decodeCell = (bytes: Uint8Array): PlayCell => {
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
         if (field === 1) {
-            cell.x = reader.varintNumber();
+            // Cell coordinates can be negative world positions (a left-mountain OBSTACLE_ATTACK target,
+            // whose world-X < 0), so decode as a signed int32 — varintNumber() would surface the
+            // sign-extended 10-byte varint as a huge positive number.
+            cell.x = reader.signedVarintNumber();
         } else if (field === 2) {
-            cell.y = reader.varintNumber();
+            cell.y = reader.signedVarintNumber();
         } else {
             reader.skip(wireType);
         }
@@ -600,6 +657,14 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         latestSequence: 0,
         serverTimeMs: 0,
         placementDeadlineMs: 0,
+        // MUST default to 0: protobuf omits an int32 whose value is 0, so a split game's SETUP stage
+        // (placement_stage = 0) arrives with field 50 ABSENT — decoding it as anything but 0 would make
+        // the client think Setup is Board (hiding augments, letting the server reject every placement).
+        // Legacy (non-split) games are unaffected: placement_split defaults false, and every stage gate
+        // (inSetupStage/inBoardStage) requires placementSplit, so stage is ignored there. A legacy/current
+        // server on the BOARD stage sends placement_stage = 1 explicitly (1 != 0, so it IS on the wire).
+        placementStage: 0,
+        placementSplit: false,
         currentTurnStartMs: 0,
         currentTurnEndMs: 0,
         units: [],
@@ -610,6 +675,7 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         maxUpperUnits: 0,
         narrowingLayers: 0,
         centerDried: false,
+        stepsMoraleMultiplier: 0,
         upNext: [],
         damageStats: [],
         lowerStartUnits: 0,
@@ -634,6 +700,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         upperAugmentMovement: 0,
         lowerSynergies: [],
         upperSynergies: [],
+        lowerStartRosterCreatureIds: [],
+        lowerStartRosterAmounts: [],
+        upperStartRosterCreatureIds: [],
+        upperStartRosterAmounts: [],
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -728,6 +798,20 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             (snapshot.lowerSynergies ??= []).push(reader.string());
         } else if (field === 45) {
             (snapshot.upperSynergies ??= []).push(reader.string());
+        } else if (field === 46) {
+            (snapshot.lowerStartRosterCreatureIds ??= []).push(reader.varintNumber());
+        } else if (field === 47) {
+            (snapshot.lowerStartRosterAmounts ??= []).push(reader.varintNumber());
+        } else if (field === 48) {
+            (snapshot.upperStartRosterCreatureIds ??= []).push(reader.varintNumber());
+        } else if (field === 49) {
+            (snapshot.upperStartRosterAmounts ??= []).push(reader.varintNumber());
+        } else if (field === 50) {
+            snapshot.placementStage = reader.varintNumber();
+        } else if (field === 51) {
+            snapshot.placementSplit = reader.bool();
+        } else if (field === 52) {
+            snapshot.stepsMoraleMultiplier = reader.float64();
         } else {
             reader.skip(wireType);
         }
@@ -758,6 +842,8 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         rangeShots: 0,
         luck: 0,
         onHourglass: false,
+        webMovementLocked: false,
+        spellEntriesAuthoritative: false,
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -822,6 +908,27 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 29) {
             // spell_amounts (packed=false): one varint per spell in the unit's spellbook (getSpells() order).
             (unit.spellAmounts ??= []).push(reader.varintNumber());
+        } else if (field === 30) {
+            // abilities: one string per live ability name (see PlayUnit.abilities).
+            (unit.abilities ??= []).push(reader.string());
+        } else if (field === 31) {
+            // buff_laps (packed=false): one varint per active buff, parallel to `buffs`.
+            (unit.buffLaps ??= []).push(reader.varintNumber());
+        } else if (field === 32) {
+            // buff_descriptions: display-ready string per active buff, parallel to `buffs`.
+            (unit.buffDescriptions ??= []).push(reader.string());
+        } else if (field === 33) {
+            // stolen_abilities: permanently disabled abilities retained for the target unit's HUD.
+            (unit.stolenAbilities ??= []).push(reader.string());
+        } else if (field === 34) {
+            // web_movement_locked: authoritative turn-start movement lock from an enemy Web Aura.
+            unit.webMovementLocked = reader.bool();
+        } else if (field === 35) {
+            // spell_entries: exact remaining `${faction}:${name}` entries; duplicates encode casts.
+            (unit.spellEntries ??= []).push(reader.string());
+        } else if (field === 36) {
+            // Presence marker so an empty authoritative spellbook differs from an older server.
+            unit.spellEntriesAuthoritative = reader.bool();
         } else {
             reader.skip(wireType);
         }

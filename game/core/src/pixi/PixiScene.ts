@@ -3,6 +3,7 @@ import { Texture } from "pixi.js";
 import { Signal } from "typed-signals";
 import {
     HoCConstants,
+    HoCConfig,
     HoCLib,
     HoCMath,
     Augment,
@@ -29,6 +30,7 @@ import type {
     SceneGameActionTransport,
     SceneGameActionTransportResult,
 } from "../game_action_transport";
+import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 
 import {
@@ -132,6 +134,10 @@ const ARTIFACT_BUFF_TEXTURE: Record<string, string> = (() => {
 const buffDebuffTextureName = (name: string): string =>
     ARTIFACT_BUFF_TEXTURE[name] ?? AbilityHelper.abilityToTextureName(name);
 
+/** Angelic Host's carrier already displays the passive card; hide only its redundant beneficiary marker. */
+export const shouldDisplayAppliedBuff = (buffName: string, activeAbilityNames: readonly string[]): boolean =>
+    buffName !== "Angelic Host" || !activeAbilityNames.includes("Angelic Host");
+
 export abstract class PixiScene {
     private sc_sceneStarted = false;
     public readonly sc_debugLines: Array<[string, string]> = [];
@@ -166,6 +172,10 @@ export abstract class PixiScene {
     public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
     public sc_isSelection = false;
     public sc_hoverAttackIsTargetingObstacle = false;
+    // True while the cursor is hovering an enemy unit that the active unit can attack (melee/ranged/spell).
+    // Drives the HoMM-style attack cursor: the themed attack-cursor PNG only shows when actively aiming
+    // at an attackable target, NOT merely from the active unit having selected an attack type.
+    public sc_isHoveringAttackTarget = false;
     public sc_mouseDropStep = 0;
     public sc_mouseDownStep = 0;
     public sc_hoverTextUpdateNeeded = false;
@@ -242,11 +252,12 @@ export abstract class PixiScene {
     public setOpponentMoveIntent(_intent?: { unitId: string; cell: HoCMath.XY }): void {}
     protected dispatchExternalGameAction(
         action: Parameters<SceneGameActionTransport>[0],
+        options?: Parameters<SceneGameActionTransport>[1],
     ): SceneGameActionTransportResult {
         if (!this.sc_gameActionTransport) {
             return { handled: false };
         }
-        return this.sc_gameActionTransport(action);
+        return this.sc_gameActionTransport(action, options);
     }
     public setupControls() {}
     protected selectedSmallUnit(): boolean {
@@ -451,6 +462,7 @@ export abstract class PixiScene {
         this.sc_attackKillSpreadStr = "";
         this.sc_hoverUnitLevel = 0;
         this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
+        this.sc_isHoveringAttackTarget = false;
         this.sc_hoverTextUpdateNeeded = updateNeeded;
     }
     protected setSelectedUnitProperties(unitProperties: UnitProperties): void {
@@ -478,13 +490,57 @@ export abstract class PixiScene {
             return text;
         };
 
-        for (let i = 0; i < unitProperties.abilities.length; i++) {
-            const abilityName = unitProperties.abilities[i];
-            const abilityDescription = unitProperties.abilities_descriptions[i];
-            const isStackPowered = unitProperties.abilities_stack_powered[i];
-            const isAura = unitProperties.abilities_auras[i];
+        // Stolen abilities are no longer active and therefore are intentionally absent from `abilities`.
+        // Keep them visible in the sidebar as disabled entries so the permanent loss is legible to players.
+        const stolenAbilityNames =
+            (
+                unitProperties as UnitProperties & {
+                    readonly stolen_abilities?: readonly string[];
+                }
+            ).stolen_abilities ?? [];
+        const stolenAbilities = new Set(stolenAbilityNames);
+        const hasBreakApplied =
+            unitProperties.applied_effects.some(
+                (name, index) => name === "Break" && (unitProperties.applied_effects_laps[index] ?? 0) > 0,
+            ) ||
+            unitProperties.applied_debuffs.some(
+                (name, index) => name === "Break" && (unitProperties.applied_debuffs_laps[index] ?? 0) > 0,
+            );
+        const mechanicallyActiveAbilityNames = hasBreakApplied
+            ? []
+            : unitProperties.abilities.filter((name) => !stolenAbilities.has(name));
+        const displayedAbilityNames = [...new Set([...unitProperties.abilities, ...stolenAbilityNames])];
 
-            if (!abilityName || !abilityDescription) break;
+        // ARTIFACT Dual Strike Charm amplifies the SECOND strike of the double-attack abilities. Its buff
+        // is applied per unit at placement, so read it straight off the properties and hand the artifact's
+        // identity to the tooltip — the ability's own % already folds the bonus in (RenderableUnit uses the
+        // same withDualStrikeCharm helper as the damage path), and this is what says where it came from.
+        const dualStrikeCharmIndex = unitProperties.applied_buffs.indexOf(AbilityHelper.DUAL_STRIKE_CHARM_BUFF);
+        const dualStrikeCharm =
+            dualStrikeCharmIndex >= 0
+                ? {
+                      name: AbilityHelper.DUAL_STRIKE_CHARM_BUFF,
+                      textureName: buffDebuffTextureName(AbilityHelper.DUAL_STRIKE_CHARM_BUFF),
+                      percent: unitProperties.applied_buffs_powers[dualStrikeCharmIndex] ?? 0,
+                  }
+                : undefined;
+
+        for (const abilityName of displayedAbilityNames) {
+            const activeIndex = unitProperties.abilities.indexOf(abilityName);
+            const configured = getAbilityDisplayMetadata(abilityName);
+            const abilityDescription =
+                (activeIndex >= 0 ? unitProperties.abilities_descriptions[activeIndex] : undefined) ??
+                configured?.description;
+            const isStackPowered =
+                (activeIndex >= 0 ? unitProperties.abilities_stack_powered[activeIndex] : undefined) ??
+                configured?.isStackPowered ??
+                false;
+            const isAura =
+                (activeIndex >= 0 ? unitProperties.abilities_auras[activeIndex] : undefined) ??
+                configured?.isAura ??
+                false;
+
+            if (!abilityName || !abilityDescription) continue;
 
             visibleAbilitiesImpact.push({
                 name: abilityName,
@@ -494,6 +550,11 @@ export abstract class PixiScene {
                 stackPower: unitProperties.stack_power,
                 isStackPowered,
                 isAura,
+                isStolen: stolenAbilities.has(abilityName),
+                amplifiedBy:
+                    dualStrikeCharm && AbilityHelper.DUAL_STRIKE_ABILITY_NAMES.includes(abilityName)
+                        ? dualStrikeCharm
+                        : undefined,
             });
         }
 
@@ -533,6 +594,9 @@ export abstract class PixiScene {
                 }
 
                 const buffName = unitProperties.applied_buffs[i];
+                if (!shouldDisplayAppliedBuff(buffName, mechanicallyActiveAbilityNames)) {
+                    continue;
+                }
 
                 const description = fillDescProps(unitProperties.applied_buffs_descriptions[i]);
 
@@ -543,7 +607,7 @@ export abstract class PixiScene {
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,
-                    isAura: false,
+                    isAura: HoCConfig.isAuraEffectName(buffName),
                 });
             }
         }
@@ -568,7 +632,7 @@ export abstract class PixiScene {
                     laps: lapsRemaining,
                     stackPower: 0,
                     isStackPowered: false,
-                    isAura: false,
+                    isAura: HoCConfig.isAuraEffectName(debuffName),
                 });
             }
         }

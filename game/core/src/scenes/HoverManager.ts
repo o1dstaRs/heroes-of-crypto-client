@@ -1,7 +1,6 @@
 import { Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
-    GridVals,
     IPlacement,
     Grid,
     PathHelper,
@@ -14,7 +13,6 @@ import {
     UnitProperties,
     GridMath,
     HoCLib,
-    UnitVals,
     GridConstants,
 } from "@heroesofcrypto/common";
 import { SceneSettings } from "./SceneSettings";
@@ -668,6 +666,7 @@ export class HoverManager {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
+        this.clearObstacleHighlight();
 
         // 1. Restore stack visibility for ALL highlighted units
         for (const unit of this.highlightedUnits) {
@@ -685,6 +684,15 @@ export class HoverManager {
             this.silhouettePool.push(s);
         }
         this.hoverTargetSilhouettes = [];
+
+        // Hide the per-unit AOE damage labels (Gargantuan Area Throw preview) and return them to the pool,
+        // exactly like the silhouettes above. updateAreaThrowHover calls clearAttackVisuals() at the top of
+        // every hover frame, so the labels refresh each frame and clear on every aim-exit path.
+        for (const label of this.aoeDamageLabels) {
+            label.visible = false;
+            this.aoeDamageLabelPool.push(label);
+        }
+        this.aoeDamageLabels = [];
 
         if (this.hoverDamageText) {
             this.hoverDamageText.visible = false;
@@ -752,7 +760,58 @@ export class HoverManager {
 
         this.hoverTargetSilhouettes.push(silhouette);
     }
-    public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY): void {
+    private aoeDamageLabels: Text[] = [];
+    private aoeDamageLabelPool: Text[] = [];
+    /**
+     * Floating projected-damage number over ONE splashed unit, for the Gargantuan Area Throw (3x3) aim
+     * preview. Unlike drawDamagePrediction (which reuses a single shared Text and so can only show one
+     * number), this pools N labels — one per unit in the splash — recycled each hover frame in
+     * clearAttackVisuals(). Same style + Y-flip as drawDamagePrediction. Works in ranked unchanged, since
+     * the whole area-throw hover path is inherited by RankedPlayScene.
+     */
+    public addAOEDamageLabel(position: HoCMath.XY, damageStr: string, isLargeTarget: boolean): void {
+        const scale = isLargeTarget ? 2 : 1;
+        let label: Text;
+        if (this.aoeDamageLabelPool.length > 0) {
+            label = this.aoeDamageLabelPool.pop()!;
+            label.text = damageStr;
+        } else {
+            label = new Text({
+                text: damageStr,
+                style: {
+                    fontFamily: "Arial",
+                    fontSize: 24,
+                    fill: 0xffffff,
+                    stroke: { color: 0x000000, width: 4, join: "round" },
+                    align: "center",
+                    fontWeight: "bold",
+                },
+            });
+            label.anchor.set(0.5, 0.5);
+            // Above the translucent 3x3 AOE fill (drawAOEArea attaches at z 4500) so the numbers sit on top of
+            // it rather than under its red wash — and above units/silhouettes/arrow like the single-target text.
+            this.context.attachToWorldRoot(label, 4600);
+        }
+        label.visible = true;
+        // The world root is Y-inverted (see drawDamagePrediction / the silhouettes) — a negative Y scale
+        // keeps the number upright instead of mirrored.
+        label.scale.set(scale, -scale);
+        label.position.set(position.x, position.y);
+        this.aoeDamageLabels.push(label);
+    }
+    /**
+     * `smokeFrom` marks where the shot first enters SMOKE. From that point to the target the arrow is
+     * drawn thick and red, because the smoke rule is STICKY: once the ray crosses a smoked cell every
+     * target after it takes half damage (divisor doubles, capped at 1/8). Highlighting only the smoked
+     * CELLS would understate that — the penalty applies to the whole remainder of the flight, so that is
+     * what the emphasis covers. The cloud is neutral, so this shows for either side's shots.
+     */
+    public drawAttackArrow(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        continuationTo?: HoCMath.XY,
+        smokeFrom?: HoCMath.XY,
+    ): void {
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
@@ -792,17 +851,80 @@ export class HoverManager {
             .lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen)
             .stroke({ width: 4, color: 0xffffff, alpha: 0.9 });
 
+        const endX = from.x + Math.cos(angle) * arrowLen;
+        const endY = from.y + Math.sin(angle) * arrowLen;
+
+        // SMOKED SEGMENT: from where the ray enters smoke to the tip, overdrawn thick and red so the
+        // halved stretch of the flight is unmistakable against the plain white core above. Clamped to the
+        // arrow so a smoke entry resolved slightly off-axis can't draw past the target.
+        if (smokeFrom) {
+            const along = (smokeFrom.x - from.x) * Math.cos(angle) + (smokeFrom.y - from.y) * Math.sin(angle);
+            const startAlong = Math.max(0, Math.min(arrowLen, along));
+            const sx = from.x + Math.cos(angle) * startAlong;
+            const sy = from.y + Math.sin(angle) * startAlong;
+            g.moveTo(sx, sy).lineTo(endX, endY).stroke({ width: 20, color: 0xff2a2a, alpha: 0.35 });
+            g.moveTo(sx, sy).lineTo(endX, endY).stroke({ width: 9, color: 0xff5555, alpha: 0.95 });
+            // A tick at the entry point so it is obvious WHERE the smoke starts, not just that it exists.
+            const nx = Math.cos(angle + Math.PI / 2);
+            const ny = Math.sin(angle + Math.PI / 2);
+            g.moveTo(sx - nx * 11, sy - ny * 11)
+                .lineTo(sx + nx * 11, sy + ny * 11)
+                .stroke({ width: 4, color: 0xff8a8a, alpha: 0.95 });
+        }
+
         // Arrow Head
         const headLen = 20;
         const headAngle = Math.PI / 6;
-        const endX = from.x + Math.cos(angle) * arrowLen;
-        const endY = from.y + Math.sin(angle) * arrowLen;
 
         g.moveTo(endX, endY)
             .lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle))
             .moveTo(endX, endY)
             .lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle))
             .stroke({ width: 4, color: 0xffffff, alpha: 1.0 });
+
+        // Optional faint dashed continuation PAST the arrow tip. Used when a ranged shot is stopped by a
+        // mountain: the arrow ends at the rock, then this thin dotted line traces where the shot WOULD
+        // have carried on to the intended unit, so the whole projection still reads at a glance.
+        if (continuationTo) {
+            const cDist = Math.hypot(continuationTo.x - endX, continuationTo.y - endY);
+            if (cDist > 6) {
+                const cAngle = Math.atan2(continuationTo.y - endY, continuationTo.x - endX);
+                const dash = 9;
+                const gap = 9;
+                for (let d = 0; d < cDist; d += dash + gap) {
+                    const segEnd = Math.min(d + dash, cDist);
+                    g.moveTo(endX + Math.cos(cAngle) * d, endY + Math.sin(cAngle) * d)
+                        .lineTo(endX + Math.cos(cAngle) * segEnd, endY + Math.sin(cAngle) * segEnd)
+                        .stroke({ width: 2, color: 0xff4444, alpha: 0.4 });
+                }
+            }
+        }
+    }
+    // Soft red glow marking an obstacle (a BLOCK_CENTER mountain) as the thing a blocked ranged shot
+    // actually hits — used instead of the unit target-silhouette, since the unit behind it takes no damage.
+    private hoverObstacleHighlight?: Graphics;
+    public highlightObstacle(position: HoCMath.XY, cellSize: number): void {
+        if (!this.isGraphicsUsable(this.hoverObstacleHighlight)) {
+            this.hoverObstacleHighlight = new Graphics();
+            if (!this.safeAttachGraphics(this.hoverObstacleHighlight, 2150)) {
+                this.hoverObstacleHighlight.destroy();
+                this.hoverObstacleHighlight = undefined;
+                return;
+            }
+        }
+        const g = this.hoverObstacleHighlight;
+        g.clear();
+        g.visible = true;
+        const r = cellSize * 0.72;
+        g.circle(position.x, position.y, r * 1.25).fill({ color: 0xaa0000, alpha: 0.22 });
+        g.circle(position.x, position.y, r).fill({ color: 0xff2a2a, alpha: 0.3 });
+        g.circle(position.x, position.y, r).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
+    }
+    public clearObstacleHighlight(): void {
+        if (this.hoverObstacleHighlight) {
+            this.hoverObstacleHighlight.clear();
+            this.hoverObstacleHighlight.visible = false;
+        }
     }
     // --- Armed-spell on-board preview: a colored beam caster→target plus a persistent icon+name
     // badge floating above the caster, so the player can always see which spell is about to fire. ---
@@ -1228,7 +1350,6 @@ export class HoverManager {
 
         const draggingUnitTeam = this.context.getDraggingUnitTeam();
         const draggingUnitId = this.context.getDraggingUnitId();
-        const effectiveTeam = teamFromPlacement ?? draggingUnitTeam ?? selected.team ?? TeamVals.LOWER;
 
         // Placing a NEW unit (not repositioning a board unit) while the cursor sits on another unit:
         // a click here SELECTS that unit, it isn't a placement. So don't show any placement square
@@ -1279,53 +1400,11 @@ export class HoverManager {
             candidateCells = [cell];
         }
 
-        // --- 2. Draw Aura & Attack Range (ALWAYS, Visuals First) ---
-        // Verify we have a position to draw at
-        const possiblePosition = GridMath.getPositionForCells(gs, candidateCells);
-        if (possiblePosition) {
-            const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
-            const skipPreStartGeom =
-                gridType === GridVals.LAVA_CENTER ||
-                gridType === GridVals.WATER_CENTER ||
-                gridType === GridVals.BLOCK_CENTER;
-
-            if (!skipPreStartGeom) {
-                const mockUnit = Unit.createUnit(
-                    selected,
-                    gs,
-                    effectiveTeam,
-                    UnitVals.CREATURE,
-                    this.context.abilityFactory,
-                    this.context.abilityFactory.getEffectsFactory(),
-                    false,
-                );
-                mockUnit.setPosition(possiblePosition.x, possiblePosition.y, false);
-
-                // Draw Aura
-                const auras = mockUnit.getAuraRanges();
-                const auraBuffs = mockUnit.getAuraIsBuff();
-                if (auras && auras.length > 0) {
-                    const center = possiblePosition;
-                    const bonus = fightProps.getAdditionalAuraRangePerTeam(effectiveTeam);
-                    for (let i = 0; i < auras.length; i++) {
-                        if (auras[i] > 0) {
-                            const range = (auras[i] + bonus) * gs.getStep();
-                            const isBuff = auraBuffs && i < auraBuffs.length ? auraBuffs[i] : true;
-                            this.drawAuraArea(center, range, isBuff, mockUnit.isSmallSize(), 0.7);
-                        }
-                    }
-                }
-
-                // Draw Attack Range
-                if (mockUnit.getAttackType() === 3 /* AttackVals.RANGE */ && !mockUnit.hasAbilityActive("Handyman")) {
-                    const dist = mockUnit.getRangeShotDistance();
-                    if (dist > 0) {
-                        const rangePixel = dist * gs.getStep();
-                        this.drawAttackRange(possiblePosition, rangePixel);
-                    }
-                }
-            }
-        }
+        // --- 2. (Removed) Aura & attack-range preview for the unplaced selection ---
+        // Selecting a unit for placement (sandbox UnitsOverlay / ranked bench) used to project its
+        // aura square + range circle at the candidate drop cell via a mock unit. Range visuals are
+        // now reserved for units actually PLACED on the board (hovered/selected board units); the
+        // cursor-following placement preview shows only the silhouette + placement square.
 
         // --- 3. Validation & Interaction Highlight ---
 

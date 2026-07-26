@@ -1,4 +1,4 @@
-import { HoCConstants, TeamVals, type TeamType } from "@heroesofcrypto/common";
+import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
@@ -13,6 +13,7 @@ import Box from "@mui/joy/Box";
 import React, { useEffect, useState, useRef } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { nextLapHazard } from "../nextLapHazard";
 import { IVisibleState } from "../../scenes/VisibleState";
 import { hocColors } from "../hocTheme";
 import { useViewerTeam } from "../context/ViewerTeamContext";
@@ -372,15 +373,11 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     // --- ICON LOGIC ---
     let defaultIcon: React.ReactNode = <TimelapseRoundedIcon />;
 
-    const isNarrowingTurn =
-        visibleState.lapNumber !== undefined &&
-        visibleState.numberOfLapsTillNarrowing !== undefined &&
-        visibleState.lapNumber < visibleState.numberOfLapsTillStopNarrowing &&
-        visibleState.lapNumber % visibleState.numberOfLapsTillNarrowing === 0 &&
-        visibleState.lapsNarrowed < HoCConstants.MAX_NARROWING_LAPS_TOTAL;
-
-    const isArmageddonTurn =
-        visibleState.lapNumber && visibleState.lapNumber >= HoCConstants.NUMBER_OF_LAPS_FIRST_ARMAGEDDON;
+    // Shared with the bottom-centre NextLapHazardBadge and the UpNextOverlay icon, so all three warnings
+    // agree on what is coming (and armageddon outranks narrowing the same way in each).
+    const hazard = nextLapHazard(visibleState);
+    const isNarrowingTurn = hazard?.kind === "narrowing";
+    const isArmageddonTurn = hazard?.kind === "armageddon";
 
     if (isArmageddonTurn) {
         defaultIcon = (

@@ -1,0 +1,501 @@
+---
+import type { Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const guideHref = "/research/a13/";
+const copy =
+    lang === "ru"
+        ? {
+              eyebrow: "Лаборатория Heroes of Crypto",
+              title: "Исследования ИИ",
+              lead: "Показываем, как устроен игровой ИИ, как проверяются его решения и что действительно подтверждают результаты симуляций.",
+              principles: ["Исходный код", "Воспроизводимость", "Чёткие ограничения"],
+              libraryEyebrow: "Библиотека исследований",
+              libraryTitle: "Подробно о системах за полем боя",
+              libraryBody:
+                  "Каждая публикация отделяет реализованные правила от измеренных результатов и открытых вопросов.",
+              type: "Интерактивный гайд",
+              language: "На английском",
+              date: "Исследование завершено 21 июля 2026",
+              titleA13: "A13: как устроен ИИ Heroes of Crypto v0.8",
+              description:
+                  "Визуальное, проверенное по исходному коду руководство по гибридной системе правил, поиска и обученной функции ценности — от одного решения до турнирных данных.",
+              metrics: [
+                  { value: "12", label: "будущих ходов" },
+                  { value: "60", label: "признаков оценки" },
+                  { value: "175 мс", label: "бюджет решения" },
+              ],
+              topics: ["Поиск", "Игровой ИИ", "Эксперименты", "Армагеддон", "Юниты 4-го уровня"],
+              read: "Читать исследование на английском",
+              evidence: "Сразу к данным против v0.7",
+          }
+        : {
+              eyebrow: "Heroes of Crypto Lab",
+              title: "AI Research",
+              lead: "See how the game AI works, how its decisions are tested, and what the simulation evidence actually supports.",
+              principles: ["Source-audited", "Reproducible", "Limits included"],
+              libraryEyebrow: "Research library",
+              libraryTitle: "Deep dives into the systems behind the battlefield",
+              libraryBody:
+                  "Each publication separates implemented behavior, measured evidence, and the questions that remain open.",
+              type: "Interactive field guide",
+              language: "English",
+              date: "Research completed July 21, 2026",
+              titleA13: "A13: Inside the Heroes of Crypto v0.8 AI",
+              description:
+                  "A visual, source-audited guide to the hybrid system of rules, search, and learned value—from one tactical decision to tournament evidence.",
+              metrics: [
+                  { value: "12", label: "future unit turns" },
+                  { value: "60", label: "value features" },
+                  { value: "175 ms", label: "decision budget" },
+              ],
+              topics: ["Search", "Game AI", "Experiments", "Armageddon", "Level-4 units"],
+              read: "Read the research",
+              evidence: "Jump to evidence vs v0.7",
+          };
+---
+
+<section class:list={["research-hero", { "is-russian": lang === "ru" }]}>
+    <div class="page-shell research-hero-grid">
+        <div class="research-intro">
+            <p class="eyebrow">{copy.eyebrow}</p>
+            <h1>{copy.title}</h1>
+            <p class="research-lead">{copy.lead}</p>
+            <div class="research-principles" aria-label={lang === "ru" ? "Принципы исследований" : "Research principles"}>
+                {copy.principles.map((principle) => <span>{principle}</span>)}
+            </div>
+        </div>
+
+        <div class="research-map" aria-hidden="true">
+            <svg viewBox="0 0 560 390">
+                <defs>
+                    <linearGradient id="researchField" x1="0" y1="0" x2="1" y2="1">
+                        <stop stop-color="#67d8de" stop-opacity="0.22"></stop>
+                        <stop offset="0.55" stop-color="#9f82ff" stop-opacity="0.08"></stop>
+                        <stop offset="1" stop-color="#f2c75d" stop-opacity="0.22"></stop>
+                    </linearGradient>
+                    <filter id="researchGlow">
+                        <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                        <feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+                    </filter>
+                </defs>
+                <rect x="24" y="22" width="512" height="346" rx="28" fill="url(#researchField)" stroke="#f2c75d" stroke-opacity="0.25"></rect>
+                <g stroke="#dfe7f7" stroke-opacity="0.1">
+                    <path d="M88 45v250M152 45v250M216 45v250M280 45v250M344 45v250M408 45v250M472 45v250"></path>
+                    <path d="M48 95h464M48 145h464M48 195h464M48 245h464M48 295h464"></path>
+                </g>
+                <g fill="none" stroke-width="4">
+                    <path d="M277 315C238 274 197 250 143 225" stroke="#67d8de"></path>
+                    <path d="M283 315C315 269 353 230 421 191" stroke="#f2c75d"></path>
+                    <path d="M286 321C345 339 399 337 457 306" stroke="#aa8cff"></path>
+                </g>
+                <g filter="url(#researchGlow)">
+                    <circle cx="280" cy="322" r="13" fill="#f2c75d"></circle>
+                    <circle cx="137" cy="222" r="20" fill="#239eaa"></circle>
+                    <circle cx="426" cy="187" r="20" fill="#c64f59"></circle>
+                    <circle cx="461" cy="303" r="20" fill="#8067d6"></circle>
+                </g>
+                <g fill="#f8f2e5" font-family="Inter, sans-serif" text-anchor="middle">
+                    <text x="137" y="227" font-size="12" font-weight="800">WAIT</text>
+                    <text x="426" y="192" font-size="12" font-weight="800">HIT</text>
+                    <text x="461" y="308" font-size="12" font-weight="800">MOVE</text>
+                    <text x="280" y="354" fill="#f2c75d" font-size="18" font-weight="850">COMPARE FUTURES</text>
+                </g>
+            </svg>
+        </div>
+    </div>
+</section>
+
+<section class="section research-library">
+    <div class="page-shell">
+        <header class="research-heading">
+            <p class="eyebrow">{copy.libraryEyebrow}</p>
+            <h2>{copy.libraryTitle}</h2>
+            <p>{copy.libraryBody}</p>
+        </header>
+
+        <article class="research-entry">
+            <div class="research-entry-mark" aria-hidden="true">
+                <span>A13</span>
+                <small>v0.8</small>
+            </div>
+
+            <div class="research-entry-body">
+                <div class="research-meta">
+                    <span>{copy.type}</span>
+                    <span>{copy.language}</span>
+                    <time datetime="2026-07-21">{copy.date}</time>
+                </div>
+                <h3><a href={guideHref}>{copy.titleA13}</a></h3>
+                <p class="research-description">{copy.description}</p>
+
+                <dl class="research-metrics">
+                    {
+                        copy.metrics.map((metric) => (
+                            <div>
+                                <dt>{metric.value}</dt>
+                                <dd>{metric.label}</dd>
+                            </div>
+                        ))
+                    }
+                </dl>
+
+                <div class="research-topics" aria-label={lang === "ru" ? "Темы" : "Topics"}>
+                    {copy.topics.map((topic) => <span>{topic}</span>)}
+                </div>
+
+                <div class="research-actions">
+                    <a class="button primary research-read" href={guideHref}>{copy.read} <span aria-hidden="true">→</span></a>
+                    <a class="research-evidence" href={`${guideHref}#evidence`}>{copy.evidence}</a>
+                </div>
+            </div>
+        </article>
+    </div>
+</section>
+
+<style>
+    .research-hero {
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background:
+            radial-gradient(circle at 82% 18%, rgba(103, 216, 222, 0.14), transparent 32rem),
+            radial-gradient(circle at 18% 4%, rgba(242, 199, 93, 0.14), transparent 28rem),
+            linear-gradient(180deg, #080b0f, #0a0f14);
+    }
+
+    .research-hero::after {
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+        background-size: 42px 42px;
+        content: "";
+        mask-image: linear-gradient(to bottom, #000, transparent 86%);
+        pointer-events: none;
+    }
+
+    .research-hero-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(380px, 0.86fr);
+        gap: 54px;
+        align-items: center;
+        min-height: 560px;
+        padding-block: 72px;
+    }
+
+    .research-intro h1 {
+        max-width: 760px;
+        margin-bottom: 20px;
+        font-size: clamp(3.5rem, 7vw, 6.6rem);
+        font-weight: 880;
+        letter-spacing: -0.055em;
+        line-height: 0.92;
+        overflow-wrap: anywhere;
+    }
+
+    .research-intro {
+        min-width: 0;
+    }
+
+    .research-hero.is-russian .research-intro h1 {
+        font-size: clamp(3rem, 5.3vw, 4.8rem);
+        letter-spacing: -0.045em;
+    }
+
+    .research-lead {
+        max-width: 680px;
+        color: rgba(251, 244, 232, 0.78);
+        font-size: clamp(1.06rem, 1.7vw, 1.28rem);
+        line-height: 1.62;
+    }
+
+    .research-principles,
+    .research-topics,
+    .research-meta,
+    .research-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        align-items: center;
+    }
+
+    .research-principles {
+        margin-top: 28px;
+    }
+
+    .research-principles span,
+    .research-topics span,
+    .research-meta span,
+    .research-meta time {
+        border: 1px solid rgba(242, 199, 93, 0.2);
+        border-radius: 999px;
+        background: rgba(242, 199, 93, 0.07);
+        color: rgba(251, 244, 232, 0.78);
+        font-size: 0.78rem;
+        font-weight: 760;
+    }
+
+    .research-principles span {
+        padding: 8px 12px;
+    }
+
+    .research-map {
+        position: relative;
+        width: 100%;
+        max-width: 540px;
+        justify-self: end;
+        filter: drop-shadow(0 28px 54px rgba(0, 0, 0, 0.34));
+    }
+
+    .research-map svg {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .research-library {
+        background:
+            linear-gradient(180deg, rgba(242, 199, 93, 0.025), transparent 180px),
+            #0b0f12;
+    }
+
+    .research-heading {
+        max-width: 780px;
+        margin-bottom: 38px;
+    }
+
+    .research-heading h2 {
+        margin-bottom: 12px;
+        font-size: clamp(2rem, 3.5vw, 3.25rem);
+        line-height: 1.04;
+    }
+
+    .research-heading > p:last-child {
+        max-width: 720px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.08rem;
+    }
+
+    .research-entry {
+        display: grid;
+        grid-template-columns: minmax(240px, 0.55fr) minmax(0, 1.45fr);
+        overflow: hidden;
+        border: 1px solid rgba(242, 199, 93, 0.24);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(103, 216, 222, 0.06), transparent 45%), var(--surface);
+        box-shadow: var(--shadow);
+    }
+
+    .research-entry-mark {
+        position: relative;
+        display: grid;
+        place-content: center;
+        min-height: 430px;
+        overflow: hidden;
+        border-right: 1px solid rgba(242, 199, 93, 0.2);
+        background:
+            radial-gradient(circle at 50% 40%, rgba(103, 216, 222, 0.25), transparent 38%),
+            linear-gradient(145deg, rgba(170, 140, 255, 0.13), rgba(242, 199, 93, 0.1)),
+            #080c12;
+        color: var(--gold);
+        text-align: center;
+    }
+
+    .research-entry-mark::before,
+    .research-entry-mark::after {
+        position: absolute;
+        border: 1px solid rgba(103, 216, 222, 0.28);
+        border-radius: 50%;
+        content: "";
+    }
+
+    .research-entry-mark::before {
+        inset: 17%;
+    }
+
+    .research-entry-mark::after {
+        inset: 30%;
+        border-color: rgba(242, 199, 93, 0.32);
+    }
+
+    .research-entry-mark span,
+    .research-entry-mark small {
+        position: relative;
+        z-index: 1;
+    }
+
+    .research-entry-mark span {
+        font-size: clamp(4.3rem, 8vw, 7.4rem);
+        font-weight: 900;
+        letter-spacing: -0.07em;
+        line-height: 0.9;
+        text-shadow: 0 0 38px rgba(242, 199, 93, 0.22);
+    }
+
+    .research-entry-mark small {
+        margin-top: 12px;
+        color: rgba(251, 244, 232, 0.62);
+        font-size: 0.82rem;
+        font-weight: 820;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+    }
+
+    .research-entry-body {
+        min-width: 0;
+        padding: clamp(28px, 5vw, 52px);
+    }
+
+    .research-meta {
+        margin-bottom: 19px;
+    }
+
+    .research-meta span,
+    .research-meta time {
+        padding: 5px 9px;
+        color: var(--muted);
+        font-size: 0.72rem;
+    }
+
+    .research-entry h3 {
+        max-width: 760px;
+        margin-bottom: 16px;
+        font-size: clamp(1.8rem, 3.5vw, 3rem);
+        line-height: 1.08;
+    }
+
+    .research-entry h3 a:hover {
+        color: var(--gold);
+    }
+
+    .research-description {
+        max-width: 760px;
+        margin-bottom: 28px;
+        color: rgba(251, 244, 232, 0.76);
+        font-size: 1.06rem;
+        line-height: 1.62;
+    }
+
+    .research-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0 0 24px;
+    }
+
+    .research-metrics div {
+        min-width: 0;
+        padding: 14px 16px;
+        border: 1px solid rgba(103, 216, 222, 0.16);
+        border-radius: 8px;
+        background: rgba(103, 216, 222, 0.055);
+    }
+
+    .research-metrics dt {
+        color: var(--gold);
+        font-size: 1.35rem;
+        font-weight: 860;
+        line-height: 1;
+    }
+
+    .research-metrics dd {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 0.78rem;
+    }
+
+    .research-topics {
+        margin-bottom: 30px;
+    }
+
+    .research-topics span {
+        padding: 6px 10px;
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.035);
+        color: var(--muted);
+        font-size: 0.72rem;
+    }
+
+    .research-actions {
+        gap: 16px 22px;
+    }
+
+    .research-read {
+        min-height: 46px;
+    }
+
+    .research-evidence {
+        color: var(--gold);
+        font-size: 0.9rem;
+        font-weight: 760;
+    }
+
+    .research-evidence:hover {
+        color: var(--ink-strong);
+    }
+
+    @media (max-width: 960px) {
+        .research-hero-grid {
+            grid-template-columns: 1fr;
+            gap: 24px;
+            padding-block: 62px 38px;
+        }
+
+        .research-map {
+            max-width: 620px;
+            justify-self: start;
+        }
+
+        .research-entry {
+            grid-template-columns: 1fr;
+        }
+
+        .research-entry-mark {
+            min-height: 260px;
+            border-right: 0;
+            border-bottom: 1px solid rgba(242, 199, 93, 0.2);
+        }
+    }
+
+    @media (max-width: 620px) {
+        .research-hero-grid {
+            min-height: 0;
+            padding-block: 48px 26px;
+        }
+
+        .research-intro h1 {
+            font-size: clamp(3.2rem, 18vw, 4.6rem);
+        }
+
+        .research-map {
+            width: calc(100% + 12px);
+            margin-left: -6px;
+        }
+
+        .research-entry-mark {
+            min-height: 220px;
+        }
+
+        .research-entry-body {
+            padding: 22px 18px;
+        }
+
+        .research-metrics {
+            grid-template-columns: 1fr;
+        }
+
+        .research-actions,
+        .research-read {
+            width: 100%;
+        }
+    }
+</style>

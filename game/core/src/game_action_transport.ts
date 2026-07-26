@@ -35,6 +35,10 @@ export interface AuthoritativeUnitState {
     /** Display-ready description per debuff/effect, parallel to `debuffs` (power already substituted in). */
     debuffDescriptions?: string[];
     buffs?: string[];
+    /** Remaining laps per buff, parallel to `buffs` — lets the ranked HUD render buff lap counts. */
+    buffLaps?: number[];
+    /** Display-ready description per buff, parallel to `buffs` (power already substituted in). */
+    buffDescriptions?: string[];
     responded?: boolean;
     /** True if the unit already used its hourglass (wait) this lap — disables the Wait button in ranked. */
     hasHourglassed?: boolean;
@@ -45,6 +49,17 @@ export interface AuthoritativeUnitState {
     /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order. Ranked syncs this
      * so the client's spell.amountRemaining matches the server (it never runs the cast engine locally). */
     spellAmounts?: number[];
+    /** The unit's LIVE ability names — lets ranked drop a consumable ability (e.g. Angel's Resurrection) and
+     * its ability-derived spell once spent, instead of re-deriving them from the base creature config. */
+    abilities?: string[];
+    /** Abilities permanently removed by Predatory Assimilation. They stay visible in the HUD as STOLEN. */
+    stolenAbilities?: string[];
+    /** Turn-start Web Aura lock. Flying through/landing in Web is legal; starting a turn there blocks movement. */
+    webMovementLocked?: boolean;
+    /** Exact remaining spell entries; duplicate entries represent multiple remaining casts. */
+    spellEntries?: string[];
+    /** True when spellEntries is authoritative, including when the list is empty. */
+    spellEntriesAuthoritative?: boolean;
 }
 
 export interface AuthoritativeJournalEntry {
@@ -77,6 +92,8 @@ export interface AuthoritativeGameSnapshot {
     currentTurnEndMs?: number;
     narrowingLayers: number;
     centerDried: boolean;
+    /** Cumulative server movement penalty used with unit morale when calculating effective speed. */
+    stepsMoraleMultiplier?: number;
     units: AuthoritativeUnitState[];
     upNext?: string[];
     damageStats?: IDamageStatistic[];
@@ -87,6 +104,13 @@ export interface AuthoritativeGameSnapshot {
     upperStartUnits?: number;
     lowerStartHealth?: number;
     upperStartHealth?: number;
+    // Same fight-start capture, broken down per creature type (parallel arrays: creatureIds[i] fielded
+    // in amounts[i]) — lets the fight-results overlay render a correct per-creature casualty breakdown
+    // even for a team that lost an entire creature type (whose stacks are then gone from `units` too).
+    lowerStartRosterCreatureIds?: number[];
+    lowerStartRosterAmounts?: number[];
+    upperStartRosterCreatureIds?: number[];
+    upperStartRosterAmounts?: number[];
 }
 
 export type SceneGameActionTransportResult =
@@ -100,4 +124,12 @@ export type SceneGameActionTransportResult =
           message?: string;
       };
 
-export type SceneGameActionTransport = (action: GameAction) => SceneGameActionTransportResult;
+export interface SceneGameActionTransportOptions {
+    /** Keep an accepted move active for the immediately queued spell/area-throw follow-up. */
+    continueTurn?: boolean;
+}
+
+export type SceneGameActionTransport = (
+    action: GameAction,
+    options?: SceneGameActionTransportOptions,
+) => SceneGameActionTransportResult;

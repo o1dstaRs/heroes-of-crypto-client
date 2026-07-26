@@ -2,19 +2,34 @@ import {
     Artifact,
     CREATURES_JSON,
     CreatureVals,
+    getCreatureLevel,
     getCreaturesByLevel,
     HoCConfig,
     Perk,
     PickPhaseVals,
     type TeamType,
 } from "@heroesofcrypto/common";
-import { Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Sheet, Tooltip, Typography } from "@mui/joy";
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Divider,
+    Modal,
+    ModalDialog,
+    Sheet,
+    Tooltip,
+    Typography,
+} from "@mui/joy";
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 
 const images = rawImages as Record<string, string>;
@@ -176,6 +191,165 @@ const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) =
     );
 };
 
+// Confirmation modal shown when a player clicks a creature to pick: a centered portrait + stats + abilities
+// (the same detail the hover panel shows on the left) with Confirm / Cancel buttons. The pick only fires on
+// Confirm, so the player can review the unit before committing (instead of the previous instant-pick-on-click).
+const PickConfirmModal: React.FC<{
+    open: boolean;
+    creatureId: number;
+    busy: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+}> = ({ open, creatureId, busy, onConfirm, onCancel }) => {
+    const entry = creatureFullConfig(creatureId);
+    const img = creatureImage(creatureId);
+    return (
+        <Modal open={open} onClose={onCancel}>
+            <ModalDialog
+                sx={{
+                    bgcolor: "rgba(8,10,18,0.97)",
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    color: "#e7e9f0",
+                    borderRadius: "14px",
+                    maxWidth: 360,
+                    width: "90vw",
+                }}
+            >
+                {entry ? (
+                    <>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                            {img && (
+                                <Box
+                                    component="img"
+                                    src={img}
+                                    alt={entry.config.name}
+                                    sx={{ width: 64, height: 64, borderRadius: "10px", objectFit: "cover" }}
+                                />
+                            )}
+                            <Box>
+                                <Typography level="title-md">{entry.config.name}</Typography>
+                                <Typography level="body-xs" sx={{ opacity: 0.65 }}>
+                                    {entry.faction} · Lvl {entry.config.level} ·{" "}
+                                    {entry.config.size === 2 ? "2×2" : "1×1"}
+                                </Typography>
+                            </Box>
+                        </Box>
+                        <Box
+                            sx={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr",
+                                columnGap: 1.5,
+                                rowGap: 0.25,
+                                mb: 1,
+                            }}
+                        >
+                            <StatCell label="HP" value={entry.config.hp} />
+                            <StatCell label="Armor" value={entry.config.armor} />
+                            <StatCell label="Attack" value={entry.config.attack} />
+                            <StatCell
+                                label="Damage"
+                                value={`${entry.config.attack_damage_min}–${entry.config.attack_damage_max}`}
+                            />
+                            <StatCell label="Speed" value={entry.config.speed} />
+                            <StatCell label="Move" value={Math.round(entry.config.steps)} />
+                            <StatCell label="Type" value={entry.config.attack_type === "RANGE" ? "Ranged" : "Melee"} />
+                            <StatCell label="Resist" value={`${entry.config.magic_resist}%`} />
+                        </Box>
+                        <Divider sx={{ my: 0.5 }} />
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
+                            <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
+                                Cancel
+                            </Button>
+                            <Button variant="solid" color="success" onClick={onConfirm} loading={busy}>
+                                Confirm pick
+                            </Button>
+                        </Box>
+                    </>
+                ) : (
+                    <>
+                        <Typography level="title-md">{creatureName(creatureId)}</Typography>
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
+                            <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
+                                Cancel
+                            </Button>
+                            <Button variant="solid" color="success" onClick={onConfirm} loading={busy}>
+                                Confirm pick
+                            </Button>
+                        </Box>
+                    </>
+                )}
+            </ModalDialog>
+        </Modal>
+    );
+};
+
+// Confirmation modal for a Tier-2 artifact pick: shows the artifact icon + name + description with Confirm /
+// Cancel buttons. Mirrors PickConfirmModal — the pick only fires on Confirm, so the player reviews the effect
+// before committing.
+const ArtifactConfirmModal: React.FC<{
+    open: boolean;
+    artifactId: number;
+    busy: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+}> = ({ open, artifactId, busy, onConfirm, onCancel }) => {
+    const a = artifactId ? Artifact.getTier2ArtifactProperties(artifactId as Artifact.Tier2Artifact) : undefined;
+    const img = a ? images[a.imageKey] : undefined;
+    return (
+        <Modal open={open} onClose={onCancel}>
+            <ModalDialog
+                sx={{
+                    bgcolor: "rgba(8,10,18,0.97)",
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    color: "#e7e9f0",
+                    borderRadius: "14px",
+                    maxWidth: 360,
+                    width: "90vw",
+                }}
+            >
+                {a ? (
+                    <>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                            {img && (
+                                <Box
+                                    component="img"
+                                    src={img}
+                                    alt={a.name}
+                                    sx={{ width: 56, height: 56, objectFit: "contain" }}
+                                />
+                            )}
+                            <Typography level="title-md">{a.name}</Typography>
+                        </Box>
+                        <Typography
+                            level="body-xs"
+                            sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.5, mb: 0.5 }}
+                        >
+                            Tier-2 artifact
+                        </Typography>
+                        <Typography level="body-sm" sx={{ opacity: 0.9 }}>
+                            {Artifact.formatArtifactDescription(a)}
+                        </Typography>
+                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
+                            <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
+                                Cancel
+                            </Button>
+                            <Button variant="solid" color="success" onClick={onConfirm} loading={busy}>
+                                Confirm pick
+                            </Button>
+                        </Box>
+                    </>
+                ) : (
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
+                        <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
+                            Cancel
+                        </Button>
+                    </Box>
+                )}
+            </ModalDialog>
+        </Modal>
+    );
+};
+
 // Emoji cue per perk (Scout / Spymaster / Blind Fury) so the vision trade-off reads at a glance.
 const PERK_ICON: Record<number, string> = {
     [Perk.Perk.THREE_REVEALS]: "🔍",
@@ -185,7 +359,7 @@ const PERK_ICON: Record<number, string> = {
 
 const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.PERK]:
-        "Choose your doctrine AND a starting bundle. Doctrine lasts the whole draft; each bundle gives two creatures and a Tier-1 artifact.",
+        "Choose your scouting doctrine. It lasts the whole draft and decides which of the opponent's army slots you can watch.",
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
     [PickPhaseVals.PICK]:
         "Greyed portraits are banned. Opponent picks are hidden — if you pick one they already took, you'll re-pick.",
@@ -201,7 +375,7 @@ const RULES_URL = "https://heroesofcrypto.io/rules";
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {
         case PickPhaseVals.PERK:
-            return "Pick one doctrine and one starting bundle to continue.";
+            return "Pick one doctrine to continue.";
         case PickPhaseVals.INITIAL_PICK:
             return "Pick one starting bundle.";
         case PickPhaseVals.PICK:
@@ -215,20 +389,23 @@ const phaseAction = (phase: number, level: number): string => {
 
 // ---- Draft progress stepper ----------------------------------------------
 
-// Doctrine + Bundle are chosen together in one combined first step.
-const STEP_LABELS = ["Doctrine + Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact", "Lvl 4", "Place"];
+// Doctrine and the starting bundle are now separate first steps.
+const STEP_LABELS = ["Doctrine", "Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact", "Lvl 4", "Place"];
 
 const currentStep = (phase: number, level: number): number => {
     switch (phase) {
-        case PickPhaseVals.PERK: // combined doctrine + bundle
+        case PickPhaseVals.PERK: // doctrine
             return 0;
+        case PickPhaseVals.INITIAL_PICK: // starting bundle
+            return 1;
         case PickPhaseVals.ARTIFACT_2:
-            return 4;
+            return 5;
         case PickPhaseVals.AUGMENTS:
         case PickPhaseVals.AUGMENTS_SCOUT:
-            return 6;
+            return 7;
         case PickPhaseVals.PICK:
-            return level === 4 ? 5 : level; // L1->1, L2->2, L3->3, L4->5
+            // L1->2, L2->3, L3->4, L4->6 (artifact sits at 5 between L3 and L4).
+            return level === 4 ? 6 : level + 1;
         default:
             return -1;
     }
@@ -297,7 +474,9 @@ const CreaturePortrait: React.FC<{
                     border: `2px solid ${ring}`,
                     cursor: selectable ? "pointer" : "default",
                     opacity: state === "available" ? 1 : 0.5,
-                    filter: state === "banned" || state === "taken" ? "grayscale(1)" : "none",
+                    // NOTE: the grayscale filter is applied to the <img> below, NOT to this wrapper. Putting it
+                    // on the wrapper would also desaturate the red ban slash (CSS filters affect all descendants),
+                    // turning the crimson Dota strike grey/black. Keep the wrapper filter-free so the slash stays red.
                     transition: "transform 120ms ease, box-shadow 120ms ease",
                     "&:hover": selectable
                         ? { transform: "translateY(-3px)", boxShadow: "0 0 14px rgba(120,220,150,0.6)" }
@@ -308,7 +487,12 @@ const CreaturePortrait: React.FC<{
                     <img
                         src={src}
                         alt={creatureName(creatureId)}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            filter: state === "banned" || state === "taken" ? "grayscale(1)" : "none",
+                        }}
                     />
                 ) : (
                     <Typography level="body-xs" sx={{ p: 1 }}>
@@ -316,20 +500,34 @@ const CreaturePortrait: React.FC<{
                     </Typography>
                 )}
                 {(state === "banned" || state === "taken") && (
+                    // Dota-style ban: a thick crimson diagonal band corner-to-corner across a greyscale
+                    // portrait (the grayscale filter is applied on the portrait wrapper above). The band has
+                    // a vertical light-to-dark gradient (highlight on top, deep crimson below), a thin
+                    // near-black core stroke down the middle, and a wide red glow — mirroring the heavy red
+                    // "X" strikethrough Dota paints over banned heroes.
                     <Box
+                        aria-hidden
                         sx={{
                             position: "absolute",
-                            inset: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#ff6b6b",
-                            fontSize: size * 0.45,
-                            fontWeight: 700,
+                            top: "50%",
+                            left: "50%",
+                            width: size * 1.55,
+                            height: Math.max(9, Math.round(size * 0.12)),
+                            transform: "translate(-50%, -50%) rotate(45deg)",
+                            background: "linear-gradient(180deg, #ff5a5a 0%, #e8202a 45%, #b8131c 100%)",
+                            borderTop: "1px solid rgba(255,180,180,0.85)",
+                            borderBottom: "2px solid rgba(0,0,0,0.55)",
+                            boxShadow: "0 0 10px rgba(232,32,42,0.9), inset 0 0 4px rgba(0,0,0,0.45)",
+                            pointerEvents: "none",
+                            "&::after": {
+                                // Thin dark center seam for the layered "embossed" look.
+                                content: '""',
+                                position: "absolute",
+                                inset: 0,
+                                borderTop: "1px solid rgba(0,0,0,0.35)",
+                            },
                         }}
-                    >
-                        ✕
-                    </Box>
+                    />
                 )}
                 {state === "picked" && (
                     <Box
@@ -484,7 +682,7 @@ const Legend: React.FC = () => (
             ✓ Yours
         </Chip>
         <Chip size="sm" variant="soft" color="danger">
-            ✕ Taken / banned
+            ⟋ Taken / banned
         </Chip>
     </Box>
 );
@@ -609,6 +807,26 @@ const BarDivider: React.FC = () => (
     <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "rgba(255,255,255,0.14)", mx: 0.25 }} />
 );
 
+// Fixed slot layout shown for BOTH armies: [L1, L1, L2, L2, L3, L4]. Mirrors CreaturePoolByLevel = [2,2,1,1]
+// and the level-sorted creaturesPicked order the server now maintains, so a slot index maps 1:1 to a level.
+const ARMY_LAYOUT: number[] = [1, 1, 2, 2, 3, 4];
+
+// Place picked creature ids into the fixed level layout. Returns an array of length ARMY_LAYOUT.length where each cell
+// is either the picked creature id of that level (filled left-to-right within each level) or 0 when empty.
+// Empty picks get a level so the caller can render a labelled placeholder.
+const placeIntoLevelSlots = (picked: number[]): { id: number; level: number }[] => {
+    const valid = picked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
+    // Bucket creatures by level, preserving arrival order within a level.
+    const byLevel: Record<number, number[]> = { 1: [], 2: [], 3: [], 4: [] };
+    for (const id of valid) {
+        const lvl = (getCreatureLevel(id) as number) || 0;
+        if (lvl >= 1 && lvl <= 4) {
+            byLevel[lvl].push(id);
+        }
+    }
+    return ARMY_LAYOUT.map((level) => ({ id: byLevel[level].shift() ?? 0, level }));
+};
+
 // Sticky bottom-center summary of the player's own draft so far — chosen doctrine (perk), picked units, and
 // picked artifacts. Stays pinned as the draft advances so the player always sees the army they're building.
 const MyDraftBar: React.FC<{
@@ -618,13 +836,11 @@ const MyDraftBar: React.FC<{
     artifactTier2: number;
     onInspect?: (creatureId: number) => void;
 }> = ({ perk, picked, artifactTier1, artifactTier2, onInspect }) => {
-    const units = picked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
     const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
     const artifacts = [t1, t2].filter((a): a is Artifact.ArtifactProperties => !!a);
-    if (!perk && !units.length && !artifacts.length) {
-        return null;
-    }
+    // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
+    const slots = placeIntoLevelSlots(picked);
     return (
         <Box
             sx={{
@@ -673,42 +889,62 @@ const MyDraftBar: React.FC<{
                         </Tooltip>
                     </>
                 )}
-                {units.length > 0 && (
-                    <>
-                        <BarDivider />
-                        <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
-                            {units.map((id, i) => {
-                                const src = creatureImage(id);
-                                return (
-                                    <Tooltip key={`${id}-${i}`} title={creatureName(id)} variant="soft">
-                                        <Box
-                                            onMouseEnter={() => onInspect?.(id)}
-                                            sx={{
-                                                width: 50,
-                                                height: 50,
-                                                borderRadius: "9px",
-                                                overflow: "hidden",
-                                                border: "1px solid rgba(120,220,150,0.5)",
-                                            }}
-                                        >
-                                            {src ? (
-                                                <img
-                                                    src={src}
-                                                    alt={creatureName(id)}
-                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                                />
-                                            ) : (
-                                                <Typography level="body-xs" sx={{ p: 0.5 }}>
-                                                    {creatureName(id)}
-                                                </Typography>
-                                            )}
-                                        </Box>
-                                    </Tooltip>
-                                );
-                            })}
-                        </Box>
-                    </>
-                )}
+                <BarDivider />
+                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                    {slots.map((slot, i) => {
+                        const id = slot.id;
+                        if (id) {
+                            const src = creatureImage(id);
+                            return (
+                                <Tooltip key={`${id}-${i}`} title={creatureName(id)} variant="soft">
+                                    <Box
+                                        onMouseEnter={() => onInspect?.(id)}
+                                        sx={{
+                                            width: 50,
+                                            height: 50,
+                                            borderRadius: "9px",
+                                            overflow: "hidden",
+                                            border: "1px solid rgba(120,220,150,0.5)",
+                                        }}
+                                    >
+                                        {src ? (
+                                            <img
+                                                src={src}
+                                                alt={creatureName(id)}
+                                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                            />
+                                        ) : (
+                                            <Typography level="body-xs" sx={{ p: 0.5 }}>
+                                                {creatureName(id)}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Tooltip>
+                            );
+                        }
+                        // Empty slot: show the level it will hold, so the layout reads as 6 ordered slots.
+                        return (
+                            <Tooltip key={`empty-${i}`} title={`Level ${slot.level} slot`} variant="soft">
+                                <Box
+                                    sx={{
+                                        width: 50,
+                                        height: 50,
+                                        borderRadius: "9px",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        border: "1px dashed rgba(120,220,150,0.35)",
+                                        bgcolor: "rgba(120,220,150,0.05)",
+                                        color: "rgba(180,230,195,0.55)",
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    L{slot.level}
+                                </Box>
+                            </Tooltip>
+                        );
+                    })}
+                </Box>
                 {artifacts.length > 0 && (
                     <>
                         <BarDivider />
@@ -755,32 +991,33 @@ const MyDraftBar: React.FC<{
 
 interface StainedGlassProps {
     userTeam: TeamType;
+    opponentLabel?: string;
     height?: number;
 }
 
-// Total creatures each team drafts — mirrors sum(CreaturePoolByLevel) = [2,2,1,1] on the server. Used to
-// render the opponent's remaining (unrevealed) slots face-down.
-const OPPONENT_ARMY_SLOTS = 6;
-
-// The opponent's army as disclosed by YOUR scouting doctrine (perk): revealed creatures show as portraits,
-// the rest as face-down slots. Spymaster reveals every slot as the opponent fills it, Scout 3 random slots,
-// Blind Fury none. `opponentPicked` is the server-revealed set (empty when nothing is visible). Sits just
-// above the "Your army" bar so both drafts are visible side-by-side at the bottom of the pick screen.
+// The opponent's army rendered as EXACTLY 6 fixed level-ordered slots [L1,L1,L2,L2,L3,L4]. Each slot shows one
+// of three states: a portrait (the opponent has picked there AND your doctrine reveals it), an eye (your
+// doctrine watches that slot but the opponent hasn't filled it yet), or a "?" (not revealed by your doctrine).
+// `opponentPicked` is a slot-ALIGNED array (length = ARMY_LAYOUT.length): the creature id at each watched slot
+// the opponent has filled, and 0 elsewhere — so a creature stays at its true positional slot (a bundle L2 at
+// index 2 vs a separately-picked L2 at index 3) instead of being bucket-filled left-to-right. `watchedSlots`
+// is the set of slot indices (0..5) your scouting doctrine watches — a watched-but-empty slot shows the eye.
 const OpponentDraftBar: React.FC<{
     opponentPicked: number[];
-    viewerPerk: number;
+    opponentLabel: string;
+    // Opponent slot indices (0..5) this player's scouting doctrine actually watches — server-authoritative
+    // (SSE `ws` / slotsSeen), seeded at doctrine selection: all six for Spymaster, the three tier-block-random
+    // slots for Scout, none for Blind Fury.
+    watchedSlots: number[];
     onInspect?: (creatureId: number) => void;
-}> = ({ opponentPicked, viewerPerk, onInspect }) => {
-    const revealed = opponentPicked.filter((id) => id && id !== CreatureVals.NO_CREATURE);
-    // How many of the opponent's slots YOUR doctrine lets you watch (Spymaster all, Scout 3, Blind Fury none).
-    // Watched-but-not-yet-picked slots show an eye (they flip to a portrait once the opponent picks there); the
-    // rest stay face-down. Derived from your own perk, so the "eye" slots appear immediately at draft start —
-    // before the opponent has picked anything — telling you up front which slots you'll get to see.
-    const revealMode = Perk.getPerkRevealMode(viewerPerk as Perk.Perk);
-    const watchedSlots =
-        revealMode === "all" ? OPPONENT_ARMY_SLOTS : revealMode === "random3" ? Perk.PERK_RANDOM_REVEAL_SLOTS : 0;
-    const eyeCount = Math.max(0, Math.min(watchedSlots, OPPONENT_ARMY_SLOTS) - revealed.length);
-    const hiddenCount = Math.max(0, OPPONENT_ARMY_SLOTS - revealed.length - eyeCount);
+}> = ({ opponentPicked, opponentLabel, watchedSlots, onInspect }) => {
+    // Build the 6 fixed level-ordered slots directly from the slot-aligned reveal array (no bucketing), so each
+    // creature lands at its real slot index — preserving bundle-vs-picked ordering within a level.
+    const slots = ARMY_LAYOUT.map((level, i) => ({ id: opponentPicked[i] ?? 0, level }));
+    // The exact slot indices your doctrine watches, straight from the server (NOT the first-N slots): the Scout
+    // doctrine watches three tier-block-random slots the server seeded, so the eye lands on the SAME slot the
+    // reveal flips — no longer a misleading fixed 1-2-3. A watched-but-not-yet-picked slot shows the eye.
+    const watched = new Set(watchedSlots);
     return (
         <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pt: 1.5, pointerEvents: "none" }}>
             <Sheet
@@ -802,89 +1039,98 @@ const OpponentDraftBar: React.FC<{
                 }}
             >
                 <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
-                    Opponent&apos;s army
+                    {opponentLabel}&apos;s army
                 </Typography>
                 <BarDivider />
                 <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
-                    {revealed.map((id, i) => {
-                        const src = creatureImage(id);
+                    {slots.map((slot, i) => {
+                        const id = slot.id;
+                        const isWatched = watched.has(i);
+                        if (id) {
+                            // Watched slot the opponent has filled -> reveal the creature portrait.
+                            const src = creatureImage(id);
+                            return (
+                                <Tooltip key={`opp-${id}-${i}`} title={creatureName(id)} variant="soft">
+                                    <Box
+                                        onMouseEnter={() => onInspect?.(id)}
+                                        sx={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: "9px",
+                                            overflow: "hidden",
+                                            border: "1px solid rgba(240,120,120,0.6)",
+                                        }}
+                                    >
+                                        {src ? (
+                                            <img
+                                                src={src}
+                                                alt={creatureName(id)}
+                                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                            />
+                                        ) : (
+                                            <Typography level="body-xs" sx={{ p: 0.5 }}>
+                                                {creatureName(id)}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Tooltip>
+                            );
+                        }
+                        if (isWatched) {
+                            // Watched but not yet picked by the opponent -> eye on this slot.
+                            return (
+                                <Tooltip
+                                    key={`opp-eye-${i}`}
+                                    title={`Level ${slot.level} — revealed by your doctrine (flips to the unit once your opponent picks here)`}
+                                    variant="soft"
+                                >
+                                    <Box
+                                        sx={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: "9px",
+                                            display: "grid",
+                                            placeItems: "center",
+                                            border: "1px solid rgba(240,180,90,0.55)",
+                                            bgcolor: "rgba(240,180,90,0.1)",
+                                            color: "rgba(245,205,130,0.95)",
+                                            fontSize: 20,
+                                        }}
+                                    >
+                                        👁
+                                    </Box>
+                                </Tooltip>
+                            );
+                        }
+                        // Not revealed by your doctrine -> face-down slot.
                         return (
-                            <Tooltip key={`opp-${id}-${i}`} title={creatureName(id)} variant="soft">
+                            <Tooltip key={`opp-hidden-${i}`} title={`Level ${slot.level} — hidden`} variant="soft">
                                 <Box
-                                    onMouseEnter={() => onInspect?.(id)}
                                     sx={{
                                         width: 44,
                                         height: 44,
                                         borderRadius: "9px",
-                                        overflow: "hidden",
-                                        border: "1px solid rgba(240,120,120,0.6)",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        border: "1px dashed rgba(255,255,255,0.22)",
+                                        bgcolor: "rgba(255,255,255,0.04)",
+                                        color: "rgba(255,255,255,0.5)",
+                                        fontSize: 18,
+                                        fontWeight: 700,
                                     }}
                                 >
-                                    {src ? (
-                                        <img
-                                            src={src}
-                                            alt={creatureName(id)}
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                        />
-                                    ) : (
-                                        <Typography level="body-xs" sx={{ p: 0.5 }}>
-                                            {creatureName(id)}
-                                        </Typography>
-                                    )}
+                                    ?
                                 </Box>
                             </Tooltip>
                         );
                     })}
-                    {Array.from({ length: eyeCount }).map((_, i) => (
-                        <Tooltip
-                            key={`opp-eye-${i}`}
-                            title="Revealed by your doctrine — flips to the unit once your opponent picks here"
-                            variant="soft"
-                        >
-                            <Box
-                                sx={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: "9px",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    border: "1px solid rgba(240,180,90,0.55)",
-                                    bgcolor: "rgba(240,180,90,0.1)",
-                                    color: "rgba(245,205,130,0.95)",
-                                    fontSize: 20,
-                                }}
-                            >
-                                👁
-                            </Box>
-                        </Tooltip>
-                    ))}
-                    {Array.from({ length: hiddenCount }).map((_, i) => (
-                        <Tooltip key={`opp-hidden-${i}`} title="Hidden — not revealed by your doctrine" variant="soft">
-                            <Box
-                                sx={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: "9px",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    border: "1px dashed rgba(255,255,255,0.22)",
-                                    bgcolor: "rgba(255,255,255,0.04)",
-                                    color: "rgba(255,255,255,0.5)",
-                                    fontSize: 18,
-                                    fontWeight: 700,
-                                }}
-                            >
-                                ?
-                            </Box>
-                        </Tooltip>
-                    ))}
                 </Box>
             </Sheet>
         </Box>
     );
 };
 
-const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
+const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLabel = "Opponent" }) => {
     const {
         pickPhase,
         isYourTurn,
@@ -899,6 +1145,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
         artifactTier1,
         artifactTier2,
         opponentPicked,
+        watchedSlots,
+        mapType,
     } = usePickBanEvents();
     const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
@@ -906,19 +1154,21 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
     // Creature currently hovered anywhere in the draft — its stats + abilities show in the left detail panel.
     const [inspectedId, setInspectedId] = useState<number>(0);
-    // Combined PERK phase does TWO independent actions on one screen, so it needs its own local choices
-    // (the single `selection` can't hold both). Locks are derived from authoritative server state below.
-    const [setupBundleChoice, setSetupBundleChoice] = useState<number>(-1);
     // Opponent picks are fully hidden by the server. The ONLY way we learn a unit is taken is by picking it
     // and getting a 409 collision back — we remember those locally so they grey out and we don't re-try them.
     const [collided, setCollided] = useState<number[]>([]);
     const [pickError, setPickError] = useState<string>("");
+    // Creature the player clicked to pick — opens the confirm modal. The actual pick only fires on Confirm.
+    const [pendingPick, setPendingPick] = useState<number>(0);
+    // Artifact the player clicked to pick — opens the confirm modal. The actual pick only fires on Confirm.
+    const [pendingArtifact, setPendingArtifact] = useState<number>(0);
 
-    // Clear the local selections whenever the phase advances.
+    // Clear the local selection whenever the phase advances.
     useEffect(() => {
         setSelection((prev) => (prev && prev.phase === pickPhase ? prev : null));
-        setSetupBundleChoice(-1);
         setPickError("");
+        setPendingPick(0);
+        setPendingArtifact(0);
     }, [pickPhase]);
 
     const send = async (value: number, fn: () => Promise<void>): Promise<void> => {
@@ -960,63 +1210,42 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
     const disabled = !isYourTurn || busy;
     const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
     const hint = PHASE_HINT[pickPhase] ?? "";
-    // "Taken" units are ONLY the ones we've collided on locally — the server never reveals opponent picks.
-    const opponentTaken = collided;
+    // "Taken" units are the opponent picks we legitimately know about: the ones we've collided on locally
+    // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting doctrine /
+    // reveal perks. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
+    // creature id at each watched-and-filled slot and 0 (NO_CREATURE) elsewhere, so we drop the empties.
+    // Mirrors getKnownOpponentCreatures() in the pick sim (and the LocalModelDraftOpponent path) so the grid
+    // greys out units we already know are gone instead of letting us pick into a guaranteed collision.
+    const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
+    const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
     const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
-    const isCombinedSetup = pickPhase === PickPhaseVals.PERK;
-    // Authoritative per-dimension locks for the combined phase: the server echoes the player's own perk
-    // (perk > 0) and their bundle (picked.length > 0), so both survive reload and disable their panel.
-    const perkLocked = isCombinedSetup && perk > 0;
-    const bundleLocked = isCombinedSetup && picked.length > 0;
+    // PERK is now a doctrine-only phase; the server echoes the player's perk (perk > 0), which survives reload
+    // and locks the panel.
+    const perkLocked = pickPhase === PickPhaseVals.PERK && perk > 0;
+    // INITIAL_PICK is the separate starting-bundle phase; the server echoes the picked bundle (picked.length > 0).
+    const bundleLocked = pickPhase === PickPhaseVals.INITIAL_PICK && picked.length > 0;
     // Which bundle was chosen — local index if just picked, else recover it from the picked creatures.
-    const bundleChosenIndex =
-        setupBundleChoice >= 0
-            ? setupBundleChoice
-            : bundleLocked
-              ? initialBundles.findIndex((b) => b[0] === picked[0] && b[1] === picked[1])
-              : -1;
-    const setupBothLocked = perkLocked && bundleLocked;
+    const bundleChosenIndex = bundleLocked
+        ? initialBundles.findIndex((b) => b[0] === picked[0] && b[1] === picked[1])
+        : selectedValue;
 
     let panel: React.ReactNode = <CircularProgress />;
-    if (isCombinedSetup) {
-        // Combined first step: choose a doctrine AND a starting bundle on one screen, each locking independently.
+    if (pickPhase === PickPhaseVals.PERK) {
+        // Doctrine-only phase: choose one scouting doctrine.
         panel = (
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2.5, width: "100%" }}>
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                    <Chip size="sm" variant="soft" color={perkLocked ? "success" : "primary"}>
-                        1 · Doctrine {perkLocked ? "✓" : ""}
-                    </Chip>
-                    <PerkPanel
-                        disabled={busy || perkLocked}
-                        selected={perkLocked ? perk : selectedValue}
-                        onSelect={(id) => void send(id, () => sendPerk(id))}
-                    />
-                </Box>
-                <Divider sx={{ width: "80%" }} />
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                    <Chip size="sm" variant="soft" color={bundleLocked ? "success" : "primary"}>
-                        2 · Starting bundle {bundleLocked ? "✓" : ""}
-                    </Chip>
-                    <BundlePanel
-                        bundles={initialBundles}
-                        disabled={busy || bundleLocked}
-                        selected={bundleChosenIndex}
-                        onSelect={(i) => {
-                            setSetupBundleChoice(i);
-                            void send(i, () => pickPair(i));
-                        }}
-                        onInspect={setInspectedId}
-                    />
-                </Box>
-            </Box>
+            <PerkPanel
+                disabled={disabled || perkLocked}
+                selected={perkLocked ? perk : selectedValue}
+                onSelect={(id) => void send(id, () => sendPerk(id))}
+            />
         );
     } else if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-        // Legacy in-flight picks only — new picks fold the bundle into the combined PERK phase above.
+        // Starting-bundle phase: choose one bundle {L1 + L2 + Tier-1 artifact}.
         panel = (
             <BundlePanel
                 bundles={initialBundles}
-                disabled={disabled}
-                selected={selectedValue}
+                disabled={disabled || bundleLocked}
+                selected={bundleChosenIndex}
                 onSelect={(i) => void send(i, () => pickPair(i))}
                 onInspect={setInspectedId}
             />
@@ -1035,7 +1264,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                     picked={picked}
                     opponentTaken={opponentTaken}
                     disabled={disabled}
-                    onSelect={(id) => void pickCreature(id)}
+                    onSelect={(id) => setPendingPick(id)}
                     onInspect={setInspectedId}
                 />
             </Box>
@@ -1046,7 +1275,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 disabled={disabled}
                 selected={selectedValue}
                 offered={tier2Offers}
-                onSelect={(id) => void send(id, () => artifact(id, 2))}
+                onSelect={(id) => setPendingArtifact(id)}
             />
         );
     } else if (isHandoff) {
@@ -1115,7 +1344,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                    {isYourTurn ? "Your turn" : "Opponent's turn"}
+                    {isYourTurn ? "Your turn" : `${opponentLabel}'s turn`}
                 </Chip>
                 {upgradePoints > 0 && (
                     <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
@@ -1127,6 +1356,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 {secondsRemaining >= 0 && !isHandoff && (
                     <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
                 )}
+                {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then the name. */}
+                <MapBadge mapType={mapType} />
             </Box>
 
             {/* Imperative "what to do now" so first-time players always know the expected action. */}
@@ -1140,24 +1371,52 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam }) => {
                 {userTeam ? panel : null}
             </Box>
 
-            {/* In the combined phase both players are actors, so gate the wait on having locked BOTH choices. */}
-            {((!isYourTurn && !isHandoff) || setupBothLocked) && (
+            {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
+            {!isYourTurn && !isHandoff && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
                     <CircularProgress size="sm" />
                     <Typography level="body-sm">
-                        {setupBothLocked || selectedValue >= 0
-                            ? "Locked in — waiting for your opponent…"
-                            : "Waiting for your opponent…"}
+                        {selectedValue >= 0 ? "Locked in — waiting for your opponent…" : "Waiting for your opponent…"}
                     </Typography>
                 </Box>
             )}
 
             <CreatureDetailPanel creatureId={inspectedId} />
 
+            <PickConfirmModal
+                open={pendingPick > 0 && pickPhase === PickPhaseVals.PICK}
+                creatureId={pendingPick}
+                busy={busy}
+                onConfirm={() => {
+                    const id = pendingPick;
+                    setPendingPick(0);
+                    void pickCreature(id);
+                }}
+                onCancel={() => setPendingPick(0)}
+            />
+            <ArtifactConfirmModal
+                open={pendingArtifact > 0 && pickPhase === PickPhaseVals.ARTIFACT_2}
+                artifactId={pendingArtifact}
+                busy={busy}
+                onConfirm={() => {
+                    const id = pendingArtifact;
+                    setPendingArtifact(0);
+                    void send(id, () => artifact(id, 2));
+                }}
+                onCancel={() => setPendingArtifact(0)}
+            />
+            {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
+            <MapRevealModal mapType={mapType} />
+
             {/* Both draft bars share ONE mt:auto wrapper so they stack together at the bottom (two separate
                 mt:auto flex items would split the free space and float the opponent bar mid-screen). */}
             <Box sx={{ mt: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <OpponentDraftBar opponentPicked={opponentPicked} viewerPerk={perk} onInspect={setInspectedId} />
+                <OpponentDraftBar
+                    opponentPicked={opponentPicked}
+                    opponentLabel={opponentLabel}
+                    watchedSlots={watchedSlots}
+                    onInspect={setInspectedId}
+                />
 
                 <MyDraftBar
                     perk={perk}

@@ -10,7 +10,7 @@ const isKnownDependencyWarning = (log) => {
 
 export default defineConfig({
     site: "https://heroesofcrypto.io",
-    integrations: [sitemap()],
+    integrations: [sitemap({ customPages: ["https://heroesofcrypto.io/research/a13/"] })],
     vite: {
         build: {
             chunkSizeWarningLimit: 2048,

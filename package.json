@@ -46,7 +46,9 @@
         "prepare": "git config core.hooksPath .githooks || true",
         "start": "bun --cwd game/core start",
         "start:site": "bun --cwd site dev",
-        "test": "bun test game/core/src game/heroes-of-crypto-common/test",
+        "test": "bun run test:core && bun run test:common",
+        "test:common": "bun run --cwd game/heroes-of-crypto-common test",
+        "test:core": "bun test --cwd game/core src",
         "typecheck": "tsc --noEmit -p game/core/tsconfig.json"
     },
     "lint-staged": {

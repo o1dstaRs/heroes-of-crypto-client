@@ -1,6 +1,15 @@
 import { CreatureVals } from "@heroesofcrypto/common";
 import { images } from "../generated/image_imports";
 
+// Numeric fallbacks keep the client usable during a rolling common/client deploy (or before a local common
+// rebuild refreshes dist). The generated enum is authoritative as soon as the new values are available.
+const extendedCreatureVals = CreatureVals as typeof CreatureVals & {
+    readonly ARACHNA_QUEEN?: number;
+    readonly ARACHNA_SPIDER?: number;
+};
+const ARACHNA_QUEEN_CREATURE_ID = extendedCreatureVals.ARACHNA_QUEEN ?? 44;
+const ARACHNA_SPIDER_CREATURE_ID = extendedCreatureVals.ARACHNA_SPIDER ?? 45;
+
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.NO_CREATURE]: images.unknown_creature_512,
     [CreatureVals.ORC]: images.orc_512,
@@ -13,9 +22,14 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.EFREET]: images.efreet_512,
     [CreatureVals.BLACK_DRAGON]: images.black_dragon_512,
     [CreatureVals.HYDRA]: images.hydra_512,
+    [CreatureVals.ABOMINATION]: images.abomination_512,
     [CreatureVals.CENTAUR]: images.centaur_512,
     [CreatureVals.BERSERKER]: images.berserker_512,
     [CreatureVals.WOLF_RIDER]: images.wolf_rider_512,
+    [CreatureVals.MERMAID]: images.mermaid_512,
+    [CreatureVals.DRYAD]: images.dryad_512,
+    [CreatureVals.BLACKSMITH]: images.blacksmith_512,
+    [CreatureVals.ZENA]: images.zena_512,
     [CreatureVals.HARPY]: images.harpy_512,
     [CreatureVals.NOMAD]: images.nomad_512,
     [CreatureVals.HYENA]: images.hyena_512,
@@ -23,6 +37,7 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.OGRE_MAGE]: images.ogre_mage_512,
     [CreatureVals.THUNDERBIRD]: images.thunderbird_512,
     [CreatureVals.BEHEMOTH]: images.behemoth_512,
+    [CreatureVals.FRENZIED_BOAR]: images.frenzied_boar_512,
     [CreatureVals.WOLF]: images.wolf_512,
     [CreatureVals.FAIRY]: images.fairy_512,
     [CreatureVals.LEPRECHAUN]: images.leprechaun_512,
@@ -33,6 +48,8 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.UNICORN]: images.unicorn_512,
     [CreatureVals.GARGANTUAN]: images.gargantuan_512,
     [CreatureVals.PEGASUS]: images.pegasus_512,
+    [ARACHNA_QUEEN_CREATURE_ID]: images.arachna_queen_512,
+    [ARACHNA_SPIDER_CREATURE_ID]: images.arachna_spider_512,
     [CreatureVals.PEASANT]: images.peasant_512,
     [CreatureVals.SQUIRE]: images.squire_512,
     [CreatureVals.ARBALESTER]: images.arbalester_512,
@@ -43,6 +60,8 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.CRUSADER]: images.crusader_512,
     [CreatureVals.TSAR_CANNON]: images.tsar_cannon_512,
     [CreatureVals.ANGEL]: images.angel_512,
+    [CreatureVals.CHAMPION]: images.champion_512,
+    [CreatureVals.ASH_MOTH]: images.ash_moth_512,
 };
 
 export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
@@ -57,9 +76,14 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.EFREET]: "Efreet",
     [CreatureVals.BLACK_DRAGON]: "Black Dragon",
     [CreatureVals.HYDRA]: "Hydra",
+    [CreatureVals.ABOMINATION]: "Abomination",
     [CreatureVals.CENTAUR]: "Centaur",
     [CreatureVals.BERSERKER]: "Berserker",
     [CreatureVals.WOLF_RIDER]: "Wolf Rider",
+    [CreatureVals.MERMAID]: "Mermaid",
+    [CreatureVals.DRYAD]: "Dryad",
+    [CreatureVals.BLACKSMITH]: "Blacksmith",
+    [CreatureVals.ZENA]: "Zena",
     [CreatureVals.HARPY]: "Harpy",
     [CreatureVals.NOMAD]: "Nomad",
     [CreatureVals.HYENA]: "Hyena",
@@ -67,6 +91,7 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.OGRE_MAGE]: "Ogre Mage",
     [CreatureVals.THUNDERBIRD]: "Thunderbird",
     [CreatureVals.BEHEMOTH]: "Behemoth",
+    [CreatureVals.FRENZIED_BOAR]: "Frenzied Boar",
     [CreatureVals.WOLF]: "Wolf",
     [CreatureVals.FAIRY]: "Fairy",
     [CreatureVals.LEPRECHAUN]: "Leprechaun",
@@ -77,6 +102,8 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.UNICORN]: "Unicorn",
     [CreatureVals.GARGANTUAN]: "Gargantuan",
     [CreatureVals.PEGASUS]: "Pegasus",
+    [ARACHNA_QUEEN_CREATURE_ID]: "Arachna Queen",
+    [ARACHNA_SPIDER_CREATURE_ID]: "Arachna Spider",
     [CreatureVals.PEASANT]: "Peasant",
     [CreatureVals.SQUIRE]: "Squire",
     [CreatureVals.ARBALESTER]: "Arbalester",
@@ -87,4 +114,6 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.CRUSADER]: "Crusader",
     [CreatureVals.TSAR_CANNON]: "Tsar Cannon",
     [CreatureVals.ANGEL]: "Angel",
+    [CreatureVals.CHAMPION]: "Champion",
+    [CreatureVals.ASH_MOTH]: "Ash Moth",
 };

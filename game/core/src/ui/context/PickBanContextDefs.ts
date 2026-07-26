@@ -22,6 +22,8 @@ export interface IPickPhaseEventData {
     b: number[];
     // opponent picked
     op: number[];
+    // opponent slot indices this player's doctrine watches (into the opponent's level-sorted picked array).
+    ws: number[];
     // time remaining
     t: number;
     // reveals remanining
@@ -30,6 +32,13 @@ export interface IPickPhaseEventData {
     ia: boolean;
     // this player's own picked artifacts so far, as [tier, artifactId] pairs (drives the draft summary)
     art?: [number, number][];
+    // true exactly on the one SSE frame where THIS player's choice for the phase that just completed
+    // was filled by the server's timeout decider (they ran out the clock) rather than by the player
+    // themselves — drives a one-shot "auto-picked for you" toast instead of the transition landing silently.
+    ap?: boolean;
+    // Revealed map type (GridVals: 1=Standard, 3=Lava, 4=Mountains). ABSENT until the pick reaches the
+    // first level-3 pick phase, then present on every frame — drives the map reveal + the "Map:" badge.
+    mt?: number;
 }
 
 // Context for SSE and pick/ban state
@@ -40,6 +49,8 @@ export interface PickBanContextType {
     banned: number[];
     picked: number[];
     opponentPicked: number[];
+    // Opponent slot indices (0..5, into the opponent's level-sorted army) this player's doctrine watches.
+    watchedSlots: number[];
     isYourTurn: boolean | null;
     isAbandoned: boolean | null;
     pickPhase: number;
@@ -57,6 +68,13 @@ export interface PickBanContextType {
     artifactTier2: number;
     // Required creature level for the current PICK phase (0 for non-pick phases).
     requiredLevel: number;
+    // Revealed map type (GridVals: 1=Standard, 3=Lava, 4=Mountains). 0 = not revealed yet (before the L3
+    // picks); the pick UI shows "Map: ?" until this becomes non-zero, then reveals the map and shows it.
+    mapType: number;
+    // Monotonically increasing counter, bumped once per SSE frame that carries `ap: true` for us — a
+    // toast component watches it (in a useEffect keyed on this value) to show "auto-picked for you"
+    // exactly once per timeout, even though the underlying server flag never persists across frames.
+    autoPickedSignal: number;
 }
 
 export const PickBanContext = createContext<PickBanContextType>({
@@ -66,6 +84,7 @@ export const PickBanContext = createContext<PickBanContextType>({
     banned: [],
     picked: [],
     opponentPicked: [],
+    watchedSlots: [],
     isYourTurn: null,
     isAbandoned: null,
     pickPhase: -1,
@@ -76,8 +95,10 @@ export const PickBanContext = createContext<PickBanContextType>({
     artifactTier1: 0,
     artifactTier2: 0,
     requiredLevel: 0,
+    mapType: 0,
     secondsRemaining: -1,
     revealsRemaining: 0,
+    autoPickedSignal: 0,
 });
 
 // Custom hook to use the Pick Ban Context

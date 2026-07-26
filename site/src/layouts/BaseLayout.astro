@@ -2,6 +2,7 @@
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import { content, languageSwitchPath, type Language } from "../lib/site-data";
+import { abilityCount, unitCount } from "../lib/units-data";
 import "../styles/global.css";
 
 interface Props {
@@ -20,6 +21,7 @@ const resolvedTitle = title && title !== copy.meta.title ? `${title} | ${copy.me
 const resolvedDescription = description ?? copy.meta.description;
 const siteOrigin = Astro.site ?? new URL("https://heroesofcrypto.io");
 const canonicalURL = new URL(Astro.url.pathname, siteOrigin);
+const gameURL = new URL(lang === "ru" ? "/ru/" : "/", siteOrigin);
 const ogImage = new URL("/assets/images/preview_game.webp", siteOrigin);
 // hreflang alternates: every page mirrors EN <-> RU, so map this URL to both and let search
 // engines serve the right language (x-default falls back to English).
@@ -31,7 +33,7 @@ const schemaCopy =
     lang === "ru"
         ? {
               videoGameDescription:
-                  "Бесплатная браузерная пошаговая стратегия с 4 фракциями, 44 юнитами и 74 способностями.",
+                  `Бесплатная браузерная пошаговая стратегия с 4 фракциями, ${unitCount} юнитами и ${abilityCount} способностями.`,
               genre: ["Стратегия", "Пошаговая тактика", "Тактика"],
               gamePlatform: ["Браузер"],
               applicationCategory: "Игра",
@@ -40,7 +42,7 @@ const schemaCopy =
           }
         : {
               videoGameDescription:
-                  "Free-to-play turn-based strategy game with 4 factions, 44 units, and 74 abilities. Play in your browser.",
+                  `Free-to-play turn-based strategy game with 4 factions, ${unitCount} units, and ${abilityCount} abilities. Play in your browser.`,
               genre: ["Strategy", "Turn-based", "Tactics"],
               gamePlatform: ["Web Browser"],
               applicationCategory: "Game",
@@ -66,7 +68,7 @@ const jsonLd = {
             applicationCategory: schemaCopy.applicationCategory,
             operatingSystem: schemaCopy.operatingSystem,
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-            url: canonicalURL.toString(),
+            url: gameURL.toString(),
         },
         {
             "@type": "Organization",

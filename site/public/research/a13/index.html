@@ -1,0 +1,1916 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#080b13">
+  <meta name="description" content="See how Heroes of Crypto AI v0.8+a13 combines rules, legal-action search, paired rollouts, and a learned value model—plus 89,088-game campaign evidence.">
+  <link rel="canonical" href="https://heroesofcrypto.io/research/a13/">
+  <link rel="alternate" hreflang="en" href="https://heroesofcrypto.io/research/a13/">
+  <link rel="alternate" hreflang="x-default" href="https://heroesofcrypto.io/research/a13/">
+  <link rel="icon" href="/favicon/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/favicon/favicon-32x32.png">
+  <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Heroes of Crypto">
+  <meta property="og:title" content="A13 — Inside the Heroes of Crypto v0.8 AI">
+  <meta property="og:description" content="A source-audited visual guide to the rules, search, learned value model, and 89,088-game evidence behind A13.">
+  <meta property="og:url" content="https://heroesofcrypto.io/research/a13/">
+  <meta property="og:image" content="https://heroesofcrypto.io/assets/images/preview_game.webp">
+  <meta property="article:published_time" content="2026-07-22T00:00:00Z">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="A13 — Inside the Heroes of Crypto v0.8 AI">
+  <meta name="twitter:description" content="How A13 combines tactical rules, legal-action search, paired rollouts, and a learned value model.">
+  <meta name="twitter:image" content="https://heroesofcrypto.io/assets/images/preview_game.webp">
+  <title>A13 — Inside the Heroes of Crypto v0.8 AI</title>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "A13 — Inside the Heroes of Crypto v0.8 AI",
+      "description": "A source-audited visual guide to the rules, search, learned value model, and 89,088-game campaign evidence behind A13.",
+      "datePublished": "2026-07-22",
+      "dateModified": "2026-07-22",
+      "inLanguage": "en",
+      "version": "AI policy v0.8 + candidate a13",
+      "mainEntityOfPage": "https://heroesofcrypto.io/research/a13/",
+      "isPartOf": "https://heroesofcrypto.io/research/",
+      "image": "https://heroesofcrypto.io/assets/images/preview_game.webp",
+      "keywords": ["game AI", "simulation", "rollout search", "value model", "tournament evidence"],
+      "author": { "@type": "Organization", "name": "Old Stars Gaming", "url": "https://heroesofcrypto.io" },
+      "publisher": { "@type": "Organization", "name": "Old Stars Gaming", "url": "https://heroesofcrypto.io" }
+    }
+  </script>
+  <style>
+    :root {
+      --bg: #080b13;
+      --bg-2: #0d1220;
+      --panel: rgba(18, 25, 42, .88);
+      --panel-solid: #12192a;
+      --panel-2: #172137;
+      --ink: #f4f1e8;
+      --muted: #aeb8cc;
+      --faint: #909bb1;
+      --line: rgba(167, 184, 217, .18);
+      --line-strong: rgba(167, 184, 217, .33);
+      --gold: #f0bd68;
+      --gold-2: #ffd890;
+      --cyan: #69d7df;
+      --blue: #76a9ff;
+      --green: #77d69b;
+      --red: #ff817b;
+      --purple: #b99aff;
+      --orange: #ff9e64;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .34);
+      --radius: 22px;
+      --max: 1220px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: Iowan Old Style, Palatino Linotype, Book Antiqua, Georgia, serif;
+    }
+    html[data-theme="light"] {
+      --bg: #f4f1e9;
+      --bg-2: #e9e4d8;
+      --panel: rgba(255, 255, 255, .88);
+      --panel-solid: #fff;
+      --panel-2: #f1ede4;
+      --ink: #182033;
+      --muted: #4d5a70;
+      --faint: #596578;
+      --line: rgba(29, 43, 70, .14);
+      --line-strong: rgba(29, 43, 70, .26);
+      --gold: #a76510;
+      --gold-2: #7e4d0f;
+      --cyan: #066870;
+      --blue: #285eb3;
+      --green: #197444;
+      --red: #b83232;
+      --purple: #6841bd;
+      --orange: #b65016;
+      --shadow: 0 24px 70px rgba(45, 38, 25, .13);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: auto; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% -10%, rgba(105, 215, 223, .12), transparent 32rem),
+        radial-gradient(circle at 88% 7%, rgba(240, 189, 104, .11), transparent 36rem),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.65;
+      min-height: 100vh;
+      overflow-x: clip;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .18;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, black, transparent 55%);
+    }
+    a { color: inherit; }
+    code, pre { font-family: var(--mono); }
+    code {
+      padding: .12em .38em;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(127, 149, 190, .09);
+      font-size: .9em;
+      overflow-wrap: anywhere;
+    }
+    .progress {
+      position: fixed;
+      z-index: 200;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--gold));
+      box-shadow: 0 0 16px var(--cyan);
+    }
+    .topbar {
+      position: sticky;
+      z-index: 100;
+      top: 0;
+      backdrop-filter: blur(18px);
+      background: color-mix(in srgb, var(--bg) 82%, transparent);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner {
+      max-width: var(--max);
+      margin: auto;
+      padding: 10px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      text-decoration: none;
+    }
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+      border-radius: 9px;
+      background: linear-gradient(145deg, rgba(240,189,104,.22), rgba(105,215,223,.1));
+      color: var(--gold-2);
+      font-family: var(--serif);
+      font-size: 14px;
+    }
+    .top-actions { display: flex; gap: 8px; }
+    button {
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 7px 11px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--gold); }
+    .site-link {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.65;
+      text-decoration: none;
+    }
+    .site-link:hover { border-color: var(--gold); }
+    .hero {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 88px 22px 58px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr);
+      gap: 42px;
+      align-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gold-2);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 27px;
+      height: 1px;
+      background: var(--gold);
+    }
+    h1, h2, h3, h4 { line-height: 1.15; text-wrap: balance; }
+    h1 {
+      margin: 15px 0 18px;
+      font-family: var(--serif);
+      font-size: clamp(52px, 7vw, 94px);
+      letter-spacing: -.055em;
+      font-weight: 700;
+    }
+    h1 span {
+      display: block;
+      font-family: var(--sans);
+      font-size: clamp(21px, 2.5vw, 34px);
+      letter-spacing: -.025em;
+      color: var(--muted);
+      margin-top: 7px;
+    }
+    .hero-lede {
+      max-width: 720px;
+      color: var(--muted);
+      font-family: var(--serif);
+      font-size: clamp(19px, 2vw, 25px);
+      line-height: 1.52;
+    }
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 25px;
+    }
+    .pill, .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(116, 143, 190, .08);
+      color: var(--muted);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .pill strong { color: var(--ink); }
+    .version-note {
+      max-width: 720px;
+      margin-top: 16px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .version-note strong { color: var(--gold-2); }
+    .hero-art {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: linear-gradient(155deg, rgba(105,215,223,.09), rgba(185,154,255,.06) 45%, rgba(240,189,104,.1));
+      box-shadow: var(--shadow);
+      padding: 12px;
+      overflow: hidden;
+    }
+    .hero-art svg { display: block; width: 100%; height: auto; }
+    .hero-caption {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 12px 3px;
+      color: var(--faint);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .shell {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 22px 100px;
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 44px;
+    }
+    .toc {
+      position: sticky;
+      top: 74px;
+      align-self: start;
+      max-height: calc(100vh - 94px);
+      overflow: auto;
+      padding: 15px 0;
+      scrollbar-width: thin;
+    }
+    .toc-label {
+      margin-bottom: 10px;
+      color: var(--faint);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    .toc a {
+      display: block;
+      padding: 6px 10px;
+      border-left: 2px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      text-decoration: none;
+    }
+    .toc a:hover, .toc a.active {
+      border-left-color: var(--gold);
+      color: var(--ink);
+      background: linear-gradient(90deg, rgba(240,189,104,.11), transparent);
+    }
+    .mobile-toc { display: none; }
+    main { min-width: 0; }
+    section {
+      scroll-margin-top: 84px;
+      padding: 42px 0 54px;
+      border-top: 1px solid var(--line);
+    }
+    section:first-child { border-top: 0; padding-top: 0; }
+    .section-kicker {
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .17em;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 9px 0 18px;
+      font-family: var(--serif);
+      font-size: clamp(34px, 4vw, 51px);
+      letter-spacing: -.035em;
+    }
+    h3 {
+      margin: 0 0 11px;
+      font-size: 20px;
+      letter-spacing: -.015em;
+    }
+    h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+    p { margin: 0 0 16px; }
+    .lead {
+      color: var(--muted);
+      font-size: 19px;
+      max-width: 780px;
+    }
+    .callout {
+      margin: 25px 0;
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--gold);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: linear-gradient(110deg, rgba(240,189,104,.11), var(--panel));
+    }
+    .callout strong { color: var(--gold-2); }
+    .callout.cyan {
+      border-left-color: var(--cyan);
+      background: linear-gradient(110deg, rgba(105,215,223,.1), var(--panel));
+    }
+    .callout.red {
+      border-left-color: var(--red);
+      background: linear-gradient(110deg, rgba(255,129,123,.1), var(--panel));
+    }
+    .callout p:last-child { margin-bottom: 0; }
+    .definition {
+      margin: 30px 0;
+      padding: 30px;
+      border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+      border-radius: 26px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(240,189,104,.13), transparent 22rem),
+        var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .definition .big {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: clamp(24px, 3vw, 35px);
+      line-height: 1.4;
+    }
+    .grid-2, .grid-3, .grid-4 {
+      display: grid;
+      gap: 16px;
+      margin: 24px 0;
+    }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      position: relative;
+      padding: 21px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: auto -45px -65px auto;
+      width: 120px;
+      height: 120px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+    }
+    .card p { color: var(--muted); font-size: 14px; }
+    .card p:last-child { margin-bottom: 0; }
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      margin-bottom: 13px;
+      border: 1px solid currentColor;
+      border-radius: 10px;
+      color: var(--gold);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      font-size: 19px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0;
+    }
+    .tag { padding: 4px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+    .tag.rail { border-color: color-mix(in srgb, var(--red) 55%, transparent); color: var(--red); }
+    .tag.heuristic { border-color: color-mix(in srgb, var(--gold) 55%, transparent); color: var(--gold-2); }
+    .tag.search { border-color: color-mix(in srgb, var(--cyan) 55%, transparent); color: var(--cyan); }
+    .tag.learned { border-color: color-mix(in srgb, var(--purple) 55%, transparent); color: var(--purple); }
+    .tag.engine { border-color: color-mix(in srgb, var(--green) 55%, transparent); color: var(--green); }
+    .figure {
+      margin: 30px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      background: linear-gradient(145deg, rgba(90,113,157,.08), var(--panel));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .figure svg { display: block; width: 100%; height: auto; }
+    .figure figcaption {
+      padding: 14px 8px 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .flow-stack {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 8px;
+      margin: 25px 0;
+    }
+    .flow-node {
+      position: relative;
+      min-height: 132px;
+      padding: 14px 10px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .flow-node:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      z-index: 3;
+      top: 50%;
+      right: -13px;
+      width: 18px;
+      color: var(--gold);
+      transform: translateY(-50%);
+      font-weight: 900;
+    }
+    .flow-node b { display: block; margin-bottom: 4px; font-size: 12px; }
+    .flow-node small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .formula {
+      margin: 24px 0;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #090d16;
+      color: #eaf0ff;
+      font-family: var(--mono);
+      font-size: clamp(14px, 2vw, 18px);
+      overflow: auto;
+    }
+    html[data-theme="light"] .formula { background: #20283a; }
+    .formula .comment { color: #8b9ab8; }
+    .metric-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) 75px;
+      gap: 14px;
+      align-items: center;
+      margin: 11px 0;
+      font-size: 12px;
+    }
+    .bar {
+      height: 10px;
+      border-radius: 99px;
+      background: rgba(129,147,180,.12);
+      overflow: hidden;
+    }
+    .bar i {
+      display: block;
+      width: var(--w);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+    }
+    .metric-row.negative .bar i { background: linear-gradient(90deg, var(--red), var(--orange)); }
+    .metric-row output { color: var(--muted); font-family: var(--mono); text-align: right; }
+    .note { color: var(--faint); font-size: 12px; }
+    .steps {
+      counter-reset: step;
+      display: grid;
+      gap: 12px;
+      margin: 25px 0;
+    }
+    .step {
+      counter-increment: step;
+      display: grid;
+      grid-template-columns: 43px minmax(0, 1fr);
+      gap: 15px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: var(--panel);
+    }
+    .step::before {
+      content: counter(step, decimal-leading-zero);
+      width: 39px;
+      height: 39px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(105,215,223,.11);
+      color: var(--cyan);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .step h3 { font-size: 15px; margin: 1px 0 5px; }
+    .step p { margin: 0; color: var(--muted); font-size: 13px; }
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      font-size: 13px;
+    }
+    .comparison caption {
+      padding: 0 0 10px;
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .06em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    .comparison th, .comparison td {
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    .comparison th { background: rgba(107,130,174,.11); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+    .comparison tr:last-child td { border-bottom: 0; }
+    .comparison td:first-child { font-weight: 750; }
+    .good { color: var(--green); }
+    .warn { color: var(--gold-2); }
+    .bad { color: var(--red); }
+    .timeline {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(12, minmax(28px, 1fr));
+      gap: 5px;
+      margin: 31px 0 17px;
+      padding-top: 31px;
+    }
+    .lap {
+      position: relative;
+      height: 62px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      display: grid;
+      place-items: center;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .lap::before { content: attr(data-label); position: absolute; top: -28px; left: 50%; transform: translateX(-50%); white-space: nowrap; color: var(--muted); font-family: var(--sans); font-size: 9px; font-weight: 800; }
+    .lap.focus { border-color: var(--cyan); color: var(--cyan); background: rgba(105,215,223,.09); }
+    .lap.dom { border-color: var(--gold); color: var(--gold); background: rgba(240,189,104,.1); }
+    .lap.sprint { border-color: var(--orange); color: var(--orange); background: rgba(255,158,100,.11); }
+    .lap.arm { border-color: var(--red); color: var(--red); background: rgba(255,129,123,.13); }
+    .timeline-notes {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .timeline-notes div { padding: 10px; border-left: 2px solid var(--line-strong); }
+    .scenario {
+      margin: 30px 0;
+      padding: 25px;
+      border: 1px solid var(--line);
+      border-radius: 25px;
+      background: var(--panel);
+    }
+    .scenario-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    .scenario-head p { color: var(--muted); margin: 6px 0 0; max-width: 690px; }
+    .mini-board {
+      --cols: 10;
+      display: grid;
+      grid-template-columns: repeat(var(--cols), 1fr);
+      gap: 3px;
+      aspect-ratio: 10 / 5;
+      max-width: 700px;
+      margin: 18px auto;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(0,0,0,.18);
+    }
+    .cell {
+      position: relative;
+      border: 1px solid rgba(150,170,203,.13);
+      border-radius: 5px;
+      background: rgba(128,148,184,.05);
+      min-width: 0;
+    }
+    .unit, .mountain {
+      position: absolute;
+      inset: 12%;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      font-size: clamp(8px, 1.25vw, 13px);
+      font-weight: 900;
+    }
+    .unit.ours { background: linear-gradient(145deg, #1c9daa, #166076); box-shadow: 0 0 13px rgba(105,215,223,.4); }
+    .unit.enemy { background: linear-gradient(145deg, #c55252, #7f2f43); box-shadow: 0 0 13px rgba(255,129,123,.3); }
+    .unit.ranged::after { content: "↗"; position: absolute; right: -3px; top: -5px; color: var(--gold-2); font-size: 13px; }
+    .mountain {
+      inset: 7%;
+      border-radius: 7px 7px 12px 12px;
+      background: linear-gradient(145deg, #70788a, #343b4d);
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+    .arrow {
+      position: absolute;
+      z-index: 5;
+      left: 50%;
+      top: 50%;
+      color: var(--gold-2);
+      font-size: clamp(13px, 2vw, 25px);
+      transform: translate(-50%, -50%);
+      text-shadow: 0 1px 5px black;
+    }
+    .choice-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 17px 0;
+    }
+    .choice {
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(104,127,170,.07);
+    }
+    .choice.selected { border-color: var(--green); background: rgba(119,214,155,.09); }
+    .choice b { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+    .choice small { color: var(--muted); }
+    .l4-card h3 { padding-right: 35px; }
+    .l4-card .sigil {
+      width: 50px;
+      height: 50px;
+      margin-bottom: 15px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(185,154,255,.15), rgba(240,189,104,.08));
+      font-family: var(--serif);
+      font-size: 22px;
+      color: var(--gold-2);
+    }
+    ul.clean {
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    ul.clean li {
+      position: relative;
+      margin: 8px 0;
+      padding-left: 17px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    ul.clean li::before {
+      content: "◆";
+      position: absolute;
+      left: 0;
+      top: .45em;
+      color: var(--cyan);
+      font-size: 7px;
+    }
+    .funnel {
+      max-width: 720px;
+      margin: 28px auto;
+      display: grid;
+      gap: 7px;
+    }
+    .funnel-row {
+      width: var(--fw);
+      min-width: 46%;
+      margin: auto;
+      padding: 12px 17px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: linear-gradient(90deg, rgba(105,215,223,.09), rgba(185,154,255,.09));
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .funnel-arrow { text-align: center; color: var(--gold); line-height: 1; }
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 25px 0;
+    }
+    .stat {
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+    .stat b { display: block; color: var(--gold-2); font-family: var(--serif); font-size: 27px; line-height: 1.2; }
+    .stat span { color: var(--muted); font-size: 11px; }
+    details {
+      margin: 11px 0;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--panel);
+    }
+    summary {
+      padding: 14px 17px;
+      cursor: pointer;
+      color: var(--ink);
+      font-weight: 750;
+    }
+    details > div { padding: 0 17px 17px; color: var(--muted); font-size: 13px; }
+    .codebox {
+      position: relative;
+      margin: 18px 0;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #080c14;
+      overflow: auto;
+      color: #dae5fb;
+      font: 12px/1.7 var(--mono);
+      white-space: pre;
+    }
+    html[data-theme="light"] .codebox { background: #20283a; }
+    .reading-path {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 13px;
+      margin: 25px 0;
+    }
+    .lesson {
+      padding: 19px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: var(--panel);
+    }
+    .lesson b { color: var(--cyan); font-family: var(--mono); font-size: 11px; }
+    .lesson h3 { margin: 6px 0; font-size: 16px; }
+    .lesson p { color: var(--muted); font-size: 13px; margin: 0; }
+    .glossary {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0 25px;
+      margin-top: 20px;
+    }
+    .glossary div { padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .glossary dt { font-weight: 850; }
+    .glossary dd { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+    .footer {
+      margin-top: 50px;
+      padding: 25px 0;
+      border-top: 1px solid var(--line);
+      color: var(--faint);
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .print-only { display: none; }
+    @media (max-width: 1000px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-art { max-width: 650px; }
+      .shell { grid-template-columns: 1fr; }
+      .toc { display: none; }
+      .mobile-toc {
+        display: block;
+        width: min(var(--max), calc(100vw - 32px));
+        margin: 18px auto 0;
+        background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+      }
+      .mobile-toc summary {
+        color: var(--gold-2);
+        font-size: 13px;
+      }
+      .mobile-toc nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px 14px;
+        padding: 0 16px 16px;
+      }
+      .mobile-toc a {
+        min-width: 0;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        text-decoration: none;
+      }
+      .mobile-toc a:hover { color: var(--ink); }
+      .flow-stack { grid-template-columns: repeat(4, 1fr); }
+      .flow-node:nth-child(4)::after { display: none; }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .hero { padding-top: 55px; }
+      .brand .desktop { display: none; }
+      .site-link { display: none; }
+      .grid-2, .grid-3, .grid-4, .reading-path, .choice-cards { grid-template-columns: 1fr; }
+      .flow-stack { grid-template-columns: 1fr; }
+      .flow-node { min-height: 90px; }
+      .flow-node:not(:last-child)::after { display: block; content: "↓"; top: auto; bottom: -18px; right: 50%; transform: translateX(50%); }
+      .timeline { overflow-x: auto; grid-template-columns: repeat(12, 48px); padding-bottom: 8px; }
+      .timeline-notes { grid-template-columns: 1fr; }
+      .figure { overflow-x: auto; overscroll-behavior-inline: contain; }
+      .figure svg { min-width: 720px; }
+      .metric-row { grid-template-columns: 110px minmax(80px, 1fr) 64px; }
+      .stat-strip { grid-template-columns: 1fr 1fr; }
+      .glossary { grid-template-columns: 1fr; }
+      .scenario { padding: 17px; }
+      .scenario-head { display: block; }
+      .comparison { display: block; overflow-x: auto; white-space: nowrap; }
+      .footer { display: block; }
+    }
+    @media (max-width: 420px) {
+      .topbar-inner { padding-inline: 14px; }
+      .mobile-toc nav { grid-template-columns: 1fr; }
+    }
+    @media print {
+      :root {
+        --bg: #fff;
+        --bg-2: #fff;
+        --panel: #fff;
+        --panel-solid: #fff;
+        --panel-2: #f5f5f5;
+        --ink: #111827;
+        --muted: #3f4a5c;
+        --faint: #667085;
+        --line: rgba(0,0,0,.18);
+        --line-strong: rgba(0,0,0,.3);
+        --gold: #8a560c;
+        --gold-2: #714509;
+        --cyan: #086f78;
+        --blue: #285eb3;
+        --green: #197444;
+        --red: #a62b2b;
+        --purple: #6542a5;
+        --orange: #a54816;
+        --shadow: none;
+      }
+      body { background: #fff; font-size: 10pt; }
+      body::before, .topbar, .toc, .mobile-toc, .progress { display: none !important; }
+      .hero { grid-template-columns: 1fr 360px; padding: 25px 0 35px; }
+      .shell { display: block; padding: 0; }
+      section { break-before: page; padding: 24px 0; }
+      section:first-child { break-before: auto; }
+      .card, .figure, .scenario, details, .definition, .callout { break-inside: avoid; box-shadow: none; }
+      details > div { display: block !important; }
+      .print-only { display: block; }
+      a { text-decoration: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/research/" aria-label="Back to Heroes of Crypto Research"><span class="brand-mark">A13</span><span class="desktop">Heroes of Crypto · AI field guide</span></a>
+      <div class="top-actions">
+        <a class="site-link" href="/research/">Research</a>
+        <button type="button" id="themeButton" aria-label="Toggle light and dark theme">Light</button>
+        <button type="button" id="printButton">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <details class="mobile-toc">
+    <summary>Explore this guide · 16 sections</summary>
+    <nav aria-label="Mobile table of contents">
+      <a href="#answer">The short answer</a>
+      <a href="#anatomy">Four layers</a>
+      <a href="#decision">One decision</a>
+      <a href="#search">How search works</a>
+      <a href="#value">The 60-feature critic</a>
+      <a href="#gameplay">Gameplay behavior</a>
+      <a href="#armageddon">Finish timeline</a>
+      <a href="#level4">Four L4 units</a>
+      <a href="#training">How a13 was selected</a>
+      <a href="#evidence">Evidence vs v0.7</a>
+      <a href="#speed">Why it is slow</a>
+      <a href="#limits">What can still fail</a>
+      <a href="#next">How to improve it</a>
+      <a href="#learn">What to learn next</a>
+      <a href="#glossary">Glossary</a>
+      <a href="#appendix">Exact profile</a>
+    </nav>
+  </details>
+
+  <div class="hero" role="region" aria-labelledby="a13-title">
+    <div>
+      <div class="eyebrow">Source-audited · 21 July 2026</div>
+      <h1 id="a13-title">A13 <span>Inside the Heroes of Crypto v0.8 AI</span></h1>
+      <p class="hero-lede">A visual guide to what a13 is, how one move travels through it, how it was selected, where the intelligence actually lives, why it is expensive, and how its ideas apply to mountains, ranged armies, waiting, Luck Shield, level-4 units, and finishing before Armageddon.</p>
+      <div class="hero-pills">
+        <span class="pill"><strong>Hybrid</strong> rules + search + learned value</span>
+        <span class="pill"><strong>12</strong> future unit turns</span>
+        <span class="pill"><strong>60</strong> value features</span>
+        <span class="pill"><strong>175 ms</strong> decision budget</span>
+        <span class="pill"><strong>Self-contained</strong> inline guide visuals</span>
+      </div>
+      <p class="version-note"><strong>Version note:</strong> v0.8 is the AI policy version, not the game release number. This guide is a source snapshot audited on July 21, 2026.</p>
+    </div>
+    <div class="hero-art">
+      <svg viewBox="0 0 620 520" role="img" aria-labelledby="hero-svg-title hero-svg-desc">
+        <title id="hero-svg-title">A13 explores branching future actions on a tactical grid</title>
+        <desc id="hero-svg-desc">A grid contains blue and red army pieces. Three colored branches lead from the current state to future evaluated positions.</desc>
+        <defs>
+          <linearGradient id="boardGlow" x1="0" y1="0" x2="1" y2="1">
+            <stop stop-color="#69d7df" stop-opacity=".18"/>
+            <stop offset=".55" stop-color="#b99aff" stop-opacity=".08"/>
+            <stop offset="1" stop-color="#f0bd68" stop-opacity=".16"/>
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <marker id="arrowGold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#f0bd68"/></marker>
+          <marker id="arrowCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#69d7df"/></marker>
+          <marker id="arrowPurple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#b99aff"/></marker>
+        </defs>
+        <rect x="35" y="35" width="550" height="450" rx="28" fill="url(#boardGlow)" stroke="#a7b8d9" stroke-opacity=".22"/>
+        <g stroke="#a7b8d9" stroke-opacity=".13">
+          <path d="M105 60v270M175 60v270M245 60v270M315 60v270M385 60v270M455 60v270M525 60v270"/>
+          <path d="M65 105h490M65 150h490M65 195h490M65 240h490M65 285h490"/>
+        </g>
+        <g filter="url(#glow)">
+          <circle cx="125" cy="265" r="21" fill="#1c9daa"/><text x="125" y="270" fill="white" font-size="14" font-weight="800" text-anchor="middle">M</text>
+          <circle cx="195" cy="220" r="21" fill="#1c9daa"/><text x="195" y="225" fill="white" font-size="14" font-weight="800" text-anchor="middle">R</text>
+          <circle cx="145" cy="130" r="21" fill="#1c9daa"/><text x="145" y="135" fill="white" font-size="14" font-weight="800" text-anchor="middle">S</text>
+          <circle cx="445" cy="110" r="21" fill="#b9464f"/><text x="445" y="115" fill="white" font-size="14" font-weight="800" text-anchor="middle">E</text>
+          <circle cx="475" cy="225" r="21" fill="#b9464f"/><text x="475" y="230" fill="white" font-size="14" font-weight="800" text-anchor="middle">E</text>
+          <path d="M335 145l35 58h-70z" fill="#727c90" stroke="#a7b8d9" stroke-opacity=".35"/>
+        </g>
+        <circle cx="290" cy="370" r="10" fill="#f0bd68" filter="url(#glow)"/>
+        <path d="M290 360C255 323 215 307 174 287" fill="none" stroke="#69d7df" stroke-width="4" marker-end="url(#arrowCyan)"/>
+        <path d="M300 365C350 319 388 285 449 244" fill="none" stroke="#f0bd68" stroke-width="4" marker-end="url(#arrowGold)"/>
+        <path d="M300 380C358 405 411 412 477 391" fill="none" stroke="#b99aff" stroke-width="4" marker-end="url(#arrowPurple)"/>
+        <g font-family="ui-monospace,monospace" font-size="12">
+          <rect x="72" y="344" width="126" height="46" rx="11" fill="#0d1624" stroke="#69d7df" stroke-opacity=".7"/><text x="135" y="363" fill="#69d7df" text-anchor="middle">WAIT / POSTURE</text><text x="135" y="379" fill="#aeb8cc" text-anchor="middle">P(win) .61</text>
+          <rect x="381" y="292" width="142" height="46" rx="11" fill="#15140f" stroke="#f0bd68" stroke-opacity=".7"/><text x="452" y="311" fill="#f0bd68" text-anchor="middle">ATTACK SHOOTER</text><text x="452" y="327" fill="#aeb8cc" text-anchor="middle">P(win) .66</text>
+          <rect x="405" y="415" width="122" height="46" rx="11" fill="#12101b" stroke="#b99aff" stroke-opacity=".7"/><text x="466" y="434" fill="#b99aff" text-anchor="middle">ADVANCE</text><text x="466" y="450" fill="#aeb8cc" text-anchor="middle">P(win) .60</text>
+        </g>
+        <text x="290" y="410" fill="#f0bd68" font-family="Georgia,serif" font-size="38" font-weight="700" text-anchor="middle">a13</text>
+        <text x="290" y="432" fill="#aeb8cc" font-family="ui-sans-serif,sans-serif" font-size="10" letter-spacing="2" text-anchor="middle">COMPARE FUTURES</text>
+      </svg>
+      <div class="hero-caption"><span>One real board</span><span>several simulated futures</span></div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <aside class="toc" aria-label="Table of contents">
+      <div class="toc-label">Field guide</div>
+      <a href="#answer">The short answer</a>
+      <a href="#anatomy">Four layers</a>
+      <a href="#decision">One decision</a>
+      <a href="#search">How search works</a>
+      <a href="#value">The 60-feature critic</a>
+      <a href="#gameplay">Gameplay behavior</a>
+      <a href="#armageddon">Finish timeline</a>
+      <a href="#level4">Four L4 units</a>
+      <a href="#training">How a13 was selected</a>
+      <a href="#evidence">Evidence vs v0.7</a>
+      <a href="#speed">Why it is slow</a>
+      <a href="#limits">What can still fail</a>
+      <a href="#next">How to improve it</a>
+      <a href="#learn">What to learn next</a>
+      <a href="#glossary">Glossary</a>
+      <a href="#appendix">Exact profile</a>
+    </aside>
+
+    <main>
+      <section id="answer">
+        <div class="section-kicker">01 · The short answer</div>
+        <h2>A13 is a candidate, not a mysterious new kind of AI</h2>
+        <p class="lead">The name means <strong>adaptive candidate number 13</strong>—the fourteenth zero-based child in a tournament campaign. It is not “Algorithm 13,” not a neural-network architecture, and not an acronym.</p>
+
+        <div class="definition">
+          <p class="big"><strong>A13 is model-based rollout search with a learned linear value function, wrapped around a hand-authored tactical policy and protected by hard gameplay rails.</strong></p>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <div class="icon">✓</div>
+            <h3>What it is</h3>
+            <ul class="clean">
+              <li>v0.7’s mature heuristic policy plus v0.8 fixes</li>
+              <li>Legal action enumeration through the real engine</li>
+              <li>Short, deterministic “what happens next?” simulations</li>
+              <li>A 60-feature logistic model estimating win probability</li>
+              <li>Tournament-selected settings and explicit safety rules</li>
+            </ul>
+          </article>
+          <article class="card">
+            <div class="icon">×</div>
+            <h3>What it is not</h3>
+            <ul class="clean">
+              <li>Not an LLM or ChatGPT-like model</li>
+              <li>Not a deep neural network</li>
+              <li>Not AlphaZero or a full Monte Carlo tree search</li>
+              <li>Not PPO, Q-learning, or a policy-gradient agent</li>
+              <li>Not learning from the human while a live fight runs</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout cyan">
+          <strong>The useful mental picture:</strong> v0.8 is the experienced player who proposes a move. A13 is the small imagination engine that tries a few credible alternatives, plays each future forward briefly, asks a learned critic which future looks healthier, and changes the move only when the evidence is strong enough—or a hard safety rule says the original move is unacceptable.
+        </div>
+
+        <div class="legend" aria-label="Confidence legend">
+          <span class="tag rail">Hard rail</span>
+          <span class="tag heuristic">Hand heuristic</span>
+          <span class="tag search">Searched</span>
+          <span class="tag learned">Learned estimate</span>
+          <span class="tag engine">Engine mechanic</span>
+        </div>
+        <p class="note">These labels appear throughout the guide. They matter: an automatic engine effect is not proof that the AI planned it, and a learned correlation is not a hard tactical rule.</p>
+      </section>
+
+      <section id="anatomy">
+        <div class="section-kicker">02 · Anatomy</div>
+        <h2>Four layers make one agent</h2>
+        <p class="lead">Calling the whole thing “the model” hides the most interesting part. Most of a13’s competence comes from how four different systems cooperate.</p>
+
+        <div class="grid-4">
+          <article class="card">
+            <div class="num">01</div>
+            <span class="tag heuristic">Pilot</span>
+            <h3>Native v0.8 policy</h3>
+            <p>Inherits years of v0.7/v0.6 behavior and proposes the incumbent move. It also contains the new ranged-posture, productivity, target-pressure, and finish logic.</p>
+          </article>
+          <article class="card">
+            <div class="num">02</div>
+            <span class="tag engine">Referee</span>
+            <h3>Action generator</h3>
+            <p>Enumerates moves, melee stand cells, shots, area throws, and spells that obey current board and unit mechanics. Candidate zero is always the pilot’s choice.</p>
+          </article>
+          <article class="card">
+            <div class="num">03</div>
+            <span class="tag search">Imagination</span>
+            <h3>SearchDriver</h3>
+            <p>Snapshots the fight, applies a candidate through the real engine, lets both sides play forward, scores the result, and restores the exact original state.</p>
+          </article>
+          <article class="card">
+            <div class="num">04</div>
+            <span class="tag learned">Critic</span>
+            <h3>Value leaf</h3>
+            <p>Turns 60 measurements of a future board into an estimated <em>P(win)</em>. It is a logistic linear model: cheap, inspectable, and much smaller than a neural net.</p>
+          </article>
+        </div>
+
+        <figure class="figure">
+          <svg viewBox="0 0 1050 505" role="img" aria-labelledby="architecture-title architecture-desc">
+            <title id="architecture-title">Architecture of the v0.8 plus a13 composite</title>
+            <desc id="architecture-desc">The live state feeds the v0.8 pilot and legal candidate generator. Three candidates enter paired future rollouts. A learned critic scores them, and rules select the executed action or fallback.</desc>
+            <defs>
+              <marker id="archArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#f0bd68"/></marker>
+              <filter id="soft"><feGaussianBlur stdDeviation="8"/></filter>
+            </defs>
+            <circle cx="515" cy="245" r="205" fill="#69d7df" opacity=".035"/>
+            <g font-family="ui-sans-serif,sans-serif">
+              <rect x="30" y="185" width="145" height="110" rx="20" fill="#12192a" stroke="#69d7df" stroke-opacity=".65"/>
+              <text x="102" y="223" fill="#69d7df" font-size="12" font-weight="800" text-anchor="middle">LIVE BOARD</text>
+              <text x="102" y="250" fill="#f4f1e8" font-size="16" font-weight="750" text-anchor="middle">units · lap · queues</text>
+              <text x="102" y="274" fill="#aeb8cc" font-size="11" text-anchor="middle">one exact engine state</text>
+
+              <path d="M175 220H242" stroke="#f0bd68" stroke-width="3" marker-end="url(#archArrow)"/>
+              <path d="M175 272C207 272 209 353 244 353" fill="none" stroke="#f0bd68" stroke-width="3" marker-end="url(#archArrow)"/>
+
+              <rect x="250" y="145" width="178" height="108" rx="20" fill="#12192a" stroke="#f0bd68" stroke-opacity=".7"/>
+              <text x="339" y="178" fill="#f0bd68" font-size="12" font-weight="800" text-anchor="middle">PILOT</text>
+              <text x="339" y="205" fill="#f4f1e8" font-size="17" font-weight="750" text-anchor="middle">StrategyV0_8</text>
+              <text x="339" y="228" fill="#aeb8cc" font-size="11" text-anchor="middle">proposes candidate 0</text>
+
+              <rect x="250" y="305" width="178" height="108" rx="20" fill="#12192a" stroke="#77d69b" stroke-opacity=".65"/>
+              <text x="339" y="338" fill="#77d69b" font-size="12" font-weight="800" text-anchor="middle">REFEREE</text>
+              <text x="339" y="365" fill="#f4f1e8" font-size="17" font-weight="750" text-anchor="middle">legal candidates</text>
+              <text x="339" y="388" fill="#aeb8cc" font-size="11" text-anchor="middle">real engine contracts</text>
+
+              <path d="M428 199C470 199 468 225 509 225" fill="none" stroke="#f0bd68" stroke-width="3" marker-end="url(#archArrow)"/>
+              <path d="M428 359C470 359 466 275 509 275" fill="none" stroke="#f0bd68" stroke-width="3" marker-end="url(#archArrow)"/>
+
+              <rect x="518" y="151" width="205" height="215" rx="24" fill="#12192a" stroke="#69d7df" stroke-opacity=".75"/>
+              <text x="620" y="184" fill="#69d7df" font-size="12" font-weight="800" text-anchor="middle">IMAGINATION</text>
+              <text x="620" y="212" fill="#f4f1e8" font-size="18" font-weight="750" text-anchor="middle">paired rollouts</text>
+              <g font-size="11">
+                <rect x="544" y="238" width="152" height="29" rx="8" fill="#1b2940"/><text x="620" y="257" fill="#aeb8cc" text-anchor="middle">incumbent × seed 1, 2</text>
+                <rect x="544" y="276" width="152" height="29" rx="8" fill="#1b2940"/><text x="620" y="295" fill="#aeb8cc" text-anchor="middle">challenger A × 1, 2</text>
+                <rect x="544" y="314" width="152" height="29" rx="8" fill="#1b2940"/><text x="620" y="333" fill="#aeb8cc" text-anchor="middle">challenger B × 1, 2</text>
+              </g>
+
+              <path d="M723 255H786" stroke="#f0bd68" stroke-width="3" marker-end="url(#archArrow)"/>
+              <rect x="794" y="188" width="218" height="135" rx="22" fill="#12192a" stroke="#b99aff" stroke-opacity=".75"/>
+              <text x="903" y="220" fill="#b99aff" font-size="12" font-weight="800" text-anchor="middle">CRITIC</text>
+              <text x="903" y="248" fill="#f4f1e8" font-size="17" font-weight="750" text-anchor="middle">60 features → P(win)</text>
+              <text x="903" y="276" fill="#aeb8cc" font-size="11" text-anchor="middle">sigmoid(b + w · x)</text>
+              <text x="903" y="299" fill="#aeb8cc" font-size="11" text-anchor="middle">average two futures</text>
+
+              <path d="M903 323V385" stroke="#f0bd68" stroke-width="3" marker-end="url(#archArrow)"/>
+              <rect x="758" y="395" width="255" height="79" rx="18" fill="#15140f" stroke="#f0bd68" stroke-opacity=".8"/>
+              <text x="885" y="426" fill="#f0bd68" font-size="12" font-weight="800" text-anchor="middle">GATE + SAFETY RAILS</text>
+              <text x="885" y="452" fill="#f4f1e8" font-size="13" font-weight="700" text-anchor="middle">execute · or validated fallback</text>
+            </g>
+          </svg>
+          <figcaption>The system is deliberately asymmetric: a learned critic judges future positions, but legality and high-risk tactical invariants stay in explicit code.</figcaption>
+        </figure>
+
+        <div class="callout">
+          <strong>Deployment nuance:</strong> the baked v0.8 policy rails work wherever <code>StrategyV0_8</code> runs. The full rollout search lives in the Node/simulation runtime. A browser-only caller can therefore use the v0.8 behavior improvements without necessarily performing a13’s expensive future simulations.
+        </div>
+      </section>
+
+      <section id="decision">
+        <div class="section-kicker">03 · One real decision</div>
+        <h2>Follow a move through the machine</h2>
+        <p class="lead">Imagine a melee screen whose inherited v0.7 logic wants to strike a mountain while an enemy can be attacked or approached. Here is the complete path, simplified without changing its essence.</p>
+
+        <div class="flow-stack" aria-label="A13 decision flow">
+          <div class="flow-node"><b>1 · Incumbent</b><small>v0.8 proposes one action sequence</small></div>
+          <div class="flow-node"><b>2 · Enumerate</b><small>engine-legal attacks, shots, throws, spells, move</small></div>
+          <div class="flow-node"><b>3 · Filter</b><small>do not introduce new mountain, shield, or passive challengers</small></div>
+          <div class="flow-node"><b>4 · Census</b><small>quickly score every candidate after its immediate action</small></div>
+          <div class="flow-node"><b>5 · Shortlist</b><small>retain incumbent plus best two challengers</small></div>
+          <div class="flow-node"><b>6 · Imagine</b><small>two paired futures, twelve unit turns each</small></div>
+          <div class="flow-node"><b>7 · Decide</b><small>gate, finish rules, fallback, execute</small></div>
+        </div>
+
+        <div class="steps">
+          <article class="step">
+            <div><h3>The pilot anchors the comparison</h3><p>The inherited policy’s exact action array becomes candidate zero. Search is an editor, not a replacement policy conjuring every decision from nothing.</p></div>
+          </article>
+          <article class="step">
+            <div><h3>The referee creates alternatives</h3><p>For production a13 this can include one move destination, up to six melee target/stand-cell pairs, four shot aims, two area-throw cells, and every currently legal spell. Caps keep the branching factor finite.</p></div>
+          </article>
+          <article class="step">
+            <div><h3>A cheap preview shrinks the field</h3><p>Every candidate is applied to a snapshot and evaluated immediately. Candidate zero is retained, then the two strongest legal challengers survive. This is fast relative to rolling every option twelve turns into the future.</p></div>
+          </article>
+          <article class="step">
+            <div><h3>Each survivor gets the same luck</h3><p>Rollout one for every candidate uses the same private deterministic seed; rollout two also shares a different seed. This “common random numbers” design reduces the chance that one move wins only because it rolled luckier dice.</p></div>
+          </article>
+          <article class="step">
+            <div><h3>Both armies play the next twelve unit turns</h3><p>The real engine resolves mechanics. Each side follows its actual non-recursive native policy during the imagined future. Search does not call itself again inside search, avoiding an exponential hall of mirrors.</p></div>
+          </article>
+          <article class="step">
+            <div><h3>The critic evaluates the future leaf</h3><p>At the horizon, 60 board measurements become a probability-like value. The mean of the two futures is the candidate score.</p></div>
+          </article>
+          <article class="step">
+            <div><h3>The gate prevents nervous flip-flopping</h3><p>Normally, a challenger must improve the estimated win probability by at least <code>0.03</code>—three probability points—to replace a legal incumbent. Hard passive/endgame cases have stricter productivity priorities.</p></div>
+          </article>
+        </div>
+
+        <div class="choice-cards" aria-label="Worked decision scores">
+          <div class="choice"><b><span>Posture wait</span><span>.61</span></b><small>incumbent; stronger ranged formation</small></div>
+          <div class="choice"><b><span>Advance</span><span>.61</span></b><small>tie does not clear the +.03 posture gate</small></div>
+          <div class="choice selected"><b><span>Attack shooter</span><span>.66</span></b><small>+.05 clears the gate → execute</small></div>
+        </div>
+        <p class="note">Illustrative scores, not a replay. An ordinary non-posture wait is treated more aggressively: a productive action can replace it on a tie. The special stronger-ranged wait retains the normal +.03 gate.</p>
+      </section>
+
+      <section id="search">
+        <div class="section-kicker">04 · Search and uncertainty</div>
+        <h2>Small search, real consequences</h2>
+        <p class="lead">A13 does not build a giant tree to the end of the match. It spends a tightly bounded budget around the current decision and uses an approximate critic at the edge.</p>
+
+        <div class="stat-strip">
+          <div class="stat"><b>3</b><span>full-horizon candidates: incumbent + 2 challengers</span></div>
+          <div class="stat"><b>2</b><span>paired deterministic rollouts for each candidate</span></div>
+          <div class="stat"><b>12</b><span>future unit turns after applying the candidate</span></div>
+          <div class="stat"><b>≈72</b><span>maximum simulated future turns per eligible decision</span></div>
+        </div>
+
+        <div class="formula"><span class="comment">// rough full-horizon work after the immediate census</span>
+3 shortlisted candidates × 2 rollouts × 12 future unit turns
+= up to 72 simulated future unit turns per real decision</div>
+
+        <figure class="figure">
+          <svg viewBox="0 0 1050 480" role="img" aria-labelledby="paired-title paired-desc">
+            <title id="paired-title">Paired random seeds compare three candidate futures</title>
+            <desc id="paired-desc">Three candidate action cards each branch into two rollouts using identical seed one and seed two, after which their two values are averaged.</desc>
+            <defs><marker id="pairArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#8fa1c3"/></marker></defs>
+            <g font-family="ui-sans-serif,sans-serif">
+              <text x="28" y="35" fill="#aeb8cc" font-size="12" letter-spacing="2">THE SAME TWO RANDOM WORLDS ARE USED FOR EVERY CHOICE</text>
+              <g>
+                <rect x="30" y="80" width="190" height="90" rx="17" fill="#12192a" stroke="#f0bd68" stroke-opacity=".65"/>
+                <text x="125" y="115" fill="#f0bd68" font-size="12" font-weight="800" text-anchor="middle">INCUMBENT</text>
+                <text x="125" y="143" fill="#f4f1e8" font-size="15" font-weight="750" text-anchor="middle">posture wait</text>
+                <path d="M220 110H303" stroke="#8fa1c3" stroke-width="2" marker-end="url(#pairArrow)"/>
+                <path d="M220 140C260 140 266 205 303 205" fill="none" stroke="#8fa1c3" stroke-width="2" marker-end="url(#pairArrow)"/>
+                <rect x="312" y="82" width="300" height="61" rx="13" fill="#162438" stroke="#69d7df" stroke-opacity=".6"/>
+                <text x="330" y="108" fill="#69d7df" font-size="11" font-weight="800">SEED 1</text><text x="403" y="108" fill="#aeb8cc" font-size="11">attack rolls · effects · replies</text>
+                <text x="586" y="121" fill="#f4f1e8" font-size="14" font-weight="800" text-anchor="end">.58</text>
+                <rect x="312" y="174" width="300" height="61" rx="13" fill="#211d30" stroke="#b99aff" stroke-opacity=".6"/>
+                <text x="330" y="200" fill="#b99aff" font-size="11" font-weight="800">SEED 2</text><text x="403" y="200" fill="#aeb8cc" font-size="11">different but shared future</text>
+                <text x="586" y="213" fill="#f4f1e8" font-size="14" font-weight="800" text-anchor="end">.64</text>
+                <path d="M612 112C670 112 665 159 718 159" fill="none" stroke="#f0bd68" stroke-width="2"/>
+                <path d="M612 204C670 204 665 159 718 159" fill="none" stroke="#f0bd68" stroke-width="2"/>
+                <circle cx="739" cy="159" r="40" fill="#15140f" stroke="#f0bd68" stroke-opacity=".8"/>
+                <text x="739" y="153" fill="#aeb8cc" font-size="10" text-anchor="middle">MEAN</text><text x="739" y="174" fill="#f0bd68" font-size="18" font-weight="800" text-anchor="middle">.61</text>
+              </g>
+              <g transform="translate(0 240)">
+                <rect x="30" y="55" width="190" height="90" rx="17" fill="#12192a" stroke="#69d7df" stroke-opacity=".65"/>
+                <text x="125" y="90" fill="#69d7df" font-size="12" font-weight="800" text-anchor="middle">CHALLENGER</text>
+                <text x="125" y="118" fill="#f4f1e8" font-size="15" font-weight="750" text-anchor="middle">attack shooter</text>
+                <path d="M220 85H303" stroke="#8fa1c3" stroke-width="2" marker-end="url(#pairArrow)"/>
+                <path d="M220 115C260 115 266 180 303 180" fill="none" stroke="#8fa1c3" stroke-width="2" marker-end="url(#pairArrow)"/>
+                <rect x="312" y="57" width="300" height="61" rx="13" fill="#162438" stroke="#69d7df" stroke-opacity=".6"/>
+                <text x="330" y="83" fill="#69d7df" font-size="11" font-weight="800">SAME SEED 1</text><text x="428" y="83" fill="#aeb8cc" font-size="11">luck held comparable</text>
+                <text x="586" y="96" fill="#f4f1e8" font-size="14" font-weight="800" text-anchor="end">.63</text>
+                <rect x="312" y="149" width="300" height="61" rx="13" fill="#211d30" stroke="#b99aff" stroke-opacity=".6"/>
+                <text x="330" y="175" fill="#b99aff" font-size="11" font-weight="800">SAME SEED 2</text><text x="428" y="175" fill="#aeb8cc" font-size="11">luck held comparable</text>
+                <text x="586" y="188" fill="#f4f1e8" font-size="14" font-weight="800" text-anchor="end">.69</text>
+                <path d="M612 87C670 87 665 134 718 134" fill="none" stroke="#f0bd68" stroke-width="2"/>
+                <path d="M612 179C670 179 665 134 718 134" fill="none" stroke="#f0bd68" stroke-width="2"/>
+                <circle cx="739" cy="134" r="40" fill="#11201b" stroke="#77d69b" stroke-opacity=".8"/>
+                <text x="739" y="128" fill="#aeb8cc" font-size="10" text-anchor="middle">MEAN</text><text x="739" y="149" fill="#77d69b" font-size="18" font-weight="800" text-anchor="middle">.66</text>
+                <rect x="815" y="92" width="196" height="84" rx="17" fill="#11201b" stroke="#77d69b" stroke-opacity=".65"/>
+                <text x="913" y="123" fill="#77d69b" font-size="12" font-weight="800" text-anchor="middle">+.05 ≥ +.03</text>
+                <text x="913" y="149" fill="#f4f1e8" font-size="14" font-weight="750" text-anchor="middle">override</text>
+              </g>
+            </g>
+          </svg>
+          <figcaption>Paired seeds are variance reduction, not prophecy. Two samples can still miss rare ability outcomes or long-tail luck.</figcaption>
+        </figure>
+
+        <div class="grid-3">
+          <article class="card"><h3>Why not search deeper?</h3><p>Every extra candidate, rollout, or future turn multiplies engine work. A full battle tree is far beyond a live decision budget.</p></article>
+          <article class="card"><h3>Why keep the incumbent?</h3><p>It is a stable anchor and safe fallback. A learned critic with only two samples should not casually overturn a competent policy on tiny differences.</p></article>
+          <article class="card"><h3>Why use the real engine?</h3><p>Abilities, movement, status effects, stolen skills, damage, and queues interact. A simplified simulator would be faster but could teach search the wrong physics.</p></article>
+        </div>
+      </section>
+
+      <section id="value">
+        <div class="section-kicker">05 · The learned critic</div>
+        <h2>Sixty numbers answer one question: “Does this future look winnable?”</h2>
+        <p class="lead">The critic is logistic regression. It receives a vector <em>x</em>, multiplies each feature by a learned coefficient, adds a bias, and compresses the result into a value between zero and one.</p>
+
+        <div class="formula">z = bias + w₁x₁ + w₂x₂ + … + w₆₀x₆₀
+P(win | future board) = 1 / (1 + e<sup>−z</sup>)</div>
+
+        <div class="grid-3">
+          <article class="card"><span class="tag learned">Material</span><h3>Who is alive and dangerous?</h3><p>HP advantage, stack-count advantage, attack/firepower advantage, ranged advantage, and wounded fractions.</p></article>
+          <article class="card"><span class="tag learned">Tempo</span><h3>Who still gets to act?</h3><p>Lap progress, seat advantage, exposed units, hourglass queue share, and remaining up-next queue.</p></article>
+          <article class="card"><span class="tag learned">Space</span><h3>Who owns useful geometry?</h3><p>Advancement, nearest-enemy distance, army spread, and distance from the narrowing-safe center.</p></article>
+          <article class="card"><span class="tag learned">Composition</span><h3>What kind of army is this?</h3><p>Ranged, flyer, and caster fractions for both armies, plus the fraction of HP invested in ranged stacks.</p></article>
+          <article class="card"><span class="tag learned">Ammunition</span><h3>Can the shooters keep shooting?</h3><p>Remaining shot advantage and an interaction between allied ranged fraction and distance to the enemy.</p></article>
+          <article class="card"><span class="tag learned">Context</span><h3>Does rangedness change meaning?</h3><p>The raw 30 features are copied and multiplied by average board rangedness, yielding 30 shared terms + 30 ranged-board interaction terms.</p></article>
+        </div>
+
+        <h3 style="margin-top:30px">Largest coefficients in the shipped profile</h3>
+        <p class="note">Magnitude is shown for orientation. Logistic coefficients are correlated predictive signals, not independent rewards or causal truths.</p>
+        <div class="metric-row"><span>HP advantage</span><span class="bar"><i style="--w:100%"></i></span><output>+4.081</output></div>
+        <div class="metric-row"><span>Stack-count adv.</span><span class="bar"><i style="--w:71%"></i></span><output>+2.888</output></div>
+        <div class="metric-row negative"><span>Seat advantage</span><span class="bar"><i style="--w:41%"></i></span><output>−1.693</output></div>
+        <div class="metric-row"><span>Attack advantage</span><span class="bar"><i style="--w:39%"></i></span><output>+1.573</output></div>
+        <div class="metric-row"><span>Enemy wounded</span><span class="bar"><i style="--w:23%"></i></span><output>+0.942</output></div>
+        <div class="metric-row negative"><span>Our wounded</span><span class="bar"><i style="--w:23%"></i></span><output>−0.934</output></div>
+        <div class="metric-row negative"><span>Enemy exposed</span><span class="bar"><i style="--w:23%"></i></span><output>−0.930</output></div>
+        <div class="metric-row"><span>Ranged × HP adv.</span><span class="bar"><i style="--w:22%"></i></span><output>+0.892</output></div>
+        <div class="metric-row"><span>Our exposure</span><span class="bar"><i style="--w:20%"></i></span><output>+0.833</output></div>
+
+        <div class="callout red">
+          <strong>Do not read tactics directly from one coefficient.</strong> For example, the negative seat coefficient does not prove that “acting later is bad.” Features overlap, the model was fitted jointly, and the states seen in simulation are selected by existing policies. The critic predicts outcomes in that data distribution; it does not explain causation.
+        </div>
+
+        <details>
+          <summary>All 30 raw feature names</summary>
+          <div><code>hpAdv</code>, <code>cntAdv</code>, <code>atkAdv</code>, <code>rangedAdv</code>, <code>woundedOurs</code>, <code>woundedEnemy</code>, <code>advOurs</code>, <code>advEnemy</code>, <code>lapNorm</code>, <code>seatAdv</code>, <code>enemyExposed</code>, <code>ourExposed</code>, <code>hourglassFrac</code>, <code>upNextFrac</code>, <code>nearEnemyDistOurs</code>, <code>nearEnemyDistEnemy</code>, <code>spreadOurs</code>, <code>spreadEnemy</code>, <code>centerDistOurs</code>, <code>centerDistEnemy</code>, <code>ownRangedFrac</code>, <code>enemyRangedFrac</code>, <code>ownFlyerFrac</code>, <code>enemyFlyerFrac</code>, <code>ownCasterFrac</code>, <code>enemyCasterFrac</code>, <code>rangedHpFracOurs</code>, <code>rangedHpFracEnemy</code>, <code>shotsAdv</code>, <code>xRangedDist</code>. The deployed basis adds <code>xRg_</code> copies of all 30.</div>
+        </details>
+      </section>
+
+      <section id="gameplay">
+        <div class="section-kicker">06 · Applying it to the game</div>
+        <h2>Mountains, waiting, shields, and ranged posture</h2>
+        <p class="lead">The complaints that motivated v0.8 are handled mostly by policy rails around search. That is intentional: obvious bad actions should not depend on a noisy approximate value estimate noticing them every time.</p>
+
+        <div class="scenario">
+          <div class="scenario-head">
+            <div><span class="tag rail">Productivity rail</span><h3>Mountain versus enemy progress</h3><p>If a damaging enemy attack is legal, take one. Otherwise, if a legal advance exists, advance. A mountain action can survive only when no enumerated productive alternative survives.</p></div>
+            <span class="pill"><strong>Goal</strong> zero avoidable rock hits</span>
+          </div>
+          <div class="mini-board" aria-label="Board showing a unit choosing an enemy attack instead of a mountain">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"><span class="unit ours">AI</span></div><div class="cell"><span class="arrow">→</span></div><div class="cell"></div><div class="cell"><span class="mountain"></span></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="unit enemy">E</span></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="arrow">↗</span></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <div class="grid-3">
+            <div><h4 class="good">Attack now</h4><p class="note">Preferred when it can reduce enemy HP.</p></div>
+            <div><h4 class="warn">Advance</h4><p class="note">Preferred when no attack lands yet.</p></div>
+            <div><h4 class="bad">Hit mountain</h4><p class="note">Fallback only when no productive candidate exists.</p></div>
+          </div>
+          <div class="callout red"><p><strong>Honest limitation:</strong> this is “no avoidable mountain attack,” not a theorem that the AI never hits a mountain. It can also be too aggressive: tactically valuable mining may be rejected whenever any move is available.</p></div>
+        </div>
+
+        <div class="scenario">
+          <div class="scenario-head">
+            <div><span class="tag heuristic">Ranged posture</span><span class="tag search">Rollout checked</span><h3>A stronger ranged army may intentionally wait</h3><p>The screen should not charge merely because “aggressive” sounds good. If allied shooters have the stronger remaining ranged output, an idle movable pure-melee screen can spend the hourglass to let them fire and force the enemy to close.</p></div>
+            <span class="pill"><strong>Wait ≠ skip</strong> acts later this lap</span>
+          </div>
+          <div class="formula">team ranged output =
+Σ (remaining shots × maximum damage per creature × living stack amount)</div>
+          <div class="mini-board" aria-label="Ranged formation with a melee screen waiting while shooters fire">
+            <div class="cell"></div><div class="cell"><span class="unit ours ranged">R</span></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="unit ours">M</span></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="unit enemy">E</span></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"><span class="unit ours ranged">R</span></div><div class="cell"></div><div class="cell"><span class="arrow">⌛</span></div><div class="cell"></div><div class="cell"><span class="arrow">←</span></div><div class="cell"></div><div class="cell"><span class="unit enemy">E</span></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"><span class="unit ours ranged">R</span></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="unit ours">M</span></div><div class="cell"></div><div class="cell"></div><div class="cell"><span class="unit enemy">E</span></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"><span class="arrow">↗</span></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+          <ul class="clean">
+            <li>An existing attack or spell is protected; the posture rule is for otherwise-idle melee screens.</li>
+            <li>Depleted shooters contribute zero shots. A stolen real ranged capability also counts at runtime.</li>
+            <li>If allied ranged output is weaker, the old historical hold is neutralized and the advance survives.</li>
+            <li>Dominant and urgent finish windows disable passive ranged posture so a winning army closes.</li>
+          </ul>
+          <div class="callout"><p><strong>What the formula misses:</strong> accuracy, armor, line of sight, area damage, two-shot costs, matchup access, and the positional value of one particular screen. Search can correct some mistakes inside twelve future turns, but not every long-term misclassification.</p></div>
+        </div>
+
+        <div class="grid-3">
+          <article class="card">
+            <span class="tag rail">Luck Shield</span>
+            <h3>Never introduced as a challenger</h3>
+            <p>Direct v0.8 replaces an avoidable defend/Luck Shield with attack, spell, or move. If truly immobilized, hourglass is preferred when legal. Shield remains a last resort, so the correct promise is “zero avoidable shields,” not “mathematically zero shields.”</p>
+          </article>
+          <article class="card">
+            <span class="tag rail">Raw no-op</span>
+            <h3>Made explicit, then repaired</h3>
+            <p>An empty or end-only decision becomes an explicit engine-valid fallback. The productivity layer then searches for damage or movement. Forced locks and truly actionless states can still fall back safely.</p>
+          </article>
+          <article class="card">
+            <span class="tag search">Tactical wait</span>
+            <h3>Preserved when it has value</h3>
+            <p>Blindly banning wait previously damaged decisive strength. Ordinary waits can be replaced by a productive action on a rollout tie; the explicit stronger-ranged posture wait keeps the normal +.03 protection.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="armageddon">
+        <div class="section-kicker">07 · Endgame pressure</div>
+        <h2>Patience has an expiry date</h2>
+        <p class="lead">The first Armageddon wave begins at lap 12. A short search horizon cannot reason all the way there from an early fight, so v0.8 adds explicit deadline-aware behavior.</p>
+
+        <div class="timeline" aria-label="Laps leading to Armageddon">
+          <div class="lap">1</div><div class="lap">2</div><div class="lap">3</div><div class="lap">4</div><div class="lap">5</div>
+          <div class="lap focus" data-label="focus">6</div>
+          <div class="lap dom" data-label="2:1 finish">7</div>
+          <div class="lap dom">8</div>
+          <div class="lap sprint" data-label="all sprint">9</div>
+          <div class="lap sprint">10</div><div class="lap sprint">11</div>
+          <div class="lap arm" data-label="wave 1">12</div>
+        </div>
+        <div class="timeline-notes">
+          <div><strong class="good">Laps 1–5</strong><br>Normal tactical policy and search.</div>
+          <div><strong style="color:var(--cyan)">Lap 6</strong><br>Target-work pressure is armed in relevant search comparisons.</div>
+          <div><strong class="warn">Lap 7</strong><br>A ≥2:1 original-army HP lead forces immediate finish behavior.</div>
+          <div><strong class="bad">Lap 9</strong><br>Universal sprint: positive-damage attack, otherwise nearest advance.</div>
+        </div>
+
+        <div class="grid-2">
+          <article class="card">
+            <span class="tag rail">Dominant finish</span>
+            <h3>Convert a commanding lead</h3>
+            <p>From lap 7, if living non-summoned original-stack HP is at least twice the enemy’s, direct combat becomes lexicographically stronger. Prefer a kill, then maximum immediate damage, then an attack without movement; if no attack exists, advance.</p>
+          </article>
+          <article class="card">
+            <span class="tag rail">Universal urgency</span>
+            <h3>Stop coasting before the wave</h3>
+            <p>From lap 9, every surviving v0.8 army must deal positive enemy damage when possible, otherwise move toward the enemy. Stronger-ranged patience ends here.</p>
+          </article>
+        </div>
+
+        <h3 style="margin-top:30px">How the target scheduler thinks</h3>
+        <div class="steps">
+          <article class="step"><div><h3>Take an immediate stack kill</h3><p>Removing an activation is stronger than merely spreading damage.</p></div></article>
+          <article class="step"><div><h3>Finish reachable wounded work</h3><p>Do not spend several laps cutting one tank and then open a fresh target.</p></div></article>
+          <article class="step"><div><h3>If all are fresh, begin the hardest deadline</h3><p>Estimate remaining attack-work from HP and current delivery damage, then focus the stack most likely to become impossible to finish later.</p></div></article>
+          <article class="step"><div><h3>Price regeneration and Dulling Defense</h3><p>Reserve future Wild Regeneration HP and add a melee tax for permanent Dulling Defense attack loss. Avoid unsafe fresh Dulling melee when another positive target exists.</p></div></article>
+          <article class="step"><div><h3>Prefer stationary delivery on ties</h3><p>Equal damage without spending movement is more stable and preserves positioning.</p></div></article>
+        </div>
+
+        <div class="callout red">
+          <p><strong>This lowers Armageddon risk; it does not guarantee zero Armageddon.</strong> The formal campaign ceiling was 0.1%, and exact a13 did not pass it. Broad artifact, synergy, and roster distributions remain an active measurement problem.</p>
+        </div>
+      </section>
+
+      <section id="level4">
+        <div class="section-kicker">08 · Level-4 support</div>
+        <h2>Four level-4 units were included in the coverage matrix</h2>
+        <p class="lead">The engine handles automatic effects during every real and simulated action. The AI must separately choose targets, stand cells, shots, and spells well enough to exploit those effects. Coverage proves the paths run safely; it does not prove optimal mastery.</p>
+
+        <div class="grid-2">
+          <article class="card l4-card">
+            <div class="sigil">C</div>
+            <span class="tag engine">Automatic effects</span><span class="tag search">Damage searched</span>
+            <h3>Champion</h3>
+            <p>A 2×2 melee unit with <strong>Tie up the Horses Aura</strong>, <strong>Crusade</strong>, and <strong>Rapid Charge</strong>. Candidate damage estimation prices charge distance; real rollouts resolve the full engine effects.</p>
+            <ul class="clean">
+              <li>Search can compare target and stand-cell charge deliveries.</li>
+              <li>Reveal placement recognizes enemy Rapid Charge lanes.</li>
+              <li>A13’s direct rapid-charge preference weight is 0, so optimization depends more on expected damage/search than a bespoke rule.</li>
+            </ul>
+          </article>
+          <article class="card l4-card">
+            <div class="sigil">AQ</div>
+            <span class="tag engine">Steal mechanic</span><span class="tag rail">Legality guarded</span>
+            <h3>Arachna Queen</h3>
+            <p>A 2×2 melee unit with <strong>Web Aura</strong>, <strong>Infest</strong>, and <strong>Predatory Assimilation</strong>. It can steal an active ability and become a genuine runtime caster or shooter.</p>
+            <ul class="clean">
+              <li>An AI bridge uses stolen spells and legal shots.</li>
+              <li>Candidate generation respects new capabilities after assimilation.</li>
+              <li>A large Queen is explicitly barred from stolen Castling, whose contract requires small units—a real corruption path found and fixed during coverage.</li>
+            </ul>
+          </article>
+          <article class="card l4-card">
+            <div class="sigil">A</div>
+            <span class="tag engine">Bodyguard</span><span class="tag search">Near-term effects</span>
+            <h3>Abomination</h3>
+            <p>A 2×2 melee protector. <strong>Dense Flesh</strong> makes aimed ranged attacks consume extra shots; <strong>Flesh Shield Aura</strong> absorbs most direct damage to protected allies and recalculates defense.</p>
+            <ul class="clean">
+              <li>Automatic mitigation appears inside real rollouts.</li>
+              <li>Generic aura and position features provide some signal.</li>
+              <li>No dedicated “protect the most valuable ally” long-horizon module exists; shortlist and horizon can miss bodyguard setups.</li>
+            </ul>
+          </article>
+          <article class="card l4-card">
+            <div class="sigil">FB</div>
+            <span class="tag engine">Autonomous</span><span class="tag learned">Aggregate value</span>
+            <h3>Frenzied Boar</h3>
+            <p>A 2×2 melee unit with <strong>AI Driven</strong>, <strong>Magic Shield</strong>, and <strong>Boar Saliva</strong>. Magical resistance and physical miss effects resolve through the engine and candidate damage estimates.</p>
+            <ul class="clean">
+              <li>Search sees near-term misses and resistance outcomes.</li>
+              <li>There is no Boar-specific tactical policy beyond generic melee/search.</li>
+              <li>Two rollouts can still be noisy around stochastic effects.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="callout cyan">
+          <p><strong>The forced L4 panel checks operational coverage:</strong> all four units as candidate-owned and opponent-owned, both physical seats, across the live map rotation; acting turns; no candidate rejections; no raw candidate end-turns; no candidate-owned L4 mountain attacks; no stuck fights. It uses Black Dragon as a fixed control. This is a behavior/safety census, not a balanced L4 win-rate ranking.</p>
+        </div>
+      </section>
+
+      <section id="training">
+        <div class="section-kicker">09 · “Training” decoded</div>
+        <h2>A tournament searched over policies; the live AI does not keep learning</h2>
+        <p class="lead">The word training is useful shorthand, but it can imply the wrong mechanism. A13 emerged from offline simulation, value-model fitting history, finite candidate mutation, and tournament selection—not from gradient-updating a deep policy during play.</p>
+
+        <figure class="figure">
+          <div class="funnel" role="img" aria-label="Training funnel from 49 base arms to selected a13">
+            <div class="funnel-row" style="--fw:100%">48 reviewed policy arms + stable c48 anchor</div>
+            <div class="funnel-arrow">↓ common-random screen</div>
+            <div class="funnel-row" style="--fw:88%">choose four parent genomes</div>
+            <div class="funnel-arrow">↓ deterministic mutations</div>
+            <div class="funnel-row" style="--fw:78%">24 adaptive children: gate, controls, value-vector blends</div>
+            <div class="funnel-arrow">↓ screen + forced new-L4 coverage</div>
+            <div class="funnel-row" style="--fw:66%">eight validation arms</div>
+            <div class="funnel-arrow">↓ repeated fresh 1,024-game rounds on two hosts</div>
+            <div class="funnel-row" style="--fw:54%">a13 ranks first for strength on both machines</div>
+            <div class="funnel-arrow">↓ formal Armageddon gate fails</div>
+            <div class="funnel-row" style="--fw:46%">later manual production promotion</div>
+          </div>
+          <figcaption>The research harness explicitly did not auto-edit, auto-bake, or auto-deploy a winner. Promotion remained a reviewed human decision.</figcaption>
+        </figure>
+
+        <div class="grid-3">
+          <article class="card"><span class="tag search">Mutation</span><h3>What changed</h3><p>A13’s campaign label was <code>adaptive-a13-from-c43-gate-search-gate</code>. It changed its parent c43’s ordinary challenger threshold from <code>0.025</code> to <code>0.03</code>.</p></article>
+          <article class="card"><span class="tag learned">Value history</span><h3>Where weights came from</h3><p>The fixed leaf belongs to a line of offline outcome predictors and evolutionary/CEM research. Candidate campaigns could blend value vectors by 15% or 25% as well as flip discrete controls.</p></article>
+          <article class="card"><span class="tag heuristic">Selection</span><h3>How arms ranked</h3><p>Research ranking was lexicographic: candidate win rate, then draw rate, then non-loss Armageddon rate. Fresh validation seeds checked screen overfitting.</p></article>
+        </div>
+
+        <table class="comparison">
+          <caption>Terminology for the a13 training and decision system</caption>
+          <thead><tr><th scope="col">Term</th><th scope="col">Accurate for a13?</th><th scope="col">Why</th></tr></thead>
+          <tbody>
+            <tr><td>Deep reinforcement learning</td><td class="bad">No</td><td>No deep policy/value network or policy-gradient loop.</td></tr>
+            <tr><td>Online learning</td><td class="bad">No</td><td>Weights and rules are fixed during a match.</td></tr>
+            <tr><td>Supervised value learning</td><td class="good">Yes</td><td>The logistic critic maps simulated board features to eventual win outcomes.</td></tr>
+            <tr><td>Evolutionary / black-box optimization</td><td class="good">Yes</td><td>Finite genomes were mutated, screened, and selected by tournament outcomes.</td></tr>
+            <tr><td>Model-based planning</td><td class="good">Yes</td><td>The real game engine is the transition model used to imagine consequences.</td></tr>
+            <tr><td>RL-adjacent self-play optimization</td><td class="warn">With explanation</td><td>Reasonable umbrella language, but it must not be confused with PPO/Q-learning.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="evidence">
+        <div class="section-kicker">10 · Evidence</div>
+        <h2>What the recorded a13 results actually say</h2>
+        <p class="lead">A13 ranked first for strength on both independent hosts in the campaign evidence. It did not pass the formal Armageddon promotion rule. Both statements are important.</p>
+
+        <table class="comparison">
+          <caption>Frozen dual-host campaign validation against v0.7</caption>
+          <thead><tr><th scope="col">Host</th><th scope="col">Validation games</th><th scope="col">Wins</th><th scope="col">Losses</th><th scope="col">Draws</th><th scope="col">Raw win rate</th><th scope="col">Decisive win rate</th></tr></thead>
+          <tbody>
+            <tr><td>M4</td><td>61,440</td><td>36,006</td><td>25,078</td><td>356</td><td class="good">58.60%</td><td class="good">58.95%</td></tr>
+            <tr><td>Ryzen 7 9800X3D</td><td>27,648</td><td>16,249</td><td>11,232</td><td>167</td><td class="good">58.77%</td><td class="good">59.13%</td></tr>
+            <tr><td>Combined</td><td><strong>89,088</strong></td><td>52,255</td><td>36,310</td><td>523</td><td class="good"><strong>58.66%</strong></td><td class="good"><strong>59.00%</strong></td></tr>
+          </tbody>
+        </table>
+        <p class="note">Campaign validation was versus v0.7 under the frozen training alias and campaign binding. It is strong evidence, but not a located post-promotion production-rebound tournament artifact. The raw dual-host output bundle is not currently included in the public source repository, so these figures are an audited snapshot rather than a downloadable public dataset.</p>
+
+        <div class="grid-2">
+          <article class="card">
+            <span class="tag search">Strength result</span>
+            <h3>Both hosts agreed</h3>
+            <p>A13 ranked first for strength on the M4 and the 9800X3D. On each host it improved the stable c48 anchor by roughly <strong>+0.76 percentage points</strong> raw. Cross-host agreement is valuable because it is harder to explain as a single-machine accident.</p>
+          </article>
+          <article class="card">
+            <span class="tag rail">Promotion discrepancy</span>
+            <h3>Armageddon gate failed</h3>
+            <p>M4 Armageddon reached: <strong>502 / 61,952 = 0.81%</strong>. 9800X3D: <strong>233 / 28,160 = 0.83%</strong>. Required ceiling: <strong>0.1%</strong>. New-L4 panels were higher still. Final campaign leaderboards therefore recorded no formally eligible promotion candidate.</p>
+          </article>
+        </div>
+
+        <div class="callout red">
+          <p><strong>Honest conclusion:</strong> a13 was later promoted manually after ranking first for strength on both hosts. It would be inaccurate to say it passed the campaign’s formal near-zero-Armageddon gate.</p>
+        </div>
+
+        <h3>The remembered “62%” was not exact production a13</h3>
+        <table class="comparison">
+          <caption>Distinguishing exact a13 from earlier candidate families</caption>
+          <thead><tr><th scope="col">Evidence family</th><th scope="col">Approx. raw result vs v0.7</th><th scope="col">Interpretation</th></tr></thead>
+          <tbody>
+            <tr><td>Earlier <code>d174…</code> stable candidate</td><td>≈62.4%</td><td>Earlier candidate family; not exact a13.</td></tr>
+            <tr><td>Later r3 qualification of that family</td><td>≈61.34%</td><td>Still not exact a13’s frozen genome.</td></tr>
+            <tr><td>Exact a13 dual-host validation</td><td><strong>≈58.66%</strong></td><td>The directly attributable campaign number.</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout cyan">
+          <p>AI meta cohorts answer a different question: which units, artifacts, augments, synergies, maps, and roster types perform under v0.8+a13. A non-mirrored balance study does <strong>not</strong> establish an AI-version win rate against v0.7.</p>
+        </div>
+      </section>
+
+      <section id="speed">
+        <div class="section-kicker">11 · Performance</div>
+        <h2>Why a v0.8 meta report is dramatically slower than the old one</h2>
+        <p class="lead">The report renderer is not the bottleneck. The difference is that plain v0.7 makes one native decision, while v0.8+a13 may execute dozens of hidden engine turns to decide one visible action.</p>
+
+        <div class="grid-2">
+          <article class="card">
+            <span class="tag heuristic">v0.7</span>
+            <h3>One policy pass</h3>
+            <p>Evaluate heuristics, emit an action, resolve it. Historical 1.05-million-fight report throughput was on the order of hundreds of fights per second with 12 M4 workers distributed across cohorts.</p>
+          </article>
+          <article class="card">
+            <span class="tag search">v0.8+a13</span>
+            <h3>Policy + snapshots + many futures</h3>
+            <p>Enumerate candidates, run an immediate census, snapshot and restore state, simulate up to about 72 future unit turns, extract value features, and repeat for many real decisions in every fight.</p>
+          </article>
+        </div>
+
+        <div class="formula">meta-study work ≈ fights
+× real decisions per fight
+× (candidate census + paired rollout turns + snapshot/restore overhead)</div>
+
+        <h3>Why hardware can change more than elapsed time</h3>
+        <ul class="clean">
+          <li><strong>175 ms is per decision, not per game.</strong> A long fight may encounter that budget repeatedly.</li>
+          <li><strong>275 ms is a per-match search circuit threshold.</strong> Once opened, later ordinary decisions fall back to baked policy; forced productivity/endgame cases still use a bounded valid-action probe.</li>
+          <li><strong>Wall-clock limits make host and load part of the experiment.</strong> A slower or oversubscribed machine can hit fallback at different decision points.</li>
+          <li><strong>More workers can be worse.</strong> If simultaneous games fight for the same cores, each decision gets less CPU before its deadline and behavior can drift.</li>
+          <li><strong>Pinning one host matters.</strong> Timing-sensitive comparisons should use the same CPU, worker count, runtime, source commit, and background load.</li>
+        </ul>
+
+        <figure class="figure">
+          <svg viewBox="0 0 980 305" role="img" aria-labelledby="speed-title speed-desc">
+            <title id="speed-title">Relative work behind one visible AI action</title>
+            <desc id="speed-desc">A short bar represents a v0.7 policy pass. A much longer segmented bar represents v0.8 plus candidate census, rollouts, value scoring and restoration.</desc>
+            <g font-family="ui-sans-serif,sans-serif">
+              <text x="30" y="44" fill="#aeb8cc" font-size="12" letter-spacing="2">ILLUSTRATIVE RELATIVE WORK PER VISIBLE DECISION</text>
+              <text x="30" y="100" fill="#f4f1e8" font-size="14" font-weight="800">v0.7</text>
+              <rect x="140" y="76" width="145" height="39" rx="10" fill="#80642f"/>
+              <text x="212" y="101" fill="white" font-size="11" font-weight="800" text-anchor="middle">native policy</text>
+              <text x="315" y="101" fill="#aeb8cc" font-size="11">→ action</text>
+              <text x="30" y="184" fill="#f4f1e8" font-size="14" font-weight="800">v0.8+a13</text>
+              <rect x="140" y="159" width="110" height="48" rx="10" fill="#80642f"/><text x="195" y="188" fill="white" font-size="10" font-weight="800" text-anchor="middle">pilot</text>
+              <rect x="256" y="159" width="140" height="48" rx="10" fill="#276b6f"/><text x="326" y="181" fill="white" font-size="10" font-weight="800" text-anchor="middle">candidate</text><text x="326" y="195" fill="white" font-size="10" text-anchor="middle">census</text>
+              <rect x="402" y="159" width="355" height="48" rx="10" fill="#604e89"/><text x="579" y="181" fill="white" font-size="10" font-weight="800" text-anchor="middle">six paired futures × up to 12 turns</text><text x="579" y="195" fill="#e6ddff" font-size="9" text-anchor="middle">real engine · both policies · snapshots</text>
+              <rect x="763" y="159" width="116" height="48" rx="10" fill="#34754e"/><text x="821" y="181" fill="white" font-size="10" font-weight="800" text-anchor="middle">60-feature</text><text x="821" y="195" fill="white" font-size="10" text-anchor="middle">value + gate</text>
+              <text x="900" y="188" fill="#aeb8cc" font-size="11">→ action</text>
+              <path d="M140 240H879" stroke="#a7b8d9" stroke-opacity=".4"/>
+              <path d="M140 234v12M879 234v12" stroke="#a7b8d9" stroke-opacity=".4"/>
+              <text x="509" y="269" fill="#aeb8cc" font-size="11" text-anchor="middle">deadline can cut the comparison and use a validated fallback</text>
+            </g>
+          </svg>
+          <figcaption>Not to exact CPU scale; it shows why enabling search changes the order of magnitude while HTML generation itself remains cheap.</figcaption>
+        </figure>
+      </section>
+
+      <section id="limits">
+        <div class="section-kicker">12 · Failure modes</div>
+        <h2>Where a13 can still be confidently wrong</h2>
+        <p class="lead">Hybrid systems are powerful because rules cover known hazards and learning covers fuzzy trade-offs. They also inherit the blind spots of every layer.</p>
+
+        <div class="grid-3">
+          <article class="card"><h3>Short horizon</h3><p>Twelve unit turns is roughly local tactics, not a lap-12 plan from the opening. Fortresses, long bodyguard setups, ammunition wars, and delayed regeneration can sit beyond the leaf.</p></article>
+          <article class="card"><h3>Candidate omission</h3><p>Caps can omit the best stand cell, aim, throw, or move. Only two challengers survive the immediate shortlist, so a setup move with weak instant value may disappear.</p></article>
+          <article class="card"><h3>Value approximation</h3><p>The critic sees aggregates, not explicit unit, ability, artifact, augment, or synergy identities. Novel combinations can be out of distribution.</p></article>
+          <article class="card"><h3>Rare randomness</h3><p>Two paired rollouts reduce noise but do not reliably sample low-frequency steals, misses, resistances, or high-impact luck tails.</p></article>
+          <article class="card"><h3>Hard-rule conflict</h3><p>“Advance instead of mine” stops obvious waste but may suppress a genuinely useful obstacle plan. Every invariant trades tactical freedom for reliability.</p></article>
+          <article class="card"><h3>Timing sensitivity</h3><p>Deadline fallback depends on hardware and load. If a difficult decision repeatedly exceeds the budget, the shipped AI effectively becomes more of its baked pilot.</p></article>
+          <article class="card"><h3>Non-recursive opponent model</h3><p>Rollout policies do not invoke another full a13 search. This is necessary for speed but means the imagined opponent can be weaker or stylistically different from deployed search.</p></article>
+          <article class="card"><h3>Correlation traps</h3><p>A coefficient or meta-report lift can reflect which armies create a state, not what changing that feature would cause. Prediction and balance causality are different problems.</p></article>
+          <article class="card"><h3>Coverage ≠ mastery</h3><p>A unit acting without rejection proves integration. It does not prove target selection, positioning, or synergy use is near-optimal.</p></article>
+        </div>
+
+        <div class="callout">
+          <p><strong>A practical diagnostic rule:</strong> first ask whether the desired action was absent from the candidate set, removed by the shortlist, scored badly by the critic, rejected by a hard rule, or lost to a deadline. “The AI made a bad move” can originate at five very different layers, and each needs a different fix.</p>
+        </div>
+      </section>
+
+      <section id="next">
+        <div class="section-kicker">13 · Improvement roadmap</div>
+        <h2>Make it stronger without making every fight slower</h2>
+        <p class="lead">The best next step is unlikely to be “turn every knob up.” More rollouts can improve decisions and simultaneously destroy tournament throughput or trigger more deadline fallbacks.</p>
+
+        <div class="steps">
+          <article class="step"><div><h3>Instrument decision provenance</h3><p>For every bad replay, record incumbent, candidate set, shortlist, rollout means, override reason, deadline/circuit state, and executed fallback. This turns anecdotes into labeled failure classes.</p></div></article>
+          <article class="step"><div><h3>Distill search into the fast policy</h3><p>Collect a13 recommendations offline, then train a compact action-ranking model or bake stable rules. Let cheap decisions bypass rollout; reserve search for uncertain states.</p></div></article>
+          <article class="step"><div><h3>Use adaptive compute</h3><p>Spend little when the incumbent is obviously legal and strong. Expand rollouts when top candidates are close, the state is stochastic, an L4 mechanic is active, or the endgame is near.</p></div></article>
+          <article class="step"><div><h3>Improve shortlist recall</h3><p>Preserve diversity by action class and target, not only immediate value: one movement setup, one kill line, one control spell, one target-coverage delivery. Measure whether the eventual winner was pruned.</p></div></article>
+          <article class="step"><div><h3>Add ability-aware value features</h3><p>Represent protection, control, regeneration debt, Dulling exposure, remaining high-impact casts, shielded HP, current lanes, and Armageddon finish slack—carefully, with out-of-sample validation.</p></div></article>
+          <article class="step"><div><h3>Separate tactical and strategic critics</h3><p>Use one model for the next-lap fight and another for long-horizon terminal risk. Blend by lap, board openness, rangedness, and ability state instead of forcing one linear leaf to express everything.</p></div></article>
+          <article class="step"><div><h3>Cache and optimize snapshots</h3><p>Profile battle snapshot/restore, pathfinding, repeated legal queries, and invariant feature blocks. A faster engine buys stronger search without changing the live deadline.</p></div></article>
+          <article class="step"><div><h3>Promote only on multidimensional gates</h3><p>Require strength confidence, avoidable passive rate, mountain/shield rate, action rejection, Armageddon reach/decision, L4 coverage, cross-host reproducibility, and timing-fallback rate—not one headline win rate.</p></div></article>
+        </div>
+
+        <h3 style="margin-top:32px">A useful experiment matrix</h3>
+        <table class="comparison">
+          <caption>Suggested measurements for future a13 iterations</caption>
+          <thead><tr><th scope="col">Question</th><th scope="col">Metric</th><th scope="col">Best test</th><th scope="col">Failure interpretation</th></tr></thead>
+          <tbody>
+            <tr><td>Does search find better tactics?</td><td>Paired score-rate delta</td><td>Same seeds, seats, armies, host</td><td>Critic/candidate/search issue</td></tr>
+            <tr><td>Does AI stop wasting turns?</td><td>Avoidable passive per 1k decisions</td><td>Action audit with legal-alternative replay</td><td>Productivity rail gap</td></tr>
+            <tr><td>Does it finish cleanly?</td><td>Armageddon reached and decided</td><td>Long balanced + dominant-state panels</td><td>Horizon or endgame policy gap</td></tr>
+            <tr><td>Are new units safe?</td><td>Rejections, raw no-ops, acting coverage</td><td>Forced L4 ownership/seat/map matrix</td><td>Engine/candidate integration gap</td></tr>
+            <tr><td>Is it deployable?</td><td>p50/p95/p99 decision time and fallback rate</td><td>Production-like fixed host load</td><td>Compute budget mismatch</td></tr>
+            <tr><td>Did it generalize?</td><td>Fresh-seed cross-cohort lower bounds</td><td>Unopened seed banks and diverse drafts</td><td>Panel overfitting</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="learn">
+        <div class="section-kicker">14 · Learning path</div>
+        <h2>What to learn to understand and improve systems like this</h2>
+        <p class="lead">You do not need to begin with advanced neural RL. A13 sits at the intersection of game AI, simulation, statistics, optimization, and systems performance.</p>
+
+        <div class="reading-path">
+          <article class="lesson"><b>01 · FOUNDATIONS</b><h3>State, actions, transition, objective</h3><p>Model the board as state; legal moves as actions; the engine as transition dynamics; elimination/score as objective. Learn Markov decision processes as a vocabulary, even when the practical agent is not pure RL.</p></article>
+          <article class="lesson"><b>02 · CLASSIC GAME AI</b><h3>Minimax, expectimax, rollout search</h3><p>Understand branching factor, depth, opponent models, stochastic outcomes, evaluation leaves, alpha-beta intuition, Monte Carlo estimates, and why bounded search must prune.</p></article>
+          <article class="lesson"><b>03 · VALUE LEARNING</b><h3>Logistic regression and calibration</h3><p>Learn logits, sigmoid, cross-entropy, regularization, feature scaling, interactions, calibration curves, leakage, and distribution shift. You can understand a13’s critic completely with these tools.</p></article>
+          <article class="lesson"><b>04 · EXPERIMENT DESIGN</b><h3>Paired seeds and confidence</h3><p>Study common random numbers, paired seat swaps, confidence intervals, multiple comparisons, holdout seeds, preregistered gates, and why sub-1% deltas demand many games.</p></article>
+          <article class="lesson"><b>05 · BLACK-BOX OPTIMIZATION</b><h3>Evolution, CEM, bandits</h3><p>Explore finite candidate arms, mutation, crossover/blending, cross-entropy method, successive halving, multi-armed bandits, and tournament selection when gradients are unavailable.</p></article>
+          <article class="lesson"><b>06 · SAFETY ARCHITECTURE</b><h3>Action masks and invariants</h3><p>Learn why a learned scorer should not own legality. Study constrained optimization, action masking, lexicographic objectives, fail-closed fallbacks, and regression/property tests.</p></article>
+          <article class="lesson"><b>07 · SYSTEMS</b><h3>Profiling and deterministic simulation</h3><p>Measure snapshots, memory churn, pathfinding, worker oversubscription, cache behavior, deadlines, deterministic RNG, replayability, and host-bound performance.</p></article>
+          <article class="lesson"><b>08 · ADVANCED NEXT</b><h3>Imitation, distillation, learned policies</h3><p>Once search logs are trustworthy, learn behavior cloning, ranking losses, uncertainty estimation, ensembles, policy/value networks, and selective search. Deep RL becomes relevant later—not automatically better.</p></article>
+        </div>
+
+        <div class="callout cyan">
+          <p><strong>Best practical exercise:</strong> take ten visibly bad fights. For each decision, reconstruct the five checkpoints—candidate availability, shortlist survival, rollout score, rule arbitration, timing fallback. Then propose the smallest change that fixes the correct layer and test it on fresh paired seeds.</p>
+        </div>
+      </section>
+
+      <section id="glossary">
+        <div class="section-kicker">15 · Glossary</div>
+        <h2>The vocabulary in plain language</h2>
+        <dl class="glossary">
+          <div><dt>Action / candidate</dt><dd>A legal sequence the active unit could execute: move, attack, shot, throw, spell, wait, or fallback.</dd></div>
+          <div><dt>Incumbent</dt><dd>The native policy’s original choice. It is candidate zero and the fail-closed anchor.</dd></div>
+          <div><dt>Rollout</dt><dd>A temporary simulated future: apply one candidate, play both armies forward, evaluate, restore.</dd></div>
+          <div><dt>Horizon</dt><dd>How far the simulation looks ahead. A13 uses twelve future unit turns.</dd></div>
+          <div><dt>Leaf</dt><dd>The future position where search stops and an evaluator estimates how good the state is.</dd></div>
+          <div><dt>Value function</dt><dd>A mapping from a board state to expected success, here an estimated acting-team win probability.</dd></div>
+          <div><dt>Logit</dt><dd>The unbounded linear score before sigmoid converts it to a 0–1 value.</dd></div>
+          <div><dt>Feature</dt><dd>A numerical board measurement such as HP advantage, spread, ammo advantage, or queue exposure.</dd></div>
+          <div><dt>Gate</dt><dd>The minimum value improvement normally needed to replace the incumbent. A13 uses +0.03.</dd></div>
+          <div><dt>Shortlist</dt><dd>The small set receiving expensive full-horizon rollouts: incumbent plus two challengers.</dd></div>
+          <div><dt>Paired seeds</dt><dd>Giving each candidate identical random streams so outcome differences reflect actions more than luck.</dd></div>
+          <div><dt>Action mask</dt><dd>A rule excluding impossible or forbidden candidate classes before learned ranking.</dd></div>
+          <div><dt>Hard rail</dt><dd>An explicit priority or invariant, such as avoiding an unnecessary mountain turn.</dd></div>
+          <div><dt>Fallback</dt><dd>The safe action used when search cannot finish, an action is rejected, or no better legal option exists.</dd></div>
+          <div><dt>Circuit breaker</dt><dd>A per-match fuse that prevents repeated expensive search after a decision exceeds the timing threshold.</dd></div>
+          <div><dt>Distillation</dt><dd>Teaching a faster policy to imitate costly search recommendations offline.</dd></div>
+          <div><dt>Distribution shift</dt><dd>When live boards differ from the critic’s training examples, making predictions less reliable.</dd></div>
+          <div><dt>Armageddon reached</dt><dd>A fight surviving to the first wave; distinct from Armageddon actually deciding the winner.</dd></div>
+        </dl>
+      </section>
+
+      <section id="appendix">
+        <div class="section-kicker">16 · Technical appendix</div>
+        <h2>The exact shipped profile</h2>
+        <p class="lead">These values are pinned in the published a13 profile as of July 21, 2026. The hash makes “a13” an exact reproducible genome identity rather than a loose nickname.</p>
+
+        <div class="codebox" id="profileCode">identity
+  candidate                 a13
+  meaning                   adaptive child index 13
+  campaign date             2026-07-21
+  training alias            v0.8s
+  production version        v0.8
+  campaign opponent         v0.7
+  campaign source identity  80059c9f34d918285eeb996589c9e3335efc240a
+  profile publication       473373c2c4910fa8879c490273ab9a92e36ffe2c
+  genome sha256             a46ac7ef0c18da1f3fb3b82a3fc1cd53e5565747d4d1673ac5340af5bf92ba49
+
+search
+  leaf mode                 model (60-feature logistic)
+  gate                      0.03
+  horizon                   12 future unit turns
+  rollouts                  2 paired seeds
+  include moves             true
+  max moves                 1
+  max melee pairs           6
+  max shot aims             4
+  max area throws           2
+  active challengers        true
+  shortlist                 3 total, including incumbent
+  decision deadline         175 ms
+  circuit breaker           275 ms
+  late ranged overlay       0
+  pure ranged overlay       0
+
+native policy
+  melee rapid-charge weight 0
+  melee ranged-target weight 2
+  reveal placement          enabled
+  dense melee-magic isolate disabled
+  aura caster router        off
+  aggressive policy         enabled
+
+finish
+  target-pressure marker    lap 6
+  dominant threshold        lap 7 and own HP >= 2 × enemy HP
+  universal sprint          lap 9
+  first Armageddon          lap 12</div>
+
+        <details open>
+          <summary>Source map used to audit this guide</summary>
+          <div>
+            <ul class="clean">
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/ai/versions/v0_8_a13_profile.ts"><code>src/ai/versions/v0_8_a13_profile.ts</code></a> — exact identity, weights, search and policy controls.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/ai/versions/v0_8.ts"><code>src/ai/versions/v0_8.ts</code></a> — productive actions, stronger-ranged posture, native policy integration.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/simulation/search_driver.ts"><code>src/simulation/search_driver.ts</code></a> — enumeration filtering, shortlist, rollouts, gate, deadlines, circuit.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/simulation/value_features.ts"><code>src/simulation/value_features.ts</code></a> — 20 base + 10 composition + 30 ranged interaction features.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/ai/versions/v0_8_dominant_finish.ts"><code>src/ai/versions/v0_8_dominant_finish.ts</code></a> — 2:1 HP and lap-based finish states.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/ai/versions/v0_8s_finish.ts"><code>src/ai/versions/v0_8s_finish.ts</code></a> — target-work scheduler and universal sprint behavior.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/simulation/v0_8_aggressive_12h.ts"><code>src/simulation/v0_8_aggressive_12h.ts</code></a> — candidate generation, screening, validation and promotion gates.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/simulation/v0_8_l4_coverage.ts"><code>src/simulation/v0_8_l4_coverage.ts</code></a> — Champion, Arachna Queen, Abomination and Frenzied Boar coverage.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/ai/candidates.ts"><code>src/ai/candidates.ts</code></a> — legal candidate census and capability routing.</li>
+              <li><a href="https://github.com/o1dstaRs/heroes-of-crypto-common/blob/473373c2c4910fa8879c490273ab9a92e36ffe2c/src/constants.ts"><code>src/constants.ts</code></a> — narrowing, Armageddon, morale, shield and wait constants.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details>
+          <summary>What is hard-guaranteed, conditional, and still only measured?</summary>
+          <div>
+            <table class="comparison">
+              <caption>Confidence classification for the guide's central claims</caption>
+              <thead><tr><th scope="col">Behavior</th><th scope="col">Confidence type</th><th scope="col">Precise claim</th></tr></thead>
+              <tbody>
+                <tr><td>Generated mountain/shield challengers</td><td class="good">Hard filter</td><td>Search does not introduce them for v0.8.</td></tr>
+                <tr><td>Inherited passive repair</td><td class="good">Hard policy rail</td><td>Replace with legal damage first, otherwise nearest advance, when found.</td></tr>
+                <tr><td>Stronger-ranged wait</td><td class="warn">Heuristic + search</td><td>Uses ammo × damage × living amount; retains +.03 rollout protection.</td></tr>
+                <tr><td>Target choice</td><td class="warn">Scheduler + search</td><td>Kills, wound focus, remaining work, regeneration and Dulling tax guide selection.</td></tr>
+                <tr><td>New-L4 mechanics</td><td class="good">Real engine</td><td>Automatic effects resolve in live actions and rollouts; tactical mastery is not guaranteed.</td></tr>
+                <tr><td>Near-zero Armageddon</td><td class="bad">Not achieved by campaign gate</td><td>Exact a13 strength passed; formal ≤0.1% promotion ceiling did not.</td></tr>
+                <tr><td>≈58.66% vs v0.7</td><td class="warn">Frozen campaign evidence</td><td>Dual-host validation under the training binding; not a universal matchup constant.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <div class="footer">
+          <span><a href="/research/">Heroes of Crypto Research</a> · v0.8+a13 field guide</span>
+          <span>Inline guide visuals · no third-party runtime assets</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var themeButton = document.getElementById("themeButton");
+      var printButton = document.getElementById("printButton");
+      var progress = document.getElementById("progress");
+      var savedTheme = null;
+      try { savedTheme = localStorage.getItem("a13-guide-theme"); } catch (e) {}
+      if (savedTheme === "light" || savedTheme === "dark") root.dataset.theme = savedTheme;
+      function syncThemeButton() {
+        themeButton.textContent = root.dataset.theme === "dark" ? "Light" : "Dark";
+      }
+      syncThemeButton();
+      themeButton.addEventListener("click", function () {
+        root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+        try { localStorage.setItem("a13-guide-theme", root.dataset.theme); } catch (e) {}
+        syncThemeButton();
+      });
+      printButton.addEventListener("click", function () { window.print(); });
+      function updateProgress() {
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        var ratio = max > 0 ? window.scrollY / max : 0;
+        progress.style.width = Math.max(0, Math.min(100, ratio * 100)) + "%";
+      }
+      window.addEventListener("scroll", updateProgress, { passive: true });
+      updateProgress();
+      var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+      var sections = Array.prototype.slice.call(document.querySelectorAll("main section[id]"));
+      if ("IntersectionObserver" in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            links.forEach(function (link) {
+              link.classList.toggle("active", link.getAttribute("href") === "#" + entry.target.id);
+            });
+          });
+        }, { rootMargin: "-18% 0px -72% 0px" });
+        sections.forEach(function (section) { observer.observe(section); });
+      }
+    })();
+  </script>
+</body>
+</html>

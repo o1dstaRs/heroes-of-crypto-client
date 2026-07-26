@@ -1,4 +1,6 @@
 import { patchNotes } from "./patch-notes";
+import { spellsCount } from "./spells-data";
+import { abilityCount, unitCount } from "./units-data";
 
 export const supportedLanguages = ["en", "ru"] as const;
 
@@ -9,7 +11,9 @@ export const pageSlugs = [
     "rules",
     "units",
     "abilities",
+    "spells",
     "artifacts",
+    "research",
     "token",
     "patches",
     "faq",
@@ -66,8 +70,7 @@ export const content = {
     en: {
         meta: {
             title: "Heroes of Crypto - Free Browser Strategy Game",
-            description:
-                "Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, 44 units, and 74 abilities. Free to play, no download.",
+            description: `Play Heroes of Crypto in your browser: fast tactical battles, 4 factions, ${unitCount} units, and ${abilityCount} abilities. Free to play, no download.`,
         },
         ui: {
             language: "Language",
@@ -80,8 +83,10 @@ export const content = {
             game: "Game",
             rules: "Rules",
             blog: "Blog",
+            research: "Research",
             units: "Units",
             abilities: "Abilities",
+            spells: "Spells",
             artifacts: "Artifacts",
             token: "Token",
             patches: "Patches",
@@ -89,6 +94,7 @@ export const content = {
             contact: "Contact",
             login: "Login",
             logout: "Log out",
+            profile: "Profile",
             proposal: "Proposal",
             terms: "Terms",
             privacy: "Privacy",
@@ -117,6 +123,47 @@ export const content = {
             statGames: "Games",
             guestPrompt: "You're playing as a guest.",
             guestPromptCta: "Log in to save ranked progress",
+            fullProfileCta: "View full profile",
+        },
+        profile: {
+            title: "Your profile",
+            subtitle: "Ranked record, favourite armies, and recent matches.",
+            guestTitle: "Sign in to see your profile",
+            guestBody: "Your ranked stats, favourite combos, and match history live here once you log in.",
+            guestCta: "Log in",
+            loading: "Loading your profile…",
+            errorTitle: "Couldn't load your profile",
+            errorBody: "Something went wrong fetching your stats. Please try again.",
+            retry: "Retry",
+            emptyTitle: "No ranked games yet",
+            emptyBody: "Play a ranked match to start building your stats.",
+            playCta: "Play ranked",
+            lastLoginPrefix: "Last seen",
+            statWins: "Wins",
+            statLosses: "Losses",
+            statWinRate: "Win rate",
+            statGames: "Games",
+            statCurrentStreak: "Current streak",
+            statBestStreak: "Best streak",
+            sectionOverview: "Overview",
+            sectionFactions: "Factions",
+            sectionCreatures: "Creatures",
+            sectionCombos: "Favourite combos",
+            sectionMatches: "Recent matches",
+            gamesLabel: "games",
+            resultWin: "Win",
+            resultLoss: "Loss",
+            resultAbandoned: "Abandoned",
+            versus: "vs",
+            streakWin: "{}W streak",
+            streakLoss: "{}L streak",
+            streakNone: "No streak",
+            agoNow: "just now",
+            agoMinute: "m",
+            agoHour: "h",
+            agoDay: "d",
+            agoMonth: "mo",
+            agoYear: "y",
         },
         auth: {
             loginTitle: "Login",
@@ -186,11 +233,22 @@ export const content = {
                 description:
                     "Every unit ability in Heroes of Crypto — icon, what it does, and which units carry it. Pulled straight from the game data, so it always matches the live roster.",
             },
+            spells: {
+                title: "Spells",
+                eyebrow: "Spell codex",
+                description: `All ${spellsCount} spells in Heroes of Crypto — the scrolls units cast from their spell books, the augments you pick before the fight, and every buff and debuff the board can apply. Read straight from the game data, so it always matches the live rules.`,
+            },
             artifacts: {
                 title: "Artifacts",
                 eyebrow: "Artifact codex",
                 description:
                     "Army-wide artifacts you draft in the pick phase — one Tier 1 and one Tier 2 per team. Every artifact, its icon and exactly what it does for your whole army.",
+            },
+            research: {
+                title: "Research",
+                eyebrow: "AI research",
+                description:
+                    "Explore source-audited Heroes of Crypto research on game AI, simulation, tactical decisions, tournament evidence, and engine performance.",
             },
             token: {
                 title: "$HOCAI Token",
@@ -221,7 +279,8 @@ export const content = {
             "privacy-policy": {
                 title: "Privacy Policy",
                 eyebrow: "Legal",
-                description: "What data Heroes of Crypto collects and how your account and gameplay information is handled.",
+                description:
+                    "What data Heroes of Crypto collects and how your account and gameplay information is handled.",
             },
         },
         hero: {
@@ -235,8 +294,8 @@ export const content = {
             highlights: ["No download", "No wallet gate", "Ranked or sandbox beta"],
             stats: [
                 { value: "4", label: "Factions" },
-                { value: "44", label: "Combat units" },
-                { value: "74", label: "Abilities" },
+                { value: String(unitCount), label: "Combat units" },
+                { value: String(abilityCount), label: "Abilities" },
             ],
         },
         socials: [
@@ -272,7 +331,7 @@ export const content = {
         roster: {
             eyebrow: "What's in the game",
             title: "Every army tells a different story",
-            body: "Four factions, 44 units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.",
+            body: `Four factions, ${unitCount} units, and layer after layer of strategy: faction bonuses, upgradeable placement, magic, auras, and maps that shrink as the fight wears on. No two battles play the same.`,
             points: ["Faction bonuses", "Upgradeable placement", "Magic and aura effects", "Shrinking maps"],
         },
         units: {
@@ -284,6 +343,7 @@ export const content = {
             noAbilities: "No special abilities.",
             stats: {
                 hp: "Health",
+                experience: "Experience",
                 attack: "Attack",
                 damage: "Damage",
                 armor: "Armor",
@@ -293,6 +353,7 @@ export const content = {
                 magicResist: "Magic resist",
                 attackType: "Attack type",
                 movement: "Movement",
+                size: "Size",
                 level: "Level",
                 faction: "Faction",
             },
@@ -580,8 +641,7 @@ export const content = {
     ru: {
         meta: {
             title: "Heroes of Crypto - браузерная стратегия",
-            description:
-                "Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, 44 юнита и 74 способности. Бесплатно и без скачивания.",
+            description: `Играйте в Heroes of Crypto в браузере: быстрые тактические бои, 4 фракции, ${unitCount} юнитов и ${abilityCount} способностей. Бесплатно и без скачивания.`,
         },
         ui: {
             language: "Язык",
@@ -594,8 +654,10 @@ export const content = {
             game: "Игра",
             rules: "Правила",
             blog: "Блог",
+            research: "Исследования",
             units: "Юниты",
             abilities: "Способности",
+            spells: "Заклинания",
             artifacts: "Артефакты",
             token: "Токен",
             patches: "Патчи",
@@ -603,6 +665,7 @@ export const content = {
             contact: "Контакты",
             login: "Войти",
             logout: "Выйти",
+            profile: "Профиль",
             proposal: "Документ",
             terms: "Условия",
             privacy: "Приватность",
@@ -631,6 +694,47 @@ export const content = {
             statGames: "Игры",
             guestPrompt: "Вы играете как гость.",
             guestPromptCta: "Войдите, чтобы сохранять прогресс",
+            fullProfileCta: "Открыть профиль",
+        },
+        profile: {
+            title: "Ваш профиль",
+            subtitle: "Рейтинговая статистика, любимые армии и недавние матчи.",
+            guestTitle: "Войдите, чтобы увидеть профиль",
+            guestBody: "Ваша рейтинговая статистика, любимые комбинации и история матчей появятся здесь после входа.",
+            guestCta: "Войти",
+            loading: "Загрузка профиля…",
+            errorTitle: "Не удалось загрузить профиль",
+            errorBody: "Что-то пошло не так при загрузке статистики. Попробуйте ещё раз.",
+            retry: "Повторить",
+            emptyTitle: "Пока нет рейтинговых игр",
+            emptyBody: "Сыграйте рейтинговый матч, чтобы начать собирать статистику.",
+            playCta: "Играть в рейтинге",
+            lastLoginPrefix: "Был(а) в сети",
+            statWins: "Победы",
+            statLosses: "Поражения",
+            statWinRate: "Винрейт",
+            statGames: "Игры",
+            statCurrentStreak: "Текущая серия",
+            statBestStreak: "Лучшая серия",
+            sectionOverview: "Обзор",
+            sectionFactions: "Фракции",
+            sectionCreatures: "Существа",
+            sectionCombos: "Любимые комбинации",
+            sectionMatches: "Недавние матчи",
+            gamesLabel: "игр",
+            resultWin: "Победа",
+            resultLoss: "Поражение",
+            resultAbandoned: "Сдача",
+            versus: "против",
+            streakWin: "{} побед подряд",
+            streakLoss: "{} поражений подряд",
+            streakNone: "Нет серии",
+            agoNow: "только что",
+            agoMinute: "м",
+            agoHour: "ч",
+            agoDay: "д",
+            agoMonth: "мес",
+            agoYear: "г",
         },
         auth: {
             loginTitle: "Вход",
@@ -700,11 +804,22 @@ export const content = {
                 description:
                     "Все способности юнитов Heroes of Crypto — иконка, описание и носители. Берутся напрямую из игровых данных, поэтому всегда соответствуют актуальному ростеру.",
             },
+            spells: {
+                title: "Заклинания",
+                eyebrow: "Справочник заклинаний",
+                description: `Все ${spellsCount} заклинаний Heroes of Crypto — свитки из книг заклинаний юнитов, аугменты, которые выбираются до боя, и все баффы и дебаффы, которые может наложить поле. Берутся напрямую из игровых данных, поэтому всегда соответствуют актуальным правилам.`,
+            },
             artifacts: {
                 title: "Артефакты",
                 eyebrow: "Справочник артефактов",
                 description:
                     "Армейские артефакты, которые вы выбираете в фазе пика — по одному 1-го и 2-го уровня на команду. Все артефакты, их иконки и точное действие на всю вашу армию.",
+            },
+            research: {
+                title: "Исследования",
+                eyebrow: "Исследования ИИ",
+                description:
+                    "Исследования Heroes of Crypto об игровом ИИ, симуляциях, тактических решениях, турнирных данных и производительности движка.",
             },
             token: {
                 title: "Токен $HOCAI",
@@ -749,8 +864,8 @@ export const content = {
             highlights: ["Без скачивания", "Без привязки кошелька", "Рейтинг или песочница"],
             stats: [
                 { value: "4", label: "Фракции" },
-                { value: "44", label: "Боевых юнита" },
-                { value: "74", label: "Способности" },
+                { value: String(unitCount), label: "Боевых юнитов" },
+                { value: String(abilityCount), label: "Способности" },
             ],
         },
         socials: [
@@ -798,6 +913,7 @@ export const content = {
             noAbilities: "Нет особых способностей.",
             stats: {
                 hp: "Здоровье",
+                experience: "Опыт",
                 attack: "Атака",
                 damage: "Урон",
                 armor: "Броня",
@@ -807,6 +923,7 @@ export const content = {
                 magicResist: "Маг. сопр.",
                 attackType: "Тип атаки",
                 movement: "Перемещение",
+                size: "Размер",
                 level: "Уровень",
                 faction: "Фракция",
             },

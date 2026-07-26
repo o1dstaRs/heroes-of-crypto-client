@@ -32,7 +32,10 @@ const copy = content[lang];
                         <div><dt>{copy.play.statLosses}</dt><dd data-play-losses>0</dd></div>
                         <div><dt>{copy.play.statGames}</dt><dd data-play-games>0</dd></div>
                     </dl>
-                    <button type="button" class="play-account-logout" data-play-logout>{copy.nav.logout}</button>
+                    <div class="play-account-actions">
+                        <a class="play-account-profile" href="/profile/">{copy.play.fullProfileCta} →</a>
+                        <button type="button" class="play-account-logout" data-play-logout>{copy.nav.logout}</button>
+                    </div>
                 </div>
                 <p class="play-account-guest" data-play-guest hidden>
                     {copy.play.guestPrompt} <a href="/auth/login/">{copy.play.guestPromptCta}</a>
@@ -271,6 +274,19 @@ const copy = content[lang];
     .play-account-logout:hover {
         border-color: rgba(242, 199, 93, 0.56);
         background: rgba(242, 199, 93, 0.1);
+    }
+
+    .play-account-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .play-account-profile {
+        color: var(--gold, #f2c75d);
+        font-weight: 700;
+        font-size: 0.9rem;
     }
 
     .play-account-guest {

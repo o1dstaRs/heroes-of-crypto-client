@@ -11,7 +11,7 @@ import {
     type IWeightedRoute,
 } from "@heroesofcrypto/common";
 
-import { AIController, type IAIContext } from "./AIController";
+import { AIController, cloneAIKnownPaths, type IAIContext } from "./AIController";
 import type { LocalModelOpponentConfig } from "./LocalModelOpponent";
 import type { RenderableUnit } from "./RenderableUnit";
 import { SceneSettings } from "./SceneSettings";
@@ -59,6 +59,25 @@ const createMoveAndAttackAction = (cellToMove: HoCMath.XY, cellToAttack: HoCMath
 };
 
 describe("AIController", () => {
+    it("deep-copies shared decision paths at the mutable browser state boundary", () => {
+        const source = createMoveAction({ x: 4, y: 5 }).currentActiveKnownPaths();
+        const copy = cloneAIKnownPaths(source)!;
+        const key = (4 << 4) | 5;
+
+        expect(copy).toEqual(source);
+        expect(copy).not.toBe(source);
+        expect(copy.get(key)).not.toBe(source.get(key));
+        expect(copy.get(key)?.[0]).not.toBe(source.get(key)?.[0]);
+        expect(copy.get(key)?.[0]?.cell).not.toBe(source.get(key)?.[0]?.cell);
+        expect(copy.get(key)?.[0]?.route).not.toBe(source.get(key)?.[0]?.route);
+        expect(copy.get(key)?.[0]?.route[0]).not.toBe(source.get(key)?.[0]?.route[0]);
+
+        copy.get(key)![0].cell.x = 99;
+        copy.get(key)![0].route[0].y = 88;
+        expect(source.get(key)?.[0]?.cell.x).toBe(4);
+        expect(source.get(key)?.[0]?.route[0].y).toBe(1);
+    });
+
     it("uses the resolved ranked model team instead of the raw URL team", () => {
         const unit = createUnit("human-unit-1", TeamVals.LOWER);
         const context = {
@@ -363,11 +382,12 @@ describe("AIController", () => {
             expect(decideTurn).toHaveBeenCalledTimes(1);
             const [decidedUnit, decidedCtx] = decideTurn.mock.calls[0] as unknown as [
                 RenderableUnit,
-                { grid: unknown; matrix: unknown },
+                { grid: unknown; matrix: unknown; decisionOrigin?: "root" | "rollout" },
             ];
             expect(decidedUnit).toBe(unit);
             expect(decidedCtx.grid).toBe(grid);
             expect(decidedCtx.matrix).toBe(matrix);
+            expect(decidedCtx.decisionOrigin).toBe("root");
             // (iii) wait_turn is applied via applyGameAction and the AI lock is released (no animation).
             expect(appliedActions).toEqual([{ type: "wait_turn", unitId: unit.getId() }]);
             expect(controller.performingAction).toBe(false);
@@ -625,6 +645,319 @@ describe("AIController", () => {
             // burn the turn as a "skips turn" (the sim's advance-then-defend recovery, ported to the client).
             expect(fallback).toHaveBeenCalledTimes(1);
             expect(appliedActions.some((a) => a.type === "end_turn")).toBe(false);
+        });
+
+        // --- full-sequence execution (client mirror of battle_engine's apply loop) --------------------
+        // The sim applies EVERY decided action in order; the client previously executed only the first
+        // productive action, silently dropping e.g. the cast of a [move_unit, cast_spell] plan (memory
+        // client-sim-action-divergence). These tests pin the generalized sequence executor.
+
+        const seqMovePath: HoCMath.XY[] = [
+            { x: 1, y: 1 },
+            { x: 2, y: 2 },
+        ];
+        const moveCastPlan = (unitId: string): GameAction[] =>
+            [
+                { type: "move_unit", unitId, path: seqMovePath, targetCells: [{ x: 2, y: 2 }] },
+                { type: "cast_spell", casterId: unitId, spellName: "Heal", targetId: unitId },
+            ] as GameAction[];
+
+        it("executes a [move_unit, cast_spell] plan fully in the authoritative branch (move submit, then cast, then end_turn)", async () => {
+            const unit = createUnit();
+            stubStrategy(() => moveCastPlan(unit.getId()));
+            const appliedActions: GameAction[] = [];
+            const executeMoveSequence = mock(() => true);
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                // Ranked: the bare move is deferred (submitted, no onComplete); dispatch is in-order, so
+                // the cast lands right behind it while the unit is still active server-side.
+                isAuthoritativeAction: (action: GameAction) => action.type === "move_unit",
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // The move is submitted via executeMoveSequence WITH its replayAction (a real move_unit —
+            // unlike the melee fold, the cast carries no path, so the move must be its own submit)...
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect(moveArgs[1]).toEqual(seqMovePath);
+            expect((moveArgs[4] as GameAction | undefined)?.type).toBe("move_unit");
+            expect(moveArgs[6]).toBe(true); // reserve the server continuation for the queued cast
+            // ...then the cast is applied (previously DROPPED — the unit walked and never cast), then the
+            // turn is closed so the unit never dangles into a server timeout.
+            expect(appliedActions.map((a) => a.type)).toEqual(["cast_spell", "end_turn"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("executes an authoritative [move_unit, range_attack] in order and preserves bounded aim intent", async () => {
+            const unit = createUnit();
+            const aimCell = { x: 5, y: 6 };
+            const target = {
+                getId: () => "target-1",
+                getTeam: () => TeamVals.UPPER,
+                getCells: () => [aimCell],
+                hasBuffActive: () => false,
+            };
+            stubStrategy(
+                () =>
+                    [
+                        { type: "move_unit", unitId: unit.getId(), path: seqMovePath },
+                        {
+                            type: "range_attack",
+                            attackerId: unit.getId(),
+                            targetId: target.getId(),
+                            aimCell,
+                            aimSide: 0,
+                        },
+                    ] as GameAction[],
+            );
+            const dispatchOrder: GameAction["type"][] = [];
+            const executeMoveSequence = mock((...args: unknown[]) => {
+                dispatchOrder.push((args[4] as GameAction).type);
+                return true;
+            });
+            const executeAttackSequence = mock(async (...args: unknown[]) => {
+                dispatchOrder.push((args[3] as GameAction).type);
+                return true;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                executeAttackSequence,
+                // A ranked move submit does not fire its local animation callback. The continuation flag
+                // keeps the moved unit active so the queued authoritative shot can follow immediately.
+                isAuthoritativeAction: (action: GameAction) =>
+                    action.type === "move_unit" || action.type === "range_attack",
+                applyGameAction: (action: GameAction) => {
+                    dispatchOrder.push(action.type);
+                    return true;
+                },
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([[target.getId(), target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect((moveArgs[4] as GameAction).type).toBe("move_unit");
+            expect(moveArgs[6]).toBe(true);
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            const rangeArgs = executeAttackSequence.mock.calls[0] as unknown as unknown[];
+            expect(rangeArgs[3]).toEqual({
+                type: "range_attack",
+                attackerId: unit.getId(),
+                targetId: target.getId(),
+                aimCell,
+                // Side zero is deliberately pinned: it must not disappear through a truthiness check.
+                aimSide: 0,
+            });
+            expect(dispatchOrder).toEqual(["move_unit", "select_attack_type", "range_attack"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("executes a [move_unit, area_throw_attack] authoritative plan under the same continuation", async () => {
+            const unit = createUnit();
+            const executeMoveSequence = mock(() => true);
+            const appliedActions: GameAction[] = [];
+            stubStrategy(
+                () =>
+                    [
+                        { type: "move_unit", unitId: unit.getId(), path: seqMovePath },
+                        { type: "area_throw_attack", attackerId: unit.getId(), targetCell: { x: 5, y: 6 } },
+                    ] as GameAction[],
+            );
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                isAuthoritativeAction: (action: GameAction) => action.type === "move_unit",
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect(moveArgs[6]).toBe(true);
+            expect(appliedActions.map((action) => action.type)).toEqual([
+                "select_attack_type",
+                "area_throw_attack",
+                "end_turn",
+            ]);
+        });
+
+        it("executes a [move_unit, cast_spell] plan fully in the sandbox branch (cast fires after the walk completes)", async () => {
+            const unit = createUnit();
+            stubStrategy(() => moveCastPlan(unit.getId()));
+            const appliedActions: GameAction[] = [];
+            let castAppliedBeforeMoveCompleted = false;
+            let moveCompleted = false;
+            const executeMoveSequence = mock((..._args: unknown[]) => {
+                const onComplete = _args[3] as (() => void) | undefined;
+                moveCompleted = true;
+                void onComplete?.();
+                return true;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                isAuthoritativeAction: () => false,
+                applyGameAction: (action: GameAction) => {
+                    if (action.type === "cast_spell" && !moveCompleted) {
+                        castAppliedBeforeMoveCompleted = true;
+                    }
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            // The intermediate move passes its OWN replayAction (arg 5) — it is a real recorded move, not
+            // just an animated approach (only the melee fold animates without submitting).
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect((moveArgs[4] as GameAction | undefined)?.type).toBe("move_unit");
+            expect(castAppliedBeforeMoveCompleted).toBe(false);
+            expect(appliedActions.map((a) => a.type)).toEqual(["cast_spell", "end_turn"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("stops a sequence gracefully (end_turn, no findTarget re-decide) when the follow-up is declined AFTER the move landed", async () => {
+            const unit = createUnit();
+            stubStrategy(() => moveCastPlan(unit.getId()));
+            const appliedActions: GameAction[] = [];
+            const executeMoveSequence = mock((..._args: unknown[]) => {
+                const onComplete = _args[3] as (() => void) | undefined;
+                void onComplete?.();
+                return true;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence,
+                isAuthoritativeAction: () => false,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return action.type !== "cast_spell"; // the cast is DECLINED after the move landed
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            const fallback = mock(async () => undefined);
+            (controller as unknown as { performFindTargetAction: typeof fallback }).performFindTargetAction = fallback;
+
+            await controller.performAction(true);
+
+            // The board already changed (the move landed) — re-deciding would re-propose actions against a
+            // half-executed plan (the reject-storm/desync class in memory ranked-skip-rejections). The turn
+            // is closed cleanly instead, mirroring the sim (a landed move + declined follow-up = end_turn).
+            expect(fallback).not.toHaveBeenCalled();
+            expect(appliedActions.map((a) => a.type)).toEqual(["cast_spell", "end_turn"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("falls back to findTarget when the sequence's opening move cannot start (nothing landed yet)", async () => {
+            const unit = createUnit();
+            stubStrategy(() => moveCastPlan(unit.getId()));
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeMoveSequence: mock(() => false),
+                isAuthoritativeAction: () => false,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            const fallback = mock(async () => undefined);
+            (controller as unknown as { performFindTargetAction: typeof fallback }).performFindTargetAction = fallback;
+
+            await controller.performAction(true);
+
+            // Nothing landed, so the shipped recovery ladder still applies: a different algorithm gets a
+            // real second attempt before the escape-hatch skip.
+            expect(fallback).toHaveBeenCalledTimes(1);
+            expect(appliedActions.some((a) => a.type === "cast_spell")).toBe(false);
+        });
+
+        it("executes an area_throw_attack plan (RANGE stance first, throw, end_turn) — previously no client case existed", async () => {
+            const unit = createUnit(); // stance reads MELEE, so the RANGE select must be applied first
+            const targetCell = { x: 5, y: 6 };
+            stubStrategy(
+                () =>
+                    [
+                        { type: "select_attack_type", unitId: unit.getId(), attackType: AttackVals.RANGE },
+                        { type: "area_throw_attack", attackerId: unit.getId(), targetCell },
+                    ] as GameAction[],
+            );
+            const appliedActions: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                applyGameAction: (action: GameAction) => {
+                    appliedActions.push(action);
+                    return true;
+                },
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            // The engine gates the throw on the RANGE stance (action_engine.areaThrowAttack), so the stance
+            // select comes first, then the throw itself, then the turn closes.
+            expect(appliedActions.map((a) => a.type)).toEqual(["select_attack_type", "area_throw_attack", "end_turn"]);
+            const throwAction = appliedActions[1] as Extract<GameAction, { type: "area_throw_attack" }>;
+            expect(throwAction.targetCell).toEqual(targetCell);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("recovers via findTarget when the area throw is declined", async () => {
+            const unit = createUnit();
+            stubStrategy(
+                () =>
+                    [
+                        { type: "area_throw_attack", attackerId: unit.getId(), targetCell: { x: 5, y: 6 } },
+                    ] as GameAction[],
+            );
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                applyGameAction: (action: GameAction) => action.type !== "area_throw_attack",
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            const fallback = mock(async () => undefined);
+            (controller as unknown as { performFindTargetAction: typeof fallback }).performFindTargetAction = fallback;
+
+            await controller.performAction(true);
+
+            expect(fallback).toHaveBeenCalledTimes(1);
         });
 
         it("optimistically marks the unit on-hourglass when it submits a wait so canHourglass stops re-emitting wait", async () => {

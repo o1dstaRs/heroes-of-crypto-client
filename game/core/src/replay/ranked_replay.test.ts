@@ -85,6 +85,8 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     latestSequence,
     serverTimeMs: 2000,
     placementDeadlineMs: 0,
+    placementStage: 1,
+    placementSplit: false,
     currentTurnStartMs: 0,
     currentTurnEndMs: 0,
     units: [],

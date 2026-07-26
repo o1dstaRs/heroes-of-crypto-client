@@ -1,14 +1,39 @@
 import { describe, expect, test } from "bun:test";
 
-import { CreatureVals, TeamVals } from "@heroesofcrypto/common";
+import {
+    AbilityFactory,
+    CreatureVals,
+    EffectFactory,
+    FightStateManager,
+    Grid,
+    GridConstants,
+    GridMath,
+    GridSettings,
+    GridVals,
+    TeamVals,
+    Unit,
+    UnitVals,
+    UnitsHolder,
+} from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import {
     authoritativeSnapshotToSandboxSceneState,
+    applyRankedUnitMechanicalEffects,
+    applyRankedUnitSnapshotStats,
+    rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
+    multiHitSceneLogLines,
+    restoreRankedStepsMoraleMultiplier,
+    revealedOpponentRowScale,
+    revealedOpponentRowX,
+    revealedOpponentRowY,
+    shouldPublishRankedFinish,
 } from "./RankedPlayScene";
+import { RenderableUnit } from "./RenderableUnit";
+import { shouldDisplayAppliedBuff } from "../pixi/PixiScene";
 
 const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUnitState => ({
     id: "unit",
@@ -52,6 +77,65 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
 });
 
 describe("ranked placement scene state", () => {
+    test("restores the server movement penalty used by ranked AI pathfinding", () => {
+        const manager = FightStateManager.getInstance();
+        manager.reset();
+        const fightProperties = manager.getFightProperties();
+
+        try {
+            expect(restoreRankedStepsMoraleMultiplier(0.15)).toBe(true);
+            expect(fightProperties.getStepsMoraleMultiplier()).toBeCloseTo(0.15);
+            expect(restoreRankedStepsMoraleMultiplier(0.15)).toBe(false);
+
+            // An older snapshot omits the field; it must clear any value retained from a previous game.
+            expect(restoreRankedStepsMoraleMultiplier(undefined)).toBe(true);
+            expect(fightProperties.getStepsMoraleMultiplier()).toBe(0);
+        } finally {
+            manager.reset();
+        }
+    });
+
+    test("publishes terminal stats when finishFight retained a pre-final ranked report", () => {
+        const terminalSnapshot = {
+            ...placementSnapshot([]),
+            phase: 3,
+            fightStarted: true,
+            fightFinished: true,
+        };
+        const preFinalStats = {
+            winner: TeamVals.NO_TEAM,
+            series: [],
+            lowerDeaths: [],
+            upperDeaths: [],
+            lowerStartTotal: 10,
+            upperStartTotal: 12,
+            lowerKilledTotal: 0,
+            upperKilledTotal: 0,
+            totalLaps: 1,
+        };
+        const visibleStateAfterFinishEvent = {
+            hasFinished: true,
+            teamWin: TeamVals.UPPER,
+            fightStats: preFinalStats,
+        };
+
+        // A terminal snapshot must replace these pre-final stats even though their roster totals are
+        // populated. The results overlay requires fightStats.winner to match teamWin.
+        expect(shouldPublishRankedFinish(terminalSnapshot, visibleStateAfterFinishEvent)).toBe(true);
+        expect(
+            shouldPublishRankedFinish(terminalSnapshot, {
+                ...visibleStateAfterFinishEvent,
+                fightStats: { ...preFinalStats, winner: TeamVals.UPPER },
+            }),
+        ).toBe(false);
+        expect(
+            shouldPublishRankedFinish(terminalSnapshot, {
+                ...visibleStateAfterFinishEvent,
+                fightStats: { ...preFinalStats, winner: TeamVals.LOWER },
+            }),
+        ).toBe(true);
+    });
+
     test("carries server-computed morale and speed onto reconstructed units", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([unitState({ id: "own", team: TeamVals.LOWER, morale: 9, speed: 7 })]),
@@ -96,6 +180,230 @@ describe("ranked placement scene state", () => {
         expect(props?.applied_debuffs_descriptions).toEqual([
             "Next attack with Deep Wounds ability will deal 12% more damage.",
         ]);
+        // All four applied_debuffs* arrays MUST be equal length: deleteBuff/deleteDebuff only prune them
+        // when the lengths match, so a desynced powers array made artifact-debuff cleanup silently no-op
+        // and every refreshUnits() re-appended the cursed-artifact marker (the "million debuffs" runaway).
+        expect(props?.applied_debuffs_powers).toEqual([0]);
+        expect(props?.applied_debuffs_powers?.length).toBe(props?.applied_debuffs?.length);
+    });
+
+    test("mechanically applies and clears ranked Break before Angelic Host refresh", () => {
+        FightStateManager.getInstance().reset();
+        const angelCell = { x: 2, y: 2 };
+        const flyerCell = { x: 10, y: 8 };
+        const snapshotWithBreak = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    id: "angel",
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    placed: true,
+                    baseCell: angelCell,
+                    cells: [angelCell],
+                    debuffs: ["Break", "Deep Wounds"],
+                    debuffLaps: [1, 3],
+                    debuffDescriptions: [
+                        "Disables all the unit's abilities for one turn.",
+                        "Next attack with Deep Wounds ability will deal 12% more damage.",
+                    ],
+                }),
+                unitState({
+                    id: "flyer",
+                    name: "Griffin",
+                    creatureId: CreatureVals.GRIFFIN,
+                    placed: true,
+                    baseCell: flyerCell,
+                    cells: [flyerCell],
+                }),
+            ]),
+            phase: 2,
+            fightStarted: true,
+            currentLap: 1,
+        });
+        const angelState = snapshotWithBreak.units.find((state) => state.properties.id === "angel")!;
+        const flyerState = snapshotWithBreak.units.find((state) => state.properties.id === "flyer")!;
+
+        // Break is the sole mechanical effect reconstructed from ranked's combined debuff/effect list;
+        // unrelated effects remain display-only and their parallel metadata stays aligned.
+        expect(angelState.mechanicalBreakLaps).toBe(1);
+        expect(angelState.properties.applied_debuffs).toEqual(["Deep Wounds"]);
+        expect(angelState.properties.applied_debuffs_laps).toEqual([3]);
+        expect(angelState.properties.applied_debuffs_descriptions).toEqual([
+            "Next attack with Deep Wounds ability will deal 12% more damage.",
+        ]);
+
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const grid = new Grid(gridSettings, GridVals.NORMAL);
+        const unitsHolder = new UnitsHolder(grid);
+        const makeRenderable = (properties: typeof angelState.properties): RenderableUnit => {
+            const effectFactory = new EffectFactory();
+            return RenderableUnit.fromBase(
+                Unit.createUnit(
+                    structuredClone(properties),
+                    gridSettings,
+                    properties.team,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effectFactory),
+                    effectFactory,
+                    false,
+                ),
+                undefined as never,
+            );
+        };
+        const place = (unit: RenderableUnit, cell: { x: number; y: number }): void => {
+            const position = GridMath.getPositionForCell(
+                cell,
+                gridSettings.getMinX(),
+                gridSettings.getStep(),
+                gridSettings.getHalfStep(),
+            );
+            unit.setPosition(position.x, position.y);
+            grid.occupyCell(
+                cell,
+                unit.getId(),
+                unit.getTeam(),
+                unit.getAttackRange(),
+                unit.hasAbilityActive("Made of Fire"),
+                unit.hasAbilityActive("Made of Water"),
+            );
+            unitsHolder.addUnit(unit);
+        };
+        const angel = makeRenderable(angelState.properties);
+        const flyer = makeRenderable(flyerState.properties);
+        place(angel, angelCell);
+        place(flyer, flyerCell);
+
+        expect(applyRankedUnitMechanicalEffects(angel, angelState)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        const stepsWhileBroken = flyer.getSteps();
+        expect(angel.hasEffectActive("Break")).toBe(true);
+        expect(angel.hasAbilityActive("Angelic Host")).toBe(false);
+        expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
+
+        const stateWithoutBreak = { ...angelState, mechanicalBreakLaps: undefined };
+        expect(applyRankedUnitMechanicalEffects(angel, stateWithoutBreak)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        expect(angel.hasEffectActive("Break")).toBe(false);
+        expect(angel.hasAbilityActive("Angelic Host")).toBe(true);
+        expect(flyer.hasBuffActive("Angelic Host")).toBe(true);
+        expect(flyer.getSteps()).toBe(stepsWhileBroken + 1);
+
+        // A later same-board snapshot can re-apply Break and immediately remove the movement preview bonus.
+        expect(applyRankedUnitMechanicalEffects(angel, angelState)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
+        expect(flyer.getSteps()).toBe(stepsWhileBroken);
+    });
+
+    test("collapses the Visible debuff the ranked seam applies on top of the snapshot's own entry", () => {
+        FightStateManager.getInstance().reset();
+        const tigerCell = { x: 4, y: 4 };
+        const enemyCell = { x: 5, y: 4 };
+        const state = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    id: "tiger",
+                    name: "White Tiger",
+                    creatureId: CreatureVals.WHITE_TIGER,
+                    team: TeamVals.LOWER,
+                    placed: true,
+                    baseCell: tigerCell,
+                    cells: [tigerCell],
+                    // The server ships its engine's own applied_debuffs verbatim, so a White Tiger with an
+                    // enemy inside its Disguise Aura arrives already carrying Visible.
+                    debuffs: ["Visible"],
+                    debuffLaps: [1],
+                    debuffDescriptions: ["This unit is visible."],
+                }),
+                unitState({
+                    id: "enemy",
+                    team: TeamVals.UPPER,
+                    placed: true,
+                    baseCell: enemyCell,
+                    cells: [enemyCell],
+                }),
+            ]),
+            phase: 2,
+            fightStarted: true,
+            currentLap: 1,
+        });
+
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const grid = new Grid(gridSettings, GridVals.NORMAL);
+        const unitsHolder = new UnitsHolder(grid);
+        const place = (id: string, cell: { x: number; y: number }): RenderableUnit => {
+            const properties = state.units.find((unit) => unit.properties.id === id)!.properties;
+            const effectFactory = new EffectFactory();
+            const unit = RenderableUnit.fromBase(
+                Unit.createUnit(
+                    structuredClone(properties),
+                    gridSettings,
+                    properties.team,
+                    UnitVals.CREATURE,
+                    new AbilityFactory(effectFactory),
+                    effectFactory,
+                    false,
+                ),
+                undefined as never,
+            );
+            const position = GridMath.getPositionForCell(
+                cell,
+                gridSettings.getMinX(),
+                gridSettings.getStep(),
+                gridSettings.getHalfStep(),
+            );
+            unit.setPosition(position.x, position.y);
+            grid.occupyCell(cell, unit.getId(), unit.getTeam(), unit.getAttackRange(), false, false);
+            unitsHolder.addUnit(unit);
+            return unit;
+        };
+        const tiger = place("tiger", tigerCell);
+        place("enemy", enemyCell);
+
+        expect(tiger.getUnitProperties().applied_debuffs).toEqual(["Visible"]);
+
+        unitsHolder.refreshAuraEffectsForAllUnits();
+        unitsHolder.refreshStackPowerForAllUnits();
+
+        // Reproduces the report: ranked fills the DISPLAY arrays but leaves this.debuffs empty, so common's
+        // "if (!u.hasDebuffActive('Visible'))" guard sees nothing and appends a SECOND entry — the sidebar
+        // then lists Visible twice. If this expectation ever drops to 1, common stopped diverging and the
+        // collapse below is redundant rather than wrong.
+        expect(tiger.getUnitProperties().applied_debuffs.filter((name) => name === "Visible")).toHaveLength(2);
+
+        expect(tiger.dropDuplicateAppliedDisplayEntries()).toBe(true);
+        const properties = tiger.getUnitProperties();
+        expect(properties.applied_debuffs.filter((name) => name === "Visible")).toHaveLength(1);
+        expect(properties.applied_debuffs_laps).toHaveLength(properties.applied_debuffs.length);
+        expect(properties.applied_debuffs_descriptions).toHaveLength(properties.applied_debuffs.length);
+        expect(properties.applied_debuffs_powers).toHaveLength(properties.applied_debuffs.length);
+        // The kept entry is the snapshot's, so the HUD keeps the server's laps/description.
+        expect(properties.applied_debuffs_descriptions[properties.applied_debuffs.indexOf("Visible")]).toBe(
+            "This unit is visible.",
+        );
+        expect(tiger.hasDebuffActive("Visible")).toBe(true);
+    });
+
+    test("suppresses only the redundant Angelic Host beneficiary marker on its active provider", () => {
+        expect(shouldDisplayAppliedBuff("Angelic Host", ["Angelic Host"])).toBe(false);
+        expect(shouldDisplayAppliedBuff("Angelic Host", [])).toBe(true);
+        expect(shouldDisplayAppliedBuff("Morale", ["Morale"])).toBe(true);
     });
 
     test("maps 1-based ranged shots, falling back to base when the field is absent", () => {
@@ -156,6 +464,321 @@ describe("ranked placement scene state", () => {
         });
     });
 
+    test("drops a spent ability the snapshot no longer lists (Angel's Resurrection), keeping the rest", () => {
+        // Ranked rebuilds units from the base creature config, which always lists Resurrection. After the
+        // Angel resurrects, the server drops it from the unit's live abilities — the client must honour that
+        // (and, since Resurrection's spell is ability-derived, this also clears it from the spellbook).
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "angel",
+                    team: TeamVals.LOWER,
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    abilities: ["Arrows Wingshield Aura", "Angelic Host"], // Resurrection already spent
+                }),
+            ]),
+        );
+
+        const angel = state.units.find((unit) => unit.properties.id === "angel");
+        expect(angel?.properties.abilities).toContain("Arrows Wingshield Aura");
+        expect(angel?.properties.abilities).toContain("Angelic Host");
+        expect(angel?.properties.abilities).not.toContain("Resurrection");
+    });
+
+    test("keeps all base abilities when the snapshot omits the live ability list (older server)", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "angel", team: TeamVals.LOWER, name: "Angel", creatureId: CreatureVals.ANGEL }),
+            ]),
+        );
+
+        const angel = state.units.find((unit) => unit.properties.id === "angel");
+        expect(angel?.properties.abilities).toContain("Resurrection");
+    });
+
+    test("reconstructs a runtime-granted ability that is absent from the creature's base config", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "assimilator",
+                    abilities: ["Backstab"],
+                }),
+            ]),
+        );
+
+        const properties = state.units.find((unit) => unit.properties.id === "assimilator")?.properties;
+        expect(properties?.abilities).toEqual(["Backstab"]);
+        expect(properties?.abilities_descriptions[0]).toContain("25% higher damage");
+        expect(properties?.abilities_stack_powered).toEqual([true]);
+        expect(properties?.abilities_auras).toEqual([false]);
+    });
+
+    test("reconstructs runtime-granted aura mechanics and removes stolen native aura mechanics", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "assimilator",
+                    abilities: ["Web Aura"],
+                }),
+                unitState({
+                    id: "aura-victim",
+                    team: TeamVals.UPPER,
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    abilities: ["Resurrection"],
+                    stolenAbilities: ["Arrows Wingshield Aura"],
+                }),
+            ]),
+        );
+
+        const assimilator = state.units.find((unit) => unit.properties.id === "assimilator")?.properties;
+        expect(assimilator?.aura_effects).toEqual(["Web"]);
+        expect(assimilator?.aura_ranges).toEqual([1]);
+        expect(assimilator?.aura_is_buff).toEqual([false]);
+
+        const victim = state.units.find((unit) => unit.properties.id === "aura-victim")?.properties;
+        expect(victim?.abilities).toEqual(["Resurrection"]);
+        expect(victim?.aura_effects).toEqual([]);
+        expect(victim?.aura_ranges).toEqual([0]);
+        expect(victim?.aura_is_buff).toEqual([true]);
+    });
+
+    test("reconstructs castable ability spells and removes spells for stolen abilities", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "spell-thief", abilities: ["Resurrection"] }),
+                unitState({
+                    id: "spell-victim",
+                    team: TeamVals.UPPER,
+                    name: "Angel",
+                    creatureId: CreatureVals.ANGEL,
+                    abilities: ["Arrows Wingshield Aura"],
+                    stolenAbilities: ["Resurrection"],
+                }),
+            ]),
+        );
+
+        const thief = state.units.find((unit) => unit.properties.id === "spell-thief")?.properties;
+        expect(thief?.spells).toContain(":Resurrection");
+        expect(thief?.can_cast_spells).toBe(true);
+
+        const victim = state.units.find((unit) => unit.properties.id === "spell-victim")?.properties;
+        expect(victim?.spells).not.toContain(":Resurrection");
+        expect(victim?.can_cast_spells).toBe(false);
+    });
+
+    test("reconstructs an authoritative stolen spellbook with its exact remaining casts", () => {
+        const transferredEntries = ["Life:Heal", "Life:Spiritual Armor", "Life:Spiritual Armor"];
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "spellbook-thief",
+                    abilities: ["Book of Healing"],
+                    spellEntries: transferredEntries,
+                    spellEntriesAuthoritative: true,
+                }),
+                unitState({
+                    id: "spellbook-victim",
+                    team: TeamVals.UPPER,
+                    name: "Healer",
+                    creatureId: CreatureVals.HEALER,
+                    abilities: [],
+                    stolenAbilities: ["Book of Healing"],
+                    spellEntriesAuthoritative: true,
+                }),
+            ]),
+        );
+
+        const thief = state.units.find((unit) => unit.properties.id === "spellbook-thief")?.properties;
+        expect(thief?.spells).toEqual(transferredEntries);
+        expect(thief?.can_cast_spells).toBe(true);
+
+        const victim = state.units.find((unit) => unit.properties.id === "spellbook-victim")?.properties;
+        expect(victim?.spells).toEqual([]);
+        expect(victim?.can_cast_spells).toBe(false);
+    });
+
+    test("carries permanently stolen abilities separately from live abilities", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "victim",
+                    abilities: ["Absorb Penalties Aura"],
+                    stolenAbilities: ["Bitter Experience"],
+                }),
+            ]),
+        );
+
+        const properties = state.units.find((unit) => unit.properties.id === "victim")?.properties;
+        const stolenAbilities = (
+            properties as typeof properties & {
+                stolen_abilities?: string[];
+            }
+        )?.stolen_abilities;
+        expect(properties?.abilities).toEqual(["Absorb Penalties Aura"]);
+        expect(stolenAbilities).toEqual(["Bitter Experience"]);
+    });
+
+    test("carries the authoritative turn-start Web movement lock", () => {
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([unitState({ id: "webbed", webMovementLocked: true })]),
+        );
+
+        const properties = state.units.find((unit) => unit.properties.id === "webbed")?.properties;
+        const webMovementLocked = (
+            properties as typeof properties & {
+                web_movement_locked?: boolean;
+            }
+        )?.web_movement_locked;
+        expect(webMovementLocked).toBe(true);
+    });
+
+    test("syncs Web lock changes onto a live unit without rebuilding the board", () => {
+        const snapshotProperties = (webMovementLocked: boolean) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "webbed-flyer",
+                        name: "Griffin",
+                        creatureId: CreatureVals.GRIFFIN,
+                        webMovementLocked,
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const initialProperties = snapshotProperties(false);
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                initialProperties,
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        // Same-signature and skip-rebuild snapshots both take this non-destructive reconciliation path.
+        expect(liveUnit.isWebMovementLocked()).toBe(false);
+        expect(liveUnit.canMove()).toBe(true);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(true))).toBe(true);
+        expect(liveUnit.isWebMovementLocked()).toBe(true);
+        expect(liveUnit.canMove()).toBe(false);
+
+        // The next activation snapshot can authoritatively clear the lock without recreating the unit.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(false))).toBe(true);
+        expect(liveUnit.isWebMovementLocked()).toBe(false);
+        expect(liveUnit.canMove()).toBe(true);
+    });
+
+    test("detects authoritative ability and remaining-spell changes before a skip-rebuild is cached", () => {
+        const initialProperties = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "queen", name: "Arachna Queen", creatureId: CreatureVals.ARACHNA_QUEEN }),
+            ]),
+        ).units[0]!.properties;
+        const grantedProperties = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "queen",
+                    name: "Arachna Queen",
+                    creatureId: CreatureVals.ARACHNA_QUEEN,
+                    abilities: [...initialProperties.abilities, "Book of Healing"],
+                    spellEntries: ["Life:Heal", "Life:Spiritual Armor", "Life:Spiritual Armor"],
+                    spellEntriesAuthoritative: true,
+                }),
+            ]),
+        ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                initialProperties,
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(rankedUnitMechanicsMatch(liveUnit, initialProperties)).toBe(true);
+        expect(
+            rankedUnitMechanicsMatch(liveUnit, {
+                ...initialProperties,
+                stolen_abilities: ["Predatory Assimilation"],
+            }),
+        ).toBe(false);
+        expect(
+            rankedUnitMechanicsMatch(liveUnit, {
+                ...initialProperties,
+                spells: ["Life:Heal"],
+            }),
+        ).toBe(false);
+        expect(rankedUnitMechanicsMatch(liveUnit, grantedProperties)).toBe(false);
+    });
+
+    test("keeps an authoritative spent stolen direct spell empty when rebuilding the Queen", () => {
+        const properties = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({
+                    id: "spent-spell-queen",
+                    name: "Arachna Queen",
+                    creatureId: CreatureVals.ARACHNA_QUEEN,
+                    abilities: ["Web Aura", "Infest", "Predatory Assimilation", "Wind Flow"],
+                    spellEntries: [],
+                    spellEntriesAuthoritative: true,
+                }),
+            ]),
+        ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const rebuilt = Unit.createUnit(
+            properties,
+            new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+            TeamVals.LOWER,
+            UnitVals.CREATURE,
+            new AbilityFactory(effectFactory),
+            effectFactory,
+            false,
+        );
+
+        expect(properties.spell_entries_authoritative).toBe(true);
+        expect(rebuilt.hasAbilityActive("Wind Flow")).toBe(true);
+        expect(rebuilt.hasSpellRemaining("Wind Flow")).toBe(false);
+        expect(rebuilt.getUnitProperties().spells).toEqual([]);
+    });
+
+    test("renders a redacted opponent placement unit as a live 1-stack silhouette, not a corpse", () => {
+        // The server hides the opponent's live stack size during simultaneous placement by sending
+        // amountAlive = 0. The client shows the opponent's roster as ghost silhouettes on their edge, so it
+        // must NOT treat that 0 as dead — cleanupDeadUnits() reaps amountAlive<=0 units WITH a death
+        // animation every tick, which was the "opponent army getting killed on the edge every second" bug.
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "own", team: TeamVals.LOWER, name: "Peasant", creatureId: CreatureVals.PEASANT }),
+                unitState({
+                    id: "op",
+                    team: TeamVals.UPPER,
+                    name: "Orc",
+                    creatureId: CreatureVals.ORC,
+                    placed: true,
+                    cells: [{ x: 9, y: 13 }],
+                    baseCell: { x: 9, y: 13 },
+                    amountAlive: 0, // server-redacted stack size
+                }),
+            ]),
+            { hideOpponentPlacements: true },
+        );
+
+        const op = state.units.find((unit) => unit.properties.id === "op");
+        expect(op).toMatchObject({ placed: false, cells: [] });
+        expect(op?.properties.amount_alive).toBeGreaterThanOrEqual(1);
+    });
+
     test("keeps real opponent placement once fight starts", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             {
@@ -208,5 +831,128 @@ describe("ranked placement scene state", () => {
         expect(rankedUnitAliveHealth(healthy)).toBe(100);
         expect(rankedUnitStartHealth(wounded) - rankedUnitAliveHealth(wounded)).toBe(6);
         expect(rankedUnitStartHealth(losses) - rankedUnitAliveHealth(losses)).toBe(27);
+    });
+});
+
+describe("revealed opponent roster row", () => {
+    // Real board geometry: 16 cells, x in [-1024, 1024], y in [0, 2048], step 128.
+    const MIN_X = GridConstants.MIN_X;
+    const MAX_X = GridConstants.MAX_X;
+    const STEP = GridConstants.MAX_Y / GridConstants.GRID_SIZE;
+
+    test("spreads the army across the full board width, inside both edges", () => {
+        const xs = Array.from({ length: 6 }, (_, index) => revealedOpponentRowX(index, 6, MIN_X, MAX_X));
+
+        expect(xs).toEqual([...xs].sort((a, b) => a - b));
+        expect(xs[0]).toBeGreaterThan(MIN_X);
+        expect(xs[xs.length - 1]).toBeLessThan(MAX_X);
+        // Even slots, and the end margins match each other (half a slot at each edge).
+        const gaps = xs.slice(1).map((x, index) => x - xs[index]);
+        for (const gap of gaps) {
+            expect(gap).toBeCloseTo(gaps[0], 6);
+        }
+        expect(xs[0] - MIN_X).toBeCloseTo(MAX_X - xs[xs.length - 1], 6);
+        // Wider than the old zone-bounded row, which capped spacing at 2.5 cells.
+        expect(gaps[0]).toBeGreaterThan(STEP * 2.5);
+    });
+
+    test("keeps a single unit centered and never collapses on an empty roster", () => {
+        expect(revealedOpponentRowX(0, 1, MIN_X, MAX_X)).toBe((MIN_X + MAX_X) / 2);
+        expect(Number.isFinite(revealedOpponentRowX(0, 0, MIN_X, MAX_X))).toBe(true);
+    });
+
+    test("centers the row in the strip between their zone and their own edge", () => {
+        // UPPER opponent: a 3-row zone ending at y=1920 leaves exactly the top cell row free.
+        expect(revealedOpponentRowY(2048, 1920, STEP, true)).toBe(1984);
+        // LOWER opponent mirrors it.
+        expect(revealedOpponentRowY(0, 128, STEP, false)).toBe(64);
+    });
+
+    test("sits on the opponent's half once their zone cells are converted to world coordinates", () => {
+        // The UPPER rectangle zone occupies cell rows 12-14, so its outermost row is y = 14. Placement
+        // geometry hands back CELL INDICES; feeding those straight in (the old bug) put the whole row at
+        // y ≈ 14 — the far side of the board, in a pile.
+        const outermostCenterY = GridMath.getPositionForCell({ x: 1, y: 14 }, MIN_X, STEP, STEP / 2).y;
+        const zoneOuterEdgeY = outermostCenterY + STEP / 2;
+        expect(zoneOuterEdgeY).toBe(GridConstants.MAX_Y - STEP);
+
+        const rowY = revealedOpponentRowY(GridConstants.MAX_Y, zoneOuterEdgeY, STEP, true);
+        expect(rowY).toBe(1984);
+        expect(rowY).toBeGreaterThan(GridConstants.MAX_Y / 2);
+    });
+
+    test("stays on the board when the zone reaches the edge", () => {
+        expect(revealedOpponentRowY(2048, 2048, STEP, true)).toBe(2048 - STEP * 0.5);
+        expect(revealedOpponentRowY(0, 0, STEP, false)).toBe(STEP * 0.5);
+        // A sliver of a strip is not enough to sit in either.
+        expect(revealedOpponentRowY(2048, 2000, STEP, true)).toBe(2048 - STEP * 0.5);
+    });
+
+    test("shrinks the silhouettes only once the slots get tighter than a large unit", () => {
+        expect(revealedOpponentRowScale(6)).toBe(0.85);
+        expect(revealedOpponentRowScale(1)).toBe(0.85);
+        expect(revealedOpponentRowScale(10)).toBeLessThan(0.85);
+        expect(revealedOpponentRowScale(50)).toBeGreaterThanOrEqual(0.55);
+
+        // The point of shrinking: a 2x2 silhouette must still fit its slot.
+        for (const total of [6, 8, 10, 12]) {
+            const slot = (MAX_X - MIN_X) / total;
+            expect(256 * revealedOpponentRowScale(total)).toBeLessThanOrEqual(slot + 1);
+        }
+    });
+});
+
+describe("ranked multi-hit scene log", () => {
+    // Berserker's Double Punch: the authoritative journal carries ONE unit_attacked event whose
+    // damage.amount (11) is the SUM of both strikes, with the per-strike breakdown in hits[]. Ranked
+    // must report the two strikes it animated, not a single 11-damage hit.
+    const doublePunch = {
+        amount: 11,
+        hits: [
+            { amount: 7, unitsDied: 0 },
+            { amount: 4, unitsDied: 1 },
+        ],
+    } as never;
+
+    test("logs one line per landed strike, with that strike's own damage and kills", () => {
+        expect(multiHitSceneLogLines(doublePunch, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
+            "🟢 Berserker ⚔️ Peasant (7)",
+            "🟢 Berserker ⚔️ Peasant (4) 💀 1",
+        ]);
+    });
+
+    test("omits the team flag when the attacker has none", () => {
+        expect(multiHitSceneLogLines(doublePunch, "Berserker", "Peasant", "⚔️", "")).toEqual([
+            "Berserker ⚔️ Peasant (7)",
+            "Berserker ⚔️ Peasant (4) 💀 1",
+        ]);
+    });
+
+    test("leaves single-hit, dodged and splash attacks to the existing lines", () => {
+        const singleHit = { amount: 7, hits: [{ amount: 7, unitsDied: 0 }] } as never;
+        const dodged = { ...(doublePunch as object), missed: true } as never;
+        const splashed = {
+            ...(doublePunch as object),
+            splash: [{ unitId: "a", amount: 3, unitsDied: 0 }],
+        } as never;
+
+        expect(multiHitSceneLogLines(singleHit, "Peasant", "Orc", "⚔️", "🟢")).toEqual([]);
+        expect(multiHitSceneLogLines(dodged, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([]);
+        expect(multiHitSceneLogLines(splashed, "Cyclops", "Peasant", "🏹💥", "🟢")).toEqual([]);
+        expect(multiHitSceneLogLines(undefined, "Peasant", "Orc", "⚔️", "🟢")).toEqual([]);
+    });
+
+    test("skips a strike that neither damaged nor killed (a whiffed second punch)", () => {
+        const secondWhiffed = {
+            amount: 7,
+            hits: [
+                { amount: 7, unitsDied: 0 },
+                { amount: 0, unitsDied: 0 },
+            ],
+        } as never;
+
+        expect(multiHitSceneLogLines(secondWhiffed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
+            "🟢 Berserker ⚔️ Peasant (7)",
+        ]);
     });
 });

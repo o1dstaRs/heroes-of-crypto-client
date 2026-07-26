@@ -1,4 +1,14 @@
-import { Container, Sprite, Graphics, Text, TextStyle, Texture, Rectangle, BlurFilter } from "pixi.js";
+import {
+    Container,
+    Sprite,
+    Graphics,
+    Text,
+    TextStyle,
+    Texture,
+    Rectangle,
+    BlurFilter,
+    ColorMatrixFilter,
+} from "pixi.js";
 import {
     Unit,
     UnitProperties,
@@ -6,11 +16,12 @@ import {
     GridSettings,
     GridMath,
     TeamVals,
-    AttackVals,
     HoCConstants,
     HoCConfig,
     SpellHelper,
     FightStateManager,
+    AbilityHelper,
+    AllAbilities,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
@@ -99,6 +110,88 @@ interface OneShotAnimState {
     durationPerFrame: number;
     onComplete?: () => void;
 }
+interface DodgeGhost {
+    sprite: Sprite;
+    bornMs: number;
+}
+interface DodgeAnimState {
+    startMs: number;
+    durationMs: number;
+    /** World-space displacement (sprite + shadow) at full extension. */
+    dx: number;
+    dy: number;
+    /** Sprite lean (radians) at full extension. */
+    lean: number;
+    lastGhostMs: number;
+    ghosts: DodgeGhost[];
+}
+// Tuning for the "bullet-time" dodge played when an attack fully MISSES this unit (Dodge /
+// Small Specie / Boar Saliva / Broken Aegis): dash out of the strike line, hang at full extension
+// for a beat, then spring back — trailing matrix-style afterimages the whole way out.
+const DODGE_DURATION_MS = 640;
+const DODGE_DASH_END = 0.22; // fraction of the dodge spent dashing out
+const DODGE_HOLD_END = 0.55; // fraction after which the unit springs back
+const DODGE_LEAN_RAD = 0.26; // sprite lean at full extension
+const DODGE_GHOST_EVERY_MS = 45;
+const DODGE_GHOST_LIFE_MS = 300;
+const DODGE_GHOST_ALPHA = 0.35;
+const DODGE_GHOST_TINT = 0xaaffcc; // faint green wash so the trail reads "bullet time", not "unit copy"
+const DODGE_BLUR_STRENGTH = 2.5;
+// Uneven, stable frost deposits around a normalized unit silhouette. Keeping this layout fixed prevents
+// the frozen shell from crawling or pulsing while still avoiding a mechanical, evenly-spaced border.
+const FREEZE_FROST_PATCHES = [
+    [-0.84, -0.95, 0.15],
+    [-0.38, -0.99, 0.11],
+    [0.12, -0.96, 0.17],
+    [0.7, -0.92, 0.13],
+    [0.96, -0.63, 0.14],
+    [0.99, -0.08, 0.17],
+    [0.93, 0.52, 0.12],
+    [0.66, 0.94, 0.17],
+    [0.08, 0.99, 0.12],
+    [-0.46, 0.95, 0.16],
+    [-0.95, 0.6, 0.13],
+    [-0.99, 0.08, 0.18],
+    [-0.94, -0.52, 0.12],
+] as const;
+function dodgeEaseOutCubic(t: number): number {
+    const u = 1 - t;
+    return 1 - u * u * u;
+}
+function dodgeEaseOutBack(t: number): number {
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const u = t - 1;
+    return 1 + c3 * u * u * u + c1 * u * u;
+}
+/**
+ * Drop every repeated name from a display list and its three parallel arrays, keeping the FIRST entry.
+ * Returns true when something was removed. Exported for tests.
+ */
+export const dropDuplicateAppliedEntries = (
+    names: string[],
+    laps: number[],
+    descriptions: string[],
+    powers: number[],
+): boolean => {
+    // Same precondition Unit.deleteBuff/deleteDebuff use: only touch entries while all four arrays are
+    // parallel — splicing desynced arrays would corrupt the very alignment this is meant to preserve.
+    if (names.length !== laps.length || names.length !== descriptions.length || names.length !== powers.length) {
+        return false;
+    }
+    let removed = false;
+    for (let i = names.length - 1; i >= 0; i--) {
+        if (names.indexOf(names[i]) === i) {
+            continue;
+        }
+        names.splice(i, 1);
+        laps.splice(i, 1);
+        descriptions.splice(i, 1);
+        powers.splice(i, 1);
+        removed = true;
+    }
+    return removed;
+};
 /**
  * Unit + Pixi visualization (sprite, stack badge, spawn animation).
  * We never `new RenderableUnit` directly; instead we "upgrade"
@@ -139,7 +232,18 @@ export class RenderableUnit extends Unit {
     private stackForcedHidden = false;
     private isActiveTurn = false;
     private isDestroyed = false;
-    private visualMode: "normal" | "hidden" | "ghost" = "normal";
+    private visualMode: "normal" | "hidden" | "ghost" | "revealed" = "normal";
+    // Split preview: temporarily enlarge the count badge and (optionally) show a projected amount.
+    private badgeEmphasisScale = 1;
+    private badgeAmountOverride?: number;
+    // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
+    // Created lazily, reused for the unit's lifetime.
+    private desaturateFilter?: ColorMatrixFilter;
+    // "Revealed" roster card: the dark plate behind the B&W silhouette plus its name caption, so the
+    // opponent's known army reads as a roster line-up rather than units already standing on the board.
+    private rosterCard?: Container;
+    private rosterCardPlate?: Graphics;
+    private rosterCardLabel?: Text;
     // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
     // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
     // they read at "full size" while waiting to be deployed; placed/board units keep the default 1.
@@ -152,6 +256,19 @@ export class RenderableUnit extends Unit {
     // While the active unit is mid-move or mid-attack, the aura is suppressed so it doesn't
     // distract from the action (set each frame by the scene).
     private suppressActiveAura = false;
+    // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
+    // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
+    private waterShieldAura?: Graphics;
+    // Ice "crust" encasing a unit under the "Freeze" status (drawn over the sprite, above the icy tint).
+    private freezeCrust?: Graphics;
+    // Additive light layer over the ice crust: a sheen raking across + caustic sparks drifting inside the
+    // shell. Separate Graphics so the light blends additively (glows) while the frost stays normal-blend.
+    private freezeLight?: Graphics;
+    // Water Shield dissolve burst: a one-shot ring-snap + droplet spray fired the instant the shield is
+    // consumed (the buff disappears while the unit is still alive).
+    private waterShieldWasActive = false;
+    private waterShieldBreakStartMs?: number;
+    private waterShieldBreakGfx?: Graphics;
     // Brief "jerk back" applied to the sprite/shadow (e.g. a petrifying-gaze hit yanking the
     // target away from the attacker). Decays to zero over ~220ms.
     private recoilStartMs = 0;
@@ -166,6 +283,11 @@ export class RenderableUnit extends Unit {
     // currentEffectTint().
     private effectFlashStartMs = 0;
     private effectFlashColor = 0x2a0a3a;
+    // "Bullet-time" dodge played when an attack fully misses this unit; stepped every frame from
+    // ensureVisual. Lives until the spring-back finishes AND its afterimage ghosts have faded.
+    private dodgeAnim?: DodgeAnimState;
+    // undefined = not built yet; null = construction failed (headless — no GL), don't retry.
+    private dodgeBlurFilter?: BlurFilter | null;
     // Spells support
     private pixiSpells: PixiRenderableSpell[] = [];
     private spellBookLayer?: Container;
@@ -187,13 +309,23 @@ export class RenderableUnit extends Unit {
         ru.visualMode = "normal";
         // fromBase() bypasses the constructor (it re-prototypes an existing Unit), so class field
         // defaults never run — initialise every added field explicitly or it stays `undefined`.
+        ru.badgeEmphasisScale = 1;
+        ru.badgeAmountOverride = undefined;
         ru.activeAura = undefined;
+        ru.waterShieldAura = undefined;
+        ru.freezeCrust = undefined;
+        ru.freezeLight = undefined;
+        ru.waterShieldBreakGfx = undefined;
+        ru.waterShieldBreakStartMs = undefined;
+        ru.waterShieldWasActive = false;
         ru.suppressActiveAura = false;
         ru.recoilStartMs = 0;
         ru.recoilDx = 0;
         ru.recoilDy = 0;
         ru.effectFlashStartMs = 0;
         ru.effectFlashColor = 0x2a0a3a;
+        ru.dodgeAnim = undefined;
+        ru.dodgeBlurFilter = undefined;
         // Without this, visualScaleMultiplier is `undefined` -> targetSize = 128 * undefined = NaN
         // -> sprite.scale = NaN -> the unit collapses to an invisible point (renders as a bare dot).
         ru.visualScaleMultiplier = 1;
@@ -204,7 +336,18 @@ export class RenderableUnit extends Unit {
         this.digitTextures = digitTextures;
         this.parseSpells();
     }
+    /** Attach/rebuild Pixi spellbook cells after a runtime ability grants this unit its first spell. */
+    public ensureSpellBookRendering(layer: Container, digitTextures: Map<number, Texture>): boolean {
+        if (this.getSpellsCount() <= 0) return false;
+        this.setSpellBookLayer(layer, digitTextures);
+        return true;
+    }
     public override parseSpells(): void {
+        // Keep Unit's authoritative Spell objects synchronized even before a Pixi spellbook layer exists.
+        // Runtime ability changes (for example Predatory Assimilation) call this method to remove or grant
+        // castable/spellbook mechanics; returning before the base parser left getSpells() stale in sandbox.
+        super.parseSpells();
+
         if (!this.spellBookLayer || !this.digitTextures) return;
 
         // Clear existing
@@ -225,22 +368,19 @@ export class RenderableUnit extends Unit {
             if (!spellName) continue;
 
             const spellProperties = HoCConfig.getSpellConfig(factionName, spellName);
-            const textureNames = SpellHelper.spellToTextureNames(spellName);
-
-            // Resolve textures
-            // textureNames[0] is the spell icon
-            // textureNames[1] is the title strip
-            const iconTex = this.texResolver(textureNames[0]);
-            const titleTex = this.texResolver(textureNames[1]);
+            // Only the ICON is art now — the name is drawn as text (see PixiRenderableSpell.titleText).
+            // This used to also require a hand-authored "<spell>_font" strip, and a missing one dropped the
+            // spell from the book entirely and silently: that is how Ash Moth shipped with an empty
+            // spellbook. A new spell now needs one icon and nothing else.
+            const iconTex = this.texResolver(SpellHelper.spellToTextureName(spellName));
             const cellTex = this.texResolver("spell_cell_260");
 
-            if (iconTex && titleTex && cellTex) {
+            if (iconTex && cellTex) {
                 const newSpell = new PixiRenderableSpell(
                     { spellProperties: spellProperties, amount: v },
                     this.spellBookLayer,
                     { spell_cell_260: cellTex },
                     iconTex,
-                    titleTex,
                     this.digitTextures,
                 );
                 this.pixiSpells.push(newSpell);
@@ -289,16 +429,18 @@ export class RenderableUnit extends Unit {
         return undefined;
     }
     private syncSpellAmountsFromProperties(): void {
-        const spellsData = this.parseSpellData(this.unitProperties.spells);
+        // Authoritative remaining casts come from the Spell objects (getSpells()). In sandbox the engine's
+        // useSpell keeps their amount in lockstep with the unitProperties.spells entry list; in RANKED the
+        // client never runs the cast engine and only syncs the Spell objects from the snapshot's
+        // spellAmounts (reconcileAuraEffectsFromSnapshot -> setAmount) — the raw entry list stays at the
+        // base count. Reading that list here made the spellbook show every spell as still available after a
+        // cast in ranked. Sum by name so the pixi badge matches each spell's real getAmount().
+        const remainingByName = new Map<string, number>();
+        for (const spell of this.getSpells()) {
+            remainingByName.set(spell.getName(), (remainingByName.get(spell.getName()) ?? 0) + spell.getAmount());
+        }
         for (const spell of this.pixiSpells) {
-            let amount = 0;
-            for (const [spellKey, spellAmount] of spellsData.entries()) {
-                const [, spellName] = spellKey.split(":");
-                if (spellName === spell.getName()) {
-                    amount += spellAmount;
-                }
-            }
-            spell.syncAmount(amount);
+            spell.syncAmount(remainingByName.get(spell.getName()) ?? 0);
         }
     }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
@@ -342,8 +484,22 @@ export class RenderableUnit extends Unit {
         // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
         const isHidden = this.hasBuffActive("Hidden");
         const normalSpriteAlpha = isHidden ? 0.4 : 1;
-        this.sprite.alpha = this.visualMode === "ghost" ? 0.25 : normalSpriteAlpha;
+        this.sprite.alpha =
+            this.visualMode === "ghost" ? 0.25 : this.visualMode === "revealed" ? 0.9 : normalSpriteAlpha;
         this.sprite.tint = this.currentEffectTint();
+        // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
+        // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
+        if (this.visualMode === "revealed") {
+            if (!this.desaturateFilter) {
+                this.desaturateFilter = new ColorMatrixFilter();
+                this.desaturateFilter.desaturate();
+            }
+            if (this.sprite.filters?.[0] !== this.desaturateFilter) {
+                this.sprite.filters = this.desaturateFilter;
+            }
+        } else if (this.sprite.filters?.length) {
+            this.sprite.filters = null;
+        }
         if (!this.shadow) {
             this.shadow = new Sprite(baseTex);
             this.shadow.anchor.set(0.5);
@@ -367,6 +523,10 @@ export class RenderableUnit extends Unit {
         const normalShadowAlpha = isHidden ? 0.15 : 0.35;
         this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
         this.shadow.tint = 0x000000;
+        // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
+        this.stepDodgeAnimation(worldRoot);
+        // --- revealed-roster card (plate + name), drawn under the sprite ---
+        this.ensureRosterCard(worldRoot, gs, props, pos);
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos);
         // --- stack power indicator ---
@@ -379,12 +539,12 @@ export class RenderableUnit extends Unit {
                 worldRoot,
                 this.stunContainer,
                 this.stunSprite,
-                "stun_256",
+                "stop",
                 pos,
                 props,
-                -1,
-                1,
-                this.isSkippingForDisplay(),
+                0,
+                0,
+                this.shouldShowStopIcon(),
             );
             this.stunContainer = r.container;
             this.stunSprite = r.sprite;
@@ -473,13 +633,15 @@ export class RenderableUnit extends Unit {
         this.visualMode = visible ? "normal" : "hidden";
         if (this.sprite) this.sprite.visible = visible;
         if (this.shadow) this.shadow.visible = visible;
+        // The roster card belongs to "revealed" mode, which this call always leaves.
+        if (this.rosterCard) this.rosterCard.visible = false;
         if (this.badgeContainer) this.badgeContainer.visible = visible;
         if (this.stackPowerContainer) this.stackPowerContainer.visible = visible;
         if (this.hourglassContainer) {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = visible && this.isSkippingForDisplay();
+            this.stunContainer.visible = visible && this.shouldShowStopIcon();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = visible && this.shouldShowRespondTag();
@@ -505,10 +667,24 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = !active && visible && this.isSkippingForDisplay();
+            this.stunContainer.visible = !active && visible && this.shouldShowStopIcon();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
+        }
+    }
+    /**
+     * "Revealed opponent" mode (ranked placement): the sprite is drawn in black & white and
+     * near-opaque — clearly present but clearly not the viewer's unit — and the team-colored flag
+     * badge stays visible with a "?" count (the roster is known, the stack size is not). The actual
+     * alpha/filter/badge application lives in ensureVisual/ensureBadge, which key off visualMode,
+     * so the look survives every subsequent sync pass.
+     */
+    public setVisualRevealed(active: boolean): void {
+        if (active) {
+            this.visualMode = "revealed";
+        } else if (this.visualMode === "revealed") {
+            this.visualMode = "normal";
         }
     }
     public applyMoveEffect(spawnPulsePhase: number): void {
@@ -557,12 +733,42 @@ export class RenderableUnit extends Unit {
             if (this.respondContainer) this.respondContainer.zIndex = baseZ + 2;
         }
 
-        // Active-turn "light waves" aura: animated glow + radiating rings under the unit.
-        // Suppressed while the unit is moving/attacking so the action reads clearly.
+        // Active-turn "light waves" pulse: the SAME animated glow + radiating rings under EVERY
+        // active unit. Owner call (2026-07-18): do NOT gate or vary this per unit — gating it on aura
+        // ownership (5a20846) silently removed the turn cue for plain units, and a per-unit variant
+        // read as two different pulse animations. Aura REACH is telegraphed separately by the
+        // SandboxDrawer range rings. Suppressed while moving/attacking so the action reads clearly.
         if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura) {
             this.updateActiveAura(worldRoot, gs, pos);
         } else if (this.activeAura) {
             this.activeAura.visible = false;
+        }
+
+        // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It keys off
+        // the same synced "Water Shield" buff that applyDamage consumes, so it disappears the frame the shield
+        // breaks. Independent of whose turn it is.
+        const waterShieldActive = !this.isDead() && this.hasBuffActive("Water Shield");
+        if (waterShieldActive) {
+            this.updateWaterShieldAura(worldRoot, gs, pos);
+        } else if (this.waterShieldAura) {
+            this.waterShieldAura.visible = false;
+        }
+
+        // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
+        if (!this.isDead() && this.hasStatusEffect("Freeze")) {
+            this.updateFreezeCrust(worldRoot, gs, pos);
+        } else {
+            if (this.freezeCrust) this.freezeCrust.visible = false;
+            if (this.freezeLight) this.freezeLight.visible = false;
+        }
+        // The shield is permanent until it absorbs a hit, so a still-alive unit losing the buff means it
+        // just broke — kick off the one-shot dissolve burst at that instant.
+        if (this.waterShieldWasActive && !waterShieldActive && !this.isDead()) {
+            this.waterShieldBreakStartMs = performance.now();
+        }
+        this.waterShieldWasActive = waterShieldActive;
+        if (this.waterShieldBreakStartMs !== undefined) {
+            this.updateWaterShieldBreak(worldRoot, gs, pos);
         }
     }
     /**
@@ -607,6 +813,263 @@ export class RenderableUnit extends Unit {
             const a = (1 - phase) * 0.55;
             const width = 2 + (1 - phase) * 2.5;
             g.circle(pos.x, pos.y, r).stroke({ color: this.activeAuraColor, alpha: a, width });
+        }
+    }
+    /**
+     * Water Shield aura: a light-blue ring with small dots circulating around the unit, emphasizing that its
+     * once-per-battle absorb shield is up. Pure vector draw (no texture), redrawn each frame from a time-based
+     * phase. Drawn beneath the sprite like the active-turn aura; shown while the "Water Shield" buff is active
+     * and hidden the moment it breaks.
+     */
+    private updateWaterShieldAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.waterShieldAura) {
+            this.waterShieldAura = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.waterShieldAura);
+        } else if (this.waterShieldAura.parent !== worldRoot) {
+            worldRoot.addChild(this.waterShieldAura);
+        }
+        // Sit just beneath the unit so the ring reads as circling around her feet.
+        this.waterShieldAura.zIndex = 4000 - pos.y - 0.55;
+        this.waterShieldAura.visible = true;
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const ringR = cell * (isLarge ? 0.92 : 0.52);
+        const t = performance.now() / 1000;
+        const color = 0x66ccff; // light blue
+
+        const g = this.waterShieldAura;
+        g.clear();
+
+        // Faint breathing halo.
+        const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
+        g.circle(pos.x, pos.y, ringR * (1.02 + 0.04 * pulse)).fill({ color, alpha: 0.06 + 0.05 * pulse });
+
+        // The shield ring itself.
+        g.circle(pos.x, pos.y, ringR).stroke({ color, alpha: 0.55, width: 2 });
+
+        // Small dots circulating clockwise around the ring.
+        const dotCount = 8;
+        for (let i = 0; i < dotCount; i++) {
+            const a = (i / dotCount) * Math.PI * 2 + t * 1.4;
+            const dotR = 2.2 + 1.3 * (0.5 + 0.5 * Math.sin(t * 3 + i));
+            g.circle(pos.x + ringR * Math.cos(a), pos.y + ringR * Math.sin(a), dotR).fill({ color, alpha: 0.85 });
+        }
+        // A few inner dots spinning the other way for a watery swirl.
+        const innerCount = 4;
+        for (let i = 0; i < innerCount; i++) {
+            const a = (i / innerCount) * Math.PI * 2 - t * 1.0;
+            const r = ringR * 0.72;
+            g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
+        }
+    }
+    /** An ice crust encasing a "Freeze"-status unit: a frosted pane with soft buildup and branching veins. */
+    private updateFreezeCrust(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.freezeCrust) {
+            this.freezeCrust = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.freezeCrust);
+        } else if (this.freezeCrust.parent !== worldRoot) {
+            worldRoot.addChild(this.freezeCrust);
+        }
+        // Sit just above the sprite so the frost reads as a shell over the unit (below the badge at +1).
+        this.freezeCrust.zIndex = 4000 - pos.y + 0.5;
+        this.freezeCrust.visible = true;
+
+        const cell = gs.getCellSize();
+        const half = cell * (this.getUnitProperties().size === 2 ? 1.02 : 0.56);
+        const t = performance.now() / 1000;
+        const shimmer = 0.5 + 0.5 * Math.sin(t * 1.6);
+        const ice = 0xbfe8ff;
+        const iceBright = 0xeaf7ff;
+        const g = this.freezeCrust;
+        g.clear();
+
+        // A softly rounded frozen pane, with a second diffuse rim that gives the shell some thickness.
+        const corner = half * 0.18;
+        g.roundRect(pos.x - half, pos.y - half, half * 2, half * 2, corner)
+            .fill({ color: ice, alpha: 0.08 + 0.035 * shimmer })
+            .stroke({ color: iceBright, alpha: 0.44 + 0.08 * shimmer, width: 1.4 });
+        const rimInset = half * 0.045;
+        g.roundRect(
+            pos.x - half + rimInset,
+            pos.y - half + rimInset,
+            (half - rimInset) * 2,
+            (half - rimInset) * 2,
+            corner * 0.82,
+        ).stroke({ color: ice, alpha: 0.2 + 0.05 * shimmer, width: half * 0.055 });
+
+        // Frost collects in short, bowed deposits along the edge. Rounded strokes avoid both the old sharp
+        // wedges and a ring of circular blobs; only their shared translucency shimmers.
+        for (let i = 0; i < FREEZE_FROST_PATCHES.length; i++) {
+            const [nx, ny, normalizedRadius] = FREEZE_FROST_PATCHES[i];
+            const len = Math.hypot(nx, ny) || 1;
+            const outwardX = nx / len;
+            const outwardY = ny / len;
+            const perpendicularX = -outwardY;
+            const perpendicularY = outwardX;
+            const side = (((i * 5) % 7) - 3) / 3;
+            const radius = half * normalizedRadius;
+            const baseX = pos.x + nx * half;
+            const baseY = pos.y + ny * half;
+            const startX = baseX - perpendicularX * radius * (0.9 + Math.abs(side) * 0.15);
+            const startY = baseY - perpendicularY * radius * (0.9 + Math.abs(side) * 0.15);
+            const endX = baseX + perpendicularX * radius * (0.78 - side * 0.08);
+            const endY = baseY + perpendicularY * radius * (0.78 - side * 0.08);
+            g.moveTo(startX, startY).quadraticCurveTo(
+                baseX - outwardX * radius * (0.38 + Math.abs(side) * 0.08),
+                baseY - outwardY * radius * (0.38 + Math.abs(side) * 0.08),
+                endX,
+                endY,
+            );
+        }
+        g.stroke({
+            color: ice,
+            alpha: 0.22 + 0.06 * shimmer,
+            width: half * 0.065,
+            cap: "round",
+            join: "round",
+        });
+
+        // Fine, bent frost veins grow inward from selected deposits. Small side branches break up the radial
+        // pattern without producing filled wedges or sharp triangular silhouettes.
+        for (let i = 0; i < FREEZE_FROST_PATCHES.length; i += 2) {
+            const [nx, ny] = FREEZE_FROST_PATCHES[i];
+            const len = Math.hypot(nx, ny) || 1;
+            const outwardX = nx / len;
+            const outwardY = ny / len;
+            const perpendicularX = -outwardY;
+            const perpendicularY = outwardX;
+            const startX = pos.x + nx * half;
+            const startY = pos.y + ny * half;
+            const depth = half * (0.2 + (i % 3) * 0.035);
+            const bend = half * ((((i * 5) % 7) - 3) * 0.018);
+            const midX = startX - outwardX * depth * 0.55 + perpendicularX * bend;
+            const midY = startY - outwardY * depth * 0.55 + perpendicularY * bend;
+            const tipX = startX - outwardX * depth - perpendicularX * bend * 0.6;
+            const tipY = startY - outwardY * depth - perpendicularY * bend * 0.6;
+            const branchSide = i % 4 === 0 ? 1 : -1;
+            g.moveTo(startX, startY).lineTo(midX, midY).lineTo(tipX, tipY);
+            g.moveTo(midX, midY).lineTo(
+                midX - outwardX * half * 0.07 + perpendicularX * half * 0.09 * branchSide,
+                midY - outwardY * half * 0.07 + perpendicularY * half * 0.09 * branchSide,
+            );
+        }
+        g.stroke({ color: iceBright, alpha: 0.3 + 0.1 * shimmer, width: 1, cap: "round", join: "round" });
+
+        // Three restrained highlights pulse in place instead of orbiting around the unit.
+        for (let i = 0; i < 3; i++) {
+            const [nx, ny] = FREEZE_FROST_PATCHES[i * 4 + 1];
+            const glintX = pos.x + nx * half * 0.82;
+            const glintY = pos.y + ny * half * 0.82;
+            const twinkle = 0.5 + 0.5 * Math.sin(t * 3.2 + i * 2.3);
+            const glintRadius = half * (0.018 + 0.008 * twinkle);
+            g.moveTo(glintX - glintRadius, glintY).lineTo(glintX + glintRadius, glintY);
+            g.moveTo(glintX, glintY - glintRadius).lineTo(glintX, glintY + glintRadius);
+            g.stroke({ color: iceBright, alpha: 0.35 + 0.4 * twinkle, width: 1, cap: "round" });
+        }
+
+        // --- play of light INSIDE the ice ---
+        // A separate additive layer so these read as luminous refractions rather than paint: a slow sheen
+        // rakes across the frozen pane while a handful of caustic sparks drift and breathe deep in the shell.
+        if (!this.freezeLight) {
+            this.freezeLight = new Graphics();
+            this.freezeLight.blendMode = "add";
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.freezeLight);
+        } else if (this.freezeLight.parent !== worldRoot) {
+            worldRoot.addChild(this.freezeLight);
+        }
+        // Just above the crust (+0.5), still below the badge (+1).
+        this.freezeLight.zIndex = 4000 - pos.y + 0.55;
+        this.freezeLight.visible = true;
+        const gl = this.freezeLight;
+        gl.clear();
+
+        // Caustic sparks: soft points of light, each wandering an independent slow path and breathing on its
+        // own cycle. Held well inside the pane (±0.46·half) so they read as refractions within the ice.
+        for (let i = 0; i < 4; i++) {
+            const cx = pos.x + Math.sin(t * (0.55 + i * 0.17) + i * 1.7) * half * 0.46;
+            const cy = pos.y + Math.cos(t * (0.63 + i * 0.13) + i * 2.6) * half * 0.46;
+            const breathe = 0.5 + 0.5 * Math.sin(t * (1.1 + i * 0.4) + i * 1.3);
+            const r = half * (0.05 + 0.035 * breathe);
+            gl.circle(cx, cy, r).fill({ color: ice, alpha: 0.05 + 0.06 * breathe });
+            gl.circle(cx, cy, r * 0.45).fill({ color: 0xffffff, alpha: 0.05 + 0.11 * breathe });
+        }
+
+        // A glancing sheen rakes across the pane on a loop — brightest mid-pass, fading to nothing at the
+        // ends (which also hides the instant its tips would cross the rounded corners). The bar lies along
+        // the main diagonal and travels perpendicular to its own length.
+        const sweepPhase = (t % 4.6) / 4.6;
+        const sweepPos = -1 + 2 * sweepPhase;
+        const sweepFade = Math.sin(sweepPhase * Math.PI);
+        const sweepCx = pos.x + sweepPos * half * 0.72;
+        const sweepCy = pos.y - sweepPos * half * 0.72;
+        const sweepArm = half * 0.44;
+        gl.moveTo(sweepCx - sweepArm, sweepCy - sweepArm)
+            .lineTo(sweepCx + sweepArm, sweepCy + sweepArm)
+            .stroke({ color: ice, alpha: 0.2 * sweepFade, width: half * 0.06, cap: "round" });
+        gl.moveTo(sweepCx - sweepArm * 0.82, sweepCy - sweepArm * 0.82)
+            .lineTo(sweepCx + sweepArm * 0.82, sweepCy + sweepArm * 0.82)
+            .stroke({ color: 0xffffff, alpha: 0.26 * sweepFade, width: 1.4, cap: "round" });
+    }
+    /**
+     * One-shot "dissolve" burst played when the Water Shield absorbs a hit and breaks: a brief inner splash,
+     * the ring snapping outward and thinning as it fades, and a spray of light-blue droplets flung away from
+     * it. Pure vector draw driven by a time-based progress; self-clears after ~0.55s.
+     */
+    private updateWaterShieldBreak(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (this.waterShieldBreakStartMs === undefined) return;
+        const DURATION_MS = 550;
+        const elapsed = performance.now() - this.waterShieldBreakStartMs;
+        if (elapsed >= DURATION_MS || this.isDead()) {
+            if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.visible = false;
+            this.waterShieldBreakStartMs = undefined;
+            return;
+        }
+        if (!this.waterShieldBreakGfx) {
+            this.waterShieldBreakGfx = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.waterShieldBreakGfx);
+        } else if (this.waterShieldBreakGfx.parent !== worldRoot) {
+            worldRoot.addChild(this.waterShieldBreakGfx);
+        }
+        // Draw just above the unit so the shatter reads over her for the brief moment it lasts.
+        this.waterShieldBreakGfx.zIndex = 4000 - pos.y + 0.6;
+        this.waterShieldBreakGfx.visible = true;
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const ringR = cell * (isLarge ? 0.92 : 0.52);
+        const p = elapsed / DURATION_MS; // 0 -> 1
+        const ease = 1 - (1 - p) * (1 - p); // easeOutQuad
+        const fade = 1 - p;
+        const color = 0x66ccff; // light blue
+
+        const g = this.waterShieldBreakGfx;
+        g.clear();
+
+        // Brief inner splash flash at the very start.
+        if (p < 0.35) {
+            const fp = 1 - p / 0.35;
+            g.circle(pos.x, pos.y, ringR * (0.5 + 0.6 * p)).fill({ color: 0xbfe8ff, alpha: 0.3 * fp });
+        }
+
+        // The ring snapping outward and thinning as it fades.
+        const r = ringR * (1 + 1.25 * ease);
+        g.circle(pos.x, pos.y, r).stroke({ color, alpha: 0.75 * fade, width: Math.max(0.5, 3 * fade) });
+
+        // A spray of droplets flung outward from the ring, shrinking as they go.
+        const dropletCount = 16;
+        for (let i = 0; i < dropletCount; i++) {
+            const a = (i / dropletCount) * Math.PI * 2 + (i % 3) * 0.5;
+            const dist = ringR * (1 + (1.5 + 0.15 * (i % 4)) * ease);
+            const dropR = Math.max(0.4, (2.6 - (i % 3) * 0.5) * fade);
+            g.circle(pos.x + Math.cos(a) * dist, pos.y + Math.sin(a) * dist, dropR).fill({
+                color,
+                alpha: 0.9 * fade,
+            });
         }
     }
     public setBoardSelected(selected: boolean): void {
@@ -814,6 +1277,12 @@ export class RenderableUnit extends Unit {
     public destroyVisuals(): void {
         this.isDestroyed = true;
 
+        if (this.dodgeAnim) {
+            for (const ghost of this.dodgeAnim.ghosts) {
+                if (!ghost.sprite.destroyed) ghost.sprite.destroy();
+            }
+            this.dodgeAnim = undefined;
+        }
         if (this.sprite) {
             this.sprite.destroy();
             this.sprite = undefined;
@@ -843,6 +1312,12 @@ export class RenderableUnit extends Unit {
             this.badgeFlag = undefined;
             this.badgeText = undefined;
         }
+        if (this.rosterCard) {
+            this.rosterCard.destroy({ children: true });
+            this.rosterCard = undefined;
+            this.rosterCardPlate = undefined;
+            this.rosterCardLabel = undefined;
+        }
         if (this.stackPowerContainer) {
             this.stackPowerContainer.destroy({ children: true });
             this.stackPowerContainer.removeFromParent();
@@ -853,6 +1328,24 @@ export class RenderableUnit extends Unit {
             this.activeAura.destroy({ children: true });
             this.activeAura = undefined;
         }
+        if (this.waterShieldAura) {
+            this.waterShieldAura.destroy({ children: true });
+            this.waterShieldAura = undefined;
+        }
+        if (this.freezeCrust) {
+            this.freezeCrust.destroy({ children: true });
+            this.freezeCrust = undefined;
+        }
+        if (this.freezeLight) {
+            this.freezeLight.destroy({ children: true });
+            this.freezeLight = undefined;
+        }
+        if (this.waterShieldBreakGfx) {
+            this.waterShieldBreakGfx.destroy({ children: true });
+            this.waterShieldBreakGfx = undefined;
+        }
+        this.waterShieldBreakStartMs = undefined;
+        this.waterShieldWasActive = false;
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
         // Spellbook sprites live in a scene-shared container, not under this unit's own display
@@ -866,6 +1359,83 @@ export class RenderableUnit extends Unit {
         // ⬇️ NEW
         this.boardSelected = false;
         this.selectionAnimFrames = undefined;
+    }
+    public setBadgeEmphasis(scale: number, amountOverride?: number): void {
+        this.badgeEmphasisScale = scale;
+        this.badgeAmountOverride = amountOverride;
+    }
+    public clearBadgeEmphasis(): void {
+        this.badgeEmphasisScale = 1;
+        this.badgeAmountOverride = undefined;
+    }
+    /**
+     * The card behind a "revealed" unit — ranked placement shows the opponent's known army as a row of
+     * B&W silhouettes, and without a frame they read as enemies already deployed on the board. A dark
+     * rounded plate edged in the owner's team color, plus the creature's name underneath, makes the row
+     * read as a roster: you can see WHAT they drafted at a glance (the stack size stays redacted as "?"
+     * on the badge). Non-revealed units keep the card hidden, so nothing changes on the live board.
+     */
+    private ensureRosterCard(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
+        if (this.visualMode !== "revealed") {
+            if (this.rosterCard) {
+                this.rosterCard.visible = false;
+            }
+            return;
+        }
+
+        if (!this.rosterCard) {
+            this.rosterCard = new Container();
+            this.rosterCardPlate = new Graphics();
+            this.rosterCardLabel = new Text({
+                text: props.name,
+                style: new TextStyle({
+                    fill: 0xefe4cc,
+                    fontSize: 13,
+                    fontWeight: "700",
+                    stroke: { color: 0x000000, width: 3, join: "round" },
+                }),
+            });
+            this.rosterCardLabel.anchor.set(0.5);
+            // worldRoot is y-up; counter-flip so the caption reads upright.
+            this.rosterCardLabel.scale.y = -1;
+            this.rosterCard.addChild(this.rosterCardPlate, this.rosterCardLabel);
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.rosterCard);
+        } else if (this.rosterCard.parent !== worldRoot) {
+            worldRoot.addChild(this.rosterCard);
+        }
+
+        const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
+        const cell = gs.getCellSize() * this.visualScaleMultiplier;
+        const halfWidth = visualSide * 0.5 + cell * 0.16;
+        const captionGap = cell * 0.3;
+        const fontSize = Math.max(9, Math.round(cell * 0.15));
+        // The plate spans the silhouette and the caption strip beneath it (screen-down = -y here).
+        const top = pos.y + visualSide * 0.5 + cell * 0.1;
+        const bottom = pos.y - visualSide * 0.5 - captionGap - fontSize;
+        const teamColor =
+            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+
+        const plate = this.rosterCardPlate!;
+        plate.clear();
+        plate
+            .roundRect(pos.x - halfWidth, bottom, halfWidth * 2, top - bottom, Math.max(6, cell * 0.18))
+            .fill({ color: 0x05070c, alpha: 0.58 })
+            .stroke({ width: Math.max(1, cell * 0.016), color: teamColor, alpha: 0.55 });
+
+        const label = this.rosterCardLabel!;
+        label.style = new TextStyle({
+            fill: 0xefe4cc,
+            fontSize,
+            fontWeight: "700",
+            stroke: { color: 0x000000, width: 3, join: "round" },
+        });
+        label.text = props.name;
+        label.position.set(pos.x, bottom + fontSize * 0.62);
+
+        // Just under the sprite/shadow pair so the silhouette always sits on top of its own card.
+        this.rosterCard.zIndex = 4000 - pos.y - 1;
+        this.rosterCard.visible = true;
     }
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!this.badgeContainer) {
@@ -891,11 +1461,14 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.badgeContainer);
         }
         const iconSide = gs.getCellSize() * this.visualScaleMultiplier;
-        const amount = this.getAmountAlive();
+        const amount = this.badgeAmountOverride ?? this.getAmountAlive();
         const flag = this.badgeFlag!;
         const text = this.badgeText!;
         const container = this.badgeContainer!;
-        const label = String(amount);
+        // Revealed opponents (ranked placement) carry a sanitized stack of 0 — the flag still shows,
+        // team-colored, with "?" standing in for the hidden stack size.
+        const isRevealed = this.visualMode === "revealed";
+        const label = isRevealed && amount <= 0 ? "?" : String(amount);
         const fs = Math.max(10, Math.floor(iconSide * 0.18));
         const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
         const flagWidth = Math.max(26, Math.floor(iconSide * 0.44), Math.ceil(label.length * fs * 0.62 + fs * 0.9));
@@ -948,7 +1521,8 @@ export class RenderableUnit extends Unit {
         const offsetY = h * 0.5 - margin;
         container.x = pos.x + offsetX;
         container.y = pos.y + offsetY;
-        container.visible = amount > 0;
+        container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
+        container.visible = amount > 0 || isRevealed;
     }
     private ensureHourglassIndicator(
         worldRoot: Container,
@@ -1032,14 +1606,10 @@ export class RenderableUnit extends Unit {
         // e.g. a Medusa that had not yet retaliated wrongly showed it. Read the authoritative per-lap
         // replied state (addRepliedAttack, cleared each lap). Kept to RANGE units since a ranged return-
         // fire is the notable case the tag flags (melee retaliation is the default and untagged).
-        // NOTE: in ranked this replied state is not yet synced to the client (server-authoritative only),
-        // so the tag currently lights up in sandbox; syncing it via the snapshot is the ranked follow-up.
-        if (this.getAttackType() !== AttackVals.RANGE) {
-            return false;
-        }
-        // Sandbox: the local engine tracks the per-lap replied state on FightProperties. Ranked: that
-        // state isn't synced to the client, so trust the per-unit `responded` flag synced from the
-        // snapshot (RankedPlayScene) instead. Either source true => the unit retaliated this lap.
+        // Show it for ANY unit (melee OR ranged) that has used its retaliation this lap — retaliation is
+        // once per lap and the tag flags "already responded". Sources: `responded` is set by the engine on
+        // every responder (processOneInTheFieldAbility) and, in ranked, synced from the snapshot
+        // (RankedPlayScene). FightProperties' replied set is the sandbox-authoritative fallback. Either => true.
         return (
             this.responded || FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
         );
@@ -1062,6 +1632,15 @@ export class RenderableUnit extends Unit {
      */
     private isSkippingForDisplay(): boolean {
         return this.skippingThisTurnSynced || this.isSkippingThisTurn();
+    }
+    /**
+     * Whether to draw the "stop" corner icon on the board. A skipping unit normally shows it — EXCEPT under
+     * "Freeze", where the ice crust already reads as "this unit can't act", so the icon would just clutter
+     * the frozen shell. The hourglass stays suppressed regardless: that keys off isSkippingForDisplay, which
+     * Freeze keeps true. (Up-next/ALT views have no ice crust, so their stop icon is unaffected by this.)
+     */
+    private shouldShowStopIcon(): boolean {
+        return this.isSkippingForDisplay() && !this.hasStatusEffect("Freeze");
     }
     /**
      * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by
@@ -1133,6 +1712,27 @@ export class RenderableUnit extends Unit {
         this.unitProperties.amount_died = died;
         this.initialUnitProperties.amount_died = died;
     }
+    /**
+     * Reconcile the one ranked snapshot effect that must be mechanical rather than display-only. Break mutes
+     * every ability lookup in common; keeping it as text alone lets local passive refreshes and movement
+     * previews re-enable abilities that the authoritative server has disabled.
+     */
+    public syncAuthoritativeBreak(laps?: number): boolean {
+        const authoritativeLaps = laps !== undefined && Number.isFinite(laps) && laps > 0 ? Math.floor(laps) : 0;
+        const current = this.getEffect("Break");
+
+        if (!authoritativeLaps) {
+            if (!current) return false;
+            this.deleteEffect("Break");
+            return true;
+        }
+        if (current?.getLaps() === authoritativeLaps) return false;
+
+        const effect = this.effectFactory.makeEffect("Break");
+        if (!effect) return false;
+        effect.getProperties().laps = authoritativeLaps;
+        return this.applyEffect(effect);
+    }
     /** Tint the active-turn aura (e.g. red for the enemy's turn in ranked, white otherwise). */
     public setActiveAuraColor(color: number): void {
         this.activeAuraColor = color;
@@ -1151,6 +1751,115 @@ export class RenderableUnit extends Unit {
         this.recoilDy = dy;
         this.recoilWindup = false;
         this.recoilDurationMs = 220;
+    }
+    /**
+     * "Bullet-time" dodge for a fully-missed attack: the unit dashes (dx, dy) out of the strike line
+     * with a lean and a green-washed afterimage trail, hangs at full extension for a beat, then springs
+     * back with a slight overshoot. (dx, dy) is the world-space displacement at full extension — the
+     * caller computes it from the attack direction (see Sandbox.showAttackMissedVfx). Safe to call in
+     * any mode; a dodge already in flight is restarted but keeps its fading ghosts.
+     */
+    public playDodgeAnimation(dx: number, dy: number): void {
+        if (!this.sprite || this.isDestroyed) return;
+        // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
+        // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
+        const lean = (dx >= 0 ? -1 : 1) * DODGE_LEAN_RAD;
+        this.dodgeAnim = {
+            startMs: performance.now(),
+            durationMs: DODGE_DURATION_MS,
+            dx,
+            dy,
+            lean,
+            lastGhostMs: 0,
+            ghosts: this.dodgeAnim?.ghosts ?? [],
+        };
+    }
+    /** True while a dodge (including its fading ghost trail) is still animating. */
+    public isDodging(): boolean {
+        return !!this.dodgeAnim;
+    }
+    /** Take the dodge blur off the sprite if it is the installed filter (leave other filters alone). */
+    private removeDodgeBlur(): void {
+        if (this.sprite && this.dodgeBlurFilter && this.sprite.filters?.[0] === this.dodgeBlurFilter) {
+            this.sprite.filters = null;
+        }
+    }
+    private stepDodgeAnimation(worldRoot: Container): void {
+        const anim = this.dodgeAnim;
+        if (!anim) return;
+        const now = performance.now();
+        const t = (now - anim.startMs) / anim.durationMs;
+
+        // Fade + expire the afterimage ghosts regardless of phase (they outlive the spring-back).
+        anim.ghosts = anim.ghosts.filter((ghost) => {
+            const age = now - ghost.bornMs;
+            if (age >= DODGE_GHOST_LIFE_MS || ghost.sprite.destroyed) {
+                if (!ghost.sprite.destroyed) ghost.sprite.destroy();
+                return false;
+            }
+            ghost.sprite.alpha = DODGE_GHOST_ALPHA * (1 - age / DODGE_GHOST_LIFE_MS);
+            return true;
+        });
+
+        if (t >= 1) {
+            if (this.sprite) {
+                this.sprite.rotation = 0;
+                this.removeDodgeBlur();
+            }
+            if (!anim.ghosts.length) this.dodgeAnim = undefined;
+            return;
+        }
+
+        // Dash out fast, hang at full extension (the "bullet-time" beat), then spring back with a
+        // slight overshoot past the origin so the recovery reads springy instead of a rewind.
+        let env: number;
+        if (t < DODGE_DASH_END) {
+            env = dodgeEaseOutCubic(t / DODGE_DASH_END);
+        } else if (t < DODGE_HOLD_END) {
+            env = 1;
+        } else {
+            env = 1 - dodgeEaseOutBack((t - DODGE_HOLD_END) / (1 - DODGE_HOLD_END));
+        }
+
+        if (this.sprite) {
+            this.sprite.x += anim.dx * env;
+            this.sprite.y += anim.dy * env;
+            this.sprite.rotation = anim.lean * env;
+            // Light blur while dashing/held so the sidestep looks too fast to focus on; removed
+            // explicitly on the spring-back (don't rely on any ambient per-frame filter reset).
+            if (t < DODGE_HOLD_END) {
+                if (this.dodgeBlurFilter === undefined) {
+                    // BlurFilter compiles its GL program at construction — unavailable headless
+                    // (bun tests / battle runner). null remembers the failure so it isn't retried
+                    // (and rethrown) every frame.
+                    try {
+                        this.dodgeBlurFilter = new BlurFilter({ strength: DODGE_BLUR_STRENGTH });
+                    } catch {
+                        this.dodgeBlurFilter = null;
+                    }
+                }
+                if (this.dodgeBlurFilter) {
+                    this.sprite.filters = [this.dodgeBlurFilter];
+                }
+            } else {
+                this.removeDodgeBlur();
+            }
+        }
+        if (this.shadow) {
+            this.shadow.x += anim.dx * env;
+            this.shadow.y += anim.dy * env;
+        }
+
+        // Trail: drop a fading ghost of the current transform every few ms while dashing/held.
+        if (t < DODGE_HOLD_END && now - anim.lastGhostMs >= DODGE_GHOST_EVERY_MS) {
+            anim.lastGhostMs = now;
+            const ghost = this.createAfterimageSprite(worldRoot);
+            if (ghost) {
+                ghost.tint = DODGE_GHOST_TINT;
+                ghost.alpha = DODGE_GHOST_ALPHA;
+                anim.ghosts.push({ sprite: ghost, bornMs: now });
+            }
+        }
     }
     /**
      * A wind-up spear thrust ("замахивается копьём"): the sprite first pulls BACK away from the target,
@@ -1191,6 +1900,11 @@ export class RenderableUnit extends Unit {
         this.effectFlashColor = 0x4dff9e; // bright green (keeps a positive, "buffed" feel)
     }
     private currentEffectTint(): number {
+        // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
+        // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.
+        if (this.hasStatusEffect("Freeze")) {
+            return 0x8ec6ff;
+        }
         if (!this.effectFlashStartMs) return 0xffffff;
         const DURATION = 650;
         const t = (performance.now() - this.effectFlashStartMs) / DURATION;
@@ -1227,15 +1941,98 @@ export class RenderableUnit extends Unit {
         return frames[0];
     }
     /**
+     * True when the named EFFECT is active — from the live effect list (Sandbox drives it as a real
+     * this.effects entry) OR folded into the authoritative debuffs (ranked: the server ships
+     * applied_effects concatenated into the snapshot's `debuffs` — see play_session.ts — so a
+     * frozen/stunned unit never gets a client-side runtime effect). Frame-driven effect visuals — the
+     * Freeze ice crust, the icy death shatter — MUST key off this, not hasEffectActive, or they never fire
+     * in ranked. Safe in Sandbox: applied_debuffs never holds effect names there, so it reduces to
+     * hasEffectActive.
+     */
+    public hasStatusEffect(name: string): boolean {
+        return this.hasEffectActive(name) || (this.unitProperties.applied_debuffs ?? []).includes(name);
+    }
+    /**
+     * The buff-side twin of hasStatusEffect. Ranked fills only the DISPLAY array (applied_buffs) and
+     * leaves the buff OBJECT array empty on purpose — stats arrive authoritative — so hasBuffActive
+     * alone answers "no" in ranked for a buff the server really did apply. Anything that keys a visual
+     * off a buff (e.g. the Fireforged Sword burn) must ask this instead, or it only ever fires in sandbox.
+     */
+    public hasStatusBuff(name: string): boolean {
+        return this.hasBuffActive(name) || (this.unitProperties.applied_buffs ?? []).includes(name);
+    }
+    /**
+     * Ranked-only: the client never runs applyDamage, so the engine's `waterShieldSpent` flag stays false
+     * and the client's OWN seeding pass (unitsHolder.trySeedWaterShield) re-grants a Water Shield the server
+     * already consumed — in the SAME synchronous snapshot-apply that just pruned it, so the ring never
+     * blinks off and the break dissolve never fires. Deriving "spent" from the authoritative snapshot (the
+     * unit has the innate Water Shield ability but the snapshot no longer lists the buff) and setting the
+     * flag here makes trySeedWaterShield short-circuit, so the buff stays pruned. `waterShieldSpent` is
+     * protected on the common Unit, accessible here since RenderableUnit extends it.
+     */
+    public markWaterShieldSpent(): void {
+        this.waterShieldSpent = true;
+    }
+    /**
+     * Ranked-only repair: collapse repeated names in the DISPLAY arrays (applied_buffs/applied_debuffs plus
+     * their parallel laps/description/power arrays) so the sidebar lists each buff once.
+     *
+     * In ranked the snapshot seeds those display arrays (getUnitPropertiesFromAuthoritativeState) while the
+     * OBJECT arrays — this.buffs/this.debuffs — are deliberately left empty, because stats already arrive
+     * authoritative and rebuilding the objects would make adjustBaseStats double-apply them. Common's own
+     * recompute then guards on the OBJECT arrays ("if (!u.hasDebuffActive('Visible')) u.applyDebuff(…)" in
+     * refreshStackPowerForAllUnits, same shape for the Hidden buff and for Made of Fire/Water), sees nothing,
+     * and appends a SECOND display entry on top of the seeded one — which is how White Tiger's Visible/Hidden
+     * came to render twice. The engine treats buffs/debuffs as unique by name (getBuff/hasBuffActive match on
+     * name, deleteBuff removes every entry with that name), so collapsing to the first occurrence loses
+     * nothing — and the first occurrence is the snapshot's, i.e. authoritative laps + server-filled text.
+     * `unitProperties` is protected on the common Unit, accessible here since RenderableUnit extends it.
+     */
+    public dropDuplicateAppliedDisplayEntries(): boolean {
+        const properties = this.unitProperties;
+        const buffsCollapsed = dropDuplicateAppliedEntries(
+            properties.applied_buffs,
+            properties.applied_buffs_laps,
+            properties.applied_buffs_descriptions,
+            properties.applied_buffs_powers,
+        );
+        const debuffsCollapsed = dropDuplicateAppliedEntries(
+            properties.applied_debuffs,
+            properties.applied_debuffs_laps,
+            properties.applied_debuffs_descriptions,
+            properties.applied_debuffs_powers,
+        );
+        return buffsCollapsed || debuffsCollapsed;
+    }
+    /**
      * Capture what's needed to spawn a "broken mirror" death shatter: the current sprite texture,
      * its world position, and the sprite scale (which includes the y-up flip). Call before
      * destroyVisuals(), while the sprite still exists.
      */
-    public getShatterInfo(): { texture: Texture; x: number; y: number; scaleX: number; scaleY: number } | null {
+    public getShatterInfo(): {
+        texture: Texture;
+        x: number;
+        y: number;
+        scaleX: number;
+        scaleY: number;
+        frozenShellHalf?: number;
+    } | null {
         const s = this.sprite;
         if (!s || !s.texture) return null;
         const pos = this.getPosition();
-        return { texture: s.texture, x: pos.x, y: pos.y, scaleX: s.scale.x, scaleY: s.scale.y };
+        const freezeBounds = this.freezeCrust?.getLocalBounds();
+        const frozenShellHalf =
+            freezeBounds && freezeBounds.width > 1 && freezeBounds.height > 1
+                ? Math.max(freezeBounds.width, freezeBounds.height) * 0.5
+                : undefined;
+        return {
+            texture: s.texture,
+            x: pos.x,
+            y: pos.y,
+            scaleX: s.scale.x,
+            scaleY: s.scale.y,
+            frozenShellHalf,
+        };
     }
     private ensureStackPowerIndicator(
         worldRoot: Container,
@@ -1423,11 +2220,40 @@ export class RenderableUnit extends Unit {
             );
         }
 
+        // Predatory Assimilation (stack-powered steal chance, same shape as Stun)
+        const predatoryAssimilationAbility = this.getAbility("Predatory Assimilation");
+        if (predatoryAssimilationAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(predatoryAssimilationAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                predatoryAssimilationAbility.getName(),
+                predatoryAssimilationAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Poison Cloud Aura: flat base % + the unit's own luck (luck-dependent though not stack-powered).
+        const poisonCloudAbility = this.getAbility("Poison Cloud Aura");
+        if (poisonCloudAbility) {
+            const percentage = Math.max(0, poisonCloudAbility.getPower() + this.getLuck());
+            this.refreshAbiltyDescription(
+                poisonCloudAbility.getName(),
+                poisonCloudAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Double Punch
         const doublePunchAbility = this.getAbility("Double Punch");
         if (doublePunchAbility) {
+            // Fold in the Dual Strike Charm artifact — the same helper the damage path uses — so the
+            // hovered total is what the second strike actually lands, not just stack power and luck.
             const percentage = Number(
-                (this.calculateAbilityMultiplier(doublePunchAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+                (
+                    AbilityHelper.withDualStrikeCharm(
+                        this.calculateAbilityMultiplier(doublePunchAbility, _synergyAbilityPowerIncrease),
+                        this,
+                    ) * 100
+                ).toFixed(2),
             );
             this.refreshAbiltyDescription(
                 doublePunchAbility.getName(),
@@ -1462,8 +2288,15 @@ export class RenderableUnit extends Unit {
         // Double Shot
         const doubleShotAbility = this.getAbility("Double Shot");
         if (doubleShotAbility) {
+            // Fold in the Dual Strike Charm artifact — the same helper the damage path uses — so the
+            // hovered total is what the second strike actually lands, not just stack power and luck.
             const percentage = Number(
-                (this.calculateAbilityMultiplier(doubleShotAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
+                (
+                    AbilityHelper.withDualStrikeCharm(
+                        this.calculateAbilityMultiplier(doubleShotAbility, _synergyAbilityPowerIncrease),
+                        this,
+                    ) * 100
+                ).toFixed(2),
             );
             this.refreshAbiltyDescription(
                 doubleShotAbility.getName(),
@@ -1762,6 +2595,51 @@ export class RenderableUnit extends Unit {
             }
         }
 
+        // Flesh Shield Aura
+        const fleshShieldAuraAbility = this.getAbility("Flesh Shield Aura");
+        if (fleshShieldAuraAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Flesh Shield");
+            if (auraEffect) {
+                this.refreshAbiltyDescription(
+                    fleshShieldAuraAbility.getName(),
+                    fleshShieldAuraAbility
+                        .getDesc()
+                        .join("\n")
+                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
+                );
+            }
+        }
+
+        // Poison Cloud Aura — {} is the base % plus this unit's luck (combined, like the other aura
+        // tooltips); the per-ally luck is what actually applies at hit time (processPoisonAuraAbility).
+        const poisonCloudAuraAbility = this.getAbility("Poison Cloud Aura");
+        if (poisonCloudAuraAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Poison Cloud");
+            if (auraEffect) {
+                const poisonPercent = Math.max(
+                    0,
+                    this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease) + this.getLuck(),
+                );
+                this.refreshAbiltyDescription(
+                    poisonCloudAuraAbility.getName(),
+                    poisonCloudAuraAbility.getDesc().join("\n").replace(/\{\}/g, poisonPercent.toString()),
+                );
+            }
+        }
+
+        // Hamstring — {} is the stack+luck apply chance, the exact value processHamstringAbility rolls
+        // against (calculateAbilityApplyChance), same as Stun and the other on-hit chance abilities.
+        const hamstringAbility = this.getAbility("Hamstring");
+        if (hamstringAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(hamstringAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                hamstringAbility.getName(),
+                hamstringAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Penetrating Bite
         const penetratingBiteAbility = this.getAbility("Penetrating Bite");
         if (penetratingBiteAbility) {
@@ -1801,49 +2679,29 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(paralysisAbility.getName(), updatedDescription);
         }
 
-        // Deep Wounds Level 1
-        const deepWoundsLevel1Ability = this.getAbility("Deep Wounds Level 1");
-        if (deepWoundsLevel1Ability) {
-            this.refreshAbiltyDescription(
-                deepWoundsLevel1Ability.getName(),
-                deepWoundsLevel1Ability
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(deepWoundsLevel1Ability, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
-        }
-
-        // Deep Wounds Level 2
-        const deepWoundsLevel2Ability = this.getAbility("Deep Wounds Level 2");
-        if (deepWoundsLevel2Ability) {
-            this.refreshAbiltyDescription(
-                deepWoundsLevel2Ability.getName(),
-                deepWoundsLevel2Ability
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(deepWoundsLevel2Ability, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
-        }
-
-        // Deep Wounds Level 3
-        const deepWoundsLevel3Ability = this.getAbility("Deep Wounds Level 3");
-        if (deepWoundsLevel3Ability) {
-            this.refreshAbiltyDescription(
-                deepWoundsLevel3Ability.getName(),
-                deepWoundsLevel3Ability
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(deepWoundsLevel3Ability, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
+        // Deep Wounds Levels 0..3 — same card shape at four strengths, and a unit can hold more than one
+        // (the Wounding Charm artifact grants Level 1 on top of a higher native card). They resolve as a
+        // SINGLE application whose powers stack with luck counted once, so every card shows that one total
+        // rather than its own isolated number, which would not sum to what the unit actually applies.
+        const deepWoundsAbilities = [
+            "Deep Wounds Level 0",
+            "Deep Wounds Level 1",
+            "Deep Wounds Level 2",
+            "Deep Wounds Level 3",
+        ]
+            .map((deepWoundsName) => this.getAbility(deepWoundsName))
+            .filter((ability) => ability !== undefined);
+        if (deepWoundsAbilities.length) {
+            const deepWoundsCount = this.calculateDeepWoundsCount(
+                deepWoundsAbilities,
+                _synergyAbilityPowerIncrease,
+            ).toString();
+            for (const deepWoundsAbility of deepWoundsAbilities) {
+                this.refreshAbiltyDescription(
+                    deepWoundsAbility.getName(),
+                    deepWoundsAbility.getDesc().join("\n").replace(/\{\}/g, deepWoundsCount),
+                );
+            }
         }
 
         // Blind Fury
@@ -1940,6 +2798,64 @@ export class RenderableUnit extends Unit {
                 devourEssenceAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
+
+        // Crafted Frozen Sword / Crafted Frozen Bow (Blacksmith's Craft): the freeze chance is stack-scaled
+        // AND luck-scaled — power/5 * stackPower + luck — so a full stack reads 20% at -10 luck up to 40% at
+        // +10, not the flat 30% the config carries. Nothing filled their {} before, so the tooltip showed the
+        // raw configured power and a lucky unit's real odds were invisible. Same calculateAbilityApplyChance
+        // the engine rolls against, and the same treatment Stun and Hamstring already get.
+        for (const frozenName of ["Crafted Frozen Sword", "Crafted Frozen Bow"]) {
+            const frozenAbility = this.getAbility(frozenName);
+            if (frozenAbility) {
+                const chance = Number(
+                    this.calculateAbilityApplyChance(frozenAbility, _synergyAbilityPowerIncrease).toFixed(2),
+                );
+                this.refreshAbiltyDescription(
+                    frozenAbility.getName(),
+                    frozenAbility.getDesc().join("\n").replace(/\{\}/g, chance.toString()),
+                );
+            }
+        }
+
+        // Crafted Double Punch / Crafted Double Shot (from the Blacksmith's Craft) land a SECOND attack for a
+        // stack-scaled fraction of the damage — power/5 * stackPower + luck, i.e. 20/40/60/80/100% + luck —
+        // unlike the base Double Punch/Shot which always land a full second hit. Show the live scaled % (it
+        // was reading a flat 100% because nothing refreshed the {} with the calculated multiplier).
+        for (const craftedName of ["Crafted Double Punch", "Crafted Double Shot"]) {
+            const craftedAbility = this.getAbility(craftedName);
+            if (craftedAbility) {
+                const percentage = Number(
+                    (
+                        AbilityHelper.withDualStrikeCharm(
+                            this.calculateAbilityMultiplier(craftedAbility, _synergyAbilityPowerIncrease),
+                            this,
+                        ) * 100
+                    ).toFixed(0),
+                );
+                this.refreshAbiltyDescription(
+                    craftedAbility.getName(),
+                    craftedAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
+        }
+
+        // Blacksmith Tools (Craft): the four per-ally outcome chances shift with the caster's live luck
+        // (getCraftChances). Fill them at display time like every other ability's {} — otherwise, with no
+        // per-ability block, the description falls back to the flat power-0 value and reads "0%" everywhere.
+        const blacksmithToolsAbility = this.getAbility("Blacksmith Tools");
+        if (blacksmithToolsAbility) {
+            const { stun, nothing, double, frozen } = AllAbilities.getCraftChances(this.getLuck());
+            this.refreshAbiltyDescription(
+                blacksmithToolsAbility.getName(),
+                blacksmithToolsAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace("{}", double.toString())
+                    .replace("{}", frozen.toString())
+                    .replace("{}", stun.toString())
+                    .replace("{}", nothing.toString()),
+            );
+        }
     }
     private refreshAbiltyDescription(abilityName: string, abilityDescription: string): void {
         if (
@@ -1950,7 +2866,11 @@ export class RenderableUnit extends Unit {
             for (let i = 0; i < this.unitProperties.abilities.length; i++) {
                 if (
                     this.unitProperties.abilities[i] === abilityName &&
-                    (this.unitProperties.abilities_stack_powered[i] || abilityName === "Blind Fury")
+                    // Poison Cloud Aura is not stack-powered but IS luck-dependent, so its description must
+                    // still be refreshed with the live value like the stack-powered ones.
+                    (this.unitProperties.abilities_stack_powered[i] ||
+                        abilityName === "Blind Fury" ||
+                        abilityName === "Poison Cloud Aura")
                 ) {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;
                 }

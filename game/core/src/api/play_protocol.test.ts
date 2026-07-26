@@ -1,6 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
-import { decodePlayEvent, decodePlaySnapshot, PlayEventKind } from "./play_protocol";
+import {
+    decodePlayEvent,
+    decodePlaySnapshot,
+    encodePlayAction,
+    PlayActionType,
+    PlayEventKind,
+    type PlayAction,
+} from "./play_protocol";
+
+/** True if `haystack` contains `needle` as a contiguous run (byte-subsequence search). */
+const containsSubsequence = (haystack: number[], needle: number[]): boolean => {
+    for (let i = 0; i + needle.length <= haystack.length; i += 1) {
+        if (needle.every((b, j) => haystack[i + j] === b)) {
+            return true;
+        }
+    }
+    return false;
+};
 
 const encodeVarint = (value: number | bigint): number[] => {
     const bytes: number[] = [];
@@ -38,6 +55,12 @@ const floatField = (field: number, value: number): number[] => {
     const bytes = new Uint8Array(4);
     new DataView(bytes.buffer).setFloat32(0, value, true);
     return [...tag(field, 5), ...bytes];
+};
+
+const doubleField = (field: number, value: number): number[] => {
+    const bytes = new Uint8Array(8);
+    new DataView(bytes.buffer).setFloat64(0, value, true);
+    return [...tag(field, 1), ...bytes];
 };
 
 describe("play protobuf decoder", () => {
@@ -87,6 +110,38 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[0]?.luck).toBe(-5);
     });
 
+    test("decodes a negative cell coordinate (left-mountain world X) as a signed int32", () => {
+        // A PlayCell (base_cell = field 11) whose x (field 1) is negative, sign-extended like protobufjs.
+        const cell = [...signedIntField(1, -384), ...intField(2, 256)];
+        const unit = [...stringField(1, "unit-1"), ...messageField(11, cell)];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        // Without the signed decode this surfaced as a huge positive number (the raw 10-byte varint).
+        expect(decoded.units[0]?.baseCell).toEqual({ x: -384, y: 256 });
+    });
+
+    test("encodes a negative cell coordinate as a sign-extended int32 (server-decodable)", () => {
+        // OBSTACLE_ATTACK aims at the mountain by WORLD position; the left mountain's X is negative. The
+        // encoder must sign-extend it to a 10-byte varint, or the server reads the wrong cell and the
+        // ranked mountain hit silently fails (the bug this guards). y stays a plain positive varint.
+        const encoded = Array.from(
+            encodePlayAction({
+                actionId: "a",
+                gameId: "g",
+                playerId: "p",
+                expectedSequence: 1,
+                type: PlayActionType.OBSTACLE_ATTACK,
+                unitId: "u",
+                team: 1,
+                targetCell: { x: -384, y: 256 },
+            } as unknown as PlayAction),
+        );
+        const expectedTargetCell = messageField(14, [...signedIntField(1, -384), ...intField(2, 256)]);
+        expect(containsSubsequence(encoded, expectedTargetCell)).toBe(true);
+    });
+
     test("decodes a unit's repeated debuff and buff names (proto fields 18 and 19)", () => {
         const unit = [
             ...stringField(1, "unit-1"),
@@ -100,6 +155,53 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.units[0]?.debuffs).toEqual(["Sadness", "Quagmire"]);
         expect(decoded.units[0]?.buffs).toEqual(["Courage"]);
+    });
+
+    test("decodes stolen abilities and the turn-start Web movement lock (proto fields 33 and 34)", () => {
+        const locked = [
+            ...stringField(1, "unit-1"),
+            ...stringField(33, "Bitter Experience"),
+            ...stringField(33, "Dodge"),
+            ...intField(34, 1),
+        ];
+        const unlocked = [...stringField(1, "unit-2")];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, locked),
+            ...messageField(12, unlocked),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.stolenAbilities).toEqual(["Bitter Experience", "Dodge"]);
+        expect(decoded.units[0]?.webMovementLocked).toBe(true);
+        expect(decoded.units[1]?.stolenAbilities).toBeUndefined();
+        expect(decoded.units[1]?.webMovementLocked).toBe(false);
+    });
+
+    test("decodes authoritative remaining spell entries, including an empty spellbook", () => {
+        const withSpells = [
+            ...stringField(1, "unit-1"),
+            ...stringField(35, "Life:Heal"),
+            ...stringField(35, "Life:Heal"),
+            ...intField(36, 1),
+        ];
+        const empty = [...stringField(1, "unit-2"), ...intField(36, 1)];
+        const legacy = [...stringField(1, "unit-3")];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, withSpells),
+            ...messageField(12, empty),
+            ...messageField(12, legacy),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.spellEntries).toEqual(["Life:Heal", "Life:Heal"]);
+        expect(decoded.units[0]?.spellEntriesAuthoritative).toBe(true);
+        expect(decoded.units[1]?.spellEntries).toBeUndefined();
+        expect(decoded.units[1]?.spellEntriesAuthoritative).toBe(true);
+        expect(decoded.units[2]?.spellEntriesAuthoritative).toBe(false);
     });
 
     test("decodes the fight-start army totals (proto fields 24-27)", () => {
@@ -126,6 +228,38 @@ describe("play protobuf decoder", () => {
         expect(decoded.upperStartUnits).toBe(0);
         expect(decoded.lowerStartHealth).toBe(0);
         expect(decoded.upperStartHealth).toBe(0);
+    });
+
+    test("decodes split placement fields; SETUP stage (0, omitted on the wire) decodes to 0", () => {
+        // Real protobuf OMITS an int32 whose value is 0, so a split game's SETUP stage arrives with only
+        // placement_split (field 51) on the wire — placement_stage (field 50) is absent. It MUST decode to
+        // stage 0, not the legacy board default, or the client renders Setup as Board.
+        const setup = decodePlaySnapshot(new Uint8Array([...stringField(1, "split-setup"), ...intField(51, 1)]));
+        expect(setup.placementSplit).toBe(true);
+        expect(setup.placementStage).toBe(0);
+
+        // BOARD stage (1) is non-zero, so it IS written on the wire.
+        const board = decodePlaySnapshot(
+            new Uint8Array([...stringField(1, "split-board"), ...intField(50, 1), ...intField(51, 1)]),
+        );
+        expect(board.placementSplit).toBe(true);
+        expect(board.placementStage).toBe(1);
+
+        // Legacy / pre-split server: no fields. Not split; stage defaults to 0 but is ignored everywhere
+        // (every stage gate requires placementSplit), so the combined placement UI is used.
+        const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
+        expect(legacy.placementSplit).toBe(false);
+        expect(legacy.placementStage).toBe(0);
+    });
+
+    test("decodes the authoritative steps morale multiplier and defaults it for older snapshots", () => {
+        const current = decodePlaySnapshot(
+            new Uint8Array([...stringField(1, "current-game"), ...doubleField(52, 0.15)]),
+        );
+        expect(current.stepsMoraleMultiplier).toBeCloseTo(0.15);
+
+        const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
+        expect(legacy.stepsMoraleMultiplier).toBe(0);
     });
 
     test("a unit with no debuff/buff fields decodes them as undefined", () => {

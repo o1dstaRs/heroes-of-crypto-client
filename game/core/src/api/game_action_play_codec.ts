@@ -1,6 +1,6 @@
 import type { AugmentKind, FactionType, GameAction, TeamType } from "@heroesofcrypto/common";
 
-import { PlayActionType, type PlayAction, type PlayCell } from "./play_protocol";
+import { PlayActionType, PLAY_MOVE_CONTINUE_TURN_REASON, type PlayAction, type PlayCell } from "./play_protocol";
 
 // The augment play-action carries no unit; the augment category rides in `attackType` (1-based so it
 // survives the varint zero-skip) and its level in `amount`. Keep in sync with play.proto's comment.
@@ -29,6 +29,10 @@ type PlayActionEnvelope = {
 
 type PlayActionBody = Omit<PlayAction, "actionId" | "gameId" | "playerId" | "expectedSequence">;
 
+export interface CreatePlayActionOptions {
+    continueTurn?: boolean;
+}
+
 const withEnvelope = (envelope: PlayActionEnvelope, action: PlayActionBody): PlayAction => ({
     actionId: envelope.actionId,
     gameId: envelope.gameId,
@@ -43,7 +47,11 @@ const cloneCells = (cells?: PlayCell[]): PlayCell[] => (cells ?? []).map((cell) 
 const maybeCell = (cell?: PlayCell): PlayCell | undefined =>
     cell && Number.isFinite(cell.x) && Number.isFinite(cell.y) ? { x: cell.x, y: cell.y } : undefined;
 
-export const createPlayActionFromGameAction = (action: GameAction, envelope: PlayActionEnvelope): PlayAction => {
+export const createPlayActionFromGameAction = (
+    action: GameAction,
+    envelope: PlayActionEnvelope,
+    options: CreatePlayActionOptions = {},
+): PlayAction => {
     switch (action.type) {
         case "start_fight":
             return withEnvelope(envelope, { type: PlayActionType.START_FIGHT });
@@ -71,6 +79,7 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
                 targetCells: action.targetCells,
                 hasLavaCell: action.hasLavaCell,
                 hasWaterCell: action.hasWaterCell,
+                reason: options.continueTurn ? PLAY_MOVE_CONTINUE_TURN_REASON : undefined,
             });
         case "melee_attack":
             return withEnvelope(envelope, {
@@ -130,6 +139,10 @@ export const createPlayActionFromGameAction = (action: GameAction, envelope: Pla
                 type: PlayActionType.SPLIT_UNIT,
                 unitId: action.unitId,
                 amount: action.amount,
+                // Present only for the drag-split gesture; the sidebar's Split button sends none and the
+                // server leaves the peeled stack unplaced. `cells` is a generic wire field already encoded
+                // for every action type, so carrying it here needs no protocol change.
+                ...(action.cells?.length ? { cells: action.cells } : {}),
             });
         case "delete_unit":
             return withEnvelope(envelope, { type: PlayActionType.DELETE_UNIT, unitId: action.unitId });
@@ -264,7 +277,12 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
             return action.unitId ? { type: "delete_unit", unitId: action.unitId } : undefined;
         case PlayActionType.SPLIT_UNIT:
             return action.unitId && typeof action.amount === "number"
-                ? { type: "split_unit", unitId: action.unitId, amount: action.amount }
+                ? {
+                      type: "split_unit",
+                      unitId: action.unitId,
+                      amount: action.amount,
+                      ...(action.cells?.length ? { cells: action.cells } : {}),
+                  }
                 : undefined;
         case PlayActionType.REQUEST_ADDITIONAL_TIME:
             return typeof action.team === "number"

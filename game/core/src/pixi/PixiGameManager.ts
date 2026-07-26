@@ -623,9 +623,33 @@ export class PixiGameManager {
 
         this.m_scene?.Destroy();
         this.m_scene = null;
+        // Only destroy pixiApp here if a PRIOR init() fully completed (isInitialized was true) — its
+        // pixi.js Application had finished Application.init() and all plugins (ResizePlugin etc.) are
+        // installed, so Application.destroy()'s teardown loop can run cleanly. If init() is still IN
+        // FLIGHT (isInitialized is still false — e.g. the boot effect's async init() hasn't resolved
+        // its `await pixiApp.init(...)` yet), destroying pixiApp here tears down a half-constructed
+        // pixi.js Application whose plugins haven't been installed: Application.destroy() then throws
+        // ("this._cancelResize is not a function" from ResizePlugin.destroy(), which assumes ITS OWN
+        // init() already ran) and ABORTS its teardown loop before the renderer/stage are released,
+        // leaking the WebGL context. The in-flight init() already guards itself with
+        // `if (!isCurrentLifecycle()) { pixiApp.destroy(); return; }` immediately after its
+        // `await pixiApp.init(...)` truly resolves — defer destruction to that instead of racing it here.
+        // NOTE (nightly QA #3, 2026-07-16): this removes ONE confirmed contributor — reproduced via the
+        // exact TypeError above during a same-tab "Play Again vs AI" transition, and confirmed this fix
+        // stops that specific throw from firing. The remaining same-tab "Play Again vs AI" FREEZE was
+        // subsequently root-caused and fixed: react-router's useNavigate() changes identity on every
+        // navigation and sat in GameScreen's boot-effect deps, so a same-tab route change re-ran the
+        // effect without unmounting — Uninitialize() here force-lost the canvas's WebGL context (pixi's
+        // GlContextSystem.destroy() -> loseContext()) and the immediate re-init on the SAME canvas
+        // adopted the lost context, spinning forever in pixi's checkMaxIfStatementsInShader. See
+        // ui/Main/index.tsx (boot strictly once per canvas mount) and pixi/webglContextGuard.ts
+        // (restore-or-throw guard for any residual same-canvas re-init).
+        const pixiAppWasFullyInitialized = this.isInitialized;
         this.isInitialized = false;
         this._isLoading = true;
-        this.pixiApp?.destroy();
+        if (pixiAppWasFullyInitialized) {
+            this.pixiApp?.destroy();
+        }
         this.pixiApp = null;
         this.textures = null;
         this.started = false;
@@ -915,6 +939,7 @@ export class PixiGameManager {
                 unitLevel: this.m_scene.sc_hoverUnitLevel,
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
+                isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
             });
             this.lastSentEmptyHoverInfo = false;
         } else if (!this.lastSentEmptyHoverInfo) {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import type { GameAction, Unit } from "@heroesofcrypto/common";
+import { FightStateManager, type GameAction, type Unit } from "@heroesofcrypto/common";
 
 import { ButtonManager, type ISandboxButtonContext } from "./ButtonManager";
-import { VisibleButtonState } from "./VisibleState";
+import { VisibleButtonState, type IVisibleButton } from "./VisibleState";
 
 const makeUnit = (opts: { aiDriven?: boolean } = {}): Unit =>
     ({
@@ -40,6 +40,7 @@ const makeContext = (over: Partial<ISandboxButtonContext> = {}): { ctx: ISandbox
         setSpellBookOverlay: () => {},
         isInputLockedByAI: () => false,
         canControlCurrentActiveUnit: () => true,
+        hasUnactedTeammateInCurrentLap: () => false,
         getVisibleState: () => undefined,
         ...over,
     };
@@ -74,6 +75,51 @@ describe("ButtonManager AI toggle", () => {
         expect(rec.actions).toEqual([]);
     });
 
+    it("keeps the AI button clickable while the turn-transition button lock is on", () => {
+        // Regression: after every completed turn the scene locks button refreshes until the next unit
+        // activates. In ranked that window spans a server round-trip per turn, and the toolbar swallows
+        // clicks on disabled buttons — a disabled AI button silently ate the player's toggle-off while
+        // autobattle chained turns ("toggle off doesn't work, still can't move").
+        let rendered: IVisibleButton[] = [];
+        const { ctx, rec } = makeContext({
+            getCurrentActiveUnit: () => makeUnit(),
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
+        });
+        const bm = new ButtonManager(ctx, true);
+
+        bm.setButtonsRefreshLocked(true);
+
+        const byName = new Map(rendered.map((b) => [b.name, b]));
+        expect(byName.get("AI")?.isDisabled).toBe(false);
+        expect(byName.get("Next")?.isDisabled).toBe(true);
+        expect(byName.get("Hourglass")?.isDisabled).toBe(true);
+
+        // And the click actually toggles while locked.
+        bm.propagateButtonClicked("AI", VisibleButtonState.SECOND);
+        expect(rec.aiActive).toEqual([false]);
+        expect(bm.sc_isAIActive).toBe(false);
+    });
+
+    it("disables the AI button once the fight is finished", () => {
+        let rendered: IVisibleButton[] = [];
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => makeUnit(),
+            getVisibleState: () =>
+                ({ hasFinished: true }) as unknown as ReturnType<ISandboxButtonContext["getVisibleState"]>,
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
+        });
+        const bm = new ButtonManager(ctx, true);
+
+        bm.refreshButtons(true);
+
+        const byName = new Map(rendered.map((b) => [b.name, b]));
+        expect(byName.get("AI")?.isDisabled).toBe(true);
+    });
+
     it("blocks switching the AI toggle mid-turn for an AI-Driven ability unit", () => {
         // The one case the player explicitly should NOT be able to switch: an AI-Driven unit is
         // AI-controlled for its whole turn.
@@ -87,5 +133,42 @@ describe("ButtonManager AI toggle", () => {
 
         expect(rec.aiActive).toEqual([]);
         expect(bm.sc_isAIActive).toBe(true);
+    });
+});
+
+describe("ButtonManager hourglass eligibility", () => {
+    const checkHourglass = (manager: ButtonManager): boolean =>
+        (
+            manager as unknown as {
+                checkHourglassCondition: () => boolean;
+            }
+        ).checkHourglassCondition();
+
+    it("disables hourglass when the active unit is its team's last unacted unit this lap", () => {
+        FightStateManager.getInstance().reset();
+        FightStateManager.getInstance().getFightProperties().startFight();
+        let activeUnit: Unit | undefined;
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => activeUnit,
+            hasUnactedTeammateInCurrentLap: () => false,
+        });
+        const manager = new ButtonManager(ctx, false);
+        activeUnit = makeUnit();
+
+        expect(checkHourglass(manager)).toBe(false);
+    });
+
+    it("allows hourglass while another teammate still has a turn pending this lap", () => {
+        FightStateManager.getInstance().reset();
+        FightStateManager.getInstance().getFightProperties().startFight();
+        let activeUnit: Unit | undefined;
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => activeUnit,
+            hasUnactedTeammateInCurrentLap: () => true,
+        });
+        const manager = new ButtonManager(ctx, false);
+        activeUnit = makeUnit();
+
+        expect(checkHourglass(manager)).toBe(true);
     });
 });

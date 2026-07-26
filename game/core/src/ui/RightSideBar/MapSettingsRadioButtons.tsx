@@ -96,7 +96,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         />
                         <Radio
                             value={GridVals.BLOCK_CENTER}
-                            label="Mountain"
+                            label="Mountains"
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {

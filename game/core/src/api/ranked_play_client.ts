@@ -75,15 +75,29 @@ export const toBytes = (data: unknown): Uint8Array => {
     return new Uint8Array(data as ArrayBuffer);
 };
 
+/**
+ * The authoritative play snapshot, or `undefined` while the game is still DRAFTING.
+ *
+ * A game sits in PICK for the whole draft and the client polls this endpoint throughout to catch the
+ * pick -> play handoff, so "not ready yet" is ordinary control flow, not a failure — the server answers it
+ * with 204 (it used to throw a 400, which made every freshly formed match open with a burst of failed
+ * requests). The empty-body guard is deliberate belt-and-braces: an empty protobuf decodes CLEANLY into a
+ * blank snapshot rather than throwing, so without it a bodyless response would read as a real game with no
+ * units and promote the UI into the play view mid-draft.
+ */
 export const fetchRankedPlaySnapshot = async (
     gameId: string,
     options?: { authorization?: string },
-): Promise<PlaySnapshot> => {
+): Promise<PlaySnapshot | undefined> => {
     const response = await axiosGameInstance.get(playSnapshotUrl(gameId), {
         responseType: "arraybuffer",
         headers: authHeaders(options?.authorization),
     });
-    return decodePlaySnapshot(toBytes(response.data));
+    const bytes = toBytes(response.data);
+    if (response.status === 204 || !bytes.length) {
+        return undefined;
+    }
+    return decodePlaySnapshot(bytes);
 };
 
 export const fetchRankedPlayReplay = async (gameId: string): Promise<RankedReplay> => {
@@ -281,12 +295,17 @@ export const toAuthoritativeGameSnapshot = (
     currentTurnEndMs: snapshot.currentTurnEndMs,
     narrowingLayers: snapshot.narrowingLayers,
     centerDried: snapshot.centerDried,
+    stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
     units: snapshot.units,
     upNext: snapshot.upNext,
     lowerStartUnits: snapshot.lowerStartUnits,
     upperStartUnits: snapshot.upperStartUnits,
     lowerStartHealth: snapshot.lowerStartHealth,
     upperStartHealth: snapshot.upperStartHealth,
+    lowerStartRosterCreatureIds: snapshot.lowerStartRosterCreatureIds,
+    lowerStartRosterAmounts: snapshot.lowerStartRosterAmounts,
+    upperStartRosterCreatureIds: snapshot.upperStartRosterCreatureIds,
+    upperStartRosterAmounts: snapshot.upperStartRosterAmounts,
     journalTail: snapshot.journalTail,
     damageStats: snapshot.damageStats.map((stat): IDamageStatistic => ({
         unitName: stat.unitName,

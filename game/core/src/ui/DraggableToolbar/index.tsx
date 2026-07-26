@@ -245,7 +245,25 @@ const getBarSize = (width: number, height: number) => {
     return rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0;
 };
 
+// Analytic fallback for the toolbar's own rendered width, used only before toolbarRef has mounted (the
+// very first default-position computation happens in a useState initializer, ahead of the DOM existing
+// to measure). In its default single-column layout the widest child is always a 45px-diameter button —
+// the drag-indicator/divider/rotate icons are all narrower — so width = button + StyledSheet's own
+// padding/border on both sides. Mirrors those CSS values exactly (1rem = 16px) so this estimate lines
+// up with the real rendered box once toolbarRef.current.offsetWidth takes over on the next resize/reset.
+const estimateToolbarWidth = (): number => {
+    const buttonWidthPx = 45 * SCREEN_RATIO;
+    const paddingPx = 0.7 * SCREEN_RATIO * 16 * 2;
+    const borderPx = Math.max(1, Math.round(2 * SCREEN_RATIO)) * 2;
+    return buttonWidthPx + paddingPx + borderPx;
+};
+
 const DraggableToolbar: React.FC = () => {
+    // Declared before getDefaultSettings below (which reads toolbarRef.current) so there's no temporal
+    // deadzone: getDefaultSettings is CALLED from the position/isVertical useState initializers further
+    // down, i.e. before a `const toolbarRef` declared after them would be initialized.
+    const toolbarRef = React.useRef<HTMLDivElement>(null);
+
     const updateScreenRatios = useCallback(() => {
         SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
     }, []);
@@ -257,12 +275,18 @@ const DraggableToolbar: React.FC = () => {
         const barSize = getBarSize(width, height);
 
         // Landscape: Left side (right edge of Left Sidebar)
-        // Vertical: Right side (left edge of Right Sidebar)
+        // Vertical: Right side, docked just OUTSIDE the Right Sidebar's left edge — offset left by the
+        // toolbar's own rendered width (measured once mounted, else estimated) so the bar never sits on
+        // top of the sidebar's list/wallet/version controls. Audit found it fully overlapping the Right
+        // Sidebar at narrower-than-16:9 resolutions (e.g. 1680x1000), which take this vertical branch;
+        // the old formula placed the toolbar's LEFT edge flush with the sidebar's left edge, so the whole
+        // bar rendered on top of the sidebar instead of beside it.
         // Update: Landscape should stick to inside edge of sidebar (move left by button width)
-        const x = isLandscape ? barSize - 48 * SCREEN_RATIO : width - barSize;
+        const toolbarWidth = toolbarRef.current?.offsetWidth ?? estimateToolbarWidth();
+        const x = isLandscape ? barSize - 48 * SCREEN_RATIO : Math.max(0, width - barSize - toolbarWidth);
 
         return {
-            x: x,
+            x,
             y: height / 3.2,
             isVertical: true,
         };
@@ -278,7 +302,6 @@ const DraggableToolbar: React.FC = () => {
     const theme = useTheme();
 
     const { buttons: buttonGroup, propagateClick } = useButtonContext();
-    const toolbarRef = React.useRef<HTMLDivElement>(null);
     // Live drag state kept in refs so dragging doesn't re-render the bar on every mousemove.
     const positionRef = useRef(position);
     const draggingRef = useRef(false);

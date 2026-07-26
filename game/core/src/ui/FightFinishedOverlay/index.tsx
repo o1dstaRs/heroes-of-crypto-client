@@ -154,7 +154,14 @@ const ActionButton: React.FC<{ label: string; disabled?: boolean; primary?: bool
 interface FightFinishedOverlayProps {
     mode?: "sandbox" | "ranked";
     canReplay?: boolean;
+    /** Set for vs-AI matches: the tiered bot identity ("AI — Hard (v0.7)"), shown under the banner. */
+    opponentLabel?: string;
     onReplay?: () => void | Promise<void>;
+    backLabel?: string;
+    // Ranked-only post-match actions. Both are optional so the overlay degrades to the old bare
+    // "Close" button for any caller that doesn't wire them (e.g. a future non-vs-AI ranked surface).
+    onPlayAgainVsAi?: () => void | Promise<void>;
+    onBackToLobby?: () => void;
 }
 
 // =============================================================================
@@ -163,12 +170,18 @@ interface FightFinishedOverlayProps {
 export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     canReplay: canReplayOverride,
     mode = "sandbox",
+    opponentLabel,
     onReplay,
+    backLabel = "Back to Lobby",
+    onPlayAgainVsAi,
+    onBackToLobby,
 }) => {
     const manager = usePixiManager();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [dismissed, setDismissed] = useState(false);
     const [replayResult, setReplayResult] = useState(false);
+    const [playAgainBusy, setPlayAgainBusy] = useState(false);
+    const [playAgainError, setPlayAgainError] = useState("");
     const replayInProgress = useRef(false);
     const replayTimers = useRef<number[]>([]);
 
@@ -182,6 +195,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 if (!replayInProgress.current) {
                     setReplayResult(false);
                 }
+                setPlayAgainBusy(false);
+                setPlayAgainError("");
             }
         });
         return () => {
@@ -200,25 +215,27 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         return `${total} units fell over ${laps} ${laps === 1 ? "lap" : "laps"}`;
     }, [stats]);
 
-    // Only a finished fight (with a real winner) shows this overlay — for BOTH players, and when a
-    // completed game is (re)loaded. We intentionally do NOT gate on the per-team start totals: when a
-    // finished game is loaded cold, the losing team's units have been cleaned up server-side, so its
-    // start total reconstructs as 0 — gating on that would silently swallow the results overlay. The
-    // percentage math (percent() / CasualtyRoster) already guards against a 0 total, so a missing start
-    // total just degrades that team's casualty figures rather than hiding the whole overlay.
+    // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
+    // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
+    // NOT "no winner yet" — that in-progress state is represented by teamWin === undefined instead (see
+    // RankedPlayScene.applyRankedFightStats), so NO_TEAM is a valid, overlay-showing value here. We
+    // intentionally do NOT gate on the per-team start totals: when a finished game is loaded cold, the
+    // losing team's units have been cleaned up server-side, so its start total reconstructs as 0 — gating
+    // on that would silently swallow the results overlay. The percentage math (percent() / CasualtyRoster)
+    // already guards against a 0 total, so a missing start total just degrades that team's casualty
+    // figures rather than hiding the whole overlay.
     if (
         !visibleState.hasFinished ||
         !stats ||
         dismissed ||
         visibleState.teamWin === undefined ||
-        visibleState.teamWin === TeamVals.NO_TEAM ||
-        stats.winner === TeamVals.NO_TEAM ||
         stats.winner !== visibleState.teamWin
     ) {
         return null;
     }
 
-    const winnerColor = teamColor(stats.winner);
+    const isDraw = stats.winner === TeamVals.NO_TEAM;
+    const winnerColor = isDraw ? GOLD : teamColor(stats.winner);
     const canSandboxReplay = manager.CanPlayCurrentSandboxReplay();
     const canReplay = canReplayOverride ?? canSandboxReplay;
     const showSandboxActions = mode === "sandbox" && canSandboxReplay;
@@ -321,9 +338,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     ✕
                 </Box>
 
-                {/* Winner banner */}
+                {/* Winner banner (or draw banner — armageddon can wipe both sides on the same lap) */}
                 <Stack sx={{ alignItems: "center", textAlign: "center", mb: 2 }}>
-                    <Typography sx={{ fontSize: "2.2rem", lineHeight: 1, mb: 0.5 }}>🏆</Typography>
+                    <Typography sx={{ fontSize: "2.2rem", lineHeight: 1, mb: 0.5 }}>{isDraw ? "⚖️" : "🏆"}</Typography>
                     <Typography
                         sx={{
                             color: winnerColor,
@@ -333,9 +350,14 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             textShadow: `0 0 18px ${winnerColor}aa`,
                         }}
                     >
-                        {teamName(stats.winner).toUpperCase()} TEAM WINS
+                        {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
                     </Typography>
                     <Typography sx={{ color: PARCHMENT, opacity: 0.75, fontSize: "0.95rem" }}>{subtitle}</Typography>
+                    {opponentLabel && (
+                        <Typography sx={{ color: GOLD, opacity: 0.9, fontSize: "0.85rem", fontWeight: 700, mt: 0.25 }}>
+                            vs {opponentLabel}
+                        </Typography>
+                    )}
                 </Stack>
 
                 {/* Legend */}
@@ -408,7 +430,39 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             }}
                         />
                     )}
-                    {!showSandboxActions && (
+                    {!showSandboxActions && onPlayAgainVsAi && (
+                        <ActionButton
+                            label={playAgainBusy ? "Starting…" : "⚔ Play Again vs AI"}
+                            primary
+                            disabled={playAgainBusy}
+                            onClick={() => {
+                                if (playAgainBusy) return;
+                                setPlayAgainError("");
+                                setPlayAgainBusy(true);
+                                Promise.resolve(onPlayAgainVsAi())
+                                    // On success the caller navigates away; only clear the busy flag on
+                                    // failure so a rejected click stays clickable instead of stuck.
+                                    .catch((err: unknown) => {
+                                        setPlayAgainBusy(false);
+                                        setPlayAgainError(
+                                            err instanceof Error ? err.message : "Unable to start an AI match",
+                                        );
+                                    });
+                            }}
+                        />
+                    )}
+                    {!showSandboxActions && onBackToLobby && (
+                        <ActionButton
+                            label={backLabel}
+                            primary={!onPlayAgainVsAi}
+                            onClick={() => {
+                                clearReplayTimers();
+                                setDismissed(true);
+                                onBackToLobby();
+                            }}
+                        />
+                    )}
+                    {!showSandboxActions && !onPlayAgainVsAi && !onBackToLobby && (
                         <ActionButton
                             label="Close"
                             primary
@@ -419,6 +473,13 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         />
                     )}
                 </Stack>
+                {!showSandboxActions && playAgainError && (
+                    <Typography
+                        sx={{ color: "#ff8a8a", opacity: 0.9, fontSize: "0.78rem", textAlign: "center", mt: 1 }}
+                    >
+                        {playAgainError}
+                    </Typography>
+                )}
                 {showSandboxActions && (
                     <Typography
                         sx={{ color: PARCHMENT, opacity: 0.45, fontSize: "0.72rem", textAlign: "center", mt: 1.5 }}

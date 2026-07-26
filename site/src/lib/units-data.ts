@@ -54,6 +54,13 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
 
+// Mirrors common's MAX_UNIT_STACK_POWER (constants.ts) — the ceiling chakramBounceBudget clamps to.
+const MAX_UNIT_STACK_POWER = 5;
+
+// getCraftChances(0) from common's abilities/craft_ability.ts: stun = clamp(10 - luck), frozen = 20 - stun,
+// with nothing/double fixed. Always sums to 100.
+const NEUTRAL_LUCK_CRAFT_CHANCES = { double: 40, frozen: 10, stun: 10, nothing: 40 } as const;
+
 const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Double Punch": ["Наносит вторую атаку с {}% рассчитанного урона."],
     Backstab: ["Наносит на {}% больше урона при ударе со стороны зоны появления врага."],
@@ -85,6 +92,9 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Luck Aura": ["Союзники в радиусе получают максимальную удачу."],
     "Arrows Wingshield Aura": [
         "Союзники в радиусе получают +{}% защиты от дальних атак. Владелец невосприимчив к прострелу насквозь и не распространяет дальний урон по области.",
+    ],
+    "Angelic Host": [
+        "Пока владелец жив, все союзные летающие юниты получают +{} к атаке, защите и дистанции перемещения. Эффект не складывается.",
     ],
     "AI Driven": ["Юнит действует сам: все его ходы решает AI, а не игрок."],
     "Magic Shield": ["Дает {}% сопротивления всем магическим атакам и дебаффам."],
@@ -164,6 +174,35 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Disguise Aura": ["Владельца нельзя выбрать целью, пока в радиусе ауры нет вражеского юнита."],
     "Dulling Defense": ["Враг навсегда теряет {} базовой атаки, когда атакует владельца в ближнем бою."],
     "Devour Essence": ["После убийства врага юнит восстанавливается до {}% максимального здоровья."],
+    "Dense Flesh": ["Вражеские дальние атаки, направленные на этого юнита, расходуют {} выстрела вместо одного."],
+    "Flesh Shield Aura": [
+        "Поглощает {}% урона от атак, нанесенного союзникам в радиусе.",
+        "Поглощенный урон пересчитывается с учетом защиты владельца и наносится владельцу вместо союзника.",
+    ],
+    "Web Aura": [
+        "Вражеские летающие юниты, начинающие ход в радиусе {} клетки от этого юнита, не могут двигаться в этот ход.",
+    ],
+    Infest: [
+        "Когда этот юнит уничтожает существо 1–3 уровня, из него появляется один юнит Arachna Spider.",
+        "При уничтожении существа 4 уровня вместо этого появляется один юнит Arachna Queen.",
+    ],
+    "Predatory Assimilation": [
+        "Каждая попавшая прямая атака имеет шанс навсегда отключить и украсть одну случайную активную способность цели.",
+    ],
+    Chakram: [
+        "Дальние атаки рикошетят по полукругу в следующего врага, до {} раз.",
+        "Каждый отскок наносит ~100% урона (90–110% в зависимости от удачи) и никогда не задевает союзников.",
+    ],
+    "Rallying Volley Aura": ["Союзные стрелки в радиусе получают +{} выстрела."],
+    "Book of Chaos": ["Открывает заклинания: Smoke, Misfortune и Fireforged Sword."],
+    "Blacksmith Tools": [
+        "Craft (союзники в области 2x2, нужна сила стека 4). Для каждого союзника:",
+        "Двойная атака {}%, замороженное оружие {}%, оглушение {}%, ничего {}%.",
+    ],
+    Enchants: [
+        "Зачаровывает броню или оружие союзника (стек 1).",
+        "Каждое применение: 50% шанс добавить +1 (складывается).",
+    ],
 };
 
 function abilityDescription(name: string, language: "en" | "ru" = "en"): string {
@@ -189,6 +228,23 @@ function abilityDescription(name: string, language: "en" | "ru" = "en"): string 
         const p = ability.power;
         return joined.replace("{}", String(Math.round(p * 2))).replace("{}", String(Math.round(p)));
     }
+    // Chakram's "{}" is the bounce budget, which is the caster's stack power (chakramBounceBudget clamps
+    // it to 1..MAX_UNIT_STACK_POWER) — NOT `power`, which is the ~100% per-bounce damage. Substituting
+    // power here printed "up to 100 times".
+    if (name === "Chakram") {
+        return joined.replace("{}", String(MAX_UNIT_STACK_POWER));
+    }
+    // Blacksmith Tools lists Craft's four luck-weighted outcomes; `power` is 0, so the generic
+    // substitution printed "0%" for all of them. These are getCraftChances(luck) at neutral luck, where
+    // luck shifts probability 1:1 from Stun to Frozen.
+    if (name === "Blacksmith Tools") {
+        const { double, frozen, stun, nothing } = NEUTRAL_LUCK_CRAFT_CHANCES;
+        return joined
+            .replace("{}", String(double))
+            .replace("{}", String(frozen))
+            .replace("{}", String(stun))
+            .replace("{}", String(nothing));
+    }
     return joined.replace(/\{\}/g, String(ability.power));
 }
 
@@ -199,6 +255,7 @@ export interface UnitAbility {
     icon: string;
     isAura: boolean;
     isCastable: boolean;
+    isStackPowered: boolean;
 }
 
 export interface Unit {
@@ -206,6 +263,7 @@ export interface Unit {
     faction: FactionName;
     level: number;
     size: number;
+    experience: number;
     hp: number;
     armor: number;
     attack: number;
@@ -220,6 +278,7 @@ export interface Unit {
     movementType: string;
     spells: string[];
     abilities: UnitAbility[];
+    summonedOnly: boolean;
     portrait: string;
     icon: string;
 }
@@ -247,10 +306,19 @@ const movementTypeLabel: Record<string, string> = {
 export const attackLabel = (t: string) => attackTypeLabel[t] ?? t;
 export const movementLabel = (t: string) => movementTypeLabel[t] ?? t;
 
+const summonedOnlyUnits = new Set(["Arachna Spider"]);
+
+// Public unit portraits are cached by nginx for a day. Bump only the portraits whose bytes change so
+// returning visitors receive the new art immediately without invalidating the entire unit catalogue.
+const portraitRevisions: Record<string, string> = {
+    Abomination: "d1342ae7",
+};
+
 function buildUnit(faction: FactionName, raw: RawCreature): Unit {
     const base = slug(raw.name);
-    const portrait = `/assets/images/units/units/${base}_512.webp`;
-    const icon = `/assets/images/units/units/${base}_512.webp`;
+    const revision = portraitRevisions[raw.name];
+    const portrait = `/assets/images/units/units/${base}_512.webp${revision ? `?v=${revision}` : ""}`;
+    const icon = portrait;
 
     const abilities: UnitAbility[] = raw.abilities.map((name) => ({
         name,
@@ -259,6 +327,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         icon: `/assets/images/units/abilities/${slug(name)}_256.webp`,
         isAura: !!(abilitiesJson as Record<string, RawAbility>)[name]?.aura_effect,
         isCastable: !!(abilitiesJson as Record<string, RawAbility>)[name]?.can_be_cast,
+        isStackPowered: !!(abilitiesJson as Record<string, RawAbility>)[name]?.stack_powered,
     }));
 
     return {
@@ -266,6 +335,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         faction,
         level: raw.level,
         size: raw.size,
+        experience: raw.exp,
         hp: raw.hp,
         armor: raw.armor,
         attack: raw.attack,
@@ -280,6 +350,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         movementType: raw.movement_type,
         spells: raw.spells,
         abilities,
+        summonedOnly: summonedOnlyUnits.has(raw.name),
         portrait,
         icon,
     };
@@ -287,6 +358,8 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
 
 const creatures = creaturesJson as unknown as { version: number } & Record<FactionName, CreatureMap>;
 
+// Historical spell summons without public roster art stay hidden. New summon-only units are exposed and
+// explicitly labelled so the codex remains complete without implying that they are draftable.
 const hiddenUnits = new Set(["Faerie Dragon", "Phoenix"]);
 
 export const factionUnits: FactionUnits[] = factionOrder
@@ -310,6 +383,7 @@ export interface AbilityUnitRef {
     name: string;
     faction: FactionName;
     icon: string;
+    summonedOnly: boolean;
 }
 
 export type AbilityKind = "aura" | "active" | "passive";
@@ -323,6 +397,7 @@ export interface Ability {
     kind: AbilityKind;
     isAura: boolean;
     isCastable: boolean;
+    isStackPowered: boolean;
     units: AbilityUnitRef[];
 }
 
@@ -345,12 +420,18 @@ export const abilities: Ability[] = (() => {
                     kind: ability.isCastable ? "active" : ability.isAura ? "aura" : "passive",
                     isAura: ability.isAura,
                     isCastable: ability.isCastable,
+                    isStackPowered: ability.isStackPowered,
                     units: [],
                 };
                 byName.set(ability.name, entry);
             }
             if (!entry.units.some((u) => u.name === unit.name)) {
-                entry.units.push({ name: unit.name, faction: unit.faction, icon: unit.icon });
+                entry.units.push({
+                    name: unit.name,
+                    faction: unit.faction,
+                    icon: unit.icon,
+                    summonedOnly: unit.summonedOnly,
+                });
             }
         }
     }

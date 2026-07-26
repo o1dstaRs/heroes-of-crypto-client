@@ -29,8 +29,28 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
     const debugCanvasRef = useRef<HTMLCanvasElement>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    // react-router v7's useNavigate() returns a NEW function identity after every navigation (it is
+    // memoized on the current pathname). It therefore must NOT be a dependency of the boot effect
+    // below: with it in the deps, a same-tab route change (e.g. "Play Again vs AI" navigating from
+    // /game/A to /game/B) re-ran the effect WITHOUT unmounting — cleanup called manager.Uninitialize()
+    // (destroying the Pixi renderer, which force-loses the canvas's WebGL context via pixi's
+    // GlContextSystem.destroy -> WEBGL_lose_context.loseContext()), then init() re-booted Pixi on the
+    // SAME still-mounted canvas. getContext() then hands pixi back the same, permanently-lost context,
+    // and pixi's GlLimitsSystem.contextChange -> checkMaxIfStatementsInShader spins forever (every
+    // shader compile fails on a lost context and the maxIfs-halving loop can't exit once it reaches 0):
+    // a TOTAL main-thread freeze of the tab (nightly QA #3's P0). Track the latest navigate in a ref
+    // instead so the boot effect runs strictly once per canvas mount.
+    const navigateRef = useRef(navigate);
+    navigateRef.current = navigate;
+    // Same reasoning for the active scene: scene switches are handled by the dedicated setScene effect
+    // below (manager.setScene -> LoadGame rebuilds the scene on the LIVE pixi app). Rebooting Pixi on a
+    // scene change would reuse the canvas and hit the same lost-context freeze.
+    const entryRef = useRef({ name, SceneClass });
+    entryRef.current = { name, SceneClass };
 
-    // Boot + loop
+    // Boot + loop — strictly ONCE per canvas mount. Pixi may only ever initialize against a
+    // freshly-created canvas element: a canvas that already hosted a destroyed Pixi renderer has a
+    // force-lost WebGL context (see the navigateRef comment above).
     useEffect(() => {
         const glCanvas = glCanvasRef.current;
         const debugCanvas = debugCanvasRef.current;
@@ -40,7 +60,7 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
 
         if (glCanvas && debugCanvas && wrapper && !initializedRef.current) {
             initializedRef.current = true;
-            manager.setScene(name, SceneClass);
+            manager.setScene(entryRef.current.name, entryRef.current.SceneClass);
 
             const loop = (time: number) => {
                 if (cancelled) {
@@ -59,10 +79,18 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
             };
 
             const init = async () => {
-                const setSceneInUrl = (test: SceneEntry) => navigate(getSceneLink(test));
+                const setSceneInUrl = (test: SceneEntry) => navigateRef.current(getSceneLink(test));
                 await manager.init(glCanvas, debugCanvas, wrapper, setSceneInUrl);
                 if (cancelled) {
-                    manager.Uninitialize();
+                    // This effect instance was already torn down while manager.init() was still in
+                    // flight — its cleanup below already called manager.Uninitialize() unconditionally,
+                    // so don't call it again here. manager is a process-wide singleton (PixiManagerContext
+                    // holds one instance for the whole app), and by the time this async continuation
+                    // resumes a NEWER mount may already have reinitialized it for the next match; a second
+                    // Uninitialize() call here would tear down THAT instance instead of this stale one —
+                    // wedging same-tab "Play Again" navigation (the Pixi canvas never re-initializes for
+                    // the new game). manager.init()'s own lifecycle-id guards already self-destroy this
+                    // stale local pixiApp if a newer init() call superseded it while we were awaiting.
                     return;
                 }
                 frameId = window.requestAnimationFrame(loop);
@@ -79,7 +107,10 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
             initializedRef.current = false;
             manager.Uninitialize();
         };
-    }, [manager, navigate, name, SceneClass]);
+        // navigate/name/SceneClass are intentionally NOT dependencies (read via refs above): they can
+        // change while this mount is alive, and a teardown+re-init here would reuse the canvas whose
+        // WebGL context the teardown just force-lost — freezing the tab in pixi's context re-init.
+    }, [manager]);
 
     // Switch active scene
     useEffect(() => {

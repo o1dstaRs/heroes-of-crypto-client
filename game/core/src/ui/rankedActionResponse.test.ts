@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { TeamVals } from "@heroesofcrypto/common";
 
-import { PlayPhase, type PlaySnapshot } from "../api/play_protocol";
+import { PlayActionType, PlayPhase, type PlaySnapshot } from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 import {
+    rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
+    shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 
 const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
@@ -20,6 +22,8 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
     latestSequence: 1,
     serverTimeMs: 0,
     placementDeadlineMs: 0,
+    placementStage: 1,
+    placementSplit: false,
     currentTurnStartMs: 0,
     currentTurnEndMs: 0,
     units: [],
@@ -36,6 +40,44 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
 });
 
 describe("ranked action response snapshots", () => {
+    test("never surfaces a bare informational message (e.g. ACTION_ACCEPTED's raw action-type name) as an error", () => {
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "RANGE_ATTACK" })).toBe("");
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "END_TURN" })).toBe("");
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "", message: "" })).toBe("");
+    });
+
+    test("surfaces a real rejection reason as the error", () => {
+        expect(rejectionErrorFromPlayEvent({ rejectionReason: "attack_not_available", message: "" })).toBe(
+            "attack_not_available",
+        );
+    });
+
+    test("recovers a rejected continued-move follow-up but not its move, ping, or recovery end", () => {
+        expect(
+            shouldRecoverRejectedMoveFollowUp("unit-1", {
+                type: PlayActionType.CAST_SPELL,
+                unitId: "unit-1",
+            }),
+        ).toBe(true);
+        expect(
+            shouldRecoverRejectedMoveFollowUp("unit-1", {
+                type: PlayActionType.AREA_THROW_ATTACK,
+                unitId: "unit-1",
+            }),
+        ).toBe(true);
+        expect(
+            [PlayActionType.MOVE_UNIT, PlayActionType.PING, PlayActionType.END_TURN].some((type) =>
+                shouldRecoverRejectedMoveFollowUp("unit-1", { type, unitId: "unit-1" }),
+            ),
+        ).toBe(false);
+        expect(
+            shouldRecoverRejectedMoveFollowUp("unit-1", {
+                type: PlayActionType.CAST_SPELL,
+                unitId: "other-unit",
+            }),
+        ).toBe(false);
+    });
+
     test("does not apply model-authorized placement snapshots to the viewer", () => {
         expect(
             shouldApplyActionResponseSnapshotToViewer(snapshot({ phase: PlayPhase.PLACEMENT }), {

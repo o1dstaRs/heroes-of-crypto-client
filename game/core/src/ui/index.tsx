@@ -1,4 +1,4 @@
-import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { PickPhaseVals, TeamVals, TeamType } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
 
 import CssBaseline from "@mui/joy/CssBaseline";
@@ -19,9 +19,14 @@ import Popover from "./Popover";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
+import { NextLapHazardBadge } from "./NextLapHazardBadge";
+import { ExitReplayBadge } from "./ExitReplayBadge";
+import { PlayRankedBadge } from "./PlayRankedBadge";
+import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
+import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
 import { useAuthContext } from "./auth/context/auth_context";
@@ -34,6 +39,7 @@ import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
+import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -124,6 +130,11 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
+    const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+
+    // Themed in-game cursor (applied globally via document.body.style.cursor). Mounted at the app
+    // root so the cursor covers the whole screen, not just the battle canvas.
+    useGameCursor();
 
     useEffect(() => {
         manager.SetGameActionTransport(gameActionTransport);
@@ -133,7 +144,10 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     }, [gameActionTransport, manager]);
 
     useEffect(() => {
-        const connection = manager.onVisibleStateUpdated.connect((state) => setAiToggleOn(!!state.aiToggleOn));
+        const connection = manager.onVisibleStateUpdated.connect((state) => {
+            setAiToggleOn(!!state.aiToggleOn);
+            setReplayPlaybackActive(!!state.replayPlaybackActive);
+        });
         return () => {
             connection.disconnect();
         };
@@ -165,6 +179,12 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     <UpNextOverlay />
                     <FightFinishedOverlay />
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
+                    {!isLoading && started && <NextLapHazardBadge />}
+                    {!isLoading && replayPlaybackActive && (
+                        // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
+                        <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
+                    )}
+                    {!isLoading && !replayPlaybackActive && <PlayRankedBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />
@@ -178,6 +198,17 @@ export type { IPickPhaseEventData } from "./context/PickBanContext";
 import { PickBanEventProvider, usePickBanEvents } from "./context/PickBanContext";
 export { PickBanEventProvider, usePickBanEvents };
 
+// Bridges the live pick-phase SSE stream (only reachable from inside PickBanEventProvider) up to
+// GameRoute, which has no context of its own. GameRoute uses this to gate its play-snapshot polling
+// fallback on phase — see the "nearingPlay" note on that effect.
+const PickPhaseReporter: React.FC<{ onPhaseChange?: (phase: number) => void }> = ({ onPhaseChange }) => {
+    const { pickPhase } = usePickBanEvents();
+    useEffect(() => {
+        onPhaseChange?.(pickPhase);
+    }, [pickPhase, onPhaseChange]);
+    return null;
+};
+
 const appendEncodedPath = (baseUrl: string, value: string): string =>
     `${baseUrl.replace(/\/+$/, "")}/${encodeURIComponent(value)}`;
 
@@ -188,11 +219,12 @@ const pickEventUrl = (gameId: string): string => {
     return appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickEvents), gameId);
 };
 
-const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; gameId: string }> = ({
-    windowSize,
-    userTeam,
-    gameId,
-}) => {
+const PickAndBanView: React.FC<{
+    windowSize: IWindowSize;
+    userTeam: TeamType;
+    gameId: string;
+    onPickPhaseChange?: (phase: number) => void;
+}> = ({ windowSize, userTeam, gameId, onPickPhaseChange }) => {
     const manager = usePixiManager();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
@@ -215,6 +247,7 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
 
     return (
         <PickBanEventProvider url={pickEventsUrl} userTeam={userTeam}>
+            <PickPhaseReporter onPhaseChange={onPickPhaseChange} />
             <div
                 className="container"
                 style={{
@@ -228,8 +261,21 @@ const PickAndBanView: React.FC<{ windowSize: IWindowSize; userTeam: TeamType; ga
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
-                <StainedGlassWindow userTeam={userTeam} />
+                <StainedGlassWindow
+                    userTeam={userTeam}
+                    opponentLabel={
+                        isMarkedVsAiGame(gameId)
+                            ? (() => {
+                                  // Show the tier when this browser created the match ("AI — Hard (v0.7)");
+                                  // a legacy/foreign marker degrades to the bare "AI".
+                                  const difficulty = getMarkedVsAiDifficulty(gameId);
+                                  return difficulty ? vsAiDifficultyLabel(difficulty) : "AI";
+                              })()
+                            : "Opponent"
+                    }
+                />
                 <LocalModelDraftOpponent eventUrl={pickEventsUrl} userTeam={userTeam} />
+                <AutoPickToast />
                 <Popover />
             </div>
         </PickBanEventProvider>
@@ -292,6 +338,21 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
     const [routeMode, setRouteMode] = useState<"checking" | "pick" | "play">("checking");
+    // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
+    // phases that hand the completed draft off to placement/play (see LIVE_PICK_PHASES in
+    // common/picks/pick_sim.ts — AUGMENTS/AUGMENTS_SCOUT are last, PICK/BAN/ARTIFACT_* come first).
+    // Gates the play-snapshot poll below so it isn't hit every 2.5s for the many minutes a match
+    // spends in the early pick/ban/artifact phases (that route 400s until a play session exists).
+    const [pickNearingPlay, setPickNearingPlay] = useState(false);
+    const handlePickPhaseChange = useCallback((phase: number) => {
+        if (phase === PickPhaseVals.AUGMENTS || phase === PickPhaseVals.AUGMENTS_SCOUT) {
+            setPickNearingPlay(true);
+        }
+    }, []);
+
+    useEffect(() => {
+        setPickNearingPlay(false);
+    }, [gameId]);
 
     useEffect(() => {
         const openObserverMode = async (): Promise<boolean> => {
@@ -301,6 +362,10 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
             try {
                 const snapshot = await fetchRankedPlaySnapshot(gameId);
+                if (!snapshot) {
+                    // Still drafting — there is no fight to observe yet.
+                    return false;
+                }
                 const e2ePlayerId = readE2ePlayerId();
                 const e2ePlayer = e2ePlayerId
                     ? snapshot.players.find((player) => player.playerId === e2ePlayerId)
@@ -364,37 +429,65 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         fetchGame();
     }, [authenticated, gameId, getCurrentGame]);
 
+    // One-shot: resolve "checking" into "pick" or "play" as soon as we know which (e.g. a fresh load
+    // or a mid-fight reconnect). Not an interval — the gated poll below picks up from "pick".
     useEffect(() => {
-        if (!gameId || showOverlay || userTeam === TeamVals.NO_TEAM || routeMode === "play") {
+        if (!gameId || showOverlay || userTeam === TeamVals.NO_TEAM || routeMode !== "checking") {
             return;
         }
 
         let cancelled = false;
-        let intervalId: number | undefined;
-
-        const probePlaySnapshot = async () => {
-            try {
-                await fetchRankedPlaySnapshot(gameId);
+        fetchRankedPlaySnapshot(gameId)
+            // undefined = the game is still drafting (204), which is the COMMON case for a match that
+            // just formed. Route to pick, exactly as a thrown error used to.
+            .then((snapshot) => {
                 if (!cancelled) {
-                    setRouteMode("play");
+                    setRouteMode(snapshot ? "play" : "pick");
                 }
-            } catch {
+            })
+            .catch(() => {
                 if (!cancelled) {
                     setRouteMode("pick");
                 }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [gameId, routeMode, showOverlay, userTeam]);
+
+    // Fallback poll for the "pick -> play" handoff: the pick-events SSE stream (open inside
+    // PickAndBanView) has no "picking is done" message of its own, so this polls play-snapshot until
+    // the play session exists. Always armed (so the transition can never get permanently stuck even
+    // if the phase signal below is wrong or the pick UI's phase model changes), but SLOW by default —
+    // the many-minute early pick/ban/artifact phases would otherwise 400 every 2.5s for nothing. Once
+    // pickNearingPlay reports we've reached the draft's final phase, it speeds up for a snappy handoff.
+    useEffect(() => {
+        if (!gameId || showOverlay || routeMode !== "pick") {
+            return;
+        }
+
+        let cancelled = false;
+        const probePlaySnapshot = async () => {
+            try {
+                // undefined = still drafting (204). Only a real snapshot means the handoff happened.
+                const snapshot = await fetchRankedPlaySnapshot(gameId);
+                if (snapshot && !cancelled) {
+                    setRouteMode("play");
+                }
+            } catch {
+                // Not ready yet — keep polling until the play session is created.
             }
         };
 
         void probePlaySnapshot();
-        intervalId = window.setInterval(probePlaySnapshot, 2500);
+        const intervalId = window.setInterval(probePlaySnapshot, pickNearingPlay ? 2000 : 15000);
 
         return () => {
             cancelled = true;
-            if (intervalId) {
-                window.clearInterval(intervalId);
-            }
+            window.clearInterval(intervalId);
         };
-    }, [gameId, routeMode, showOverlay, userTeam]);
+    }, [gameId, routeMode, showOverlay, pickNearingPlay]);
 
     return (
         <>
@@ -423,7 +516,12 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
                     {routeMode === "pick" && (
-                        <PickAndBanView windowSize={windowSize} userTeam={userTeam} gameId={gameId} />
+                        <PickAndBanView
+                            windowSize={windowSize}
+                            userTeam={userTeam}
+                            gameId={gameId}
+                            onPickPhaseChange={handlePickPhaseChange}
+                        />
                     )}
                     {routeMode === "play" && (
                         <RankedGameView windowSize={windowSize} gameId={gameId} userTeam={userTeam} />
@@ -432,6 +530,17 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             )}
         </>
     );
+};
+
+const RankedReplayRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
+    const { gameId } = useParams<{ gameId: string }>();
+    const requestedTeam = Number(new URL(window.location.href).searchParams.get("team"));
+    const userTeam =
+        requestedTeam === TeamVals.LOWER || requestedTeam === TeamVals.UPPER
+            ? (requestedTeam as TeamType)
+            : (TeamVals.NO_TEAM as TeamType);
+
+    return gameId ? <RankedGameView gameId={gameId} replayOnly userTeam={userTeam} windowSize={windowSize} /> : null;
 };
 
 const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
@@ -496,6 +605,14 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                             <LoginScreen />
                         </WalletProvider>
                     )
+                }
+            />
+            <Route
+                path="/game/:gameId/replay"
+                element={
+                    <WalletProvider>
+                        {activated ? <RankedReplayRoute windowSize={windowSize} /> : <LoginScreen />}
+                    </WalletProvider>
                 }
             />
             <Route

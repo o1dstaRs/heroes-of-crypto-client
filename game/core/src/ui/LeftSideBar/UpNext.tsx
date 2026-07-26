@@ -16,7 +16,7 @@ import { TeamAmountFlag } from "../TeamAmountFlag";
 import { resolveUnitImage } from "../unitImage";
 import { prefetchUnitAtlas } from "./UnitStatsListItem";
 
-const stopImg = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
+const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = images.hourglass;
 
 const queueItemTransition = {

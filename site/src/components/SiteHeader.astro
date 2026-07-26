@@ -12,12 +12,15 @@ const copy = content[lang];
 const versionLabel = `v${corePackage.version}`;
 const mainNavigationLabel = lang === "ru" ? "Основная навигация" : "Main navigation";
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
+const profileHref = lang === "ru" ? "/ru/profile/" : "/profile/";
 const navItems = [
     { label: copy.nav.game, href: localPath(lang, "game") },
     { label: copy.nav.rules, href: localPath(lang, "rules") },
     { label: copy.nav.blog, href: `${localPath(lang, "home")}blog/` },
+    { label: copy.nav.research, href: localPath(lang, "research") },
     { label: copy.nav.units, href: localPath(lang, "units") },
     { label: copy.nav.abilities, href: localPath(lang, "abilities") },
+    { label: copy.nav.spells, href: localPath(lang, "spells") },
     { label: copy.nav.artifacts, href: localPath(lang, "artifacts") },
     { label: copy.nav.token, href: localPath(lang, "token") },
     // Patches intentionally omitted from the main nav to keep it uncluttered — the version badge
@@ -72,7 +75,7 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
             {copy.nav.login}
         </a>
         <div class="header-account" data-auth-account hidden>
-            <a class="header-account-name" data-auth-username href={playHref} aria-label={copy.nav.login}>
+            <a class="header-account-name" data-auth-username href={profileHref} aria-label={copy.nav.profile}>
                 Account
             </a>
             <button type="button" class="header-logout" data-auth-logout data-logout-redirect={localPath(lang, "home")}>
