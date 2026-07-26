@@ -72,7 +72,10 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "craft forge / rune enchant / castling; playReplayCastSpellAction (replay) + " +
             "castAreaSpellAtCell/castSpellOnTarget (live). Heal '+N' + burst ride the SAME event via the " +
             "shared renderHealVfx, called from all three — driven by the authoritative healed[] (the " +
-            "replay reads record.events, never its local re-run)",
+            "replay reads record.events, never its local re-run). Offensive fire spells ride it the same " +
+            "way via renderSpellDamageVfx off damaged[]: thrown ones sweep embers caster->victim, called-down " +
+            "ones just burst, and Ring of Fire instead lays ONE spawnFireRing on event.targetCell (no " +
+            "per-victim sweeps — those read as a volley of fire arrows and hid the ring)",
     },
     unit_moved: { rendered: true, ranked: "replay", note: "move slide; playReplayMoveRecord" },
     unit_summoned: { rendered: true, ranked: "replay", note: "summon; playReplayCastSpellAction" },

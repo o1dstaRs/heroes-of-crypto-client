@@ -6507,9 +6507,26 @@ export class Sandbox extends PixiScene {
             }
             // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
             // Strike, Meteor Shower) have nothing to travel and just burst where they land.
+            //
+            // Ring of Fire is the exception among the thrown ones. It bursts AROUND the aimed cell, catching
+            // everything that touches it, so a sweep drawn to each victim separately read as a volley of fire
+            // arrows — the wrong shape entirely, and it hid the ring that is the whole point of the spell.
+            // It gets one circle of flame centred on the target cell instead, and no per-victim sweeps.
+            const isRing = event.spellName === "Ring of Fire";
             const isThrown = isThrownOffensiveSpell(event.spellName);
+            if (isRing) {
+                // Centre on the aimed CELL, not on a victim — the ring is laid about the target's cell even
+                // when the creature standing there is large and its sprite centre sits elsewhere.
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const ringCenter = event.targetCell
+                    ? GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
+                    : undefined;
+                if (ringCenter) {
+                    this.combatVisuals.spawnFireRing(ringCenter, cellSize);
+                }
+            }
             for (const hit of event.damaged) {
-                if (isThrown && casterPosition) {
+                if (isThrown && !isRing && casterPosition) {
                     this.combatVisuals.spawnFireSweep(casterPosition, hit.position, cellSize);
                 }
                 this.combatVisuals.spawnFireBurn(hit.position, cellSize, isThrown ? 0.9 : 1.3);

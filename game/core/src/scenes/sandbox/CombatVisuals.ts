@@ -370,6 +370,16 @@ const BURN_FLAME_LIFE = 0.46; // seconds an ember burns
 const BURN_SMOKE_LIFE = 0.92; // seconds a smoke puff drifts before it dissipates
 const BURN_FLASH_LIFE = 0.2; // the bright core pop at the moment of the burn
 const BURN_SMOKE_TINTS = [0x4a423c, 0x39322d, 0x5c5148]; // warm soot greys, tinted off the ember texture
+
+// Tuning for Ring of Fire (spawnFireRing): a circle of flame that erupts AROUND a cell. The spell burns the
+// target's cell plus all eight touching it, so the ring sits at roughly one cell's radius — the edge of that
+// footprint — and lights progressively around the circumference so it reads as fire racing round a circle
+// rather than every flame appearing at once.
+const RING_FLAME_COUNT = 30; // flames spaced around the circumference
+const RING_SWEEP_S = 0.26; // seconds for the ignition to travel all the way round
+const RING_FLAME_LIFE = 0.62; // each flame burns a little longer than a plain ember — this is a standing ring
+const RING_RADIUS_CELLS = 0.95; // ring radius in cells; ~1 puts it on the footprint's outer cells
+const RING_SMOKE_COUNT = 10;
 const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
 const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
 const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
@@ -2306,6 +2316,104 @@ export class CombatVisuals {
                 startScale: (size * (0.26 + 0.16 * rand)) / texW,
                 endScale: (size * (0.7 + 0.4 * rand)) / texW,
                 peakAlpha: 0.42,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.6,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    /**
+     * Ring of Fire: a circle of flame that erupts AROUND a cell, rather than a bolt thrown at it.
+     *
+     * The spell burns the aimed cell plus every cell touching it, and the ring is what the player should
+     * read — so the flames are laid around the circumference at roughly one cell's radius and lit in
+     * sequence, sweeping once around, with the ground inside catching afterwards. A rising shockwave marks
+     * the centre so the burst still has a focal point.
+     *
+     * Reuses the fire-burn particle pool: same fields, same stepper, so nothing new has to be ticked.
+     */
+    public spawnFireRing(center: HoCMath.XY, cellSize: number): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize);
+        const radius = size * RING_RADIUS_CELLS;
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+
+        // Centre shockwave: one wide bloom that expands past the ring, tying the circle to its target.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xffd79a;
+        push(flash, {
+            age: 0,
+            life: BURN_FLASH_LIFE * 1.6,
+            x: center.x,
+            y: center.y,
+            riseY: 0,
+            driftX: 0,
+            startScale: (size * 0.4) / texW,
+            endScale: (radius * 2.3) / texW,
+            peakAlpha: 0.5,
+            fadeInFraction: 0.1,
+            rot: 0,
+            spin: 0,
+        });
+
+        for (let i = 0; i < RING_FLAME_COUNT; i++) {
+            const fraction = i / RING_FLAME_COUNT;
+            const angle = fraction * Math.PI * 2;
+            const rand = Math.random();
+            // Jitter the radius a little so the ring looks like fire, not a drawn circle.
+            const r = radius * (0.88 + 0.22 * Math.random());
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                // Ignition sweeps once around the circumference — this is what makes it read as a RING.
+                age: -fraction * RING_SWEEP_S,
+                life: RING_FLAME_LIFE * (0.8 + 0.4 * rand),
+                x: center.x + Math.cos(angle) * r,
+                y: center.y + Math.sin(angle) * r,
+                riseY: size * (0.4 + 0.3 * rand),
+                // Flames lean outward from the centre, as if blown off the ring.
+                driftX: Math.cos(angle) * size * 0.16,
+                startScale: (size * (0.26 + 0.2 * rand)) / texW,
+                endScale: (size * (0.08 + 0.1 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.1,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 5,
+            });
+        }
+
+        for (let i = 0; i < RING_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                // Smoke lifts off the ring once it has burned for a moment.
+                age: -(RING_SWEEP_S + 0.1 + Math.random() * 0.2),
+                life: BURN_SMOKE_LIFE * (0.9 + 0.4 * rand),
+                x: center.x + Math.cos(angle) * radius * (0.7 + 0.4 * Math.random()),
+                y: center.y + Math.sin(angle) * radius * (0.7 + 0.4 * Math.random()),
+                riseY: size * (0.8 + 0.5 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.5,
+                startScale: (size * (0.24 + 0.14 * rand)) / texW,
+                endScale: (size * (0.66 + 0.36 * rand)) / texW,
+                peakAlpha: 0.38,
                 fadeInFraction: 0.25,
                 rot: Math.random() * Math.PI * 2,
                 spin: (Math.random() - 0.5) * 1.6,
