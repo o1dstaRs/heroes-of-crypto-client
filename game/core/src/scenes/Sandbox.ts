@@ -70,6 +70,7 @@ import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
+import { SmokeCloudLayer } from "./sandbox/SmokeCloudLayer";
 import { WindLayer } from "./sandbox/WindLayer";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
@@ -345,6 +346,7 @@ export class Sandbox extends PixiScene {
     private dungeonVisuals: DungeonVisuals;
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
+    private smokeCloudLayer?: SmokeCloudLayer;
     private windLayer?: WindLayer;
     private lightingLayer?: LightingLayer;
     protected combatVisuals: CombatVisuals;
@@ -409,6 +411,10 @@ export class Sandbox extends PixiScene {
         // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
         this.smokeLayer = new SmokeLayer();
         this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
+        // Spell smoke (Ash Moth). Above the movement dust but below the units, so a creature standing in
+        // a cloud is still readable — the cloud is a rule about the cell, not something to hide behind.
+        this.smokeCloudLayer = new SmokeCloudLayer();
+        this.attachToWorldRoot(this.smokeCloudLayer.getContainer(), 51);
         this.windLayer = new WindLayer();
         this.attachToWorldRoot(this.windLayer.getContainer(), 50);
 
@@ -9895,6 +9901,19 @@ export class Sandbox extends PixiScene {
                 timeStep,
                 lingeringTracks.filter((t) => t.flying),
             );
+            // Spell smoke is read straight from the authoritative store rather than from the
+            // smoke_placed/dispel/expired events, so sandbox and ranked share one path: the ranked client
+            // already carries smokeClouds on every snapshot, exactly like narrowing and terrain.
+            if (this.smokeCloudLayer) {
+                const gsSmoke = this.sc_sceneSettings.getGridSettings();
+                this.smokeCloudLayer.update(
+                    timeStep,
+                    FightStateManager.getInstance().getFightProperties().getSmokeClouds().toJSON(),
+                    gsSmoke.getCellSize(),
+                    (cell) =>
+                        GridMath.getPositionForCell(cell, gsSmoke.getMinX(), gsSmoke.getStep(), gsSmoke.getHalfStep()),
+                );
+            }
             this.lightingLayer?.update(timeStep);
 
             // --- C. AI LOGIC - delegate to AIController ---

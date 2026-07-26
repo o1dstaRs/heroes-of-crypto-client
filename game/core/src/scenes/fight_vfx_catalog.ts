@@ -137,14 +137,26 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_split: { rendered: false, ranked: "none", note: "split (board rebuild)" },
     unit_moved_by_system: { rendered: false, ranked: "none", note: "forced move (narrowing/system); no distinct VFX" },
 
-    // ---- Smoke (Ash Moth's Book of Chaos) — NOT YET RENDERED ----
-    // Classified honestly rather than wired, so this catalog keeps telling the truth. These three are a
-    // KNOWN GAP, not a decision that smoke is invisible by design: a cloud halves ranged damage through the
-    // cell it sits on, so a player who cannot see it cannot play around it. The state is authoritative and
-    // already available on both paths — FightProperties.smokeClouds rides the snapshot (and is captured by
-    // battle_snapshot), so a board layer can be driven from it rather than from these events, the same way
-    // narrowing/terrain are. NOTE: the existing SmokeLayer is movement DUST, unrelated to this spell.
-    smoke_placed: { rendered: false, ranked: "none", note: "TODO board layer: cells gain a cloud for N laps" },
-    smoke_dispel: { rendered: false, ranked: "none", note: "TODO board layer: a creature stepped in, cloud clears" },
-    smoke_expired: { rendered: false, ranked: "none", note: "TODO board layer: cloud ran out of laps" },
+    // ---- Smoke (Ash Moth's Book of Chaos) ----
+    // Rendered by SmokeCloudLayer, which is STATE-driven, not event-driven: it reconciles every frame
+    // against FightProperties.smokeClouds. That store rides the ranked snapshot (and is captured by
+    // battle_snapshot), so one code path covers sandbox and ranked without either replaying these events —
+    // the same treatment narrowing and terrain get, and the reason "snapshot-diff" is the ranked path here.
+    // Placing/clearing is therefore never missed by a dropped or reordered event. The events remain the
+    // engine's audit trail (and drive the scene log). NOTE: SmokeLayer is movement DUST, a different thing.
+    smoke_placed: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "cells gain a drifting fBM cloud; SmokeCloudLayer reconciles from fightProperties.smokeClouds",
+    },
+    smoke_dispel: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "a creature stepped in — the cloud fades out (never pops) via SmokeCloudLayer",
+    },
+    smoke_expired: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "cloud ran out of laps; thins on its last lap, then fades via SmokeCloudLayer",
+    },
 };
