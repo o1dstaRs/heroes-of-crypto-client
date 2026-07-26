@@ -332,7 +332,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
     const replayTimersRef = useRef<number[]>([]);
-    const storedReplayRef = useRef<RankedReplay>();
+    const storedReplayRef = useRef<RankedReplay | undefined>(undefined);
     const replayAutoplayStartedRef = useRef(false);
 
     // Sync the authoritative doctrine + army-wide artifacts + placement augments into the local
@@ -389,7 +389,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const pendingTurnResolutionRef = useRef(false);
     // Unit whose accepted move explicitly reserved one queued follow-up. A rejected follow-up is closed
     // immediately with END_TURN instead of waiting for the generic three-rejection escape hatch.
-    const pendingMoveFollowUpUnitIdRef = useRef<string>();
+    const pendingMoveFollowUpUnitIdRef = useRef<string | undefined>(undefined);
     // Tracks consecutive server rejections at the same turn (expectedSequence). If the same turn keeps
     // getting rejected (e.g. an autobattle AI proposing an illegal move/attack the server refuses, or
     // a residual desync), we force a server-authoritative END_TURN to skip the stuck unit so the game
