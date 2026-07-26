@@ -6751,12 +6751,10 @@ export class Sandbox extends PixiScene {
 
         const muzzle = unit.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
+        const isDoubleShot = unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot");
+        // Shot ONE. Double Shot's second projectile is fired below, AFTER wave 1's numbers, so each shot's
+        // damage pops in sync with its own throw instead of both landing at the end.
         await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
-        // Double Shot (e.g. Gargantuan): the engine applies a second area shot, so throw a second
-        // projectile too — otherwise the doubled damage lands with only one animation.
-        if (unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot")) {
-            await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
-        }
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
@@ -6764,22 +6762,47 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // Prefer the engine's per-unit `splash` breakdown so a Double-Shot AOE shows BOTH hits on each
-        // affected unit (staggered). The HP-diff fallback only ever sums to one number per unit, which is
-        // why the double throw's two projectiles landed with a single damage animation.
+        // Prefer the engine's per-unit `splash` breakdown (the HP-diff fallback only sums to one number per
+        // unit). Attribute kills before cleanupDeadUnits below tears the dead down and spawns death visuals.
         const areaEvent = result.events.find(
             (e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked",
         );
-        // Attribute kills before cleanupDeadUnits below tears the dead down and spawns death visuals.
         if (areaEvent) {
             this.noteDeathBlowsFromAttackEvent(areaEvent);
         }
-        const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(
-            areaEvent?.damage.secondary,
-            unit.getVisualCenter(gs),
-            180,
-        );
-        if (!this.showSplashDamage(areaEvent?.damage.splash, unit.getVisualCenter(gs))) {
+        const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(areaEvent?.damage.secondary, muzzle, 180);
+        const splash = areaEvent?.damage.splash;
+        if (isDoubleShot) {
+            // The engine resolved BOTH waves in the single apply() above, and `splash` carries two entries per
+            // surviving unit — wave 1 then wave 2 (double_shot_ability appends the second). Split by first vs
+            // later occurrence per unit, show wave 1 NOW (shot 1 has landed), fire shot 2, then show wave 2 as
+            // IT lands. A unit killed by wave 1 has no wave-2 entry, so it simply gets one number. Each split
+            // has at most one entry per unit, so showSplashDamage draws them immediately (no internal stagger)
+            // and the real gap comes from the second projectile's flight.
+            const wave1: NonNullable<typeof splash> = [];
+            const wave2: NonNullable<typeof splash> = [];
+            const seenUnitIds = new Set<string>();
+            for (const entry of splash ?? []) {
+                if (seenUnitIds.has(entry.unitId)) {
+                    wave2.push(entry);
+                } else {
+                    seenUnitIds.add(entry.unitId);
+                    wave1.push(entry);
+                }
+            }
+            const shownWave1 = this.showSplashDamage(wave1, muzzle);
+            await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
+            const shownWave2 = this.showSplashDamage(wave2, muzzle);
+            if (!shownWave1 && !shownWave2) {
+                this.combatVisuals.showDamageVisualsFromDiff(
+                    preState,
+                    effectiveCell,
+                    undefined,
+                    undefined,
+                    fleshShieldDamageByUnit,
+                );
+            }
+        } else if (!this.showSplashDamage(splash, muzzle)) {
             this.combatVisuals.showDamageVisualsFromDiff(
                 preState,
                 effectiveCell,
