@@ -6247,12 +6247,19 @@ export class Sandbox extends PixiScene {
                 if (!unit) {
                     continue;
                 }
-                const unitCell = unit.getBaseCell();
+                // Mirror the engine's clip test (CHAKRAM_CATCH_RADIUS in common's chakram_ability): the disc
+                // catches whoever it passes within a cell of, measured against ALL of a large unit's cells.
+                // Matching the exact ring cell instead would leave targetIdx unfound for most real hits —
+                // enemies rarely sit on the precise rounded ring — and every number would then pile up at the
+                // end of the loop rather than landing as the disc sweeps past each victim.
+                const unitCells = unit.isSmallSize() ? [unit.getBaseCell()] : unit.getCells();
                 let targetIdx = -1;
-                for (let i = flownIdx; i < arc.cells.length && i < points.length; i += 1) {
-                    if (arc.cells[i].x === unitCell.x && arc.cells[i].y === unitCell.y) {
-                        targetIdx = i;
-                        break;
+                for (let i = flownIdx; i < arc.cells.length && i < points.length && targetIdx < 0; i += 1) {
+                    for (const uc of unitCells) {
+                        if (Math.hypot(arc.cells[i].x - uc.x, arc.cells[i].y - uc.y) <= 1) {
+                            targetIdx = i;
+                            break;
+                        }
                     }
                 }
                 if (targetIdx < 0) {
