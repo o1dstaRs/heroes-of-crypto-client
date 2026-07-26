@@ -506,6 +506,40 @@ const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBr
     );
 };
 
+/**
+ * Small count badge drawn on a stacking effect's icon (today: Poison). One application is the normal case
+ * and carries no badge — the number only appears once the effect has actually stacked, so the icon row
+ * stays quiet for every non-stacking debuff.
+ */
+const StackCountBadge: React.FC<{ stacks?: number }> = ({ stacks }) => {
+    if (!stacks || stacks < 2) return null;
+
+    return (
+        <Box
+            sx={{
+                position: "absolute",
+                top: "-2px",
+                right: "-2px",
+                zIndex: 4,
+                minWidth: "1.15em",
+                height: "1.15em",
+                paddingX: "0.15em",
+                borderRadius: "0.6em",
+                backgroundColor: "rgba(12, 12, 12, 0.92)",
+                border: "1px solid rgba(255, 255, 255, 0.75)",
+                color: "rgba(255, 255, 255, 0.95)",
+                fontSize: "9px",
+                lineHeight: "1.15em",
+                fontWeight: 700,
+                textAlign: "center",
+                pointerEvents: "none",
+            }}
+        >
+            {stacks}
+        </Box>
+    );
+};
+
 const EffectColumnOrRow: React.FC<{
     effects: IVisibleImpact[];
     title: string;
@@ -552,24 +586,33 @@ const EffectColumnOrRow: React.FC<{
                         sx={commonTooltipSx}
                     >
                         <Box
-                            component="img"
-                            // @ts-ignore: images index signature
-                            src={images[effect.smallTextureName]}
                             sx={{
+                                position: "relative",
+                                display: "inline-flex",
                                 width: isHorizontalLayout ? "13%" : "auto",
-                                maxWidth: "100%",
-                                height: "auto",
-                                aspectRatio: "1",
-                                objectFit: "contain",
-                                zIndex: 3,
                                 margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px",
-                                borderRadius: effect.isAura ? "50%" : undefined,
-                                imageRendering: "auto",
-                                transform: "translateZ(0)",
-                                transition: "opacity 160ms ease-out, transform 160ms ease-out",
-                                willChange: "opacity, transform",
                             }}
-                        />
+                        >
+                            <Box
+                                component="img"
+                                // @ts-ignore: images index signature
+                                src={images[effect.smallTextureName]}
+                                sx={{
+                                    width: "100%",
+                                    maxWidth: "100%",
+                                    height: "auto",
+                                    aspectRatio: "1",
+                                    objectFit: "contain",
+                                    zIndex: 3,
+                                    borderRadius: effect.isAura ? "50%" : undefined,
+                                    imageRendering: "auto",
+                                    transform: "translateZ(0)",
+                                    transition: "opacity 160ms ease-out, transform 160ms ease-out",
+                                    willChange: "opacity, transform",
+                                }}
+                            />
+                            <StackCountBadge stacks={effect.stacks} />
+                        </Box>
                     </Tooltip>
                 ))}
             </Box>

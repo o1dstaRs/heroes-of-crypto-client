@@ -6,9 +6,11 @@ import { images } from "../generated/image_imports";
 const extendedCreatureVals = CreatureVals as typeof CreatureVals & {
     readonly ARACHNA_QUEEN?: number;
     readonly ARACHNA_SPIDER?: number;
+    readonly MAGIC_DRAGON?: number;
 };
 const ARACHNA_QUEEN_CREATURE_ID = extendedCreatureVals.ARACHNA_QUEEN ?? 44;
 const ARACHNA_SPIDER_CREATURE_ID = extendedCreatureVals.ARACHNA_SPIDER ?? 45;
+const MAGIC_DRAGON_CREATURE_ID = extendedCreatureVals.MAGIC_DRAGON ?? 57;
 
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.NO_CREATURE]: images.unknown_creature_512,
@@ -30,6 +32,8 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.DRYAD]: images.dryad_512,
     [CreatureVals.BLACKSMITH]: images.blacksmith_512,
     [CreatureVals.ZENA]: images.zena_512,
+    [CreatureVals.TRENT]: images.trent_512,
+    [CreatureVals.WYVERN]: images.wyvern_512,
     [CreatureVals.HARPY]: images.harpy_512,
     [CreatureVals.NOMAD]: images.nomad_512,
     [CreatureVals.HYENA]: images.hyena_512,
@@ -62,6 +66,11 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.ANGEL]: images.angel_512,
     [CreatureVals.CHAMPION]: images.champion_512,
     [CreatureVals.ASH_MOTH]: images.ash_moth_512,
+    [CreatureVals.MONK]: images.monk_512,
+    [CreatureVals.MANTICORE]: images.manticore_512,
+    [CreatureVals.BATTLE_MAGE]: images.battle_mage_512,
+    [CreatureVals.NIGHTMARE]: images.nightmare_512,
+    [MAGIC_DRAGON_CREATURE_ID]: images.magic_dragon_512,
 };
 
 export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
@@ -84,6 +93,8 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.DRYAD]: "Dryad",
     [CreatureVals.BLACKSMITH]: "Blacksmith",
     [CreatureVals.ZENA]: "Zena",
+    [CreatureVals.TRENT]: "Trent",
+    [CreatureVals.WYVERN]: "Wyvern",
     [CreatureVals.HARPY]: "Harpy",
     [CreatureVals.NOMAD]: "Nomad",
     [CreatureVals.HYENA]: "Hyena",
@@ -116,4 +127,9 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.ANGEL]: "Angel",
     [CreatureVals.CHAMPION]: "Champion",
     [CreatureVals.ASH_MOTH]: "Ash Moth",
+    [CreatureVals.MONK]: "Monk",
+    [CreatureVals.MANTICORE]: "Manticore",
+    [CreatureVals.BATTLE_MAGE]: "Battle Mage",
+    [CreatureVals.NIGHTMARE]: "Nightmare",
+    [MAGIC_DRAGON_CREATURE_ID]: "Magic Dragon",
 };

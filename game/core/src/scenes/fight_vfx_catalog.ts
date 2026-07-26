@@ -159,4 +159,31 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
         ranked: "snapshot-diff",
         note: "cloud ran out of laps; thins on its last lap, then fades via SmokeCloudLayer",
     },
+    vine_placed: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "cells gain creeping vines; VineLayer reconciles from fightProperties.vines, like smoke",
+    },
+    vine_expired: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "vines ran out of laps; VineLayer withers them off the cells it no longer sees in the store",
+    },
+    fire_wall_placed: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "3 cells catch fire; FireWallLayer reconciles from fightProperties.fireWalls, like smoke",
+    },
+    fire_wall_expired: {
+        rendered: true,
+        ranked: "snapshot-diff",
+        note: "wall ran out of laps; FireWallLayer burns it down off cells it no longer sees in the store",
+    },
+    // The one fire-wall event that is NOT snapshot-driven: a burn happens once, at a moment, so the floating
+    // damage number has to ride the event (the store only says which cells are alight, never who they hurt).
+    fire_wall_burned: {
+        rendered: true,
+        ranked: "replay",
+        note: "a creature walked into the flames; pops the damage it took over the crossing",
+    },
 };

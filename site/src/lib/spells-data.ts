@@ -147,6 +147,10 @@ const resolvedDescriptions: Record<string, string> = {
         "All allies gain one additional movement step per creature alive in the caster's stack, and are ensured to deal maximum damage with each attack.",
     "System:Resurrection":
         "Resurrects fallen ally units on the battlefield, up to the caster stack's cumulative maximum hit points.",
+    "Life:Fire Strike":
+        "Sends a small fireball at an enemy in line of sight. Damage is 0.8 per creature alive in the caster's stack per point of its stack power, ignores armor, and is cut by magic resistance.",
+    "Life:Meteorite":
+        "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Damage is 0.48 per creature alive in the caster's stack per point of its stack power — Fire Strike's formula less 40%, because it strikes them all at once.",
     "System:Dulling Defense":
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
@@ -210,6 +214,10 @@ const descriptionsRu: Record<string, string> = {
     "Death:Hamstrung": "Дистанция перемещения юнита снижена на 30%.",
     "Death:Weakening Beam": "Базовая броня юнита снижена на 24%.",
     "Death:Weakness": "Базовая атака юнита снижена на 30%.",
+    "Life:Fire Strike":
+        "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = 0.8 за каждое живое существо в стеке заклинателя за каждую единицу силы стека.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
+    "Life:Meteorite":
+        "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = 0.48 за каждое живое существо в стеке заклинателя за каждую единицу силы стека — формула «Удара огнем» минус 40%, потому что бьет по всем сразу.",
     "Order:Rangebane": "Пораженный юнит не может совершать дальние атаки.",
     "Order:Cowardice": "Пораженный юнит не может физически атаковать врагов с большим совокупным здоровьем.",
 };

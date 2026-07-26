@@ -32,6 +32,11 @@ export interface IVisibleImpact {
     stackPower: number;
     isStackPowered: boolean;
     isAura: boolean;
+    /**
+     * How many times a stacking effect (Poison) has been re-applied. Rendered as a small count badge on
+     * the icon's top-right corner. Absent or 1 for everything that replaces itself instead of stacking.
+     */
+    stacks?: number;
     /** Permanently removed by Predatory Assimilation; retained only so the sidebar can show STOLEN. */
     isStolen?: boolean;
     /**

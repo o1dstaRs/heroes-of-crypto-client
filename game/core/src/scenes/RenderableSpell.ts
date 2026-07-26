@@ -5,7 +5,15 @@
  */
 
 import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
-import { AllAbilities, HoCConstants, HoCMath, ISpellParams, Spell, SpellMultiplierType } from "@heroesofcrypto/common";
+import {
+    AllAbilities,
+    calculateStackPoweredSpellDamage,
+    HoCConstants,
+    HoCMath,
+    ISpellParams,
+    Spell,
+    SpellMultiplierType,
+} from "@heroesofcrypto/common";
 
 export enum BookPosition {
     ONE = 1,
@@ -231,6 +239,15 @@ export class PixiRenderableSpell extends Spell {
             replaceBy = Math.ceil(casterAmountAlive * this.getPower()).toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_CUMULATIVE_MAX_HP) {
             replaceBy = casterCumulativeMaxHp.toString();
+        } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_STACK_POWER) {
+            // Offensive spells (Fire Strike / Meteorite): the card shows the FINISHED damage, not the formula,
+            // and it comes from the engine's own helper so the page can never promise a number the cast will
+            // not deal. Pre-resistance by definition — the target is not known until the player aims.
+            replaceBy = calculateStackPoweredSpellDamage(
+                this.getPower(),
+                casterAmountAlive,
+                ownerStackPower,
+            ).toString();
         }
         const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));
         return [...lines, ...desc];
