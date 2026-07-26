@@ -9285,6 +9285,14 @@ export class Sandbox extends PixiScene {
             this.hoverManager.hoverPlacementCell = undefined;
             this.hoverManager.hoverPlacementCellTeam = undefined;
         }
+        // Mirror "cursor is over an attackable enemy" into the scene's hover-info surface so the
+        // HoMM-style attack cursor (themed melee/ranged/magic PNG) only renders while actively aiming
+        // at a valid target. Flag a hover-text refresh so UpdateHoverInfo re-emits this frame.
+        const wasHoveringTarget = this.sc_isHoveringAttackTarget;
+        this.sc_isHoveringAttackTarget = !!this.hoverManager.hoverAttackTargetUnit;
+        if (wasHoveringTarget !== this.sc_isHoveringAttackTarget) {
+            this.sc_hoverTextUpdateNeeded = true;
+        }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
         // ESC routes here (HandleEscapeKey -> Deselect); also close the spellbook and drop its

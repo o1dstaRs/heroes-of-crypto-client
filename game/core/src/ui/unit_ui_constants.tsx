@@ -60,6 +60,7 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.TSAR_CANNON]: images.tsar_cannon_512,
     [CreatureVals.ANGEL]: images.angel_512,
     [CreatureVals.CHAMPION]: images.champion_512,
+    [CreatureVals.ASH_MOTH]: images.ash_moth_512,
 };
 
 export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
@@ -112,4 +113,5 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.TSAR_CANNON]: "Tsar Cannon",
     [CreatureVals.ANGEL]: "Angel",
     [CreatureVals.CHAMPION]: "Champion",
+    [CreatureVals.ASH_MOTH]: "Ash Moth",
 };

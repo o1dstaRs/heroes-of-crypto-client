@@ -143,6 +143,10 @@ export interface IHoverInfo {
     unitLevel: number;
     unitMovementType: MovementType;
     information: string[];
+    // True while the cursor is hovering an enemy unit that the active unit can attack. Drives the
+    // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
+    // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.
+    isHoveringAttackTarget?: boolean;
 }
 
 export interface IWindowSize {

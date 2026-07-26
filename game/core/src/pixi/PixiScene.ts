@@ -172,6 +172,10 @@ export abstract class PixiScene {
     public sc_possibleSynergiesPerTeam: Map<TeamType, SynergyWithLevel[]> = new Map();
     public sc_isSelection = false;
     public sc_hoverAttackIsTargetingObstacle = false;
+    // True while the cursor is hovering an enemy unit that the active unit can attack (melee/ranged/spell).
+    // Drives the HoMM-style attack cursor: the themed attack-cursor PNG only shows when actively aiming
+    // at an attackable target, NOT merely from the active unit having selected an attack type.
+    public sc_isHoveringAttackTarget = false;
     public sc_mouseDropStep = 0;
     public sc_mouseDownStep = 0;
     public sc_hoverTextUpdateNeeded = false;
@@ -458,6 +462,7 @@ export abstract class PixiScene {
         this.sc_attackKillSpreadStr = "";
         this.sc_hoverUnitLevel = 0;
         this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
+        this.sc_isHoveringAttackTarget = false;
         this.sc_hoverTextUpdateNeeded = updateNeeded;
     }
     protected setSelectedUnitProperties(unitProperties: UnitProperties): void {
