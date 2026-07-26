@@ -136,4 +136,15 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_placed: { rendered: false, ranked: "none", note: "placement (board rebuild)" },
     unit_split: { rendered: false, ranked: "none", note: "split (board rebuild)" },
     unit_moved_by_system: { rendered: false, ranked: "none", note: "forced move (narrowing/system); no distinct VFX" },
+
+    // ---- Smoke (Ash Moth's Book of Chaos) — NOT YET RENDERED ----
+    // Classified honestly rather than wired, so this catalog keeps telling the truth. These three are a
+    // KNOWN GAP, not a decision that smoke is invisible by design: a cloud halves ranged damage through the
+    // cell it sits on, so a player who cannot see it cannot play around it. The state is authoritative and
+    // already available on both paths — FightProperties.smokeClouds rides the snapshot (and is captured by
+    // battle_snapshot), so a board layer can be driven from it rather than from these events, the same way
+    // narrowing/terrain are. NOTE: the existing SmokeLayer is movement DUST, unrelated to this spell.
+    smoke_placed: { rendered: false, ranked: "none", note: "TODO board layer: cells gain a cloud for N laps" },
+    smoke_dispel: { rendered: false, ranked: "none", note: "TODO board layer: a creature stepped in, cloud clears" },
+    smoke_expired: { rendered: false, ranked: "none", note: "TODO board layer: cloud ran out of laps" },
 };
