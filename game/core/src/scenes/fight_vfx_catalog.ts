@@ -68,7 +68,11 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     spell_cast: {
         rendered: true,
         ranked: "replay",
-        note: "craft forge / rune enchant / castling; playReplayCastSpellAction (replay) + castAreaSpellAtCell/castSpellOnTarget (live)",
+        note:
+            "craft forge / rune enchant / castling; playReplayCastSpellAction (replay) + " +
+            "castAreaSpellAtCell/castSpellOnTarget (live). Heal '+N' + burst ride the SAME event via the " +
+            "shared renderHealVfx, called from all three — driven by the authoritative healed[] (the " +
+            "replay reads record.events, never its local re-run)",
     },
     unit_moved: { rendered: true, ranked: "replay", note: "move slide; playReplayMoveRecord" },
     unit_summoned: { rendered: true, ranked: "replay", note: "summon; playReplayCastSpellAction" },

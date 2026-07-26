@@ -1394,14 +1394,19 @@ export class Sandbox extends PixiScene {
      * bench units these are non-interactive and never occupy grid cells — they only show the viewer
      * *which* enemy units exist, never their real (hidden) positions or stack sizes.
      */
-    private renderRevealedOpponentUnit(unit: RenderableUnit, position: HoCMath.XY): void {
+    private renderRevealedOpponentUnit(unit: RenderableUnit, position: HoCMath.XY, total: number): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
         // Set the mode BEFORE the visual passes so the very first rendered frame is already B&W.
         unit.setVisualRevealed(true);
+        unit.setVisualScaleMultiplier(this.getRevealedOpponentUnitScale(total));
         unit.setPosition(position.x, position.y);
         unit.ensureVisual(worldRoot, gs);
         unit.syncVisual(worldRoot, gs);
+    }
+    /** Sprite scale for the revealed opponent roster; ranked shrinks it so a full army fits one row. */
+    protected getRevealedOpponentUnitScale(_total: number): number {
+        return 1;
     }
     private getBenchUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const hitEntries = Array.from(this.placementBenchHitBoxes.entries()).reverse();
@@ -1927,7 +1932,7 @@ export class Sandbox extends PixiScene {
                     this.renderUnplacedBenchUnit(unit, benchPosition, unitState);
                 } else if (revealedPosition) {
                     this.revealedOpponentUnitIds.add(unit.getId());
-                    this.renderRevealedOpponentUnit(unit, revealedPosition);
+                    this.renderRevealedOpponentUnit(unit, revealedPosition, revealedOpponentPositions.size);
                 }
                 continue;
             }
@@ -3272,7 +3277,13 @@ export class Sandbox extends PixiScene {
         const victim = (this.unitsHolder.getAllUnits().get(damageUnitId) as RenderableUnit | undefined) ?? target;
         const victimCenter = victim.getVisualCenter(gs);
         const direction = { x: victimCenter.x - attackerCenter.x, y: victimCenter.y - attackerCenter.y };
-        const spawnPos = this.offsetReplayDamagePosition(damage.unitPosition ?? victimCenter, victim, direction);
+        // Intercepted shot: keep the number on the screen, not on the unit standing behind it.
+        const spawnPos = this.offsetReplayDamagePosition(
+            damage.unitPosition ?? victimCenter,
+            victim,
+            direction,
+            damageUnitId === attackEvent.targetId,
+        );
         const hits = damage.hits ?? [];
 
         // Fully-missed attack: "MISS" + bullet-time dodge instead of a damage number. Placed after the
@@ -3329,9 +3340,22 @@ export class Sandbox extends PixiScene {
             this.getReplayUnitLoss(record, damageUnitId),
         );
     }
-    private offsetReplayDamagePosition(position: HoCMath.XY, unit: RenderableUnit, direction: HoCMath.XY): HoCMath.XY {
+    /**
+     * Nudge a damage number clear of the sprite it belongs to. `outward` = away from the attacker, which
+     * is what a normal hit wants. Pass false for an INTERCEPTED shot: attacker, screen and aimed unit are
+     * collinear with the aimed unit BEHIND the screen, so pushing away from the attacker walks the number
+     * onto the unit behind and the screen's damage reads as the aimed target's. Inward keeps it clear of
+     * the sprite while staying unambiguously on the unit that took the hit.
+     */
+    private offsetReplayDamagePosition(
+        position: HoCMath.XY,
+        unit: RenderableUnit,
+        direction: HoCMath.XY,
+        outward = true,
+    ): HoCMath.XY {
         const gs = this.sc_sceneSettings.getGridSettings();
         const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+        const sign = outward ? 1 : -1;
         const spawnPos = { x: position.x, y: position.y };
         if (len <= 0.001) {
             spawnPos.y += gs.getCellSize();
@@ -3340,8 +3364,8 @@ export class Sandbox extends PixiScene {
 
         const radius = unit.isSmallSize() ? gs.getCellSize() * 0.5 : gs.getCellSize();
         const margin = gs.getCellSize() * 0.5;
-        spawnPos.x += (direction.x / len) * (radius + margin);
-        spawnPos.y += (direction.y / len) * (radius + margin);
+        spawnPos.x += (direction.x / len) * (radius + margin) * sign;
+        spawnPos.y += (direction.y / len) * (radius + margin) * sign;
         return spawnPos;
     }
     private getReplayUnitLoss(record: SandboxReplay["actions"][number], unitId: string): number {
@@ -3720,6 +3744,11 @@ export class Sandbox extends PixiScene {
         }
 
         const result = this.createActionEngine().apply(action);
+        // Heal numbers come from the RECORD, not `result`: the local re-apply above is best-effort and in
+        // ranked is routinely rejected, whereas the record is what the server actually resolved. Safe to
+        // render during playback (unlike the outcome-dependent pops below) because `healed[]` is
+        // authoritative rather than a local re-roll.
+        this.renderHealVfx(record.events);
         // Forge cast animation only (outcome-independent); the per-ally results come from the
         // authoritative snapshot, not this local re-roll — see the note at the capture above.
         // Spawned BEFORE the result branch and never gated on it: the record is authoritative (the server
@@ -5495,6 +5524,8 @@ export class Sandbox extends PixiScene {
         if (!result.completed) {
             return false;
         }
+        // Heal numbers + restorative burst. Shared with the ranked replay path (see renderHealVfx).
+        this.renderHealVfx(result.events);
 
         if (isSwap && oldCasterPos && oldTargetPos) {
             // Clear armed-spell state now; the turn ends when the swap animation finishes.
@@ -5586,6 +5617,8 @@ export class Sandbox extends PixiScene {
             this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()} here`);
             return false;
         }
+        // Mass heal: one "+N" per ally the cast actually restored. Shared with the ranked replay path.
+        this.renderHealVfx(result.events);
 
         // Play the forge cast (anvil + hammer strikes) over the Blacksmith, then reveal each ally's crafted
         // result ONLY AFTER it finishes ("what each unit got after the craft").
@@ -5985,6 +6018,39 @@ export class Sandbox extends PixiScene {
             this.combatVisuals.spawnClawSlash(woundedUnit.getPosition(), cellSize, dw.power);
         }
     }
+    /**
+     * Green "+N" + restorative burst over every unit a cast actually healed. SHARED by both paths, per the
+     * ABILITY VFX CONTRACT: called from the live cast (castSpellOnTarget / castAreaSpellAtCell) and from
+     * playReplayCastSpellAction, so a heal renders identically in sandbox and in ranked — where even your
+     * own cast is deferred to the authoritative replay.
+     *
+     * Driven off the engine's `healed[]` rather than an HP diff, which matters twice over. It is the
+     * amount ACTUALLY restored (after magic resist, Holy Cross and the missing-HP cap), not the spell's
+     * nominal power — a heal on a nearly-full stack correctly reads as the few points it gave back. And
+     * unlike the replay's outcome-dependent pops, this is safe to render during playback: `healed[]` comes
+     * from the authoritative record, not from the local re-run's RNG.
+     */
+    protected renderHealVfx(events: readonly GameEvent[]): void {
+        if (!this.combatVisuals) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const event of events) {
+            if (event.type !== "spell_cast" || !event.healed?.length) {
+                continue;
+            }
+            for (const heal of event.healed) {
+                if (heal.amount <= 0) {
+                    continue;
+                }
+                const healedUnit = this.unitsHolder.getAllUnits().get(heal.unitId) as RenderableUnit | undefined;
+                if (!healedUnit || healedUnit.isDead()) {
+                    continue;
+                }
+                this.combatVisuals.showFloatingHeal(healedUnit.getVisualCenter(gs), heal.amount);
+            }
+        }
+    }
     /** Pop a freshly-applied effect's spell icon + name over a unit (shared by sandbox + ranked). */
     /**
      * True while a strike is still travelling — a projectile in flight, a melee approach/lunge, or any
@@ -6330,7 +6396,9 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clearAOEArea();
         this.hoverManager.clearAttackVisuals();
         const clearInfo = (): boolean => {
-            if (this.sc_hoverInfoArr[0] === "Area attack") {
+            // Prefix match: the live label carries the falloff fraction ("Area attack — 🎯1/N"), so an exact
+            // "Area attack" compare would never clear it.
+            if (this.sc_hoverInfoArr[0]?.startsWith("Area attack")) {
                 this.sc_hoverInfoArr = [];
                 this.sc_hoverTextUpdateNeeded = true;
             }
@@ -6476,14 +6544,25 @@ export class Sandbox extends PixiScene {
      * can't area-throw there (not an Area Throw range unit, off-grid, or aiming directly at an
      * enemy unit — that goes through the normal single-target path).
      */
+    /**
+     * The active unit is AIMING an Area Throw rather than manoeuvring: it still has the ability (not
+     * muted by Break, not stolen), it is in RANGE mode, and it has shots left. A Gargantuan in that state
+     * does not walk — the whole turn is spent placing the 3x3 splash — so the hover must offer the AREA,
+     * never a move preview. Switching to melee (or spending the last shot) drops the state and the normal
+     * move/melee hover takes over.
+     */
+    private isAreaThrowAiming(): boolean {
+        const unit = this.currentActiveUnit;
+        return (
+            !!unit &&
+            unit.hasAbilityActive("Area Throw") &&
+            unit.getAttackTypeSelection() === AttackVals.RANGE &&
+            unit.getRangeShots() > 0
+        );
+    }
     private getAreaThrowCells(worldPos?: HoCMath.XY): HoCMath.XY[] | undefined {
         const unit = this.currentActiveUnit;
-        if (!unit || !worldPos || !unit.hasAbilityActive("Area Throw")) {
-            return undefined;
-        }
-        // Only while the unit is in RANGE mode and has shots. Switching to melee drops the area
-        // preview so the normal move/melee hover takes over (parity with legacy).
-        if (unit.getAttackTypeSelection() !== AttackVals.RANGE || unit.getRangeShots() <= 0) {
+        if (!unit || !worldPos || !this.isAreaThrowAiming()) {
             return undefined;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -7051,11 +7130,19 @@ export class Sandbox extends PixiScene {
             const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
             const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
 
+            // An intercepted shot damages the SCREEN, and the unit we aimed at stands BEHIND it —
+            // attacker, screen and aimed unit are collinear by construction. The offsets below push the
+            // number away from the attacker so it doesn't cover its own victim, but along that line
+            // "away" walks it straight onto the unit behind: the screen's damage then reads as the aimed
+            // target's. Push INWARD (back toward the attacker) when the victim isn't who we aimed at —
+            // still clear of the sprite, but unambiguously on the unit that actually took the hit.
+            const offsetSign = primaryVictimId !== target.getId() ? -1 : 1;
+
             let spawnPos = { x: tVis.x, y: tVis.y };
             if (len > 0.001) {
                 // Normalize
-                const ndx = dir.x / len;
-                const ndy = dir.y / len;
+                const ndx = (dir.x / len) * offsetSign;
+                const ndy = (dir.y / len) * offsetSign;
 
                 // Push text out by radius + margin
                 // Small unit radius ~0.5 cell, Large ~1.0 cell. Add extra margin.
@@ -7082,9 +7169,10 @@ export class Sandbox extends PixiScene {
                     // Apply Spatial Offsets matching Melee/Ranged logic
                     // Strategy: First hit is "Deep" (+30), Second hit is "Further" (+70)
                     if (len > 0.001) {
-                        // dir is already computed (tVis - aCenter)
-                        const ndx = dir.x / len;
-                        const ndy = dir.y / len;
+                        // dir is already computed (tVis - aCenter); offsetSign keeps an intercepted
+                        // shot's numbers on the screen instead of drifting them onto the unit behind.
+                        const ndx = (dir.x / len) * offsetSign;
+                        const ndy = (dir.y / len) * offsetSign;
                         let offset = 0;
                         if (totalHits === 1) {
                             offset = 20;
@@ -11028,7 +11116,11 @@ export class Sandbox extends PixiScene {
             this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
         ) {
             let movePath;
-            if (this.currentActiveUnit.canMove()) {
+            // An Area Throw unit in RANGE mode aims instead of moving (see isAreaThrowAiming), so give it
+            // the same pinned single-cell path an immobilized unit gets. That leaves no reachable cells,
+            // which is what suppresses the move highlight AND the cursor silhouette that made a
+            // Gargantuan look like it could walk while it was really placing its 3x3 splash.
+            if (this.currentActiveUnit.canMove() && !this.isAreaThrowAiming()) {
                 movePath = this.pathHelper.getMovePath(
                     currentCell,
                     this.gridMatrix,

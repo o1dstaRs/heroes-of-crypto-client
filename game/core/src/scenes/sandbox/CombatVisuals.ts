@@ -445,6 +445,17 @@ const DISSOLVE_SPARK_TINT = 0xffe9b8;
 // Frozen death: the intact icy body cracks for one beat, then releases a mixture of heavy crystal chunks
 // and quick splinters. Different size/physics bands keep it from reading as a uniform particle explosion.
 const ICE_BREAK_Z = 4550;
+// Heal burst sits just under the floating numbers so the "+N" always reads on top of its own glow.
+const HEAL_BURST_Z = 2150;
+const HEAL_BURST_LIFE = 0.72; // seconds
+
+interface IHealBurst {
+    graphics: Graphics;
+    pos: HoCMath.XY;
+    age: number;
+    life: number;
+    motes: { angle: number; radius: number; speed: number }[];
+}
 const ICE_BREAK_BURST_S = 0.085;
 const ICE_BREAK_COLORS = [0x91d8ff, 0xbdeaff, 0x6fc5f2, 0xd9f6ff] as const;
 
@@ -467,6 +478,7 @@ export class CombatVisuals {
     private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
     private poisonClouds: IFireSweep[] = [];
+    private healBursts: IHealBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
@@ -1153,6 +1165,10 @@ export class CombatVisuals {
             cloud.container.destroy({ children: true });
         }
         this.poisonClouds.length = 0;
+        for (const burst of this.healBursts) {
+            burst.graphics.destroy();
+        }
+        this.healBursts.length = 0;
         for (const chain of this.chainLightnings) {
             chain.container.destroy({ children: true });
         }
@@ -1252,6 +1268,7 @@ export class CombatVisuals {
         this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
         this.stepPoisonClouds(dt);
+        this.stepHealBursts(dt);
         this.stepChainLightnings(dt);
         this.stepWindSpears(dt);
         this.stepAbilitySteals(dt);
@@ -3073,6 +3090,76 @@ export class CombatVisuals {
             container.addChild(skullSprite, countText);
         }
         this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
+     * Floating "+N" over a healed unit, plus a soft restorative burst so a heal reads at a glance as the
+     * opposite of a hit. Deliberately green-on-dark-green and drifted with NO direction vector: a heal has
+     * no attacker to be pushed away from, and passing one would drag the number off the unit it belongs to.
+     * Driven off the engine's authoritative `healed[]`, so the number is what was ACTUALLY restored after
+     * magic resist, Holy Cross and the missing-HP cap — not the spell's nominal power.
+     */
+    public showFloatingHeal(pos: HoCMath.XY, amount: number): void {
+        if (amount <= 0) {
+            return;
+        }
+        const container = new Container();
+        const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#66ff99", "#0b3d1e") });
+        healText.anchor.set(0.5);
+        container.addChild(healText);
+        this.enqueueFloatingContainer(container, pos);
+        this.spawnHealBurst(pos);
+    }
+    /**
+     * Expanding ring of rising motes under a healed unit — the restorative counterpart of the death
+     * shatter. Pure Graphics (no texture), so a mass heal covering six units costs nothing to spawn.
+     * Stepped from the scene's dt loop like every other effect here (NOT requestAnimationFrame), so it
+     * pauses with the scene instead of running on while the board is frozen.
+     */
+    private spawnHealBurst(pos: HoCMath.XY): void {
+        const graphics = new Graphics();
+        this.context.attachToWorldRoot(graphics, HEAL_BURST_Z);
+        this.healBursts.push({
+            graphics,
+            pos: { x: pos.x, y: pos.y },
+            age: 0,
+            life: HEAL_BURST_LIFE,
+            motes: Array.from({ length: 8 }, (_, i) => ({
+                angle: (i / 8) * Math.PI * 2,
+                radius: 8 + (i % 3) * 4,
+                speed: 34 + (i % 4) * 9,
+            })),
+        });
+    }
+    private stepHealBursts(dt: number): void {
+        for (let i = this.healBursts.length - 1; i >= 0; i--) {
+            const burst = this.healBursts[i];
+            burst.age += dt;
+            if (burst.age >= burst.life) {
+                burst.graphics.destroy();
+                this.healBursts.splice(i, 1);
+                continue;
+            }
+            const t = burst.age / burst.life;
+            const eased = 1 - (1 - t) * (1 - t);
+            const fade = 1 - t;
+            const g = burst.graphics;
+            g.clear();
+            // Ground ring pushing outward and fading.
+            g.circle(burst.pos.x, burst.pos.y, 18 + eased * 46).stroke({
+                width: 4,
+                color: 0x66ff99,
+                alpha: 0.55 * fade,
+            });
+            // Motes rising out of the ring. worldRoot is y-up, so a POSITIVE y offset rises.
+            for (const mote of burst.motes) {
+                const r = mote.radius + eased * mote.speed;
+                g.circle(
+                    burst.pos.x + Math.cos(mote.angle) * r,
+                    burst.pos.y + Math.sin(mote.angle) * r * 0.45 + eased * 46,
+                    4,
+                ).fill({ color: 0xaaffcc, alpha: 0.85 * fade });
+            }
+        }
     }
     public showDamageVisualsFromDiff(
         preState: Map<string, { hp: number; amount: number }>,
