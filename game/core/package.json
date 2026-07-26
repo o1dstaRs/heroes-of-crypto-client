@@ -55,7 +55,7 @@
         "typeface-open-sans": "1.1.13",
         "uuid": "^11.1.1",
         "viem": "^2.21.53",
-        "wagmi": "^2.14.0"
+        "wagmi": "^3.7.1"
     },
     "devDependencies": {
         "@parcel/config-default": "^2.16.4",
