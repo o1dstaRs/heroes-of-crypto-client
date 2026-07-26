@@ -1,0 +1,837 @@
+---
+import { content, type Language } from "../lib/site-data";
+import { localizedFactionName } from "../lib/localization";
+import {
+    bookColors,
+    buffCount,
+    debuffCount,
+    factionColors,
+    spellBooks,
+    spellbookCount,
+    spells,
+    spellsCount,
+    type Spell,
+    type SpellBook,
+    type SpellDuration,
+    type SpellKind,
+} from "../lib/spells-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const copy = content[lang];
+const page = copy.pages.spells;
+const unitsHref = lang === "ru" ? "/ru/units/" : "/units/";
+const abilitiesHref = lang === "ru" ? "/ru/abilities/" : "/abilities/";
+
+const labels =
+    lang === "ru"
+        ? {
+              eyebrow: "Справочник заклинаний",
+              search: "Поиск заклинаний",
+              searchPlaceholder: "Название, эффект, юнит...",
+              empty: "Заклинания не найдены.",
+              all: "Все",
+              spells: "Заклинаний",
+              spellbook: "В книгах",
+              buffs: "Баффов",
+              debuffs: "Дебаффов",
+              filterKind: "Фильтр по типу",
+              filterBook: "Фильтр по школе",
+              castBy: "Носители",
+              appliedBy: "Способность",
+              scroll: "свиток",
+              scrolls: "свитка",
+              scrollsMany: "свитков",
+              level: "Уровень",
+              target: "Цель",
+              duration: "Длительность",
+              stackPower: "Сила стека",
+              conflicts: "Конфликтует с",
+              buff: "Бафф",
+              debuff: "Дебафф",
+              giftable: "Можно подарить",
+              selfCast: "На себя",
+              wholeFight: "Весь бой",
+              untilBroken: "До разрушения",
+              lap: "круг",
+              laps: "круга",
+              lapsMany: "кругов",
+          }
+        : {
+              eyebrow: "Spell codex",
+              search: "Search spells",
+              searchPlaceholder: "Name, effect, unit...",
+              empty: "No spells found.",
+              all: "All",
+              spells: "Spells",
+              spellbook: "In spell books",
+              buffs: "Buffs",
+              debuffs: "Debuffs",
+              filterKind: "Filter by type",
+              filterBook: "Filter by school",
+              castBy: "Cast by",
+              appliedBy: "Ability",
+              scroll: "scroll",
+              scrolls: "scrolls",
+              scrollsMany: "scrolls",
+              level: "Level",
+              target: "Target",
+              duration: "Duration",
+              stackPower: "Stack power",
+              conflicts: "Conflicts with",
+              buff: "Buff",
+              debuff: "Debuff",
+              giftable: "Giftable",
+              selfCast: "Self-cast",
+              wholeFight: "Whole fight",
+              untilBroken: "Until broken",
+              lap: "lap",
+              laps: "laps",
+              lapsMany: "laps",
+          };
+
+const kindLabels: Record<SpellKind, string> =
+    lang === "ru"
+        ? { spellbook: "Книга заклинаний", augment: "Аугмент", ability: "От способности", effect: "Эффект" }
+        : { spellbook: "Spell book", augment: "Augment", ability: "Ability", effect: "Effect" };
+
+const bookLabels: Record<SpellBook, string> =
+    lang === "ru"
+        ? { Life: "Жизнь", Nature: "Природа", Chaos: "Хаос", Death: "Смерть", Order: "Порядок", System: "Системные" }
+        : { Life: "Life", Nature: "Nature", Chaos: "Chaos", Death: "Death", Order: "Order", System: "System" };
+
+const targetLabels: Record<string, string> =
+    lang === "ru"
+        ? {
+              AUTO: "Авто",
+              ANY_ALLY: "Любой союзник",
+              ALL_ALLIES: "Все союзники",
+              ANY_ENEMY: "Любой враг",
+              ALL_FLYING: "Все летающие",
+              ENEMY_WITHIN_MOVEMENT_RANGE: "Враг в радиусе хода",
+              RANDOM_CLOSE_TO_CASTER: "Клетки рядом",
+              ALLIES_AREA: "Область 2x2",
+          }
+        : {
+              AUTO: "Automatic",
+              ANY_ALLY: "Any ally",
+              ALL_ALLIES: "All allies",
+              ANY_ENEMY: "Any enemy",
+              ALL_FLYING: "All flying units",
+              ENEMY_WITHIN_MOVEMENT_RANGE: "Enemy in move range",
+              RANDOM_CLOSE_TO_CASTER: "Cells near caster",
+              ALLIES_AREA: "2x2 allied area",
+          };
+
+const targetLabel = (target: string) => targetLabels[target] ?? target;
+
+const durationLabel = (duration: SpellDuration) => {
+    if (!duration) return null;
+    if (duration.kind === "fight") return labels.wholeFight;
+    if (duration.kind === "broken") return labels.untilBroken;
+    if (duration.laps === 1) return `1 ${labels.lap}`;
+    if (lang === "ru") return `${duration.laps} ${duration.laps < 5 ? labels.laps : labels.lapsMany}`;
+    return `${duration.laps} ${labels.laps}`;
+};
+
+// Russian needs the 1 / 2-4 / 5+ split; English only singular vs plural.
+const scrollsLabel = (count: number) => {
+    if (count === 1) return `${count} ${labels.scroll}`;
+    if (lang === "ru") return `${count} ${count < 5 ? labels.scrolls : labels.scrollsMany}`;
+    return `${count} ${labels.scrolls}`;
+};
+
+const polarityLabel = (spell: Spell) =>
+    spell.polarity === "buff" ? labels.buff : spell.polarity === "debuff" ? labels.debuff : null;
+
+const description = (spell: Spell) => (lang === "ru" ? spell.descriptionRu : spell.description);
+
+const summaryStats = [
+    { value: spellsCount, label: labels.spells },
+    { value: spellbookCount, label: labels.spellbook },
+    { value: buffCount, label: labels.buffs },
+    { value: debuffCount, label: labels.debuffs },
+];
+
+const kinds: { key: string; label: string }[] = [
+    { key: "all", label: labels.all },
+    { key: "spellbook", label: kindLabels.spellbook },
+    { key: "augment", label: kindLabels.augment },
+    { key: "ability", label: kindLabels.ability },
+    { key: "effect", label: kindLabels.effect },
+];
+
+const books: { key: string; label: string; color: string }[] = [
+    { key: "all", label: labels.all, color: "var(--gold)" },
+    ...spellBooks.map((book) => ({ key: book, label: bookLabels[book], color: bookColors[book] })),
+];
+
+const searchText = (spell: Spell) =>
+    [
+        spell.name,
+        description(spell),
+        bookLabels[spell.book],
+        kindLabels[spell.kind],
+        targetLabel(spell.target),
+        polarityLabel(spell) ?? "",
+        spell.casters.map((c) => `${c.name} ${c.faction} ${localizedFactionName(lang, c.faction)}`).join(" "),
+        spell.appliedBy.join(" "),
+    ]
+        .join(" ")
+        .toLowerCase();
+
+const metaRows = (spell: Spell) => {
+    const duration = durationLabel(spell.duration);
+    return [
+        spell.level > 0 ? { label: labels.level, value: String(spell.level) } : null,
+        { label: labels.target, value: targetLabel(spell.target) },
+        duration ? { label: labels.duration, value: duration } : null,
+        spell.minimalCasterStackPower > 1
+            ? { label: labels.stackPower, value: String(spell.minimalCasterStackPower) }
+            : null,
+        spell.conflictsWith.length ? { label: labels.conflicts, value: spell.conflictsWith.join(", ") } : null,
+    ].filter((row): row is { label: string; value: string } => row !== null);
+};
+---
+
+<section class="subhero spells-subhero">
+    <div class="page-shell spells-hero-shell">
+        <div class="spells-hero-copy">
+            <p class="eyebrow">{page.eyebrow}</p>
+            <h1>{page.title}</h1>
+            <p>{page.description}</p>
+        </div>
+        <div class="spells-summary" aria-label={labels.eyebrow}>
+            {
+                summaryStats.map((item) => (
+                    <div>
+                        <strong>{item.value}</strong>
+                        <span>{item.label}</span>
+                    </div>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section spells-section">
+    <div class="page-shell">
+        <div class="spells-controls">
+            <label class="spell-search">
+                <span>{labels.search}</span>
+                <input data-spell-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
+            </label>
+
+            <div class="spells-toolbar" role="tablist" aria-label={labels.filterKind}>
+                {
+                    kinds.map((k) => (
+                        <button
+                            class={`kind-pill${k.key === "all" ? " active" : ""}`}
+                            data-kind={k.key}
+                            type="button"
+                            aria-pressed={k.key === "all" ? "true" : "false"}
+                        >
+                            {k.label}
+                        </button>
+                    ))
+                }
+            </div>
+
+            <div class="spells-toolbar books-toolbar" role="tablist" aria-label={labels.filterBook}>
+                {
+                    books.map((b) => (
+                        <button
+                            class={`book-pill${b.key === "all" ? " active" : ""}`}
+                            data-book={b.key}
+                            type="button"
+                            style={`--book: ${b.color}`}
+                            aria-pressed={b.key === "all" ? "true" : "false"}
+                        >
+                            {b.label}
+                        </button>
+                    ))
+                }
+            </div>
+        </div>
+
+        <div class="spells-grid" data-spells-grid>
+            {
+                spells.map((spell) => (
+                    <article
+                        class="spell-card"
+                        data-kind={spell.kind}
+                        data-book={spell.book}
+                        data-search={searchText(spell)}
+                        style={`--book: ${bookColors[spell.book]}`}
+                    >
+                        <header class="spell-card-head">
+                            <img
+                                class="spell-card-icon"
+                                src={spell.icon}
+                                alt=""
+                                width="64"
+                                height="64"
+                                loading="lazy"
+                                onerror="this.onerror=null;this.style.visibility='hidden'"
+                            />
+                            <div class="spell-card-title">
+                                <h2>{spell.name}</h2>
+                                <div class="spell-badges">
+                                    <span class="spell-book">{bookLabels[spell.book]}</span>
+                                    <span class={`spell-kind ${spell.kind}`}>{kindLabels[spell.kind]}</span>
+                                    {spell.polarity && (
+                                        <span class={`spell-polarity ${spell.polarity}`}>{polarityLabel(spell)}</span>
+                                    )}
+                                    {spell.isGiftable && <span class="spell-flag">{labels.giftable}</span>}
+                                </div>
+                            </div>
+                        </header>
+
+                        <p class="spell-card-desc">{description(spell)}</p>
+
+                        <dl class="spell-meta">
+                            {metaRows(spell).map((row) => (
+                                <div>
+                                    <dt>{row.label}</dt>
+                                    <dd>{row.value}</dd>
+                                </div>
+                            ))}
+                        </dl>
+
+                        {spell.casters.length > 0 && (
+                            <div class="spell-card-casters">
+                                <span class="spell-casters-label">
+                                    {labels.castBy} · {spell.casters.length}
+                                </span>
+                                <div class="spell-caster-chips">
+                                    {spell.casters.map((caster) => (
+                                        <a
+                                            class="spell-caster-chip"
+                                            href={`${unitsHref}?faction=${caster.faction.toLowerCase()}`}
+                                            style={`--faction: ${factionColors[caster.faction]}`}
+                                            title={`${caster.name} · ${localizedFactionName(lang, caster.faction)}`}
+                                        >
+                                            <img
+                                                src={caster.icon}
+                                                alt=""
+                                                width="34"
+                                                height="34"
+                                                loading="lazy"
+                                                onerror="this.onerror=null;this.src='/assets/images/units/units/unknown_creature_512.webp'"
+                                            />
+                                            <span>{caster.name}</span>
+                                            <em>{scrollsLabel(caster.scrolls)}</em>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {spell.casters.length === 0 && spell.appliedBy.length > 0 && (
+                            <div class="spell-card-casters">
+                                <span class="spell-casters-label">{labels.appliedBy}</span>
+                                <div class="spell-caster-chips">
+                                    {spell.appliedBy.map((ability) => (
+                                        <a class="spell-source-chip" href={abilitiesHref}>
+                                            {ability}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </article>
+                ))
+            }
+        </div>
+
+        <p class="spells-empty" data-spells-empty hidden>{labels.empty}</p>
+    </div>
+</section>
+
+<script>
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".spell-card"));
+    const kindPills = Array.from(document.querySelectorAll<HTMLButtonElement>(".kind-pill"));
+    const bookPills = Array.from(document.querySelectorAll<HTMLButtonElement>(".book-pill"));
+    const searchInput = document.querySelector<HTMLInputElement>("[data-spell-search]");
+    const emptyState = document.querySelector<HTMLElement>("[data-spells-empty]");
+    let activeKind = "all";
+    let activeBook = "all";
+
+    const applyFilters = () => {
+        const query = searchInput?.value.trim().toLowerCase() ?? "";
+        let visible = 0;
+        cards.forEach((card) => {
+            const kindMatch = activeKind === "all" || card.dataset.kind === activeKind;
+            const bookMatch = activeBook === "all" || card.dataset.book === activeBook;
+            const searchMatch = !query || (card.dataset.search ?? "").includes(query);
+            const show = kindMatch && bookMatch && searchMatch;
+            card.hidden = !show;
+            if (show) visible += 1;
+        });
+        if (emptyState) emptyState.hidden = visible > 0;
+    };
+
+    const setActive = (pills: HTMLButtonElement[], attribute: string, value: string) => {
+        pills.forEach((pill) => {
+            const isActive = (pill.dataset[attribute] ?? "all") === value;
+            pill.classList.toggle("active", isActive);
+            pill.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+        applyFilters();
+    };
+
+    kindPills.forEach((pill) =>
+        pill.addEventListener("click", () => {
+            activeKind = pill.dataset.kind ?? "all";
+            setActive(kindPills, "kind", activeKind);
+        }),
+    );
+
+    bookPills.forEach((pill) =>
+        pill.addEventListener("click", () => {
+            activeBook = pill.dataset.book ?? "all";
+            setActive(bookPills, "book", activeBook);
+        }),
+    );
+
+    searchInput?.addEventListener("input", applyFilters);
+</script>
+
+<style>
+    .spells-subhero {
+        padding: 34px 0 26px;
+    }
+
+    .spells-hero-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 30px;
+        align-items: center;
+    }
+
+    .spells-subhero .eyebrow {
+        margin-bottom: 8px;
+        color: rgba(242, 199, 93, 0.9);
+    }
+
+    .spells-subhero h1 {
+        margin-bottom: 10px;
+        font-size: clamp(3.1rem, 7vw, 5.2rem);
+        font-weight: 860;
+    }
+
+    .spells-subhero p {
+        max-width: 760px;
+        margin-bottom: 0;
+    }
+
+    .spells-section {
+        padding-top: 18px;
+        background:
+            linear-gradient(180deg, rgba(251, 244, 232, 0.035), rgba(7, 8, 8, 0) 150px),
+            #0b0f12;
+    }
+
+    /* Same reveal override as the abilities and artifacts catalogues: the grid is taller than the
+       viewport, so the IntersectionObserver threshold is never hit and the section would stay hidden. */
+    :global(html.reveal-on) .spells-section {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .spells-summary {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        min-width: 0;
+    }
+
+    .spells-summary div {
+        display: grid;
+        gap: 2px;
+        min-width: 72px;
+        padding-left: 18px;
+        border-left: 1px solid rgba(251, 244, 232, 0.22);
+    }
+
+    .spells-summary div:first-child {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .spells-summary strong {
+        color: var(--ink-strong);
+        font-size: 1.85rem;
+        line-height: 1;
+    }
+
+    .spells-summary span {
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.78rem;
+        font-weight: 820;
+        text-transform: uppercase;
+    }
+
+    .spells-controls {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+        gap: 10px 18px;
+        align-items: center;
+        margin-bottom: 22px;
+        padding: 2px 0 16px;
+        border-bottom: 1px solid rgba(251, 244, 232, 0.14);
+    }
+
+    .spell-search {
+        display: grid;
+        gap: 5px;
+    }
+
+    .spell-search span {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 760;
+    }
+
+    .spell-search input {
+        width: 100%;
+        min-height: 42px;
+        border: 0;
+        border-bottom: 1px solid rgba(251, 244, 232, 0.24);
+        border-radius: 0;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+        padding: 8px 0;
+        outline: none;
+    }
+
+    .spell-search input:focus {
+        border-color: rgba(242, 199, 93, 0.72);
+    }
+
+    .spells-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    /* The school row sits under the search box and spans the controls grid so both pill groups stay
+       on the right edge, aligned with each other. */
+    .books-toolbar {
+        grid-column: 2;
+    }
+
+    .kind-pill,
+    .book-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 5px 12px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 780;
+        cursor: pointer;
+        transition:
+            color 0.15s ease,
+            border-color 0.15s ease;
+    }
+
+    .kind-pill:hover,
+    .book-pill:hover {
+        color: var(--ink);
+    }
+
+    .kind-pill.active {
+        border-color: rgba(242, 199, 93, 0.78);
+        color: var(--ink);
+    }
+
+    .book-pill {
+        font-size: 0.84rem;
+    }
+
+    .book-pill.active {
+        border-color: color-mix(in srgb, var(--book, var(--gold)) 78%, transparent);
+        color: var(--ink);
+    }
+
+    .spells-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 18px;
+    }
+
+    .spell-card {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-left: 3px solid color-mix(in srgb, var(--book, var(--gold)) 60%, transparent);
+        border-radius: 10px;
+        background: var(--surface);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+    }
+
+    .spell-card[hidden] {
+        display: none;
+    }
+
+    .spell-card-head {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+    }
+
+    .spell-card-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 10px;
+        object-fit: contain;
+        background: #0c0b09;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .spell-card-title {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .spell-card-title h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        line-height: 1.15;
+        color: var(--ink);
+    }
+
+    .spell-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .spell-book,
+    .spell-kind,
+    .spell-polarity,
+    .spell-flag {
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: rgba(251, 244, 232, 0.1);
+        color: var(--muted);
+        font-size: 0.68rem;
+        font-weight: 820;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .spell-book {
+        background: color-mix(in srgb, var(--book, var(--gold)) 18%, transparent);
+        color: color-mix(in srgb, var(--book, var(--gold)) 72%, #fbf4e8);
+    }
+
+    .spell-kind.spellbook {
+        background: rgba(224, 176, 74, 0.18);
+        color: var(--gold);
+    }
+
+    .spell-kind.augment {
+        background: rgba(111, 155, 214, 0.18);
+        color: #9ec1f2;
+    }
+
+    .spell-polarity.buff {
+        background: rgba(78, 163, 110, 0.18);
+        color: var(--green);
+    }
+
+    .spell-polarity.debuff {
+        background: rgba(198, 61, 51, 0.18);
+        color: #f0938b;
+    }
+
+    .spell-flag {
+        background: rgba(138, 118, 191, 0.2);
+        color: #cbbdf2;
+    }
+
+    .spell-card-desc {
+        margin: 0;
+        color: rgba(251, 244, 232, 0.82);
+        font-size: 0.92rem;
+        line-height: 1.45;
+        white-space: pre-line;
+    }
+
+    .spell-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        margin: 0;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .spell-meta div {
+        display: grid;
+        gap: 1px;
+        min-width: 0;
+    }
+
+    .spell-meta dt {
+        color: var(--muted);
+        font-size: 0.66rem;
+        font-weight: 820;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .spell-meta dd {
+        margin: 0;
+        color: rgba(251, 244, 232, 0.88);
+        font-size: 0.84rem;
+        font-weight: 720;
+    }
+
+    .spell-card-casters {
+        display: grid;
+        gap: 9px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+    }
+
+    .spell-casters-label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 820;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .spell-caster-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+
+    .spell-caster-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 10px 4px 4px;
+        border: 1px solid var(--line);
+        border-left: 2px solid color-mix(in srgb, var(--faction, var(--gold)) 70%, transparent);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.25);
+        color: rgba(251, 244, 232, 0.86);
+        font-size: 0.82rem;
+        font-weight: 720;
+        text-decoration: none;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease;
+    }
+
+    .spell-caster-chip:hover {
+        border-color: color-mix(in srgb, var(--faction, var(--gold)) 60%, rgba(251, 244, 232, 0.3));
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .spell-caster-chip img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        object-position: center top;
+        background: #0b0d0f;
+    }
+
+    .spell-caster-chip em {
+        color: rgba(242, 199, 93, 0.86);
+        font-size: 0.65rem;
+        font-style: normal;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .spell-source-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.25);
+        color: rgba(251, 244, 232, 0.86);
+        font-size: 0.82rem;
+        font-weight: 720;
+        text-decoration: none;
+        transition:
+            border-color 0.15s ease,
+            background 0.15s ease;
+    }
+
+    .spell-source-chip:hover {
+        border-color: rgba(242, 199, 93, 0.56);
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .spells-empty {
+        margin: 24px 0 0;
+        padding: 22px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 8px;
+        color: var(--muted);
+        text-align: center;
+    }
+
+    @media (max-width: 640px) {
+        .spells-hero-shell,
+        .spells-controls {
+            grid-template-columns: 1fr;
+        }
+
+        .books-toolbar {
+            grid-column: 1;
+        }
+
+        .spells-subhero h1 {
+            font-size: 2.35rem;
+        }
+
+        .spells-summary {
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .spells-summary div {
+            min-width: 0;
+            padding-left: 10px;
+        }
+
+        .spells-toolbar {
+            justify-content: flex-start;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+        }
+
+        .kind-pill,
+        .book-pill {
+            flex: 0 0 auto;
+        }
+
+        .spells-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

@@ -1,4 +1,5 @@
 import { patchNotes } from "./patch-notes";
+import { spellsCount } from "./spells-data";
 import { abilityCount, unitCount } from "./units-data";
 
 export const supportedLanguages = ["en", "ru"] as const;
@@ -10,6 +11,7 @@ export const pageSlugs = [
     "rules",
     "units",
     "abilities",
+    "spells",
     "artifacts",
     "research",
     "token",
@@ -84,6 +86,7 @@ export const content = {
             research: "Research",
             units: "Units",
             abilities: "Abilities",
+            spells: "Spells",
             artifacts: "Artifacts",
             token: "Token",
             patches: "Patches",
@@ -229,6 +232,11 @@ export const content = {
                 eyebrow: "Ability codex",
                 description:
                     "Every unit ability in Heroes of Crypto — icon, what it does, and which units carry it. Pulled straight from the game data, so it always matches the live roster.",
+            },
+            spells: {
+                title: "Spells",
+                eyebrow: "Spell codex",
+                description: `All ${spellsCount} spells in Heroes of Crypto — the scrolls units cast from their spell books, the augments you pick before the fight, and every buff and debuff the board can apply. Read straight from the game data, so it always matches the live rules.`,
             },
             artifacts: {
                 title: "Artifacts",
@@ -649,6 +657,7 @@ export const content = {
             research: "Исследования",
             units: "Юниты",
             abilities: "Способности",
+            spells: "Заклинания",
             artifacts: "Артефакты",
             token: "Токен",
             patches: "Патчи",
@@ -794,6 +803,11 @@ export const content = {
                 eyebrow: "Справочник способностей",
                 description:
                     "Все способности юнитов Heroes of Crypto — иконка, описание и носители. Берутся напрямую из игровых данных, поэтому всегда соответствуют актуальному ростеру.",
+            },
+            spells: {
+                title: "Заклинания",
+                eyebrow: "Справочник заклинаний",
+                description: `Все ${spellsCount} заклинаний Heroes of Crypto — свитки из книг заклинаний юнитов, аугменты, которые выбираются до боя, и все баффы и дебаффы, которые может наложить поле. Берутся напрямую из игровых данных, поэтому всегда соответствуют актуальным правилам.`,
             },
             artifacts: {
                 title: "Артефакты",

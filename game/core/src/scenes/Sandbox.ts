@@ -5770,6 +5770,35 @@ export class Sandbox extends PixiScene {
         if (!unit) {
             return false;
         }
+        // TEMP DIAGNOSTIC (ranked mountain-melee bug) — remove after diagnosis. One log per mountain click.
+        {
+            const dbgFp = FightStateManager.getInstance().getFightProperties();
+            const dbgGs = this.sc_sceneSettings.getGridSettings();
+            const dbgHovered = GridMath.getCellForPosition(dbgGs, worldPos);
+            const dbgCenter = this.grid.getCenterCells();
+            const dbgHoveredIsCenter =
+                !!dbgHovered && dbgCenter.some((c) => c.x === dbgHovered.x && c.y === dbgHovered.y);
+            // Fire on ANY click while on a Mountains map (not only when the clicked cell is detected as a
+            // center cell) so we still get a datapoint if getCenterCells() is empty in ranked.
+            if (dbgFp.getGridType() === GridVals.BLOCK_CENTER) {
+                console.warn("[MTN-DIAG]", {
+                    scene: this.constructor?.name,
+                    gridType: dbgFp.getGridType(),
+                    isBlockCenter: dbgFp.getGridType() === GridVals.BLOCK_CENTER,
+                    obstacleHitsLeft: dbgFp.getObstacleHitsLeft(),
+                    centerCellCount: dbgCenter.length,
+                    hoveredCell: dbgHovered,
+                    hoveredIsCenter: dbgHoveredIsCenter,
+                    hasMountainTargets: !!this.canAttackMountainTargets,
+                    mountainAttackCells: this.canAttackMountainTargets?.attackCells?.length ?? -1,
+                    knownPathsSize: this.currentActiveKnownPaths?.size ?? -1,
+                    activeUnit: unit.getName(),
+                    unitCell: unit.getBaseCell?.(),
+                    attackTypeSel: unit.getAttackTypeSelection(),
+                    resolvedAttackFrom: this.resolveMountainAttackFrom(worldPos),
+                });
+            }
+        }
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
             return false;
