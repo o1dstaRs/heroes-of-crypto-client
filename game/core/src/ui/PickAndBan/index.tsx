@@ -476,8 +476,8 @@ const CreaturePortrait: React.FC<{
                     cursor: selectable ? "pointer" : "default",
                     opacity: state === "available" ? 1 : 0.5,
                     // NOTE: the grayscale filter is applied to the <img> below, NOT to this wrapper. Putting it
-                    // on the wrapper would also desaturate the red ban slash (CSS filters affect all descendants),
-                    // turning the crimson Dota strike grey/black. Keep the wrapper filter-free so the slash stays red.
+                    // on the wrapper would also desaturate the ban mark (CSS filters affect all descendants),
+                    // turning the red brush stroke grey/black. Keep the wrapper filter-free so the mark stays red.
                     transition: "transform 120ms ease, box-shadow 120ms ease",
                     "&:hover": selectable
                         ? { transform: "translateY(-3px)", boxShadow: "0 0 14px rgba(120,220,150,0.6)" }
@@ -501,32 +501,21 @@ const CreaturePortrait: React.FC<{
                     </Typography>
                 )}
                 {(state === "banned" || state === "taken") && (
-                    // Dota-style ban: a thick crimson diagonal band corner-to-corner across a greyscale
-                    // portrait (the grayscale filter is applied on the portrait wrapper above). The band has
-                    // a vertical light-to-dark gradient (highlight on top, deep crimson below), a thin
-                    // near-black core stroke down the middle, and a wide red glow — mirroring the heavy red
-                    // "X" strikethrough Dota paints over banned heroes.
-                    <Box
+                    // Painted red brush stroke across a greyscale portrait (the grayscale filter is applied
+                    // on the portrait above) — the same `x_mark_2_512` art the legacy pick/ban boxes use, so
+                    // every banned creature reads the same across the draft UI.
+                    <img
                         aria-hidden
-                        sx={{
+                        src={images.x_mark_2_512}
+                        alt=""
+                        style={{
                             position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            width: size * 1.55,
-                            height: Math.max(9, Math.round(size * 0.12)),
-                            transform: "translate(-50%, -50%) rotate(45deg)",
-                            background: "linear-gradient(180deg, #ff5a5a 0%, #e8202a 45%, #b8131c 100%)",
-                            borderTop: "1px solid rgba(255,180,180,0.85)",
-                            borderBottom: "2px solid rgba(0,0,0,0.55)",
-                            boxShadow: "0 0 10px rgba(232,32,42,0.9), inset 0 0 4px rgba(0,0,0,0.45)",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
                             pointerEvents: "none",
-                            "&::after": {
-                                // Thin dark center seam for the layered "embossed" look.
-                                content: '""',
-                                position: "absolute",
-                                inset: 0,
-                                borderTop: "1px solid rgba(0,0,0,0.35)",
-                            },
                         }}
                     />
                 )}
