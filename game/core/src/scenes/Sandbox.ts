@@ -21,6 +21,7 @@ import {
     SpellPowerType,
     SpellHelper,
     SmokeHelper,
+    VineHelper,
     FireWallHelper,
     RayTraversal,
     HoCMath,
@@ -113,6 +114,12 @@ interface IPendingEffectPop {
     flash: EffectFlash;
     debuffs: string[];
     buffs: string[];
+    /**
+     * Newly gained ABILITY names (Craft's "Crafted ..." grants). Abilities are not buffs, so they never
+     * appear in the buff/debuff diff — ranked pops them from the authoritative snapshot's ability list.
+     * Sandbox leaves this empty: its own popCraftResults already pops the crafted ability locally.
+     */
+    abilities?: string[];
 }
 
 /** Full board snapshot taken at fight start (pre-supply) for "Rematch". */
@@ -3863,7 +3870,9 @@ export class Sandbox extends PixiScene {
         // amounts from the next snapshot, NOT the discrete roll), so an outcome-dependent pop here would be a
         // ~random wrong result. The authoritative outcome instead arrives via the snapshot — a resulting Stun
         // pops through processDebuffPops, and a crafted weapon / rune buff shows in the unit's panel. The
-        // forge itself is outcome-independent, so it is safe to play.
+        // forge itself is outcome-independent, so it is safe to play. The crafted ABILITY additionally pops
+        // on the board in ranked, diffed off the snapshot's ability list (RankedPlayScene.processDebuffPops
+        // -> newlyCraftedAbilities), which is authoritative and so identical on both players' screens.
         const isCraftCast = action.spellName === "Craft";
         const craftCasterPos = { ...caster.getPosition() };
 
@@ -6528,7 +6537,7 @@ export class Sandbox extends PixiScene {
      * swallowed even if an attack ends without reaching its impact hook.
      */
     protected queueOrPlayEffectPops(entry: IPendingEffectPop): void {
-        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
+        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length && !entry.abilities?.length) {
             return;
         }
         if (this.isStrikeInFlight()) {
@@ -6566,6 +6575,21 @@ export class Sandbox extends PixiScene {
         for (const name of entry.buffs) {
             this.popEffectOnUnit(entry.unit, name, stackIndex++, "buff");
         }
+        for (const name of entry.abilities ?? []) {
+            this.popAbilityOnUnit(entry.unit, name, stackIndex++);
+        }
+    }
+    /**
+     * Pop a newly GRANTED ability over a unit (Craft's "Crafted Double Punch" / "Crafted Frozen Sword").
+     * Separate from popEffectOnUnit because an ability's icon is resolved through the ability texture
+     * table, not the spell one — SpellHelper.spellToTextureName finds nothing for these names.
+     */
+    protected popAbilityOnUnit(unit: RenderableUnit, abilityName: string, stackIndex: number): void {
+        const iconTexture = this.texAny(AbilityHelper.abilityToTextureName(abilityName));
+        if (!iconTexture) {
+            return;
+        }
+        this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, abilityName, stackIndex, "buff");
     }
     protected popEffectOnUnit(
         unit: RenderableUnit,
@@ -10708,6 +10732,75 @@ export class Sandbox extends PixiScene {
 
         // Craft (ALLIES_AREA) aim preview: while armed, highlight the 2x2 that a click would craft.
         this.drawCraftAim(g);
+        // Vine Throw (ANY_ENEMY) aim preview: highlight the lane the vine would cover.
+        this.drawVineThrowAim(g);
+    }
+    /**
+     * Vine Throw aim preview: while the spell is armed and the cursor is over an enemy, highlight every cell
+     * the vine would cover — the whole lane from Trent to that target, not just the target itself. Which cells
+     * end up vined is the entire tactical point of the throw (they cost non-flyers an extra step for two
+     * laps), and without this the player is aiming blind at a line they cannot see.
+     *
+     * All-or-nothing like Smoke and Fire Wall: the engine refuses a throw whose lane is blocked, so an
+     * illegal target draws nothing at all rather than dangling a highlight over a cast that would be
+     * rejected. Legality comes from the ENGINE's own predicate (isVineCrossableCell) walking the ENGINE's own
+     * path (vinePathCells), so the preview cannot promise something vineThrowCast will refuse.
+     */
+    private drawVineThrowAim(g: Graphics): void {
+        const spell = this.currentActiveSpell;
+        if (spell?.getName() !== "Vine Throw") {
+            return;
+        }
+        const caster = this.currentActiveUnit;
+        const from = caster?.getBaseCell();
+        if (!caster || !from) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const hovered = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+        if (!hovered) {
+            return;
+        }
+        // Only enemies are valid targets, and the lane is measured to the target's BASE cell — the same cell
+        // the engine throws at, which for a large creature is not the one the cursor happens to be over.
+        const occupantId = this.grid.getOccupantUnitId(hovered);
+        const target = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
+        if (!target || target.isDead() || target.getTeam() === caster.getTeam()) {
+            return;
+        }
+        const to = target.getBaseCell();
+        if (!to) {
+            return;
+        }
+        const pathCells = VineHelper.vinePathCells(from, to);
+        if (!pathCells.length) {
+            return;
+        }
+        // Everything short of the target's own cell must be clear; the target occupies the last one by
+        // definition, which is why the engine excludes it from this same check.
+        if (
+            !pathCells
+                .slice(0, -1)
+                .every((c) => VineHelper.isVineCrossableCell(this.grid, GridMath.isCellWithinGrid(gs, c), c))
+        ) {
+            return;
+        }
+
+        const size = gs.getCellSize();
+        const half = size / 2;
+        const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
+        for (let i = 0; i < pathCells.length; i += 1) {
+            const pos = GridMath.getPositionForCell(pathCells[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            if (!pos) {
+                continue;
+            }
+            // The struck creature's cell reads brightest — it takes the snare debuff on top of the vine.
+            const isTargetCell = i === pathCells.length - 1;
+            const fillAlpha = (isTargetCell ? 0.3 : 0.18) + 0.14 * pulse;
+            g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+                .fill({ color: 0x3f8f3a, alpha: fillAlpha })
+                .stroke({ width: 2, color: isTargetCell ? 0xbff59a : 0x86d16a, alpha: 0.75 });
+        }
     }
     /**
      * While a CELL-target spell is armed, preview the 2x2 footprint under the cursor. The clicked cell is
