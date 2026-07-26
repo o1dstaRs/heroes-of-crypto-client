@@ -114,6 +114,7 @@ const targetLabels: Record<string, string> =
               ENEMY_WITHIN_MOVEMENT_RANGE: "Враг в радиусе хода",
               RANDOM_CLOSE_TO_CASTER: "Клетки рядом",
               ALLIES_AREA: "Область 2x2",
+              FREE_CELL: "Свободные клетки",
           }
         : {
               AUTO: "Automatic",
@@ -124,6 +125,7 @@ const targetLabels: Record<string, string> =
               ENEMY_WITHIN_MOVEMENT_RANGE: "Enemy in move range",
               RANDOM_CLOSE_TO_CASTER: "Cells near caster",
               ALLIES_AREA: "2x2 allied area",
+              FREE_CELL: "Any free cells",
           };
 
 const targetLabel = (target: string) => targetLabels[target] ?? target;

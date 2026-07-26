@@ -368,22 +368,19 @@ export class RenderableUnit extends Unit {
             if (!spellName) continue;
 
             const spellProperties = HoCConfig.getSpellConfig(factionName, spellName);
-            const textureNames = SpellHelper.spellToTextureNames(spellName);
-
-            // Resolve textures
-            // textureNames[0] is the spell icon
-            // textureNames[1] is the title strip
-            const iconTex = this.texResolver(textureNames[0]);
-            const titleTex = this.texResolver(textureNames[1]);
+            // Only the ICON is art now — the name is drawn as text (see PixiRenderableSpell.titleText).
+            // This used to also require a hand-authored "<spell>_font" strip, and a missing one dropped the
+            // spell from the book entirely and silently: that is how Ash Moth shipped with an empty
+            // spellbook. A new spell now needs one icon and nothing else.
+            const iconTex = this.texResolver(SpellHelper.spellToTextureName(spellName));
             const cellTex = this.texResolver("spell_cell_260");
 
-            if (iconTex && titleTex && cellTex) {
+            if (iconTex && cellTex) {
                 const newSpell = new PixiRenderableSpell(
                     { spellProperties: spellProperties, amount: v },
                     this.spellBookLayer,
                     { spell_cell_260: cellTex },
                     iconTex,
-                    titleTex,
                     this.digitTextures,
                 );
                 this.pixiSpells.push(newSpell);
@@ -1956,6 +1953,15 @@ export class RenderableUnit extends Unit {
         return this.hasEffectActive(name) || (this.unitProperties.applied_debuffs ?? []).includes(name);
     }
     /**
+     * The buff-side twin of hasStatusEffect. Ranked fills only the DISPLAY array (applied_buffs) and
+     * leaves the buff OBJECT array empty on purpose — stats arrive authoritative — so hasBuffActive
+     * alone answers "no" in ranked for a buff the server really did apply. Anything that keys a visual
+     * off a buff (e.g. the Fireforged Sword burn) must ask this instead, or it only ever fires in sandbox.
+     */
+    public hasStatusBuff(name: string): boolean {
+        return this.hasBuffActive(name) || (this.unitProperties.applied_buffs ?? []).includes(name);
+    }
+    /**
      * Ranked-only: the client never runs applyDamage, so the engine's `waterShieldSpent` flag stays false
      * and the client's OWN seeding pass (unitsHolder.trySeedWaterShield) re-grants a Water Shield the server
      * already consumed — in the SAME synchronous snapshot-apply that just pruned it, so the ring never
@@ -2791,6 +2797,24 @@ export class RenderableUnit extends Unit {
                 devourEssenceAbility.getName(),
                 devourEssenceAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
+        }
+
+        // Crafted Frozen Sword / Crafted Frozen Bow (Blacksmith's Craft): the freeze chance is stack-scaled
+        // AND luck-scaled — power/5 * stackPower + luck — so a full stack reads 20% at -10 luck up to 40% at
+        // +10, not the flat 30% the config carries. Nothing filled their {} before, so the tooltip showed the
+        // raw configured power and a lucky unit's real odds were invisible. Same calculateAbilityApplyChance
+        // the engine rolls against, and the same treatment Stun and Hamstring already get.
+        for (const frozenName of ["Crafted Frozen Sword", "Crafted Frozen Bow"]) {
+            const frozenAbility = this.getAbility(frozenName);
+            if (frozenAbility) {
+                const chance = Number(
+                    this.calculateAbilityApplyChance(frozenAbility, _synergyAbilityPowerIncrease).toFixed(2),
+                );
+                this.refreshAbiltyDescription(
+                    frozenAbility.getName(),
+                    frozenAbility.getDesc().join("\n").replace(/\{\}/g, chance.toString()),
+                );
+            }
         }
 
         // Crafted Double Punch / Crafted Double Shot (from the Blacksmith's Craft) land a SECOND attack for a

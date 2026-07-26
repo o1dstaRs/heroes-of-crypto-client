@@ -18,6 +18,8 @@ import {
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
+    SmokeHelper,
+    RayTraversal,
     HoCMath,
     IWeightedRoute,
     PathHelper,
@@ -158,6 +160,57 @@ interface PlacementBenchHitBox {
 
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
+
+/**
+ * Which units an attack exchange burns, and how big each burn reads — the rule behind
+ * Sandbox.spawnFireDamageVfx, kept pure so it can be unit-tested without a scene.
+ *
+ * Fire damage arrives on the authoritative `damage.secondary` for the two ability sources (the Efreet's
+ * Fire Shield reflect burns whoever struck it; a Black Dragon's breath burns every unit it passes
+ * through), while the Fireforged Sword is a BUFF on the attacker rather than its own damage entry — its
+ * bonus is the burning blade, so the unit the strike actually landed on ignites. `position` is the
+ * engine's impact-time fallback for a unit that no longer exists by the time the burn is drawn.
+ */
+export const fireBurnTargets = (
+    damage: IVisibleDamage | undefined,
+    attackerHasFireforgedSword: boolean,
+    fallbackVictimId: string,
+): { unitId: string; position: HoCMath.XY; scale: number }[] => {
+    if (!damage) {
+        return [];
+    }
+    const burns: { unitId: string; position: HoCMath.XY; scale: number }[] = [];
+    const burned = new Set<string>();
+    for (const entry of damage.secondary ?? []) {
+        if (entry.source !== "fire_shield" && entry.source !== "fire_breath") {
+            continue;
+        }
+        if (entry.amount <= 0 && entry.unitsDied <= 0) {
+            continue;
+        }
+        if (burned.has(entry.unitId)) {
+            continue;
+        }
+        burned.add(entry.unitId);
+        // A reflect is a lick of flame off a shield; a dragon's breath is the full burn.
+        burns.push({
+            unitId: entry.unitId,
+            position: entry.position,
+            scale: entry.source === "fire_shield" ? 0.85 : 1,
+        });
+    }
+
+    if (!attackerHasFireforgedSword || damage.missed || damage.amount <= 0) {
+        return burns;
+    }
+    // damage.unitId is the unit the handler ACTUALLY hit — a ranged shot can be intercepted before it
+    // reaches the clicked target — so it wins over the caller's target.
+    const victimId = damage.unitId || fallbackVictimId;
+    if (victimId && !burned.has(victimId)) {
+        burns.push({ unitId: victimId, position: damage.unitPosition, scale: 1 });
+    }
+    return burns;
+};
 
 /** Delay from the first impact until the last impact in a staggered attack. */
 export function getAttackFinalImpactDelayMs(hitCount: number): number {
@@ -390,8 +443,6 @@ export class Sandbox extends PixiScene {
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             texAny: (n) => this.texAny(n),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
-            // A collapsing mountain rumbles the whole board (smaller than an Armageddon wave's shake).
-            onMountainCollapse: () => this.triggerScreenShake(10, 0.45),
         });
 
         this.moveAnimManager = new MoveAnimationManager({
@@ -2761,6 +2812,43 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
+     * FIRE damage burst — embers + a soot curl over every unit this exchange burned, so fire damage
+     * reads as burning instead of as a plain red number. Three sources, one look:
+     *   • the Efreet's Fire Shield reflect (`secondary` source "fire_shield"), on whoever struck it;
+     *   • every unit a Black Dragon's breath burns THROUGH (`secondary` source "fire_breath") — the
+     *     line sweep already rushes past them, this is the burn where it lands;
+     *   • a hit from a Fireforged Sword-buffed attacker: its bonus damage is the burning blade, so the
+     *     primary victim ignites too (skipped when that unit already burned from a secondary above).
+     * Positions come from the live unit, falling back to the engine's impact-time position so a unit
+     * killed by the burn still shows it. Gated on a landed hit; shared by sandbox (live) and ranked
+     * (replay) — both call it AT IMPACT, with the damage numbers.
+     */
+    protected spawnFireDamageVfx(attacker: RenderableUnit, target: Unit, damage?: IVisibleDamage, delayMs = 0): void {
+        if (!this.combatVisuals) {
+            return;
+        }
+        const burns = fireBurnTargets(damage, attacker.hasStatusBuff("Fireforged Sword"), target.getId());
+        if (!burns.length) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cellSize = gs.getCellSize();
+        for (const burn of burns) {
+            const spawn = (): void => {
+                // Resolved at spawn time so a unit that moved in the meantime burns where it is now
+                // (and one the burn killed still burns where the engine says it was hit).
+                const unit = this.unitsHolder.getAllUnits().get(burn.unitId) as RenderableUnit | undefined;
+                const position = unit && !unit.isDead() ? unit.getVisualCenter(gs) : burn.position;
+                this.combatVisuals?.spawnFireBurn(position, cellSize, burn.scale);
+            };
+            if (delayMs > 0) {
+                setTimeout(spawn, delayMs);
+            } else {
+                spawn();
+            }
+        }
+    }
+    /**
      * Thunderbird's Chain Lightning: a purple bolt arcing attacker → target → each chained enemy (the
      * same ordered chain the engine used). Gated on the ability + a landed hit. Shared by sandbox (live)
      * and ranked (replay); fired AT IMPACT so the bolt lands with the (AOE) damage numbers.
@@ -2905,6 +2993,8 @@ export class Sandbox extends PixiScene {
         // Chain Lightning arcs AT IMPACT, together with the (AOE) damage numbers — not 360ms earlier
         // during the swing, where it flashed and faded before the damage showed ("no lightning" + "delayed").
         this.spawnChainLightningVfx(attacker, target, attackEvent.damage);
+        // Fire damage burns AT IMPACT too (Fire Shield reflect / dragon-breath burn / Fireforged Sword).
+        this.spawnFireDamageVfx(attacker, target, attackEvent.damage);
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
@@ -3006,7 +3096,14 @@ export class Sandbox extends PixiScene {
         // the replayed projectile lands where the shot was aimed, not on the target's center.
         const targetPosition = toPosition ?? target.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
-        await this.rangedProjectiles.fire({ from: muzzle, to: targetPosition, big: bigProjectile });
+        // Ranked replays the shot from the authoritative record, so the chakram must be thrown here too —
+        // otherwise Zena's disc only spins for the acting player and everyone else sees a plain bolt.
+        await this.rangedProjectiles.fire({
+            from: muzzle,
+            to: targetPosition,
+            big: bigProjectile,
+            chakram: attacker.hasAbilityActive("Chakram"),
+        });
     }
     /**
      * Walk the attacker to its attack-from cell before a melee strike. The authoritative engine
@@ -3264,6 +3361,11 @@ export class Sandbox extends PixiScene {
         // authoritative damage.deepWounds so it fires per-application (not once via the effect diff) and
         // matches between the live sandbox and the ranked replay.
         this.spawnDeepWoundsClaws(damage.deepWounds);
+
+        // ABILITY Chakram (Zena) — the ricochet arcs, replayed from the authoritative payload so every
+        // viewer watches the disc curve between victims, not just the player who threw it. `target` seeds the
+        // homecoming loop for a throw that found no ricochet victim at all.
+        void this.playChakramArcs(attacker, damage, target);
 
         // IMPACT. Release any buff/debuff pop this strike applied — the diff ran when the snapshot
         // arrived (before the projectile/approach finished), so the icons wait here to land with the
@@ -4944,8 +5046,11 @@ export class Sandbox extends PixiScene {
 
             // --- SPELL CASTING (single-target): a spell is armed, so this click chooses the target. ---
             if (this.currentActiveSpell && this.currentActiveUnit) {
-                // Area-target spells (Craft) resolve to a CELL, not a unit: cast on the clicked 2x2.
-                if (this.currentActiveSpell.getSpellTargetType() === SpellTargetType.ALLIES_AREA) {
+                // Cell-target spells (Craft, Smoke) resolve to a CELL, not a unit: cast on the clicked 2x2.
+                if (
+                    this.currentActiveSpell.getSpellTargetType() === SpellTargetType.ALLIES_AREA ||
+                    this.currentActiveSpell.getSpellTargetType() === SpellTargetType.FREE_CELL
+                ) {
                     const areaCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), p);
                     if (areaCell && this.castAreaSpellAtCell(areaCell)) {
                         return;
@@ -5396,8 +5501,9 @@ export class Sandbox extends PixiScene {
      * - Single-target spell (ANY_ALLY / ANY_ENEMY / ANY_UNIT / ENEMY_WITHIN_MOVEMENT_RANGE):
      *   arm it and close the book; the next board click on a unit casts it (see castSpellOnTarget).
      * - Click outside the spells: just close the book.
-     * - Mass-cast / summon / free-cell types are not wired yet (Phases 3-4 in
-     *   PIXI_GAMEPLAY_PARITY_PLAN.md); they close the book with a log for now.
+     * - Cell-target spells (ALLIES_AREA: Craft, FREE_CELL: Smoke): arm and close the book; the next board
+     *   click resolves to a CELL and casts on that 2x2 (see castAreaSpellAtCell).
+     * - Mass-cast / summon apply immediately. AUTO / NO_TYPE are still unwired and log a notice.
      */
     private handleSpellbookClick(worldPos: HoCMath.XY): void {
         const caster = this.currentActiveUnit;
@@ -5429,9 +5535,10 @@ export class Sandbox extends PixiScene {
             targetType === SpellTargetType.ALL_ALLIES ||
             targetType === SpellTargetType.ALL_ENEMIES;
 
-        // Area-target spells (ALLIES_AREA: Craft) arm like single-target spells, but the next board
-        // click resolves to a CELL — the top-left of the 2x2 footprint — rather than a unit.
-        const isAreaTarget = targetType === SpellTargetType.ALLIES_AREA;
+        // Cell-target spells arm like single-target spells, but the next board click resolves to a CELL
+        // rather than a unit: ALLIES_AREA (Craft) reads the 2x2 footprint's top-left, and FREE_CELL
+        // (Smoke) reads the bottom-left of the 2x2 it smokes.
+        const isAreaTarget = targetType === SpellTargetType.ALLIES_AREA || targetType === SpellTargetType.FREE_CELL;
 
         if (!isSingleTarget && !isAreaTarget) {
             this.closeSpellBook();
@@ -5591,10 +5698,11 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * Cast the currently-armed area spell (ALLIES_AREA: Craft) on the clicked cell. The engine reads
-     * `targetCell` as the top-left of the 2x2 footprint, resolves the allies inside it, and applies
-     * the per-unit Craft outcome. Returns true if the cast was applied (turn finished), false if the
-     * engine rejected it (e.g. insufficient stack power).
+     * Cast the currently-armed CELL-target spell on the clicked cell — Craft (ALLIES_AREA) and Smoke
+     * (FREE_CELL) both resolve to a 2x2 read off `targetCell`, so they share this path. The engine owns
+     * what that footprint means: Craft resolves the allies inside it, Smoke smokes whichever of the four
+     * cells are free. Returns true if the cast was applied (turn finished), false if the engine rejected
+     * it (e.g. insufficient stack power, or every cell occupied).
      */
     private castAreaSpellAtCell(cell: HoCMath.XY): boolean {
         const caster = this.currentActiveUnit;
@@ -5626,12 +5734,19 @@ export class Sandbox extends PixiScene {
         // Mass heal: one "+N" per ally the cast actually restored. Shared with the ranked replay path.
         this.renderHealVfx(result.events);
 
-        // Play the forge cast (anvil + hammer strikes) over the Blacksmith, then reveal each ally's crafted
-        // result ONLY AFTER it finishes ("what each unit got after the craft").
-        const forgeMs =
-            this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize()) ?? 0;
+        // Craft-only theatrics: the forge cast (anvil + hammer) over the Blacksmith, then each ally's
+        // crafted result once it finishes. Gated on the spell — Smoke shares this cast path but has no
+        // forge and no per-ally outcome, and playing the anvil over an Ash Moth would be nonsense. Its own
+        // visual is the ground cloud, which SmokeCloudLayer picks up from the authoritative store.
+        if (spell.getName() === "Craft") {
+            const forgeMs =
+                this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
+                0;
+            this.cleanupAfterSpell(result.events, unitSnapshot);
+            setTimeout(() => this.popCraftResults(before), forgeMs + 80);
+            return true;
+        }
         this.cleanupAfterSpell(result.events, unitSnapshot);
-        setTimeout(() => this.popCraftResults(before), forgeMs + 80);
         return true;
     }
     /**
@@ -6011,6 +6126,80 @@ export class Sandbox extends PixiScene {
      * per-application (not once via the effect-name diff) and is identical in the live sandbox and the
      * ranked replay. `power` scales the claw (reflects the effect's level / stack).
      */
+    /**
+     * Fly Zena's chakram through its ricochet arcs. `damage.chakramArcs` carries the engine-resolved sweeps
+     * (cells), so the visual can never drift from where the damage actually landed. Shared by the live path
+     * and the ranked replay — per the ABILITY VFX CONTRACT, a VFX wired into only one renders in one mode.
+     */
+    protected async playChakramArcs(
+        attacker: RenderableUnit,
+        damage?: IVisibleDamage,
+        primaryTarget?: Unit,
+    ): Promise<void> {
+        // The callers run this after EVERY attack; only an actual Chakram throw gets the ricochet + homecoming.
+        if (!this.rangedProjectiles || !attacker.hasAbilityActive("Chakram")) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const big = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
+
+        // Fly each engine-resolved bounce arc in turn, tracking where the disc ends up and which way it heads.
+        let discPos: HoCMath.XY | undefined;
+        let discDir: HoCMath.XY | undefined;
+        for (const arc of damage?.chakramArcs ?? []) {
+            const points = arc.cells
+                .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
+                .filter((position): position is HoCMath.XY => !!position);
+            if (points.length < 2) {
+                continue;
+            }
+            await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
+            discPos = points[points.length - 1];
+            discDir = this.chakramWorldDir(points[points.length - 2], discPos);
+        }
+
+        // No bounce ever connected — the disc is sitting on the primary target. Start the homecoming there,
+        // heading the way the shot was travelling (away from Zena) so the terminal loop bulges forward like a
+        // real bounce would. (Per the spec, even a shot that finds no ricochet target still loops and returns.)
+        if (!discPos) {
+            const impact = primaryTarget
+                ? GridMath.getPositionForCell(primaryTarget.getBaseCell(), gs.getMinX(), gs.getStep(), gs.getHalfStep())
+                : undefined;
+            if (!impact) {
+                return;
+            }
+            discPos = impact;
+            discDir = this.chakramWorldDir(attacker.getVisualCenter(gs), impact);
+        }
+        if (!discDir) {
+            return;
+        }
+
+        // TERMINAL: the sweep found no further target, so the chakram carves ONE full circle (same 5-cell
+        // diameter as its bounces — common CHAKRAM_ARC_DIAMETER — on a random flank) and flies home into
+        // Zena's hand. Purely cosmetic (no damage); lives in this shared VFX path so it plays in BOTH sandbox
+        // and ranked. fire()'s constant speed means the ~full-circle polyline reads as one continuous swoop.
+        const radius = 2.5 * gs.getStep(); // 5-cell diameter, in world units
+        const side = Math.random() < 0.5 ? 1 : -1;
+        const perpendicular = { x: -discDir.y * side, y: discDir.x * side };
+        const centre = { x: discPos.x + perpendicular.x * radius, y: discPos.y + perpendicular.y * radius };
+        const startAngle = Math.atan2(discPos.y - centre.y, discPos.x - centre.x);
+        const CIRCLE_SAMPLES = 28;
+        const homeward: HoCMath.XY[] = [];
+        for (let sample = 0; sample <= CIRCLE_SAMPLES; sample += 1) {
+            const angle = startAngle + 2 * Math.PI * side * (sample / CIRCLE_SAMPLES);
+            homeward.push({ x: centre.x + Math.cos(angle) * radius, y: centre.y + Math.sin(angle) * radius });
+        }
+        homeward.push(attacker.getVisualCenter(gs)); // ...then back into Zena
+        await this.rangedProjectiles.fireAlongPath(homeward, { big, chakram: true });
+    }
+    /** Unit-length world direction from -> to; falls back to "up the board" for a degenerate (zero-length) pair. */
+    private chakramWorldDir(from: HoCMath.XY, to: HoCMath.XY): HoCMath.XY {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const length = Math.hypot(dx, dy);
+        return length < 0.0001 ? { x: 0, y: 1 } : { x: dx / length, y: dy / length };
+    }
     protected spawnDeepWoundsClaws(deepWounds?: { unitId: string; power: number }[]): void {
         if (!deepWounds?.length || !this.combatVisuals) {
             return;
@@ -6124,7 +6313,7 @@ export class Sandbox extends PixiScene {
         // (when the name first appears) and can't tell a double-punch's two applications apart, so the claw
         // is driven per-application off `damage.deepWounds` via spawnDeepWoundsClaws() on both the live and
         // replay attack paths. Only the effect ICON still pops here.
-        const [iconTextureName] = SpellHelper.spellToTextureNames(effectName);
+        const iconTextureName = SpellHelper.spellToTextureName(effectName);
         const iconTexture = this.texAny(iconTextureName);
         if (!iconTexture) {
             return;
@@ -6891,11 +7080,17 @@ export class Sandbox extends PixiScene {
                 ? impactUnit.getVisualCenter(gs)
                 : impactUnit.getPosition();
 
-        // Falloff the SHOOTER would apply at this distance — same engine call the aiming player's hover
-        // uses, measured from the shooter's position exactly as the engine measures it.
-        const divisor = this.attackHandler.getRangeAttackDivisor(shooter, aimPos);
+        // Falloff the SHOOTER would apply on THIS ray — taken from the evaluation above so it includes
+        // smoke (a ray crossing a smoked cell doubles the divisor, capped at 1/8), not just distance.
+        const divisor = evaluation.rangeAttackDivisors[0] ?? this.attackHandler.getRangeAttackDivisor(shooter, aimPos);
 
-        this.hoverManager.drawAttackArrow(shooter.getVisualCenter(gs), impactPos);
+        const shooterCenter = shooter.getVisualCenter(gs);
+        this.hoverManager.drawAttackArrow(
+            shooterCenter,
+            impactPos,
+            undefined,
+            this.resolveSmokeEntryPoint(shooterCenter, impactPos),
+        );
         this.hoverManager.addTargetHighlight(impactUnit);
 
         const line = screened
@@ -6906,6 +7101,26 @@ export class Sandbox extends PixiScene {
             this.sc_hoverTextUpdateNeeded = true;
         }
         return true;
+    }
+    /**
+     * Where a shot from `from` to `to` FIRST enters smoke, or undefined if the ray never crosses a cloud.
+     *
+     * Uses the engine's own ray tracer (traceGridRayCells — the same walk evaluateRangeAttack performs) and
+     * the authoritative cloud store, so the red segment on the arrow marks exactly the stretch the engine
+     * will halve. Deriving it separately would risk showing a penalty the shot does not take.
+     */
+    protected resolveSmokeEntryPoint(from: HoCMath.XY, to: HoCMath.XY): HoCMath.XY | undefined {
+        const clouds = FightStateManager.getInstance().getFightProperties().getSmokeClouds();
+        if (!clouds.size()) {
+            return undefined;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const [cell, firstPosition] of RayTraversal.traceGridRayCells(gs, from, to)) {
+            if (clouds.has(cell)) {
+                return firstPosition;
+            }
+        }
+        return undefined;
     }
     private resolveRangeAimForTarget(
         attacker: RenderableUnit,
@@ -7158,7 +7373,14 @@ export class Sandbox extends PixiScene {
                     ? interceptUnit.getVisualCenter(gs)
                     : (aim?.position ?? tVis);
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
-            await this.rangedProjectiles.fire({ from: muzzle, to: shotTarget, big: bigProjectile });
+            // ABILITY Chakram (Zena): throw the spinning disc instead of a bolt. Gated on the ABILITY, not
+            // the creature name, so a stolen/granted Chakram throws one too — and a Broken one does not.
+            await this.rangedProjectiles.fire({
+                from: muzzle,
+                to: shotTarget,
+                big: bigProjectile,
+                chakram: attacker.hasAbilityActive("Chakram"),
+            });
 
             if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
                 return false;
@@ -7207,7 +7429,14 @@ export class Sandbox extends PixiScene {
                     liveAttackEvent.animations.find((animation) => animation.affectedUnitId === attacker.getId())
                         ?.toPosition ?? attacker.getVisualCenter(gs);
                 const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
-                void this.rangedProjectiles.fire({ from: responseMuzzle, to: responseEdge, big: bigResponse });
+                // The RESPONDER throws its own weapon: a counter-shooting Zena sends the chakram back, not a
+                // bolt. Gated on the responder's ability, mirroring the outgoing shot.
+                void this.rangedProjectiles.fire({
+                    from: responseMuzzle,
+                    to: responseEdge,
+                    big: bigResponse,
+                    chakram: target.hasAbilityActive("Chakram"),
+                });
             }
         } else {
             const routeMetadata = this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)?.[0];
@@ -7283,6 +7512,12 @@ export class Sandbox extends PixiScene {
             this.flushEffectPops();
         }
 
+        // ABILITY Chakram (Zena): fly the disc along the half circles the engine actually resolved, so the
+        // ricochet is something the player WATCHES rather than damage appearing on far-off units. Fired and
+        // not awaited: the arcs play out while the damage numbers land, the same way the second Double Shot
+        // projectile overlaps its own damage.
+        void this.playChakramArcs(attacker, damageForAnimation, target);
+
         // Predatory Assimilation is event-gated: draw the victim -> Queen transfer only when the engine
         // says this initiating strike actually stole an ability. Response steals are rendered with the
         // response damage below, using the same event payload in the opposite direction.
@@ -7296,6 +7531,12 @@ export class Sandbox extends PixiScene {
             attacker.getVisualCenter(gs),
             180,
         );
+
+        // Fire damage burst — Fire Shield reflect, dragon-breath burn, Fireforged Sword strike. Lives
+        // in this shared section (not the melee branch above) so a RANGED attacker's fire also burns,
+        // and delayed like the Flesh Shield pops so it lands with the numbers rather than the wind-up.
+        // Same ABILITY VFX CONTRACT: the ranked replay path fires this very helper.
+        this.spawnFireDamageVfx(attacker, target, damageForAnimation, 180);
 
         // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
         // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
@@ -8260,7 +8501,7 @@ export class Sandbox extends PixiScene {
                 const isSwap = spell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
                 const spellColor = isSwap ? 0xb8860b : spell.isBuff() ? 0x1aa84a : 0xaa0000;
                 const casterPos = caster.getVisualCenter(gs2);
-                const iconTex = this.texAny(SpellHelper.spellToTextureNames(spell.getName())[0]) ?? Texture.EMPTY;
+                const iconTex = this.texAny(SpellHelper.spellToTextureName(spell.getName())) ?? Texture.EMPTY;
 
                 let targetCenter: HoCMath.XY | undefined;
                 if (isSwap && this.currentEnemiesCellsWithinMovementRange) {
@@ -8764,10 +9005,24 @@ export class Sandbox extends PixiScene {
                         // and feeding the visual centre here would put the hover in a different band than
                         // the shot it is predicting, right at a boundary.
                         if (isRangeAttackContext) {
-                            rangeDivisor = this.attackHandler.getRangeAttackDivisor(
+                            // Take the divisor the ENGINE resolved for this exact shot rather than the raw
+                            // distance band: evaluateRangeAttack folds SMOKE in (a ray that crosses a
+                            // smoked cell doubles the divisor, capped at 1/8), so the badge shows 1/2 where
+                            // the shot really lands 1/2. Falls back to the pure distance band if the
+                            // evaluation produced no divisor (nothing on the ray).
+                            const smokeAware = this.attackHandler.evaluateRangeAttack(
+                                this.unitsHolder.getAllUnits(),
                                 this.currentActiveUnit,
+                                this.currentActiveUnit.getPosition(),
                                 finalArrowEndPos,
-                            );
+                                this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                                false,
+                                this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
+                                    this.currentActiveUnit.hasAbilityActive("Area Throw"),
+                            ).rangeAttackDivisors[0];
+                            rangeDivisor =
+                                smokeAware ??
+                                this.attackHandler.getRangeAttackDivisor(this.currentActiveUnit, finalArrowEndPos);
                         }
 
                         // Double Shot Logic (Legacy check) — Crafted Double Shot behaves identically.
@@ -9071,7 +9326,14 @@ export class Sandbox extends PixiScene {
                             // Arrow to the mountain (what actually takes the hit), plus a faint dashed
                             // continuation on to the intended unit so the whole projection still reads, and
                             // a red glow on the mountain as the real target (the unit behind takes no damage).
-                            this.hoverManager.drawAttackArrow(arrowStartPos, blockedByObstacle.position, tVis);
+                            this.hoverManager.drawAttackArrow(
+                                arrowStartPos,
+                                blockedByObstacle.position,
+                                tVis,
+                                isRangeAttackContext
+                                    ? this.resolveSmokeEntryPoint(arrowStartPos, blockedByObstacle.position)
+                                    : undefined,
+                            );
                             this.hoverManager.highlightObstacle(
                                 blockedByObstacle.position,
                                 this.sc_sceneSettings.getGridSettings().getCellSize(),
@@ -9089,7 +9351,12 @@ export class Sandbox extends PixiScene {
                                 !damageUnit.isSmallSize(), // isLargeTarget
                                 iconPath,
                             );
-                            this.hoverManager.drawAttackArrow(arrowStartPos, tVis);
+                            this.hoverManager.drawAttackArrow(
+                                arrowStartPos,
+                                tVis,
+                                undefined,
+                                isRangeAttackContext ? this.resolveSmokeEntryPoint(arrowStartPos, tVis) : undefined,
+                            );
                             isAttacking = true;
 
                             // Red-highlight every secondary target the strike will hit — including a
@@ -10088,15 +10355,22 @@ export class Sandbox extends PixiScene {
         this.drawCraftAim(g);
     }
     /**
-     * While Craft is armed, preview the 2x2 footprint under the cursor. The clicked cell is the block's
-     * top-left, so it extends one cell right (+x) and one down (+y) — matching craftCast in the engine.
-     * Cells holding an ally (the ones that will actually be crafted) pulse brighter than empty cells.
+     * While a CELL-target spell is armed, preview the 2x2 footprint under the cursor. The clicked cell is
+     * the block's corner, so it extends one cell right (+x) and one down (+y) — matching craftCast and
+     * smokeCast in the engine, which use the same footprint.
+     *
+     * The bright cells are the ones that will actually DO something, which differs per spell and is the
+     * whole point of the preview: Craft acts on cells holding an ALLY, Smoke only takes hold on cells that
+     * are FREE (a creature standing there blocks it, exactly as one stepping in later disperses it).
      */
     private drawCraftAim(g: Graphics): void {
         const spell = this.currentActiveSpell;
-        if (!spell || spell.getSpellTargetType() !== SpellTargetType.ALLIES_AREA) {
+        const targetType = spell?.getSpellTargetType();
+        if (!spell || (targetType !== SpellTargetType.ALLIES_AREA && targetType !== SpellTargetType.FREE_CELL)) {
             return;
         }
+        const isSmoke = targetType === SpellTargetType.FREE_CELL;
+        const gsAim = this.sc_sceneSettings.getGridSettings();
         const gs = this.sc_sceneSettings.getGridSettings();
         const origin = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
         if (!origin) {
@@ -10112,15 +10386,32 @@ export class Sandbox extends PixiScene {
         const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
         const casterTeam = this.currentActiveUnit?.getTeam();
+        // Smoke is all-or-nothing: the engine rejects a partial 2x2, so only draw the footprint where the
+        // WHOLE block is legal. Anywhere else shows nothing at all, which reads as "you cannot cast here"
+        // rather than dangling a highlight over a placement that would be refused.
+        if (
+            isSmoke &&
+            !cells.every((c) => SmokeHelper.isSmokeableCell(this.grid, GridMath.isCellWithinGrid(gsAim, c), c))
+        ) {
+            return;
+        }
         for (const c of cells) {
             const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
             const occupantId = this.grid.getOccupantUnitId(c);
             const occupant = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
             const isAlly = !!occupant && !occupant.isDead() && occupant.getTeam() === casterTeam;
-            const fillAlpha = isAlly ? 0.28 + 0.14 * pulse : 0.1;
+            // Smoke uses the ENGINE's own predicate so the preview can never promise a cast it will
+            // reject: mountain, narrowed cell, creature or off-board all fail; lava and water are fine.
+            const willAffect = isSmoke
+                ? SmokeHelper.isSmokeableCell(this.grid, GridMath.isCellWithinGrid(gsAim, c), c)
+                : isAlly;
+            const fillAlpha = willAffect ? 0.28 + 0.14 * pulse : 0.1;
+            // Slate for smoke, blue for the forge — matches each spell's own board VFX.
+            const fill = isSmoke ? 0x8b93a3 : 0x49b6ff;
+            const stroke = isSmoke ? 0xd2d8e4 : 0x9fe0ff;
             g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
-                .fill({ color: 0x49b6ff, alpha: fillAlpha })
-                .stroke({ width: 2, color: 0x9fe0ff, alpha: 0.7 });
+                .fill({ color: fill, alpha: fillAlpha })
+                .stroke({ width: 2, color: stroke, alpha: 0.7 });
         }
     }
     private snapshotRenderableUnits(): Map<string, RenderableUnit> {

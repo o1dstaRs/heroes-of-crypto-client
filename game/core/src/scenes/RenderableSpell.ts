@@ -40,7 +40,15 @@ const AMOUNT_BADGE_HEIGHT = 38;
 // parchment (not stark white), plus a soft brown shadow cast under each spell image so it looks like
 // it rests on the page rather than floating.
 const AGED_ICON_TINT = 0xf4ead6;
-const AGED_TITLE_TINT = 0xead9b0;
+// Fallback line height used when text measurement is unavailable (headless runner / webfont not yet
+// resolved) — close to the rendered height of the title at its designed size.
+const BOOK_TITLE_NOMINAL_HEIGHT = 32;
+// Spell-name text. Dark gold on the aged-parchment card, brightening on hover and dulling to a faded
+// brown when the spell can't be cast. Set as the TEXT FILL (not a tint of white) so the ink colour is the
+// real thing rather than a multiply that washes out on the lighter parts of the card.
+const SPELL_TITLE_FILL = 0x4a3410;
+const SPELL_TITLE_FILL_HOVER = 0x6d4d18;
+const SPELL_TITLE_FILL_DISABLED = 0x3a3024;
 const SPELL_SHADOW_COLOR = 0x2b1c0b;
 
 export type DigitTextureMap = Map<number, Texture>;
@@ -51,7 +59,13 @@ export class PixiRenderableSpell extends Spell {
     /** Visuals */
     private readonly bgSprite: PixiSprite;
     private readonly iconSprite: PixiSprite;
-    private readonly titleSprite: PixiSprite;
+    /**
+     * Spell name drawn as TEXT rather than a pre-baked "<spell>_font" strip. Those strips had to be
+     * hand-authored per spell, and a missing one silently dropped the whole spell from the book (the
+     * constructor could not build without its texture) — which is exactly how Ash Moth shipped with an
+     * empty spellbook. Rendering the name means a new spell needs no art beyond its icon.
+     */
+    private readonly titleText: Text;
     /** Digit textures 0..9 (and optionally -1 for special glyph) */
     private readonly digits: DigitTextureMap;
     /** Runtime digit sprites that show "amountRemaining" */
@@ -75,7 +89,6 @@ export class PixiRenderableSpell extends Spell {
      * @param layer Container to attach all sub-sprites
      * @param textures Must include spell_cell_260. stack_green/red are optional and unused in this Pixi version.
      * @param iconTexture The spell icon texture (equivalent to old `sprite`)
-     * @param titleTexture Title strip texture (equivalent to old `fontSprite`)
      * @param digits Map<number, Texture> for 0..9 (and optionally -1 special)
      */
     public constructor(
@@ -87,7 +100,6 @@ export class PixiRenderableSpell extends Spell {
             stack_red?: Texture; // optional, not used (we draw with Graphics)
         },
         iconTexture: Texture,
-        titleTexture: Texture,
         digits: DigitTextureMap,
     ) {
         super(spellParams);
@@ -101,12 +113,24 @@ export class PixiRenderableSpell extends Spell {
         this.iconSprite = new PixiSprite(iconTexture);
         this.iconSprite.anchor.set(0, 0);
 
-        this.titleSprite = new PixiSprite(titleTexture);
-        this.titleSprite.anchor.set(0, 0);
+        // Serif to match the aged-parchment spellbook; the previous strips were a bold serif too, so the
+        // book keeps its look. Fitted to the cell width in renderOnPage rather than wrapped, so a long
+        // name ("Spiritual Armor") shrinks instead of spilling out of its cell or clipping.
+        this.titleText = new Text({
+            text: spellParams.spellProperties.name,
+            style: new TextStyle({
+                fill: SPELL_TITLE_FILL,
+                fontFamily: "Georgia, 'Times New Roman', serif",
+                fontSize: 26,
+                fontWeight: "700",
+                align: "center",
+            }),
+        });
+        this.titleText.anchor.set(0.5, 0);
 
         this.bgSprite.visible = false;
         this.iconSprite.visible = false;
-        this.titleSprite.visible = false;
+        this.titleText.visible = false;
 
         this.stackColumnGfx = new Graphics();
         this.amountBadgeGfx = new Graphics();
@@ -125,7 +149,7 @@ export class PixiRenderableSpell extends Spell {
             this.iconShadowGfx,
             this.bgSprite,
             this.iconSprite,
-            this.titleSprite,
+            this.titleText,
             this.stackColumnGfx,
             this.disabledOverlayGfx,
             this.amountBadgeGfx,
@@ -141,7 +165,7 @@ export class PixiRenderableSpell extends Spell {
         this.xMin = this.xMax = this.yMin = this.yMax = 0;
         this.bgSprite.visible = false;
         this.iconSprite.visible = false;
-        this.titleSprite.visible = false;
+        this.titleText.visible = false;
         for (const s of this.amountDigitSprites) {
             s.parent?.removeChild(s);
             s.destroy();
@@ -264,10 +288,26 @@ export class PixiRenderableSpell extends Spell {
         this.yMax = iconY + BOOK_SPELL_SIZE;
 
         // Keep long spell names inside the cell instead of matching the smaller icon width.
-        this.titleSprite.width = BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_X * 2;
-        this.titleSprite.height = 38;
-        this.titleSprite.x = cellX + BOOK_TITLE_MARGIN_X;
-        this.titleSprite.y = cellY + BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_BOTTOM - this.titleSprite.height;
+        // Fit-to-width: scale down only (never up), so short names keep the designed size and long ones
+        // stay inside their cell. Height is whatever the font needs, bottom-aligned like the old strip.
+        const titleMaxWidth = BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_X * 2;
+        this.titleText.scale.set(1);
+        // Reading .width/.height MEASURES the text, which needs a canvas 2D context. That is missing in a
+        // headless test runner and can also fail in a browser before the webfont resolves. Neither is a
+        // reason to lose the spellbook: fall back to unscaled, bottom-aligned by a nominal line height, so
+        // the name still renders and only the fit-to-width refinement is skipped.
+        let titleHeight = BOOK_TITLE_NOMINAL_HEIGHT;
+        try {
+            const naturalWidth = this.titleText.width || 1;
+            if (naturalWidth > titleMaxWidth) {
+                this.titleText.scale.set(titleMaxWidth / naturalWidth);
+            }
+            titleHeight = this.titleText.height || BOOK_TITLE_NOMINAL_HEIGHT;
+        } catch {
+            this.titleText.scale.set(1);
+        }
+        this.titleText.x = cellX + BOOK_CELL_SIZE / 2;
+        this.titleText.y = cellY + BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_BOTTOM - titleHeight;
 
         // Visibility + alpha rules
         const hasScrolls = this.amountRemaining > 0;
@@ -276,17 +316,22 @@ export class PixiRenderableSpell extends Spell {
 
         this.bgSprite.alpha = enabled ? 1 : 0.62;
         this.iconSprite.alpha = enabled ? 1 : 0.42;
-        this.titleSprite.alpha = enabled ? 1 : 0.42;
+        this.titleText.alpha = enabled ? 1 : 0.42;
         // Warm/sepia multiply so art + name look inked on aged parchment; hover stays the brighter gold.
         this.bgSprite.tint = enabled ? (this.highlighted ? 0xfff1bf : 0xffffff) : 0x858585;
         this.iconSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : AGED_ICON_TINT) : 0x7a6f55;
-        this.titleSprite.tint = enabled ? (this.highlighted ? 0xfff7cc : AGED_TITLE_TINT) : 0x7a6f55;
+        // Recolour the ink itself; tinting would multiply the fill and mud the gold.
+        this.titleText.style.fill = enabled
+            ? this.highlighted
+                ? SPELL_TITLE_FILL_HOVER
+                : SPELL_TITLE_FILL
+            : SPELL_TITLE_FILL_DISABLED;
 
         // The scroll-like background plate under each spell is intentionally hidden — only the icon and
         // title show on the book page.
         this.bgSprite.visible = false;
         this.iconSprite.visible = true;
-        this.titleSprite.visible = true;
+        this.titleText.visible = true;
 
         this.renderIconShadow(iconX, iconY, enabled);
         this.renderDisabledOverlay(iconX, iconY, !enabled);
@@ -440,6 +485,6 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.destroy();
         this.bgSprite.destroy();
         this.iconSprite.destroy();
-        this.titleSprite.destroy();
+        this.titleText.destroy();
     }
 }

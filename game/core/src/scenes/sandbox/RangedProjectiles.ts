@@ -25,6 +25,8 @@ export interface IFireProjectileOptions {
     from: HoCMath.XY;
     to: HoCMath.XY;
     big: boolean;
+    /** Zena's Chakram: a spinning bladed disc rather than a bolt or a cannonball. */
+    chakram?: boolean;
 }
 
 interface IProjectile {
@@ -38,6 +40,8 @@ interface IProjectile {
     big: boolean;
     arc: number; // peak lob height in world px (0 = straight line)
     cell: number; // grid cell size captured at spawn (drives drawing scale)
+    chakram: boolean;
+    spin: number; // radians of blade rotation accumulated in flight
     resolve: () => void;
 }
 
@@ -49,6 +53,9 @@ const BIG_RADIUS_FACTOR = 0.32; // cannonball radius relative to cell
 const BIG_ARC_FACTOR = 0.4; // cannonball lob height relative to cell
 const BOLT_LEN_FACTOR = 0.55; // default bolt length relative to cell
 const BOLT_WIDTH_FACTOR = 0.07; // default bolt core width relative to cell
+const CHAKRAM_RADIUS_FACTOR = 0.34; // disc radius relative to cell
+const CHAKRAM_SPIN_PER_DT = 90; // radians per dt-unit — a hard, weapon-like spin
+const CHAKRAM_BLADES = 3; // cut-outs around the ring, echoing the art
 
 export class RangedProjectiles {
     private context: IRangedProjectilesContext;
@@ -60,6 +67,16 @@ export class RangedProjectiles {
         return this.projectiles.length > 0;
     }
     /** Spawn a projectile flying from -> to. Resolves when it lands. */
+    /**
+     * Fly a projectile along a POLYLINE instead of a straight shot — Zena's chakram ricocheting through its
+     * half circle. Each leg is flown in turn, so the disc visibly curves from one victim to the next rather
+     * than teleporting; it keeps spinning throughout because spin is accumulated per projectile, not per leg.
+     */
+    public async fireAlongPath(points: HoCMath.XY[], opts: Omit<IFireProjectileOptions, "from" | "to">): Promise<void> {
+        for (let leg = 1; leg < points.length; leg += 1) {
+            await this.fire({ ...opts, from: points[leg - 1], to: points[leg] });
+        }
+    }
     public fire(opts: IFireProjectileOptions): Promise<void> {
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
@@ -84,6 +101,8 @@ export class RangedProjectiles {
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,
+                chakram: !!opts.chakram,
+                spin: 0,
                 resolve,
             };
             this.draw(projectile, from.x, from.y);
@@ -94,6 +113,9 @@ export class RangedProjectiles {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.traveled += p.speed * dt;
+            // A thrown chakram spins hard the whole way — this is what sells it as a disc rather than a
+            // coin flipping edge-on, and it keeps spinning through the ricochet arcs.
+            p.spin += CHAKRAM_SPIN_PER_DT * dt;
             const t = p.dist > 1e-3 ? Math.min(1, p.traveled / p.dist) : 1;
 
             const x = p.from.x + (p.to.x - p.from.x) * t;
@@ -126,6 +148,10 @@ export class RangedProjectiles {
     private draw(p: IProjectile, x: number, y: number): void {
         const g = p.g;
         g.clear();
+        if (p.chakram) {
+            this.drawChakram(p, x, y);
+            return;
+        }
         if (p.big) {
             // Clean single cannonball: dark body + thin rim + a small specular glint.
             const r = p.cell * BIG_RADIUS_FACTOR;
@@ -158,5 +184,44 @@ export class RangedProjectiles {
                 .lineTo(tipX - headLen * Math.cos(p.angle + headAngle), tipY - headLen * Math.sin(p.angle + headAngle))
                 .stroke({ width: w, color: 0xfff2cc, alpha: 1 });
         }
+    }
+    /**
+     * Zena's chakram: a spinning bronze ring with blade cut-outs, wrapped in the motion blur a disc thrown
+     * this hard would actually leave. Drawn rather than sprited so it can spin at any angle without a
+     * texture rotation, and so the trail can be redrawn per frame from the live spin.
+     */
+    private drawChakram(p: IProjectile, x: number, y: number): void {
+        const g = p.g;
+        const r = p.cell * CHAKRAM_RADIUS_FACTOR;
+
+        // Motion blur: two trailing ghosts behind the disc along its flight line.
+        const ca = Math.cos(p.angle);
+        const sa = Math.sin(p.angle);
+        for (let ghost = 1; ghost <= 2; ghost += 1) {
+            const back = r * 0.55 * ghost;
+            g.circle(x - ca * back, y - sa * back, r * (1 - ghost * 0.12)).stroke({
+                width: Math.max(1, r * 0.16),
+                color: 0xffb964,
+                alpha: 0.16 / ghost,
+            });
+        }
+
+        // Outer glow, then the bronze ring itself.
+        g.circle(x, y, r * 1.12).stroke({ width: Math.max(1, r * 0.2), color: 0xffcc7a, alpha: 0.3 });
+        g.circle(x, y, r).stroke({ width: Math.max(2, r * 0.34), color: 0xb87333, alpha: 1 });
+        g.circle(x, y, r * 0.82).stroke({ width: Math.max(1, r * 0.12), color: 0xffe2b0, alpha: 0.85 });
+
+        // Blades: short spokes that rotate with the spin, so the disc visibly turns.
+        for (let blade = 0; blade < CHAKRAM_BLADES; blade += 1) {
+            const angle = p.spin + (blade * 2 * Math.PI) / CHAKRAM_BLADES;
+            const inner = r * 0.3;
+            const outer = r * 0.78;
+            g.moveTo(x + Math.cos(angle) * inner, y + Math.sin(angle) * inner)
+                .lineTo(x + Math.cos(angle) * outer, y + Math.sin(angle) * outer)
+                .stroke({ width: Math.max(1, r * 0.16), color: 0xffe9c4, alpha: 0.9 });
+        }
+
+        // Hub.
+        g.circle(x, y, r * 0.2).fill({ color: 0x6b4423, alpha: 1 });
     }
 }

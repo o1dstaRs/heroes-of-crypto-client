@@ -54,6 +54,13 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
 
+// Mirrors common's MAX_UNIT_STACK_POWER (constants.ts) — the ceiling chakramBounceBudget clamps to.
+const MAX_UNIT_STACK_POWER = 5;
+
+// getCraftChances(0) from common's abilities/craft_ability.ts: stun = clamp(10 - luck), frozen = 20 - stun,
+// with nothing/double fixed. Always sums to 100.
+const NEUTRAL_LUCK_CRAFT_CHANCES = { double: 40, frozen: 10, stun: 10, nothing: 40 } as const;
+
 const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Double Punch": ["Наносит вторую атаку с {}% рассчитанного урона."],
     Backstab: ["Наносит на {}% больше урона при ударе со стороны зоны появления врага."],
@@ -182,6 +189,20 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     "Predatory Assimilation": [
         "Каждая попавшая прямая атака имеет шанс навсегда отключить и украсть одну случайную активную способность цели.",
     ],
+    Chakram: [
+        "Дальние атаки рикошетят по полукругу в следующего врага, до {} раз.",
+        "Каждый отскок наносит ~100% урона (90–110% в зависимости от удачи) и никогда не задевает союзников.",
+    ],
+    "Rallying Volley Aura": ["Союзные стрелки в радиусе получают +{} выстрела."],
+    "Book of Chaos": ["Открывает заклинания: Smoke, Misfortune и Fireforged Sword."],
+    "Blacksmith Tools": [
+        "Craft (союзники в области 2x2, нужна сила стека 4). Для каждого союзника:",
+        "Двойная атака {}%, замороженное оружие {}%, оглушение {}%, ничего {}%.",
+    ],
+    Enchants: [
+        "Зачаровывает броню или оружие союзника (стек 1).",
+        "Каждое применение: 50% шанс добавить +1 (складывается).",
+    ],
 };
 
 function abilityDescription(name: string, language: "en" | "ru" = "en"): string {
@@ -206,6 +227,23 @@ function abilityDescription(name: string, language: "en" | "ru" = "en"): string 
     if (name === "Paralysis") {
         const p = ability.power;
         return joined.replace("{}", String(Math.round(p * 2))).replace("{}", String(Math.round(p)));
+    }
+    // Chakram's "{}" is the bounce budget, which is the caster's stack power (chakramBounceBudget clamps
+    // it to 1..MAX_UNIT_STACK_POWER) — NOT `power`, which is the ~100% per-bounce damage. Substituting
+    // power here printed "up to 100 times".
+    if (name === "Chakram") {
+        return joined.replace("{}", String(MAX_UNIT_STACK_POWER));
+    }
+    // Blacksmith Tools lists Craft's four luck-weighted outcomes; `power` is 0, so the generic
+    // substitution printed "0%" for all of them. These are getCraftChances(luck) at neutral luck, where
+    // luck shifts probability 1:1 from Stun to Frozen.
+    if (name === "Blacksmith Tools") {
+        const { double, frozen, stun, nothing } = NEUTRAL_LUCK_CRAFT_CHANCES;
+        return joined
+            .replace("{}", String(double))
+            .replace("{}", String(frozen))
+            .replace("{}", String(stun))
+            .replace("{}", String(nothing));
     }
     return joined.replace(/\{\}/g, String(ability.power));
 }

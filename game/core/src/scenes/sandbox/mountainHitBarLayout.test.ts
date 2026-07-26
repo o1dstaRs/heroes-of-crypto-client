@@ -35,9 +35,11 @@ describe("mountain collapse animation", () => {
     const findCollapseContainers = (attached: Container[]): Container[] =>
         attached.filter((container) => container.children.length === 16);
 
-    function createVisuals(): { visuals: DungeonVisuals; attached: Container[]; collapses: { x: number }[] } {
+    // Collapses are counted from what actually got attached to the world. This used to observe the
+    // onMountainCollapse callback, but that hook existed only to shake the screen and went away with it —
+    // the attached containers are the real evidence a collapse played anyway.
+    function createVisuals(): { visuals: DungeonVisuals; attached: Container[]; collapseCount: () => number } {
         const attached: Container[] = [];
-        const collapses: { x: number }[] = [];
         const visuals = new DungeonVisuals({
             getStage: () => new Container(),
             getWorldRoot: () => new Container(),
@@ -45,9 +47,8 @@ describe("mountain collapse animation", () => {
             getGridSettings: () => gridSettings,
             texAny: () => Texture.WHITE,
             attachToWorldRoot: (obj) => attached.push(obj),
-            onMountainCollapse: (center) => collapses.push(center),
         });
-        return { visuals, attached, collapses };
+        return { visuals, attached, collapseCount: () => findCollapseContainers(attached).length };
     }
 
     function primeBlockCenterFight(leftHits: number, rightHits: number): void {
@@ -59,42 +60,41 @@ describe("mountain collapse animation", () => {
 
     test("crashes a mountain into 4 chunks exactly when its hits reach zero", () => {
         primeBlockCenterFight(HoCConstants.HITS_PER_MOUNTAIN, HoCConstants.HITS_PER_MOUNTAIN);
-        const { visuals, attached, collapses } = createVisuals();
+        const { visuals, collapseCount } = createVisuals();
 
         // First sight seeds silently — full hits, no collapse.
         visuals.ensureCenterTerrainSprite();
-        expect(collapses).toHaveLength(0);
+        expect(collapseCount()).toBe(0);
 
         // Left mountain destroyed -> one collapse, made of 4 quarter sprites (+ dust puffs).
         FightStateManager.getInstance()
             .getFightProperties()
             .setObstacleHitsPerMountain(0, HoCConstants.HITS_PER_MOUNTAIN);
         visuals.ensureCenterTerrainSprite();
-        expect(collapses).toHaveLength(1);
-        expect(findCollapseContainers(attached)).toHaveLength(1);
+        expect(collapseCount()).toBe(1);
 
         // Re-render with unchanged hits must not re-fire.
         visuals.ensureCenterTerrainSprite();
-        expect(collapses).toHaveLength(1);
+        expect(collapseCount()).toBe(1);
     });
 
     test("joining a game with an already-destroyed mountain stays silent", () => {
         primeBlockCenterFight(0, HoCConstants.HITS_PER_MOUNTAIN);
-        const { visuals, collapses } = createVisuals();
+        const { visuals, collapseCount } = createVisuals();
         visuals.ensureCenterTerrainSprite();
         visuals.ensureCenterTerrainSprite();
-        expect(collapses).toHaveLength(0);
+        expect(collapseCount()).toBe(0);
     });
 
     test("cleans the chunks up after the animation, even with both mountains gone", async () => {
         primeBlockCenterFight(1, 1);
-        const { visuals, attached, collapses } = createVisuals();
+        const { visuals, attached, collapseCount } = createVisuals();
         visuals.ensureCenterTerrainSprite();
 
         // Both mountains die at once (e.g. final AOE) -> two simultaneous collapses.
         FightStateManager.getInstance().getFightProperties().setObstacleHitsPerMountain(0, 0);
         visuals.ensureCenterTerrainSprite();
-        expect(collapses).toHaveLength(2);
+        expect(collapseCount()).toBe(2);
         const containers = findCollapseContainers(attached);
         expect(containers).toHaveLength(2);
 

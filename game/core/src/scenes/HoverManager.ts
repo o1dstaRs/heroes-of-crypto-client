@@ -799,7 +799,19 @@ export class HoverManager {
         label.position.set(position.x, position.y);
         this.aoeDamageLabels.push(label);
     }
-    public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY, continuationTo?: HoCMath.XY): void {
+    /**
+     * `smokeFrom` marks where the shot first enters SMOKE. From that point to the target the arrow is
+     * drawn thick and red, because the smoke rule is STICKY: once the ray crosses a smoked cell every
+     * target after it takes half damage (divisor doubles, capped at 1/8). Highlighting only the smoked
+     * CELLS would understate that — the penalty applies to the whole remainder of the flight, so that is
+     * what the emphasis covers. The cloud is neutral, so this shows for either side's shots.
+     */
+    public drawAttackArrow(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        continuationTo?: HoCMath.XY,
+        smokeFrom?: HoCMath.XY,
+    ): void {
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
@@ -839,11 +851,30 @@ export class HoverManager {
             .lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen)
             .stroke({ width: 4, color: 0xffffff, alpha: 0.9 });
 
+        const endX = from.x + Math.cos(angle) * arrowLen;
+        const endY = from.y + Math.sin(angle) * arrowLen;
+
+        // SMOKED SEGMENT: from where the ray enters smoke to the tip, overdrawn thick and red so the
+        // halved stretch of the flight is unmistakable against the plain white core above. Clamped to the
+        // arrow so a smoke entry resolved slightly off-axis can't draw past the target.
+        if (smokeFrom) {
+            const along = (smokeFrom.x - from.x) * Math.cos(angle) + (smokeFrom.y - from.y) * Math.sin(angle);
+            const startAlong = Math.max(0, Math.min(arrowLen, along));
+            const sx = from.x + Math.cos(angle) * startAlong;
+            const sy = from.y + Math.sin(angle) * startAlong;
+            g.moveTo(sx, sy).lineTo(endX, endY).stroke({ width: 20, color: 0xff2a2a, alpha: 0.35 });
+            g.moveTo(sx, sy).lineTo(endX, endY).stroke({ width: 9, color: 0xff5555, alpha: 0.95 });
+            // A tick at the entry point so it is obvious WHERE the smoke starts, not just that it exists.
+            const nx = Math.cos(angle + Math.PI / 2);
+            const ny = Math.sin(angle + Math.PI / 2);
+            g.moveTo(sx - nx * 11, sy - ny * 11)
+                .lineTo(sx + nx * 11, sy + ny * 11)
+                .stroke({ width: 4, color: 0xff8a8a, alpha: 0.95 });
+        }
+
         // Arrow Head
         const headLen = 20;
         const headAngle = Math.PI / 6;
-        const endX = from.x + Math.cos(angle) * arrowLen;
-        const endY = from.y + Math.sin(angle) * arrowLen;
 
         g.moveTo(endX, endY)
             .lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle))

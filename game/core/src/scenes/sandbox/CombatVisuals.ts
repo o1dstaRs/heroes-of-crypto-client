@@ -157,6 +157,28 @@ interface IFireSweep {
     particles: IFireParticle[];
 }
 
+/** One ember, smoke puff or core flash of a fire-damage burst (see spawnFireBurn). */
+interface IFireBurnParticle {
+    sprite: Sprite;
+    age: number; // seconds; negative while the particle is still waiting to be born
+    life: number;
+    x: number;
+    y: number;
+    riseY: number;
+    driftX: number;
+    startScale: number;
+    endScale: number;
+    peakAlpha: number;
+    fadeInFraction: number;
+    rot: number;
+    spin: number;
+}
+
+interface IFireBurn {
+    container: Container;
+    particles: IFireBurnParticle[];
+}
+
 interface IForgeSpark {
     gfx: Graphics;
     x: number;
@@ -338,6 +360,16 @@ const FIRE_PARTICLE_LIFE = 0.55; // seconds each ember lives
 const FIRE_RISE = 30; // world px an ember floats up over its life
 const FIRE_Z = 1900; // above units (~1000), below the damage numbers (2000) / death shatter (4500)
 const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → flame orange → spark gold
+// Tuning for the fire-DAMAGE burst (spawnFireBurn): the flare that erupts on a unit taking fire damage
+// — Fire Shield reflect, the units a dragon's breath burns through, a Fireforged Sword strike. Embers
+// snap in with the damage number and burn out fast; the smoke curls up behind them and lingers, which
+// is what sells it as "burned" rather than "hit".
+const BURN_FLAME_COUNT = 13;
+const BURN_SMOKE_COUNT = 6;
+const BURN_FLAME_LIFE = 0.46; // seconds an ember burns
+const BURN_SMOKE_LIFE = 0.92; // seconds a smoke puff drifts before it dissipates
+const BURN_FLASH_LIFE = 0.2; // the bright core pop at the moment of the burn
+const BURN_SMOKE_TINTS = [0x4a423c, 0x39322d, 0x5c5148]; // warm soot greys, tinted off the ember texture
 const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
 const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
 const POISON_TINTS = [0x9be15a, 0x6fd23a, 0x4caf2e, 0xbdf06a]; // toxic lime → poison green
@@ -477,6 +509,7 @@ export class CombatVisuals {
     // in unitIdsDied land here), consumed by spawnDeathVfx when the death visuals spawn.
     private deathBlowByUnitId = new Map<string, { kind: DeathBlowKind; dir?: HoCMath.XY }>();
     private fireSweeps: IFireSweep[] = [];
+    private fireBurns: IFireBurn[] = [];
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
@@ -1161,6 +1194,14 @@ export class CombatVisuals {
             sweep.container.destroy({ children: true });
         }
         this.fireSweeps.length = 0;
+        if (!keepDetachedOverlays) {
+            // Same family as the craft forge: a self-expiring world overlay describing a hit that already
+            // landed, so a ranked board rebuild must not cut it short.
+            for (const burn of this.fireBurns) {
+                burn.container.destroy({ children: true });
+            }
+            this.fireBurns.length = 0;
+        }
         for (const cloud of this.poisonClouds) {
             cloud.container.destroy({ children: true });
         }
@@ -1267,6 +1308,7 @@ export class CombatVisuals {
         this.stepCleaveDeaths(dt);
         this.stepDissolveDeaths(dt);
         this.stepFireSweeps(dt);
+        this.stepFireBurns(dt);
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
         this.stepChainLightnings(dt);
@@ -2062,6 +2104,11 @@ export class CombatVisuals {
         if (this.fireTexture) {
             return this.fireTexture;
         }
+        // Headless (tests): no DOM to rasterize the radial gradient on — a plain white texture keeps the
+        // particle path alive, same as the poison/light textures below.
+        if (typeof document === "undefined") {
+            return Texture.WHITE;
+        }
         const size = 64;
         const canvas = document.createElement("canvas");
         canvas.width = size;
@@ -2159,6 +2206,132 @@ export class CombatVisuals {
             }
         }
         this.fireSweeps.push({ container, particles });
+    }
+    /**
+     * Fire-DAMAGE burst on a single unit: a bright core flash, a spray of embers that snap in and burn
+     * out, and slower soot puffs curling up behind them. Used wherever damage is fire — the Efreet's
+     * Fire Shield reflect, each unit a Black Dragon's breath burns through, and a Fireforged Sword
+     * strike. `scale` trims the whole thing for smaller burns (a reflect is less than a dragon breath).
+     */
+    public spawnFireBurn(center: HoCMath.XY, cellSize: number, scale = 1): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, FIRE_Z);
+        const tex = this.getFireTexture();
+        const texW = tex.width || 64;
+        const size = Math.max(1, cellSize * scale);
+        const particles: IFireBurnParticle[] = [];
+
+        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
+            sprite.anchor.set(0.5);
+            sprite.scale.set(0.001);
+            sprite.alpha = 0;
+            sprite.visible = false;
+            container.addChild(sprite);
+            particles.push({ sprite, ...particle });
+        };
+
+        // Core flash — one wide, near-white bloom right at the moment of the burn.
+        const flash = new Sprite(tex);
+        flash.blendMode = "add";
+        flash.tint = 0xfff0c0;
+        push(flash, {
+            age: 0,
+            life: BURN_FLASH_LIFE,
+            x: center.x,
+            y: center.y,
+            riseY: size * 0.08,
+            driftX: 0,
+            startScale: (size * 0.55) / texW,
+            endScale: (size * 1.35) / texW,
+            peakAlpha: 0.85,
+            fadeInFraction: 0.12,
+            rot: 0,
+            spin: 0,
+        });
+
+        for (let i = 0; i < BURN_FLAME_COUNT; i++) {
+            const rand = Math.random();
+            const angle = Math.random() * Math.PI * 2;
+            const radius = size * 0.34 * Math.sqrt(Math.random());
+            const sprite = new Sprite(tex);
+            sprite.blendMode = "add";
+            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
+            push(sprite, {
+                // Staggered ignition so the burst crackles rather than appearing as one puff.
+                age: -Math.random() * 0.09,
+                life: BURN_FLAME_LIFE * (0.75 + 0.5 * rand),
+                x: center.x + Math.cos(angle) * radius,
+                y: center.y + Math.sin(angle) * radius,
+                riseY: size * (0.35 + 0.35 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.3,
+                startScale: (size * (0.3 + 0.28 * rand)) / texW,
+                endScale: (size * (0.1 + 0.12 * rand)) / texW,
+                peakAlpha: 1,
+                fadeInFraction: 0.08,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 5,
+            });
+        }
+
+        for (let i = 0; i < BURN_SMOKE_COUNT; i++) {
+            const rand = Math.random();
+            const sprite = new Sprite(tex);
+            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
+            push(sprite, {
+                // Smoke is born as the flames start dying, so it reads as their aftermath.
+                age: -(0.1 + Math.random() * 0.22),
+                life: BURN_SMOKE_LIFE * (0.8 + 0.4 * rand),
+                x: center.x + (Math.random() - 0.5) * size * 0.42,
+                y: center.y + (Math.random() - 0.5) * size * 0.24,
+                riseY: size * (0.75 + 0.5 * rand),
+                driftX: (Math.random() - 0.5) * size * 0.5,
+                startScale: (size * (0.26 + 0.16 * rand)) / texW,
+                endScale: (size * (0.7 + 0.4 * rand)) / texW,
+                peakAlpha: 0.42,
+                fadeInFraction: 0.25,
+                rot: Math.random() * Math.PI * 2,
+                spin: (Math.random() - 0.5) * 1.6,
+            });
+        }
+
+        this.fireBurns.push({ container, particles });
+    }
+    private stepFireBurns(dt: number): void {
+        for (let i = this.fireBurns.length - 1; i >= 0; i--) {
+            const burn = this.fireBurns[i];
+            let anyPending = false;
+            for (const p of burn.particles) {
+                p.age += dt;
+                if (p.age < 0) {
+                    anyPending = true; // not born yet
+                    continue;
+                }
+                if (p.age >= p.life) {
+                    if (p.sprite.visible) {
+                        p.sprite.visible = false;
+                    }
+                    continue;
+                }
+                anyPending = true;
+                const t = p.age / p.life;
+                const e = easeOutCubic(t);
+                p.sprite.visible = true;
+                p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
+                const scale = p.startScale + (p.endScale - p.startScale) * e;
+                p.sprite.scale.set(scale, scale);
+                p.rot += p.spin * dt;
+                p.sprite.rotation = p.rot;
+                const alpha =
+                    t < p.fadeInFraction
+                        ? (t / p.fadeInFraction) * p.peakAlpha
+                        : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
+                p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+            }
+            if (!anyPending) {
+                burn.container.destroy({ children: true });
+                this.fireBurns.splice(i, 1);
+            }
+        }
     }
     private stepFireSweeps(dt: number): void {
         for (let i = this.fireSweeps.length - 1; i >= 0; i--) {

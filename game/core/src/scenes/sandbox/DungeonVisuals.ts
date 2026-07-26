@@ -10,8 +10,6 @@ export interface IDungeonVisualsContext {
     getGridSettings(): GridSettings;
     texAny(name: string): Texture | undefined;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
-    /** Fired the moment a mountain starts its collapse animation (e.g. to rumble the screen). */
-    onMountainCollapse?(center: { x: number; y: number }): void;
 }
 
 /** One flying quarter of a collapsing mountain. */
@@ -56,6 +54,12 @@ const MC_FADE_END_MS = 1350; // ...and are fully gone here
 const MC_GRAVITY_CELLS = 9; // world-units/s² pulling chunks down, in cell sizes
 const MC_BOUNCE = 0.35; // vertical velocity kept after crashing onto the base line
 const MC_DUST_COUNT = 12;
+
+// How many cells wide/tall each 2x2 BLOCK_CENTER mountain sprite is DRAWN. Deliberately larger than the
+// 2-cell collision footprint so the rock reads as a chunky block (the texture has transparent padding).
+// Shared by the resting sprite AND its collapse quarters so the four quarters overlay it exactly — keep it
+// as the single source so they can't drift. (Was 2.75; bumped 10% — the mountains looked smaller than 2 cells.)
+const MOUNTAIN_BLOCK_CELLS = 3.4;
 
 export interface IMountainHitBarLayout {
     width: number;
@@ -325,7 +329,7 @@ export class DungeonVisuals {
             // Place each sprite at its mountain's ACTUAL cell centre (same call units use), so sprite,
             // collision, HP routing and bar all line up regardless of the world-X mapping.
             const { left, right } = this.mountainCenters(gs);
-            const blockSize = cellSize * 2.75;
+            const blockSize = cellSize * MOUNTAIN_BLOCK_CELLS;
             const sx = blockSize / texW;
             const sy = -(blockSize / texH);
             this.centerTerrainSprite.scale.set(sx, sy);
@@ -490,7 +494,7 @@ export class DungeonVisuals {
         const cellSize = gs.getCellSize();
         const center = this.mountainCenters(gs)[side];
         // Same oversize the intact sprite is drawn at, so the four quarters exactly overlay it.
-        const blockSize = cellSize * 2.75;
+        const blockSize = cellSize * MOUNTAIN_BLOCK_CELLS;
         const quarterSize = blockSize / 2;
         const quarters = this.getMountainQuarterTextures(tex);
 
@@ -557,7 +561,6 @@ export class DungeonVisuals {
         }
 
         this.activeCollapses.push({ container, chunks, dust, startMs: now, lastStepMs: now });
-        this.context.onMountainCollapse?.(center);
     }
     /** Advance every active collapse; called each frame from ensureCenterTerrainSprite. */
     private stepMountainCollapses(): void {

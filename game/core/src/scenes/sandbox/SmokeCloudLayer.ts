@@ -55,6 +55,9 @@ out vec4 finalColor;
 
 uniform sampler2D uTexture;
 uniform float uTime;
+// Slowly-turning wind direction, shared by every cloud so the whole board drifts as one weather system
+// rather than each cell inventing its own breeze. Set from the CPU each frame.
+uniform vec2 uWind;
 
 float hash(vec2 p) {
     p = fract(p * vec2(123.34, 345.45));
@@ -85,37 +88,74 @@ float fbm(vec2 p) {
     return v;
 }
 
+// Curl-style rotational offset: rotating the warp field instead of only translating it is what makes
+// smoke ROLL rather than slide. Cheap approximation — two fbm taps read as a vector we spin over time.
+vec2 curl(vec2 p, float t) {
+    float a = fbm(p + vec2(0.0, t * 0.06));
+    float b = fbm(p + vec2(5.2, 1.3) - vec2(t * 0.05, 0.0));
+    float ang = (a - b) * 6.2831853;
+    return vec2(cos(ang), sin(ang));
+}
+
 void main(void) {
     vec2 uv = vTextureCoord;
     float t = uTime;
 
-    // TWO-SCALE domain warp. A single warp gives uniform wobble that reads as a wet blur; feeding a slow
-    // coarse warp into a faster fine one is what produces the folding, curling motion of real smoke.
+    // THREE-SCALE warp with a rotational term. A single warp reads as a wet blur; layering a slow coarse
+    // field into a faster fine one gives folding; adding curl makes those folds actually TUMBLE, which is
+    // the difference between "wobbling blob" and smoke.
+    // Every field is ADVECTED along the wind (scaled per octave: coarse structures ride it slowly, fine
+    // detail is dragged fastest). That directional streaming is what makes it look blown rather than
+    // simmering in place — the old version only ever drifted each field along its own fixed axis.
+    vec2 w = uWind;
     vec2 coarse = vec2(
-        fbm(uv * 2.0 + vec2(0.0, t * 0.045)),
-        fbm(uv * 2.0 + vec2(3.7, 1.9) - vec2(t * 0.035, 0.0))
+        fbm(uv * 2.0 + w * t * 0.10 + vec2(0.0, t * 0.055)),
+        fbm(uv * 2.0 + w * t * 0.10 + vec2(3.7, 1.9) - vec2(t * 0.042, 0.0))
     );
     vec2 fine = vec2(
-        fbm(uv * 6.0 + coarse * 1.6 + vec2(0.0, t * 0.10)),
-        fbm(uv * 6.0 + coarse * 1.6 + vec2(2.4, 8.1) + vec2(t * 0.075, 0.0))
+        fbm(uv * 6.0 + coarse * 1.7 + w * t * 0.26 + vec2(0.0, t * 0.13)),
+        fbm(uv * 6.0 + coarse * 1.7 + w * t * 0.26 + vec2(2.4, 8.1) + vec2(t * 0.095, 0.0))
     );
-    // Warp harder than the dust layer (0.09): this smoke should visibly boil, not just shimmer.
-    vec2 sampleUv = uv + (coarse - 0.5) * 0.085 + (fine - 0.5) * 0.055;
+    vec2 detail = vec2(
+        fbm(uv * 13.0 + fine * 1.1 + w * t * 0.55 - vec2(t * 0.16, 0.0)),
+        fbm(uv * 13.0 + fine * 1.1 + w * t * 0.55 + vec2(9.1, 4.4) + vec2(0.0, t * 0.14))
+    );
+    // Gusts: the warp strength itself breathes, so the cloud surges and eases instead of churning at one
+    // constant rate. Two out-of-phase sines never line up into an obvious loop.
+    float gust = 0.82 + 0.30 * sin(t * 0.23) + 0.14 * sin(t * 0.61 + 1.7);
+    vec2 roll = curl(uv * 3.0 + w * t * 0.18, t) * 0.030 * gust;
+    // Lean the whole sample downwind a touch as well, so the silhouette itself is pushed, not just
+    // stirred internally. Kept small — the cloud must stay legibly ON its cell, since the cell IS the rule.
+    vec2 lean = w * (0.016 + 0.010 * sin(t * 0.31));
+    vec2 sampleUv =
+        uv + ((coarse - 0.5) * 0.105 + (fine - 0.5) * 0.070 + (detail - 0.5) * 0.030) * gust + roll + lean;
 
     vec4 col = texture(uTexture, sampleUv);
 
-    // Erode with a slow field so the body holds together (a tactical marker must stay legible) while its
-    // edges tear into wisps. Drifts up-left, so neighbouring cells don't pulse in lockstep.
-    float n = fbm(uv * 5.0 - vec2(t * 0.05, t * 0.028));
-    float density = smoothstep(0.12, 0.86, n);
+    // Two erosion fields drifting in DIFFERENT directions at different rates. One field alone pulses the
+    // whole cloud in unison; crossing two keeps parts thinning while others thicken, so the mass is never
+    // still and never repeats obviously.
+    float n1 = fbm(uv * 5.0 + w * t * 0.14 - vec2(t * 0.06, t * 0.033));
+    float n2 = fbm(uv * 9.0 + w * t * 0.34 + vec2(t * 0.043, -t * 0.052) + 4.7);
+    float n = mix(n1, n2, 0.42);
+    float density = smoothstep(0.10, 0.88, n);
 
-    // Cooler in the thin parts, warmer in the thick — smoke scatters light unevenly, and a flat grey
-    // cloud looks like fog. Subtle: this rides on top of the per-cell tint, it does not replace it.
-    float body = smoothstep(0.35, 0.95, density);
-    vec3 shade = mix(vec3(0.86, 0.88, 0.95), vec3(1.06, 1.02, 0.98), body);
+    // Wispy tendrils: a thin high-frequency band pulled along the curl, added only at the cloud's EDGE
+    // (where the body is thin) so the silhouette frays instead of the core turning noisy.
+    float edge = smoothstep(0.55, 0.12, density);
+    // Wisps stream fastest of all — they are the part the wind visibly tears off the edge.
+    float wisp = smoothstep(0.60, 0.95, fbm(uv * 16.0 + roll * 9.0 + w * t * 0.85 + vec2(0.0, -t * 0.20)));
+    density += edge * wisp * 0.34 * gust;
+
+    // Slow internal light shift — the mass looks lit from within as it churns, rather than flat grey.
+    float body = smoothstep(0.32, 0.95, density);
+    float glow = 0.5 + 0.5 * sin(t * 0.35 + fbm(uv * 3.0) * 6.2831853);
+    vec3 thin = mix(vec3(0.82, 0.85, 0.95), vec3(0.90, 0.90, 0.99), glow);
+    vec3 thick = mix(vec3(1.02, 0.99, 0.96), vec3(1.12, 1.06, 0.99), glow);
+    vec3 shade = mix(thin, thick, body);
 
     // col is premultiplied; scaling by a scalar keeps it valid.
-    finalColor = vec4(col.rgb * shade, col.a) * (0.30 + 0.80 * density);
+    finalColor = vec4(col.rgb * shade, col.a) * (0.26 + 0.86 * clamp(density, 0.0, 1.2));
 }
 `;
 
@@ -149,6 +189,13 @@ export class SmokeCloudLayer {
     private readonly graphics = new Graphics();
     private filter?: Filter;
     private time = 0;
+    /**
+     * Wind direction, shared by every cloud so the board reads as one weather system. The angle wanders
+     * slowly (two incommensurable sines, so it never settles into a visible loop) rather than being fixed:
+     * a constant direction reads as a scrolling texture, and a fast one reads as a storm.
+     */
+    private windX = 1;
+    private windY = 0;
     private readonly clouds = new Map<number, ITrackedCloud>();
     public constructor() {
         this.container.addChild(this.graphics);
@@ -158,6 +205,7 @@ export class SmokeCloudLayer {
                 resources: {
                     smokeCloudUniforms: {
                         uTime: { value: 0, type: "f32" },
+                        uWind: { value: new Float32Array([1, 0]), type: "vec2<f32>" },
                     },
                 },
             });
@@ -185,11 +233,20 @@ export class SmokeCloudLayer {
      */
     public update(dt: number, cells: readonly ISmokeCloudCell[], cellSize: number, toWorld: ToWorld): void {
         this.time += dt;
+        const windAngle = Math.sin(this.time * 0.055) * 0.9 + Math.sin(this.time * 0.021 + 2.1) * 0.5;
+        const windSpeed = 0.75 + 0.35 * Math.sin(this.time * 0.13 + 0.7);
+        this.windX = Math.cos(windAngle) * windSpeed;
+        this.windY = Math.sin(windAngle) * windSpeed * 0.6;
         if (this.filter) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const res = this.filter.resources as any;
             if (res?.smokeCloudUniforms?.uniforms) {
                 res.smokeCloudUniforms.uniforms.uTime = this.time;
+                const wind = res.smokeCloudUniforms.uniforms.uWind;
+                if (wind) {
+                    wind[0] = this.windX;
+                    wind[1] = this.windY;
+                }
             }
         }
 
@@ -247,8 +304,9 @@ export class SmokeCloudLayer {
             return x - Math.floor(x);
         };
         // Cool slate greys. Darker than the dust layer's warm tans so spell smoke never reads as a
-        // movement track, and so it stays visible over both the lit and the darkened floor.
-        const tints = [0x6f7480, 0x7d8290, 0x646974];
+        // movement track, and so it stays visible over both the lit and the darkened floor. Three depths:
+        // a dark underbelly, the mid mass, and pale highlights that catch the light as the cloud turns.
+        const tints = [0x5a5f6b, 0x6f7480, 0x7d8290, 0x8b90a0, 0x9aa0b2];
 
         for (const cloud of this.clouds.values()) {
             const p = Math.max(0, Math.min(1, cloud.presence));
@@ -257,26 +315,68 @@ export class SmokeCloudLayer {
             // A cloud on its last lap is visibly thinner — the player can read "this is about to clear"
             // off the board instead of having to remember when it was cast.
             const lapFade = cloud.lapsRemaining <= 1 ? 0.62 : 1;
-            const alpha = 0.5 * eased * lapFade;
+            const alpha = 0.62 * eased * lapFade;
             if (alpha <= 0.001) {
                 continue;
             }
 
             const seed = cloud.seed;
             // Enough puffs to fill a cell as one connected mass; the shader tears the outline apart.
-            const puffs = 7 + Math.floor(rnd(seed, 0) * 3);
+            // Two passes: a wide, dark UNDERBELLY that grounds the cloud, then a tighter, brighter CORE on
+            // top. One flat ring of equal puffs reads as a smudge; layering gives it depth and volume.
+            const puffs = 9 + Math.floor(rnd(seed, 0) * 4);
             const baseR = cellSize * 0.5;
+
+            // Underbelly: wide, dark, slow — the part that looks like it has weight.
+            for (let i = 0; i < 5; i++) {
+                const ang = seed * 1.7 + (i * 2 * Math.PI) / 5 + (rnd(seed, i + 71) - 0.5) * 1.2;
+                const drift = this.time * (0.05 + rnd(seed, i + 83) * 0.04);
+                const spread = baseR * (0.24 + rnd(seed, i + 91) * 0.3) * eased;
+                // Heavier air hugs the ground: the underbelly leans downwind about half as far as the core.
+                const baseLean = baseR * 0.1 * Math.sin(this.time * 0.33 + i * 1.3);
+                const px = cloud.x + Math.cos(ang + drift) * spread + this.windX * baseLean;
+                const py = cloud.y + Math.sin(ang + drift) * spread * 0.55 + this.windY * baseLean;
+                const pr = baseR * (0.62 + 0.3 * rnd(seed, i + 97)) * (0.6 + 0.4 * eased);
+                g.circle(px, py, pr).fill({ color: 0x4b505c, alpha: alpha * 0.55 });
+            }
 
             for (let i = 0; i < puffs; i++) {
                 const ang = seed + (i * 2 * Math.PI) / puffs + (rnd(seed, i + 3) - 0.5) * 0.9;
                 // Slow per-puff orbit so the mass churns in place instead of sitting frozen between the
                 // shader's wisps — the cloud stays on its cell, which matters because the cell IS the rule.
-                const churn = this.time * (0.1 + rnd(seed, i + 41) * 0.07) + i;
-                const spread = baseR * (0.16 + rnd(seed, i + 9) * 0.34) * eased;
-                const px = cloud.x + Math.cos(ang + churn * 0.5) * spread;
-                const py = cloud.y + Math.sin(ang + churn * 0.5) * spread * 0.7;
-                const pr = baseR * (0.42 + 0.34 * rnd(seed, i + 25)) * (0.55 + 0.45 * eased);
+                const churn = this.time * (0.14 + rnd(seed, i + 41) * 0.11) + i;
+                // Breathe each puff's orbit AND radius on its own phase, so the mass swells and settles
+                // unevenly instead of rotating as one rigid ring.
+                const breathe = 0.85 + 0.15 * Math.sin(this.time * (0.5 + rnd(seed, i + 57) * 0.4) + i * 1.7);
+                // Wind sway: each puff leans downwind on its OWN phase and by its own amount, so the mass
+                // SHEARS as it blows rather than sliding rigidly. Bounded sine, so it always returns and
+                // the cloud stays on the cell that carries the rule.
+                const sway = Math.sin(this.time * (0.42 + rnd(seed, i + 61) * 0.3) + i * 0.9);
+                const lean = baseR * (0.14 + 0.16 * rnd(seed, i + 67)) * sway;
+                const spread = baseR * (0.16 + rnd(seed, i + 9) * 0.34) * eased * breathe;
+                const px = cloud.x + Math.cos(ang + churn * 0.5) * spread + this.windX * lean;
+                const py = cloud.y + Math.sin(ang + churn * 0.5) * spread * 0.7 + this.windY * lean;
+                const pr = baseR * (0.42 + 0.34 * rnd(seed, i + 25)) * (0.55 + 0.45 * eased) * breathe;
                 g.circle(px, py, pr).fill({ color: tints[Math.floor(rnd(seed, i + 2) * tints.length)], alpha });
+            }
+
+            // Ash flecks: a few tiny bright motes riding the churn. They catch the eye and sell the cloud
+            // as something burning rather than a static grey shape — the Book of CHAOS, after all.
+            for (let i = 0; i < 4; i++) {
+                const rise = (this.time * (0.22 + rnd(seed, i + 101) * 0.16) + rnd(seed, i + 103)) % 1;
+                const ang = seed * 2.3 + i * 1.9 + rise * 2.2;
+                const r = baseR * (0.2 + 0.55 * rise);
+                // Flecks are light, so the wind carries them furthest and they trail off downwind as they
+                // rise — the clearest cue for which way the wind is actually blowing.
+                const carry = rise * baseR * 0.85;
+                const fx = cloud.x + Math.cos(ang) * r + this.windX * carry;
+                const fy = cloud.y + Math.sin(ang) * r * 0.6 + rise * baseR * 0.55 + this.windY * carry;
+                // Fade in then out across the rise so flecks never pop on or off.
+                const flick = Math.sin(rise * Math.PI);
+                g.circle(fx, fy, baseR * 0.05 * (0.6 + 0.6 * flick)).fill({
+                    color: 0xd8a463,
+                    alpha: alpha * 0.75 * flick,
+                });
             }
         }
     }

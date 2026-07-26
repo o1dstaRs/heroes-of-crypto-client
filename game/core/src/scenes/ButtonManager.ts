@@ -302,7 +302,7 @@ export class ButtonManager {
         // every recompute — otherwise arming a spell while the unit is still on MELEE disarms it instantly.
         const armedSpell = this.context.getCurrentActiveSpell();
         if (armedSpell) {
-            spellBookButton.customSpriteName = SpellHelper.spellToTextureNames(armedSpell.getName())[0];
+            spellBookButton.customSpriteName = SpellHelper.spellToTextureName(armedSpell.getName());
         }
 
         pushAll(hourglassButton, shieldButton, nextButton, aiButton, attackTypeButton, spellBookButton);

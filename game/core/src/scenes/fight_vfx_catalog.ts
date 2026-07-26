@@ -52,7 +52,7 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_attacked: {
         rendered: true,
         ranked: "replay",
-        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live)",
+        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary",
     },
     area_attacked: {
         rendered: true,

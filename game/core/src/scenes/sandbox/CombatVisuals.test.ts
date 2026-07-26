@@ -56,6 +56,16 @@ type VisualsInternals = {
         contactY: number;
         sparks: unknown[];
     }[];
+    fireBurns: {
+        container: Container;
+        particles: {
+            sprite: { alpha: number; visible: boolean; blendMode: string; x: number; y: number; scale: { x: number } };
+            age: number;
+            life: number;
+            y: number;
+            riseY: number;
+        }[];
+    }[];
 };
 const internals = (visuals: CombatVisuals): VisualsInternals => visuals as unknown as VisualsInternals;
 
@@ -254,6 +264,77 @@ describe("Predatory Assimilation ability-steal VFX", () => {
         expect(arrived).toBe(false);
         expect(internals(visuals).abilitySteals.length).toBe(0);
         expect(attached[0].destroyed).toBe(true);
+    });
+});
+
+describe("fire damage burst VFX", () => {
+    const spawnBurn = (scale = 1) => {
+        const { visuals, attached } = makeVisuals();
+        const fireTexture = new Texture({ source: new TextureSource({ width: 64, height: 64 }) });
+        const textureFrom = spyOn(Texture, "from").mockReturnValue(fireTexture);
+        visuals.spawnFireBurn({ x: 100, y: 200 }, 80, scale);
+        textureFrom.mockRestore();
+        return { visuals, attached, burn: internals(visuals).fireBurns[0] };
+    };
+
+    test("erupts embers over the burned unit and curls smoke up behind them", () => {
+        const { visuals, attached, burn } = spawnBurn();
+
+        expect(attached).toEqual([burn.container]);
+        // Core flash + embers + smoke, all parented to the one burst container.
+        expect(burn.particles.length).toBeGreaterThan(15);
+        const additive = burn.particles.filter((p) => p.sprite.blendMode === "add");
+        expect(additive.length).toBeGreaterThan(10); // flames glow
+        expect(burn.particles.length - additive.length).toBeGreaterThan(0); // smoke does not
+
+        // Nothing is drawn before its own ignition delay elapses.
+        expect(burn.particles.every((p) => !p.sprite.visible)).toBe(true);
+        visuals.update(0.02);
+        expect(burn.particles.some((p) => p.sprite.visible)).toBe(true);
+        expect(burn.particles.some((p) => !p.sprite.visible)).toBe(true); // the smoke is still waiting
+
+        // Everything rises: y climbs while the burst plays out.
+        const lit = burn.particles.find((p) => p.sprite.visible)!;
+        const yAfterIgnition = lit.sprite.y;
+        visuals.update(0.15);
+        expect(lit.sprite.y).toBeGreaterThan(yAfterIgnition);
+    });
+
+    test("smoke outlives the flames, then the whole burst tears itself down", () => {
+        const { visuals, burn } = spawnBurn();
+        const flames = burn.particles.filter((p) => p.sprite.blendMode === "add");
+        const smoke = burn.particles.filter((p) => p.sprite.blendMode !== "add");
+        expect(Math.max(...smoke.map((p) => p.life))).toBeGreaterThan(Math.max(...flames.map((p) => p.life)));
+
+        // 0.7s: past the longest ember (0.09 ignition delay + 0.575 life), short of the earliest smoke
+        // puff burning out (0.1 + 0.736).
+        visuals.update(0.7);
+        expect(flames.every((p) => !p.sprite.visible)).toBe(true);
+        expect(smoke.every((p) => p.sprite.visible)).toBe(true);
+        expect(internals(visuals).fireBurns.length).toBe(1);
+
+        visuals.update(0.8);
+        expect(internals(visuals).fireBurns.length).toBe(0);
+        expect(burn.container.destroyed).toBe(true);
+    });
+
+    test("scale shrinks the whole burst (a shield reflect is smaller than a dragon breath)", () => {
+        const big = spawnBurn(1);
+        const small = spawnBurn(0.5);
+        const spread = (burn: (typeof big)["burn"]): number => Math.max(...burn.particles.map((p) => p.riseY));
+
+        expect(spread(small.burn)).toBeLessThan(spread(big.burn));
+    });
+
+    test("survives a ranked board rebuild but not a full clear", () => {
+        const { visuals } = spawnBurn();
+        visuals.update(0.1);
+
+        visuals.clear({ keepDetachedOverlays: true });
+        expect(internals(visuals).fireBurns.length).toBe(1);
+
+        visuals.clear();
+        expect(internals(visuals).fireBurns.length).toBe(0);
     });
 });
 
