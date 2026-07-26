@@ -239,6 +239,11 @@ export class RenderableUnit extends Unit {
     // Grayscale filter for the "revealed" mode (ranked placement: opponent roster shown in B&W).
     // Created lazily, reused for the unit's lifetime.
     private desaturateFilter?: ColorMatrixFilter;
+    // "Revealed" roster card: the dark plate behind the B&W silhouette plus its name caption, so the
+    // opponent's known army reads as a roster line-up rather than units already standing on the board.
+    private rosterCard?: Container;
+    private rosterCardPlate?: Graphics;
+    private rosterCardLabel?: Text;
     // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
     // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
     // they read at "full size" while waiting to be deployed; placed/board units keep the default 1.
@@ -523,6 +528,8 @@ export class RenderableUnit extends Unit {
         this.shadow.tint = 0x000000;
         // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
         this.stepDodgeAnimation(worldRoot);
+        // --- revealed-roster card (plate + name), drawn under the sprite ---
+        this.ensureRosterCard(worldRoot, gs, props, pos);
         // --- badge ---
         this.ensureBadge(worldRoot, gs, props, pos);
         // --- stack power indicator ---
@@ -629,6 +636,8 @@ export class RenderableUnit extends Unit {
         this.visualMode = visible ? "normal" : "hidden";
         if (this.sprite) this.sprite.visible = visible;
         if (this.shadow) this.shadow.visible = visible;
+        // The roster card belongs to "revealed" mode, which this call always leaves.
+        if (this.rosterCard) this.rosterCard.visible = false;
         if (this.badgeContainer) this.badgeContainer.visible = visible;
         if (this.stackPowerContainer) this.stackPowerContainer.visible = visible;
         if (this.hourglassContainer) {
@@ -1306,6 +1315,12 @@ export class RenderableUnit extends Unit {
             this.badgeFlag = undefined;
             this.badgeText = undefined;
         }
+        if (this.rosterCard) {
+            this.rosterCard.destroy({ children: true });
+            this.rosterCard = undefined;
+            this.rosterCardPlate = undefined;
+            this.rosterCardLabel = undefined;
+        }
         if (this.stackPowerContainer) {
             this.stackPowerContainer.destroy({ children: true });
             this.stackPowerContainer.removeFromParent();
@@ -1355,6 +1370,75 @@ export class RenderableUnit extends Unit {
     public clearBadgeEmphasis(): void {
         this.badgeEmphasisScale = 1;
         this.badgeAmountOverride = undefined;
+    }
+    /**
+     * The card behind a "revealed" unit — ranked placement shows the opponent's known army as a row of
+     * B&W silhouettes, and without a frame they read as enemies already deployed on the board. A dark
+     * rounded plate edged in the owner's team color, plus the creature's name underneath, makes the row
+     * read as a roster: you can see WHAT they drafted at a glance (the stack size stays redacted as "?"
+     * on the badge). Non-revealed units keep the card hidden, so nothing changes on the live board.
+     */
+    private ensureRosterCard(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
+        if (this.visualMode !== "revealed") {
+            if (this.rosterCard) {
+                this.rosterCard.visible = false;
+            }
+            return;
+        }
+
+        if (!this.rosterCard) {
+            this.rosterCard = new Container();
+            this.rosterCardPlate = new Graphics();
+            this.rosterCardLabel = new Text({
+                text: props.name,
+                style: new TextStyle({
+                    fill: 0xefe4cc,
+                    fontSize: 13,
+                    fontWeight: "700",
+                    stroke: { color: 0x000000, width: 3, join: "round" },
+                }),
+            });
+            this.rosterCardLabel.anchor.set(0.5);
+            // worldRoot is y-up; counter-flip so the caption reads upright.
+            this.rosterCardLabel.scale.y = -1;
+            this.rosterCard.addChild(this.rosterCardPlate, this.rosterCardLabel);
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.rosterCard);
+        } else if (this.rosterCard.parent !== worldRoot) {
+            worldRoot.addChild(this.rosterCard);
+        }
+
+        const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
+        const cell = gs.getCellSize() * this.visualScaleMultiplier;
+        const halfWidth = visualSide * 0.5 + cell * 0.16;
+        const captionGap = cell * 0.3;
+        const fontSize = Math.max(9, Math.round(cell * 0.15));
+        // The plate spans the silhouette and the caption strip beneath it (screen-down = -y here).
+        const top = pos.y + visualSide * 0.5 + cell * 0.1;
+        const bottom = pos.y - visualSide * 0.5 - captionGap - fontSize;
+        const teamColor =
+            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+
+        const plate = this.rosterCardPlate!;
+        plate.clear();
+        plate
+            .roundRect(pos.x - halfWidth, bottom, halfWidth * 2, top - bottom, Math.max(6, cell * 0.18))
+            .fill({ color: 0x05070c, alpha: 0.58 })
+            .stroke({ width: Math.max(1, cell * 0.016), color: teamColor, alpha: 0.55 });
+
+        const label = this.rosterCardLabel!;
+        label.style = new TextStyle({
+            fill: 0xefe4cc,
+            fontSize,
+            fontWeight: "700",
+            stroke: { color: 0x000000, width: 3, join: "round" },
+        });
+        label.text = props.name;
+        label.position.set(pos.x, bottom + fontSize * 0.62);
+
+        // Just under the sprite/shadow pair so the silhouette always sits on top of its own card.
+        this.rosterCard.zIndex = 4000 - pos.y - 1;
+        this.rosterCard.visible = true;
     }
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!this.badgeContainer) {

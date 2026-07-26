@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { Container, Texture } from "pixi.js";
+import { Container, Graphics, Text, Texture } from "pixi.js";
 
 import {
     AbilityFactory,
@@ -114,6 +114,79 @@ describe("RenderableUnit runtime spell synchronization", () => {
         queen.renderSpells(1);
         expect(spellBookLayer.children.length).toBeGreaterThan(0);
         expect(spellBookLayer.children.some((child) => child.visible)).toBe(true);
+    });
+});
+
+describe("RenderableUnit revealed roster card", () => {
+    // Revealed units carry a ColorMatrixFilter (the B&W pass), whose constructor probes a WebGL context
+    // through the DOM adapter. Headless bun has no document; hand it a canvas stub whose getContext
+    // returns null, which pixi already handles by falling back to mediump precision.
+    if (!("document" in globalThis)) {
+        (globalThis as { document?: unknown }).document = {
+            createElement: () => ({ getContext: () => null }),
+        };
+    }
+
+    // In-grid position (x ∈ (-1024, 1024), y ∈ (0, 2048)) so ensureVisual builds the sprite.
+    const pos = { x: 0, y: 1900 };
+
+    const revealedUnit = (): { unit: RenderableUnit; worldRoot: Container } => {
+        const unit = createRenderableUnit(TeamVals.UPPER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setVisualRevealed(true);
+        unit.setVisualScaleMultiplier(0.85);
+        unit.setPosition(pos.x, pos.y);
+        const worldRoot = new Container();
+        unit.ensureVisual(worldRoot, gridSettings);
+        return { unit, worldRoot };
+    };
+
+    // The stack badge is also a Container+Text, so match on the caption text (the creature's name).
+    const cardOf = (worldRoot: Container, name = "Satyr"): Container | undefined =>
+        worldRoot.children.find(
+            (child) =>
+                child instanceof Container && child.children.some((leaf) => leaf instanceof Text && leaf.text === name),
+        ) as Container | undefined;
+
+    test("names the creature and draws its plate beneath the silhouette", () => {
+        const { worldRoot } = revealedUnit();
+        const card = cardOf(worldRoot);
+
+        expect(card).toBeDefined();
+        expect(card!.visible).toBe(true);
+        const label = card!.children.find((child) => child instanceof Text) as Text;
+        expect(label.text).toBe("Satyr");
+        expect(card!.children.some((child) => child instanceof Graphics)).toBe(true);
+        // The caption sits below the unit on screen; worldRoot is y-up, so that is a SMALLER y.
+        expect(label.y).toBeLessThan(pos.y);
+        // Behind the sprite (higher zIndex draws later/on top).
+        const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
+        expect(sprite).toBeDefined();
+        expect(card!.zIndex).toBeLessThan(sprite!.zIndex);
+    });
+
+    test("follows the unit and disappears once it is no longer a revealed silhouette", () => {
+        const { unit, worldRoot } = revealedUnit();
+        const card = cardOf(worldRoot)!;
+        const labelBefore = (card.children.find((child) => child instanceof Text) as Text).y;
+
+        unit.setPosition(pos.x + 300, pos.y);
+        unit.ensureVisual(worldRoot, gridSettings);
+        const label = card.children.find((child) => child instanceof Text) as Text;
+        expect(label.x).toBe(pos.x + 300);
+        expect(label.y).toBe(labelBefore);
+
+        unit.setVisualRevealed(false);
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect(card.visible).toBe(false);
+    });
+
+    test("a normal board unit never builds one", () => {
+        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(pos.x, pos.y);
+        const worldRoot = new Container();
+        unit.ensureVisual(worldRoot, gridSettings);
+
+        expect(cardOf(worldRoot)).toBeUndefined();
     });
 });
 

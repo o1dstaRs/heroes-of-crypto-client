@@ -5,6 +5,7 @@ import {
     FightStateManager,
     Spell,
     getFactionOf,
+    GridMath,
     HoCConfig,
     TeamVals,
     ToFactionName,
@@ -86,6 +87,44 @@ const TURN_ENDING_ACTION_TYPES: ReadonlySet<GameAction["type"]> = new Set<GameAc
 
 const isKnownPlacementOpponentUnit = (unitState: AuthoritativeUnitState): boolean =>
     unitState.creatureId > 0 && unitState.name !== "Unknown";
+
+/**
+ * Where the opponent's revealed army sits during ranked placement: one row spread evenly across the
+ * FULL board width on their side, mirroring the viewer's own placement bench. The old layout squeezed
+ * the row into the opponent's placement-zone width with a 2.5-cell spacing cap, which piled a six-unit
+ * army into an unreadable cluster. Exported (with the two helpers below) so the geometry is unit-tested
+ * without standing up a scene.
+ *
+ * `(index + 0.5) / total` centers each unit in its own equal-width slot, which also leaves a half-slot
+ * margin at both board edges, so the row never runs off the side however many units are revealed.
+ */
+export const revealedOpponentRowX = (index: number, total: number, minX: number, maxX: number): number =>
+    minX + ((maxX - minX) * (index + 0.5)) / Math.max(1, total);
+
+/**
+ * The row's Y: centered in the strip between the opponent's placement zone and THEIR board edge, so the
+ * roster reads as standing off-board behind their zone instead of sitting inside it. When that strip is
+ * too thin to hold a unit (a zone that reaches the edge), fall back to half a step inside the edge.
+ */
+export const revealedOpponentRowY = (
+    edgeY: number,
+    zoneOuterEdgeY: number,
+    step: number,
+    isUpperEdge: boolean,
+): number => {
+    if (Math.abs(edgeY - zoneOuterEdgeY) < step * 0.5) {
+        // "Inside" cannot be inferred when the two coincide, hence the explicit edge side.
+        return edgeY + (isUpperEdge ? -step * 0.5 : step * 0.5);
+    }
+    return (edgeY + zoneOuterEdgeY) / 2;
+};
+
+/**
+ * Sprite scale for the roster row. 0.85 keeps a large (2x2) silhouette inside the one-cell strip; past
+ * six units the slots get narrower than a large unit, so shrink further to keep the row collision-free.
+ */
+export const revealedOpponentRowScale = (total: number): number =>
+    total <= 6 ? 0.85 : Math.max(0.55, (0.85 * 6) / total);
 
 const shouldHidePreFightOpponentUnit = (
     snapshot: AuthoritativeGameSnapshot,
@@ -1204,50 +1243,44 @@ export class RankedPlayScene extends Sandbox {
         const gs = this.sc_sceneSettings.getGridSettings();
         const total = revealedUnits.length;
 
-        // Bound the opponent zone from its possible cell centers (covers both the single RECTANGLE zone
-        // and the two-square corner layout, whichever the fight uses).
-        const cellCenters: HoCMath.XY[] = [];
+        // Bound the opponent zone from the cells it may place on (covers both the single RECTANGLE zone
+        // and the two-square corner layout, whichever the fight uses). possibleCellPositions returns CELL
+        // INDICES, not world coordinates — the previous layout fed them straight into unit positions,
+        // which is why the whole enemy roster collapsed into a pile of overlapping silhouettes a few
+        // world-units apart at the bottom of the board instead of a readable row.
+        const zoneCells: HoCMath.XY[] = [];
         for (const placementIndex of [0, 1]) {
             const placement = this.placementManager.getPlacement(opponentTeam, placementIndex);
             if (placement) {
-                cellCenters.push(...placement.possibleCellPositions(true));
+                zoneCells.push(...placement.possibleCellPositions(true));
             }
         }
-        if (!cellCenters.length) {
-            // No zone geometry yet (shouldn't happen in ranked) — fall back to a line on the opponent's edge.
-            const lineY = this.viewerTeam === TeamVals.LOWER ? gs.getMaxY() : gs.getMinY();
-            revealedUnits.forEach((unit, index) => {
-                const fraction = (index + 0.5) / total;
-                positions.set(unit.properties.id, {
-                    x: gs.getMinX() + (gs.getMaxX() - gs.getMinX()) * fraction,
-                    y: lineY,
-                });
-            });
-            return positions;
+        const isOpponentUpper = opponentTeam === TeamVals.UPPER;
+        const edgeY = isOpponentUpper ? gs.getMaxY() : gs.getMinY();
+        let zoneOuterEdgeY = edgeY;
+        if (zoneCells.length) {
+            // The zone's outer boundary: half a step past the center of the outermost row it can use.
+            const outermostCenterY = zoneCells.reduce(
+                (best, cell) => {
+                    const centerY = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()).y;
+                    return isOpponentUpper ? Math.max(best, centerY) : Math.min(best, centerY);
+                },
+                isOpponentUpper ? -Infinity : Infinity,
+            );
+            zoneOuterEdgeY = outermostCenterY + (isOpponentUpper ? gs.getHalfStep() : -gs.getHalfStep());
         }
 
-        let zoneMinX = Infinity;
-        let zoneMaxX = -Infinity;
-        let zoneMinY = Infinity;
-        let zoneMaxY = -Infinity;
-        for (const center of cellCenters) {
-            zoneMinX = Math.min(zoneMinX, center.x);
-            zoneMaxX = Math.max(zoneMaxX, center.x);
-            zoneMinY = Math.min(zoneMinY, center.y);
-            zoneMaxY = Math.max(zoneMaxY, center.y);
-        }
-
-        // One row across the zone's vertical middle. Spacing between unit centers is capped at 2.5
-        // cells so a small roster clusters in the middle of the zone instead of stretching wall to
-        // wall; a full 6-unit roster still spans (nearly) the whole zone width.
-        const rowY = (zoneMinY + zoneMaxY) / 2;
-        const centerX = (zoneMinX + zoneMaxX) / 2;
-        const spacing = total > 1 ? Math.min(gs.getCellSize() * 2.5, (zoneMaxX - zoneMinX) / (total - 1)) : 0;
-        const startX = centerX - (spacing * (total - 1)) / 2;
+        const rowY = revealedOpponentRowY(edgeY, zoneOuterEdgeY, gs.getStep(), isOpponentUpper);
         revealedUnits.forEach((unit, index) => {
-            positions.set(unit.properties.id, { x: startX + spacing * index, y: rowY });
+            positions.set(unit.properties.id, {
+                x: revealedOpponentRowX(index, total, gs.getMinX(), gs.getMaxX()),
+                y: rowY,
+            });
         });
         return positions;
+    }
+    protected override getRevealedOpponentUnitScale(total: number): number {
+        return revealedOpponentRowScale(total);
     }
     protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
         return this.viewerTeam !== undefined && unitState.team === this.viewerTeam;

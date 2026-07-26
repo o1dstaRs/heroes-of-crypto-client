@@ -6433,8 +6433,13 @@ export class Sandbox extends PixiScene {
         // BLOCK_CENTER the line is the only cue that the throw passes over the mountain corridor.
         // Drawn AFTER clearAttackVisuals() above, which wipes the previous frame's arrow.
         const activeUnit = this.currentActiveUnit;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        // One range divisor for the WHOLE 3x3, measured to the RESOLVED impact cell (an intercepting unit
+        // drags the splash back — getAreaThrowImpactCell — exactly as the engine's areaThrowAttack measures
+        // it). getRangeAttackDivisor returns 1/2/4/8 (halving per shot-distance band; Sniper negates) — the
+        // "1/N" falloff the player sees, the same band 17a5522 shows on the single-target hover.
+        let divisor = 1;
         if (activeUnit instanceof RenderableUnit) {
-            const gs = this.sc_sceneSettings.getGridSettings();
             const mouseCell = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
             const impactCell = mouseCell ? this.getAreaThrowImpactCell(activeUnit, mouseCell) : undefined;
             const impactPos = impactCell
@@ -6442,16 +6447,114 @@ export class Sandbox extends PixiScene {
                 : undefined;
             if (impactPos) {
                 this.hoverManager.drawAttackArrow(activeUnit.getVisualCenter(gs), impactPos);
+                divisor = this.attackHandler.getRangeAttackDivisor(activeUnit, impactPos);
             }
         }
-        // Outline every unit caught in the splash in red — same highlight as a single target.
-        for (const affectedGroup of affectedGroups) {
-            for (const affectedUnit of affectedGroup) {
+
+        // Outline every splashed unit red AND float its projected damage. affectedGroups is [units, units]
+        // (two identical refs from evaluateAffectedUnits) — iterate ONE. Per-unit damage mirrors the engine
+        // EXACTLY minus the luck/miss RNG: Unit.calculateAttackDamage (base min/max at abilityMultiplier=1,
+        // then ONE floor of sample * abilityMultiplier * deepWounds * elemental — attackTypeMultiplier is 1
+        // for a ranged throw), then processRangeAOEAbility's tail (Giant's Maul +%, victim Broken Aegis -%,
+        // physical-AOE resistance — each its own floor). Gargantuan's native Double Shot fires a SECOND full
+        // area wave (double_shot_ability -> processRangeAOEAbility again), so the total is ~2x. Keep in sync
+        // with unit.ts calculateAttackDamage + aoe_range_ability.ts + double_shot_ability.ts.
+        const splashUnits = affectedGroups[0] ?? [];
+        let doubleShot = false;
+        if (activeUnit) {
+            const abilityPower = FightStateManager.getInstance()
+                .getFightProperties()
+                .getAdditionalAbilityPowerPerTeam(activeUnit.getTeam());
+            const aoeAbility = activeUnit.getAbility("Area Throw") ?? activeUnit.getAbility("Large Caliber");
+            let abilityMultiplier = aoeAbility ? activeUnit.calculateAbilityMultiplier(aoeAbility, abilityPower) : 1;
+            const attackerParalysis = activeUnit.getEffect("Paralysis");
+            if (attackerParalysis) {
+                abilityMultiplier *= (100 - attackerParalysis.getPower()) / 100;
+            }
+            const giantsMaul = activeUnit.getBuff("Giants Maul");
+            const attackRate = activeUnit.getAttack();
+            // Deep Wounds bonus needs the ATTACKER to own a Deep Wounds Level ability AND the victim to carry
+            // the "Deep Wounds" effect (checked per victim). Gargantuan has neither natively, but both can be
+            // stolen/synergised, so model it to stay faithful.
+            const attackerHasDeepWounds = !!(
+                activeUnit.getAbility("Deep Wounds Level 0") ||
+                activeUnit.getAbility("Deep Wounds Level 1") ||
+                activeUnit.getAbility("Deep Wounds Level 2") ||
+                activeUnit.getAbility("Deep Wounds Level 3")
+            );
+            doubleShot =
+                activeUnit.hasAbilityActive("Double Shot") || activeUnit.hasAbilityActive("Crafted Double Shot");
+            for (const affectedUnit of splashUnits) {
+                this.hoverManager.addTargetHighlight(affectedUnit);
+                if (affectedUnit.isDead()) {
+                    continue;
+                }
+                // Base bounds WITHOUT the ability multiplier — the engine computes min/max at abilityMultiplier=1
+                // and applies it (plus deepWounds/elemental) AFTER the roll in a single Math.floor.
+                const baseMin = activeUnit.calculateAttackDamageMin(
+                    attackRate,
+                    affectedUnit,
+                    true,
+                    abilityPower,
+                    divisor,
+                );
+                const baseMax = activeUnit.calculateAttackDamageMax(
+                    attackRate,
+                    affectedUnit,
+                    true,
+                    abilityPower,
+                    divisor,
+                );
+                const deepWoundsPower = attackerHasDeepWounds
+                    ? (affectedUnit.getEffect("Deep Wounds")?.getPower() ?? 0)
+                    : 0;
+                const deepWoundsMul = deepWoundsPower > 0 ? 1 + deepWoundsPower / 100 : 1;
+                const postSample =
+                    abilityMultiplier * deepWoundsMul * activeUnit.getElementalDamageMultiplier(affectedUnit);
+                let minD = Math.floor(baseMin * postSample);
+                let maxD = Math.floor(baseMax * postSample);
+                if (giantsMaul) {
+                    const gmMul = 1 + giantsMaul.getPower() / 100;
+                    minD = Math.floor(minD * gmMul);
+                    maxD = Math.floor(maxD * gmMul);
+                }
+                const brokenAegis = affectedUnit.getBuff("Broken Aegis");
+                if (brokenAegis) {
+                    const baMul = 1 - brokenAegis.getPower() / 100;
+                    minD = Math.floor(minD * baMul);
+                    maxD = Math.floor(maxD * baMul);
+                }
+                const aoeMul = affectedUnit.getPhysicalAoeDamageMultiplier();
+                minD = Math.floor(minD * aoeMul);
+                maxD = Math.floor(maxD * aoeMul);
+                // Double Shot re-runs the whole area wave on the same units at the same divisor, so the total
+                // is ~2x (an UPPER bound: the second wave can miss or hit a unit the first already killed).
+                // Matches the single-target hover, which shows 2x for Double Shot.
+                if (doubleShot) {
+                    minD *= 2;
+                    maxD *= 2;
+                }
+                // NOTE: Flesh Shield Aura redistribution across the splash isn't modeled — if a Flesh-Shield
+                // owner and its protectee are both in the 3x3, the shown split won't match the resolved one.
+                const dmgStr = minD === maxD ? `${minD}` : `${minD}-${maxD}`;
+                const labelPos =
+                    affectedUnit instanceof RenderableUnit
+                        ? affectedUnit.getVisualCenter(gs)
+                        : affectedUnit.getPosition();
+                this.hoverManager.addAOEDamageLabel(labelPos, dmgStr, !affectedUnit.isSmallSize());
+            }
+        } else {
+            for (const affectedUnit of splashUnits) {
                 this.hoverManager.addTargetHighlight(affectedUnit);
             }
         }
-        if (this.sc_hoverInfoArr[0] !== "Area attack") {
-            this.sc_hoverInfoArr = ["Area attack"];
+
+        // The whole 3x3 shares one divisor, so show the falloff once in the cursor text rather than on every
+        // unit. When the attacker has Double Shot, each floating number already includes both waves, so flag
+        // "×2" here so the (larger) numbers read correctly. clearInfo() matches by prefix so it still clears.
+        const areaLabel = `Area attack — 🎯1/${divisor}${doubleShot ? "  ×2" : ""}`;
+        if (this.sc_hoverInfoArr[0] !== areaLabel) {
+            this.sc_hoverInfoArr = [areaLabel];
             this.sc_hoverTextUpdateNeeded = true;
         }
         return true;
@@ -6701,6 +6804,80 @@ export class Sandbox extends PixiScene {
      * the hover arrow so the committed shot matches what the player saw. Returns undefined when no
      * side is observable (the target is fully hidden), letting the engine fall back to its default.
      */
+    /**
+     * INCOMING-THREAT PREVIEW — a downtime planning aid, available ONLY while it is not your turn.
+     *
+     * Shift-click an enemy shooter to pin it (the existing inspect selection), then hover your own units:
+     * each hover draws the shot that shooter would take at that unit — the trajectory it would fly, the
+     * unit that would actually be struck if somebody screens it, and the distance falloff band it would
+     * land at (the same 🎯1/1 … 1/8 the aiming player sees). Answers "who is safe where" before you commit
+     * next turn's positions, instead of eyeballing the shot-range ring.
+     *
+     * Gated to the opponent's turn on purpose: during YOUR turn the arrow would fight with your own
+     * aiming visuals for the same Graphics layer and read as if you were targeting your own unit.
+     *
+     * Returns true when it rendered, so the caller leaves the preview alone for this frame.
+     */
+    protected renderIncomingThreatPreview(hoveredUnit: Unit | undefined): boolean {
+        const shooter = this.currentShiftedUnit;
+        if (
+            !this.isEnemyActiveTurn() ||
+            !shooter ||
+            !(shooter instanceof RenderableUnit) ||
+            shooter.isDead() ||
+            shooter.getAttackType() !== AttackVals.RANGE ||
+            shooter.getRangeShots() <= 0 ||
+            shooter.hasAbilityActive("Handyman") ||
+            !hoveredUnit ||
+            hoveredUnit.isDead() ||
+            // Only a shot at the shooter's ENEMY is a threat; hovering its own allies previews nothing.
+            hoveredUnit.getTeam() === shooter.getTeam() ||
+            !this.attackHandler
+        ) {
+            return false;
+        }
+
+        const gs = this.sc_sceneSettings.getGridSettings();
+        // Aim at the same visible edge a real shot resolves to, so the line and the falloff band match
+        // what the shooter would actually get rather than a centre-to-centre approximation.
+        const aim = this.resolveRangeAimForTarget(shooter, hoveredUnit, hoveredUnit.getPosition())?.position;
+        const aimPos = aim ?? hoveredUnit.getPosition();
+
+        // Who the shot really meets: a plain shot stops at the FIRST unit on the line, so a teammate
+        // standing in front turns this into a screen rather than a hit on the hovered unit.
+        const evaluation = this.attackHandler.evaluateRangeAttack(
+            this.unitsHolder.getAllUnits(),
+            shooter,
+            shooter.getPosition(),
+            aimPos,
+            shooter.hasAbilityActive("Through Shot"),
+            false,
+            shooter.hasAbilityActive("Large Caliber") || shooter.hasAbilityActive("Area Throw"),
+        );
+        const interceptor = evaluation.affectedUnits?.[0]?.[0];
+        const screened = !!interceptor && interceptor.getId() !== hoveredUnit.getId();
+        const impactUnit = (interceptor ?? hoveredUnit) as RenderableUnit;
+        const impactPos =
+            typeof impactUnit.getVisualCenter === "function"
+                ? impactUnit.getVisualCenter(gs)
+                : impactUnit.getPosition();
+
+        // Falloff the SHOOTER would apply at this distance — same engine call the aiming player's hover
+        // uses, measured from the shooter's position exactly as the engine measures it.
+        const divisor = this.attackHandler.getRangeAttackDivisor(shooter, aimPos);
+
+        this.hoverManager.drawAttackArrow(shooter.getVisualCenter(gs), impactPos);
+        this.hoverManager.addTargetHighlight(impactUnit);
+
+        const line = screened
+            ? `🎯1/${divisor}  ${shooter.getName()} → ${impactUnit.getName()} (screens ${hoveredUnit.getName()})`
+            : `🎯1/${divisor}  ${shooter.getName()} → ${hoveredUnit.getName()}`;
+        if (this.sc_hoverInfoArr[0] !== line) {
+            this.sc_hoverInfoArr = [line];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+        return true;
+    }
     private resolveRangeAimForTarget(
         attacker: RenderableUnit,
         target: Unit,
@@ -7900,6 +8077,17 @@ export class Sandbox extends PixiScene {
                 hoverTargetUnit.hasBuffActive("Hidden") &&
                 viewerTeam !== undefined &&
                 hoverTargetUnit.getTeam() !== viewerTeam;
+            // Incoming-threat preview: with an enemy shooter pinned by shift-click, hovering one of your
+            // units shows the shot it would take. Only while it is NOT your turn, so it can never collide
+            // with your own aiming visuals. Rendered before the generic previews so its arrow + highlight
+            // survive the frame; the generic aura/range readouts below still run underneath it.
+            const threatShown = this.renderIncomingThreatPreview(
+                hoverTargetUnit && !hoverTargetUnit.isDead() && !concealedFromViewer ? hoverTargetUnit : undefined,
+            );
+            if (!threatShown && this.isEnemyActiveTurn()) {
+                // Pinned shooter but nothing threatened under the cursor — drop last frame's arrow.
+                this.hoverManager.clearAttackVisuals();
+            }
             if (hoverTargetUnit && !hoverTargetUnit.isDead() && !concealedFromViewer) {
                 // Aura: visualize the hovered unit's aura range. Routed through sc_hoveredAuraRanges so
                 // SandboxDrawer paints it on the same persistent layer (z=55) as the active/selected

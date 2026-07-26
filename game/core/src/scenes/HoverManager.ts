@@ -685,6 +685,15 @@ export class HoverManager {
         }
         this.hoverTargetSilhouettes = [];
 
+        // Hide the per-unit AOE damage labels (Gargantuan Area Throw preview) and return them to the pool,
+        // exactly like the silhouettes above. updateAreaThrowHover calls clearAttackVisuals() at the top of
+        // every hover frame, so the labels refresh each frame and clear on every aim-exit path.
+        for (const label of this.aoeDamageLabels) {
+            label.visible = false;
+            this.aoeDamageLabelPool.push(label);
+        }
+        this.aoeDamageLabels = [];
+
         if (this.hoverDamageText) {
             this.hoverDamageText.visible = false;
         }
@@ -750,6 +759,45 @@ export class HoverManager {
         silhouette.tint = tint;
 
         this.hoverTargetSilhouettes.push(silhouette);
+    }
+    private aoeDamageLabels: Text[] = [];
+    private aoeDamageLabelPool: Text[] = [];
+    /**
+     * Floating projected-damage number over ONE splashed unit, for the Gargantuan Area Throw (3x3) aim
+     * preview. Unlike drawDamagePrediction (which reuses a single shared Text and so can only show one
+     * number), this pools N labels — one per unit in the splash — recycled each hover frame in
+     * clearAttackVisuals(). Same style + Y-flip as drawDamagePrediction. Works in ranked unchanged, since
+     * the whole area-throw hover path is inherited by RankedPlayScene.
+     */
+    public addAOEDamageLabel(position: HoCMath.XY, damageStr: string, isLargeTarget: boolean): void {
+        const scale = isLargeTarget ? 2 : 1;
+        let label: Text;
+        if (this.aoeDamageLabelPool.length > 0) {
+            label = this.aoeDamageLabelPool.pop()!;
+            label.text = damageStr;
+        } else {
+            label = new Text({
+                text: damageStr,
+                style: {
+                    fontFamily: "Arial",
+                    fontSize: 24,
+                    fill: 0xffffff,
+                    stroke: { color: 0x000000, width: 4, join: "round" },
+                    align: "center",
+                    fontWeight: "bold",
+                },
+            });
+            label.anchor.set(0.5, 0.5);
+            // Above the translucent 3x3 AOE fill (drawAOEArea attaches at z 4500) so the numbers sit on top of
+            // it rather than under its red wash — and above units/silhouettes/arrow like the single-target text.
+            this.context.attachToWorldRoot(label, 4600);
+        }
+        label.visible = true;
+        // The world root is Y-inverted (see drawDamagePrediction / the silhouettes) — a negative Y scale
+        // keeps the number upright instead of mirrored.
+        label.scale.set(scale, -scale);
+        label.position.set(position.x, position.y);
+        this.aoeDamageLabels.push(label);
     }
     public drawAttackArrow(from: HoCMath.XY, to: HoCMath.XY, continuationTo?: HoCMath.XY): void {
         // If attacking from same position (Stand Ground), don't draw arrow

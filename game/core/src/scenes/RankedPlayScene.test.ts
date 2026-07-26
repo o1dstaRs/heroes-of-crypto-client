@@ -27,6 +27,9 @@ import {
     rankedUnitStartHealth,
     multiHitSceneLogLines,
     restoreRankedStepsMoraleMultiplier,
+    revealedOpponentRowScale,
+    revealedOpponentRowX,
+    revealedOpponentRowY,
     shouldPublishRankedFinish,
 } from "./RankedPlayScene";
 import { RenderableUnit } from "./RenderableUnit";
@@ -828,6 +831,74 @@ describe("ranked placement scene state", () => {
         expect(rankedUnitAliveHealth(healthy)).toBe(100);
         expect(rankedUnitStartHealth(wounded) - rankedUnitAliveHealth(wounded)).toBe(6);
         expect(rankedUnitStartHealth(losses) - rankedUnitAliveHealth(losses)).toBe(27);
+    });
+});
+
+describe("revealed opponent roster row", () => {
+    // Real board geometry: 16 cells, x in [-1024, 1024], y in [0, 2048], step 128.
+    const MIN_X = GridConstants.MIN_X;
+    const MAX_X = GridConstants.MAX_X;
+    const STEP = GridConstants.MAX_Y / GridConstants.GRID_SIZE;
+
+    test("spreads the army across the full board width, inside both edges", () => {
+        const xs = Array.from({ length: 6 }, (_, index) => revealedOpponentRowX(index, 6, MIN_X, MAX_X));
+
+        expect(xs).toEqual([...xs].sort((a, b) => a - b));
+        expect(xs[0]).toBeGreaterThan(MIN_X);
+        expect(xs[xs.length - 1]).toBeLessThan(MAX_X);
+        // Even slots, and the end margins match each other (half a slot at each edge).
+        const gaps = xs.slice(1).map((x, index) => x - xs[index]);
+        for (const gap of gaps) {
+            expect(gap).toBeCloseTo(gaps[0], 6);
+        }
+        expect(xs[0] - MIN_X).toBeCloseTo(MAX_X - xs[xs.length - 1], 6);
+        // Wider than the old zone-bounded row, which capped spacing at 2.5 cells.
+        expect(gaps[0]).toBeGreaterThan(STEP * 2.5);
+    });
+
+    test("keeps a single unit centered and never collapses on an empty roster", () => {
+        expect(revealedOpponentRowX(0, 1, MIN_X, MAX_X)).toBe((MIN_X + MAX_X) / 2);
+        expect(Number.isFinite(revealedOpponentRowX(0, 0, MIN_X, MAX_X))).toBe(true);
+    });
+
+    test("centers the row in the strip between their zone and their own edge", () => {
+        // UPPER opponent: a 3-row zone ending at y=1920 leaves exactly the top cell row free.
+        expect(revealedOpponentRowY(2048, 1920, STEP, true)).toBe(1984);
+        // LOWER opponent mirrors it.
+        expect(revealedOpponentRowY(0, 128, STEP, false)).toBe(64);
+    });
+
+    test("sits on the opponent's half once their zone cells are converted to world coordinates", () => {
+        // The UPPER rectangle zone occupies cell rows 12-14, so its outermost row is y = 14. Placement
+        // geometry hands back CELL INDICES; feeding those straight in (the old bug) put the whole row at
+        // y ≈ 14 — the far side of the board, in a pile.
+        const outermostCenterY = GridMath.getPositionForCell({ x: 1, y: 14 }, MIN_X, STEP, STEP / 2).y;
+        const zoneOuterEdgeY = outermostCenterY + STEP / 2;
+        expect(zoneOuterEdgeY).toBe(GridConstants.MAX_Y - STEP);
+
+        const rowY = revealedOpponentRowY(GridConstants.MAX_Y, zoneOuterEdgeY, STEP, true);
+        expect(rowY).toBe(1984);
+        expect(rowY).toBeGreaterThan(GridConstants.MAX_Y / 2);
+    });
+
+    test("stays on the board when the zone reaches the edge", () => {
+        expect(revealedOpponentRowY(2048, 2048, STEP, true)).toBe(2048 - STEP * 0.5);
+        expect(revealedOpponentRowY(0, 0, STEP, false)).toBe(STEP * 0.5);
+        // A sliver of a strip is not enough to sit in either.
+        expect(revealedOpponentRowY(2048, 2000, STEP, true)).toBe(2048 - STEP * 0.5);
+    });
+
+    test("shrinks the silhouettes only once the slots get tighter than a large unit", () => {
+        expect(revealedOpponentRowScale(6)).toBe(0.85);
+        expect(revealedOpponentRowScale(1)).toBe(0.85);
+        expect(revealedOpponentRowScale(10)).toBeLessThan(0.85);
+        expect(revealedOpponentRowScale(50)).toBeGreaterThanOrEqual(0.55);
+
+        // The point of shrinking: a 2x2 silhouette must still fit its slot.
+        for (const total of [6, 8, 10, 12]) {
+            const slot = (MAX_X - MIN_X) / total;
+            expect(256 * revealedOpponentRowScale(total)).toBeLessThanOrEqual(slot + 1);
+        }
     });
 });
 
