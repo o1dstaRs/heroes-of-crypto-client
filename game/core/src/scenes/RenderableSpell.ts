@@ -230,6 +230,21 @@ export class PixiRenderableSpell extends Spell {
             const stat = this.getName() === "Armor Rune" ? "armor" : "attack";
             return [...lines, `50% chance per cast to add +1 ${stat}.`, "The bonus stacks on the target."];
         }
+        // Magic Mirror is stack-powered and luck-scaled, so the card must show what the holder will ACTUALLY
+        // reflect (15/30/45/60/75 by stack, plus luck) rather than the flat configured 75. Mirrors the
+        // engine's getMagicMirrorPower exactly — the two must never disagree about the promised number.
+        if (this.getName() === "Magic Mirror" || this.getName() === "Mass Magic Mirror") {
+            const stack = Math.max(0, Math.min(HoCConstants.MAX_UNIT_STACK_POWER, ownerStackPower));
+            const reflected = Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.floor((this.getPower() / HoCConstants.MAX_UNIT_STACK_POWER) * stack + (casterLuck ?? 0)),
+                ),
+            );
+            return [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, reflected.toString()))];
+        }
+
         // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,
         // wolves summoned, etc.), matching how the legacy spell book rendered it.
         let replaceBy = "";

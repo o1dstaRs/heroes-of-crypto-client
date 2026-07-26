@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { animatableEffectNames, diffUnitEffects, isAuraEffectName } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects, isAuraEffectName, newlyCraftedAbilities } from "./effect_pops";
 
 const set = (...names: string[]): Set<string> => new Set(names);
 
@@ -113,5 +113,48 @@ describe("diffUnitEffects", () => {
         const diff = diffUnitEffects(set(), prevBuffs, set(), currentBuffs);
         expect(diff.newBuffs).toEqual(["Courage"]);
         expect(diff.flash).toBe("buff");
+    });
+});
+
+describe("newlyCraftedAbilities", () => {
+    // Ranked defers the Blacksmith's Craft to the authoritative replay, which must not re-roll the
+    // luck-weighted outcome locally (unseeded RNG would show each player a different result). The pop
+    // is driven off the snapshot's ability list instead, so this diff IS the ranked craft animation.
+    test("pops a crafted ability the moment the snapshot grants it", () => {
+        expect(newlyCraftedAbilities(set("Double Punch"), set("Double Punch", "Crafted Frozen Sword"))).toEqual([
+            "Crafted Frozen Sword",
+        ]);
+    });
+
+    test("ignores the unit's permanent abilities, however they are ordered", () => {
+        expect(newlyCraftedAbilities(set("Double Punch"), set("Double Punch", "Backstab"))).toEqual([]);
+    });
+
+    test("seeds silently on first sighting so a reconnect mid-fight doesn't burst an old craft", () => {
+        expect(newlyCraftedAbilities(undefined, set("Crafted Double Shot"))).toEqual([]);
+    });
+
+    test("pops once, not again on every later snapshot carrying the same ability", () => {
+        const afterCraft = set("Double Shot", "Crafted Double Shot");
+        expect(newlyCraftedAbilities(set("Double Shot"), afterCraft)).toEqual(["Crafted Double Shot"]);
+        expect(newlyCraftedAbilities(afterCraft, afterCraft)).toEqual([]);
+    });
+
+    test("a craft that expires and is re-applied pops again", () => {
+        expect(newlyCraftedAbilities(set("Crafted Double Shot"), set())).toEqual([]);
+        expect(newlyCraftedAbilities(set(), set("Crafted Double Shot"))).toEqual(["Crafted Double Shot"]);
+    });
+
+    test("reports every crafted ability a single Craft grants, in order", () => {
+        expect(newlyCraftedAbilities(set(), set("Crafted Double Punch", "Crafted Frozen Sword"))).toEqual([
+            "Crafted Double Punch",
+            "Crafted Frozen Sword",
+        ]);
+    });
+
+    // An older server omits `abilities` from the snapshot; the caller passes an empty set, which must
+    // degrade to "nothing to pop" rather than throwing or clearing anything.
+    test("an ability-less snapshot pops nothing", () => {
+        expect(newlyCraftedAbilities(set("Crafted Double Shot"), set())).toEqual([]);
     });
 });

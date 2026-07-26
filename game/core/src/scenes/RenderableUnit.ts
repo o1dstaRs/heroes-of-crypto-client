@@ -2426,18 +2426,6 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Serene Mind (Monk) — same fixed magic armor as Magic Shield, so the same live stack scaling.
-        const sereneMindAbility = this.getAbility("Serene Mind");
-        if (sereneMindAbility) {
-            const percentage = Number(
-                this.calculateAbilityApplyChance(sereneMindAbility, _synergyAbilityPowerIncrease).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                sereneMindAbility.getName(),
-                sereneMindAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
         // Borrowed Grace (Monk) — its stack curve is its own (20% at one stack up to the card's power at
         // five), so the tooltip has to read borrowedGraceChance rather than the generic apply chance.
         const borrowedGraceAbility = this.getAbility(AllAbilities.BORROWED_GRACE_NAME);
@@ -2630,6 +2618,22 @@ export class RenderableUnit extends Unit {
                     "Wolf Trail Aura",
                     wolfTrailAuraEffect
                         .getDesc()
+                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
+                );
+            }
+        }
+
+        // Warding Mane Aura — stack-scaled and luck-moved like the other percentage auras, so the card has
+        // to print the value this Manticore actually projects rather than the card's raw power.
+        const wardingManeAuraAbility = this.getAbility("Warding Mane Aura");
+        if (wardingManeAuraAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Warding Mane");
+            if (auraEffect) {
+                this.refreshAbiltyDescription(
+                    wardingManeAuraAbility.getName(),
+                    wardingManeAuraAbility
+                        .getDesc()
+                        .join("\n")
                         .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
                 );
             }

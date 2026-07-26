@@ -30,6 +30,7 @@ import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { PERK_COPY } from "../perkCopy";
 import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 
@@ -352,11 +353,10 @@ const ArtifactConfirmModal: React.FC<{
 };
 
 // Emoji cue per perk (Scout / Spymaster / Blind Fury) so the vision trade-off reads at a glance.
-const PERK_ICON: Record<number, string> = {
-    [Perk.Perk.THREE_REVEALS]: "🔍",
-    [Perk.Perk.SEE_ALL]: "👁️",
-    [Perk.Perk.SEE_NONE]: "🚫",
-};
+// Sourced from the shared perk copy so the draft panel and the pre-game chooser can't drift apart.
+const PERK_ICON: Record<number, string> = Object.fromEntries(
+    Object.entries(PERK_COPY).map(([perkId, copy]) => [Number(perkId), copy.icon]),
+);
 
 const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.PERK]:
