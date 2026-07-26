@@ -1,4 +1,4 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 /**
@@ -16,6 +16,13 @@ import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 export interface IRangedProjectilesContext {
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
+    /**
+     * Optional texture lookup. Vector projectiles are fine for geometric shapes (a bolt, a cannonball, the
+     * chakram's ring), but an organic one — Trent's thorn-clawed vine — cannot be faithfully drawn with
+     * strokes at one cell across. When `vine_dart_256` exists it is used as a sprite instead, and the art
+     * carries the detail; otherwise the vector fallback below is drawn.
+     */
+    texAny?: (name: string) => Texture | undefined;
 }
 
 /** Creature names (lower-case) that fire a larger "cannonball" projectile. */
@@ -27,6 +34,8 @@ export interface IFireProjectileOptions {
     big: boolean;
     /** Zena's Chakram: a spinning bladed disc rather than a bolt or a cannonball. */
     chakram?: boolean;
+    /** Trent's Vine Throw: a braided, thorn-clawed length of living wood. */
+    vine?: boolean;
 }
 
 interface IProjectile {
@@ -41,6 +50,9 @@ interface IProjectile {
     arc: number; // peak lob height in world px (0 = straight line)
     cell: number; // grid cell size captured at spawn (drives drawing scale)
     chakram: boolean;
+    vine: boolean;
+    /** Set when the vine dart is drawn from art rather than from strokes. */
+    sprite?: Sprite;
     spin: number; // radians of blade rotation accumulated in flight
     resolve: () => void;
 }
@@ -56,6 +68,23 @@ const BOLT_WIDTH_FACTOR = 0.07; // default bolt core width relative to cell
 const CHAKRAM_RADIUS_FACTOR = 0.34; // disc radius relative to cell
 const CHAKRAM_SPIN_PER_DT = 90; // radians per dt-unit — a hard, weapon-like spin
 const CHAKRAM_BLADES = 3; // cut-outs around the ring, echoing the art
+// Vine dart: long, thin and fast, so it reads as a whip of wood rather than a log being lobbed.
+const VINE_LEN_FACTOR = 1.15; // length relative to cell — deliberately longer than a bolt
+const VINE_WIDTH_FACTOR = 0.15; // braid thickness relative to cell
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for the braid pass still being written
+const VINE_STRANDS = 3; // interwoven strands; one stroke reads as a stick, three read as cordage
+const VINE_WRITHE_PER_DT = 26; // how fast the braid squirms in flight
+/** Charred bark, bone-pale claw edges and the red heat inside — Trent's own palette. */
+const VINE_BARK_DARK = 0x140d07;
+const VINE_BARK_MID = 0x4a3520;
+const VINE_BARK_LIGHT = 0x8a7350;
+const VINE_CLAW = 0xd8cdb6;
+const VINE_EMBER = 0xff3a18;
+const VINE_EMBER_DEEP = 0x9c1608;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for the braid pass still being written
+const VINE_MOSS = 0x5c7a2e;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for the braid pass still being written
+const VINE_CAP = 0x5e2038;
 
 export class RangedProjectiles {
     private context: IRangedProjectilesContext;
@@ -102,6 +131,8 @@ export class RangedProjectiles {
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,
                 chakram: !!opts.chakram,
+                vine: !!opts.vine,
+                sprite: opts.vine ? this.makeVineSprite(cell) : undefined,
                 spin: 0,
                 resolve,
             };
@@ -127,6 +158,7 @@ export class RangedProjectiles {
             this.draw(p, x, y);
 
             if (t >= 1) {
+                p.sprite?.destroy();
                 p.g.destroy();
                 this.projectiles.splice(i, 1);
                 p.resolve();
@@ -136,6 +168,7 @@ export class RangedProjectiles {
     /** Destroy all in-flight projectiles (e.g. fight reset). Resolves awaiters so callers don't hang. */
     public clear(): void {
         for (const p of this.projectiles) {
+            p.sprite?.destroy();
             p.g.destroy();
             p.resolve();
         }
@@ -150,6 +183,10 @@ export class RangedProjectiles {
         g.clear();
         if (p.chakram) {
             this.drawChakram(p, x, y);
+            return;
+        }
+        if (p.vine) {
+            this.drawVine(p, x, y);
             return;
         }
         if (p.big) {
@@ -190,6 +227,144 @@ export class RangedProjectiles {
      * this hard would actually leave. Drawn rather than sprited so it can spin at any angle without a
      * texture rotation, and so the trail can be redrawn per frame from the live spin.
      */
+    /**
+     * Trent's Vine Throw: a braided length of living wood thrown like a whip, clawed at the head.
+     *
+     * Drawn rather than sprited for the same reason as the chakram — it has to squirm and re-aim every
+     * frame at any angle. Built from the reference art in four reads, outside in: red speed streaks (this
+     * thing is FAST, and the streaks are what says so), a braid of interwoven strands rather than one stick,
+     * the heat glowing out from between the strands, and a pair of hooked bone-pale claws at the head. A
+     * couple of caps and moss ride along, because the thing tore itself off a living tree.
+     */
+    /** The dart's art, if it has been supplied. Sized to the cell and pivoted so it points along flight. */
+    private makeVineSprite(cell: number): Sprite | undefined {
+        const texture = this.context.texAny?.("vine_dart_256");
+        if (!texture) {
+            return undefined;
+        }
+        const sprite = new Sprite(texture);
+        sprite.anchor.set(0.5);
+        const target = cell * VINE_LEN_FACTOR;
+        sprite.scale.set(target / Math.max(1, texture.width));
+        return sprite;
+    }
+    private drawVine(p: IProjectile, x: number, y: number): void {
+        if (p.sprite) {
+            this.drawVineSprite(p, x, y);
+            return;
+        }
+        this.drawVineVector(p, x, y);
+    }
+    /** Art-backed dart: the sprite carries the shape, this only aims it and lays the speed streaks. */
+    private drawVineSprite(p: IProjectile, x: number, y: number): void {
+        const sprite = p.sprite!;
+        if (!sprite.parent) {
+            this.context.attachToWorldRoot(sprite, PROJECTILE_Z);
+        }
+        sprite.position.set(x, y);
+        // Art is authored pointing right; the world root is y-flipped, so negate to keep it nose-first.
+        sprite.rotation = -p.angle;
+        const g = p.g;
+        const w = Math.max(3, p.cell * VINE_WIDTH_FACTOR);
+        const len = p.cell * VINE_LEN_FACTOR;
+        const ca = Math.cos(p.angle);
+        const sa = Math.sin(p.angle);
+        const nx = -sa;
+        const ny = ca;
+        for (let i = 0; i < 4; i += 1) {
+            const spread = (i - 1.5) * w * 0.7;
+            const tailLen = len * (1.6 + (i % 2) * 0.9);
+            g.moveTo(x - ca * len * 0.35 + nx * spread, y - sa * len * 0.35 + ny * spread)
+                .lineTo(x - ca * tailLen + nx * spread * 1.8, y - sa * tailLen + ny * spread * 1.8)
+                .stroke({ width: Math.max(1, w * 0.34), color: VINE_EMBER, alpha: 0.34 - Math.abs(i - 1.5) * 0.07 });
+        }
+    }
+    private drawVineVector(p: IProjectile, x: number, y: number): void {
+        const g = p.g;
+        const len = p.cell * VINE_LEN_FACTOR;
+        const w = Math.max(3, p.cell * VINE_WIDTH_FACTOR);
+        const ca = Math.cos(p.angle);
+        const sa = Math.sin(p.angle);
+        const nx = -sa;
+        const ny = ca;
+        const writhe = p.spin * (VINE_WRITHE_PER_DT / CHAKRAM_SPIN_PER_DT);
+        /** Local frame: u walks the flight axis with the head at 1, `side` steps perpendicular. */
+        const at = (u: number, side: number) => ({
+            x: x + ca * (u - 1) * len + nx * side,
+            y: y + sa * (u - 1) * len + ny * side,
+        });
+
+        // This renders about one cell long in play, so it is built for SILHOUETTE, not for detail: bold
+        // streaks, a thick braid, a solid dark head and two heavy sickles. Filigree at this size just
+        // turns to visual noise — the reference art's fine thorns are carried by the icon, not by the dart.
+
+        // 1 — speed streaks, the loudest cue that this thing is thrown hard.
+        for (let i = 0; i < 4; i += 1) {
+            const spread = (i - 1.5) * w * 0.7;
+            const tailLen = len * (1.6 + (i % 2) * 0.9);
+            const a = at(0.8, spread);
+            g.moveTo(a.x, a.y)
+                .lineTo(x - ca * tailLen + nx * spread * 1.8, y - sa * tailLen + ny * spread * 1.8)
+                .stroke({ width: Math.max(1, w * 0.34), color: VINE_EMBER, alpha: 0.34 - Math.abs(i - 1.5) * 0.07 });
+        }
+
+        // 2 — braid: two thick strands crossing over each other. Two, not three: at this size a third
+        // strand only muddies the middle.
+        const STEPS = 10;
+        const strandAt = (u: number, strand: number) =>
+            at(u, Math.sin(writhe * 0.5 + strand * Math.PI + u * 6) * w * 0.8 * (0.35 + u * 0.65));
+        for (let strand = 0; strand < 2; strand += 1) {
+            for (let pass = 0; pass < 2; pass += 1) {
+                const color = pass === 0 ? VINE_BARK_DARK : strand === 0 ? VINE_BARK_MID : VINE_BARK_LIGHT;
+                const width = pass === 0 ? w * 1.05 : w * 0.62;
+                for (let i = 1; i <= STEPS; i += 1) {
+                    const a = strandAt((i - 1) / STEPS, strand);
+                    const b = strandAt(i / STEPS, strand);
+                    g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width, color, alpha: 1, cap: "round" });
+                }
+            }
+        }
+
+        // 3 — heat down the core, brightest at the head.
+        for (let i = 1; i <= STEPS; i += 1) {
+            const a = at((i - 1) / STEPS, 0);
+            const b = at(i / STEPS, 0);
+            const heat = 0.2 + 0.65 * (i / STEPS);
+            g.moveTo(a.x, a.y)
+                .lineTo(b.x, b.y)
+                .stroke({ width: w * 0.75, color: VINE_EMBER_DEEP, alpha: heat * 0.5 });
+            g.moveTo(a.x, a.y)
+                .lineTo(b.x, b.y)
+                .stroke({ width: w * 0.24, color: VINE_EMBER, alpha: heat });
+        }
+
+        // 4 — head: a solid dark wedge driving forward. Gives the dart one unmistakable pointed end, which
+        // is what a fast small object needs to read as "aimed".
+        const noseTip = at(1.5, 0);
+        const noseL = at(0.92, w * 0.9);
+        const noseR = at(0.92, -w * 0.9);
+        g.moveTo(noseL.x, noseL.y)
+            .lineTo(noseTip.x, noseTip.y)
+            .lineTo(noseR.x, noseR.y)
+            .closePath()
+            .fill({ color: VINE_BARK_MID, alpha: 1 });
+
+        // 5 — two heavy sickles sweeping forward and out from behind the head.
+        for (const side of [1, -1]) {
+            const hook = 1 + 0.1 * Math.sin(writhe + side * 1.3);
+            const root = at(0.86, side * w * 0.7);
+            const tip = at(1.42 * hook, side * w * 1.9);
+            const outer = at(1.0, side * w * 2.5 * hook);
+            const inner = at(1.05, side * w * 0.55);
+            g.moveTo(root.x, root.y)
+                .quadraticCurveTo(outer.x, outer.y, tip.x, tip.y)
+                .quadraticCurveTo(inner.x, inner.y, root.x, root.y)
+                .fill({ color: VINE_BARK_MID, alpha: 1 });
+            // Only the very tip catches light. A pale line down the whole outer curve is what made these
+            // read as crab pincers instead of blades.
+            g.circle(tip.x, tip.y, w * 0.18).fill({ color: VINE_CLAW, alpha: 0.85 });
+        }
+    }
     private drawChakram(p: IProjectile, x: number, y: number): void {
         const g = p.g;
         const r = p.cell * CHAKRAM_RADIUS_FACTOR;

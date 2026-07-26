@@ -2046,6 +2046,14 @@ export class RankedPlayScene extends Sandbox {
                 // the same wording as a bare "cast Heal on X" until the event started carrying it.
                 const healedTotal = (event.healed ?? []).reduce((sum, entry) => sum + entry.amount, 0);
                 const healSuffix = healedTotal > 0 ? ` for ${healedTotal} hp` : "";
+                // The same for a DAMAGING spell (Fire Strike / Meteorite): only the engine knows what landed
+                // after magic resistance, so without `damaged` the ranked log would read as a bare
+                // "cast Fire Strike on X" with no number — exactly the gap `healed` was added to close.
+                const damagedEntries = event.damaged ?? [];
+                const damagedTotal = damagedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+                const killed = damagedEntries.reduce((sum, entry) => sum + entry.unitsDied, 0);
+                const damageSuffix =
+                    damagedTotal > 0 ? ` for ${damagedTotal} damage${killed > 0 ? ` 💀 ${killed}` : ""}` : "";
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
                 // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and
                 // read fine from the spell name.
@@ -2058,11 +2066,17 @@ export class RankedPlayScene extends Sandbox {
                         healedTotal > 0
                             ? `${healSuffix} across ${healedCount} unit${healedCount === 1 ? "" : "s"}`
                             : "";
-                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}`;
+                    // A Meteorite is cell-targeted, so it lands here with no targetId — roll its victims up
+                    // the same way a mass heal rolls up the allies it reached.
+                    const massDamageSuffix =
+                        damagedTotal > 0
+                            ? `${damageSuffix} across ${damagedEntries.length} unit${damagedEntries.length === 1 ? "" : "s"}`
+                            : "";
+                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}`;
                 }
                 return event.targetId === event.casterId
-                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}`
-                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}`;
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}`;
             }
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM

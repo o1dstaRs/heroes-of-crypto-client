@@ -15,10 +15,13 @@ import {
     HoCConstants,
     HoCLib,
     AttackType,
+    Spell,
+    SpellMultiplierType,
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
     SmokeHelper,
+    FireWallHelper,
     RayTraversal,
     HoCMath,
     IWeightedRoute,
@@ -51,6 +54,9 @@ import {
     GameActionEngine,
     TurnEngine,
     GameEvent,
+    isThrownOffensiveSpell,
+    applyMagicResistToSpellDamage,
+    calculateStackPoweredSpellDamage,
     type IGameActionResult,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -73,6 +79,8 @@ import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { SmokeCloudLayer } from "./sandbox/SmokeCloudLayer";
+import { VineLayer } from "./sandbox/VineLayer";
+import { FireWallLayer } from "./sandbox/FireWallLayer";
 import { WindLayer } from "./sandbox/WindLayer";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
@@ -211,6 +219,22 @@ export const fireBurnTargets = (
     }
     return burns;
 };
+
+/**
+ * The block of cells a cell-targeted spell covers when aimed at `origin`.
+ *
+ * Meteor Shower's 3x3 is CENTRED on the cursor — an odd-sided footprint pivots about the mouse, the way the
+ * Fire Wall's 3-cell line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
+ * cursor cell as its bottom-left corner, because an even-sided block has no centre cell to anchor on. Both
+ * match what the matching cast handler reads out of `action.targetCell` — a preview whose footprint differs
+ * from the cast's is worse than no preview, so this is the ONE place either is derived.
+ *
+ * Shared by the aim outline and the damage labels drawn inside it, so the two can never disagree.
+ */
+export function cellTargetedSpellBlockCells(spellName: string, origin: HoCMath.XY): HoCMath.XY[] {
+    const spread = spellName === "Meteor Shower" ? [-1, 0, 1] : [0, 1];
+    return spread.flatMap((dx) => spread.map((dy) => ({ x: origin.x + dx, y: origin.y + dy })));
+}
 
 /** Delay from the first impact until the last impact in a staggered attack. */
 export function getAttackFinalImpactDelayMs(hitCount: number): number {
@@ -400,6 +424,14 @@ export class Sandbox extends PixiScene {
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
     private smokeCloudLayer?: SmokeCloudLayer;
+    private vineLayer?: VineLayer;
+    private fireWallLayer?: FireWallLayer;
+    /**
+     * Which way the armed Fire Wall will lie when the player clicks. Rotated by Shift while aiming (see
+     * rotateFireWallAim); reset to the default horizontal lay every time a spell is armed, so the wall never
+     * opens on last cast's angle.
+     */
+    private fireWallAimOrientation: number = FireWallHelper.FireWallOrientation.HORIZONTAL;
     private windLayer?: WindLayer;
     private lightingLayer?: LightingLayer;
     protected combatVisuals: CombatVisuals;
@@ -466,6 +498,14 @@ export class Sandbox extends PixiScene {
         // a cloud is still readable — the cloud is a rule about the cell, not something to hide behind.
         this.smokeCloudLayer = new SmokeCloudLayer();
         this.attachToWorldRoot(this.smokeCloudLayer.getContainer(), 51);
+        // Vines sit just above the smoke bank but still well under the units (~4000): they are ground
+        // terrain the player plans routes around, not something that should occlude a creature.
+        this.vineLayer = new VineLayer();
+        this.attachToWorldRoot(this.vineLayer.getContainer(), 52);
+        // Fire walls sit at the top of the ground-terrain stack: they are the loudest of the three and the
+        // one a player must never miss, but still well under the units for the same reason as the vines.
+        this.fireWallLayer = new FireWallLayer();
+        this.attachToWorldRoot(this.fireWallLayer.getContainer(), 53);
         this.windLayer = new WindLayer();
         this.attachToWorldRoot(this.windLayer.getContainer(), 50);
 
@@ -511,6 +551,7 @@ export class Sandbox extends PixiScene {
         this.rangedProjectiles = new RangedProjectiles({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
+            texAny: (n) => this.texAny(n),
         });
 
         // Hole container init is now in DungeonVisuals
@@ -3857,6 +3898,9 @@ export class Sandbox extends PixiScene {
         // render during playback (unlike the outcome-dependent pops below) because `healed[]` is
         // authoritative rather than a local re-roll.
         this.renderHealVfx(record.events);
+        // Fire Strike / Meteorite: same reasoning as the heal above — `damaged[]` on the RECORD is what the
+        // server resolved, so the fire and the numbers are safe to play during replay.
+        this.renderSpellDamageVfx(record.events, craftCasterPos);
         // Forge cast animation only (outcome-independent); the per-ally results come from the
         // authoritative snapshot, not this local re-roll — see the note at the capture above.
         // Spawned BEFORE the result branch and never gated on it: the record is authoritative (the server
@@ -4965,9 +5009,25 @@ export class Sandbox extends PixiScene {
     protected destroyTempFixtures(): void {
         this.updateUnitsOverlayVisibility();
     }
+    /**
+     * Shift while a rotatable spell is armed turns its footprint a quarter-turn. Held or tapped, each press
+     * is one turn — the manager filters auto-repeat, so holding Shift does not spin the wall.
+     */
+    public override ShiftKey(down: boolean): void {
+        if (!down || this.sc_isAnimating) {
+            return;
+        }
+        this.rotateFireWallAim();
+    }
     public override ShiftMouseDown(p: HoCMath.XY): void {
         this.sc_mouseWorld = p;
         if (this.sc_isAnimating) return;
+
+        // While a rotatable spell is armed, shift-clicking the board turns the footprint instead of
+        // inspecting whatever is under the cursor — the player is aiming, not browsing stat cards.
+        if (this.rotateFireWallAim()) {
+            return;
+        }
 
         // A click-committed split (started by Shift after a stack was picked up) drops on this shift-click too.
         if (this.splitDragActive && this.splitCommitOnClick) {
@@ -5557,6 +5617,13 @@ export class Sandbox extends PixiScene {
         this.closeSpellBook();
         this.sc_sceneLog.updateLog(`${caster.getName()} prepares ${hovered.getName()} - pick a target`);
 
+        // A rotatable footprint always opens on its default lay, never on last cast's angle, and the player
+        // is told how to turn it — the gesture is not discoverable otherwise.
+        if (this.isRotatableAreaSpell(hovered)) {
+            this.fireWallAimOrientation = FireWallHelper.FireWallOrientation.HORIZONTAL;
+            this.sc_sceneLog.updateLog("Hold Shift to rotate the wall");
+        }
+
         // Switch to the MAGIC attack type (parity with legacy) so the toolbar shows the scepter and
         // the melee hover/attack positions are suppressed while a spell is armed.
         if (
@@ -5584,6 +5651,7 @@ export class Sandbox extends PixiScene {
                 caster.canFly(),
                 caster.isSmallSize(),
                 caster.canTraverseLava(),
+                caster.hasAbilityActive("In Its Own World"),
             ).cells;
             const enemies: HoCMath.XY[] = [];
             for (const c of moveCells) {
@@ -5617,6 +5685,9 @@ export class Sandbox extends PixiScene {
         const oldCasterPos = isSwap ? { ...caster.getPosition() } : undefined;
         const oldTargetPos = isSwap ? { ...targetUnit.getPosition() } : undefined;
 
+        // Where the caster stands BEFORE the cast — the origin a thrown spell's projectile flies from.
+        const casterPosBeforeCast = { ...caster.getPosition() };
+
         // Armor Rune/Weapon: snapshot the running +N BEFORE the cast so we can tell success (it rose) from
         // the 50% miss (unchanged) afterwards and play the matching attempt->resolve VFX on the target.
         const isEnchant = spell.getName() === "Armor Rune" || spell.getName() === "Weapon Rune";
@@ -5639,6 +5710,8 @@ export class Sandbox extends PixiScene {
         }
         // Heal numbers + restorative burst. Shared with the ranked replay path (see renderHealVfx).
         this.renderHealVfx(result.events);
+        // Fire Strike's fireball + damage number. Same sharing rule as the heal above.
+        this.renderSpellDamageVfx(result.events, casterPosBeforeCast);
 
         if (isSwap && oldCasterPos && oldTargetPos) {
             // Clear armed-spell state now; the turn ends when the swap animation finishes.
@@ -5698,11 +5771,31 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * Cast the currently-armed CELL-target spell on the clicked cell — Craft (ALLIES_AREA) and Smoke
-     * (FREE_CELL) both resolve to a 2x2 read off `targetCell`, so they share this path. The engine owns
-     * what that footprint means: Craft resolves the allies inside it, Smoke smokes whichever of the four
-     * cells are free. Returns true if the cast was applied (turn finished), false if the engine rejected
-     * it (e.g. insufficient stack power, or every cell occupied).
+     * Whether the armed spell's footprint can be turned before it is placed. Only Fire Wall's 3-cell line
+     * today; Craft's and Smoke's 2x2 blocks are rotationally symmetric, so there is nothing to turn.
+     */
+    private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
+        return spell?.getName() === "Fire Wall";
+    }
+    /**
+     * Turn the armed Fire Wall a quarter-turn. Bound to Shift (both the key and a shift-click) while the
+     * spell is armed — see ShiftKey/ShiftMouseDown. A no-op for anything else that happens to be armed, so
+     * Shift keeps its normal inspect behaviour everywhere else.
+     */
+    private rotateFireWallAim(): boolean {
+        if (!this.isRotatableAreaSpell(this.currentActiveSpell)) {
+            return false;
+        }
+        this.fireWallAimOrientation = FireWallHelper.nextFireWallOrientation(this.fireWallAimOrientation);
+        return true;
+    }
+    /**
+     * Cast the currently-armed CELL-target spell on the clicked cell — Craft (ALLIES_AREA), Smoke and Fire
+     * Wall (FREE_CELL) all resolve to a footprint read off `targetCell`, so they share this path. The engine
+     * owns what that footprint means: Craft resolves the allies inside its 2x2, Smoke smokes whichever of
+     * those four cells are free, Fire Wall lights the 3-cell line at the orientation the player rotated to.
+     * Returns true if the cast was applied (turn finished), false if the engine rejected it (e.g.
+     * insufficient stack power, or a cell in the footprint occupied).
      */
     private castAreaSpellAtCell(cell: HoCMath.XY): boolean {
         const caster = this.currentActiveUnit;
@@ -5721,6 +5814,9 @@ export class Sandbox extends PixiScene {
             casterId: caster.getId(),
             spellName: spell.getName(),
             targetCell: cell,
+            // Only meaningful for a rotatable footprint; left off entirely for Craft and Smoke so their
+            // actions serialize exactly as they did before the field existed.
+            ...(this.isRotatableAreaSpell(spell) ? { targetOrientation: this.fireWallAimOrientation } : {}),
         };
         if (this.shouldDeferActionToAuthoritativeReplay(action)) {
             return this.submitActionForAuthoritativeReplay(action);
@@ -5733,6 +5829,8 @@ export class Sandbox extends PixiScene {
         }
         // Mass heal: one "+N" per ally the cast actually restored. Shared with the ranked replay path.
         this.renderHealVfx(result.events);
+        // Meteorite's impact burst + one damage number per enemy caught under the 2x2.
+        this.renderSpellDamageVfx(result.events, casterPos);
 
         // Craft-only theatrics: the forge cast (anvil + hammer) over the Blacksmith, then each ally's
         // crafted result once it finishes. Gated on the spell — Smoke shares this cast path but has no
@@ -6243,6 +6341,114 @@ export class Sandbox extends PixiScene {
                     continue;
                 }
                 this.combatVisuals.showFloatingHeal(healedUnit.getVisualCenter(gs), heal.amount);
+            }
+        }
+    }
+    /**
+     * Fire + damage numbers for the Battle Mage's offensive spells, driven off the authoritative
+     * `spell_cast.damaged` payload exactly the way renderHealVfx is driven off `healed`. Called from the live
+     * cast paths AND the ranked replay, so the burn plays in both scenes (see fight_vfx_catalog: a helper wired
+     * into only one path is the classic way a VFX goes missing in ranked).
+     *
+     * Fire Strike is THROWN, so it gets a sweep of embers along the line from the caster to its one victim;
+     * Meteorite falls out of the sky, so there is nothing to travel and each enemy under the 2x2 just takes the
+     * burst. Positions come off the event, not off the units: the engine captured them before applying damage,
+     * so a stack that died still gets its number where it stood.
+     */
+    /**
+     * Is a THROWN offensive spell (Fire Strike, Ring of Fire) actually able to reach the hovered target?
+     *
+     * canCastSpell knows about teams, magic resistance and stack power but nothing about the board between the
+     * two units, so on its own it would light up a target the engine then refuses. Uses the engine's OWN
+     * predicate, the same way the Smoke preview uses isSmokeableCell. Any other spell passes straight through —
+     * a buff or a debuff is willed onto its target, not thrown at it, and Lightning Strike is called down out
+     * of the sky, so nothing on the board can stand in its way (see isThrownOffensiveSpell).
+     */
+    /**
+     * What an offensive spell would actually land on `target`, for the aim preview — or undefined when the
+     * hovered spell has no damage to show (a buff, a heal, a plain debuff, a summon).
+     *
+     * Battle magic has NO spread. A melee or ranged hover reads "12-19" because the roll happens at swing
+     * time; a spell's damage is `creatures alive x stack power x the spell's own multiplier` and is decided
+     * before it is cast, so the preview is one exact number. The only thing that moves it per target is magic
+     * resistance — armor does nothing to a spell.
+     *
+     * Deliberately routed through the same two helpers the engine and the spellbook card use, so the number
+     * the player reads while aiming is the number the cast deals.
+     */
+    private previewSpellDamage(spell: Spell, caster: Unit, target: Unit): number | undefined {
+        if (spell.getMultiplierType() !== SpellMultiplierType.UNIT_AMOUNT_STACK_POWER) {
+            return undefined;
+        }
+        return applyMagicResistToSpellDamage(
+            calculateStackPoweredSpellDamage(spell.getPower(), caster.getAmountAlive(), caster.getStackPower()),
+            target.getMagicResist(),
+        );
+    }
+    /**
+     * The units an offensive spell would splash onto BESIDES the one it is aimed at, each taking the same
+     * damage as the primary target. Only Ring of Fire has such a splash today: it burns the target's cell
+     * plus every cell touching it, friend or foe, and never the caster (see ringOfFireCast).
+     */
+    private splashedSpellTargets(spell: Spell, caster: Unit, target: Unit): Unit[] {
+        if (spell.getName() !== "Ring of Fire") {
+            return [];
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cells = [...GridMath.getCellsAroundCell(gs, target.getBaseCell()), target.getBaseCell()];
+        const seen = new Set<string>([caster.getId(), target.getId()]);
+        const splashed: Unit[] = [];
+        for (const cell of cells) {
+            const id = this.grid.getOccupantUnitId(cell);
+            if (!id || seen.has(id)) {
+                continue;
+            }
+            seen.add(id);
+            const unit = this.unitsHolder.getAllUnits().get(id);
+            if (unit && !unit.isDead()) {
+                splashed.push(unit);
+            }
+        }
+        return splashed;
+    }
+    private cellTargetedSpellBlock(spell: Spell, origin: HoCMath.XY): HoCMath.XY[] {
+        return cellTargetedSpellBlockCells(spell.getName(), origin);
+    }
+    private hasThrownSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
+        if (
+            spell.getMultiplierType() !== SpellMultiplierType.UNIT_AMOUNT_STACK_POWER ||
+            !isThrownOffensiveSpell(spell.getName())
+        ) {
+            return true;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        return SpellHelper.isSpellLineOfSightClear(
+            this.grid,
+            (cell) => GridMath.isCellWithinGrid(gs, cell),
+            caster.getBaseCell(),
+            target.getBaseCell(),
+        );
+    }
+    protected renderSpellDamageVfx(events: readonly GameEvent[], casterPosition?: HoCMath.XY): void {
+        if (!this.combatVisuals) {
+            return;
+        }
+        const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
+        for (const event of events) {
+            if (event.type !== "spell_cast" || !event.damaged?.length) {
+                continue;
+            }
+            // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
+            // Strike, Meteor Shower) have nothing to travel and just burst where they land.
+            const isThrown = isThrownOffensiveSpell(event.spellName);
+            for (const hit of event.damaged) {
+                if (isThrown && casterPosition) {
+                    this.combatVisuals.spawnFireSweep(casterPosition, hit.position, cellSize);
+                }
+                this.combatVisuals.spawnFireBurn(hit.position, cellSize, isThrown ? 0.9 : 1.3);
+                if (hit.amount > 0) {
+                    this.combatVisuals.showFloatingDamage(hit.position, hit.amount, undefined, hit.unitsDied);
+                }
             }
         }
     }
@@ -8047,6 +8253,17 @@ export class Sandbox extends PixiScene {
         }
         const moveEvent = moveResult.events.find((event) => event.type === "unit_moved");
 
+        // Everything the move produced BESIDES the move itself still has to be applied — this path drives
+        // the walk animation off `unit_moved` by hand and would otherwise swallow the rest. That used to be
+        // harmless (a move could not hurt anyone) and no longer is: walking into a Fire Wall emits a burn,
+        // and can emit the mover's own unit_destroyed, which must reach destroyEventDeletedUnit or the
+        // corpse stays on the board. Applied now rather than at the end of the walk because the engine has
+        // already resolved it — the board must not disagree with the engine for the length of an animation.
+        const collateralEvents = moveResult.events.filter((event) => event.type !== "unit_moved");
+        if (collateralEvents.length) {
+            this.applyTurnEngineEvents(collateralEvents, this.snapshotRenderableUnits());
+        }
+
         // Sync matrices
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -8436,6 +8653,7 @@ export class Sandbox extends PixiScene {
                         hoverTargetUnit.canFly(),
                         hoverTargetUnit.isSmallSize(),
                         hoverTargetUnit.canTraverseLava(),
+                        hoverTargetUnit.hasAbilityActive("In Its Own World"),
                     );
                     this.sc_hoveredMoveRange = movePath.cells;
                     // Whether the hovered unit is an ENEMY of the active unit. Drives the active path's
@@ -8550,7 +8768,8 @@ export class Sandbox extends PixiScene {
                         hoveredUnit.hasMindAttackResistance(),
                         hoveredUnit.canBeHealed(),
                         this.currentEnemiesCellsWithinMovementRange,
-                    )
+                    ) &&
+                    this.hasThrownSpellLineOfSight(spell, caster, hoveredUnit)
                 ) {
                     this.hoverManager.addTargetHighlight(hoveredUnit, spellColor);
                     const rTarget = hoveredUnit as RenderableUnit;
@@ -8558,6 +8777,61 @@ export class Sandbox extends PixiScene {
                         typeof rTarget.getVisualCenter === "function"
                             ? rTarget.getVisualCenter(gs2)
                             : hoveredUnit.getPosition();
+
+                    // Offensive spells preview their damage exactly like an attack hover does, so the player
+                    // chooses a target on a number rather than on the spellbook's generic card text.
+                    const spellDamage = this.previewSpellDamage(spell, caster, hoveredUnit);
+                    if (spellDamage !== undefined) {
+                        const kills = hoveredUnit.calculatePossibleLosses(spellDamage);
+                        this.hoverManager.drawDamagePrediction(
+                            `${spellDamage}`,
+                            kills > 0 ? `${kills}` : undefined,
+                            targetCenter,
+                            !hoveredUnit.isSmallSize(),
+                            kills > 0 ? images.skull_white : undefined,
+                        );
+                        // Everything the splash also catches gets its own number, the way the Area Throw
+                        // preview labels each unit under the 3x3. Same damage on each — a spell does not
+                        // fall off across its own blast.
+                        for (const splashed of this.splashedSpellTargets(spell, caster, hoveredUnit)) {
+                            const splashDamage = this.previewSpellDamage(spell, caster, splashed) ?? 0;
+                            const labelPos =
+                                splashed instanceof RenderableUnit
+                                    ? splashed.getVisualCenter(gs2)
+                                    : splashed.getPosition();
+                            this.hoverManager.addTargetHighlight(splashed, spellColor);
+                            this.hoverManager.addAOEDamageLabel(labelPos, `${splashDamage}`, !splashed.isSmallSize());
+                        }
+                    }
+                }
+
+                // A cell-targeted meteor has no hovered unit to hang a number on, so every enemy caught under
+                // the block gets its own label instead — the treatment the Area Throw 3x3 preview already
+                // gives its splash. Allies are skipped because the cast does not catch them.
+                if (spell.getSpellTargetType() === SpellTargetType.FREE_CELL) {
+                    const origin = GridMath.getCellForPosition(gs2, this.sc_mouseWorld);
+                    const labelled = new Set<string>();
+                    for (const cell of origin ? this.cellTargetedSpellBlock(spell, origin) : []) {
+                        const id = this.grid.getOccupantUnitId(cell);
+                        const under = id ? this.unitsHolder.getAllUnits().get(id) : undefined;
+                        if (!under || under.isDead() || under.getTeam() === caster.getTeam()) {
+                            continue;
+                        }
+                        // A large creature straddles several of the block's cells but is hit once.
+                        if (labelled.has(under.getId())) {
+                            continue;
+                        }
+                        const blockDamage = this.previewSpellDamage(spell, caster, under);
+                        if (blockDamage === undefined) {
+                            break; // not a damaging cell spell (Smoke, Craft) — nothing to preview at all
+                        }
+                        labelled.add(under.getId());
+                        this.hoverManager.addAOEDamageLabel(
+                            under instanceof RenderableUnit ? under.getVisualCenter(gs2) : under.getPosition(),
+                            `${blockDamage}`,
+                            !under.isSmallSize(),
+                        );
+                    }
                 }
 
                 this.hoverManager.drawSpellCastPreview({
@@ -9517,6 +9791,7 @@ export class Sandbox extends PixiScene {
                             targetUnit.canFly(),
                             targetUnit.isSmallSize(),
                             targetUnit.canTraverseLava(),
+                            targetUnit.hasAbilityActive("In Its Own World"),
                         );
                         this.sc_placementMoveRange = movePath.cells;
                         this.sc_lastCalcRef = key;
@@ -10181,6 +10456,28 @@ export class Sandbox extends PixiScene {
                         GridMath.getPositionForCell(cell, gsSmoke.getMinX(), gsSmoke.getStep(), gsSmoke.getHalfStep()),
                 );
             }
+            // Vines, same authoritative-store pattern as the smoke above.
+            if (this.vineLayer) {
+                const gsVine = this.sc_sceneSettings.getGridSettings();
+                this.vineLayer.update(
+                    timeStep,
+                    FightStateManager.getInstance().getFightProperties().getVines().toJSON(),
+                    gsVine.getCellSize(),
+                    (cell) =>
+                        GridMath.getPositionForCell(cell, gsVine.getMinX(), gsVine.getStep(), gsVine.getHalfStep()),
+                );
+            }
+            // Fire walls, same authoritative-store pattern as the smoke and vines above.
+            if (this.fireWallLayer) {
+                const gsFire = this.sc_sceneSettings.getGridSettings();
+                this.fireWallLayer.update(
+                    timeStep,
+                    FightStateManager.getInstance().getFightProperties().getFireWalls().toJSON(),
+                    gsFire.getCellSize(),
+                    (cell) =>
+                        GridMath.getPositionForCell(cell, gsFire.getMinX(), gsFire.getStep(), gsFire.getHalfStep()),
+                );
+            }
             this.lightingLayer?.update(timeStep);
 
             // --- C. AI LOGIC - delegate to AIController ---
@@ -10369,29 +10666,46 @@ export class Sandbox extends PixiScene {
         if (!spell || (targetType !== SpellTargetType.ALLIES_AREA && targetType !== SpellTargetType.FREE_CELL)) {
             return;
         }
-        const isSmoke = targetType === SpellTargetType.FREE_CELL;
+        // Fire Wall shares FREE_CELL with Smoke but not its footprint — it gets its own preview below.
+        if (this.isRotatableAreaSpell(spell)) {
+            this.drawFireWallAim(g);
+            return;
+        }
+        // Meteorite shares FREE_CELL with Smoke but inverts its rule: the rock is MEANT to come down on
+        // occupied cells, so emptiness is not required — only that the whole block is on the board and that it
+        // catches at least one enemy (meteoriteCast refuses a drop that hits nobody rather than burn the
+        // single charge).
+        const isMeteorite = spell.getName() === "Meteorite" || spell.getName() === "Meteor Shower";
+        const isSmoke = targetType === SpellTargetType.FREE_CELL && !isMeteorite;
         const gsAim = this.sc_sceneSettings.getGridSettings();
         const gs = this.sc_sceneSettings.getGridSettings();
         const origin = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
         if (!origin) {
             return;
         }
-        const cells: HoCMath.XY[] = [
-            origin,
-            { x: origin.x + 1, y: origin.y },
-            { x: origin.x, y: origin.y + 1 },
-            { x: origin.x + 1, y: origin.y + 1 },
-        ];
+        const cells = this.cellTargetedSpellBlock(spell, origin);
         const size = gs.getCellSize();
         const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
         const casterTeam = this.currentActiveUnit?.getTeam();
+        const enemyOn = (c: HoCMath.XY): boolean => {
+            const occupantId = this.grid.getOccupantUnitId(c);
+            const occupant = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
+            return !!occupant && !occupant.isDead() && occupant.getTeam() !== casterTeam;
+        };
         // Smoke is all-or-nothing: the engine rejects a partial 2x2, so only draw the footprint where the
         // WHOLE block is legal. Anywhere else shows nothing at all, which reads as "you cannot cast here"
         // rather than dangling a highlight over a placement that would be refused.
         if (
             isSmoke &&
             !cells.every((c) => SmokeHelper.isSmokeableCell(this.grid, GridMath.isCellWithinGrid(gsAim, c), c))
+        ) {
+            return;
+        }
+        // Same courtesy for the meteor: no highlight means the engine would refuse this drop.
+        if (
+            isMeteorite &&
+            (!cells.every((c) => GridMath.isCellWithinGrid(gsAim, c)) || !cells.some((c) => enemyOn(c)))
         ) {
             return;
         }
@@ -10402,17 +10716,58 @@ export class Sandbox extends PixiScene {
             const isAlly = !!occupant && !occupant.isDead() && occupant.getTeam() === casterTeam;
             // Smoke uses the ENGINE's own predicate so the preview can never promise a cast it will
             // reject: mountain, narrowed cell, creature or off-board all fail; lava and water are fine.
-            const willAffect = isSmoke
-                ? SmokeHelper.isSmokeableCell(this.grid, GridMath.isCellWithinGrid(gsAim, c), c)
-                : isAlly;
+            // Meteorite brightens the cells that will actually be burnt — the ones holding an enemy.
+            const willAffect = isMeteorite
+                ? enemyOn(c)
+                : isSmoke
+                  ? SmokeHelper.isSmokeableCell(this.grid, GridMath.isCellWithinGrid(gsAim, c), c)
+                  : isAlly;
             const fillAlpha = willAffect ? 0.28 + 0.14 * pulse : 0.1;
-            // Slate for smoke, blue for the forge — matches each spell's own board VFX.
-            const fill = isSmoke ? 0x8b93a3 : 0x49b6ff;
-            const stroke = isSmoke ? 0xd2d8e4 : 0x9fe0ff;
+            // Slate for smoke, blue for the forge, ember for the meteor — each matches its own board VFX.
+            const fill = isMeteorite ? 0xff6a1e : isSmoke ? 0x8b93a3 : 0x49b6ff;
+            const stroke = isMeteorite ? 0xffc46b : isSmoke ? 0xd2d8e4 : 0x9fe0ff;
             g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
                 .fill({ color: fill, alpha: fillAlpha })
                 .stroke({ width: 2, color: stroke, alpha: 0.7 });
         }
+    }
+    /**
+     * Fire Wall aim preview: the 3-cell line a click would set alight, centred on the cell under the cursor
+     * so the wall pivots about the mouse as Shift turns it (see rotateFireWallAim).
+     *
+     * All-or-nothing like Smoke — the engine refuses a partial line, so an illegal placement draws nothing
+     * at all rather than dangling a highlight over a cast that would be rejected. Legality is read from the
+     * ENGINE's own predicate, so the preview can never promise something fireWallCast will refuse.
+     *
+     * Drawn hot (ember red under a bright orange stroke) to match the flames the cast leaves behind, with an
+     * arrowhead on the leading cell so the current orientation is readable at a glance while rotating.
+     */
+    private drawFireWallAim(g: Graphics): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const anchor = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+        if (!anchor) {
+            return;
+        }
+        const cells = FireWallHelper.fireWallCells(anchor, this.fireWallAimOrientation);
+        if (!cells.every((c) => FireWallHelper.isFireWallableCell(this.grid, GridMath.isCellWithinGrid(gs, c), c))) {
+            return;
+        }
+        const size = gs.getCellSize();
+        const half = size / 2;
+        const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
+        for (const c of cells) {
+            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+                .fill({ color: 0xb03000, alpha: 0.3 + 0.16 * pulse })
+                .stroke({ width: 2, color: 0xff8a2b, alpha: 0.8 });
+        }
+        // A tick along the wall's own axis, drawn through all three cells, so a vertical wall and a diagonal
+        // one are told apart instantly instead of by reading three separate squares.
+        const first = GridMath.getPositionForCell(cells[0], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const last = GridMath.getPositionForCell(cells[cells.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        g.moveTo(first.x, first.y)
+            .lineTo(last.x, last.y)
+            .stroke({ width: 3, color: 0xffd04a, alpha: 0.5 + 0.3 * pulse, cap: "round" });
     }
     private snapshotRenderableUnits(): Map<string, RenderableUnit> {
         const snapshot = new Map<string, RenderableUnit>();
@@ -10677,6 +11032,20 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 }
+                case "fire_wall_burned": {
+                    // Read the position off the EVENT, not off the unit: a stack that burned to death is
+                    // already gone from the holder by the time this runs, and it still owes a damage number.
+                    this.combatVisuals?.showFloatingDamage(
+                        event.position,
+                        event.amount,
+                        undefined,
+                        event.unitsDied,
+                        "#ffb347",
+                        "#5a1500",
+                    );
+                    shouldRefreshVisibleState = true;
+                    break;
+                }
                 case "unit_resurrected":
                     this.syncResurrectedUnit(event, unitSnapshot);
                     shouldRefreshVisibleState = true;
@@ -10797,6 +11166,36 @@ export class Sandbox extends PixiScene {
                 case "next_unit_selected":
                     shouldRefreshVisibleState = true;
                     break;
+                case "vine_placed": {
+                    // Throw the dart from the caster to the victim. Fire-and-forget: the terrain vine is
+                    // owned by VineLayer off the authoritative store and creeps in behind the flight, so
+                    // nothing downstream has to wait on the animation.
+                    const caster = this.unitsHolder.getAllUnits().get(event.casterId);
+                    const gsVineShot = this.sc_sceneSettings.getGridSettings();
+                    const fromCell = caster?.getBaseCell();
+                    const toCell = event.cells[event.cells.length - 1];
+                    const from = fromCell
+                        ? GridMath.getPositionForCell(
+                              fromCell,
+                              gsVineShot.getMinX(),
+                              gsVineShot.getStep(),
+                              gsVineShot.getHalfStep(),
+                          )
+                        : undefined;
+                    const to = toCell
+                        ? GridMath.getPositionForCell(
+                              toCell,
+                              gsVineShot.getMinX(),
+                              gsVineShot.getStep(),
+                              gsVineShot.getHalfStep(),
+                          )
+                        : undefined;
+                    if (from && to) {
+                        void this.rangedProjectiles.fire({ from, to, big: false, vine: true });
+                    }
+                    shouldRefreshVisibleState = true;
+                    break;
+                }
                 case "unit_deleted":
                     this.destroyEventDeletedUnit(event.unitId, unitSnapshot);
                     shouldRefreshVisibleState = true;
@@ -11265,6 +11664,11 @@ export class Sandbox extends PixiScene {
      * is no active forced target, when the lock has released (target dead/gone), or when this IS the target.
      */
     private isAttackableUnderForcedTarget(targetUnit: Unit): boolean {
+        // Terrifying Gaze is the mirror image of Aggr and is checked first: it removes exactly one enemy from
+        // the attackable set instead of narrowing the set down to one.
+        if (this.currentActiveUnit?.cannotAttackUnitId(targetUnit.getId())) {
+            return false;
+        }
         const forcedTargetId = this.currentActiveUnit?.getTarget();
         if (!forcedTargetId) {
             return true;
@@ -11658,6 +12062,7 @@ export class Sandbox extends PixiScene {
                     this.currentActiveUnit.canFly(),
                     this.currentActiveUnit.isSmallSize(),
                     this.currentActiveUnit.canTraverseLava(),
+                    this.currentActiveUnit.hasAbilityActive("In Its Own World"),
                 );
             } else {
                 // Immobilized (Paralysis or Arachna Queen's Web Aura): can't move, but treat as staying at the
@@ -11697,6 +12102,14 @@ export class Sandbox extends PixiScene {
                         enemyTeam = enemyTeam.filter((u) => u.getId() === forcedTargetId);
                         adjacentEnemies = adjacentEnemies.filter((u) => u.getId() === forcedTargetId);
                     }
+                }
+
+                // Terrifying Gaze forbidden target: the exact inverse of the block above — drop the one enemy
+                // the active unit was frightened away from, leaving every other target highlightable.
+                const forbiddenTargetId = this.currentActiveUnit.getForbiddenTarget();
+                if (forbiddenTargetId) {
+                    enemyTeam = enemyTeam.filter((u) => u.getId() !== forbiddenTargetId);
+                    adjacentEnemies = adjacentEnemies.filter((u) => u.getId() !== forbiddenTargetId);
                 }
 
                 // MAGIC attack type is spell-casting mode — it has no melee attack positions, so

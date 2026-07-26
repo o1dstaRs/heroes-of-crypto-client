@@ -2232,14 +2232,17 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Poison Cloud Aura: flat base % + the unit's own luck (luck-dependent though not stack-powered).
-        const poisonCloudAbility = this.getAbility("Poison Cloud Aura");
-        if (poisonCloudAbility) {
-            const percentage = Math.max(0, poisonCloudAbility.getPower() + this.getLuck());
-            this.refreshAbiltyDescription(
-                poisonCloudAbility.getName(),
-                poisonCloudAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+        // Poison auras (Poison Cloud / Venom Cloud): flat base % + the unit's own luck (luck-dependent
+        // though not stack-powered).
+        for (const poisonAuraAbilityName of HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES) {
+            const poisonCloudAbility = this.getAbility(poisonAuraAbilityName);
+            if (poisonCloudAbility) {
+                const percentage = Math.max(0, poisonCloudAbility.getPower() + this.getLuck());
+                this.refreshAbiltyDescription(
+                    poisonCloudAbility.getName(),
+                    poisonCloudAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
         }
 
         // Double Punch
@@ -2420,6 +2423,40 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(
                 magicShieldAbility.getName(),
                 magicShieldAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Serene Mind (Monk) — same fixed magic armor as Magic Shield, so the same live stack scaling.
+        const sereneMindAbility = this.getAbility("Serene Mind");
+        if (sereneMindAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(sereneMindAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                sereneMindAbility.getName(),
+                sereneMindAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Borrowed Grace (Monk) — its stack curve is its own (20% at one stack up to the card's power at
+        // five), so the tooltip has to read borrowedGraceChance rather than the generic apply chance.
+        const borrowedGraceAbility = this.getAbility(AllAbilities.BORROWED_GRACE_NAME);
+        if (borrowedGraceAbility) {
+            const percentage = Number(AllAbilities.borrowedGraceChance(this, _synergyAbilityPowerIncrease).toFixed(2));
+            this.refreshAbiltyDescription(
+                borrowedGraceAbility.getName(),
+                borrowedGraceAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
+        // Absolving Arrow (Monk) — the FIRST lift's chance rides the stack (25% -> 100%) and is luck-free,
+        // so the tooltip reads absolvingArrowFirstLiftChance, not the generic apply chance.
+        const absolvingArrowAbility = this.getAbility(AllAbilities.ABSOLVING_ARROW_NAME);
+        if (absolvingArrowAbility) {
+            const percentage = Number(AllAbilities.absolvingArrowFirstLiftChance(this).toFixed(2));
+            this.refreshAbiltyDescription(
+                absolvingArrowAbility.getName(),
+                absolvingArrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -2610,20 +2647,23 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Poison Cloud Aura — {} is the base % plus this unit's luck (combined, like the other aura
-        // tooltips); the per-ally luck is what actually applies at hit time (processPoisonAuraAbility).
-        const poisonCloudAuraAbility = this.getAbility("Poison Cloud Aura");
-        if (poisonCloudAuraAbility) {
-            const auraEffect = this.effectFactory.makeAuraEffect("Poison Cloud");
-            if (auraEffect) {
-                const poisonPercent = Math.max(
-                    0,
-                    this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease) + this.getLuck(),
-                );
-                this.refreshAbiltyDescription(
-                    poisonCloudAuraAbility.getName(),
-                    poisonCloudAuraAbility.getDesc().join("\n").replace(/\{\}/g, poisonPercent.toString()),
-                );
+        // Poison auras (Poison Cloud / Venom Cloud) — {} is the base % plus this unit's luck (combined,
+        // like the other aura tooltips); the per-ally luck is what actually applies at hit time
+        // (processPoisonAuraAbility).
+        for (const poisonAuraEffectName of HoCConfig.POISON_ON_HIT_AURA_EFFECT_NAMES) {
+            const poisonCloudAuraAbility = this.getAbility(`${poisonAuraEffectName} Aura`);
+            if (poisonCloudAuraAbility) {
+                const auraEffect = this.effectFactory.makeAuraEffect(poisonAuraEffectName);
+                if (auraEffect) {
+                    const poisonPercent = Math.max(
+                        0,
+                        this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease) + this.getLuck(),
+                    );
+                    this.refreshAbiltyDescription(
+                        poisonCloudAuraAbility.getName(),
+                        poisonCloudAuraAbility.getDesc().join("\n").replace(/\{\}/g, poisonPercent.toString()),
+                    );
+                }
             }
         }
 
@@ -2866,11 +2906,11 @@ export class RenderableUnit extends Unit {
             for (let i = 0; i < this.unitProperties.abilities.length; i++) {
                 if (
                     this.unitProperties.abilities[i] === abilityName &&
-                    // Poison Cloud Aura is not stack-powered but IS luck-dependent, so its description must
+                    // A poison aura is not stack-powered but IS luck-dependent, so its description must
                     // still be refreshed with the live value like the stack-powered ones.
                     (this.unitProperties.abilities_stack_powered[i] ||
                         abilityName === "Blind Fury" ||
-                        abilityName === "Poison Cloud Aura")
+                        HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES.has(abilityName))
                 ) {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;
                 }

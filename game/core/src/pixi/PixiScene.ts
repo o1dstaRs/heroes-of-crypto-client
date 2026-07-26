@@ -381,6 +381,17 @@ export abstract class PixiScene {
     public CameraChanged(): void {
         // default no-op; scenes can override to reattach overlays, relayout, etc.
     }
+    /**
+     * Shift pressed or released, independent of the mouse. Scenes that let Shift modify what is being aimed
+     * (Fire Wall rotates its 3-cell footprint) override this; everyone else ignores it, which is why the
+     * default is a no-op rather than an abstract.
+     *
+     * Only fires on a real transition — the manager swallows auto-repeat — so an override can treat every
+     * `down === true` call as one deliberate press.
+     */
+    public ShiftKey(_down: boolean): void {
+        // default no-op
+    }
     public ShiftMouseDown(_p: HoCMath.XY): void {
         if (this.sc_isAnimating) return;
 
@@ -579,6 +590,7 @@ export abstract class PixiScene {
                     stackPower: 0,
                     isStackPowered: false,
                     isAura: false,
+                    stacks: unitProperties.applied_effects_stacks?.[i],
                 });
             }
         }

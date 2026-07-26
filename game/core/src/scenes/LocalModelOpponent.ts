@@ -576,6 +576,7 @@ const getEnemiesWithinMovementRange = (
         activeUnit.canFly(),
         activeUnit.isSmallSize(),
         activeUnit.canTraverseLava(),
+        activeUnit.hasAbilityActive("In Its Own World"),
     ).cells;
     const enemies = moveCells.filter((cell) => {
         const enemyId = grid.getOccupantUnitId(cell);

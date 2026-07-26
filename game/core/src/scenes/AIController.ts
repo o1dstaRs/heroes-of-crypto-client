@@ -1154,6 +1154,7 @@ export class AIController {
                     caster.canFly(),
                     caster.isSmallSize(),
                     caster.canTraverseLava(),
+                    caster.hasAbilityActive("In Its Own World"),
                 )
                 .cells.map((c) => (c.x << 4) | c.y),
         );

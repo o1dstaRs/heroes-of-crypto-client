@@ -190,6 +190,13 @@ export class PixiGameManager {
         this.addInitEventListener(window, "keydown", (e) => {
             if (!(e instanceof KeyboardEvent)) return;
             if (e.key === "Escape") this.HandleEscapeKey(true);
+            // Shift is a live aiming modifier (Fire Wall turns its footprint on each press). `e.repeat`
+            // filters out the auto-repeat storm from a held key, so the scene sees one press per press.
+            if (e.key === "Shift" && !e.repeat) this.m_scene?.ShiftKey(true);
+        });
+        this.addInitEventListener(window, "keyup", (e) => {
+            if (!(e instanceof KeyboardEvent)) return;
+            if (e.key === "Shift") this.m_scene?.ShiftKey(false);
         });
         this.addInitEventListener(debugCanvas, "mouseenter", () => (this.m_hoveringCanvas = true));
         this.addInitEventListener(debugCanvas, "mouseleave", () => (this.m_hoveringCanvas = false));
