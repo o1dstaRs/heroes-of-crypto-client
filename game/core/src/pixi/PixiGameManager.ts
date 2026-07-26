@@ -925,7 +925,12 @@ export class PixiGameManager {
             !!this.m_scene?.sc_attackDamageSpreadStr ||
             !!this.m_scene?.sc_attackRangeDamageDivisorStr ||
             !!this.m_scene?.sc_hoverUnitNameStr ||
-            !!this.m_scene?.sc_hoverInfoArr?.length
+            !!this.m_scene?.sc_hoverInfoArr?.length ||
+            // sc_isHoveringAttackTarget is the cursor-driver for the attack/magic cursor: when the
+            // active unit is aiming at an attackable enemy there may be no other hover-info yet
+            // (damage spread etc. are computed on a later frame), so without this gate the
+            // attack cursor flickers off. Treat "aiming at a target" itself as hover-info.
+            !!this.m_scene?.sc_isHoveringAttackTarget
         );
     }
     public UpdateHoverInfo(): void {

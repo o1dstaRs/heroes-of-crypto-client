@@ -16,6 +16,8 @@ import { useNavigate, useSearchParams } from "react-router";
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { markVsAiGame } from "../utils/aiOpponent";
+import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
+import { Perk } from "@heroesofcrypto/common";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
@@ -85,6 +87,9 @@ export const MatchmakingRoute: React.FC = () => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
     const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
+    // Pre-game perk (scouting doctrine): free to toggle until the player queues/starts; the chosen
+    // value is locked into localStorage and read back by the in-game PERK pick phase to auto-commit.
+    const [preGamePerk, setPreGamePerkState] = useState<Perk.Perk>(() => getPreGamePerk());
 
     // No-accept penalty: the server sets match_making_cooldown_till (ms epoch) when a player lets a found
     // match expire without accepting, and rejects re-queue until it passes. Surface it as a live countdown
@@ -925,6 +930,72 @@ export const MatchmakingRoute: React.FC = () => {
                                         Enter the code from the email to activate your account, then reload this page.
                                     </Typography>
                                 </>
+                            )}
+
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
+                                <Stack
+                                    direction="row"
+                                    spacing={1.5}
+                                    justifyContent="center"
+                                    alignItems="stretch"
+                                    sx={{ width: "100%", maxWidth: 650, mt: 2.5 }}
+                                >
+                                    {Perk.PERK_LIST.map((p) => {
+                                        const isSelected = preGamePerk === p.id;
+                                        return (
+                                            <Sheet
+                                                key={p.id}
+                                                variant={isSelected ? "solid" : "outlined"}
+                                                onClick={() => {
+                                                    setPreGamePerkState(p.id);
+                                                    setPreGamePerk(p.id);
+                                                }}
+                                                sx={{
+                                                    flex: 1,
+                                                    cursor: "pointer",
+                                                    position: "relative",
+                                                    borderColor: isSelected ? "primary.500" : "neutral.700",
+                                                    bgcolor: isSelected ? "primary.500" : "rgba(0,0,0,0.35)",
+                                                    boxShadow: isSelected
+                                                        ? "0 0 0 2px rgba(120,170,255,0.55), 0 0 18px rgba(120,170,255,0.35)"
+                                                        : "none",
+                                                    transition: "all 0.15s ease",
+                                                    borderRadius: "md",
+                                                    p: 1.25,
+                                                    minHeight: 84,
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    gap: 0.5,
+                                                    textAlign: "center",
+                                                    "&:hover": { borderColor: "primary.400" },
+                                                }}
+                                            >
+                                                {isSelected && (
+                                                    <CheckCircleRoundedIcon
+                                                        sx={{
+                                                            position: "absolute",
+                                                            top: 4,
+                                                            right: 4,
+                                                            fontSize: 18,
+                                                            color: "common.white",
+                                                        }}
+                                                    />
+                                                )}
+                                                <Typography level="title-md" sx={{ color: "common.white" }}>
+                                                    {p.name}
+                                                </Typography>
+                                                <Typography
+                                                    level="body-xs"
+                                                    sx={{ opacity: 0.8, color: "common.white" }}
+                                                >
+                                                    {p.upgradePoints} pts
+                                                </Typography>
+                                            </Sheet>
+                                        );
+                                    })}
+                                </Stack>
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
