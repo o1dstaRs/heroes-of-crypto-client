@@ -3377,7 +3377,14 @@ export class Sandbox extends PixiScene {
         // our own units caught in the blast — rather than a single number on the primary target.
         // Each entry keeps the impact-time position so units that died (and were removed) still show.
         if (damage.splash?.length) {
-            this.showSplashDamage(damage.splash, attackerCenter);
+            // Chakram bounce victims are landed one-by-one by playChakramArcs AS the disc reaches each, so keep
+            // them out of the all-at-once splash (else they double-draw and pop before the disc arrives). The
+            // primary target isn't a bounce, so its number still lands here with the shot.
+            const chakramVictims = this.chakramBounceVictimIds(damage);
+            const nonChakramSplash = chakramVictims.size
+                ? damage.splash.filter((entry) => !chakramVictims.has(entry.unitId))
+                : damage.splash;
+            this.showSplashDamage(nonChakramSplash, attackerCenter);
             return;
         }
 
@@ -5924,35 +5931,6 @@ export class Sandbox extends PixiScene {
         if (!unit) {
             return false;
         }
-        // TEMP DIAGNOSTIC (ranked mountain-melee bug) — remove after diagnosis. One log per mountain click.
-        {
-            const dbgFp = FightStateManager.getInstance().getFightProperties();
-            const dbgGs = this.sc_sceneSettings.getGridSettings();
-            const dbgHovered = GridMath.getCellForPosition(dbgGs, worldPos);
-            const dbgCenter = this.grid.getCenterCells();
-            const dbgHoveredIsCenter =
-                !!dbgHovered && dbgCenter.some((c) => c.x === dbgHovered.x && c.y === dbgHovered.y);
-            // Fire on ANY click while on a Mountains map (not only when the clicked cell is detected as a
-            // center cell) so we still get a datapoint if getCenterCells() is empty in ranked.
-            if (dbgFp.getGridType() === GridVals.BLOCK_CENTER) {
-                console.warn("[MTN-DIAG]", {
-                    scene: this.constructor?.name,
-                    gridType: dbgFp.getGridType(),
-                    isBlockCenter: dbgFp.getGridType() === GridVals.BLOCK_CENTER,
-                    obstacleHitsLeft: dbgFp.getObstacleHitsLeft(),
-                    centerCellCount: dbgCenter.length,
-                    hoveredCell: dbgHovered,
-                    hoveredIsCenter: dbgHoveredIsCenter,
-                    hasMountainTargets: !!this.canAttackMountainTargets,
-                    mountainAttackCells: this.canAttackMountainTargets?.attackCells?.length ?? -1,
-                    knownPathsSize: this.currentActiveKnownPaths?.size ?? -1,
-                    activeUnit: unit.getName(),
-                    unitCell: unit.getBaseCell?.(),
-                    attackTypeSel: unit.getAttackTypeSelection(),
-                    resolvedAttackFrom: this.resolveMountainAttackFrom(worldPos),
-                });
-            }
-        }
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
             return false;
@@ -6136,16 +6114,22 @@ export class Sandbox extends PixiScene {
         damage?: IVisibleDamage,
         primaryTarget?: Unit,
     ): Promise<void> {
-        // The callers run this after EVERY attack; only an actual Chakram throw gets the ricochet + homecoming.
         if (!this.rangedProjectiles || !attacker.hasAbilityActive("Chakram")) {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
+        const cellSize = gs.getCellSize();
         const big = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
 
-        // Fly each engine-resolved bounce arc in turn, tracking where the disc ends up and which way it heads.
-        let discPos: HoCMath.XY | undefined;
-        let discDir: HoCMath.XY | undefined;
+        // The engine PRECOMPUTED the flight AND the damage from ONE roll, so the disc's cells and the victims
+        // never disagree on which way it curled. Per-victim amounts (for the numbers landed AS the disc
+        // arrives) come from that same authoritative splash — never a client re-roll.
+        const splashByUnit = new Map<string, { amount: number; unitsDied: number }>();
+        for (const entry of damage?.splash ?? []) {
+            splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
+        }
+
+        let discEnd: HoCMath.XY | undefined;
         for (const arc of damage?.chakramArcs ?? []) {
             const points = arc.cells
                 .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
@@ -6153,45 +6137,75 @@ export class Sandbox extends PixiScene {
             if (points.length < 2) {
                 continue;
             }
-            await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
-            discPos = points[points.length - 1];
-            discDir = this.chakramWorldDir(points[points.length - 2], discPos);
-        }
+            const hitIds =
+                (arc as { hitUnitIds?: string[] }).hitUnitIds ?? (arc.targetUnitId ? [arc.targetUnitId] : []);
 
-        // No bounce ever connected — the disc is sitting on the primary target. Start the homecoming there,
-        // heading the way the shot was travelling (away from Zena) so the terminal loop bulges forward like a
-        // real bounce would. (Per the spec, even a shot that finds no ricochet target still loops and returns.)
-        if (!discPos) {
-            const impact = primaryTarget
-                ? GridMath.getPositionForCell(primaryTarget.getBaseCell(), gs.getMinX(), gs.getStep(), gs.getHalfStep())
-                : undefined;
-            if (!impact) {
-                return;
+            // Fly the circle but PAUSE at each victim (in the order the engine says the disc reached them) to
+            // land its number + blood + push RIGHT THEN — so it reads as "hit whoever it went through", not
+            // everyone flashing at once before the disc has looped out to them.
+            let flownIdx = 0;
+            for (const unitId of hitIds) {
+                const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+                if (!unit) {
+                    continue;
+                }
+                const unitCell = unit.getBaseCell();
+                let targetIdx = -1;
+                for (let i = flownIdx; i < arc.cells.length && i < points.length; i += 1) {
+                    if (arc.cells[i].x === unitCell.x && arc.cells[i].y === unitCell.y) {
+                        targetIdx = i;
+                        break;
+                    }
+                }
+                if (targetIdx < 0) {
+                    targetIdx = points.length - 1;
+                }
+                const segment = points.slice(flownIdx, targetIdx + 1);
+                if (segment.length >= 2) {
+                    await this.rangedProjectiles.fireAlongPath(segment, { big, chakram: true });
+                }
+                flownIdx = targetIdx;
+
+                // Land the hit in the disc's travel direction here: floating damage + a blood slash + a small
+                // shove the way the disc flew.
+                const center = unit.getVisualCenter(gs);
+                const dir =
+                    segment.length >= 2
+                        ? this.chakramWorldDir(segment[segment.length - 2], segment[segment.length - 1])
+                        : { x: 0, y: 1 };
+                const dmg = splashByUnit.get(unitId);
+                if (dmg && dmg.amount > 0) {
+                    this.combatVisuals?.showFloatingDamage(center, dmg.amount, dir, dmg.unitsDied);
+                }
+                this.combatVisuals?.spawnSlash(center, cellSize, dir);
+                unit.applyRecoil(dir.x * cellSize * 0.16, dir.y * cellSize * 0.16);
             }
-            discPos = impact;
-            discDir = this.chakramWorldDir(attacker.getVisualCenter(gs), impact);
-        }
-        if (!discDir) {
-            return;
+
+            // Finish the loop, then remember where the disc ended for the flight home.
+            const rest = points.slice(flownIdx);
+            if (rest.length >= 2) {
+                await this.rangedProjectiles.fireAlongPath(rest, { big, chakram: true });
+            }
+            discEnd = points[points.length - 1];
         }
 
-        // TERMINAL: the sweep found no further target, so the chakram carves ONE full circle (same 5-cell
-        // diameter as its bounces — common CHAKRAM_ARC_DIAMETER — on a random flank) and flies home into
-        // Zena's hand. Purely cosmetic (no damage); lives in this shared VFX path so it plays in BOTH sandbox
-        // and ranked. fire()'s constant speed means the ~full-circle polyline reads as one continuous swoop.
-        const radius = 2.5 * gs.getStep(); // 5-cell diameter, in world units
-        const side = Math.random() < 0.5 ? 1 : -1;
-        const perpendicular = { x: -discDir.y * side, y: discDir.x * side };
-        const centre = { x: discPos.x + perpendicular.x * radius, y: discPos.y + perpendicular.y * radius };
-        const startAngle = Math.atan2(discPos.y - centre.y, discPos.x - centre.x);
-        const CIRCLE_SAMPLES = 28;
-        const homeward: HoCMath.XY[] = [];
-        for (let sample = 0; sample <= CIRCLE_SAMPLES; sample += 1) {
-            const angle = startAngle + 2 * Math.PI * side * (sample / CIRCLE_SAMPLES);
-            homeward.push({ x: centre.x + Math.cos(angle) * radius, y: centre.y + Math.sin(angle) * radius });
+        // Home to Zena at the very end. Each leg was already a full circle, so no extra loop — and no
+        // client-side random flank (the engine owns every sweep). A throw with no bounce flies back from the
+        // primary impact.
+        if (!discEnd && primaryTarget) {
+            discEnd = GridMath.getPositionForCell(
+                primaryTarget.getBaseCell(),
+                gs.getMinX(),
+                gs.getStep(),
+                gs.getHalfStep(),
+            );
         }
-        homeward.push(attacker.getVisualCenter(gs)); // ...then back into Zena
-        await this.rangedProjectiles.fireAlongPath(homeward, { big, chakram: true });
+        if (discEnd) {
+            await this.rangedProjectiles.fireAlongPath([discEnd, attacker.getVisualCenter(gs)], {
+                big,
+                chakram: true,
+            });
+        }
     }
     /** Unit-length world direction from -> to; falls back to "up the board" for a degenerate (zero-length) pair. */
     private chakramWorldDir(from: HoCMath.XY, to: HoCMath.XY): HoCMath.XY {
@@ -6199,6 +6213,20 @@ export class Sandbox extends PixiScene {
         const dy = to.y - from.y;
         const length = Math.hypot(dx, dy);
         return length < 0.0001 ? { x: 0, y: 1 } : { x: dx / length, y: dy / length };
+    }
+    /**
+     * The bounce victims a chakram throw will hit, so the generic all-at-once splash renderer can SKIP them —
+     * playChakramArcs lands each one's number as the disc reaches it. (The primary target isn't a bounce, so
+     * its number still lands with the shot.) Empty for any non-chakram attack, leaving that path untouched.
+     */
+    protected chakramBounceVictimIds(damage?: IVisibleDamage): Set<string> {
+        const ids = new Set<string>();
+        for (const arc of damage?.chakramArcs ?? []) {
+            for (const id of (arc as { hitUnitIds?: string[] }).hitUnitIds ?? []) {
+                ids.add(id);
+            }
+        }
+        return ids;
     }
     protected spawnDeepWoundsClaws(deepWounds?: { unitId: string; power: number }[]): void {
         if (!deepWounds?.length || !this.combatVisuals) {
@@ -7547,10 +7575,13 @@ export class Sandbox extends PixiScene {
         // `splash` — including two entries on the target for a Double-Shot AOE. Render those (one number
         // per shot, per unit) instead of the single-target block below, which only knows `amount`/`hits`.
         if (damageForAnimation.splash?.length) {
-            this.showSplashDamage(
-                damageForAnimation.splash,
-                attacker.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-            );
+            // Chakram bounce victims land one-by-one via playChakramArcs (synced to the disc), so exclude them
+            // from the all-at-once splash here to avoid double numbers / early pops.
+            const chakramVictims = this.chakramBounceVictimIds(damageForAnimation);
+            const nonChakramSplash = chakramVictims.size
+                ? damageForAnimation.splash.filter((entry) => !chakramVictims.has(entry.unitId))
+                : damageForAnimation.splash;
+            this.showSplashDamage(nonChakramSplash, attacker.getVisualCenter(this.sc_sceneSettings.getGridSettings()));
         } else if (damageForAnimation.amount > 0) {
             const gs = this.sc_sceneSettings.getGridSettings();
             const aCenter = attacker.getVisualCenter(gs);
