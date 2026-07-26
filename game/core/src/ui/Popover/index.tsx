@@ -182,6 +182,16 @@ const Popover: React.FC = () => {
         };
     }, []);
 
+    // Show the box ONLY when it actually has something to render. The scene emits a fully-keyed hover object
+    // (~9 keys) the instant the sword/attack cursor engages — purely to drive that cursor — but with every
+    // content field blank. Gating on `Object.keys(...).length` therefore flashed an empty ~20px dark box 10px
+    // off the cursor's bottom-right. Mirror the three content helpers' own guards so the box appears only with
+    // real content (a unit line, an attack line, or an information message).
+    const hasPopoverContent =
+        !!hoverInfo.information?.length ||
+        !!(hoverInfo.unitName && hoverInfo.attackType) ||
+        !!(hoverInfo.attackType && (hoverInfo.damageSpread || hoverInfo.damageRangeDivisor));
+
     return (
         <div
             style={{
@@ -191,7 +201,7 @@ const Popover: React.FC = () => {
                         ? positionPopover.y - 70
                         : positionPopover.y + 10, // Offset to avoid overlapping with the cursor
                 left: positionPopover.x + 10,
-                display: Object.keys(hoverInfo).length ? "block" : "none",
+                display: hasPopoverContent ? "block" : "none",
                 padding: "10px",
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
                 color: "white",
