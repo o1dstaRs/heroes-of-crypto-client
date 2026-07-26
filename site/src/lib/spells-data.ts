@@ -155,7 +155,8 @@ const resolvedDescriptions: Record<string, string> = {
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
     "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
-    "System:Armor Augment": "Boosts the entire team's base armor. Level 1: +6%. Level 2: +13%. Level 3: +21%.",
+    "System:Armor Augment":
+        "Boosts the entire team's base armor and magic armor. Level 1: +6%. Level 2: +13%. Level 3: +21%.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
     "System:Sniper Augment":
         "Increases the team's ranged base attack and shot range. Level 1: +7% attack, +20% range. Level 2: +15% attack, +40% range. Level 3: +24% attack, +70% range.",
@@ -175,7 +176,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Castling": "Меняется местами с малым противником в пределах дистанции движения заклинателя.",
     "System:Resurrection":
         "Воскрешает павших союзников на поле боя — суммарно до совокупного максимального запаса здоровья стека заклинателя.",
-    "System:Armor Augment": "Повышает базовую броню всей команды. Уровень 1: +6%. Уровень 2: +13%. Уровень 3: +21%.",
+    "System:Armor Augment":
+        "Повышает базовую и магическую броню всей команды. Уровень 1: +6%. Уровень 2: +13%. Уровень 3: +21%.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
     "System:Sniper Augment":
         "Повышает базовую атаку и дальность стрелков команды. Уровень 1: +7% атаки, +20% дальности. Уровень 2: +15% атаки, +40% дальности. Уровень 3: +24% атаки, +70% дальности.",

@@ -2002,7 +2002,7 @@ const augmentEffectText = (label: string, level: number): string => {
         case "Placement":
             return ["Height 3 partial", "Height 4 full", "Height 5 full"][level] ?? "Height 3 partial";
         case "Armor":
-            return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor`;
+            return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor & Magic Armor`;
         case "Might":
             return `+${Augment.getMightPower(level as Augment.MightAugment)}% Melee attack`;
         case "Sniper": {
