@@ -2220,6 +2220,19 @@ export class RenderableUnit extends Unit {
             );
         }
 
+        // Terrifying Gaze (stack-powered fright chance, same shape as Stun): 12 per stack plus the gazer's
+        // luck, so the card reads 12/24/36/48/60 (+luck) rather than the flat 60 sitting in the config.
+        const terrifyingGazeAbility = this.getAbility("Terrifying Gaze");
+        if (terrifyingGazeAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(terrifyingGazeAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                terrifyingGazeAbility.getName(),
+                terrifyingGazeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Predatory Assimilation (stack-powered steal chance, same shape as Stun)
         const predatoryAssimilationAbility = this.getAbility("Predatory Assimilation");
         if (predatoryAssimilationAbility) {
