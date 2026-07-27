@@ -2245,6 +2245,18 @@ export class RenderableUnit extends Unit {
             }
         }
 
+        // Magic Mirror (Magic Dragon's passive): flat base % + the unit's own luck, exactly as the engine
+        // computes it in getMagicMirrorAbilityChance — including that clamp, so a lucky dragon's card never
+        // advertises a chance above certain. Luck-dependent but not stack-powered, like the poison auras.
+        const magicMirrorAbility = this.getAbility("Magic Mirror");
+        if (magicMirrorAbility) {
+            const percentage = Math.max(0, Math.min(100, Math.floor(magicMirrorAbility.getPower() + this.getLuck())));
+            this.refreshAbiltyDescription(
+                magicMirrorAbility.getName(),
+                magicMirrorAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Double Punch
         const doublePunchAbility = this.getAbility("Double Punch");
         if (doublePunchAbility) {
