@@ -2245,6 +2245,17 @@ export class RenderableUnit extends Unit {
             }
         }
 
+        // Sylvan Focus Aura (Satyr): base % + the Satyr's own luck, matching what calculateAuraPower stores
+        // on the aura the allies receive — so the card and the buff they get always read the same number.
+        const sylvanFocusAbility = this.getAbility("Sylvan Focus Aura");
+        if (sylvanFocusAbility) {
+            const percentage = Math.max(0, sylvanFocusAbility.getPower() + this.getLuck());
+            this.refreshAbiltyDescription(
+                sylvanFocusAbility.getName(),
+                sylvanFocusAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Magic Mirror (Magic Dragon's passive): flat base % + the unit's own luck, exactly as the engine
         // computes it in getMagicMirrorAbilityChance — including that clamp, so a lucky dragon's card never
         // advertises a chance above certain. Luck-dependent but not stack-powered, like the poison auras.
