@@ -42,7 +42,7 @@ export const artifacts: Artifact[] = [
     t1("keen_blade", "Keen Blade", "Increases the army's base attack (both ranged and melee) by 0.7."),
     t1("iron_plate", "Iron Plate", "Increases the army's base armor by 0.7."),
     t1("swift_boots", "Swift Boots", "Increases melee units' movement by 25% of their base steps."),
-    t1("winged_boots", "Winged Boots", "Grants +1 base movement distance to all flying units."),
+    t1("winged_boots", "Winged Boots", "Grants +1 base movement distance and +1 armor to all flying units."),
     t1("dual_strike_charm", "Dual Strike Charm", "A unit's second attack deals 50% extra damage."),
     t1(
         "wounding_charm",
