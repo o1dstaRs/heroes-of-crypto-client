@@ -717,6 +717,12 @@ export class RankedPlayScene extends Sandbox {
                 const len = Math.hypot(dx, dy);
                 if (len >= 0.001) dir = { x: dx / len, y: dy / len };
             }
+            // A dodged unit in the blast gets the same MISS label a dodged single-target shot gets, rather
+            // than a "0" damage number — the splash entry exists purely to carry that.
+            if (entry.missed) {
+                this.combatVisuals?.showMissLabel(pos, dir);
+                continue;
+            }
             this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
         }
         return true;
@@ -1795,10 +1801,18 @@ export class RankedPlayScene extends Sandbox {
         const flag = this.logTeamFlag(event.attackerId);
         const lines: string[] = [];
         for (const entry of splash) {
+            const name = unitNames.get(entry.unitId) ?? "Unit";
+            // A dodged unit in the blast: report it rather than dropping the entry. The engine writes its own
+            // "misses" line, but ranked never reads that — it rebuilds the log from events — so without this
+            // an Area Throw that missed a Scavenger simply said nothing about it.
+            if (entry.missed) {
+                const missText = `${attackerName} misses 🏹 on ${name}`;
+                lines.push(flag ? `${flag} ${missText}` : missText);
+                continue;
+            }
             if (entry.amount <= 0 && entry.unitsDied <= 0) {
                 continue;
             }
-            const name = unitNames.get(entry.unitId) ?? "Unit";
             const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
             // 🏹💥 = ranged splash: `splash[]` is only ever filled by the range AOE abilities (Cyclops'
             // Large Caliber / Gargantuan's Area Throw), so the icon must read as a ranged attack — a bare
@@ -2064,6 +2078,12 @@ export class RankedPlayScene extends Sandbox {
                 // after magic resistance, so without `damaged` the ranked log would read as a bare
                 // "cast Fire Strike on X" with no number — exactly the gap `healed` was added to close.
                 const damagedEntries = event.damaged ?? [];
+                // A Magic Mirror sent the spell back at its caster. Called out on its own line, because in the
+                // roll-up below it would just look like the caster taking mystery damage from its own cast.
+                const reboundSuffix = damagedEntries
+                    .filter((entry) => entry.rebounded)
+                    .map((entry) => ` ↩️ rebounded onto ${nameOf(entry.unitId)} for ${entry.amount}`)
+                    .join("");
                 const damagedTotal = damagedEntries.reduce((sum, entry) => sum + entry.amount, 0);
                 const killed = damagedEntries.reduce((sum, entry) => sum + entry.unitsDied, 0);
                 const damageSuffix =
@@ -2098,11 +2118,11 @@ export class RankedPlayScene extends Sandbox {
                         damagedTotal > 0
                             ? `${damageSuffix} across ${damagedEntries.length} unit${damagedEntries.length === 1 ? "" : "s"}`
                             : "";
-                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}`;
+                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}${reboundSuffix}`;
                 }
                 return event.targetId === event.casterId
-                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}`
-                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}`;
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}${reboundSuffix}`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}${reboundSuffix}`;
             }
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM

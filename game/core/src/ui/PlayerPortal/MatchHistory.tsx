@@ -38,6 +38,7 @@ const AUGMENT_IMAGE_KEY: Record<MatchAugmentChoice["kind"], keyof typeof images>
     Placement: "board_augment_256",
     Armor: "armor_augment_256",
     Might: "might_augment_256",
+    Empower: "empower_augment_256",
     Sniper: "sniper_augment_256",
     Movement: "movement_augment_256",
 };

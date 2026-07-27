@@ -1902,6 +1902,7 @@ export class Sandbox extends PixiScene {
             placement: priorFightProps.getAugmentPlacementLevel(team),
             armor: priorFightProps.getAugmentArmor(team),
             might: priorFightProps.getAugmentMight(team),
+            empower: priorFightProps.getAugmentEmpower(team),
             sniper: priorFightProps.getAugmentSniper(team),
             movement: priorFightProps.getAugmentMovement(team),
             // FightStateManager.reset() does not preserve active synergies.
@@ -1920,6 +1921,7 @@ export class Sandbox extends PixiScene {
             fightProps.setAugmentPerTeam(s.team, { type: "Placement", value: s.placement });
             fightProps.setAugmentPerTeam(s.team, { type: "Armor", value: s.armor });
             fightProps.setAugmentPerTeam(s.team, { type: "Might", value: s.might });
+            fightProps.setAugmentPerTeam(s.team, { type: "Empower", value: s.empower });
             fightProps.setAugmentPerTeam(s.team, { type: "Sniper", value: s.sniper });
             fightProps.setAugmentPerTeam(s.team, { type: "Movement", value: s.movement });
             fightProps.setSynergiesPerTeam(s.team, s.synergies);
@@ -5597,6 +5599,7 @@ export class Sandbox extends PixiScene {
                       caster.getAmountAlive(),
                       caster.getCumulativeMaxHp(),
                       caster.getLuck(),
+                      caster.getEmpowerPercentage(),
                   )
                 : [];
         const key = lines.join("\n");

@@ -107,7 +107,13 @@ export const bookColors: Record<SpellBook, string> = {
     System: "#9aa3ab",
 };
 
-const augmentSpells = new Set(["Armor Augment", "Might Augment", "Sniper Augment", "Movement Augment"]);
+const augmentSpells = new Set([
+    "Armor Augment",
+    "Might Augment",
+    "Empower Augment",
+    "Sniper Augment",
+    "Movement Augment",
+]);
 
 // Spells cast by a unit ability instead of from a spell book — these are exactly the abilities.json
 // entries with `can_be_cast: true`.
@@ -158,6 +164,8 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Armor Augment":
         "Boosts the entire team's base armor and magic armor. Level 1: +6%. Level 2: +13%. Level 3: +21%.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
+    "System:Empower Augment":
+        "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
     "System:Sniper Augment":
         "Increases the team's ranged base attack and shot range. Level 1: +7% attack, +20% range. Level 2: +15% attack, +40% range. Level 3: +24% attack, +70% range.",
     "System:Movement Augment": "Boosts the entire team's movement steps. Level 1: +1 step. Level 2: +2 steps.",
@@ -179,6 +187,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Armor Augment":
         "Повышает базовую и магическую броню всей команды. Уровень 1: +6%. Уровень 2: +13%. Уровень 3: +21%.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
+    "System:Empower Augment":
+        "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Огненный меч, Цепную молнию, Огненное дыхание и Огненный щит. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",
     "System:Sniper Augment":
         "Повышает базовую атаку и дальность стрелков команды. Уровень 1: +7% атаки, +20% дальности. Уровень 2: +15% атаки, +40% дальности. Уровень 3: +24% атаки, +70% дальности.",
     "System:Movement Augment": "Повышает перемещение всей команды. Уровень 1: +1 шаг. Уровень 2: +2 шага.",

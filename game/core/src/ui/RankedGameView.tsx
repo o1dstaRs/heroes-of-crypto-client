@@ -367,6 +367,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             aug("Placement", side === "lower" ? s.lowerAugmentPlacement : s.upperAugmentPlacement);
             aug("Armor", side === "lower" ? s.lowerAugmentArmor : s.upperAugmentArmor);
             aug("Might", side === "lower" ? s.lowerAugmentMight : s.upperAugmentMight);
+            aug("Empower", side === "lower" ? s.lowerAugmentEmpower : s.upperAugmentEmpower);
             aug("Sniper", side === "lower" ? s.lowerAugmentSniper : s.upperAugmentSniper);
             aug("Movement", side === "lower" ? s.lowerAugmentMovement : s.upperAugmentMovement);
         };
@@ -1991,6 +1992,7 @@ const AUGMENT_SIDEBAR_IMAGES: Record<string, keyof typeof images> = {
     Placement: "board_augment_256",
     Armor: "armor_augment_256",
     Might: "might_augment_256",
+    Empower: "empower_augment_256",
     Sniper: "sniper_augment_256",
     Movement: "movement_augment_256",
 };
@@ -2005,6 +2007,8 @@ const augmentEffectText = (label: string, level: number): string => {
             return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor & Magic Armor`;
         case "Might":
             return `+${Augment.getMightPower(level as Augment.MightAugment)}% Melee attack`;
+        case "Empower":
+            return `+${Augment.getEmpowerPower(level as Augment.EmpowerAugment)}% Magic damage`;
         case "Sniper": {
             const [attack, distance] = Augment.getSniperPower(level as Augment.SniperAugment);
             return `+${attack}% attack/+${distance}% distance`;
@@ -2031,6 +2035,7 @@ const RankedAugmentSummary: React.FC<{
         { label: "Placement", level: pick(snapshot.lowerAugmentPlacement, snapshot.upperAugmentPlacement) },
         { label: "Armor", level: pick(snapshot.lowerAugmentArmor, snapshot.upperAugmentArmor) },
         { label: "Might", level: pick(snapshot.lowerAugmentMight, snapshot.upperAugmentMight) },
+        { label: "Empower", level: pick(snapshot.lowerAugmentEmpower, snapshot.upperAugmentEmpower) },
         { label: "Sniper", level: pick(snapshot.lowerAugmentSniper, snapshot.upperAugmentSniper) },
         { label: "Movement", level: pick(snapshot.lowerAugmentMovement, snapshot.upperAugmentMovement) },
     ];

@@ -214,6 +214,10 @@ export interface PlaySnapshot {
     upperAugmentMight?: number;
     upperAugmentSniper?: number;
     upperAugmentMovement?: number;
+    /** Empower (magic damage) rides on its own tail fields (53/54) rather than beside the other augments:
+     * the numbers above are the wire format, and renumbering them would desync an in-flight client. */
+    lowerAugmentEmpower?: number;
+    upperAugmentEmpower?: number;
     /** Each team's selected synergies (keys like "Might:2:1"). Only populated once the fight has started
      * (empty during placement, for both teams) — the ranked HUD shows them top-left. Absent from older
      * servers (decoder defaults to []). */
@@ -698,6 +702,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         upperAugmentMight: 0,
         upperAugmentSniper: 0,
         upperAugmentMovement: 0,
+        lowerAugmentEmpower: 0,
+        upperAugmentEmpower: 0,
         lowerSynergies: [],
         upperSynergies: [],
         lowerStartRosterCreatureIds: [],
@@ -812,6 +818,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.placementSplit = reader.bool();
         } else if (field === 52) {
             snapshot.stepsMoraleMultiplier = reader.float64();
+        } else if (field === 53) {
+            snapshot.lowerAugmentEmpower = reader.varintNumber();
+        } else if (field === 54) {
+            snapshot.upperAugmentEmpower = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }

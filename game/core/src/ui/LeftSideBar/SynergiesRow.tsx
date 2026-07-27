@@ -4,7 +4,10 @@ import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
 import React, { useMemo } from "react";
 
+import { useSidebarMetrics } from "./sidebarMetrics";
+
 const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?: boolean }) => {
+    const metrics = useSidebarMetrics();
     const sortedSynergies = useMemo(
         () =>
             [...synergies].sort((a, b) => {
@@ -23,13 +26,14 @@ const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?:
         <Box
             sx={{
                 display: "flex",
-                gap: 1,
-                rowGap: wrap ? 1.5 : undefined,
-                flexWrap: wrap ? "wrap" : "nowrap",
+                // The strip wraps instead of overflowing: four synergy badges do not fit a 128px bar on
+                // one line, and the row is a fixed part of the sidebar's height budget.
+                gap: `${metrics.gapPx * 0.6}px`,
+                rowGap: wrap ? 1.5 : `${metrics.gapPx * 0.5}px`,
+                flexWrap: "wrap",
                 justifyContent: wrap ? "center" : "flex-start",
-                height: wrap ? "auto" : "40px", // 32px for images + 4px padding top and bottom
-                minHeight: "40px",
-                alignItems: wrap ? "flex-start" : "center",
+                width: "100%",
+                alignItems: "flex-start",
             }}
         >
             {sortedSynergies.map((synergyKey) => {
@@ -63,8 +67,8 @@ const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?:
                                 component="img"
                                 src={SYNERGY_KEY_TO_IMAGE[synergyKey as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                 sx={{
-                                    width: "36px",
-                                    height: "36px",
+                                    width: `${wrap ? 36 : metrics.synergyIcon}px`,
+                                    height: `${wrap ? 36 : metrics.synergyIcon}px`,
                                     display: "block", // Prevents any extra space from inline display
                                     imageRendering: "auto",
                                     transform: "translateZ(0)",

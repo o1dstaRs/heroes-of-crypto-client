@@ -8,6 +8,9 @@ import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } f
 import {
     AllAbilities,
     calculateStackPoweredSpellDamage,
+    fireforgedSwordPower,
+    FireWallHelper,
+    RESURRECTION_POWER_FACTOR,
     HoCConstants,
     HoCMath,
     ISpellParams,
@@ -197,11 +200,18 @@ export class PixiRenderableSpell extends Spell {
     public canUse(ownerStackPower: number): boolean {
         return this.amountRemaining > 0 && ownerStackPower >= this.getMinimalCasterStackPower();
     }
+    /**
+     * @param casterEmpowerPercentage the caster team's Empower Augment (0 when unbought). Every damage figure
+     *        printed below is raised by it, from the same helpers the engine deals with — an Empowered card
+     *        that still promised the base number would be exactly the "card says 152, cast lands 163" bug the
+     *        stack-powered helper exists to prevent.
+     */
     public getHoverInfo(
         ownerStackPower: number,
         casterAmountAlive: number,
         casterCumulativeMaxHp: number,
         casterLuck?: number,
+        casterEmpowerPercentage = 0,
     ): string[] {
         const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
         if (this.amountRemaining <= 0) {
@@ -245,6 +255,20 @@ export class PixiRenderableSpell extends Spell {
             return [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, reflected.toString()))];
         }
 
+        // Fire Wall burns a share of whatever walks into it, and the share is fixed when the wall is LIT —
+        // so the card prints the Empower-raised percentage the cast will bake into the flames.
+        if (this.getName() === "Fire Wall") {
+            const burn = FireWallHelper.fireWallBurnPercentage(casterEmpowerPercentage);
+            return [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, burn.toString()))];
+        }
+        // Fireforged Sword grants a percentage of extra (burning) damage, raised by Empower like every other
+        // magic source. It is a NO_MULTIPLIER spell, so it never reached the caster-scaled branch below and
+        // used to print an empty placeholder — "Adds % of additional damage".
+        if (this.getName() === "Fireforged Sword") {
+            const bonus = fireforgedSwordPower(this.getPower(), casterEmpowerPercentage);
+            return [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, bonus.toString()))];
+        }
+
         // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,
         // wolves summoned, etc.), matching how the legacy spell book rendered it.
         let replaceBy = "";
@@ -253,7 +277,11 @@ export class PixiRenderableSpell extends Spell {
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
             replaceBy = Math.ceil(casterAmountAlive * this.getPower()).toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_CUMULATIVE_MAX_HP) {
-            replaceBy = casterCumulativeMaxHp.toString();
+            // Resurrection is the only spell on this multiplier, and its budget is the caster's cumulative
+            // max hp scaled by RESURRECTION_POWER_FACTOR — the same figure the cast spends. Printing the
+            // bare cumulative hp understated the card by a third once that factor landed. Holy Cross scales
+            // it further at cast time; that is artifact-dependent and deliberately not promised here.
+            replaceBy = Math.floor(casterCumulativeMaxHp * RESURRECTION_POWER_FACTOR).toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_STACK_POWER) {
             // Offensive spells (Fire Strike / Meteorite): the card shows the FINISHED damage, not the formula,
             // and it comes from the engine's own helper so the page can never promise a number the cast will
@@ -262,6 +290,7 @@ export class PixiRenderableSpell extends Spell {
                 this.getPower(),
                 casterAmountAlive,
                 ownerStackPower,
+                casterEmpowerPercentage,
             ).toString();
         }
         const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));

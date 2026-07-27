@@ -36,6 +36,7 @@ import { ArtifactToggler } from "./ArtifactToggler";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
+const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", import.meta.url).toString();
 const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
 const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
 const synergyAbilitiesPowerImg = new URL(
@@ -352,6 +353,82 @@ const MightToggler = ({
     );
 };
 
+const EmpowerToggler = ({
+    title,
+    teamType,
+    totalPoints,
+    onLevelChange,
+    currentSelection,
+}: {
+    title: string;
+    teamType: TeamType;
+    totalPoints: number;
+    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
+    currentSelection: number | null;
+}) => {
+    const manager = usePixiManager();
+
+    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const augmentType = Augment.ToEmpowerAugment[event.target.value.toString()];
+        if (manager.PropagateAugmentation(teamType, { type: "Empower", value: augmentType })) {
+            onLevelChange(augmentType, currentSelection ?? 0);
+        }
+    };
+
+    return (
+        <Box sx={{ marginBottom: 2 }}>
+            {/* Remaining Points Text (Orange and Bold) */}
+            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
+                Remaining Points: {totalPoints}
+            </Typography>
+
+            {/* The Toggler Sheet */}
+            <Sheet
+                variant="outlined"
+                sx={{
+                    padding: 2,
+                    borderRadius: "md",
+                }}
+            >
+                <FormControl>
+                    <FormLabel>Augment Empower</FormLabel>
+                    <RadioGroup
+                        name={`${title}-empower-type`}
+                        onChange={handleSelectionChange}
+                        value={currentSelection ?? Augment.EmpowerAugment.NO_AUGMENT}
+                    >
+                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label="No Augment" />
+                        <Radio
+                            value={Augment.EmpowerAugment.LEVEL_1}
+                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_1)}% Magic damage`}
+                            disabled={
+                                totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_1 &&
+                                currentSelection !== Augment.EmpowerAugment.LEVEL_1
+                            }
+                        />
+                        <Radio
+                            value={Augment.EmpowerAugment.LEVEL_2}
+                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_2)}% Magic damage`}
+                            disabled={
+                                totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_2 &&
+                                currentSelection !== Augment.EmpowerAugment.LEVEL_2
+                            }
+                        />
+                        <Radio
+                            value={Augment.EmpowerAugment.LEVEL_3}
+                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_3)}% Magic damage`}
+                            disabled={
+                                totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_3 &&
+                                currentSelection !== Augment.EmpowerAugment.LEVEL_3
+                            }
+                        />
+                    </RadioGroup>
+                </FormControl>
+            </Sheet>
+        </Box>
+    );
+};
+
 const SniperToggler = ({
     title,
     teamType,
@@ -524,11 +601,12 @@ const SideToggleContainer = ({
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
     const [armorSelection, setArmorSelection] = useState<number | null>(null);
     const [mightSelection, setMightSelection] = useState<number | null>(null);
+    const [empowerSelection, setEmpowerSelection] = useState<number | null>(null);
     const [sniperSelection, setSniperSelection] = useState<number | null>(null);
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
     const [possibleSynergies, setPossibleSynergies] = useState<Map<TeamType, SynergyWithLevel[]>>(new Map());
     const [togglerType, setTogglerType] = useState<
-        "Placement" | "Armor" | "Might" | "Sniper" | "Movement" | "Synergy" | "None"
+        "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
     const [selectedSynergy, setSelectedSynergy] = useState<SelectedSynergy | null>(null);
     const [synergyPairLife, setSynergyPairTypeLife] = useState<SelectedSynergy | null>(null);
@@ -538,7 +616,7 @@ const SideToggleContainer = ({
     const [synergyTogglerKey, setSynergyTogglerKey] = useState(0);
 
     // Function to handle augment button clicks
-    const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Sniper" | "Movement") => {
+    const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement") => {
         setTogglerType(type);
         setSelectedSynergy(null); // Clear selected synergy when switching to augment
     };
@@ -550,6 +628,8 @@ const SideToggleContainer = ({
             setArmorSelection(pointsUsed);
         } else if (togglerType === "Might") {
             setMightSelection(pointsUsed);
+        } else if (togglerType === "Empower") {
+            setEmpowerSelection(pointsUsed);
         } else if (togglerType === "Sniper") {
             setSniperSelection(pointsUsed);
         } else {
@@ -726,6 +806,19 @@ const SideToggleContainer = ({
                             alt="Might Icon"
                             style={{
                                 filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
+                                width: 48,
+                                height: 48,
+                            }}
+                        />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Augment magic damage" style={{ zIndex: 1 }}>
+                    <IconButton onClick={() => handleAugmentClick("Empower")} title="Augment magic damage">
+                        <img
+                            src={(augmentEmpowerImg as unknown as { default?: string }).default ?? augmentEmpowerImg}
+                            alt="Empower Icon"
+                            style={{
+                                filter: togglerType === "Empower" ? "brightness(1.2)" : "brightness(0.6)",
                                 width: 48,
                                 height: 48,
                             }}
@@ -1093,6 +1186,15 @@ const SideToggleContainer = ({
                                 totalPoints={totalPoints}
                                 onLevelChange={handleLevelChange}
                                 currentSelection={mightSelection}
+                            />
+                        ) : togglerType === "Empower" ? (
+                            <EmpowerToggler
+                                key={teamType}
+                                teamType={teamType}
+                                title={side}
+                                totalPoints={totalPoints}
+                                onLevelChange={handleLevelChange}
+                                currentSelection={empowerSelection}
                             />
                         ) : togglerType === "Sniper" ? (
                             <SniperToggler

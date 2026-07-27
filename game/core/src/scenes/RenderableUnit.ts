@@ -2662,6 +2662,21 @@ export class RenderableUnit extends Unit {
             }
         }
 
+        // Arcane Ward Aura (Squire) — same stack-scaled + luck magic-defence projection as Warding Mane.
+        const arcaneWardAuraAbility = this.getAbility("Arcane Ward Aura");
+        if (arcaneWardAuraAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Arcane Ward");
+            if (auraEffect) {
+                this.refreshAbiltyDescription(
+                    arcaneWardAuraAbility.getName(),
+                    arcaneWardAuraAbility
+                        .getDesc()
+                        .join("\n")
+                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
+                );
+            }
+        }
+
         // Flesh Shield Aura
         const fleshShieldAuraAbility = this.getAbility("Flesh Shield Aura");
         if (fleshShieldAuraAbility) {

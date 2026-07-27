@@ -15,6 +15,7 @@ import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { TeamAmountFlag } from "../TeamAmountFlag";
 import { resolveUnitImage } from "../unitImage";
 import { prefetchUnitAtlas } from "./UnitStatsListItem";
+import { useSidebarMetrics } from "./sidebarMetrics";
 
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = images.hourglass;
@@ -92,6 +93,7 @@ export const UpNext: React.FC = () => {
     const [stableVisibleUnits, setStableVisibleUnits] = useState<IVisibleUnit[]>([]);
 
     const manager = usePixiManager();
+    const metrics = useSidebarMetrics();
 
     useEffect(() => {
         const connection = manager.onVisibleStateUpdated.connect(setVisibleState);
@@ -153,19 +155,31 @@ export const UpNext: React.FC = () => {
         };
     }, [stableVisibleUnits]);
 
+    const leadAvatar = Math.round(metrics.avatarPx * 1.16);
+    const markerPx = Math.round(Math.max(12, metrics.avatarPx * 0.28));
+
     return (
         <>
             <Divider />
             <Tooltip title="Click ALT to see who is turning next" placement="top" sx={commonTooltipSx}>
                 {/* Container Box acts as the trigger, separated from Tooltip styles */}
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2, minHeight: 80 }}>
-                    <Typography level="title-md">Up next</Typography>
+                <Box
+                    sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: `${Math.round(metrics.gapPx * 0.5)}px`,
+                        pt: `${Math.round(metrics.gapPx * 0.5)}px`,
+                    }}
+                >
+                    <Typography level="title-md" sx={{ fontSize: `${0.8 * metrics.fontScale}rem`, lineHeight: 1.2 }}>
+                        Up next
+                    </Typography>
 
                     <Box sx={{ overflow: "hidden" }}>
                         <Stack
                             direction="row"
-                            spacing={1}
                             sx={{
+                                gap: `${Math.round(metrics.gapPx * 0.5)}px`,
                                 overflowX: "auto",
                                 flexWrap: "nowrap",
                                 "&::-webkit-scrollbar": { display: "none" },
@@ -208,8 +222,10 @@ export const UpNext: React.FC = () => {
                                                 src={resolveUnitImage(unit.smallTextureName, unit.name)}
                                                 variant="plain"
                                                 sx={{
-                                                    width: index === 0 ? "84px" : "72px",
-                                                    height: index === 0 ? "84px" : "72px",
+                                                    // Sized off the bar so a 1024x768 screen still shows a
+                                                    // couple of queued units instead of one clipped avatar.
+                                                    width: `${index === 0 ? leadAvatar : metrics.avatarPx}px`,
+                                                    height: `${index === 0 ? leadAvatar : metrics.avatarPx}px`,
                                                     flexShrink: 0,
                                                     borderRadius: "15%",
                                                     imageRendering: "auto",
@@ -232,8 +248,8 @@ export const UpNext: React.FC = () => {
                                                     position: "absolute",
                                                     top: 0,
                                                     left: 0, // Top Left
-                                                    width: "20px",
-                                                    height: "20px",
+                                                    width: `${markerPx}px`,
+                                                    height: `${markerPx}px`,
                                                     zIndex: 2,
                                                     transition: "opacity 140ms ease-out",
                                                 }}
@@ -246,8 +262,8 @@ export const UpNext: React.FC = () => {
                                                     position: "absolute",
                                                     top: 0,
                                                     left: 0, // Top Left
-                                                    width: "20px",
-                                                    height: "20px",
+                                                    width: `${markerPx}px`,
+                                                    height: `${markerPx}px`,
                                                     zIndex: 2,
                                                     transition: "opacity 140ms ease-out",
                                                 }}

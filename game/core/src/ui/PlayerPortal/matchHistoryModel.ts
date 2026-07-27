@@ -14,13 +14,14 @@ export interface PortalMatchSetupData {
     augment_placement?: number;
     augment_armor?: number;
     augment_might?: number;
+    augment_empower?: number;
     augment_sniper?: number;
     augment_movement?: number;
     synergies?: string[];
     complete?: boolean;
 }
 
-export type MatchAugmentKind = "Placement" | "Armor" | "Might" | "Sniper" | "Movement";
+export type MatchAugmentKind = "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement";
 
 export interface MatchAugmentChoice {
     kind: MatchAugmentKind;
@@ -76,6 +77,7 @@ export const normalizeMatchSetup = (setup: PortalMatchSetupData | undefined): Ma
     const leveledAugments: Array<[MatchAugmentKind, number]> = [
         ["Armor", Math.min(3, nonNegativeInteger(setup?.augment_armor))],
         ["Might", Math.min(3, nonNegativeInteger(setup?.augment_might))],
+        ["Empower", Math.min(3, nonNegativeInteger(setup?.augment_empower))],
         ["Sniper", Math.min(3, nonNegativeInteger(setup?.augment_sniper))],
         ["Movement", Math.min(2, nonNegativeInteger(setup?.augment_movement))],
     ];

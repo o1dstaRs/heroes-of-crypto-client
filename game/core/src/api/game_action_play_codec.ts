@@ -10,6 +10,7 @@ const AUGMENT_KIND_TO_CODE: Record<AugmentKind, number> = {
     Might: 3,
     Sniper: 4,
     Movement: 5,
+    Empower: 6,
 };
 const AUGMENT_CODE_TO_KIND: Record<number, AugmentKind> = {
     1: "Placement",
@@ -17,6 +18,9 @@ const AUGMENT_CODE_TO_KIND: Record<number, AugmentKind> = {
     3: "Might",
     4: "Sniper",
     5: "Movement",
+    // Appended rather than slotted next to Might: the codes are the wire format, and renumbering them would
+    // make an in-flight client and server disagree about what a queued AUGMENT action meant.
+    6: "Empower",
 };
 
 type PlayActionEnvelope = {

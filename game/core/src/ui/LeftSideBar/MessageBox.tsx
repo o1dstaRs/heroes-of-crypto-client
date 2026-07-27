@@ -20,6 +20,7 @@ import { useViewerTeam } from "../context/ViewerTeamContext";
 import { images } from "../../generated/image_imports";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { TurnTimerBar } from "./TurnTimerBar";
+import { useSidebarMetrics } from "./sidebarMetrics";
 
 // --- Configuration for the Start Button Atlas ---
 const START_BUTTON_META = {
@@ -30,8 +31,6 @@ const START_BUTTON_META = {
     frameCount: 73,
     fps: 12,
 };
-
-const BUTTON_SCALE = 0.6;
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---
 const commonTooltipSx = {
@@ -47,7 +46,7 @@ const commonTooltipSx = {
 };
 
 // 1. Animated Button Component (Ping-Pong Loop)
-const AnimatedStartButton = ({ onClick }: { onClick: () => void }) => {
+const AnimatedStartButton = ({ onClick, scale }: { onClick: () => void; scale: number }) => {
     const [frameIndex, setFrameIndex] = useState(0);
     const requestRef = useRef<number | undefined>(undefined);
     const previousTimeRef = useRef<number | undefined>(undefined);
@@ -100,44 +99,42 @@ const AnimatedStartButton = ({ onClick }: { onClick: () => void }) => {
         <Box
             onClick={onClick}
             sx={{
-                width: `${START_BUTTON_META.frameWidth * BUTTON_SCALE}px`,
-                height: `${START_BUTTON_META.frameHeight * BUTTON_SCALE}px`,
+                width: `${START_BUTTON_META.frameWidth * scale}px`,
+                height: `${START_BUTTON_META.frameHeight * scale}px`,
                 cursor: "pointer",
                 overflow: "hidden",
                 margin: "0 auto",
-                marginTop: 2,
                 transition: "transform 0.1s",
                 "&:active": {
                     transform: "scale(0.95)",
                 },
                 backgroundImage: `url(${images["button_start_atlas"]})`,
                 backgroundRepeat: "no-repeat",
-                backgroundSize: `${START_BUTTON_META.frameWidth * START_BUTTON_META.cols * BUTTON_SCALE}px ${
-                    START_BUTTON_META.frameHeight * START_BUTTON_META.rows * BUTTON_SCALE
+                backgroundSize: `${START_BUTTON_META.frameWidth * START_BUTTON_META.cols * scale}px ${
+                    START_BUTTON_META.frameHeight * START_BUTTON_META.rows * scale
                 }px`,
-                backgroundPosition: `${bgPosX * BUTTON_SCALE}px ${bgPosY * BUTTON_SCALE}px`,
+                backgroundPosition: `${bgPosX * scale}px ${bgPosY * scale}px`,
             }}
         />
     );
 };
 
 // 2. Disabled Button Component (Static)
-const DisabledStartButton = () => {
+const DisabledStartButton = ({ scale }: { scale: number }) => {
     return (
         <Tooltip title="Place units for both teams to start" placement="top" variant="solid" sx={commonTooltipSx}>
             <Box
                 sx={{
-                    width: `${START_BUTTON_META.frameWidth * BUTTON_SCALE}px`,
-                    height: `${START_BUTTON_META.frameHeight * BUTTON_SCALE}px`,
+                    width: `${START_BUTTON_META.frameWidth * scale}px`,
+                    height: `${START_BUTTON_META.frameHeight * scale}px`,
                     overflow: "hidden",
                     margin: "0 auto",
-                    marginTop: 2,
                     filter: "grayscale(100%) brightness(0.7) opacity(0.6)",
                     cursor: "not-allowed",
                     backgroundImage: `url(${images["button_start_atlas"]})`,
                     backgroundRepeat: "no-repeat",
-                    backgroundSize: `${START_BUTTON_META.frameWidth * START_BUTTON_META.cols * BUTTON_SCALE}px ${
-                        START_BUTTON_META.frameHeight * START_BUTTON_META.rows * BUTTON_SCALE
+                    backgroundSize: `${START_BUTTON_META.frameWidth * START_BUTTON_META.cols * scale}px ${
+                        START_BUTTON_META.frameHeight * START_BUTTON_META.rows * scale
                     }px`,
                     backgroundPosition: `0px 0px`,
                 }}
@@ -151,6 +148,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const [countdown, setCountdown] = useState<number | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
+    const metrics = useSidebarMetrics();
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
     // Sandbox-only "AI side" toggles: hand green (LOWER) / red (UPPER) entirely to the AI. Such a team
@@ -260,19 +258,25 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 1,
-                    pb: 2,
+                    gap: `${metrics.gapPx}px`,
                 }}
             >
                 {visibleState.canBeStarted ? (
-                    <AnimatedStartButton onClick={() => manager.StartGame()} />
+                    <AnimatedStartButton onClick={() => manager.StartGame()} scale={metrics.startButtonScale} />
                 ) : (
-                    <DisabledStartButton />
+                    <DisabledStartButton scale={metrics.startButtonScale} />
                 )}
                 {/* Sandbox only: hand a side to the AI. That team auto-plays and the human can't act for
-                    it (its toolbar/board are locked on its turn). Check both to watch two AIs clash. */}
+                    it (its toolbar/board are locked on its turn). Check both to watch two AIs clash.
+                    The pair wraps rather than overflowing once the bar gets narrow. */}
                 {isSandbox && (
-                    <Stack direction="row" spacing={2} sx={{ pt: 0.5 }}>
+                    <Stack
+                        direction="row"
+                        useFlexGap
+                        flexWrap="wrap"
+                        justifyContent="center"
+                        sx={{ gap: `${metrics.gapPx}px`, width: "100%" }}
+                    >
                         <Checkbox
                             size="sm"
                             color="success"
@@ -280,6 +284,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                             label="Green AI"
                             checked={greenAi}
                             onChange={(e) => toggleTeamAi(TeamVals.LOWER, e.target.checked)}
+                            sx={{ fontSize: `${0.75 * metrics.fontScale}rem` }}
                         />
                         <Checkbox
                             size="sm"
@@ -288,6 +293,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                             label="Red AI"
                             checked={redAi}
                             onChange={(e) => toggleTeamAi(TeamVals.UPPER, e.target.checked)}
+                            sx={{ fontSize: `${0.75 * metrics.fontScale}rem` }}
                         />
                     </Stack>
                 )}
@@ -305,13 +311,15 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     variant="soft"
                     color={countdown ? "danger" : timerProgressValue > 80 ? "warning" : "neutral"}
                     size="sm"
-                    sx={{ boxShadow: "none" }}
+                    sx={{ boxShadow: "none", p: `${metrics.gapPx}px`, gap: `${Math.round(metrics.gapPx * 0.5)}px` }}
                 >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography level="title-sm">Placement</Typography>
+                        <Typography level="title-sm" sx={{ fontSize: `${0.78 * metrics.fontScale}rem` }}>
+                            Placement
+                        </Typography>
                         <TimelapseRoundedIcon />
                     </Stack>
-                    <Typography level="body-xs">
+                    <Typography level="body-xs" sx={{ fontSize: `${0.7 * metrics.fontScale}rem` }}>
                         {remainingSeconds > 0 ? `${remainingSeconds}s until auto-start` : "Starting fight."}
                     </Typography>
                     <LinearProgress
@@ -415,15 +423,26 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 variant={messageBoxVariant}
                 color={messageBoxColor}
                 size="sm"
-                sx={{ boxShadow: "none" }}
+                sx={{ boxShadow: "none", p: `${metrics.gapPx}px`, gap: `${Math.round(metrics.gapPx * 0.5)}px` }}
             >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography level="title-sm" sx={isEnemyTurn ? { color: hocColors.danger } : undefined}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
+                    <Typography
+                        level="title-sm"
+                        sx={{
+                            fontSize: `${0.78 * metrics.fontScale}rem`,
+                            lineHeight: 1.2,
+                            ...(isEnemyTurn ? { color: hocColors.danger } : {}),
+                        }}
+                    >
                         {messageBoxTitle}
                     </Typography>
                     {visibleState.hasFinished ? <RefreshRoundedIcon /> : defaultIcon}
                 </Stack>
-                {messageBoxText && <Typography level="body-xs">{messageBoxText}</Typography>}
+                {messageBoxText && (
+                    <Typography level="body-xs" sx={{ fontSize: `${0.7 * metrics.fontScale}rem` }}>
+                        {messageBoxText}
+                    </Typography>
+                )}
                 {!visibleState.hasFinished && (
                     <TurnTimerBar
                         lapNumber={visibleState.lapNumber}
@@ -439,12 +458,11 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         onMouseDown={() => manager.RequestTime(visibleState.teamTypeTurn)}
                         size="sm"
                         variant="solid"
+                        sx={{ minHeight: 0, py: "4px", fontSize: `${0.75 * metrics.fontScale}rem` }}
                     >
                         {messageBoxButtonText}
                     </Button>
-                ) : (
-                    <span />
-                )}
+                ) : null}
             </Card>
         </>
     );

@@ -79,8 +79,8 @@ const quickFacts = [
         value: "7",
         label: isRu ? "очков апгрейдов" : "augment points",
         tip: isRu
-            ? "До боя вы тратите 7 очков на командные апгрейды (броня, ближний бой, стрельба, движение, зона расстановки) — реальные компромиссы."
-            : "Before the fight you spend 7 points on team augments (armor, melee, ranged, movement, deployment) — real trade-offs, not cosmetics.",
+            ? "До боя вы тратите 7 очков на командные апгрейды (броня, ближний бой, магия, стрельба, движение, зона расстановки) — реальные компромиссы."
+            : "Before the fight you spend 7 points on team augments (armor, melee, magic, ranged, movement, deployment) — real trade-offs, not cosmetics.",
     },
     {
         value: "−20 … +20",
@@ -153,6 +153,12 @@ const augmentTable = [
         name: isRu ? "Сила" : "Might",
         tiers: ["+8%", "+17%", "+27%"],
         note: isRu ? "ближняя атака" : "melee attack",
+    },
+    {
+        icon: "/assets/images/units/abilities/empower_augment_256.webp",
+        name: isRu ? "Магия" : "Empower",
+        tiers: ["+7%", "+15%", "+24%"],
+        note: isRu ? "магический урон" : "magic damage",
     },
     {
         icon: "/assets/images/units/abilities/sniper_augment_256.webp",
@@ -268,6 +274,11 @@ const copy = isRu
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
                   title: "Ближний бой",
                   text: "+8%, +17% или +27% к ближней атаке. Это выбор для армий, которые готовы драться лицом к лицу.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/empower_augment_256.webp",
+                  title: "Магия",
+                  text: "+7%, +15% или +24% к магическому урону: атакующие заклинания, Огненная стена, Огненный меч, Цепная молния, Огненное дыхание и Огненный щит. Выбор армий, которые побеждают заклинаниями, а не оружием.",
               },
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
@@ -479,6 +490,11 @@ const copy = isRu
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
                   title: "Might",
                   text: "+8%, +17%, or +27% melee attack. This is for armies that intend to fight up close.",
+              },
+              {
+                  icon: "/assets/images/units/abilities/empower_augment_256.webp",
+                  title: "Empower",
+                  text: "+7%, +15%, or +24% magic damage: offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. For armies that win with spells rather than steel.",
               },
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",

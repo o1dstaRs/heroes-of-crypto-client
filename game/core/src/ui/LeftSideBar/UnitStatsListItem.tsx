@@ -48,6 +48,7 @@ import { GrayUserIcon } from "../svg/user_gray";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
+import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -197,7 +198,9 @@ const AtlasAnimation: React.FC<{
     meta: AtlasMeta;
     src: string;
     onLoaded: () => void;
-}> = ({ meta, src, onLoaded }) => {
+    /** Ceiling for the rendered portrait; the frame keeps its aspect ratio and centres inside the slot. */
+    maxHeight: number;
+}> = ({ meta, src, onLoaded, maxHeight }) => {
     const [isImageLoaded, setIsImageLoaded] = React.useState(() => isAtlasReady(src));
     const bgRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -280,6 +283,10 @@ const AtlasAnimation: React.FC<{
             sx={{
                 position: "relative",
                 width: "100%",
+                // Height, not width, is the scarce resource in the sidebar: cap the portrait and let the
+                // frame's own aspect ratio decide how wide it may be inside that cap.
+                maxWidth: `${Math.round(maxHeight * (frameWidth / frameHeight))}px`,
+                mx: "auto",
                 aspectRatio: `${frameWidth} / ${frameHeight}`,
                 overflow: "visible",
             }}
@@ -363,9 +370,9 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 const AbilityCell: React.FC<{
     ability: IVisibleImpact;
     teamType: TeamType;
-    isWidescreen: boolean;
+    size: number;
     hasBreakApplied: boolean;
-}> = ({ ability, teamType, isWidescreen, hasBreakApplied }) => {
+}> = ({ ability, teamType, size, hasBreakApplied }) => {
     const theme = useTheme();
     const isDarkMode = theme.palette.mode === "dark";
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
@@ -422,8 +429,11 @@ const AbilityCell: React.FC<{
             <Box
                 sx={{
                     position: "relative",
-                    width: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
-                    paddingBottom: isWidescreen ? "22%" : `calc((100% - ${theme.spacing(3)}) / 3)`,
+                    // Sized in px from the measured bar width so the tiles neither overhang a 128px bar
+                    // nor balloon to 90px squares on an ultrawide.
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    flex: "none",
                     overflow: "visible",
                     borderRadius: ability.isAura ? "50%" : "15%",
                     "&::before": {
@@ -483,22 +493,26 @@ const AbilityCell: React.FC<{
     );
 };
 
-const AbilityStack: React.FC<IAbilityStackProps & { isWidescreen: boolean; hasBreakApplied: boolean }> = ({
+const AbilityStack: React.FC<IAbilityStackProps & { metrics: ISidebarMetrics; hasBreakApplied: boolean }> = ({
     abilities,
     teamType,
-    isWidescreen,
+    metrics,
     hasBreakApplied,
 }) => {
     const filtered = abilities.filter((ability) => ability.laps > 0);
 
     return (
-        <Stack direction="row" flexWrap="wrap" gap={isWidescreen ? 2 : 1.5} sx={{ width: "100%", marginTop: 1 }}>
+        <Stack
+            direction="row"
+            flexWrap="wrap"
+            sx={{ width: "100%", gap: `${metrics.gapPx}px`, marginTop: `${Math.round(metrics.gapPx * 0.6)}px` }}
+        >
             {filtered.map((ability, index) => (
                 <AbilityCell
                     key={`${ability.name}-${ability.smallTextureName}-${index}`}
                     ability={ability}
                     teamType={teamType}
-                    isWidescreen={isWidescreen}
+                    size={metrics.abilityCell}
                     hasBreakApplied={hasBreakApplied}
                 />
             ))}
@@ -540,45 +554,25 @@ const StackCountBadge: React.FC<{ stacks?: number }> = ({ stacks }) => {
     );
 };
 
-const EffectColumnOrRow: React.FC<{
+/**
+ * One labelled, wrapping row of buff (or debuff) icons. Buffs used to render either as a narrow column
+ * squeezed beside the portrait or as a full-width row depending on the screen, which meant two very
+ * different looks and a 13%-wide icon that vanished on a narrow bar; a single row that wraps behaves the
+ * same everywhere and costs one line when the unit only carries one or two effects.
+ */
+const EffectRow: React.FC<{
     effects: IVisibleImpact[];
     title: string;
-    isHorizontalLayout?: boolean;
-}> = ({ effects, title, isHorizontalLayout = false }) => {
-    if (!effects.length) return <Box sx={{ marginBottom: 2 }} />;
+    metrics: ISidebarMetrics;
+}> = ({ effects, title, metrics }) => {
+    if (!effects.length) return null;
 
     return (
-        <Box
-            sx={{
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-                alignItems: isHorizontalLayout ? "left" : "center",
-                marginBottom: title === "Debuffs" ? 2 : 0,
-                ...(isHorizontalLayout ? {} : { paddingLeft: "2px" }),
-            }}
-        >
-            <Typography
-                level="title-sm"
-                sx={{
-                    textAlign: isHorizontalLayout ? "left" : "center",
-                    ...(isHorizontalLayout ? {} : { fontSize: 9 }),
-                    width: "8ch",
-                    marginBottom: isHorizontalLayout ? 1 : 0,
-                    ...(isHorizontalLayout ? { marginTop: 2 } : {}),
-                }}
-            >
+        <Box sx={{ display: "flex", flexDirection: "column", width: "100%", gap: "2px" }}>
+            <Typography level="title-sm" sx={{ fontSize: `${0.75 * metrics.fontScale}rem`, lineHeight: 1.2 }}>
                 {title}
             </Typography>
-            <Box
-                sx={{
-                    flex: 1,
-                    overflow: "auto",
-                    display: "flex",
-                    flexDirection: isHorizontalLayout ? "row" : "column",
-                    flexWrap: isHorizontalLayout ? "wrap" : "nowrap",
-                }}
-            >
+            <Box sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: `${metrics.gapPx * 0.6}px` }}>
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
@@ -589,8 +583,9 @@ const EffectColumnOrRow: React.FC<{
                             sx={{
                                 position: "relative",
                                 display: "inline-flex",
-                                width: isHorizontalLayout ? "13%" : "auto",
-                                margin: isHorizontalLayout && index !== 0 ? "0 2px" : "1px",
+                                width: `${metrics.effectIcon}px`,
+                                height: `${metrics.effectIcon}px`,
+                                flex: "none",
                             }}
                         >
                             <Box
@@ -620,20 +615,22 @@ const EffectColumnOrRow: React.FC<{
     );
 };
 
-const StatGroup: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-start", gap: 0.5, mb: 1 }}>{children}</Box>
-);
-
+/**
+ * A single stat. The grid that hosts it (see `StatsGrid`) decides how many fit per row, so the item only
+ * has to stay inside its cell: a stat carrying a modifier chip claims two columns instead of overflowing
+ * the bar, which is what used to cut "812/1000" and "+12 x1.25" in half on narrow screens.
+ */
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
     value: string | number;
     tooltip: string;
     color: string;
+    metrics: ISidebarMetrics;
     badgeContent?: string;
     badgeColor?: string;
     positiveFrame?: boolean;
     negativeFrame?: boolean;
-}> = ({ icon, value, tooltip, color, badgeContent, badgeColor, positiveFrame, negativeFrame }) => {
+}> = ({ icon, value, tooltip, color, metrics, badgeContent, badgeColor, positiveFrame, negativeFrame }) => {
     const framed = Boolean(positiveFrame || negativeFrame);
     // Accent reuses the modifier-chip palette: green for a buff, red for a debuff.
     const accent = positiveFrame ? "22, 163, 74" : "220, 38, 38";
@@ -647,9 +644,10 @@ const StatItem: React.FC<{
                     alignItems: "center",
                     flexWrap: "nowrap",
                     overflow: "visible",
-                    // A stat with an active modifier (badge) needs room for the modifier chip — give it
-                    // the whole row instead of 45%, so "30 +10" always fits regardless of screen width.
-                    minWidth: badgeContent ? "100%" : "45%",
+                    minWidth: 0,
+                    // A stat carrying a modifier chip needs about twice the room, so it takes two grid
+                    // columns whenever there is more than one.
+                    gridColumn: badgeContent && metrics.statColumns > 1 ? "span 2" : "auto",
                 }}
             >
                 {/* The highlight hugs only the icon + value + modifier chip (not the whole row) and
@@ -677,9 +675,11 @@ const StatItem: React.FC<{
                             : {}),
                     }}
                 >
-                    {React.cloneElement(icon, { sx: { color, fontSize: "1.25rem", pr: "4px" } })}
+                    {React.cloneElement(icon, {
+                        sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
+                    })}
                     <Typography
-                        fontSize="0.75rem"
+                        fontSize={`${metrics.statFontRem}rem`}
                         component="span"
                         sx={{
                             whiteSpace: "nowrap",
@@ -692,7 +692,7 @@ const StatItem: React.FC<{
                         <Typography
                             component="span"
                             sx={{
-                                fontSize: "0.62rem",
+                                fontSize: `${0.62 * metrics.fontScale}rem`,
                                 fontWeight: "bold",
                                 lineHeight: 1,
                                 px: "4px",
@@ -733,17 +733,15 @@ const UnitStatsLayout: React.FC<{
     stepsMod: number;
     hasDifferentRangeArmor: boolean;
     isDarkMode: boolean;
-    columnize: boolean;
+    metrics: ISidebarMetrics;
     largeTextureName: string;
     images: { [key: string]: string };
-    showStats: boolean;
-    showAbilities: boolean;
     onImageLoaded: () => void;
     abilities: IVisibleImpact[];
+    buffs: IVisibleImpact[];
+    debuffs: IVisibleImpact[];
     hasBreakApplied: boolean;
     team: TeamType;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sx?: any;
 }> = ({
     unitProperties,
     damageRange,
@@ -756,19 +754,16 @@ const UnitStatsLayout: React.FC<{
     stepsMod,
     hasDifferentRangeArmor,
     isDarkMode,
-    columnize,
+    metrics,
     largeTextureName,
     images,
-    showStats,
-    showAbilities,
     onImageLoaded,
     abilities,
+    buffs,
+    debuffs,
     hasBreakApplied,
     team,
-    sx,
 }) => {
-    const statsVisible = showStats;
-    const abilitiesVisible = showAbilities;
     const attackModBadgeValue = `${attackMod ? (attackMod > 0 ? "+" : "") + unitProperties.attack_mod : ""}${unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""}`;
     const armorModBadgeValue = armorMod ? (armorMod > 0 ? "+" : "") + armorMod : "";
     const stepsModBadgeValue = stepsMod ? (stepsMod > 0 ? "+" : "") + stepsMod : "";
@@ -784,201 +779,238 @@ const UnitStatsLayout: React.FC<{
         attackColor = "danger";
 
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
+    const showRangedStats =
+        unitProperties.attack_type === AttackVals.RANGE ||
+        // Runtime shooter: a melee unit holding a stolen Endless Quiver gains shots
+        // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
+        (unitProperties.shot_distance > 0 && (unitProperties.range_shots_mod || unitProperties.range_shots) > 0);
+
+    // One flat list of stats rather than six fixed pairs: the grid around it decides how many sit on a
+    // row, so the same markup reads as one column on a 128px bar and four on an ultrawide.
     const statsContent = (
         <>
-            <StatGroup>
+            <StatItem
+                icon={<HeartIcon />}
+                value={`${unitProperties.hp}/${unitProperties.max_hp}`}
+                tooltip="Current/max Health Points"
+                color="#ff4d4d"
+                metrics={metrics}
+            />
+            {unitProperties.can_cast_spells && (
                 <StatItem
-                    icon={<HeartIcon />}
-                    value={`${unitProperties.hp}/${unitProperties.max_hp}`}
-                    tooltip="Current/max Health Points"
-                    color="#ff4d4d"
+                    icon={<ScrollIcon />}
+                    value={unitProperties.spells.length}
+                    tooltip="Number of magic scrolls"
+                    color="#add8e6"
+                    metrics={metrics}
                 />
-                {unitProperties.can_cast_spells && (
-                    <StatItem
-                        icon={<ScrollIcon />}
-                        value={unitProperties.spells.length}
-                        tooltip="Number of magic scrolls"
-                        color="#add8e6"
-                    />
-                )}
-            </StatGroup>
-            <StatGroup>
-                <StatItem icon={<FistIcon />} value={damageRange} tooltip="Attack spread" color="#c0c0c0" />
-                <StatItem
-                    icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
-                    value={Number(attackDamage.toFixed(2))}
-                    tooltip="Attack type and multiplier"
-                    color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
-                    badgeContent={attackModBadgeValue}
-                    badgeColor={attackColor}
-                    positiveFrame={unitProperties.attack_multiplier > 1}
-                    negativeFrame={unitProperties.attack_multiplier < 1}
-                />
-            </StatGroup>
-            {(unitProperties.attack_type === AttackVals.RANGE ||
-                // Runtime shooter: a melee unit holding a stolen Endless Quiver gains shots
-                // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
-                (unitProperties.shot_distance > 0 &&
-                    (unitProperties.range_shots_mod || unitProperties.range_shots) > 0)) && (
-                <StatGroup>
-                    <StatItem
-                        icon={<ShotRangeIcon />}
-                        value={unitProperties.shot_distance}
-                        tooltip="Ranged shot distance in cells"
-                        color="#ffff00"
-                    />
-                    {(unitProperties.range_shots_mod || unitProperties.range_shots) && (
-                        <StatItem
-                            icon={<QuiverIcon />}
-                            value={unitProperties.range_shots_mod || unitProperties.range_shots}
-                            tooltip="Number of ranged shots"
-                            color="#cd5c5c"
-                        />
-                    )}
-                </StatGroup>
             )}
-            <StatGroup>
+            <StatItem
+                icon={<FistIcon />}
+                value={damageRange}
+                tooltip="Attack spread"
+                color="#c0c0c0"
+                metrics={metrics}
+            />
+            <StatItem
+                icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
+                value={Number(attackDamage.toFixed(2))}
+                tooltip="Attack type and multiplier"
+                color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
+                badgeContent={attackModBadgeValue}
+                badgeColor={attackColor}
+                positiveFrame={unitProperties.attack_multiplier > 1}
+                negativeFrame={unitProperties.attack_multiplier < 1}
+                metrics={metrics}
+            />
+            {showRangedStats && (
                 <StatItem
-                    icon={<ShieldIcon />}
-                    value={Number(meleeArmor.toFixed(2))}
-                    tooltip="Armor"
-                    color="#4682b4"
+                    icon={<ShotRangeIcon />}
+                    value={unitProperties.shot_distance}
+                    tooltip="Ranged shot distance in cells"
+                    color="#ffff00"
+                    metrics={metrics}
+                />
+            )}
+            {showRangedStats && !!(unitProperties.range_shots_mod || unitProperties.range_shots) && (
+                <StatItem
+                    icon={<QuiverIcon />}
+                    value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                    tooltip="Number of ranged shots"
+                    color="#cd5c5c"
+                    metrics={metrics}
+                />
+            )}
+            <StatItem
+                icon={<ShieldIcon />}
+                value={Number(meleeArmor.toFixed(2))}
+                tooltip="Armor"
+                color="#4682b4"
+                badgeContent={armorModBadgeValue}
+                badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
+                positiveFrame={unitProperties.armor_mod > 0}
+                negativeFrame={unitProperties.armor_mod < 0}
+                metrics={metrics}
+            />
+            <StatItem
+                icon={<MagicShieldIcon />}
+                value={`${unitProperties.magic_resist_mod || unitProperties.magic_resist}%`}
+                tooltip="Magic resist in %"
+                color="#8a2be2"
+                metrics={metrics}
+            />
+            {hasDifferentRangeArmor && (
+                <StatItem
+                    icon={<ArrowShieldIcon />}
+                    value={Number(rangeArmor.toFixed(2))}
+                    tooltip="Range armor"
+                    color="#f4a460"
                     badgeContent={armorModBadgeValue}
                     badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
-                    positiveFrame={unitProperties.armor_mod > 0}
-                    negativeFrame={unitProperties.armor_mod < 0}
+                    metrics={metrics}
                 />
-                <StatItem
-                    icon={<MagicShieldIcon />}
-                    value={`${unitProperties.magic_resist_mod || unitProperties.magic_resist}%`}
-                    tooltip="Magic resist in %"
-                    color="#8a2be2"
-                />
-                {hasDifferentRangeArmor && (
-                    <StatItem
-                        icon={<ArrowShieldIcon />}
-                        value={Number(rangeArmor.toFixed(2))}
-                        tooltip="Range armor"
-                        color="#f4a460"
-                        badgeContent={armorModBadgeValue}
-                        badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
-                    />
-                )}
-            </StatGroup>
-            <StatGroup>
-                <StatItem
-                    icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
-                    value={Number((unitProperties.steps + stepsMod).toFixed(1))}
-                    tooltip="Movement type and number of steps in cells"
-                    color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
-                    badgeContent={stepsModBadgeValue}
-                    badgeColor={stepsMod > 0 ? "success" : "danger"}
-                    positiveFrame={stepsMod > 0}
-                    negativeFrame={stepsMod < 0}
-                />
-                <StatItem
-                    icon={<SpeedIcon />}
-                    value={Number(unitProperties.speed.toFixed(2))}
-                    tooltip="Units with higher speed turn first"
-                    color={isDarkMode ? "#f5fefd" : "#000000"}
-                />
-            </StatGroup>
-            <StatGroup>
-                <StatItem
-                    icon={<MoraleIcon />}
-                    value={unitProperties.morale}
-                    tooltip="Morale affects extra actions"
-                    color={isDarkMode ? "#ffff00" : "#DC4D01"}
-                    positiveFrame={
-                        unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL &&
-                        unitProperties.attack_multiplier > 1
-                    }
-                    negativeFrame={
-                        unitProperties.morale <= -HoCConstants.MORALE_MAX_VALUE_TOTAL &&
-                        unitProperties.attack_multiplier < 1
-                    }
-                />
-                <StatItem
-                    icon={<LuckIcon />}
-                    value={unitProperties.luck + unitProperties.luck_mod}
-                    tooltip="Luck affects damage variance"
-                    color="#ff4040"
-                    badgeContent={luckBadgeValue}
-                    badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
-                    positiveFrame={unitProperties.luck + unitProperties.luck_mod >= HoCConstants.LUCK_MAX_VALUE_TOTAL}
-                    negativeFrame={unitProperties.luck + unitProperties.luck_mod <= -HoCConstants.LUCK_MAX_VALUE_TOTAL}
-                />
-            </StatGroup>
+            )}
+            <StatItem
+                icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
+                value={Number((unitProperties.steps + stepsMod).toFixed(1))}
+                tooltip="Movement type and number of steps in cells"
+                color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
+                badgeContent={stepsModBadgeValue}
+                badgeColor={stepsMod > 0 ? "success" : "danger"}
+                positiveFrame={stepsMod > 0}
+                negativeFrame={stepsMod < 0}
+                metrics={metrics}
+            />
+            <StatItem
+                icon={<SpeedIcon />}
+                value={Number(unitProperties.speed.toFixed(2))}
+                tooltip="Units with higher speed turn first"
+                color={isDarkMode ? "#f5fefd" : "#000000"}
+                metrics={metrics}
+            />
+            <StatItem
+                icon={<MoraleIcon />}
+                value={unitProperties.morale}
+                tooltip="Morale affects extra actions"
+                color={isDarkMode ? "#ffff00" : "#DC4D01"}
+                positiveFrame={
+                    unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL && unitProperties.attack_multiplier > 1
+                }
+                negativeFrame={
+                    unitProperties.morale <= -HoCConstants.MORALE_MAX_VALUE_TOTAL &&
+                    unitProperties.attack_multiplier < 1
+                }
+                metrics={metrics}
+            />
+            <StatItem
+                icon={<LuckIcon />}
+                value={unitProperties.luck + unitProperties.luck_mod}
+                tooltip="Luck affects damage variance"
+                color="#ff4040"
+                badgeContent={luckBadgeValue}
+                badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
+                positiveFrame={unitProperties.luck + unitProperties.luck_mod >= HoCConstants.LUCK_MAX_VALUE_TOTAL}
+                negativeFrame={unitProperties.luck + unitProperties.luck_mod <= -HoCConstants.LUCK_MAX_VALUE_TOTAL}
+                metrics={metrics}
+            />
         </>
     );
 
-    const abilitiesBlock = (
-        <Box sx={{ opacity: abilitiesVisible ? 1 : 0, transition: "opacity 150ms ease-out" }}>
-            <Typography level="title-sm" sx={{ marginTop: columnize ? 1.5 : 3 }}>
-                Abilities
-            </Typography>
-            <AbilityStack
-                abilities={abilities}
-                teamType={team}
-                isWidescreen={columnize}
-                hasBreakApplied={hasBreakApplied}
-            />
-        </Box>
-    );
+    const hasAbilities = abilities.some((ability) => ability.laps > 0);
+    const sectionTitleSx = { fontSize: `${0.78 * metrics.fontScale}rem`, lineHeight: 1.2 } as const;
 
     return (
         <Box
             sx={{
                 position: "relative",
-                marginBottom: 1.5,
                 width: "100%",
-                display: columnize ? "flex" : "block",
-                flexWrap: columnize ? "wrap" : "nowrap",
-                ...sx,
+                display: "flex",
+                flexDirection: "column",
+                gap: `${metrics.gapPx}px`,
             }}
         >
-            <Box sx={{ width: columnize ? "60%" : "100%", position: "relative" }}>
-                {animationConfig ? (
-                    <AtlasAnimation
-                        meta={animationConfig.meta}
-                        src={animationConfig.imageSrc}
-                        onLoaded={onImageLoaded}
-                    />
-                ) : (
-                    <Box
-                        component="img"
-                        // @ts-ignore: images index signature
-                        src={images[largeTextureName]}
-                        sx={{
-                            display: "block",
-                            width: "100%",
-                            height: "auto",
-                            objectFit: "contain",
-                            transition: "opacity 120ms ease-out",
-                            imageRendering: "auto",
-                            transform: "translateZ(0)",
-                        }}
-                        onLoad={onImageLoaded}
-                        onError={onImageLoaded}
-                    />
-                )}
-            </Box>
+            {/* Portrait above the stats when the height is there for it, beside them when it is not —
+                see `columnize` in sidebarMetrics for which screens land where. */}
             <Box
                 sx={{
-                    width: columnize ? "38%" : "90%",
-                    pl: columnize ? 3 : 4,
-                    pt: 1,
-                    pb: 1,
-                    transformOrigin: "top left",
-                    opacity: statsVisible ? 1 : 0,
-                    transition: "opacity 140ms ease-out, transform 140ms ease-out",
-                    transform: statsVisible ? "scale(1.2)" : "scale(1.2) translateY(4px)",
-                    pointerEvents: statsVisible ? "auto" : "none",
+                    display: "flex",
+                    flexDirection: metrics.columnize ? "row" : "column",
+                    alignItems: metrics.columnize ? "flex-start" : "stretch",
+                    gap: `${metrics.gapPx}px`,
+                    width: "100%",
                 }}
             >
-                {statsContent}
+                <Box
+                    sx={{
+                        width: metrics.columnize ? "45%" : "100%",
+                        flex: "none",
+                        position: "relative",
+                    }}
+                >
+                    {animationConfig ? (
+                        <AtlasAnimation
+                            meta={animationConfig.meta}
+                            src={animationConfig.imageSrc}
+                            onLoaded={onImageLoaded}
+                            maxHeight={metrics.portraitMax}
+                        />
+                    ) : (
+                        <Box
+                            component="img"
+                            // @ts-ignore: images index signature
+                            src={images[largeTextureName]}
+                            sx={{
+                                display: "block",
+                                width: "100%",
+                                maxHeight: `${metrics.portraitMax}px`,
+                                height: "auto",
+                                objectFit: "contain",
+                                mx: "auto",
+                                transition: "opacity 120ms ease-out",
+                                imageRendering: "auto",
+                                transform: "translateZ(0)",
+                            }}
+                            onLoad={onImageLoaded}
+                            onError={onImageLoaded}
+                        />
+                    )}
+                </Box>
+                <Box
+                    sx={{
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
+                        // Capping the grid keeps the stats a tight block on a 740px ultrawide bar instead
+                        // of scattering twelve icons across half a screen. Flow stays in source order (no
+                        // `dense`) so related stats keep reading together even when a wide modifier row
+                        // leaves a gap.
+                        maxWidth: `${metrics.statColumns * 132}px`,
+                        columnGap: `${metrics.gapPx}px`,
+                        rowGap: `${Math.max(2, Math.round(metrics.gapPx * 0.4))}px`,
+                        alignContent: "start",
+                    }}
+                >
+                    {statsContent}
+                </Box>
             </Box>
-            {abilitiesVisible && <Box sx={{ width: "100%", mt: 1 }}>{abilitiesBlock}</Box>}
+
+            {hasAbilities && (
+                <Box sx={{ width: "100%" }}>
+                    <Typography level="title-sm" sx={sectionTitleSx}>
+                        Abilities
+                    </Typography>
+                    <AbilityStack
+                        abilities={abilities}
+                        teamType={team}
+                        metrics={metrics}
+                        hasBreakApplied={hasBreakApplied}
+                    />
+                </Box>
+            )}
+
+            <EffectRow effects={buffs} title="Buffs" metrics={metrics} />
+            <EffectRow effects={debuffs} title="Debuffs" metrics={metrics} />
         </Box>
     );
 };
@@ -1021,29 +1053,20 @@ const AbilityStatusOverlay: React.FC<{ isAura?: boolean; label: string; color: s
 );
 
 type UnitStatsListItemProps = {
-    barSize: number;
-    columnize: boolean;
     unitProperties: UnitProperties;
     overallImpact: IVisibleOverallImpact;
     factionType: FactionType;
 };
 
-const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
-    barSize,
-    columnize,
-    unitProperties,
-    overallImpact,
-    factionType,
-}) => {
+const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperties, overallImpact, factionType }) => {
     const theme = useTheme();
+    const metrics = useSidebarMetrics();
     const isDarkMode = theme.palette.mode === "dark";
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
     const hasHandymanAbility = abilities.some((ability) => ability.name === "Handyman");
-    const hasBuffsOrDebuffs = buffs.length > 0 || debuffs.length > 0;
     const hasBreakApplied = debuffs.some((d) => d.name === "Break" && d.laps > 0);
-    const showStats = true;
     const onImageLoaded = useCallback(() => {}, []);
 
     const factionName = factionType ? ToFactionName[factionType] : "";
@@ -1064,19 +1087,23 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                         </ListItemButton>
                     )}
                 >
-                    <List sx={{ gap: 0 }}>
+                    <List sx={{ gap: 0, p: 0 }}>
                         <Avatar
                             src={factionImageKey ? images[factionImageKey] : undefined}
                             variant="plain"
                             sx={{
                                 zIndex: "modal",
                                 width: "auto",
+                                // The faction crest is decorative — it yields height first so the synergy
+                                // ladder underneath stays whole on a short screen.
                                 height: "auto",
+                                maxHeight: `${metrics.portraitMax}px`,
                                 overflow: "visible",
                                 imageRendering: "auto",
                                 transform: "translateZ(0)",
                                 transition: "opacity 180ms ease-out",
-                                mb: 3,
+                                mb: `${metrics.gapPx}px`,
+                                "& img": { objectFit: "contain" },
                             }}
                         />
                         {factionSynergyGroups.length > 0 && (
@@ -1084,14 +1111,13 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 sx={{
                                     display: "flex",
                                     flexDirection: "column",
-                                    gap: 0.75,
-                                    px: 0.5,
-                                    pb: 1.5,
+                                    gap: `${Math.round(metrics.gapPx * 0.6)}px`,
+                                    pb: `${metrics.gapPx}px`,
                                 }}
                             >
                                 <Typography
                                     sx={{
-                                        fontSize: "0.78rem",
+                                        fontSize: `${0.78 * metrics.fontScale}rem`,
                                         fontWeight: 800,
                                         letterSpacing: 0,
                                         lineHeight: 1,
@@ -1103,8 +1129,12 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 <Box
                                     sx={{
                                         display: "grid",
-                                        gridTemplateColumns: `repeat(${factionSynergyGroups.length}, minmax(0, 1fr))`,
-                                        gap: 1,
+                                        // Two ladders side by side need ~110px each; below that they stack
+                                        // instead of squeezing the labels into single letters per line.
+                                        gridTemplateColumns: `repeat(${
+                                            metrics.contentWidth >= 224 ? factionSynergyGroups.length : 1
+                                        }, minmax(0, 1fr))`,
+                                        gap: `${metrics.gapPx}px`,
                                     }}
                                 >
                                     {factionSynergyGroups.map((group) => (
@@ -1113,12 +1143,14 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                             sx={{
                                                 display: "flex",
                                                 flexDirection: "column",
-                                                gap: 0.75,
+                                                gap: `${Math.round(metrics.gapPx * 0.6)}px`,
                                                 minWidth: 0,
                                             }}
                                         >
                                             {group.map((synergy) => {
-                                                const imageSize = 32 + synergy.level * 6;
+                                                const imageSize = Math.round(
+                                                    (26 + synergy.level * 5) * metrics.fontScale,
+                                                );
                                                 return (
                                                     <Tooltip
                                                         key={synergy.key}
@@ -1131,7 +1163,6 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                                                 display: "flex",
                                                                 alignItems: "center",
                                                                 gap: 0.75,
-                                                                minHeight: "50px",
                                                                 minWidth: 0,
                                                             }}
                                                         >
@@ -1153,7 +1184,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                                             <Box sx={{ minWidth: 0 }}>
                                                                 <Typography
                                                                     sx={{
-                                                                        fontSize: "0.72rem",
+                                                                        fontSize: `${0.72 * metrics.fontScale}rem`,
                                                                         fontWeight: 700,
                                                                         lineHeight: 1.05,
                                                                         overflowWrap: "anywhere",
@@ -1164,7 +1195,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                                                 <Typography
                                                                     sx={{
                                                                         color: "text.tertiary",
-                                                                        fontSize: "0.64rem",
+                                                                        fontSize: `${0.64 * metrics.fontScale}rem`,
                                                                         lineHeight: 1.1,
                                                                     }}
                                                                 >
@@ -1207,14 +1238,13 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
         const largeTextureName = unitProperties.large_texture_name;
-        const buffsVisible = showStats;
 
         return (
             // @ts-ignore: MUI type mismatch
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
                 <Toggler
                     renderToggle={({ open, setOpen }) => (
-                        <ListItemButton onClick={() => setOpen(!open)}>
+                        <ListItemButton onClick={() => setOpen(!open)} sx={{ minHeight: 0, px: 0 }}>
                             {!unitProperties.team ? (
                                 <GrayUserIcon />
                             ) : unitProperties.team === 1 ? (
@@ -1223,86 +1253,40 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                 <GreenUserIcon />
                             )}
                             <ListItemContent>
-                                <Typography level="title-sm">{stackName}</Typography>
+                                <Typography
+                                    level="title-sm"
+                                    sx={{ fontSize: `${0.78 * metrics.fontScale}rem`, lineHeight: 1.2 }}
+                                >
+                                    {stackName}
+                                </Typography>
                             </ListItemContent>
                             <KeyboardArrowDownIcon />
                         </ListItemButton>
                     )}
                 >
-                    <List>
-                        <Box
-                            sx={{
-                                width: "100%",
-                                overflow: "visible",
-                                display: "flex",
-                                flexDirection: columnize ? "column" : "row",
-                            }}
-                        >
-                            <UnitStatsLayout
-                                unitProperties={unitProperties}
-                                damageRange={damageRange}
-                                attackTypeSelected={attackTypeSelected}
-                                attackDamage={attackDamage}
-                                attackMod={attackMod}
-                                meleeArmor={meleeArmor}
-                                rangeArmor={rangeArmor}
-                                armorMod={armorMod}
-                                stepsMod={stepsMod}
-                                hasDifferentRangeArmor={hasDifferentRangeArmor}
-                                isDarkMode={isDarkMode}
-                                columnize={columnize}
-                                largeTextureName={largeTextureName}
-                                images={images}
-                                showStats={showStats}
-                                showAbilities={showStats && (columnize || !hasBuffsOrDebuffs)}
-                                onImageLoaded={onImageLoaded}
-                                abilities={abilities}
-                                hasBreakApplied={hasBreakApplied}
-                                team={unitProperties.team}
-                                sx={!columnize && hasBuffsOrDebuffs ? { marginBottom: 0 } : undefined}
-                            />
-                            {hasBuffsOrDebuffs && !columnize && (
-                                <Box
-                                    sx={{
-                                        width: barSize > 256 ? "20%" : "15%",
-                                        display: buffsVisible ? "flex" : "none",
-                                        flexDirection: "column",
-                                        opacity: buffsVisible ? 1 : 0,
-                                        transition: buffsVisible ? "opacity 150ms ease-out" : "none",
-                                    }}
-                                >
-                                    {buffs.length > 0 && <EffectColumnOrRow effects={buffs} title="Buffs" />}
-                                    {debuffs.length > 0 && <EffectColumnOrRow effects={debuffs} title="Debuffs" />}
-                                </Box>
-                            )}
-                        </Box>
-                        {showStats && !columnize && hasBuffsOrDebuffs && (
-                            <Box sx={{ width: "100%", mt: 1 }}>
-                                <Typography level="title-sm" sx={{ marginTop: 1.5 }}>
-                                    Abilities
-                                </Typography>
-                                <AbilityStack
-                                    abilities={abilities}
-                                    teamType={unitProperties.team}
-                                    isWidescreen={columnize}
-                                    hasBreakApplied={hasBreakApplied}
-                                />
-                            </Box>
-                        )}
-                        {hasBuffsOrDebuffs && columnize && (
-                            <Box
-                                sx={{
-                                    width: "100%",
-                                    display: buffsVisible ? "flex" : "none",
-                                    flexDirection: "column",
-                                    opacity: buffsVisible ? 1 : 0,
-                                    transition: buffsVisible ? "opacity 150ms ease-out" : "none",
-                                }}
-                            >
-                                <EffectColumnOrRow effects={buffs} title="Buffs" isHorizontalLayout={true} />
-                                <EffectColumnOrRow effects={debuffs} title="Debuffs" isHorizontalLayout={true} />
-                            </Box>
-                        )}
+                    <List sx={{ p: 0, gap: 0 }}>
+                        <UnitStatsLayout
+                            unitProperties={unitProperties}
+                            damageRange={damageRange}
+                            attackTypeSelected={attackTypeSelected}
+                            attackDamage={attackDamage}
+                            attackMod={attackMod}
+                            meleeArmor={meleeArmor}
+                            rangeArmor={rangeArmor}
+                            armorMod={armorMod}
+                            stepsMod={stepsMod}
+                            hasDifferentRangeArmor={hasDifferentRangeArmor}
+                            isDarkMode={isDarkMode}
+                            metrics={metrics}
+                            largeTextureName={largeTextureName}
+                            images={images}
+                            onImageLoaded={onImageLoaded}
+                            abilities={abilities}
+                            buffs={buffs}
+                            debuffs={debuffs}
+                            hasBreakApplied={hasBreakApplied}
+                            team={unitProperties.team}
+                        />
                     </List>
                 </Toggler>
             </ListItem>
@@ -1312,8 +1296,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
 };
 
 const arePropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProps) => {
-    if (prev.barSize !== next.barSize || prev.columnize !== next.columnize || prev.factionType !== next.factionType)
-        return false;
+    if (prev.factionType !== next.factionType) return false;
     const pUnit = prev.unitProperties;
     const nUnit = next.unitProperties;
     if (pUnit === nUnit) return true;
