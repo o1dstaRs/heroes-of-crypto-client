@@ -2050,6 +2050,9 @@ export class RankedPlayScene extends Sandbox {
                 return event.casterId;
             case "unit_split":
                 return event.sourceUnitId;
+            // Only ever logged for a resisted snare, and that line is about the creature that resisted.
+            case "vine_placed":
+                return event.targetId;
             default:
                 return undefined;
         }
@@ -2229,6 +2232,11 @@ export class RankedPlayScene extends Sandbox {
                     ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}`
                     : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}`;
             }
+            // The vine itself needs no line — the spell_cast above already reads "X cast Vine Throw on Y".
+            // A RESISTED snare does, though: the terrain went down either way, so without this the log
+            // reads identically whether or not the target's magic armor shrugged off the movement debuff.
+            case "vine_placed":
+                return event.snareResisted ? `${nameOf(event.targetId)} resisted from Vine Throw snare` : undefined;
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM
                     ? "Fight finished! Draw!"
