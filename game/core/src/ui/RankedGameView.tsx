@@ -82,6 +82,7 @@ import {
 } from "./rankedActionResponse";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
 import { resolveUnitImage } from "./unitImage";
+import { DraftStepper } from "./PickAndBan";
 import {
     aiOpponentLabel,
     findAiSeatPlayerId,
@@ -2246,7 +2247,7 @@ const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam:
     const opponentReady = !!opponentPlayer && snapshot.readyPlayerIds.includes(opponentPlayer.playerId);
 
     return (
-        <Stack spacing={1}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ width: "100%" }}>
             {/* Your army first — the units you're placing. Friendly green accent. */}
             <RankedArmyRosterRow
                 title="Your army"
@@ -2358,7 +2359,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     const userPerkId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerPerk : snapshot?.upperPerk) ||
         Perk.Perk.NO_PERK) as Perk.Perk;
     const augmentBudget = Perk.getUpgradePoints(userPerkId);
-    const perkName = Perk.getPerkProperties(userPerkId).name;
     // Split placement runs Setup (augments/synergies, stage 0) then Board (positioning, stage 1). A legacy
     // combined placement reports placementSplit=false and behaves as before (augments + board share one
     // window). During the split Setup stage the picker is forced open and the board is locked; during the
@@ -2483,41 +2483,48 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             (the AUGMENT play-action); artifacts are drafted in pick/ban (read-only above),
                             so the sandbox-only artifact picker stays hidden. */}
                         <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                        {/* The augment step is its own full screen, built like every draft phase before it:
+                            same gradient, same 1340px column, army rails on top and the progress rail at the
+                            bottom — not a dialog floating over the placement board. */}
                         <Modal
                             keepMounted
                             open={augmentOverlayOpen}
                             onClose={() => {
-                                // In the split Setup stage the picker is not dismissible to a locked board —
-                                // you lock in (which advances to the board) or wait out the timer.
                                 if (!inSetupStage) {
                                     setAugmentOverlayOpen(false);
                                 }
                             }}
                         >
                             <ModalDialog
-                                variant="outlined"
+                                layout="fullscreen"
+                                variant="plain"
                                 sx={{
-                                    ...hocPanelSx,
-                                    width: 460,
-                                    maxWidth: "94vw",
-                                    maxHeight: "90vh",
-                                    overflowY: "auto",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: "clamp(10px, 1.6vh, 30px)",
+                                    p: "clamp(10px, 2vh, 36px) 40px clamp(10px, 1.6vh, 36px)",
+                                    overflow: "hidden",
+                                    background: "radial-gradient(120% 80% at 50% 0%, #171a23 0%, #0b0d12 60%)",
+                                    color: "#e9e6df",
+                                    border: "none",
                                 }}
                             >
                                 {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
                                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                                    <Typography level="title-lg" textColor={hocColors.gold}>
-                                        Set up your army
+                                    <Typography
+                                        sx={{
+                                            fontSize: "clamp(26px, 3vw, 62px)",
+                                            fontWeight: 600,
+                                            lineHeight: 1.1,
+                                            color: "#efe4cc",
+                                        }}
+                                    >
+                                        Choose your augments
                                     </Typography>
                                     <PlacementCountdownChip snapshot={snapshot} />
                                 </Stack>
-                                <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                    {perkName === "None"
-                                        ? `You have ${augmentBudget} upgrade points.`
-                                        : `${perkName} — ${augmentBudget} upgrade points.`}{" "}
-                                    Spend them on augments and pick your synergies, then continue to place your units.
-                                </Typography>
                                 {/* Their 6-creature roster is the only opponent intel the engine reveals during
                                     placement (their augments/synergies/artifacts stay hidden until the fight) — so
                                     surface it INSIDE the picker, above the selectors, to choose your build against
@@ -2562,6 +2569,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     Disabled until the build is complete (all points spent + all synergies
                                     picked) — see the setupComplete comment; the ready-locked state stays
                                     disabled regardless. */}
+                                {/* One bar carries the action, the budget and the clock: gold while points are
+                                    still unspent, green once the build is complete. */}
                                 <Button
                                     variant="solid"
                                     disabled={(!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready))}
@@ -2572,14 +2581,53 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             setAugmentOverlayOpen(false);
                                         }
                                     }}
-                                    sx={inSetupStage && ready ? hocSoftButtonSx : hocPrimaryButtonSx}
+                                    sx={{
+                                        minHeight: 64,
+                                        borderRadius: "14px",
+                                        fontSize: 20,
+                                        fontWeight: 700,
+                                        letterSpacing: "0.04em",
+                                        textTransform: "uppercase",
+                                        color: "#fff",
+                                        border: `2px solid ${
+                                            setupComplete ? "rgba(214,240,200,0.55)" : "rgba(245,220,160,0.5)"
+                                        }`,
+                                        background: setupComplete
+                                            ? "linear-gradient(180deg, #7ab86a 0%, #4e9450 46%, #2f6b3c 100%)"
+                                            : "linear-gradient(180deg, #d9a94f 0%, #b2823a 46%, #7d5a24 100%)",
+                                        "&:hover": {
+                                            background: setupComplete
+                                                ? "linear-gradient(180deg, #86c476 0%, #57a059 46%, #35773f 100%)"
+                                                : "linear-gradient(180deg, #e5b658 0%, #bd8c3f 46%, #886228 100%)",
+                                        },
+                                    }}
                                 >
-                                    {inSetupStage
-                                        ? ready
-                                            ? "Waiting for opponent…"
-                                            : "Lock in & place units →"
-                                        : "Continue to placement"}
+                                    <Box component="span" sx={{ flex: "1 1 auto", textAlign: "center" }}>
+                                        {inSetupStage
+                                            ? ready
+                                                ? "Waiting for opponent…"
+                                                : "Continue to placement"
+                                            : "Continue to placement"}
+                                    </Box>
+                                    <Box
+                                        component="span"
+                                        sx={{
+                                            px: 2,
+                                            mx: 2,
+                                            borderLeft: "2px solid rgba(255,255,255,0.35)",
+                                            borderRight: "2px solid rgba(255,255,255,0.35)",
+                                            fontVariantNumeric: "tabular-nums",
+                                        }}
+                                    >
+                                        {`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
+                                    </Box>
+                                    <PlacementCountdownChip snapshot={snapshot} />
                                 </Button>
+                                <Box
+                                    sx={{ mt: "auto", pt: 2, width: "100%", display: "flex", justifyContent: "center" }}
+                                >
+                                    <DraftStepper step={6} />
+                                </Box>
                             </ModalDialog>
                         </Modal>
                         {/* The board-stage Ready (start the fight) + per-stack split/unplace controls are hidden

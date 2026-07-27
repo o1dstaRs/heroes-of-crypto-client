@@ -9,20 +9,7 @@ import {
     PickPhaseVals,
     type TeamType,
 } from "@heroesofcrypto/common";
-import {
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    CircularProgress,
-    Divider,
-    Modal,
-    ModalDialog,
-    Sheet,
-    Tooltip,
-    Typography,
-} from "@mui/joy";
+import { Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Sheet, Tooltip, Typography } from "@mui/joy";
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
@@ -31,6 +18,16 @@ import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { PERK_COPY } from "../perkCopy";
+import { ArrowShieldIcon } from "../svg/arrow_shield";
+import { BootIcon } from "../svg/boot";
+import { FistIcon } from "../svg/fist";
+import { HeartIcon } from "../svg/heart";
+import { MagicShieldIcon } from "../svg/magic_shield";
+import { QuiverIcon } from "../svg/quiver";
+import { ShieldIcon } from "../svg/shield";
+import { ShotRangeIcon } from "../svg/shot_range";
+import { SpeedIcon } from "../svg/speed";
+import { SwordIcon } from "../svg/sword";
 import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 
@@ -89,15 +86,28 @@ const abilityDescription = (abilityName: string): string => {
     }
 };
 
-const StatCell: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
-        <Typography level="body-xs" sx={{ opacity: 0.6 }}>
-            {label}
-        </Typography>
-        <Typography level="body-xs" sx={{ fontWeight: 700 }}>
-            {value}
-        </Typography>
-    </Box>
+const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label: string }> = ({
+    icon,
+    value,
+    label,
+}) => (
+    <Tooltip title={label} variant="soft" placement="top">
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                px: 1.5,
+                py: 1,
+                borderRadius: "14px",
+                bgcolor: "rgba(255,255,255,0.05)",
+                "& svg": { width: 26, height: 26 },
+            }}
+        >
+            {icon}
+            <Typography sx={{ fontSize: 23, fontWeight: 700, color: "#e9e6df" }}>{value}</Typography>
+        </Box>
+    </Tooltip>
 );
 
 // Fixed left-side panel showing the currently inspected (hovered) creature's stats + abilities, so players
@@ -118,244 +128,131 @@ const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) =
         <Sheet
             variant="soft"
             sx={{
-                position: "fixed",
-                left: 16,
-                top: 96,
+                position: "absolute",
+                top: "clamp(6px, 1.5vh, 30px)",
+                left: "50%",
+                transform: "translateX(-50%)",
                 zIndex: 6,
-                width: 248,
-                maxHeight: "calc(100vh - 120px)",
-                overflowY: "auto",
-                p: 1.5,
-                borderRadius: "14px",
-                bgcolor: "rgba(8,10,18,0.94)",
-                border: "1px solid rgba(255,255,255,0.14)",
-                boxShadow: "0 8px 28px rgba(0,0,0,0.5)",
-                color: "#e7e9f0",
-                display: { xs: "none", md: "block" },
+                width: "min(1340px, 97vw)",
+                minHeight: "clamp(168px, 19vh, 214px)",
+                p: "12px 20px",
+                borderRadius: "20px",
+                bgcolor: "rgba(11,13,18,0.98)",
+                border: "2px solid rgba(159,182,212,0.55)",
+                boxShadow: "0 18px 44px rgba(0,0,0,0.6)",
+                color: "#e9e6df",
+                pointerEvents: "none",
+                display: { xs: "none", md: "flex" },
+                alignItems: "center",
+                gap: "26px",
+                flexWrap: "wrap",
             }}
         >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                {img && (
-                    <Box
-                        component="img"
-                        src={img}
-                        alt={c.name}
-                        sx={{ width: 48, height: 48, borderRadius: "8px", objectFit: "cover" }}
-                    />
-                )}
-                <Box>
-                    <Typography level="title-sm">{c.name}</Typography>
-                    <Typography level="body-xs" sx={{ opacity: 0.65 }}>
-                        {entry.faction} · Lvl {c.level} · {c.size === 2 ? "2×2" : "1×1"}
-                    </Typography>
-                </Box>
-            </Box>
-            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 1.5, rowGap: 0.25, mb: 1 }}>
-                <StatCell label="HP" value={c.hp} />
-                <StatCell label="Armor" value={c.armor} />
-                <StatCell label="Attack" value={c.attack} />
-                <StatCell label="Damage" value={`${c.attack_damage_min}–${c.attack_damage_max}`} />
-                <StatCell label="Speed" value={c.speed} />
-                <StatCell label="Move" value={Math.round(c.steps)} />
-                <StatCell label="Type" value={isRanged ? "Ranged" : "Melee"} />
-                <StatCell label="Resist" value={`${c.magic_resist}%`} />
-                {isRanged && <StatCell label="Shots" value={c.range_shots} />}
-                {isRanged && <StatCell label="Range" value={c.shot_distance} />}
-            </Box>
-            <Divider sx={{ my: 0.75 }} />
-            <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.5, mb: 0.5 }}>
-                Abilities
-            </Typography>
-            {abilities.length === 0 ? (
-                <Typography level="body-xs" sx={{ opacity: 0.55 }}>
-                    No special abilities.
+            {img && (
+                <Box
+                    component="img"
+                    src={img}
+                    alt={c.name}
+                    sx={{
+                        width: 112,
+                        height: 112,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        border: "3px solid rgba(220,177,88,0.75)",
+                        flex: "0 0 auto",
+                    }}
+                />
+            )}
+            <Box sx={{ flex: "0 0 auto" }}>
+                <Typography sx={{ fontSize: 30, fontWeight: 700, color: "#efe4cc", lineHeight: 1.1 }}>
+                    {c.name}
                 </Typography>
-            ) : (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                    {abilities.map((ability) => {
-                        const desc = abilityDescription(ability);
-                        return (
-                            <Box key={ability}>
-                                <Typography level="body-xs" sx={{ fontWeight: 700, color: "#9fd0ff" }}>
-                                    {ability}
-                                </Typography>
-                                {desc && (
-                                    <Typography level="body-xs" sx={{ opacity: 0.8, lineHeight: 1.25 }}>
-                                        {desc}
-                                    </Typography>
+                <Typography sx={{ fontSize: 17, color: "#7c8290" }}>
+                    Level {c.level} · {entry.faction} · {c.size === 2 ? "2×2" : "1×1"}
+                </Typography>
+            </Box>
+            <Box
+                sx={{
+                    flex: "1 1 340px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(112px, 1fr))",
+                    gridAutoRows: "minmax(46px, auto)",
+                    gap: "10px",
+                }}
+            >
+                <StatChip icon={<HeartIcon />} label="Hit points" value={`${c.hp}/${c.hp}`} />
+                <StatChip
+                    icon={<FistIcon />}
+                    label="Damage"
+                    value={`${c.attack_damage_min} - ${c.attack_damage_max}`}
+                />
+                <StatChip icon={<SwordIcon />} label="Attack" value={c.attack} />
+                <StatChip icon={<ShotRangeIcon />} label="Shot distance" value={isRanged ? c.shot_distance : "—"} />
+                <StatChip icon={<QuiverIcon />} label="Shots" value={isRanged ? c.range_shots : "—"} />
+                <StatChip icon={<ShieldIcon />} label="Armor" value={c.armor} />
+                <StatChip icon={<MagicShieldIcon />} label="Magic resist" value={`${c.magic_resist}%`} />
+                <StatChip icon={<ArrowShieldIcon />} label="Size on the board" value={c.size === 2 ? "2×2" : "1×1"} />
+                <StatChip icon={<SpeedIcon />} label="Speed" value={c.speed} />
+                <StatChip icon={<BootIcon />} label="Movement steps" value={c.steps} />
+            </Box>
+            <>
+                <Divider orientation="vertical" sx={{ display: { xs: "none", lg: "block" } }} />
+                <Box sx={{ flex: "0 0 auto", display: "flex", gap: "10px" }}>
+                    {Array.from({ length: 4 }, (_, i) => abilities[i]).map((ability, i) => (
+                        <Tooltip
+                            key={ability ?? `empty-${i}`}
+                            title={ability ? abilityDescription(ability) : ""}
+                            variant="soft"
+                            placement="top"
+                        >
+                            <Box
+                                sx={{
+                                    width: 96,
+                                    height: 96,
+                                    borderRadius: "16px",
+                                    bgcolor: ability ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)",
+                                    border: `1px solid ${ability ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)"}`,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 0.5,
+                                    p: 1,
+                                }}
+                            >
+                                {ability && (
+                                    <>
+                                        <Box
+                                            component="img"
+                                            src={images[`${ability.toLowerCase().replace(/\s+/g, "_")}_256`]}
+                                            alt=""
+                                            sx={{ width: 44, height: 44, objectFit: "contain" }}
+                                        />
+                                        <Typography
+                                            sx={{
+                                                fontSize: 14,
+                                                color: "#9fd0ff",
+                                                textAlign: "center",
+                                                lineHeight: 1.1,
+                                            }}
+                                        >
+                                            {ability}
+                                        </Typography>
+                                    </>
                                 )}
                             </Box>
-                        );
-                    })}
+                        </Tooltip>
+                    ))}
                 </Box>
-            )}
+            </>
         </Sheet>
     );
 };
 
-// Confirmation modal shown when a player clicks a creature to pick: a centered portrait + stats + abilities
-// (the same detail the hover panel shows on the left) with Confirm / Cancel buttons. The pick only fires on
-// Confirm, so the player can review the unit before committing (instead of the previous instant-pick-on-click).
-const PickConfirmModal: React.FC<{
-    open: boolean;
-    creatureId: number;
-    busy: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
-}> = ({ open, creatureId, busy, onConfirm, onCancel }) => {
-    const entry = creatureFullConfig(creatureId);
-    const img = creatureImage(creatureId);
-    return (
-        <Modal open={open} onClose={onCancel}>
-            <ModalDialog
-                sx={{
-                    bgcolor: "rgba(8,10,18,0.97)",
-                    border: "1px solid rgba(255,255,255,0.16)",
-                    color: "#e7e9f0",
-                    borderRadius: "14px",
-                    maxWidth: 360,
-                    width: "90vw",
-                }}
-            >
-                {entry ? (
-                    <>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-                            {img && (
-                                <Box
-                                    component="img"
-                                    src={img}
-                                    alt={entry.config.name}
-                                    sx={{ width: 64, height: 64, borderRadius: "10px", objectFit: "cover" }}
-                                />
-                            )}
-                            <Box>
-                                <Typography level="title-md">{entry.config.name}</Typography>
-                                <Typography level="body-xs" sx={{ opacity: 0.65 }}>
-                                    {entry.faction} · Lvl {entry.config.level} ·{" "}
-                                    {entry.config.size === 2 ? "2×2" : "1×1"}
-                                </Typography>
-                            </Box>
-                        </Box>
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                columnGap: 1.5,
-                                rowGap: 0.25,
-                                mb: 1,
-                            }}
-                        >
-                            <StatCell label="HP" value={entry.config.hp} />
-                            <StatCell label="Armor" value={entry.config.armor} />
-                            <StatCell label="Attack" value={entry.config.attack} />
-                            <StatCell
-                                label="Damage"
-                                value={`${entry.config.attack_damage_min}–${entry.config.attack_damage_max}`}
-                            />
-                            <StatCell label="Speed" value={entry.config.speed} />
-                            <StatCell label="Move" value={Math.round(entry.config.steps)} />
-                            <StatCell label="Type" value={entry.config.attack_type === "RANGE" ? "Ranged" : "Melee"} />
-                            <StatCell label="Resist" value={`${entry.config.magic_resist}%`} />
-                        </Box>
-                        <Divider sx={{ my: 0.5 }} />
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
-                            <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
-                                Cancel
-                            </Button>
-                            <Button variant="solid" color="success" onClick={onConfirm} loading={busy}>
-                                Confirm pick
-                            </Button>
-                        </Box>
-                    </>
-                ) : (
-                    <>
-                        <Typography level="title-md">{creatureName(creatureId)}</Typography>
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
-                            <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
-                                Cancel
-                            </Button>
-                            <Button variant="solid" color="success" onClick={onConfirm} loading={busy}>
-                                Confirm pick
-                            </Button>
-                        </Box>
-                    </>
-                )}
-            </ModalDialog>
-        </Modal>
-    );
-};
+// ---- Draft copy, step rail and portrait states ------------------------------------------------
 
-// Confirmation modal for a Tier-2 artifact pick: shows the artifact icon + name + description with Confirm /
-// Cancel buttons. Mirrors PickConfirmModal — the pick only fires on Confirm, so the player reviews the effect
-// before committing.
-const ArtifactConfirmModal: React.FC<{
-    open: boolean;
-    artifactId: number;
-    busy: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
-}> = ({ open, artifactId, busy, onConfirm, onCancel }) => {
-    const a = artifactId ? Artifact.getTier2ArtifactProperties(artifactId as Artifact.Tier2Artifact) : undefined;
-    const img = a ? images[a.imageKey] : undefined;
-    return (
-        <Modal open={open} onClose={onCancel}>
-            <ModalDialog
-                sx={{
-                    bgcolor: "rgba(8,10,18,0.97)",
-                    border: "1px solid rgba(255,255,255,0.16)",
-                    color: "#e7e9f0",
-                    borderRadius: "14px",
-                    maxWidth: 360,
-                    width: "90vw",
-                }}
-            >
-                {a ? (
-                    <>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-                            {img && (
-                                <Box
-                                    component="img"
-                                    src={img}
-                                    alt={a.name}
-                                    sx={{ width: 56, height: 56, objectFit: "contain" }}
-                                />
-                            )}
-                            <Typography level="title-md">{a.name}</Typography>
-                        </Box>
-                        <Typography
-                            level="body-xs"
-                            sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.5, mb: 0.5 }}
-                        >
-                            Tier-2 artifact
-                        </Typography>
-                        <Typography level="body-sm" sx={{ opacity: 0.9 }}>
-                            {Artifact.formatArtifactDescription(a)}
-                        </Typography>
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
-                            <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
-                                Cancel
-                            </Button>
-                            <Button variant="solid" color="success" onClick={onConfirm} loading={busy}>
-                                Confirm pick
-                            </Button>
-                        </Box>
-                    </>
-                ) : (
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
-                        <Button variant="soft" color="neutral" onClick={onCancel} disabled={busy}>
-                            Cancel
-                        </Button>
-                    </Box>
-                )}
-            </ModalDialog>
-        </Modal>
-    );
-};
-
-// Emoji cue per perk (Scout / Spymaster / Blind Fury) so the vision trade-off reads at a glance.
-// Sourced from the shared perk copy so the draft panel and the pre-game chooser can't drift apart.
 const PERK_ICON: Record<number, string> = Object.fromEntries(
-    Object.entries(PERK_COPY).map(([perkId, copy]) => [Number(perkId), copy.icon]),
+    Perk.PERK_LIST.map((perk) => [perk.id, PERK_COPY[perk.id]?.icon ?? "•"]),
 );
 
 const PHASE_HINT: Record<number, string> = {
@@ -364,15 +261,11 @@ const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
     [PickPhaseVals.PICK]:
         "Greyed portraits are banned. Opponent picks are hidden — if you pick one they already took, you'll re-pick.",
-    [PickPhaseVals.ARTIFACT_2]: "Choose one Tier-2 artifact for your whole army.",
-    [PickPhaseVals.AUGMENTS]: "Get ready to place your army.",
-    [PickPhaseVals.AUGMENTS_SCOUT]: "Get ready to place your army.",
+    [PickPhaseVals.ARTIFACT_2]: "One of three. Both players choose at the same time.",
 };
 
-// The full "How to Play" guide (covers the whole draft). Opened in a new tab from the Rules link.
 const RULES_URL = "https://heroesofcrypto.io/rules";
 
-// One imperative line telling the player exactly what to do THIS stage (distinct from the contextual hint).
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {
         case PickPhaseVals.PERK:
@@ -388,56 +281,83 @@ const phaseAction = (phase: number, level: number): string => {
     }
 };
 
-// ---- Draft progress stepper ----------------------------------------------
-
-// Doctrine and the starting bundle are now separate first steps.
-const STEP_LABELS = ["Doctrine", "Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact", "Lvl 4", "Place"];
+// The doctrine no longer owns a step of its own — it is answered on the Bundle screen.
+const STEP_LABELS = ["Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact 2", "Lvl 4", "Augments", "Place"];
 
 const currentStep = (phase: number, level: number): number => {
     switch (phase) {
-        case PickPhaseVals.PERK: // doctrine
+        case PickPhaseVals.PERK:
+        case PickPhaseVals.INITIAL_PICK:
             return 0;
-        case PickPhaseVals.INITIAL_PICK: // starting bundle
-            return 1;
         case PickPhaseVals.ARTIFACT_2:
-            return 5;
+            return 4;
         case PickPhaseVals.AUGMENTS:
         case PickPhaseVals.AUGMENTS_SCOUT:
-            return 7;
+            return 6;
         case PickPhaseVals.PICK:
-            // L1->2, L2->3, L3->4, L4->6 (artifact sits at 5 between L3 and L4).
-            return level === 4 ? 6 : level + 1;
+            return level === 4 ? 5 : level;
         default:
             return -1;
     }
 };
 
-const Stepper: React.FC<{ step: number }> = ({ step }) => (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", justifyContent: "center" }}>
+export const DraftStepper: React.FC<{ step: number }> = ({ step }) => (
+    <Box
+        sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 0,
+            flexWrap: "nowrap",
+            justifyContent: "space-between",
+            width: "min(1340px, 97vw)",
+        }}
+    >
         {STEP_LABELS.map((label, i) => {
             const done = i < step;
             const active = i === step;
             return (
                 <React.Fragment key={label}>
-                    <Chip
-                        size="sm"
-                        variant={active ? "solid" : "soft"}
-                        color={active ? "primary" : done ? "success" : "neutral"}
-                        sx={{ opacity: active || done ? 1 : 0.5 }}
-                    >
-                        {done ? "✓ " : ""}
-                        {label}
-                    </Chip>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.75 }}>
+                        <Box
+                            sx={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 16,
+                                fontWeight: 700,
+                                bgcolor: active ? "#dcb158" : done ? "rgba(78,148,80,0.18)" : "#12151d",
+                                border: `2px solid ${active ? "#dcb158" : done ? "#4e9450" : "rgba(255,255,255,0.12)"}`,
+                                color: active ? "#241a06" : done ? "#8fcd7d" : "#7c8290",
+                            }}
+                        >
+                            {done ? "✓" : i + 1}
+                        </Box>
+                        <Typography
+                            level="body-xs"
+                            sx={{ fontSize: 14, color: active ? "#efe4cc" : done ? "#8fcd7d" : "#7c8290" }}
+                        >
+                            {label}
+                        </Typography>
+                    </Box>
                     {i < STEP_LABELS.length - 1 && (
-                        <Box sx={{ width: 10, height: 2, bgcolor: i < step ? "success.500" : "neutral.700" }} />
+                        <Box
+                            sx={{
+                                flex: "1 1 auto",
+                                minWidth: 12,
+                                height: 2,
+                                mt: "16px",
+                                bgcolor: done ? "#4e9450" : "rgba(255,255,255,0.14)",
+                            }}
+                        />
                     )}
                 </React.Fragment>
             );
         })}
     </Box>
 );
-
-// ---- Shared portrait tile -------------------------------------------------
 
 type PortraitState = "available" | "picked" | "taken" | "banned";
 
@@ -448,36 +368,95 @@ const STATE_HINT: Record<PortraitState, string> = {
     banned: "Banned",
 };
 
+// Lucide-style attack-type glyph drawn inline: sword for melee, bow for ranged, open book for casters.
+const AttackTypeIcon: React.FC<{ attackType: string }> = ({ attackType }) => {
+    const common = {
+        width: 18,
+        height: 18,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "#9aa0ab",
+        strokeWidth: 2.75,
+        strokeLinecap: "round" as const,
+        strokeLinejoin: "round" as const,
+        "aria-hidden": true,
+    };
+    if (attackType === "RANGE") {
+        return (
+            <svg {...common}>
+                <path d="M17 3h4v4" />
+                <path d="M18.575 11.082a13 13 0 0 1 1.048 9.027 1.17 1.17 0 0 1-1.914.597L14 17" />
+                <path d="M7 10 3.29 6.29a1.17 1.17 0 0 1 .6-1.91 13 13 0 0 1 9.03 1.05" />
+                <path d="M21 3 3 21" />
+            </svg>
+        );
+    }
+    if (attackType === "MAGIC") {
+        return (
+            <svg {...common}>
+                <path d="M12 7v14" />
+                <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+            </svg>
+        );
+    }
+    return (
+        <svg {...common}>
+            <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
+            <path d="M13 19l6-6" />
+            <path d="M16 16l4 4" />
+            <path d="M19 21l2-2" />
+        </svg>
+    );
+};
+
 const CreaturePortrait: React.FC<{
     creatureId: number;
     state: PortraitState;
     disabled?: boolean;
     size?: number;
+    /** Grid tiles stretch to their column instead of using a fixed px size. */
+    fill?: boolean;
+    /** Name + attack-type glyph under the portrait (pick grid only). */
+    caption?: boolean;
+    /** Clicked but not yet committed — the commit button carries the confirm now. */
+    pending?: boolean;
     onClick?: () => void;
     onInspect?: (creatureId: number) => void;
-}> = ({ creatureId, state, disabled, size = 104, onClick, onInspect }) => {
+    onInspectEnd?: () => void;
+}> = ({ creatureId, state, disabled, size = 104, fill, caption, pending, onClick, onInspect, onInspectEnd }) => {
     const src = creatureImage(creatureId);
     const selectable = state === "available" && !disabled && !!onClick;
-    const ring =
-        state === "picked" ? "#3B9B5C" : state === "banned" || state === "taken" ? "#8a2b2b" : "rgba(255,255,255,0.18)";
+    const ring = pending
+        ? "#3B9B5C"
+        : state === "picked"
+          ? "#3B9B5C"
+          : state === "banned" || state === "taken"
+            ? "#8a2b2b"
+            : "rgba(255,255,255,0.18)";
     const tip = STATE_HINT[state] ? `${creatureName(creatureId)} — ${STATE_HINT[state]}` : creatureName(creatureId);
-    return (
+    const config = creatureFullConfig(creatureId)?.config;
+    const portrait = (
         <Tooltip title={tip} variant="soft" placement="top">
             <Box
                 onClick={selectable ? onClick : undefined}
                 onMouseEnter={() => onInspect?.(creatureId)}
+                onMouseLeave={() => onInspectEnd?.()}
                 sx={{
                     position: "relative",
-                    width: size,
-                    height: size,
-                    borderRadius: "10px",
+                    width: fill ? "100%" : size,
+                    height: fill ? "auto" : size,
+                    aspectRatio: fill ? "1" : undefined,
+                    borderRadius: fill ? "20px" : "10px",
                     overflow: "hidden",
-                    border: `2px solid ${ring}`,
+                    border: `${fill ? 3 : 2}px solid ${ring}`,
                     cursor: selectable ? "pointer" : "default",
                     opacity: state === "available" ? 1 : 0.5,
-                    // NOTE: the grayscale filter is applied to the <img> below, NOT to this wrapper. Putting it
-                    // on the wrapper would also desaturate the ban mark (CSS filters affect all descendants),
-                    // turning the red brush stroke grey/black. Keep the wrapper filter-free so the mark stays red.
+                    // The unit you are about to confirm pulses a soft green halo.
+                    animation: pending ? "hocPendingGlow 1.6s ease-in-out infinite" : "none",
+                    "@keyframes hocPendingGlow": {
+                        "0%, 100%": { boxShadow: "0 0 0 0 rgba(59,155,92,0.55), 0 0 10px rgba(59,155,92,0.35)" },
+                        "50%": { boxShadow: "0 0 0 6px rgba(59,155,92,0), 0 0 22px rgba(59,155,92,0.75)" },
+                    },
                     transition: "transform 120ms ease, box-shadow 120ms ease",
                     "&:hover": selectable
                         ? { transform: "translateY(-3px)", boxShadow: "0 0 14px rgba(120,220,150,0.6)" }
@@ -519,7 +498,7 @@ const CreaturePortrait: React.FC<{
                         }}
                     />
                 )}
-                {state === "picked" && (
+                {(state === "picked" || pending) && (
                     <Box
                         sx={{
                             position: "absolute",
@@ -535,6 +514,115 @@ const CreaturePortrait: React.FC<{
                 )}
             </Box>
         </Tooltip>
+    );
+
+    if (!caption) {
+        return portrait;
+    }
+
+    return (
+        <Box
+            sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.75,
+                minWidth: 0,
+                width: "100%",
+                maxWidth: "clamp(92px, 9.5vw, 138px)",
+            }}
+        >
+            {portrait}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, minWidth: 0 }}>
+                <Typography
+                    level="body-sm"
+                    sx={{
+                        fontSize: 17,
+                        color: state === "available" ? "#e9e6df" : "#7c8290",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {creatureName(creatureId)}
+                </Typography>
+                {config && <AttackTypeIcon attackType={config.attack_type} />}
+            </Box>
+        </Box>
+    );
+};
+
+// One wide button carries both the commit and the countdown: clicking a card/creature only selects it,
+// this button locks it in. On the opponent's turn it turns red and blocks input while the timer keeps
+// running; under 15 seconds the digits blink red.
+const PickCommitButton: React.FC<{
+    label: string;
+    armed: boolean;
+    isYourTurn: boolean;
+    seconds: number;
+    onCommit: () => void;
+}> = ({ label, armed, isYourTurn, seconds, onCommit }) => {
+    const urgent = seconds >= 0 && seconds <= 15;
+    return (
+        <Box
+            component="button"
+            type="button"
+            disabled={!armed}
+            onClick={armed ? onCommit : undefined}
+            sx={{
+                minHeight: "clamp(56px, 8vh, 96px)",
+                minWidth: "min(620px, 88%)",
+                mt: "calc(clamp(10px, 1.6vh, 30px) * -0.7)",
+                borderRadius: "16px",
+                border: `2px solid ${isYourTurn ? "rgba(214,240,200,0.55)" : "rgba(255,205,195,0.5)"}`,
+                background: isYourTurn
+                    ? "linear-gradient(180deg, #7ab86a 0%, #4e9450 46%, #2f6b3c 100%)"
+                    : "linear-gradient(180deg, #d1554a 0%, #a3322b 46%, #6e1f1a 100%)",
+                boxShadow:
+                    "inset 0 0 0 3px rgba(214,240,200,0.55), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -12px 26px rgba(0,0,0,0.28)",
+                color: "#f2fbee",
+                fontSize: "clamp(20px, 1.9vw, 34px)",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                cursor: armed ? "pointer" : "default",
+                px: 3,
+                // Blinks while it is waiting for you to commit; hovering stops it so the label stays readable.
+                animation: armed ? "hocCommitBlink 1.4s ease-in-out infinite" : "none",
+                "&:hover": { animation: "none" },
+                "@keyframes hocCommitBlink": {
+                    "0%, 100%": { opacity: 1 },
+                    "50%": { opacity: 0.62 },
+                },
+                "@keyframes hocTimerBlink": {
+                    "0%, 100%": { opacity: 1 },
+                    "50%": { opacity: 0.25 },
+                },
+            }}
+        >
+            <Box component="span" sx={{ flex: "1 1 auto", textAlign: "center" }}>
+                {label}
+            </Box>
+            {seconds >= 0 && (
+                <Box
+                    component="span"
+                    sx={{
+                        pl: 3,
+                        borderLeft: "2px solid rgba(255,255,255,0.35)",
+                        fontVariantNumeric: "tabular-nums",
+                        // White while there is time, blinking red for the last 15 seconds.
+                        color: urgent ? "#ff3b2f" : "#fff",
+                        textShadow: urgent ? "0 0 18px rgba(255,59,47,0.75)" : "none",
+                        animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
+                    }}
+                >
+                    {`0:${String(Math.max(0, seconds)).padStart(2, "0")}`}
+                </Box>
+            )}
+        </Box>
     );
 };
 
@@ -590,8 +678,18 @@ const BundlePanel: React.FC<{
     selected: number;
     onSelect: (index: number) => void;
     onInspect?: (creatureId: number) => void;
-}> = ({ bundles, disabled, selected, onSelect, onInspect }) => (
-    <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", justifyContent: "center" }}>
+    onInspectEnd?: () => void;
+}> = ({ bundles, disabled, selected, onSelect, onInspect, onInspectEnd }) => (
+    <Box
+        sx={{
+            width: "min(1340px, 97vw)",
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            gap: "26px",
+            minHeight: "clamp(320px, 47vh, 640px)",
+            alignItems: "stretch",
+        }}
+    >
         {bundles.map((bundle, index) => {
             const [l1, l2, artifactId] = bundle;
             const artifact = Artifact.getTier1ArtifactProperties(artifactId as Artifact.Tier1Artifact);
@@ -600,62 +698,96 @@ const BundlePanel: React.FC<{
             return (
                 <Card
                     key={index}
-                    variant={isSelected ? "solid" : "outlined"}
-                    color={isSelected ? "primary" : "neutral"}
-                    sx={{ width: 280, bgcolor: isSelected ? undefined : "rgba(0,0,0,0.35)" }}
+                    variant="outlined"
+                    color="neutral"
+                    onClick={disabled ? undefined : () => onSelect(index)}
+                    sx={{
+                        width: "100%",
+                        height: "100%",
+                        cursor: disabled ? "default" : "pointer",
+                        bgcolor: "rgba(0,0,0,0.35)",
+                        border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.12)"}`,
+                        boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                    }}
                 >
-                    <CardContent sx={{ alignItems: "center", gap: 1.5 }}>
-                        <Typography level="title-md">Bundle {index + 1}</Typography>
-                        <Box sx={{ display: "flex", gap: 2 }}>
+                    <CardContent sx={{ alignItems: "center", gap: 2 }}>
+                        <Box sx={{ display: "flex", gap: 3, justifyContent: "center" }}>
                             {[
-                                { id: l1, tag: "Lvl 1" },
-                                { id: l2, tag: "Lvl 2" },
-                            ].map(({ id, tag }) => (
+                                { id: l1, level: 1 },
+                                { id: l2, level: 2 },
+                            ].map(({ id, level }) => (
                                 <Box
-                                    key={tag}
-                                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}
+                                    key={level}
+                                    sx={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        gap: 0.5,
+                                    }}
+                                    onMouseEnter={() => onInspect?.(id)}
+                                    onMouseLeave={() => onInspectEnd?.()}
                                 >
-                                    <CreaturePortrait
-                                        creatureId={id}
-                                        state="available"
-                                        disabled
-                                        onInspect={onInspect}
+                                    <Box
+                                        component="img"
+                                        src={creatureImage(id)}
+                                        alt={creatureName(id)}
+                                        sx={{
+                                            width: "clamp(120px, 13vw, 210px)",
+                                            height: "clamp(120px, 13vw, 210px)",
+                                            borderRadius: "50%",
+                                            objectFit: "cover",
+                                        }}
                                     />
-                                    <Typography level="body-xs" sx={{ opacity: 0.7 }}>
-                                        {tag}: {creatureName(id)}
+                                    <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#e9e6df" }}>
+                                        {creatureName(id)}
                                     </Typography>
+                                    <Typography sx={{ fontSize: 14, color: "#7c8290" }}>Level {level}</Typography>
                                 </Box>
                             ))}
                         </Box>
-                        <Divider sx={{ my: 0.5 }} />
-                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                {artifactImg && (
-                                    <img
-                                        src={artifactImg}
-                                        alt={artifact.name}
-                                        style={{ width: 34, height: 34, objectFit: "contain" }}
-                                    />
-                                )}
-                                <Box>
-                                    <Typography level="body-xs" sx={{ opacity: 0.7 }}>
-                                        Tier-1 artifact
-                                    </Typography>
-                                    <Typography level="body-sm">{artifact.name}</Typography>
-                                </Box>
-                            </Box>
-                            <Typography level="body-xs" sx={{ opacity: 0.85, textAlign: "center" }}>
-                                {Artifact.formatArtifactDescription(artifact)}
-                            </Typography>
-                        </Box>
-                        <Button
-                            disabled={disabled}
-                            variant={isSelected ? "soft" : "solid"}
-                            onClick={() => onSelect(index)}
-                            fullWidth
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                width: "100%",
+                                p: 1.5,
+                                borderRadius: "14px",
+                                bgcolor: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(220,177,88,0.28)",
+                            }}
                         >
-                            {isSelected ? "✓ Chosen" : "Pick bundle"}
-                        </Button>
+                            {artifactImg && (
+                                <img
+                                    src={artifactImg}
+                                    alt={artifact.name}
+                                    style={{
+                                        width: "clamp(72px, 7vw, 120px)",
+                                        height: "clamp(72px, 7vw, 120px)",
+                                        objectFit: "contain",
+                                        flex: "0 0 auto",
+                                    }}
+                                />
+                            )}
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontSize: 17, fontWeight: 700, color: "#dcb158" }}>
+                                    {artifact.name}
+                                </Typography>
+                                <Typography
+                                    sx={{
+                                        fontSize: 12,
+                                        letterSpacing: "0.1em",
+                                        textTransform: "uppercase",
+                                        color: "#7c8290",
+                                    }}
+                                >
+                                    Tier-1 artifact
+                                </Typography>
+                                <Typography sx={{ fontSize: 13.5, color: "#9aa0ab" }}>
+                                    ({Artifact.formatArtifactDescription(artifact)})
+                                </Typography>
+                            </Box>
+                        </Box>
                     </CardContent>
                 </Card>
             );
@@ -663,19 +795,32 @@ const BundlePanel: React.FC<{
     </Box>
 );
 
-const Legend: React.FC = () => (
-    <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", justifyContent: "center", opacity: 0.85 }}>
-        <Chip size="sm" variant="soft" color="neutral">
-            ◻ Available
-        </Chip>
-        <Chip size="sm" variant="soft" color="success">
-            ✓ Yours
-        </Chip>
-        <Chip size="sm" variant="soft" color="danger">
-            ⟋ Taken / banned
-        </Chip>
+// The frame every phase's choices sit in: same width, padding and border, so switching phases only swaps
+// the contents and nothing on screen jumps.
+const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <Box
+        sx={{
+            width: "min(1340px, 97vw)",
+            p: "22px",
+            borderRadius: "30px",
+            bgcolor: "rgba(255,255,255,0.025)",
+            border: "2px solid rgba(255,255,255,0.1)",
+        }}
+    >
+        {children}
     </Box>
 );
+
+// Draft pools are faction-balanced (4/4/4/4 on L1-L2, 3/3/3/3 on L3-L4) and never contain Death, so the
+// grid can lay the level out as two factions per row.
+const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might"] as const;
+
+const FACTION_COLOR: Record<string, string> = {
+    Life: "#e0d3b0",
+    Nature: "#aebf92",
+    Chaos: "#e0a06a",
+    Might: "#9fb6d4",
+};
 
 const PickPanel: React.FC<{
     level: number;
@@ -683,53 +828,72 @@ const PickPanel: React.FC<{
     picked: number[];
     opponentTaken: number[];
     disabled: boolean;
+    pendingId?: number;
     onSelect: (creatureId: number) => void;
     onInspect?: (creatureId: number) => void;
-}> = ({ level, banned, picked, opponentTaken, disabled, onSelect, onInspect }) => {
+    onInspectEnd?: () => void;
+}> = ({ level, banned, picked, opponentTaken, disabled, pendingId, onSelect, onInspect, onInspectEnd }) => {
     const bannedSet = new Set(banned);
     const pickedSet = new Set(picked);
     const takenSet = new Set(opponentTaken);
-    const creatures = level >= 1 ? getCreaturesByLevel(level) : [];
-    const available = creatures.filter((c) => !bannedSet.has(c) && !pickedSet.has(c) && !takenSet.has(c)).length;
+    const creatures = (level >= 1 ? getCreaturesByLevel(level) : []).filter(
+        (creatureId) => creatureFullConfig(creatureId)?.faction !== "Death",
+    );
+    const columns = level >= 3 ? 3 : 4;
+    const byFaction = FACTION_ORDER.map((faction) => ({
+        faction,
+        ids: creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
+    })).filter((group) => group.ids.length > 0);
+
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Chip color="primary" variant="soft">
-                    Level {level}
-                </Chip>
-                <Typography level="body-sm" sx={{ opacity: 0.75 }}>
-                    {available} available
-                </Typography>
+        <PhasePanel>
+            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "26px" }}>
+                {byFaction.map(({ faction, ids }) => (
+                    <Box key={faction} sx={{ display: "flex", flexDirection: "column", gap: 1.5, minWidth: 0 }}>
+                        <Typography
+                            level="body-sm"
+                            sx={{
+                                fontSize: 16,
+                                letterSpacing: "0.14em",
+                                textTransform: "uppercase",
+                                textAlign: "center",
+                                color: FACTION_COLOR[faction] ?? "#e9e6df",
+                            }}
+                        >
+                            {faction}
+                        </Typography>
+                        <Box
+                            sx={{
+                                display: "grid",
+                                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                                gap: "14px",
+                            }}
+                        >
+                            {ids.map((creatureId) => {
+                                let state: PortraitState = "available";
+                                if (pickedSet.has(creatureId)) state = "picked";
+                                else if (bannedSet.has(creatureId)) state = "banned";
+                                else if (takenSet.has(creatureId)) state = "taken";
+                                return (
+                                    <CreaturePortrait
+                                        key={creatureId}
+                                        creatureId={creatureId}
+                                        state={state}
+                                        disabled={disabled}
+                                        fill
+                                        caption
+                                        pending={pendingId === creatureId}
+                                        onClick={() => onSelect(creatureId)}
+                                        onInspect={onInspect}
+                                        onInspectEnd={onInspectEnd}
+                                    />
+                                );
+                            })}
+                        </Box>
+                    </Box>
+                ))}
             </Box>
-            <Legend />
-            {/* Two balanced rows: ceil(N/2) columns puts half the creatures on each row (top row gets the
-                extra when the count is odd) instead of a lopsided wrap. */}
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${Math.max(1, Math.ceil(creatures.length / 2))}, auto)`,
-                    gap: 1.75,
-                    justifyContent: "center",
-                }}
-            >
-                {creatures.map((creatureId) => {
-                    let state: PortraitState = "available";
-                    if (pickedSet.has(creatureId)) state = "picked";
-                    else if (bannedSet.has(creatureId)) state = "banned";
-                    else if (takenSet.has(creatureId)) state = "taken";
-                    return (
-                        <CreaturePortrait
-                            key={creatureId}
-                            creatureId={creatureId}
-                            state={state}
-                            disabled={disabled}
-                            onClick={() => onSelect(creatureId)}
-                            onInspect={onInspect}
-                        />
-                    );
-                })}
-            </Box>
-        </Box>
+        </PhasePanel>
     );
 };
 
@@ -743,43 +907,91 @@ const ArtifactPanel: React.FC<{
     // arrived yet (e.g. a server that predates the offer field), so the picker is never empty.
     const offeredIds = offered.length ? offered : Artifact.TIER2_ARTIFACT_LIST.map((a) => a.id);
     return (
-        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", justifyContent: "center", maxWidth: 640 }}>
+        <Box
+            sx={{
+                width: "min(1340px, 97vw)",
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: "20px",
+                minHeight: "clamp(320px, 47vh, 640px)",
+                alignItems: "stretch",
+            }}
+        >
             {offeredIds.map((id) => {
                 const a = Artifact.getTier2ArtifactProperties(id as Artifact.Tier2Artifact);
-                const img = images[a.imageKey];
                 const isSelected = selected === a.id;
                 return (
                     <Tooltip key={a.id} title={Artifact.formatArtifactDescription(a)} variant="soft" placement="top">
                         <Card
-                            variant={isSelected ? "solid" : "outlined"}
-                            color={isSelected ? "primary" : "neutral"}
-                            onClick={disabled ? undefined : () => onSelect(a.id)}
+                            key={id}
+                            variant="outlined"
+                            color="neutral"
+                            onClick={disabled ? undefined : () => onSelect(id)}
                             sx={{
-                                width: 200,
-                                bgcolor: isSelected ? undefined : "rgba(0,0,0,0.35)",
+                                height: "100%",
                                 cursor: disabled ? "default" : "pointer",
-                                "&:hover": disabled ? undefined : { boxShadow: "0 0 12px rgba(120,180,255,0.55)" },
+                                bgcolor: "#12151d",
+                                border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
+                                borderRadius: "22px",
+                                boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
                             }}
                         >
-                            <CardContent sx={{ alignItems: "center", gap: 0.5, p: 1.25 }}>
-                                {img && (
-                                    <img
-                                        src={img}
+                            <CardContent sx={{ alignItems: "center", gap: 1.25, p: 2 }}>
+                                {images[a.imageKey] && (
+                                    <Box
+                                        component="img"
+                                        src={images[a.imageKey]}
                                         alt={a.name}
-                                        style={{ width: 46, height: 46, objectFit: "contain" }}
+                                        sx={{
+                                            width: "clamp(110px, 11vw, 186px)",
+                                            height: "clamp(110px, 11vw, 186px)",
+                                            objectFit: "contain",
+                                            borderRadius: "12px",
+                                        }}
                                     />
                                 )}
-                                <Typography level="body-sm" sx={{ textAlign: "center", fontWeight: 600 }}>
+                                <Typography
+                                    sx={{ fontSize: "clamp(18px, 1.7vw, 32px)", fontWeight: 700, color: "#dcb158" }}
+                                >
                                     {a.name}
                                 </Typography>
-                                <Typography level="body-xs" sx={{ textAlign: "center", opacity: 0.85 }}>
-                                    {Artifact.formatArtifactDescription(a)}
+                                <Typography
+                                    sx={{
+                                        fontSize: 16,
+                                        letterSpacing: "0.12em",
+                                        textTransform: "uppercase",
+                                        color: "#9aa0ab",
+                                    }}
+                                >
+                                    Tier-2 artifact
                                 </Typography>
-                                {isSelected && (
-                                    <Chip size="sm" color="primary" variant="soft">
-                                        ✓ Chosen
-                                    </Chip>
-                                )}
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 1,
+                                        width: "100%",
+                                        mt: 0.5,
+                                    }}
+                                >
+                                    {Artifact.formatArtifactDescription(a)
+                                        .split(/(?<=\.)\s+/)
+                                        .filter(Boolean)
+                                        .map((line) => (
+                                            <Box
+                                                key={line}
+                                                sx={{
+                                                    p: "12px 16px",
+                                                    borderRadius: "18px",
+                                                    bgcolor: "rgba(255,255,255,0.05)",
+                                                    fontSize: "clamp(14px, 1.1vw, 20px)",
+                                                    color: "#e9e6df",
+                                                }}
+                                            >
+                                                {line}
+                                            </Box>
+                                        ))}
+                                </Box>
                             </CardContent>
                         </Card>
                     </Tooltip>
@@ -834,14 +1046,10 @@ const MyDraftBar: React.FC<{
     return (
         <Box
             sx={{
-                position: "sticky",
-                bottom: 0,
-                mt: "auto",
-                width: "100%",
+                flex: "1 1 560px",
+                maxWidth: 720,
                 display: "flex",
                 justifyContent: "center",
-                pt: 1.5,
-                pointerEvents: "none",
             }}
         >
             <Sheet
@@ -851,19 +1059,19 @@ const MyDraftBar: React.FC<{
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
-                    px: 2,
-                    py: 1,
+                    px: 1.75,
+                    py: 0.25,
                     maxWidth: "94%",
                     flexWrap: "wrap",
                     justifyContent: "center",
                     borderRadius: "14px",
-                    bgcolor: "rgba(8,10,18,0.92)",
+                    bgcolor: "#171a23",
                     border: "1px solid rgba(255,255,255,0.12)",
-                    boxShadow: "0 -6px 24px rgba(0,0,0,0.5)",
-                    color: "#e7e9f0",
+                    color: "#e9e6df",
+                    width: "100%",
                 }}
             >
-                <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                <Typography sx={{ color: "#dcb158", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
                     Your army
                 </Typography>
                 {perk > 0 && (
@@ -1000,7 +1208,7 @@ const OpponentDraftBar: React.FC<{
     // slots for Scout, none for Blind Fury.
     watchedSlots: number[];
     onInspect?: (creatureId: number) => void;
-}> = ({ opponentPicked, opponentLabel, watchedSlots, onInspect }) => {
+}> = ({ opponentPicked, watchedSlots, onInspect }) => {
     // Build the 6 fixed level-ordered slots directly from the slot-aligned reveal array (no bucketing), so each
     // creature lands at its real slot index — preserving bundle-vs-picked ordering within a level.
     const slots = ARMY_LAYOUT.map((level, i) => ({ id: opponentPicked[i] ?? 0, level }));
@@ -1009,7 +1217,14 @@ const OpponentDraftBar: React.FC<{
     // reveal flips — no longer a misleading fixed 1-2-3. A watched-but-not-yet-picked slot shows the eye.
     const watched = new Set(watchedSlots);
     return (
-        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", pt: 1.5, pointerEvents: "none" }}>
+        <Box
+            sx={{
+                flex: "1 1 420px",
+                maxWidth: 560,
+                display: "flex",
+                justifyContent: "center",
+            }}
+        >
             <Sheet
                 variant="soft"
                 sx={{
@@ -1017,19 +1232,20 @@ const OpponentDraftBar: React.FC<{
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
-                    px: 2,
-                    py: 0.75,
+                    px: 1.75,
+                    py: 0.25,
                     maxWidth: "94%",
                     flexWrap: "wrap",
                     justifyContent: "center",
                     borderRadius: "14px",
-                    bgcolor: "rgba(18,8,10,0.9)",
-                    border: "1px solid rgba(255,120,120,0.22)",
+                    bgcolor: "#241416",
+                    border: "1px solid rgba(138,43,43,0.6)",
+                    width: "100%",
                     color: "#f0e7e9",
                 }}
             >
-                <Typography level="body-xs" sx={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 0.6 }}>
-                    {opponentLabel}&apos;s army
+                <Typography sx={{ color: "#ff9d9d", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
+                    Opponent
                 </Typography>
                 <BarDivider />
                 <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
@@ -1169,6 +1385,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     const [pickError, setPickError] = useState<string>("");
     // Creature the player clicked to pick — opens the confirm modal. The actual pick only fires on Confirm.
     const [pendingPick, setPendingPick] = useState<number>(0);
+    const [pendingBundle, setPendingBundle] = useState<number>(-1);
     // Artifact the player clicked to pick — opens the confirm modal. The actual pick only fires on Confirm.
     const [pendingArtifact, setPendingArtifact] = useState<number>(0);
 
@@ -1228,6 +1445,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
     const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
     const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
+    // Phases whose confirm lives in the wide button at the bottom — they drop the header chips, the
+    // sub-line and the imperative hint, exactly like the redesign.
+    const isCommitPhase =
+        pickPhase === PickPhaseVals.PICK ||
+        pickPhase === PickPhaseVals.INITIAL_PICK ||
+        pickPhase === PickPhaseVals.ARTIFACT_2;
     // PERK is now a doctrine-only phase; the server echoes the player's perk (perk > 0), which survives reload
     // and locks the panel.
     const perkLocked = pickPhase === PickPhaseVals.PERK && perk > 0;
@@ -1261,9 +1484,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
             <BundlePanel
                 bundles={initialBundles}
                 disabled={disabled || bundleLocked}
-                selected={bundleChosenIndex}
-                onSelect={(i) => void send(i, () => pickPair(i))}
+                selected={bundleLocked ? bundleChosenIndex : pendingBundle}
+                onSelect={(i) => setPendingBundle(i)}
                 onInspect={setInspectedId}
+                onInspectEnd={() => setInspectedId(0)}
             />
         );
     } else if (pickPhase === PickPhaseVals.PICK) {
@@ -1280,8 +1504,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                     picked={picked}
                     opponentTaken={opponentTaken}
                     disabled={disabled}
+                    pendingId={pendingPick}
                     onSelect={(id) => setPendingPick(id)}
                     onInspect={setInspectedId}
+                    onInspectEnd={() => setInspectedId(0)}
                 />
             </Box>
         );
@@ -1289,7 +1515,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
         panel = (
             <ArtifactPanel
                 disabled={disabled}
-                selected={selectedValue}
+                selected={pendingArtifact > 0 ? pendingArtifact : selectedValue}
                 offered={tier2Offers}
                 onSelect={(id) => setPendingArtifact(id)}
             />
@@ -1308,15 +1534,17 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
             variant="solid"
             sx={{
                 width: "100%",
-                height: "100%",
+                height: "100vh",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 2,
-                p: 3,
-                bgcolor: "rgba(8,10,18,0.94)",
-                color: "#e7e9f0",
-                overflowY: "auto",
+                gap: "clamp(10px, 1.6vh, 30px)",
+                p: "clamp(10px, 2vh, 36px) 40px clamp(10px, 1.6vh, 36px)",
+                maxWidth: 1720,
+                mx: "auto",
+                background: "radial-gradient(120% 80% at 50% 0%, #171a23 0%, #0b0d12 60%)",
+                color: "#e9e6df",
+                overflow: "hidden",
                 position: "relative",
             }}
         >
@@ -1345,20 +1573,43 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 </Typography>
             </Tooltip>
 
-            <Stepper step={currentStep(pickPhase, requiredLevel)} />
-
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-                <Typography level="h3" sx={{ color: "#e7e9f0" }}>
-                    {title(pickPhase)}
+            <Box
+                sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 0.5,
+                    minHeight: "clamp(44px, 7vh, 96px)",
+                    flex: "0 1 auto",
+                    py: "clamp(4px, 1.4vh, 26px)",
+                }}
+            >
+                <Typography
+                    sx={{
+                        fontSize: "clamp(30px, 3.4vw, 62px)",
+                        fontWeight: 600,
+                        lineHeight: 1.1,
+                        color: "#efe4cc",
+                        textAlign: "center",
+                    }}
+                >
+                    {title(pickPhase, requiredLevel)}
                 </Typography>
-                {hint && (
+                {hint && !isCommitPhase && (
                     <Typography level="body-sm" sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}>
                         {hint}
                     </Typography>
                 )}
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box
+                sx={{
+                    display: isCommitPhase ? "none" : "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                }}
+            >
                 <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
                     {isYourTurn ? "Your turn" : `${opponentLabel}'s turn`}
                 </Chip>
@@ -1369,7 +1620,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                         </Chip>
                     </Tooltip>
                 )}
-                {secondsRemaining >= 0 && !isHandoff && (
+                {secondsRemaining >= 0 && !isHandoff && !isCommitPhase && (
                     <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
                 )}
                 {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then the name. */}
@@ -1377,15 +1628,111 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
             </Box>
 
             {/* Imperative "what to do now" so first-time players always know the expected action. */}
-            {isYourTurn && !isHandoff && phaseAction(pickPhase, requiredLevel) && (
+            {isYourTurn && !isHandoff && !isCommitPhase && phaseAction(pickPhase, requiredLevel) && (
                 <Typography level="title-sm" sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}>
                     👉 {phaseAction(pickPhase, requiredLevel)}
                 </Typography>
             )}
 
-            <Box sx={{ mt: 1, display: "flex", justifyContent: "center", width: "100%" }}>
+            {/* Purely a hover read-out: it floats over the title, takes no layout space and clears the moment
+                the cursor leaves a portrait. */}
+            <CreatureDetailPanel creatureId={inspectedId} />
+
+            {pickPhase !== PickPhaseVals.INITIAL_PICK && pickPhase !== PickPhaseVals.PERK && (
+                <>
+                    {/* Both armies sit ABOVE the grid, side by side: yours (doctrine, six level slots, artifacts) and
+                the opponent's (hidden / watched / revealed), so the draft state reads before the choices. */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            gap: 2,
+                            width: "100%",
+                            justifyContent: "center",
+                            alignItems: "stretch",
+                            flexWrap: "wrap",
+                        }}
+                    >
+                        <MyDraftBar
+                            perk={perk}
+                            picked={picked}
+                            artifactTier1={artifactTier1}
+                            artifactTier2={artifactTier2}
+                            onInspect={setInspectedId}
+                        />
+                        <OpponentDraftBar
+                            opponentPicked={opponentPicked}
+                            opponentLabel={opponentLabel}
+                            watchedSlots={watchedSlots}
+                            onInspect={setInspectedId}
+                        />
+                    </Box>
+                </>
+            )}
+
+            {/* The hover stat bar is absolutely positioned against this wrapper, so it floats just above the
+                pick grid instead of pinning itself to the viewport's left edge. */}
+            <Box
+                sx={{
+                    position: "relative",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    width: "100%",
+                    flex: "1 1 auto",
+                    minHeight: 0,
+                    overflowY: "auto",
+                }}
+            >
                 {userTeam ? panel : null}
             </Box>
+
+            {userTeam && isCommitPhase && (
+                <PickCommitButton
+                    label={
+                        !isYourTurn
+                            ? "Opponent's turn"
+                            : pickPhase === PickPhaseVals.ARTIFACT_2
+                              ? pendingArtifact > 0
+                                  ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
+                                  : "Pick an artifact"
+                              : pickPhase === PickPhaseVals.INITIAL_PICK
+                                ? pendingBundle >= 0
+                                    ? "Confirm bundle"
+                                    : "Pick a bundle"
+                                : pendingPick > 0
+                                  ? `Confirm ${creatureName(pendingPick)}`
+                                  : "Pick a creature"
+                    }
+                    armed={
+                        !!isYourTurn &&
+                        !busy &&
+                        (pickPhase === PickPhaseVals.ARTIFACT_2
+                            ? pendingArtifact > 0
+                            : pickPhase === PickPhaseVals.INITIAL_PICK
+                              ? pendingBundle >= 0 && !bundleLocked
+                              : pendingPick > 0)
+                    }
+                    isYourTurn={!!isYourTurn}
+                    seconds={secondsRemaining}
+                    onCommit={() => {
+                        if (pickPhase === PickPhaseVals.ARTIFACT_2) {
+                            const artifactId = pendingArtifact;
+                            setPendingArtifact(0);
+                            void send(artifactId, () => artifact(artifactId, 2));
+                            return;
+                        }
+                        if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+                            const index = pendingBundle;
+                            setPendingBundle(-1);
+                            void send(index, () => pickPair(index));
+                            return;
+                        }
+                        const id = pendingPick;
+                        setPendingPick(0);
+                        void pickCreature(id);
+                    }}
+                />
+            )}
 
             {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
             {!isYourTurn && !isHandoff && (
@@ -1397,50 +1744,13 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 </Box>
             )}
 
-            <CreatureDetailPanel creatureId={inspectedId} />
-
-            <PickConfirmModal
-                open={pendingPick > 0 && pickPhase === PickPhaseVals.PICK}
-                creatureId={pendingPick}
-                busy={busy}
-                onConfirm={() => {
-                    const id = pendingPick;
-                    setPendingPick(0);
-                    void pickCreature(id);
-                }}
-                onCancel={() => setPendingPick(0)}
-            />
-            <ArtifactConfirmModal
-                open={pendingArtifact > 0 && pickPhase === PickPhaseVals.ARTIFACT_2}
-                artifactId={pendingArtifact}
-                busy={busy}
-                onConfirm={() => {
-                    const id = pendingArtifact;
-                    setPendingArtifact(0);
-                    void send(id, () => artifact(id, 2));
-                }}
-                onCancel={() => setPendingArtifact(0)}
-            />
             {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
             <MapRevealModal mapType={mapType} />
 
-            {/* Both draft bars share ONE mt:auto wrapper so they stack together at the bottom (two separate
-                mt:auto flex items would split the free space and float the opponent bar mid-screen). */}
-            <Box sx={{ mt: "auto", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <OpponentDraftBar
-                    opponentPicked={opponentPicked}
-                    opponentLabel={opponentLabel}
-                    watchedSlots={watchedSlots}
-                    onInspect={setInspectedId}
-                />
-
-                <MyDraftBar
-                    perk={perk}
-                    picked={picked}
-                    artifactTier1={artifactTier1}
-                    artifactTier2={artifactTier2}
-                    onInspect={setInspectedId}
-                />
+            {/* The rail sits at the bottom of the screen: the step you are on is the screen itself, the rail
+                is only there to show how far the draft has come. */}
+            <Box sx={{ mt: "auto", pt: 3, width: "100%", display: "flex", justifyContent: "center" }}>
+                <DraftStepper step={currentStep(pickPhase, requiredLevel)} />
             </Box>
         </Sheet>
     );
@@ -1455,7 +1765,10 @@ const PHASE_NAME: Record<number, string> = {
     [PickPhaseVals.AUGMENTS_SCOUT]: "Preparing placement…",
 };
 
-function title(phase: number): string {
+function title(phase: number, level = 0): string {
+    if (phase === PickPhaseVals.PICK && level >= 1) {
+        return `Pick a Level ${level} creature`;
+    }
     return PHASE_NAME[phase] ?? "Pick phase";
 }
 
