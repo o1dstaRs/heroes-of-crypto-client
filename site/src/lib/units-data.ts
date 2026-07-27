@@ -412,7 +412,24 @@ export interface Ability {
     isCastable: boolean;
     isStackPowered: boolean;
     units: AbilityUnitRef[];
+    /**
+     * What grants this ability, for the ones no creature is born with. Set only for abilities forged onto a
+     * unit mid-fight, whose `units` roster is empty by nature rather than by omission.
+     */
+    grantedBy?: string;
 }
+
+// Abilities that exist but belong to no creature's roster: Blacksmith's Craft forges these onto a unit
+// during the fight. They are real, player-facing abilities with their own icons and rules, so leaving them
+// out of the codex hides what Craft can actually produce — but inverting units -> abilities can never find
+// them, because no creature lists them. They are added explicitly instead, labelled with what grants them
+// rather than carrying a "used by" roster that would be empty and read as a mistake.
+const grantedAbilities: { name: string; grantedBy: string }[] = [
+    { name: "Crafted Double Punch", grantedBy: "Craft" },
+    { name: "Crafted Double Shot", grantedBy: "Craft" },
+    { name: "Crafted Frozen Bow", grantedBy: "Craft" },
+    { name: "Crafted Frozen Sword", grantedBy: "Craft" },
+];
 
 // Derive the ability catalogue straight from the units (which are built from the game's
 // creatures.json + abilities.json). Inverting units -> abilities keeps a single source of truth:
@@ -447,6 +464,27 @@ export const abilities: Ability[] = (() => {
                 });
             }
         }
+    }
+    for (const granted of grantedAbilities) {
+        const raw = (abilitiesJson as Record<string, RawAbility>)[granted.name];
+        if (!raw || byName.has(granted.name)) {
+            // Skip silently if the game ever drops the ability, or if a creature has since been given it —
+            // in the latter case the derived entry above is the better one, with a real roster attached.
+            continue;
+        }
+        byName.set(granted.name, {
+            name: granted.name,
+            description: abilityDescription(granted.name),
+            descriptionRu: abilityDescription(granted.name, "ru"),
+            icon: `/assets/images/units/abilities/${slug(granted.name)}_256.webp`,
+            type: raw.type ?? "",
+            kind: raw.can_be_cast ? "active" : raw.aura_effect ? "aura" : "passive",
+            isAura: !!raw.aura_effect,
+            isCastable: !!raw.can_be_cast,
+            isStackPowered: !!raw.stack_powered,
+            units: [],
+            grantedBy: granted.grantedBy,
+        });
     }
     return [...byName.values()]
         .map((ability) => ({

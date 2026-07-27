@@ -20,6 +20,7 @@ const labels =
               searchPlaceholder: "Название, описание, юнит...",
               empty: "Способности не найдены.",
               usedBy: "Носители",
+              grantedBy: "Даётся",
               all: "Все",
               passive: "Пассивные",
               aura: "Аура",
@@ -37,6 +38,7 @@ const labels =
               searchPlaceholder: "Name, description, unit...",
               empty: "No abilities found.",
               usedBy: "Used by",
+              grantedBy: "Granted by",
               all: "All",
               passive: "Passive",
               aura: "Aura",
@@ -75,6 +77,9 @@ const searchText = (ability: (typeof abilities)[number]) =>
         kindLabel(ability.kind),
         ability.isStackPowered ? labels.stack : "",
         ability.units.map((u) => `${u.name} ${u.faction} ${localizedFactionName(lang, u.faction)}`).join(" "),
+        // Granted abilities have no unit roster to match on, so searching for what forges them (e.g. "Craft")
+        // would otherwise miss them entirely.
+        ability.grantedBy ?? "",
     ]
         .join(" ")
         .toLowerCase();
@@ -155,7 +160,11 @@ const searchText = (ability: (typeof abilities)[number]) =>
                         </p>
                         <div class="ability-card-units">
                             <span class="ability-used-by">
-                                {labels.usedBy} · {ability.units.length}
+                                {/* An ability nothing is born with (Craft forges it mid-fight) has no roster
+                                    to count — say what grants it instead of showing "used by · 0". */}
+                                {ability.grantedBy
+                                    ? `${labels.grantedBy} · ${ability.grantedBy}`
+                                    : `${labels.usedBy} · ${ability.units.length}`}
                             </span>
                             <div class="ability-unit-chips">
                                 {ability.units.map((u) => (
