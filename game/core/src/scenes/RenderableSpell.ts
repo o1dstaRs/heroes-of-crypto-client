@@ -7,9 +7,9 @@
 import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
 import {
     AllAbilities,
-    calculateStackPoweredSpellDamage,
-    fireforgedSwordPower,
+    calculateSpellDamage,
     isOffensiveSpellMultiplier,
+    fireforgedSwordPower,
     FireWallHelper,
     RESURRECTION_POWER_FACTOR,
     HoCConstants,
@@ -287,22 +287,14 @@ export class PixiRenderableSpell extends Spell {
             // bare cumulative hp understated the card by a third once that factor landed. Holy Cross scales
             // it further at cast time; that is artifact-dependent and deliberately not promised here.
             replaceBy = Math.floor(casterCumulativeMaxHp * RESURRECTION_POWER_FACTOR).toString();
-        } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_DAMAGE) {
-            // The Magic Dragon's spells: flat damage per caster, stack power deliberately not a factor. The
-            // card must show the TOTAL the cast will deal (2 dragons x 150 = 300), not the per-unit figure —
-            // and it comes from the engine's own helper so the page can never promise a different number.
-            replaceBy = calculateStackPoweredSpellDamage(
-                this.getPower(),
-                casterAmountAlive,
-                ownerStackPower,
-            ).toString();
         } else if (isOffensiveSpellMultiplier(this.getMultiplierType())) {
             // Offensive spells: the card shows the FINISHED damage, not the formula, and it comes from the
             // engine's own helper so the page can never promise a number the cast will not deal. Which shape
             // it scales by (head-count alone for the Battle Mage's, head-count x stack power for the Magic
             // Dragon's) is the spell's own business — the helper reads it off the multiplier type.
             // Pre-resistance by definition: the target is not known until the player aims.
-            replaceBy = calculateStackPoweredSpellDamage(
+            replaceBy = calculateSpellDamage(
+                this.getMultiplierType(),
                 this.getPower(),
                 casterAmountAlive,
                 ownerStackPower,

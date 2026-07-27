@@ -6632,6 +6632,30 @@ export class Sandbox extends PixiScene {
                 }
             }
             for (const hit of event.damaged ?? []) {
+                // A Magic Reflection sent part of the spell back: the caster's own entry gets the mirror
+                // treatment instead of the spell's fire — a pane of glass flashing on the holder and a shard
+                // driving back into the caster — so the player can see WHY the caster took damage from its
+                // own cast, and from whom. Positions come off the event (the engine captured them before
+                // applying damage), so a mirror that died to the very spell it reflected still throws it.
+                if (hit.rebounded) {
+                    const holderPosition = hit.reboundedFromUnitId
+                        ? this.reboundMirrorPosition(hit.reboundedFromUnitId, event.damaged ?? [])
+                        : undefined;
+                    if (holderPosition) {
+                        this.combatVisuals.spawnMagicMirrorRebound(holderPosition, hit.position, cellSize);
+                    }
+                    if (hit.amount > 0) {
+                        this.combatVisuals.showFloatingDamage(
+                            hit.position,
+                            hit.amount,
+                            undefined,
+                            hit.unitsDied,
+                            MIRROR_DAMAGE_FILL,
+                            MIRROR_DAMAGE_STROKE,
+                        );
+                    }
+                    continue;
+                }
                 if (isThrown && !isRing && casterPosition) {
                     this.combatVisuals.spawnFireSweep(casterPosition, hit.position, cellSize);
                 }
