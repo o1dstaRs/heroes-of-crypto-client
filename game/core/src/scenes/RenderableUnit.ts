@@ -2806,25 +2806,11 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Blind Fury
-        const blindFuryAbility = this.getAbility("Blind Fury");
-        if (blindFuryAbility) {
-            this.refreshAbiltyDescription(
-                blindFuryAbility.getName(),
-                blindFuryAbility
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        (
-                            (1 -
-                                this.unitProperties.amount_alive /
-                                    (this.unitProperties.amount_alive + this.unitProperties.amount_died)) *
-                            100
-                        ).toFixed(1),
-                    ),
-            );
-        }
+        // Blind Fury is refreshed by the BASE implementation, in common, because a ranked player reads the
+        // description the server wrote into the snapshot and the server has no RenderableUnit. Chaining up
+        // rather than recomputing it here keeps the sandbox card and the ranked card on one expression --
+        // they drifted before, and only the sandbox showed the live number.
+        super.refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease);
 
         // Miner
         const minerAbility = this.getAbility("Miner");
