@@ -154,9 +154,15 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Resurrection":
         "Resurrects fallen ally units on the battlefield, up to the caster stack's cumulative maximum hit points.",
     "Life:Fire Strike":
-        "Sends a small fireball at an enemy in line of sight. Damage is 0.8 per creature alive in the caster's stack per point of its stack power, ignores armor, and is cut by magic resistance.",
+        "Sends a small fireball at an enemy in line of sight. Deals 6 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
     "Life:Meteorite":
-        "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Damage is 0.48 per creature alive in the caster's stack per point of its stack power — Fire Strike's formula less 40%, because it strikes them all at once.",
+        "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Deals 4 damage for every creature alive in the caster's stack — less than Fire Strike, because it strikes them all at once.",
+    "Nature:Lightning Strike":
+        "Calls lightning down on an enemy anywhere on the battlefield — no wall, body or mountain can block it. Deals 150 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
+    "Nature:Ring of Fire":
+        "Bursts into flame around an enemy in line of sight. Every unit on a cell touching the target — friend or foe — burns for the same amount: 125 damage for every creature alive in the caster's stack.",
+    "Nature:Meteor Shower":
+        "Calls a meteor shower down on the battlefield. Deals 100 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
     "System:Dulling Defense":
         "The enemy permanently loses 2 base attack points each time it attacks the carrier in melee.",
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
@@ -227,9 +233,15 @@ const descriptionsRu: Record<string, string> = {
     "Death:Weakening Beam": "Базовая броня юнита снижена на 24%.",
     "Death:Weakness": "Базовая атака юнита снижена на 30%.",
     "Life:Fire Strike":
-        "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = 0.8 за каждое живое существо в стеке заклинателя за каждую единицу силы стека.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
+        "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = 6 за каждое живое существо в стеке заклинателя.\nСила стека не меняет урон — она лишь определяет, можно ли вообще применить заклинание.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
     "Life:Meteorite":
-        "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = 0.48 за каждое живое существо в стеке заклинателя за каждую единицу силы стека — формула «Удара огнем» минус 40%, потому что бьет по всем сразу.",
+        "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = 4 за каждое живое существо в стеке заклинателя — меньше, чем у «Удара огнем», потому что бьет по всем сразу.",
+    "Nature:Lightning Strike":
+        "Призывает молнию на любого врага на поле боя — ни стена, ни тела, ни гора её не остановят.\nУрон = 150 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
+    "Nature:Ring of Fire":
+        "Вспыхивает пламенем вокруг врага в зоне видимости. Каждый юнит на соседней клетке — свой или чужой — горит так же.\nУрон = 125 за каждое живое существо в стеке заклинателя.",
+    "Nature:Meteor Shower":
+        "Обрушивает метеоритный дождь на поле боя.\nУрон = 100 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
     "Order:Rangebane": "Пораженный юнит не может совершать дальние атаки.",
     "Order:Cowardice": "Пораженный юнит не может физически атаковать врагов с большим совокупным здоровьем.",
 };

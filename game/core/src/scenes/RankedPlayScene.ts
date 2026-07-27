@@ -792,6 +792,9 @@ export class RankedPlayScene extends Sandbox {
     private applyAuthoritativeSplashVfx(attackerId: string, damage?: IVisibleDamage): boolean {
         const splash = damage?.splash;
         if (!splash?.length) return false;
+        // Same boulder impact the sandbox draws, from the same shared helper — ranked runs neither
+        // performAreaThrow nor playReplayAreaThrowAction, so without this the blast was numbers only.
+        this.renderAreaImpactVfx(splash);
         const gs = this.sc_sceneSettings.getGridSettings();
         const attacker = this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined;
         // Use the attacker's VISUAL center (not its base cell) so the damage radiates correctly from
@@ -833,6 +836,22 @@ export class RankedPlayScene extends Sandbox {
             this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
         )?.getVisualCenter(gs);
         this.showFleshShieldAbsorbedDamage(secondary, attackerPos);
+        // The purple arc itself. Sandbox draws it from spawnChainLightningVfx on its own attack paths, which
+        // ranked never runs — so a Thunderbird's bounces used to appear as bare numbers with nothing visibly
+        // jumping between them. Built from the AUTHORITATIVE bounce entries rather than re-deriving the chain
+        // off the local grid, so the arc lands on exactly the units the server said it hit, in that order.
+        const chainEntries = secondary.filter((entry) => entry.source === "chain_lightning");
+        if (chainEntries.length && attackerPos) {
+            const points: HoCMath.XY[] = [attackerPos];
+            if (damage?.unitPosition) {
+                points.push(damage.unitPosition);
+            }
+            for (const entry of chainEntries) {
+                const bounced = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+                points.push(bounced?.getVisualCenter(gs) ?? entry.position);
+            }
+            this.combatVisuals?.spawnChainLightning(points, gs.getCellSize());
+        }
         for (const entry of secondary) {
             // Flesh Shield was grouped and rendered above as a labelled yellow value. Keeping it out of
             // this generic loop prevents the same absorption from also appearing as an ordinary red hit.
@@ -847,7 +866,11 @@ export class RankedPlayScene extends Sandbox {
                 const len = Math.hypot(dx, dy);
                 if (len >= 0.001) dir = { x: dx / len, y: dy / len };
             }
-            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+            // Colour it by what caused it — Chain Lightning purple, Petrifying Gaze grey, Fire Shield amber —
+            // through the SAME table the sandbox uses. Ranked drew every secondary hit in the default red, so
+            // a Thunderbird's bounces were indistinguishable from ordinary damage.
+            const { fill, stroke } = this.getSecondaryDamageStyle(entry.source);
+            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied, fill, stroke);
         }
     }
     protected override getUpNextUnitIds(): string[] | undefined {

@@ -9,6 +9,7 @@ import {
     AllAbilities,
     calculateStackPoweredSpellDamage,
     fireforgedSwordPower,
+    isOffensiveSpellMultiplier,
     FireWallHelper,
     RESURRECTION_POWER_FACTOR,
     HoCConstants,
@@ -270,7 +271,12 @@ export class PixiRenderableSpell extends Spell {
 
         // Fill the description's "{}" placeholder with the caster-scaled value (the actual hp healed,
         // wolves summoned, etc.), matching how the legacy spell book rendered it.
-        let replaceBy = "";
+        //
+        // Default to the spell's OWN power so a flat NO_MULTIPLIER spell still prints its number. Without
+        // this the placeholder resolved to an empty string and the card read "Adds % to all magic damage"
+        // — every existing flat spell hid the gap by hardcoding the figure in its text instead of using a
+        // placeholder, so Empower was the first to expose it.
+        let replaceBy = this.getPower() ? this.getPower().toString() : "";
         if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
             replaceBy = casterAmountAlive.toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
@@ -281,10 +287,21 @@ export class PixiRenderableSpell extends Spell {
             // bare cumulative hp understated the card by a third once that factor landed. Holy Cross scales
             // it further at cast time; that is artifact-dependent and deliberately not promised here.
             replaceBy = Math.floor(casterCumulativeMaxHp * RESURRECTION_POWER_FACTOR).toString();
-        } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_STACK_POWER) {
-            // Offensive spells (Fire Strike / Meteorite): the card shows the FINISHED damage, not the formula,
-            // and it comes from the engine's own helper so the page can never promise a number the cast will
-            // not deal. Pre-resistance by definition — the target is not known until the player aims.
+        } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_DAMAGE) {
+            // The Magic Dragon's spells: flat damage per caster, stack power deliberately not a factor. The
+            // card must show the TOTAL the cast will deal (2 dragons x 150 = 300), not the per-unit figure —
+            // and it comes from the engine's own helper so the page can never promise a different number.
+            replaceBy = calculateStackPoweredSpellDamage(
+                this.getPower(),
+                casterAmountAlive,
+                ownerStackPower,
+            ).toString();
+        } else if (isOffensiveSpellMultiplier(this.getMultiplierType())) {
+            // Offensive spells: the card shows the FINISHED damage, not the formula, and it comes from the
+            // engine's own helper so the page can never promise a number the cast will not deal. Which shape
+            // it scales by (head-count alone for the Battle Mage's, head-count x stack power for the Magic
+            // Dragon's) is the spell's own business — the helper reads it off the multiplier type.
+            // Pre-resistance by definition: the target is not known until the player aims.
             replaceBy = calculateStackPoweredSpellDamage(
                 this.getPower(),
                 casterAmountAlive,

@@ -1,4 +1,4 @@
-import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics } from "pixi.js";
+import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
 import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
@@ -241,6 +241,21 @@ interface IChainLightning {
     bolts: IChainBolt[];
 }
 
+/**
+ * Magic Mirror rebound: a pane of cold light snaps up in front of the holder, catches the spell and throws
+ * a shard of it back down the line at the caster. Two phases in one record — the pane flares and fades while
+ * the shard travels — so the whole rebound reads as one motion instead of two unrelated pops.
+ */
+interface IMirrorRebound {
+    container: Container;
+    pane: Graphics; // the mirror plane that flashes in front of the holder
+    beam: Graphics; // the returning shard, drawn from the pane toward the caster
+    from: HoCMath.XY; // the mirror holder
+    to: HoCMath.XY; // the caster taking it back
+    cellSize: number;
+    age: number; // seconds
+}
+
 interface IWindSpear {
     container: Container;
     head: Sprite; // bright leading light orb
@@ -396,6 +411,17 @@ const CHAIN_GLOW = 0x7a2dff; // outer purple glow
 const CHAIN_MID = 0xb36bff; // mid violet
 const CHAIN_CORE = 0xedd6ff; // hot near-white core
 
+// Tuning for the Magic Dragon's Magic Mirror rebound. Cold silver-cyan on purpose: it has to read as a
+// REFLECTION rather than another spell, so it borrows nothing from the fire (amber) or lightning (violet)
+// palettes and is unmistakably the mirror answering back.
+const MIRROR_PANE_LIFE = 0.42; // seconds the pane flares and fades
+const MIRROR_BEAM_DELAY = 0.1; // the shard leaves once the pane has caught the spell
+const MIRROR_BEAM_LIFE = 0.34; // seconds the returning shard takes to reach the caster and fade
+const MIRROR_Z = 1960; // just above the chain bolts (1950), below the damage numbers (2000)
+const MIRROR_GLASS = 0x9fe8ff; // pale cyan glass
+const MIRROR_EDGE = 0xe8fbff; // near-white rim highlight
+const MIRROR_SHARD = 0xd6f4ff; // the returning shard
+
 // Tuning for Pikeman's Skewer Strike — a soft ORB of LIGHT that glides from the attacker through the
 // primary target and the unit(s) standing behind it (jolting each as it passes), so a two-unit pierce
 // reads at a glance. Fires the instant the strike lands (no lead); a glow trail follows, then it fades.
@@ -488,6 +514,33 @@ const DISSOLVE_SPARK_TINT = 0xffe9b8;
 // and quick splinters. Different size/physics bands keep it from reading as a uniform particle explosion.
 const ICE_BREAK_Z = 4550;
 // Heal burst sits just under the floating numbers so the "+N" always reads on top of its own glow.
+// Area Throw impact. Sits with the fire/mirror layers — ABOVE the units it lands among but BELOW the damage
+// numbers, so the boulder never buries the figure it just dealt.
+const AREA_IMPACT_Z = 1930;
+const AREA_IMPACT_LIFE = 0.85; // seconds
+const AREA_IMPACT_DUST = 0xb9a288; // kicked-up dirt
+const AREA_IMPACT_DEBRIS = 0x6b5a45; // dark rock chips
+const AREA_IMPACT_FLASH = 0xfff0d0; // brief pale flash at the moment of landing
+
+interface IAreaImpactDebris {
+    /** Radians around the impact centre. */
+    angle: number;
+    /** World units per second outward at t=0. */
+    speed: number;
+    /** Upward kick; worldRoot is y-up so this rises then falls back under gravity. */
+    lift: number;
+    size: number;
+    spin: number;
+}
+
+interface IAreaImpact {
+    graphics: Graphics;
+    pos: HoCMath.XY;
+    age: number;
+    life: number;
+    radius: number;
+    debris: IAreaImpactDebris[];
+}
 const HEAL_BURST_Z = 2150;
 const HEAL_BURST_LIFE = 0.72; // seconds
 
@@ -538,8 +591,10 @@ export class CombatVisuals {
     private fireBurns: IFireBurn[] = [];
     private poisonClouds: IFireSweep[] = [];
     private healBursts: IHealBurst[] = [];
+    private areaImpacts: IAreaImpact[] = [];
     private resurrectBursts: IResurrectBurst[] = [];
     private chainLightnings: IChainLightning[] = [];
+    private mirrorRebounds: IMirrorRebound[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
     private clawSlashes: IClawSlash[] = [];
@@ -1338,8 +1393,10 @@ export class CombatVisuals {
         this.stepFireBurns(dt);
         this.stepPoisonClouds(dt);
         this.stepHealBursts(dt);
+        this.stepAreaImpacts(dt);
         this.stepResurrectBursts(dt);
         this.stepChainLightnings(dt);
+        this.stepMirrorRebounds(dt);
         this.stepWindSpears(dt);
         this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
@@ -3024,6 +3081,103 @@ export class CombatVisuals {
         }
     }
     /**
+     * The Magic Dragon's Magic Mirror rebound.
+     *
+     * A pane of cold glass snaps up in front of the holder, catches the spell, and a shard of it travels back
+     * down the line into the caster — the visual answer to "the spell landed on me AND part of it is coming
+     * back at you". Sized and aimed off world centers, so it reads the same at any zoom.
+     *
+     * Called from BOTH scenes (sandbox live cast + ranked replay) off the same engine event, per the ability
+     * VFX contract: an effect wired into only one of them silently never plays in ranked.
+     */
+    public spawnMagicMirrorRebound(from: HoCMath.XY, to: HoCMath.XY, cellSize: number): void {
+        const container = new Container();
+        this.context.attachToWorldRoot(container, MIRROR_Z);
+        const pane = new Graphics();
+        pane.blendMode = "add";
+        const beam = new Graphics();
+        beam.blendMode = "add";
+        beam.visible = false;
+        container.addChild(pane, beam);
+        this.mirrorRebounds.push({
+            container,
+            pane,
+            beam,
+            from: { x: from.x, y: from.y },
+            to: { x: to.x, y: to.y },
+            cellSize,
+            age: 0,
+        });
+    }
+    private stepMirrorRebounds(dt: number): void {
+        for (let i = this.mirrorRebounds.length - 1; i >= 0; i--) {
+            const rebound = this.mirrorRebounds[i];
+            rebound.age += dt;
+            const { cellSize, from, to } = rebound;
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const ux = dx / len;
+            const uy = dy / len;
+
+            // The pane: an oval of glass standing across the incoming line, opening fast then fading, so it
+            // flashes rather than lingering as a bubble.
+            const paneT = Math.min(1, rebound.age / MIRROR_PANE_LIFE);
+            const pane = rebound.pane;
+            pane.clear();
+            if (paneT < 1) {
+                const open = Math.min(1, paneT / 0.25);
+                const fade = paneT < 0.45 ? 1 : 1 - (paneT - 0.45) / 0.55;
+                const cx = from.x + ux * cellSize * 0.42;
+                const cy = from.y + uy * cellSize * 0.42;
+                const halfW = cellSize * 0.52 * open;
+                const halfH = cellSize * 0.2 * open;
+                // The pane faces the caster: rotate the ellipse so its short axis runs down the line.
+                pane.setFromMatrix(new Matrix().rotate(Math.atan2(uy, ux) + Math.PI / 2).translate(cx, cy));
+                pane.ellipse(0, 0, halfW, halfH);
+                pane.fill({ color: MIRROR_GLASS, alpha: 0.3 * fade });
+                pane.ellipse(0, 0, halfW, halfH);
+                pane.stroke({ width: cellSize * 0.05, color: MIRROR_EDGE, alpha: 0.95 * fade });
+                // One sweeping highlight across the glass, so it reads as a mirror and not a shield.
+                pane.moveTo(-halfW * 0.55, halfH * 0.5);
+                pane.lineTo(halfW * 0.55, -halfH * 0.5);
+                pane.stroke({ width: cellSize * 0.03, color: MIRROR_EDGE, alpha: 0.75 * fade });
+            }
+
+            // The shard: a bright dart that leaves the pane and drives into the caster.
+            const beamAge = rebound.age - MIRROR_BEAM_DELAY;
+            const beam = rebound.beam;
+            if (beamAge >= 0 && beamAge < MIRROR_BEAM_LIFE) {
+                const t = beamAge / MIRROR_BEAM_LIFE;
+                const travel = 1 - (1 - t) * (1 - t); // fast out, easing into the caster
+                const fade = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
+                const headX = from.x + dx * travel;
+                const headY = from.y + dy * travel;
+                const tailLen = Math.min(len * travel, cellSize * 1.15);
+                const tailX = headX - ux * tailLen;
+                const tailY = headY - uy * tailLen;
+                beam.visible = true;
+                beam.clear();
+                beam.moveTo(tailX, tailY);
+                beam.lineTo(headX, headY);
+                beam.stroke({ width: cellSize * 0.14, color: MIRROR_GLASS, alpha: 0.32 * fade, cap: "round" });
+                beam.moveTo(tailX, tailY);
+                beam.lineTo(headX, headY);
+                beam.stroke({ width: cellSize * 0.05, color: MIRROR_SHARD, alpha: 0.95 * fade, cap: "round" });
+                beam.circle(headX, headY, cellSize * 0.09 * (0.7 + 0.3 * fade));
+                beam.fill({ color: MIRROR_EDGE, alpha: 0.9 * fade });
+            } else if (beam.visible && beamAge >= MIRROR_BEAM_LIFE) {
+                beam.visible = false;
+                beam.clear();
+            }
+
+            if (rebound.age >= Math.max(MIRROR_PANE_LIFE, MIRROR_BEAM_DELAY + MIRROR_BEAM_LIFE)) {
+                rebound.container.destroy({ children: true });
+                this.mirrorRebounds.splice(i, 1);
+            }
+        }
+    }
+    /**
      * Pikeman's Skewer Strike: a wind "spear" that thrusts from the attacker through the primary target
      * and the unit(s) standing behind it. `points` is the ordered polyline of world centers
      * [attacker, target, behind…]. The bright tip travels the whole line fast, leaving a fading wind
@@ -3505,6 +3659,88 @@ export class CombatVisuals {
                     burst.pos.y + Math.sin(angle) * r * 0.45 + eased * mote.rise,
                     mote.size,
                 ).fill({ color: RESURRECT_PALE, alpha: 0.9 * fade });
+            }
+        }
+    }
+    /**
+     * Boulder impact for Gargantuan's Area Throw: a pale flash at the moment of landing, a shockwave ring
+     * racing outward across the ground, a dust cloud settling behind it, and rock chips thrown up on
+     * ballistic arcs that fall back and fade.
+     *
+     * `radius` is the blast's own reach in world units, so the ring stops where the damage did instead of a
+     * fixed size that would lie about the area on a large throw. Pure Graphics and stepped from the scene's
+     * dt loop like every other effect here, so it costs nothing to spawn and pauses with the board.
+     */
+    public spawnAreaImpact(pos: HoCMath.XY, cellSize: number, radius = cellSize * 1.6): void {
+        const graphics = new Graphics();
+        this.context.attachToWorldRoot(graphics, AREA_IMPACT_Z);
+        this.areaImpacts.push({
+            graphics,
+            pos: { x: pos.x, y: pos.y },
+            age: 0,
+            life: AREA_IMPACT_LIFE,
+            radius,
+            debris: Array.from({ length: 14 }, (_, i) => ({
+                angle: (i / 14) * Math.PI * 2 + (i % 3) * 0.21,
+                speed: radius * (0.55 + (i % 4) * 0.18),
+                lift: cellSize * (0.5 + (i % 5) * 0.16),
+                size: cellSize * (0.05 + (i % 3) * 0.022),
+                spin: (i % 2 ? 1 : -1) * (2 + (i % 4)),
+            })),
+        });
+    }
+    private stepAreaImpacts(dt: number): void {
+        for (let i = this.areaImpacts.length - 1; i >= 0; i--) {
+            const impact = this.areaImpacts[i];
+            impact.age += dt;
+            if (impact.age >= impact.life) {
+                impact.graphics.destroy();
+                this.areaImpacts.splice(i, 1);
+                continue;
+            }
+            const t = impact.age / impact.life;
+            const eased = 1 - (1 - t) * (1 - t);
+            const fade = 1 - t;
+            const g = impact.graphics;
+            g.clear();
+
+            // 1. The landing flash — only the first fifth of the effect, so it reads as the moment of impact
+            //    rather than a glow that hangs around.
+            if (t < 0.2) {
+                const flash = 1 - t / 0.2;
+                g.circle(impact.pos.x, impact.pos.y, impact.radius * (0.25 + 0.5 * (1 - flash))).fill({
+                    color: AREA_IMPACT_FLASH,
+                    alpha: 0.55 * flash,
+                });
+            }
+
+            // 2. Shockwave ring racing out to the blast's real edge, thinning as it goes.
+            g.ellipse(impact.pos.x, impact.pos.y, impact.radius * eased, impact.radius * eased * 0.42).stroke({
+                width: Math.max(1, 5 * fade),
+                color: AREA_IMPACT_FLASH,
+                alpha: 0.5 * fade,
+            });
+
+            // 3. Dust settling behind the ring — a squashed cloud, so it lies on the ground plane.
+            g.ellipse(
+                impact.pos.x,
+                impact.pos.y,
+                impact.radius * (0.35 + 0.45 * eased),
+                impact.radius * (0.35 + 0.45 * eased) * 0.38,
+            ).fill({ color: AREA_IMPACT_DUST, alpha: 0.28 * fade });
+
+            // 4. Rock chips: out and UP, then back down. worldRoot is y-up, so lift is positive and gravity
+            //    pulls it back through the parabola.
+            for (const chip of impact.debris) {
+                const distance = eased * chip.speed;
+                const height = chip.lift * (t * 2) * (1 - t * 1.1);
+                const size = chip.size * (1 - 0.35 * t);
+                g.rect(
+                    impact.pos.x + Math.cos(chip.angle) * distance - size / 2,
+                    impact.pos.y + Math.sin(chip.angle) * distance * 0.42 + Math.max(0, height) - size / 2,
+                    size,
+                    size,
+                ).fill({ color: AREA_IMPACT_DEBRIS, alpha: 0.9 * fade });
             }
         }
     }

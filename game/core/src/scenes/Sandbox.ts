@@ -16,7 +16,6 @@ import {
     HoCLib,
     AttackType,
     Spell,
-    SpellMultiplierType,
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
@@ -56,6 +55,7 @@ import {
     TurnEngine,
     GameEvent,
     isThrownOffensiveSpell,
+    isOffensiveSpellMultiplier,
     applyMagicResistToSpellDamage,
     calculateStackPoweredSpellDamage,
     type IGameActionResult,
@@ -206,6 +206,11 @@ interface PlacementBenchHitBox {
 
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
+
+// Magic Mirror rebound damage numbers: cold cyan rather than the usual red, so a hit the caster took off its
+// own reflected spell is instantly distinguishable from the damage it dealt.
+const MIRROR_DAMAGE_FILL = "#bfefff";
+const MIRROR_DAMAGE_STROKE = "#12384d";
 
 /**
  * Remaining hit points of each center mountain after an `obstacle_attacked` event.
@@ -3328,7 +3333,7 @@ export class Sandbox extends PixiScene {
      * Floating-number colour for a secondary-damage source, matching the live sandbox styling:
      * Petrifying Gaze grey, Chain Lightning purple, Fire Shield amber, everything else plain red.
      */
-    private getSecondaryDamageStyle(source: string): { fill: string; stroke: string } {
+    protected getSecondaryDamageStyle(source: string): { fill: string; stroke: string } {
         switch (source) {
             case "petrifying_gaze":
                 return { fill: "#d8d8d8", stroke: "#5a5a5a" };
@@ -3406,10 +3411,41 @@ export class Sandbox extends PixiScene {
      * Shared by the live paths (targeted range + area throw) and the ranked replay so all of them show
      * every shot's damage. Returns true if it rendered anything.
      */
+    /**
+     * Boulder impact for an AOE throw, centred on where the blast actually landed and sized to how far it
+     * reached — both derived from the splash entries themselves, which is the one description of the blast
+     * that BOTH scenes have. Shared so ranked renders it identically without re-deriving the geometry.
+     *
+     * A miss-only volley (every entry flagged `missed`) still gets the impact: the boulder came down, it
+     * simply hurt nobody.
+     */
+    protected renderAreaImpactVfx(splash: NonNullable<IVisibleDamage["splash"]>): void {
+        if (!splash.length || !this.combatVisuals) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const points = splash.map((entry) => {
+            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            return unit?.getVisualCenter(gs) ?? entry.position;
+        });
+        const center = {
+            x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+            y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+        };
+        // Reach = the furthest unit the blast touched, floored at one cell so a single-target hit still reads
+        // as an impact rather than a dot.
+        const reach = points.reduce(
+            (max, point) => Math.max(max, Math.hypot(point.x - center.x, point.y - center.y)),
+            0,
+        );
+        this.combatVisuals.spawnAreaImpact(center, gs.getCellSize(), Math.max(gs.getCellSize(), reach * 1.25));
+    }
     protected showSplashDamage(splash: IVisibleDamage["splash"], attackerCenter: HoCMath.XY): boolean {
         if (!splash?.length) {
             return false;
         }
+        // The impact lands once for the whole volley, before the per-unit numbers fly out of it.
+        this.renderAreaImpactVfx(splash);
         const gs = this.sc_sceneSettings.getGridSettings();
         const shotsShownPerUnit = new Map<string, number>();
         let rendered = false;
@@ -6478,7 +6514,7 @@ export class Sandbox extends PixiScene {
      * the player reads while aiming is the number the cast deals.
      */
     private previewSpellDamage(spell: Spell, caster: Unit, target: Unit): number | undefined {
-        if (spell.getMultiplierType() !== SpellMultiplierType.UNIT_AMOUNT_STACK_POWER) {
+        if (!isOffensiveSpellMultiplier(spell.getMultiplierType())) {
             return undefined;
         }
         return stackPoweredSpellPreviewDamage(
@@ -6490,16 +6526,30 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
+     * Spells that burn everything AROUND their target while leaving the target itself untouched. The hover
+     * has to know, or it prices the aimed creature for damage the engine will never deal it.
+     */
+    private spellSparesItsTarget(spell: Spell): boolean {
+        return spell.getName() === "Ring of Fire";
+    }
+    /**
      * The units an offensive spell would splash onto BESIDES the one it is aimed at, each taking the same
-     * damage as the primary target. Only Ring of Fire has such a splash today: it burns the target's cell
-     * plus every cell touching it, friend or foe, and never the caster (see ringOfFireCast).
+     * damage as the primary target. Only Ring of Fire has such a splash today: it burns every cell touching
+     * the target — friend or foe — while sparing the target and the caster (see ringOfFireCast).
+     *
+     * Mirrors that handler's geometry exactly, including the SIZE scaling: the ring hugs the target's whole
+     * footprint, so a 2x2 enemy is ringed by 12 cells rather than the 8 around its base cell. Reading it off
+     * the base cell alone would under-report the preview for every large target.
      */
     private splashedSpellTargets(spell: Spell, caster: Unit, target: Unit): Unit[] {
         if (spell.getName() !== "Ring of Fire") {
             return [];
         }
         const gs = this.sc_sceneSettings.getGridSettings();
-        const cells = [...GridMath.getCellsAroundCell(gs, target.getBaseCell()), target.getBaseCell()];
+        const cells = GridMath.getCellsAroundFootprint(
+            gs,
+            target.isSmallSize() ? [target.getBaseCell()] : target.getCells(),
+        );
         const seen = new Set<string>([caster.getId(), target.getId()]);
         const splashed: Unit[] = [];
         for (const cell of cells) {
@@ -6519,10 +6569,7 @@ export class Sandbox extends PixiScene {
         return cellTargetedSpellBlockCells(spell.getName(), origin);
     }
     private hasThrownSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
-        if (
-            spell.getMultiplierType() !== SpellMultiplierType.UNIT_AMOUNT_STACK_POWER ||
-            !isThrownOffensiveSpell(spell.getName())
-        ) {
+        if (!isOffensiveSpellMultiplier(spell.getMultiplierType()) || !isThrownOffensiveSpell(spell.getName())) {
             return true;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -6532,6 +6579,21 @@ export class Sandbox extends PixiScene {
             caster.getBaseCell(),
             target.getBaseCell(),
         );
+    }
+    /**
+     * Where to start a Magic Mirror rebound beam: the holder's CURRENT visual center when it is still on the
+     * board, otherwise the position the engine recorded for it in this very cast (a mirror can be killed by
+     * the spell it reflects, and the beam still has to come from where it stood).
+     */
+    private reboundMirrorPosition(
+        holderUnitId: string,
+        damaged: readonly { unitId: string; position: HoCMath.XY }[],
+    ): HoCMath.XY | undefined {
+        const holder = this.unitsHolder.getAllUnits().get(holderUnitId) as RenderableUnit | undefined;
+        if (holder && !holder.isDead() && typeof holder.getVisualCenter === "function") {
+            return holder.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+        }
+        return damaged.find((entry) => entry.unitId === holderUnitId)?.position;
     }
     protected renderSpellDamageVfx(events: readonly GameEvent[], casterPosition?: HoCMath.XY): void {
         if (!this.combatVisuals) {
@@ -8914,7 +8976,12 @@ export class Sandbox extends PixiScene {
                     ) &&
                     this.hasThrownSpellLineOfSight(spell, caster, hoveredUnit)
                 ) {
-                    this.hoverManager.addTargetHighlight(hoveredUnit, spellColor);
+                    // A target-sparing spell (Ring of Fire) aims AT this creature but never damages it, so
+                    // it must not wear the red "this burns" tint the ring itself gets. Gold marks it as the
+                    // aim point instead — the same "something happens here, but not damage" cue Castling
+                    // uses — and the red highlights below are then exactly the units that will take a hit.
+                    const sparesTarget = this.spellSparesItsTarget(spell);
+                    this.hoverManager.addTargetHighlight(hoveredUnit, sparesTarget ? 0xb8860b : spellColor);
                     const rTarget = hoveredUnit as RenderableUnit;
                     targetCenter =
                         typeof rTarget.getVisualCenter === "function"
@@ -8925,14 +8992,18 @@ export class Sandbox extends PixiScene {
                     // chooses a target on a number rather than on the spellbook's generic card text.
                     const spellDamage = this.previewSpellDamage(spell, caster, hoveredUnit);
                     if (spellDamage !== undefined) {
-                        const kills = hoveredUnit.calculatePossibleLosses(spellDamage);
-                        this.hoverManager.drawDamagePrediction(
-                            `${spellDamage}`,
-                            kills > 0 ? `${kills}` : undefined,
-                            targetCenter,
-                            !hoveredUnit.isSmallSize(),
-                            kills > 0 ? images.skull_white : undefined,
-                        );
+                        const kills = sparesTarget ? 0 : hoveredUnit.calculatePossibleLosses(spellDamage);
+                        // The spared target gets no number at all: printing one — even a 0 — next to a red
+                        // ring reads as "this takes damage too", which is the exact confusion to avoid.
+                        if (!sparesTarget) {
+                            this.hoverManager.drawDamagePrediction(
+                                `${spellDamage}`,
+                                kills > 0 ? `${kills}` : undefined,
+                                targetCenter,
+                                !hoveredUnit.isSmallSize(),
+                                kills > 0 ? images.skull_white : undefined,
+                            );
+                        }
                         // Everything the splash also catches gets its own number, the way the Area Throw
                         // preview labels each unit under the 3x3. Same damage on each — a spell does not
                         // fall off across its own blast.

@@ -772,81 +772,113 @@ const SideToggleContainer = ({
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
+            {/* One row, always. Six 48px icons with gap 2 wrapped onto a second line in a narrow sidebar once
+                Empower made it six, so they now share the row with no gap and shrink to fit. */}
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}>
                 <Tooltip title="Augment board placements" style={{ zIndex: 1 }}>
-                    <IconButton onClick={() => handleAugmentClick("Placement")} title="Augment board placements">
+                    <IconButton
+                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
+                        onClick={() => handleAugmentClick("Placement")}
+                        title="Augment board placements"
+                    >
                         <img
                             src={(augmentBoardImg as unknown as { default?: string }).default ?? augmentBoardImg}
                             alt="Placement Icon"
                             style={{
                                 filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: 48,
-                                height: 48,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: 48,
                             }}
                         />
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Augment armor" style={{ zIndex: 1 }}>
-                    <IconButton onClick={() => handleAugmentClick("Armor")} title="Augment armor">
+                    <IconButton
+                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
+                        onClick={() => handleAugmentClick("Armor")}
+                        title="Augment armor"
+                    >
                         <img
                             src={(augmentArmorImg as unknown as { default?: string }).default ?? augmentArmorImg}
                             alt="Armor Icon"
                             style={{
                                 filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: 48,
-                                height: 48,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: 48,
                             }}
                         />
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Augment melee attack" style={{ zIndex: 1 }}>
-                    <IconButton onClick={() => handleAugmentClick("Might")} title="Augment melee attack">
+                    <IconButton
+                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
+                        onClick={() => handleAugmentClick("Might")}
+                        title="Augment melee attack"
+                    >
                         <img
                             src={(augmentMightImg as unknown as { default?: string }).default ?? augmentMightImg}
                             alt="Might Icon"
                             style={{
                                 filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: 48,
-                                height: 48,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: 48,
                             }}
                         />
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Augment magic damage" style={{ zIndex: 1 }}>
-                    <IconButton onClick={() => handleAugmentClick("Empower")} title="Augment magic damage">
+                    <IconButton
+                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
+                        onClick={() => handleAugmentClick("Empower")}
+                        title="Augment magic damage"
+                    >
                         <img
                             src={(augmentEmpowerImg as unknown as { default?: string }).default ?? augmentEmpowerImg}
                             alt="Empower Icon"
                             style={{
                                 filter: togglerType === "Empower" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: 48,
-                                height: 48,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: 48,
                             }}
                         />
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Augment ranged attack" style={{ zIndex: 1 }}>
-                    <IconButton onClick={() => handleAugmentClick("Sniper")} title="Augment ranged attack">
+                    <IconButton
+                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
+                        onClick={() => handleAugmentClick("Sniper")}
+                        title="Augment ranged attack"
+                    >
                         <img
                             src={(augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg}
                             alt="Sniper Icon"
                             style={{
                                 filter: togglerType === "Sniper" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: 48,
-                                height: 48,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: 48,
                             }}
                         />
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Augment movement" style={{ zIndex: 1 }}>
-                    <IconButton onClick={() => handleAugmentClick("Movement")} title="Augment movement">
+                    <IconButton
+                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
+                        onClick={() => handleAugmentClick("Movement")}
+                        title="Augment movement"
+                    >
                         <img
                             src={(augmentMovementImg as unknown as { default?: string }).default ?? augmentMovementImg}
                             alt="Movement Icon"
                             style={{
                                 filter: togglerType === "Movement" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: 48,
-                                height: 48,
+                                width: "100%",
+                                height: "auto",
+                                maxWidth: 48,
                             }}
                         />
                     </IconButton>

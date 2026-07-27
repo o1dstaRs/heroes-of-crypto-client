@@ -52,12 +52,12 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     unit_attacked: {
         rendered: true,
         ranked: "replay",
-        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary",
+        note: "attack lunge + floating damage; showReplayAttackDamage (replay) / executeAttackSequence (live). Ability VFX ride the same event via shared spawn*Vfx helpers called from BOTH paths — incl. spawnFireDamageVfx (Fire Shield reflect / dragon-breath burn / Fireforged Sword), keyed off damage.secondary. Ranked runs NEITHER sandbox path: it renders damage.secondary itself in applyAuthoritativeSecondaryVfx, which colours each number by source (getSecondaryDamageStyle) and draws the Chain Lightning arc from the authoritative bounce entries",
     },
     area_attacked: {
         rendered: true,
         ranked: "replay",
-        note: "AOE splash + secondary numbers; playReplayAreaThrowAction->performAreaThrow->showSplashDamage",
+        note: "AOE splash + secondary numbers; playReplayAreaThrowAction->performAreaThrow->showSplashDamage. The boulder impact (flash + shockwave ring + dust + rock chips) rides the SAME splash[] through the shared renderAreaImpactVfx, called from showSplashDamage (both sandbox paths) AND ranked's applyAuthoritativeSplashVfx, which runs neither of them. Centre and reach are derived from the splash entries, so the ring stops where the damage did",
     },
     obstacle_attacked: { rendered: true, ranked: "replay", note: "obstacle hit; playReplayObstacleAttackAction" },
     ability_stolen: {
@@ -75,7 +75,10 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "replay reads record.events, never its local re-run). Offensive fire spells ride it the same " +
             "way via renderSpellDamageVfx off damaged[]: thrown ones sweep embers caster->victim, called-down " +
             "ones just burst, and Ring of Fire instead lays ONE spawnFireRing on event.targetCell (no " +
-            "per-victim sweeps — those read as a volley of fire arrows and hid the ring)",
+            "per-victim sweeps — those read as a volley of fire arrows and hid the ring). A Magic Mirror " +
+            "rebound (damaged[].rebounded) takes the mirror treatment instead of the fire: " +
+            "spawnMagicMirrorRebound draws the glass pane on the holder (damaged[].reboundedFromUnitId) and " +
+            "the shard back into the caster, with a cyan damage number so it never reads as the caster's own hit",
     },
     unit_moved: { rendered: true, ranked: "replay", note: "move slide; playReplayMoveRecord" },
     unit_summoned: { rendered: true, ranked: "replay", note: "summon; playReplayCastSpellAction" },
