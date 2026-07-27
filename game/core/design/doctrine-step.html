@@ -1,0 +1,48 @@
+<!-- @dsCard group="Heroes of Crypto — Draft" name="Step 0 — Doctrine" subtitle="Scouting doctrine: vision traded against upgrade points" viewport="900x620" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Heroes of Crypto — Doctrine step</title>
+<link rel="stylesheet" href="hoc-tokens.css" />
+<style></style>
+</head>
+<body>
+<main class="wrap">
+<div class="rail"><span class="rail-step rail-active">Doctrine</span><span class="rail-sep">—</span><span class="rail-step rail-next">Bundle</span><span class="rail-sep">—</span><span class="rail-step rail-next">Lvl 1</span><span class="rail-sep">—</span><span class="rail-step rail-next">Lvl 2</span><span class="rail-sep">—</span><span class="rail-step rail-next">Lvl 3</span><span class="rail-sep">—</span><span class="rail-step rail-next">Artifact</span><span class="rail-sep">—</span><span class="rail-step rail-next">Lvl 4</span><span class="rail-sep">—</span><span class="rail-step rail-next">Place</span></div>
+<h1>Choose your doctrine</h1>
+<p class="sub">Choose your scouting doctrine. It lasts the whole draft and decides which of the opponent's army slots you can watch.</p>
+<div class="status">
+  <span class="chip chip-turn">Your turn</span>
+  <span class="chip chip-points">6 upgrade pts</span>
+  <span class="chip chip-timer">0:30</span>
+  <span class="chip chip-map">🗺 Map: ?</span>
+</div>
+<p class="hint">👉 Pick one doctrine to continue.</p>
+<div class="cards">
+<div class="card">
+  <h3>Scout</h3>
+  <div class="meta">6 upgrade points · reveal: random3</div>
+  <p>Reveal the opponent's picks in 3 random slots. Grants 6 upgrade points.</p>
+  <button class="btn">Pick doctrine</button>
+</div>
+<div class="card">
+  <h3>Spymaster</h3>
+  <div class="meta">5 upgrade points · reveal: all</div>
+  <p>See all of the opponent's picks during the draft. Grants 5 upgrade points.</p>
+  <button class="btn">Pick doctrine</button>
+</div>
+<div class="card">
+  <h3>Blind Fury</h3>
+  <div class="meta">7 upgrade points · reveal: none</div>
+  <p>See none of the opponent's picks. Grants 7 upgrade points.</p>
+  <button class="btn">Pick doctrine</button>
+</div>
+</div>
+<p class="note" style="margin-top: 22px;">Both players answer this step at the same time; it only advances when
+both have chosen. There is no art for doctrines yet — <code>perk_&lt;slug&gt;_256</code> is referenced by
+<code>perk_properties.ts</code> but missing from the image pipeline, so these cards are text-only today.</p>
+</main>
+</body>
+</html>

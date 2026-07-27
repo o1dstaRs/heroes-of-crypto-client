@@ -1,0 +1,169 @@
+<!-- @dsCard group="Heroes of Crypto — Draft" name="Draft data & rules" subtitle="Phase order, timers, doctrines, artifacts, full creature roster" viewport="1100x900" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Heroes of Crypto — Draft data</title>
+<link rel="stylesheet" href="hoc-tokens.css" />
+<style></style>
+</head>
+<body>
+<main class="wrap">
+<h1 style="text-align:left">Draft — data &amp; rules</h1>
+<p class="note">Everything a redesign of the pick stage has to fit. Pulled straight from the running game:
+<code>pick_phase_settings.ts</code> (server), <code>perk_properties.ts</code>, <code>artifact_properties.ts</code>
+and <code>creatures.json</code> (common).</p>
+
+<h2>Phase order — 13 steps</h2>
+<table>
+<tr><th>#</th><th>Phase</th><th>Who acts</th><th>Timer</th></tr>
+<tr><td>0</td><td>PERK — doctrine</td><td>both</td><td>30s</td></tr>
+<tr><td>1</td><td>BUNDLE — starting bundle</td><td>both</td><td>30s</td></tr>
+<tr><td>2</td><td>PICK Lvl 1</td><td>P1 (lower/green)</td><td>60s</td></tr>
+<tr><td>3</td><td>PICK Lvl 1</td><td>P2 (upper/red)</td><td>60s</td></tr>
+<tr><td>4</td><td>PICK Lvl 2</td><td>P2</td><td>60s</td></tr>
+<tr><td>5</td><td>PICK Lvl 2</td><td>P1</td><td>60s</td></tr>
+<tr><td>6</td><td>PICK Lvl 3</td><td>P1</td><td>60s</td></tr>
+<tr><td>7</td><td>PICK Lvl 3</td><td>P2</td><td>60s</td></tr>
+<tr><td>8</td><td>ARTIFACT — 1 of 3 tier-2</td><td>both</td><td>60s</td></tr>
+<tr><td>9</td><td>PICK Lvl 4</td><td>P2</td><td>60s</td></tr>
+<tr><td>10</td><td>PICK Lvl 4</td><td>P1</td><td>60s</td></tr>
+<tr><td>11</td><td>AUGMENTS — handoff</td><td>both</td><td>—</td></tr>
+<tr><td>12</td><td>AUGMENTS_SCOUT — handoff → placement</td><td>both</td><td>—</td></tr>
+</table>
+<p class="note">Simultaneous steps advance only when both sides have answered. On timeout the server's
+pick daemon auto-resolves the choice, so every screen needs a visible countdown. Auto-bans per level:
+<code>[5, 5, 3, 5]</code> — no manual bans.</p>
+
+<h2>Scouting doctrines</h2>
+<table>
+<tr><th>Name</th><th>Enum</th><th>Upgrade points</th><th>Reveal</th><th>Description</th></tr>
+<tr><td>Scout</td><td><code>THREE_REVEALS</code></td><td>6</td><td>random3</td><td>Reveal the opponent's picks in 3 random slots. Grants 6 upgrade points.</td></tr>
+<tr><td>Spymaster</td><td><code>SEE_ALL</code></td><td>5</td><td>all</td><td>See all of the opponent's picks during the draft. Grants 5 upgrade points.</td></tr>
+<tr><td>Blind Fury</td><td><code>SEE_NONE</code></td><td>7</td><td>none</td><td>See none of the opponent's picks. Grants 7 upgrade points.</td></tr>
+</table>
+
+<h2>Tier-1 artifacts (12)</h2>
+<table>
+<tr><th>Name</th><th>Effect</th></tr>
+<tr><td>Veteran Helm</td><td>Boosts the entire army's defense by an additional {}%.</td></tr>
+<tr><td>Amulet of Resolve</td><td>Increases the army's status resistance by {}%.</td></tr>
+<tr><td>Keen Blade</td><td>Increases the army's base attack (both ranged and melee) by {}.</td></tr>
+<tr><td>Iron Plate</td><td>Increases the army's base armor by {}.</td></tr>
+<tr><td>Swift Boots</td><td>Increases melee units' movement by {}% of their base steps.</td></tr>
+<tr><td>Winged Boots</td><td>Grants +{} base movement distance to all flying units.</td></tr>
+<tr><td>Dual Strike Charm</td><td>A unit's second attack deals {}% extra damage.</td></tr>
+<tr><td>Wounding Charm</td><td>Grants the whole army Deep Wounds Level 1: each attack or response stacks +{}% damage amplification on the target.</td></tr>
+<tr><td>Cursed Ward</td><td>Cursed: +{} luck but -[] morale for the whole army.</td></tr>
+<tr><td>Hunter's Longbow</td><td>Ranged units gain +{} attack for each ranged unit in the army.</td></tr>
+<tr><td>Helm of Focus</td><td>Increases the army's mind resistance by {}%.</td></tr>
+<tr><td>Broken Aegis</td><td>Broken Aegis: the wielder's attacks have a 20% chance to Break the enemy they hit (muting its abilities), at the cost of a 4% chance to miss.</td></tr>
+</table>
+
+<h2>Tier-2 artifacts (12)</h2>
+<table>
+<tr><th>Name</th><th>Effect</th></tr>
+<tr><td>Warlord's Edge</td><td>Grants the whole army an additional {}% attack.</td></tr>
+<tr><td>Titan Plate</td><td>Grants the whole army an additional {}% defense (melee and ranged).</td></tr>
+<tr><td>Holy Cross</td><td>+{}% healing and resurrection; the Troll's ability is not consumed on cast. The whole army is immune to poison.</td></tr>
+<tr><td>Clover of Fortune</td><td>Increases the army's luck by {}.</td></tr>
+<tr><td>Crown of Command</td><td>Grants +{} movement and +[] morale to the whole army.</td></tr>
+<tr><td>Giant's Maul</td><td>Increases non-magical (physical) AOE damage by {}% at impact, then reduced by the target's status resistance.</td></tr>
+<tr><td>Pendant of Vitality</td><td>Cursed: +{}% HP but -[]% attack for the whole army.</td></tr>
+<tr><td>Farsight Quiver</td><td>Extends all allied archers' basic shot range by an additional {}%.</td></tr>
+<tr><td>Berserker's Bond</td><td>Cursed: +{} attack but -[] defense for the whole army.</td></tr>
+<tr><td>Tome of Amplification</td><td>Increases the power of non-healing castable buffs allied units apply to allies by {}%. Does not affect healing, resurrection, augments, artifacts, auras, or passive effects.</td></tr>
+<tr><td>Rime Charm</td><td>{}% chance for any attack to slow the target for [] laps.</td></tr>
+<tr><td>Lava Striders</td><td>All army units may move over and stand in lava; while on central lava they gain Made of Fire (+10% to all stats and abilities).</td></tr>
+</table>
+
+<h2>Level 1 — 19 creatures</h2>
+<table>
+<tr><th>Creature</th><th>Faction</th><th>HP</th><th>Attack</th><th>Armor</th><th>Speed</th><th>Steps</th><th>Size</th><th>Type</th></tr>
+<tr><td>Blacksmith</td><td>Life</td><td>9</td><td>9</td><td>9</td><td>2.5</td><td>3.6</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Squire</td><td>Life</td><td>9</td><td>8</td><td>12</td><td>4</td><td>3.1</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Peasant</td><td>Life</td><td>8</td><td>9</td><td>7</td><td>2</td><td>4</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Arbalester</td><td>Life</td><td>9</td><td>7</td><td>8</td><td>2</td><td>3</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Fairy</td><td>Nature</td><td>7</td><td>10</td><td>8</td><td>6.6</td><td>8</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Dryad</td><td>Nature</td><td>9</td><td>10</td><td>8</td><td>3.8</td><td>4</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Wolf</td><td>Nature</td><td>10</td><td>9</td><td>8</td><td>5.2</td><td>3.8</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Leprechaun</td><td>Nature</td><td>8</td><td>10</td><td>9</td><td>4</td><td>3.4</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Scavenger</td><td>Chaos</td><td>9</td><td>9</td><td>9</td><td>7</td><td>4.3</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Orc</td><td>Chaos</td><td>9</td><td>11</td><td>9</td><td>4</td><td>3</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Troglodyte</td><td>Chaos</td><td>11</td><td>12</td><td>9</td><td>5</td><td>3</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Ash Moth</td><td>Chaos</td><td>6</td><td>8</td><td>7</td><td>5.6</td><td>7.5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Skeleton</td><td>Death</td><td>8</td><td>9</td><td>10</td><td>2</td><td>3</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Imp</td><td>Death</td><td>7</td><td>11</td><td>11</td><td>6</td><td>6</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Zombie</td><td>Death</td><td>16</td><td>9</td><td>11</td><td>1</td><td>3.5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Mermaid</td><td>Might</td><td>12</td><td>11</td><td>9</td><td>5</td><td>4.5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Berserker</td><td>Might</td><td>14</td><td>12</td><td>10</td><td>6</td><td>5.1</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Centaur</td><td>Might</td><td>10</td><td>11</td><td>8</td><td>3</td><td>5.3</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Wolf Rider</td><td>Might</td><td>13</td><td>12</td><td>10</td><td>7</td><td>3.9</td><td>1×1</td><td>MELEE</td></tr>
+</table>
+<h2>Level 2 — 16 creatures</h2>
+<table>
+<tr><th>Creature</th><th>Faction</th><th>HP</th><th>Attack</th><th>Armor</th><th>Speed</th><th>Steps</th><th>Size</th><th>Type</th></tr>
+<tr><td>Pikeman</td><td>Life</td><td>28</td><td>22</td><td>18</td><td>5</td><td>4.1</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Valkyrie</td><td>Life</td><td>20</td><td>19</td><td>16</td><td>7</td><td>7.3</td><td>1×1</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Healer</td><td>Life</td><td>13</td><td>13</td><td>12</td><td>4.1</td><td>3.2</td><td>1×1</td><td>MAGIC</td></tr>
+<tr><td>Battle Mage</td><td>Life</td><td>14</td><td>12</td><td>11</td><td>4.2</td><td>3.3</td><td>1×1</td><td>MELEE_MAGIC</td></tr>
+<tr><td>White Tiger</td><td>Nature</td><td>26</td><td>20</td><td>19</td><td>5.8</td><td>4.6</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Elf</td><td>Nature</td><td>14</td><td>17</td><td>14</td><td>4</td><td>2.93</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Satyr</td><td>Nature</td><td>15</td><td>11</td><td>12</td><td>4</td><td>3.9</td><td>1×1</td><td>MAGIC</td></tr>
+<tr><td>Trent</td><td>Nature</td><td>29</td><td>21</td><td>19</td><td>3.9</td><td>3.9</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Medusa</td><td>Chaos</td><td>19</td><td>19</td><td>13</td><td>3</td><td>3.9</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Troll</td><td>Chaos</td><td>40</td><td>15</td><td>18</td><td>2</td><td>2</td><td>1×1</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Beholder</td><td>Chaos</td><td>21</td><td>15</td><td>14</td><td>4</td><td>4.5</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Manticore</td><td>Chaos</td><td>20</td><td>20</td><td>17</td><td>7.3</td><td>7.6</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Nomad</td><td>Might</td><td>24</td><td>20</td><td>17</td><td>7.5</td><td>5.2</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Harpy</td><td>Might</td><td>20</td><td>18</td><td>16</td><td>7.6</td><td>7.1</td><td>1×1</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Hyena</td><td>Might</td><td>26</td><td>22</td><td>19</td><td>4</td><td>4.3</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Wyvern</td><td>Might</td><td>20</td><td>18</td><td>16</td><td>7.3</td><td>7.2</td><td>1×1</td><td>MELEE</td></tr>
+</table>
+<h2>Level 3 — 13 creatures</h2>
+<table>
+<tr><th>Creature</th><th>Faction</th><th>HP</th><th>Attack</th><th>Armor</th><th>Speed</th><th>Steps</th><th>Size</th><th>Type</th></tr>
+<tr><td>Crusader</td><td>Life</td><td>74</td><td>20</td><td>25</td><td>5</td><td>5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Griffin</td><td>Life</td><td>72</td><td>22</td><td>24</td><td>8</td><td>5.5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Monk</td><td>Life</td><td>61</td><td>27</td><td>16</td><td>4</td><td>4.4</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Unicorn</td><td>Nature</td><td>70</td><td>20</td><td>23</td><td>6</td><td>4.5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Mantis</td><td>Nature</td><td>50</td><td>24</td><td>19</td><td>8</td><td>7.7</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Pegasus</td><td>Nature</td><td>58</td><td>21</td><td>19</td><td>7</td><td>7.5</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Arachna Spider</td><td>Nature</td><td>90</td><td>20</td><td>20</td><td>5.1</td><td>6</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Efreet</td><td>Chaos</td><td>62</td><td>22</td><td>20</td><td>8</td><td>8.4</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Goblin Knight</td><td>Chaos</td><td>85</td><td>20</td><td>22</td><td>6</td><td>5.1</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Nightmare</td><td>Chaos</td><td>60</td><td>23</td><td>19</td><td>7</td><td>5.4</td><td>1×1</td><td>MELEE</td></tr>
+<tr><td>Ogre Mage</td><td>Might</td><td>58</td><td>24</td><td>19</td><td>5</td><td>4</td><td>1×1</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Cyclops</td><td>Might</td><td>72</td><td>21</td><td>19</td><td>4</td><td>5</td><td>1×1</td><td>RANGE</td></tr>
+<tr><td>Zena</td><td>Might</td><td>66</td><td>24</td><td>17</td><td>4</td><td>4.7</td><td>1×1</td><td>RANGE</td></tr>
+</table>
+<h2>Level 4 — 15 creatures</h2>
+<table>
+<tr><th>Creature</th><th>Faction</th><th>HP</th><th>Attack</th><th>Armor</th><th>Speed</th><th>Steps</th><th>Size</th><th>Type</th></tr>
+<tr><td>Tsar Cannon</td><td>Life</td><td>200</td><td>45</td><td>30</td><td>3</td><td>3.2</td><td>2×2</td><td>RANGE</td></tr>
+<tr><td>Angel</td><td>Life</td><td>180</td><td>32</td><td>28</td><td>7.7</td><td>8.8</td><td>2×2</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Champion</td><td>Life</td><td>150</td><td>25</td><td>25</td><td>5.9</td><td>5.2</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Phoenix</td><td>Nature</td><td>200</td><td>31</td><td>28</td><td>10</td><td>8.5</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Faerie Dragon</td><td>Nature</td><td>160</td><td>17</td><td>24</td><td>5</td><td>5.5</td><td>2×2</td><td>MAGIC</td></tr>
+<tr><td>Magic Dragon</td><td>Nature</td><td>160</td><td>18</td><td>25</td><td>3.1</td><td>3.4</td><td>2×2</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Gargantuan</td><td>Nature</td><td>170</td><td>29</td><td>28</td><td>4</td><td>4.5</td><td>2×2</td><td>RANGE</td></tr>
+<tr><td>Arachna Queen</td><td>Nature</td><td>180</td><td>32</td><td>31</td><td>5.4</td><td>6.3</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Black Dragon</td><td>Chaos</td><td>300</td><td>48</td><td>40</td><td>9</td><td>8</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Hydra</td><td>Chaos</td><td>190</td><td>33</td><td>34</td><td>6.2</td><td>6.1</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Abomination</td><td>Chaos</td><td>550</td><td>20</td><td>45</td><td>3.3</td><td>4.2</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Dark Champion</td><td>Death</td><td>150</td><td>44</td><td>40</td><td>6</td><td>6.8</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Thunderbird</td><td>Might</td><td>132</td><td>33</td><td>25</td><td>8.5</td><td>8</td><td>2×2</td><td>MELEE</td></tr>
+<tr><td>Behemoth</td><td>Might</td><td>180</td><td>32</td><td>28</td><td>5.5</td><td>4.2</td><td>2×2</td><td>MELEE_MAGIC</td></tr>
+<tr><td>Frenzied Boar</td><td>Might</td><td>240</td><td>41</td><td>42</td><td>6.5</td><td>7</td><td>2×2</td><td>MELEE</td></tr>
+</table>
+
+<h2>Art naming</h2>
+<p class="note">Portraits resolve through <code>game/core/src/generated/image_imports.ts</code>:
+creature large = <code>&lt;name&gt;_512</code>, board chip = <code>_128</code> for 1×1 units and
+<code>_256</code> for 2×2, ability = <code>&lt;ability&gt;_256</code>, artifact =
+<code>artifact_t1_&lt;slug&gt;_256</code>. Names are lowercased with spaces turned into underscores.
+A missing texture fails silently — it renders as nothing.</p>
+</main>
+</body>
+</html>

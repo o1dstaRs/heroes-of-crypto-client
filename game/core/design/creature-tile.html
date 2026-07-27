@@ -1,0 +1,77 @@
+<!-- @dsCard group="Heroes of Crypto — Draft" name="Creature tile — states" subtitle="Available, yours, banned, taken — plus the painted ban stroke" viewport="760x520" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Heroes of Crypto — Creature tile</title>
+<link rel="stylesheet" href="hoc-tokens.css" />
+<style></style>
+</head>
+<body>
+<main class="wrap">
+<h1>Creature tile</h1>
+<p class="sub">One component, four states. Rendered by <code>CreatureTile</code> in <code>game/core/src/ui/PickAndBan/index.tsx</code>.</p>
+<h2>States at grid size (72px)</h2>
+<div class="grid" style="grid-template-columns: repeat(4, max-content);">
+<div class="tile tile-available" style="--tile:72px" title="Blacksmith">
+      <img class="tile-art" src="assets/blacksmith_128.webp" alt="Blacksmith" />
+      
+      
+    </div>
+<div class="tile tile-yours" style="--tile:72px" title="Squire">
+      <img class="tile-art" src="assets/squire_128.webp" alt="Squire" />
+      
+      <span class="tile-check">✓</span>
+    </div>
+<div class="tile tile-banned" style="--tile:72px" title="Peasant">
+      <img class="tile-art" src="assets/peasant_128.webp" alt="Peasant" />
+      <img class="tile-ban" src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" />
+      
+    </div>
+<div class="tile tile-taken" style="--tile:72px" title="Arbalester">
+      <img class="tile-art" src="assets/arbalester_128.webp" alt="Arbalester" />
+      <img class="tile-ban" src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" />
+      
+    </div>
+</div>
+<div class="grid" style="grid-template-columns: repeat(4, max-content); margin-top: 8px; font-size: 11px; color: var(--hoc-text-dim);">
+<div>available</div><div>yours</div><div>banned</div><div>taken</div>
+</div>
+<h2>Larger (112px — bundle / reveal boxes)</h2>
+<div class="grid" style="grid-template-columns: repeat(4, max-content);">
+<div class="tile tile-available" style="--tile:112px" title="Blacksmith">
+      <img class="tile-art" src="assets/blacksmith_128.webp" alt="Blacksmith" />
+      
+      
+    </div>
+<div class="tile tile-yours" style="--tile:112px" title="Squire">
+      <img class="tile-art" src="assets/squire_128.webp" alt="Squire" />
+      
+      <span class="tile-check">✓</span>
+    </div>
+<div class="tile tile-banned" style="--tile:112px" title="Peasant">
+      <img class="tile-art" src="assets/peasant_128.webp" alt="Peasant" />
+      <img class="tile-ban" src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" />
+      
+    </div>
+<div class="tile tile-taken" style="--tile:112px" title="Arbalester">
+      <img class="tile-art" src="assets/arbalester_128.webp" alt="Arbalester" />
+      <img class="tile-ban" src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" />
+      
+    </div>
+</div>
+<h2>Rules the redesign must keep</h2>
+<table>
+<tr><th>Token</th><th>Value</th><th>Where</th></tr>
+<tr><td>ring · available</td><td><code>rgba(255,255,255,0.18)</code></td><td>tile border</td></tr>
+<tr><td>ring · yours</td><td><code>#3B9B5C</code></td><td>tile border + ✓ mark <code>#7CFC9B</code></td></tr>
+<tr><td>ring · banned/taken</td><td><code>#8a2b2b</code></td><td>tile border, portrait at <code>grayscale(1)</code>, opacity 0.5</td></tr>
+<tr><td>hover</td><td><code>translateY(-3px)</code> + glow <code>rgba(120,220,150,0.6)</code></td><td>only when selectable</td></tr>
+<tr><td>ban mark</td><td><code>x_mark_2_512.webp</code>, full tile, <code>object-fit: contain</code></td><td>painted stroke, not CSS</td></tr>
+</table>
+<p class="note">The greyscale filter sits on the portrait, never on the tile wrapper — a wrapper filter would
+desaturate the red stroke too.</p>
+</main>
+</body>
+</html>

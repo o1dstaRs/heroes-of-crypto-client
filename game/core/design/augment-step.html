@@ -1,0 +1,123 @@
+<!-- @dsCard group="Heroes of Crypto — Draft" name="Augments & synergies step" subtitle="Set up your army: spend upgrade points, pick synergies" viewport="980x1000" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Heroes of Crypto — Augments &amp; synergies</title>
+<link rel="stylesheet" href="hoc-tokens.css" />
+<style>
+.modal { max-width: 620px; margin: 0 auto; background: #14100c; border: 1px solid rgba(220,177,88,0.25); border-radius: 16px; padding: 22px 24px 26px; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.modal-head h1 { text-align: left; font-size: 22px; color: var(--hoc-gold); margin: 0; }
+.army-row { margin: 14px 0; }
+.army-head { display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 6px; }
+.pill { font-size: 11px; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--hoc-text-dim); }
+.pill-ready { background: rgba(59,155,92,0.2); color: #8ff0b4; }
+.count { margin-left: auto; color: var(--hoc-text-dim); font-size: 12px; }
+.army-units { display: flex; gap: 8px; }
+.army-units img { width: 56px; height: 56px; border-radius: 10px; border: 2px solid rgba(220,177,88,0.55); object-fit: cover; }
+.picker { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 18px 0 6px; }
+.picker button { width: 54px; height: 54px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--hoc-border); cursor: pointer; padding: 6px; }
+.picker button.on { border-color: var(--hoc-gold); background: rgba(220,177,88,0.12); }
+.picker img { width: 100%; height: 100%; object-fit: contain; }
+.sep { border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 18px 0; }
+.points { color: var(--hoc-orange); font-weight: 700; font-size: 16px; margin: 4px 0 12px; }
+.group { background: rgba(255,255,255,0.03); border: 1px solid var(--hoc-border); border-radius: 12px; padding: 14px 16px; }
+.group h3 { margin: 0 0 10px; font-size: 14px; }
+.opt { display: flex; align-items: center; gap: 10px; padding: 7px 4px; font-size: 13.5px; }
+.opt-cost { margin-left: auto; color: var(--hoc-text-dim); font-size: 12px; }
+.opt-on { color: var(--hoc-text); }
+.radio { width: 15px; height: 15px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); display: inline-block; }
+.radio-on { border-color: #4b90e2; box-shadow: inset 0 0 0 3px #4b90e2; }
+.warn { color: #f0c36b; font-size: 12.5px; margin: 14px 0 12px; }
+.cta { display: block; width: 100%; padding: 11px; border: 0; border-radius: 9px; background: #2b6cb8; color: #fff; font-weight: 650; font-size: 14px; cursor: pointer; }
+.ic { width: 22px; height: 22px; vertical-align: middle; }
+.dim { color: var(--hoc-text-dim); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+<div class="modal">
+  <div class="modal-head"><h1>Set up your army</h1><span class="chip chip-timer">0:42</span></div>
+  <p class="sub" style="text-align:left;margin:0 0 4px;">You have 7 upgrade points. Spend them on augments and pick your synergies, then continue to place your units.</p>
+
+  <div class="army-row">
+    <div class="army-head">Your army <span class="pill">Placing…</span><span class="count">5 units</span></div>
+    <div class="army-units">
+      <img src="assets/scavenger_128.webp" alt="Scavenger" /><img src="assets/dryad_128.webp" alt="Dryad" /><img src="assets/healer_128.webp" alt="Healer" /><img src="assets/goblin_knight_128.webp" alt="Goblin Knight" /><img src="assets/thunderbird_128.webp" alt="Thunderbird" />
+    </div>
+  </div>
+  <div class="army-row">
+    <div class="army-head">Opponent army <span class="pill pill-ready">Ready</span><span class="count">6 units</span></div>
+    <div class="army-units">
+      <img src="assets/arbalester_128.webp" alt="Arbalester" /><img src="assets/blacksmith_128.webp" alt="Blacksmith" /><img src="assets/troll_128.webp" alt="Troll" /><img src="assets/harpy_128.webp" alt="Harpy" /><img src="assets/zena_128.webp" alt="Zena" /><img src="assets/black_dragon_128.webp" alt="Black Dragon" />
+    </div>
+  </div>
+
+  <div class="picker">
+    <button class="on" title="Augment board placements"><img src="assets/board_augment_256.webp" alt="Augment Board Placement" /></button>
+    <button class="" title="Augment armor"><img src="assets/armor_augment_256.webp" alt="Augment Armor" /></button>
+    <button class="" title="Augment melee attack"><img src="assets/might_augment_256.webp" alt="Augment Might" /></button>
+    <button class="" title="Augment magic attack"><img src="assets/magic_augment_256.webp" alt="Augment Magic" /></button>
+    <button class="" title="Augment ranged attack"><img src="assets/sniper_augment_256.webp" alt="Augment Sniper" /></button>
+    <button class="" title="Augment movement"><img src="assets/movement_augment_256.webp" alt="Augment Movement" /></button>
+    <button title="Pick Movement synergy"><img src="assets/synergy_movement_256.webp" alt="Movement synergy" /></button>
+    <button title="Pick Break on Attack synergy"><img src="assets/synergy_break_on_attack_256.webp" alt="Break on Attack synergy" /></button>
+  </div>
+
+  <hr class="sep" />
+  <div class="points">Remaining Points: 7</div>
+  <div class="group">
+    <h3>Augment Board Placement</h3>
+    <label class="opt opt-on"><span class="radio radio-on"></span>
+    <span class="opt-label">Height 3 partial</span><span class="opt-cost">free</span></label>
+    <label class="opt"><span class="radio"></span>
+    <span class="opt-label">Height 4 full</span><span class="opt-cost">1 pt</span></label>
+    <label class="opt"><span class="radio"></span>
+    <span class="opt-label">Height 5 full</span><span class="opt-cost">2 pts</span></label>
+  </div>
+  <p class="warn">7 upgrade points still unspent — finish picking to continue (if the timer runs out, the rest is picked for you).</p>
+  <button class="cta">Lock in &amp; place units →</button>
+</div>
+
+<p class="note" style="margin-top:18px;"><strong>Live screenshot of this screen:</strong>
+<a href="assets/screen-augments-live.png">assets/screen-augments-live.png</a> — captured from a running local
+match (Chrome, 1280×1000 @2x). Note the 4th icon in the row renders as a black “?” in the real client: the
+shipped <code>magic_augment_256.webp</code> is a 1.5 KB placeholder, unlike the other five icons.</p>
+<h2>All six augments — levels, effects, cost</h2>
+<table>
+<tr><th>Category</th><th>Levels</th></tr>
+<tr><td><img class="ic" src="assets/board_augment_256.webp" alt="" /> <strong>Augment Board Placement</strong><br /><span class="dim">Augment board placements</span></td>
+<td>Height 3 partial — <em>free</em><br />Height 4 full — <em>1 pt</em><br />Height 5 full — <em>2 pts</em></td></tr>
+<tr><td><img class="ic" src="assets/armor_augment_256.webp" alt="" /> <strong>Augment Armor</strong><br /><span class="dim">Augment armor</span></td>
+<td>No Augment — <em>free</em><br />+6% Armor — <em>1 pt</em><br />+13% Armor — <em>2 pts</em><br />+21% Armor — <em>3 pts</em></td></tr>
+<tr><td><img class="ic" src="assets/might_augment_256.webp" alt="" /> <strong>Augment Might</strong><br /><span class="dim">Augment melee attack</span></td>
+<td>No Augment — <em>free</em><br />+8% Melee attack — <em>1 pt</em><br />+17% Melee attack — <em>2 pts</em><br />+27% Melee attack — <em>3 pts</em></td></tr>
+<tr><td><img class="ic" src="assets/magic_augment_256.webp" alt="" /> <strong>Augment Magic</strong><br /><span class="dim">Augment magic attack</span></td>
+<td>No Augment — <em>free</em><br />+10% Magic attack — <em>1 pt</em><br />+20% Magic attack — <em>2 pts</em><br />+30% Magic attack — <em>3 pts</em></td></tr>
+<tr><td><img class="ic" src="assets/sniper_augment_256.webp" alt="" /> <strong>Augment Sniper</strong><br /><span class="dim">Augment ranged attack</span></td>
+<td>No Augment — <em>free</em><br />+7% attack/+20% distance — <em>1 pt</em><br />+15% attack/+40% distance — <em>2 pts</em><br />+24% attack/+70% distance — <em>3 pts</em></td></tr>
+<tr><td><img class="ic" src="assets/movement_augment_256.webp" alt="" /> <strong>Augment Movement</strong><br /><span class="dim">Augment movement</span></td>
+<td>No Augment — <em>free</em><br />+1 Movement steps — <em>1 pt</em><br />+2 Movement steps — <em>2 pts</em><br /><span class="dim">Only two levels exist — MovementAugment has no LEVEL_3.</span></td></tr>
+</table>
+<p class="note">The point cost of a level equals its enum value (level 2 = 2 points). Budget comes from the
+doctrine picked at draft step 0: Spymaster 5, Scout 6, Blind Fury 7 (<code>MAX_AUGMENT_POINTS = 7</code>).
+One level per category, re-selectable until you confirm; whatever is unspent when the timer expires is
+spent by the server's setup AI.</p>
+
+<h2>Synergies — free, unlocked by composition</h2>
+<table>
+<tr><th>Faction</th><th>Synergies</th></tr>
+<tr><td>Life</td><td><img class="ic" src="assets/synergy_supply_256.webp" alt="" /> PLUS_SUPPLY_PERCENTAGE<br /><img class="ic" src="assets/synergy_morale_256.webp" alt="" /> PLUS_MORALE_AND_LUCK</td></tr>
+<tr><td>Nature</td><td><img class="ic" src="assets/synergy_increase_board_units_256.webp" alt="" /> INCREASE_BOARD_UNITS<br /><img class="ic" src="assets/synergy_plus_fly_armor_256.webp" alt="" /> PLUS_FLY_ARMOR</td></tr>
+<tr><td>Chaos</td><td><img class="ic" src="assets/synergy_movement_256.webp" alt="" /> MOVEMENT<br /><img class="ic" src="assets/synergy_break_on_attack_256.webp" alt="" /> BREAK_ON_ATTACK</td></tr>
+<tr><td>Might</td><td><img class="ic" src="assets/synergy_auras_range_256.webp" alt="" /> PLUS_AURAS_RANGE<br /><img class="ic" src="assets/synergy_abilities_power_256.webp" alt="" /> PLUS_STACK_ABILITIES_POWER</td></tr>
+</table>
+<p class="note">Synergies cost no upgrade points. Their level comes from how many units of that faction are in
+the army: 2 units → level 1, 4 → level 2, 6 → level 3. Two are offered as buttons in the row above, next to
+the augments. After you confirm, step 2 ("Position your army") shows them read-only in the right sidebar as
+"Augments &amp; Synergies (7/7 pts) — augments are locked for this fight".</p>
+</main>
+</body>
+</html>

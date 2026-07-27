@@ -1,0 +1,198 @@
+{
+ "screen": "Set up your army — step 1 of 2 of placement (the AUGMENTS handoff phase of the draft)",
+ "budget": {
+  "points": "5 / 6 / 7 — comes from the doctrine picked at draft step 0 (Spymaster 5, Scout 6, Blind Fury 7)",
+  "max": 7,
+  "spentOn": "augments only; synergies are free and unlock from army composition",
+  "unspent": "on timeout the server's setup AI spends whatever is left"
+ },
+ "rule": "A level's point cost equals its enum value: level 1 costs 1, level 2 costs 2, level 3 costs 3. Board placement is 0/1/2. One level per category, changeable until you confirm.",
+ "augments": [
+  {
+   "key": "Placement",
+   "label": "Augment Board Placement",
+   "icon": "assets/board_augment_256.webp",
+   "button": "Augment board placements",
+   "options": [
+    {
+     "label": "Height 3 partial",
+     "cost": 0,
+     "note": "default, always available"
+    },
+    {
+     "label": "Height 4 full",
+     "cost": 1
+    },
+    {
+     "label": "Height 5 full",
+     "cost": 2
+    }
+   ]
+  },
+  {
+   "key": "Armor",
+   "label": "Augment Armor",
+   "icon": "assets/armor_augment_256.webp",
+   "button": "Augment armor",
+   "options": [
+    {
+     "label": "No Augment",
+     "cost": 0
+    },
+    {
+     "label": "+6% Armor",
+     "cost": 1
+    },
+    {
+     "label": "+13% Armor",
+     "cost": 2
+    },
+    {
+     "label": "+21% Armor",
+     "cost": 3
+    }
+   ]
+  },
+  {
+   "key": "Might",
+   "label": "Augment Might",
+   "icon": "assets/might_augment_256.webp",
+   "button": "Augment melee attack",
+   "options": [
+    {
+     "label": "No Augment",
+     "cost": 0
+    },
+    {
+     "label": "+8% Melee attack",
+     "cost": 1
+    },
+    {
+     "label": "+17% Melee attack",
+     "cost": 2
+    },
+    {
+     "label": "+27% Melee attack",
+     "cost": 3
+    }
+   ]
+  },
+  {
+   "key": "Magic",
+   "label": "Augment Magic",
+   "icon": "assets/magic_augment_256.webp",
+   "button": "Augment magic attack",
+   "options": [
+    {
+     "label": "No Augment",
+     "cost": 0
+    },
+    {
+     "label": "+10% Magic attack",
+     "cost": 1
+    },
+    {
+     "label": "+20% Magic attack",
+     "cost": 2
+    },
+    {
+     "label": "+30% Magic attack",
+     "cost": 3
+    }
+   ]
+  },
+  {
+   "key": "Sniper",
+   "label": "Augment Sniper",
+   "icon": "assets/sniper_augment_256.webp",
+   "button": "Augment ranged attack",
+   "options": [
+    {
+     "label": "No Augment",
+     "cost": 0
+    },
+    {
+     "label": "+7% attack/+20% distance",
+     "cost": 1
+    },
+    {
+     "label": "+15% attack/+40% distance",
+     "cost": 2
+    },
+    {
+     "label": "+24% attack/+70% distance",
+     "cost": 3
+    }
+   ]
+  },
+  {
+   "key": "Movement",
+   "label": "Augment Movement",
+   "icon": "assets/movement_augment_256.webp",
+   "button": "Augment movement",
+   "options": [
+    {
+     "label": "No Augment",
+     "cost": 0
+    },
+    {
+     "label": "+1 Movement steps",
+     "cost": 1
+    },
+    {
+     "label": "+2 Movement steps",
+     "cost": 2
+    }
+   ],
+   "note": "Only two levels exist — MovementAugment has no LEVEL_3."
+  }
+ ],
+ "synergies": {
+  "maxLevel": 3,
+  "unlockedBy": "Units of one faction in the army: 2 units → level 1, 4 → level 2, 6 → level 3 (UNITS_TO_SYNERGY_LEVEL).",
+  "costsPoints": false,
+  "factions": {
+   "Life": [
+    {
+     "name": "PLUS_SUPPLY_PERCENTAGE",
+     "icon": "assets/synergy_supply_256.webp"
+    },
+    {
+     "name": "PLUS_MORALE_AND_LUCK",
+     "icon": "assets/synergy_morale_256.webp"
+    }
+   ],
+   "Nature": [
+    {
+     "name": "INCREASE_BOARD_UNITS",
+     "icon": "assets/synergy_increase_board_units_256.webp"
+    },
+    {
+     "name": "PLUS_FLY_ARMOR",
+     "icon": "assets/synergy_plus_fly_armor_256.webp"
+    }
+   ],
+   "Chaos": [
+    {
+     "name": "MOVEMENT",
+     "icon": "assets/synergy_movement_256.webp"
+    },
+    {
+     "name": "BREAK_ON_ATTACK",
+     "icon": "assets/synergy_break_on_attack_256.webp"
+    }
+   ],
+   "Might": [
+    {
+     "name": "PLUS_AURAS_RANGE",
+     "icon": "assets/synergy_auras_range_256.webp"
+    },
+    {
+     "name": "PLUS_STACK_ABILITIES_POWER",
+     "icon": "assets/synergy_abilities_power_256.webp"
+    }
+   ]
+  }
+ },
+ "locked": "Once placement step 2 starts, the sidebar shows 'Augments & Synergies (7/7 pts)' and the choices are locked for the fight."
+}
