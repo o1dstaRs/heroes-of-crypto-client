@@ -558,21 +558,7 @@ export class AIController {
     ): Promise<boolean> {
         // The strike/move/etc. is the plan's payload; leading select_attack_type entries are re-derived and
         // applied via selectAttackType() inside each strike handler (so we don't double-select).
-        // v0.5's meleeByPolicy emits a move+strike as a SEPARATE move_unit + in-place melee_attack (the sim
-        // applies the full move handler for ~+2.5pp). Our transport drives ONE authoritative action per turn,
-        // so without this we'd run only the move and the unit "walks next to the enemy but doesn't attack".
-        // Fold the pair into a single path-bearing melee_attack, which executeStrategyMelee drives as one
-        // move+attack in both sandbox and ranked. (Kept AHEAD of the generic sequence loop: a split
-        // move_unit + melee_attack submit makes the ranked server treat the move as the whole turn.)
         const payload = actions.filter((a) => a.type !== "select_attack_type");
-        const [p0, p1] = payload;
-        if (payload.length === 2 && p0?.type === "move_unit" && p1?.type === "melee_attack") {
-            return this.executeStrategyMelee(
-                currentUnit,
-                { ...p1, path: p0.path, hasLavaCell: p0.hasLavaCell, hasWaterCell: p0.hasWaterCell },
-                wasAIActive,
-            );
-        }
         if (!payload.length) {
             // Only attack-type setup was emitted — apply it and end so the unit still progresses.
             for (const a of actions) {
@@ -590,8 +576,10 @@ export class AIController {
     /**
      * Execute a multi-action decideTurn plan action-by-action, in order — the client mirror of
      * battle_engine.ts's apply loop, which runs the full decided GameAction[] through the engine. The
-     * realistic shapes are [move_unit, <turn-consuming action>] (move+cast, move+area_throw, ...);
-     * [move_unit, melee_attack] never reaches here (folded upstream into one path-bearing melee_attack).
+     * realistic shapes are [move_unit, <turn-consuming action>] (move+melee, move+cast, move+shot, ...).
+     * Keeping an explicitly split move+melee plan split is important: move_unit owns route hazards such as
+     * Fire Wall, and a surviving actor then strikes from the landed cell. Folding the pair into a path-bearing
+     * melee_attack bypasses that movement lifecycle and diverges from the headless engine.
      * Sequence guards (see memory ranked-skip-rejections for the desync class these avoid):
      * - an action declined BEFORE anything landed → return false, so performAction falls back to the
      *   proven findTarget path (the shipped recovery ladder — same contract as the single-action cases);

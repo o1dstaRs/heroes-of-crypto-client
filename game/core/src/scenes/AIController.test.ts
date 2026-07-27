@@ -560,6 +560,100 @@ describe("AIController", () => {
             expect(appliedActions.some((a) => a.type === "move_unit")).toBe(false);
         });
 
+        const splitMoveMeleePlan = (unitId: string): GameAction[] => [
+            {
+                type: "move_unit",
+                unitId,
+                path: meleePath,
+                targetCells: [attackFrom],
+                hasLavaCell: true,
+                hasWaterCell: false,
+            },
+            { type: "melee_attack", attackerId: unitId, targetId: "target-1", attackFrom },
+        ];
+
+        it("keeps an explicit ranked move+melee plan split so move hazards resolve before the strike", async () => {
+            const unit = createUnit();
+            const target = buildMoveMeleeTarget();
+            stubStrategy(() => splitMoveMeleePlan(unit.getId()));
+            const dispatchOrder: GameAction["type"][] = [];
+            const executeMoveSequence = mock((...args: unknown[]) => {
+                dispatchOrder.push((args[4] as GameAction).type);
+                return true;
+            });
+            const executeAttackSequence = mock(async (...args: unknown[]) => {
+                dispatchOrder.push((args[3] as GameAction).type);
+                return true;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeAttackSequence,
+                executeMoveSequence,
+                isAuthoritativeAction: (action: GameAction) =>
+                    action.type === "move_unit" || action.type === "melee_attack",
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect(moveArgs[1]).toEqual(meleePath);
+            expect(moveArgs[2]).toEqual([attackFrom]);
+            expect(moveArgs[4]).toEqual(splitMoveMeleePlan(unit.getId())[0]);
+            expect(moveArgs[6]).toBe(true);
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            const meleeArgs = executeAttackSequence.mock.calls[0] as unknown as unknown[];
+            expect(meleeArgs[3]).toEqual({
+                type: "melee_attack",
+                attackerId: unit.getId(),
+                targetId: target.getId(),
+                attackFrom,
+                path: undefined,
+            });
+            expect(dispatchOrder).toEqual(["move_unit", "melee_attack"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("keeps an explicit sandbox move+melee plan split and waits for the landed move", async () => {
+            const unit = createUnit();
+            const target = buildMoveMeleeTarget();
+            stubStrategy(() => splitMoveMeleePlan(unit.getId()));
+            const dispatchOrder: GameAction["type"][] = [];
+            const executeMoveSequence = mock((...args: unknown[]) => {
+                dispatchOrder.push((args[4] as GameAction).type);
+                const onComplete = args[3] as (() => void) | undefined;
+                void onComplete?.();
+                return true;
+            });
+            const executeAttackSequence = mock(async (...args: unknown[]) => {
+                dispatchOrder.push((args[3] as GameAction).type);
+                return true;
+            });
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeAttackSequence,
+                executeMoveSequence,
+                isAuthoritativeAction: () => false,
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+
+            const controller = new AIController(context);
+            controller.isAIActive = true;
+            controller.performingAction = true;
+            await controller.performAction(true);
+
+            expect(executeMoveSequence).toHaveBeenCalledTimes(1);
+            const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
+            expect((moveArgs[4] as GameAction).type).toBe("move_unit");
+            expect(executeAttackSequence).toHaveBeenCalledTimes(1);
+            expect(dispatchOrder).toEqual(["move_unit", "melee_attack"]);
+            expect(controller.performingAction).toBe(false);
+        });
+
         it("falls back to the AI.findTarget path when decideTurn returns an empty plan", async () => {
             const unit = createUnit();
             stubStrategy(() => [] as GameAction[]);
@@ -685,7 +779,7 @@ describe("AIController", () => {
             await controller.performAction(true);
 
             // The move is submitted via executeMoveSequence WITH its replayAction (a real move_unit —
-            // unlike the melee fold, the cast carries no path, so the move must be its own submit)...
+            // the cast carries no movement path, so the move is its own submit)...
             expect(executeMoveSequence).toHaveBeenCalledTimes(1);
             const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
             expect(moveArgs[1]).toEqual(seqMovePath);
@@ -833,7 +927,7 @@ describe("AIController", () => {
 
             expect(executeMoveSequence).toHaveBeenCalledTimes(1);
             // The intermediate move passes its OWN replayAction (arg 5) — it is a real recorded move, not
-            // just an animated approach (only the melee fold animates without submitting).
+            // just an animated approach.
             const moveArgs = executeMoveSequence.mock.calls[0] as unknown as unknown[];
             expect((moveArgs[4] as GameAction | undefined)?.type).toBe("move_unit");
             expect(castAppliedBeforeMoveCompleted).toBe(false);
