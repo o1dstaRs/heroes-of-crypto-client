@@ -267,6 +267,62 @@ export class VineLayer {
         return chains;
     }
     /** Catmull-Rom through the chain's cell centres, with a stable perpendicular wobble. */
+    /**
+     * Outline every vined cell, for as long as the vine is on the ground.
+     *
+     * The plant itself is a curve that crosses cell borders, which is what makes it read as one creeper —
+     * but it is also exactly what makes the RULE unreadable: a non-flyer pays an extra step per vined CELL,
+     * and a spline gives the player no way to tell which tiles those are. So the footprint is stated
+     * outright, and kept up the whole time the vine lives rather than only during the cast.
+     *
+     * Drawn to stay quiet under the plant: corner brackets rather than a full box (a closed rectangle on
+     * every cell reads as UI chrome and fights the organic body), a faint wash inside, and a slow breathing
+     * pulse so it registers as live terrain without pulling the eye off the fight. It creeps in with the
+     * cell's own presence and withers with it, and turns the same dry yellow-brown on the last lap, so the
+     * "about to let go" tell the body already carries is on the footprint too.
+     */
+    private drawCellFootprint(g: Graphics, cellSize: number): void {
+        const half = cellSize * 0.5;
+        // Inset so neighbouring vined cells read as two marks rather than one merged slab.
+        const inset = cellSize * 0.12;
+        const reach = half - inset;
+        // Corner arms: a bit over a third of the side, which is enough to imply the square without closing it.
+        const arm = reach * 0.42;
+        // One shared breath for the whole layer, so the vined area pulses as a single patch of terrain.
+        const breath = 0.85 + 0.15 * Math.sin(this.time * 1.8);
+
+        for (const vine of this.vines.values()) {
+            if (vine.presence <= 0.02) {
+                continue;
+            }
+            const dry = vine.alive && vine.lapsRemaining <= 1;
+            const rim = dry ? DRY_RIM : BARK_RIM;
+            const wash = dry ? DRY_MID : MOSS;
+            const alpha = vine.presence * breath;
+
+            // Faint wash so the tile itself reads as overgrown, not just ringed.
+            g.rect(vine.x - reach, vine.y - reach, reach * 2, reach * 2).fill({
+                color: wash,
+                alpha: 0.1 * alpha,
+            });
+
+            // Four corner brackets.
+            const width = Math.max(1, cellSize * 0.028);
+            for (const [sx, sy] of [
+                [-1, -1],
+                [1, -1],
+                [-1, 1],
+                [1, 1],
+            ] as const) {
+                const cx = vine.x + sx * reach;
+                const cy = vine.y + sy * reach;
+                g.moveTo(cx - sx * arm, cy)
+                    .lineTo(cx, cy)
+                    .lineTo(cx, cy - sy * arm)
+                    .stroke({ color: rim, width, alpha: 0.75 * alpha, cap: "round", join: "round" });
+            }
+        }
+    }
     private sampleChain(chain: ITrackedVine[], cellSize: number): ISamplePoint[] {
         const pts = chain.map((v) => ({ x: v.x, y: v.y }));
         if (pts.length === 1) {
@@ -333,6 +389,10 @@ export class VineLayer {
         if (!this.vines.size) {
             return;
         }
+
+        // The cell footprint goes down FIRST, under the plant, so the vine still reads as lying on top of
+        // the board rather than inside a box.
+        this.drawCellFootprint(g, cellSize);
 
         for (const chain of this.buildChains()) {
             const samples = this.sampleChain(chain, cellSize);
