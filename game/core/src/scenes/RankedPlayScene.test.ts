@@ -540,6 +540,36 @@ describe("ranked placement scene state", () => {
         expect(descriptionFor(6, 4)).not.toContain("{}");
     });
 
+    test("prints Magic Reflection's stack-scaled chance, not the config's full-stack 75", () => {
+        // The card is built from static config, which only knows the FULL-stack figure. A depleted or
+        // unlucky dragon rebounds at a different rate, and the card has to say so -- it advertised a flat
+        // 75% while the engine rolled 30%.
+        const descriptionFor = (stackPower: number, luck: number): string => {
+            const state = authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "dragon",
+                        name: "Magic Dragon",
+                        creatureId: CreatureVals.MAGIC_DRAGON,
+                        abilities: ["Magic Reflection"],
+                        stackPower,
+                        luck,
+                    }),
+                ]),
+            );
+            const properties = state.units.find((unit) => unit.properties.id === "dragon")?.properties;
+            const index = properties?.abilities.indexOf("Magic Reflection") ?? -1;
+            expect(index).toBeGreaterThanOrEqual(0);
+            return properties?.abilities_descriptions[index] ?? "";
+        };
+
+        expect(descriptionFor(1, 0)).toContain("15% of the time");
+        expect(descriptionFor(3, 0)).toContain("45% of the time");
+        expect(descriptionFor(5, 0)).toContain("75% of the time");
+        expect(descriptionFor(5, 10)).toContain("85% of the time");
+        expect(descriptionFor(2, 5)).toContain("35% of the time");
+    });
+
     test("reconstructs runtime-granted aura mechanics and removes stolen native aura mechanics", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([

@@ -151,7 +151,12 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Aura", 1, 10)).toContain(
             "deal 25% more magic damage",
         );
-        expect(descriptionFor("Magic Dragon", "magic_dragon_512", "Magic Mirror", 1, 10)).toContain(
+        // Magic Reflection is stack-scaled now: at power 75 that is 15/30/45/60/75 across the stack, then
+        // shifted by luck. One pip of stack with 10 luck rebounds at 25%, not the configured full-stack 75.
+        expect(descriptionFor("Magic Dragon", "magic_dragon_512", "Magic Reflection", 1, 10)).toContain(
+            "creature 25% of the time",
+        );
+        expect(descriptionFor("Magic Dragon", "magic_dragon_512", "Magic Reflection", 5, 10)).toContain(
             "creature 85% of the time",
         );
     });

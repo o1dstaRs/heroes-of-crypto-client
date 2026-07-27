@@ -4,6 +4,8 @@ import {
     Augment,
     BLIND_FURY_ABILITY_NAME,
     blindFuryDescription,
+    MAGIC_REFLECTION_ABILITY_NAME,
+    magicReflectionDescription,
     FightStateManager,
     Spell,
     getFactionOf,
@@ -334,16 +336,34 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                         // that 0 (baseProperties via config_provider, `configured` via getAbilityDisplayMetadata),
                         // so without this the ranked card sat at "Current power: 0%" for the whole fight while
                         // the unit was in fact swinging at +40%. The snapshot has the live counts; use them.
-                        if (ability.name !== BLIND_FURY_ABILITY_NAME) {
+                        if (
+                            ability.name !== BLIND_FURY_ABILITY_NAME &&
+                            ability.name !== MAGIC_REFLECTION_ABILITY_NAME
+                        ) {
                             return ability;
                         }
                         try {
+                            const template = HoCConfig.getAbilityConfig(ability.name).desc.join("\n");
+                            if (ability.name === BLIND_FURY_ABILITY_NAME) {
+                                return {
+                                    ...ability,
+                                    description: blindFuryDescription(
+                                        template,
+                                        Math.max(0, Math.floor(unitState.amountAlive)),
+                                        Math.max(0, Math.floor(unitState.amountDied)),
+                                    ),
+                                };
+                            }
+                            // Magic Reflection scales with the stack and the holder's luck, but the config
+                            // carries only the full-stack figure, so the card advertised a flat 75% while a
+                            // depleted dragon actually rebounded at 30%.
                             return {
                                 ...ability,
-                                description: blindFuryDescription(
-                                    HoCConfig.getAbilityConfig(ability.name).desc.join("\n"),
-                                    Math.max(0, Math.floor(unitState.amountAlive)),
-                                    Math.max(0, Math.floor(unitState.amountDied)),
+                                description: magicReflectionDescription(
+                                    template,
+                                    HoCConfig.getAbilityConfig(ability.name).power,
+                                    unitState.stackPower || baseProperties.stack_power,
+                                    unitState.luck,
                                 ),
                             };
                         } catch {

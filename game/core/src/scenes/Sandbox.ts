@@ -8091,22 +8091,23 @@ export class Sandbox extends PixiScene {
         // kill count shown is the gaze-only count, not the target's total deaths.
         const fireShieldByName = new Map<string, number>();
         const petrifyKillsByName = new Map<string, number>();
-        // Chain Lightning is applied as its own magic hit (not folded into the attack's damage), so
-        // isolate its per-unit amount from the log and draw it as a separate purple number instead of
-        // a red one summed into the standard damage.
-        const chainLightningByName = new Map<string, number>();
+        // Chain Lightning is applied as its own magic hit (not folded into the attack's damage), so it is
+        // drawn as a separate PURPLE number rather than a red one summed into the standard damage.
+        //
+        // Read from the engine's own secondary entries, NOT from the log line. The line is
+        // "<name> got hit <n> by Chain Lightning" plus a kill tag, and the parse below was anchored with $ —
+        // so every bounce that KILLED failed to match and fell through to red. Matching on the amount was
+        // fragile too (Flesh Shield can split it). The entries carry the unit id outright, which is what the
+        // replay and ranked paths already style from.
+        const chainLightningUnitIds = new Set(
+            (damageForAnimation.secondary ?? [])
+                .filter((entry) => entry.source === "chain_lightning")
+                .map((entry) => entry.unitId),
+        );
         for (const entry of this.sc_sceneLog.getEntriesSince(logSizeBeforeAttack)) {
             const fsMatch = entry.match(/^(.+?) received \((\d+)\) from Fire Shield/);
             if (fsMatch) {
                 fireShieldByName.set(fsMatch[1], (fireShieldByName.get(fsMatch[1]) ?? 0) + parseInt(fsMatch[2], 10));
-                continue;
-            }
-            const clMatch = entry.match(/^(.+?) got hit (\d+) by Chain Lightning$/);
-            if (clMatch) {
-                chainLightningByName.set(
-                    clMatch[1],
-                    (chainLightningByName.get(clMatch[1]) ?? 0) + parseInt(clMatch[2], 10),
-                );
                 continue;
             }
             const pgMatch = entry.match(/^(\d+) (.+?) killed by Petrifying Gaze$/);
@@ -8311,8 +8312,7 @@ export class Sandbox extends PixiScene {
                     : Math.max(0, diedCount - alreadyDied);
                 const uFireShield = uName ? (fireShieldByName.get(uName) ?? 0) : 0;
                 const isFsBurn = uFireShield > 0 && Math.abs(unaccountedDiff - uFireShield) <= 2;
-                const uChainLightning = uName ? (chainLightningByName.get(uName) ?? 0) : 0;
-                const isChainLightning = uChainLightning > 0 && Math.abs(unaccountedDiff - uChainLightning) <= 2;
+                const isChainLightning = chainLightningUnitIds.has(uId);
                 // Source styling priority: Petrifying Gaze grey, Chain Lightning purple, Fire Shield
                 // amber, otherwise plain red.
                 const fsFill = isPetrified

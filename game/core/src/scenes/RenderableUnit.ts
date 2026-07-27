@@ -18,6 +18,7 @@ import {
     TeamVals,
     HoCConstants,
     HoCConfig,
+    MAGIC_REFLECTION_ABILITY_NAME,
     SpellHelper,
     FightStateManager,
     AbilityHelper,
@@ -2286,10 +2287,12 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Magic Mirror (Magic Dragon's passive): flat base % + the unit's own luck, exactly as the engine
-        // computes it in getMagicMirrorAbilityChance — including that clamp, so a lucky dragon's card never
-        // advertises a chance above certain. Luck-dependent but not stack-powered, like the poison auras.
-        const magicMirrorAbility = this.getAbility("Magic Mirror");
+        // Magic Reflection (Magic Dragon's passive): stack-scaled base % + the unit's own luck, read straight
+        // out of the engine's own getMagicMirrorAbilityChance — including its clamp — so the card can never
+        // advertise a chance the rebound roll does not use. The lookup name matters: while this still asked
+        // for the ability's old name ("Magic Mirror") it silently found nothing, the refresh never ran, and
+        // the card sat at the configured 75% no matter the stack or the luck.
+        const magicMirrorAbility = this.getAbility(MAGIC_REFLECTION_ABILITY_NAME);
         if (magicMirrorAbility) {
             const percentage = SpellHelper.getMagicMirrorAbilityChance(this);
             this.refreshAbiltyDescription(
@@ -2973,7 +2976,7 @@ export class RenderableUnit extends Unit {
                         abilityName === "Blind Fury" ||
                         abilityName === "Guiding Winds Aura" ||
                         abilityName === "Sylvan Focus Aura" ||
-                        abilityName === "Magic Mirror" ||
+                        abilityName === MAGIC_REFLECTION_ABILITY_NAME ||
                         HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES.has(abilityName))
                 ) {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;
