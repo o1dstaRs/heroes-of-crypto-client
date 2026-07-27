@@ -14,6 +14,7 @@ import {
     Unit,
     UnitVals,
     UnitsHolder,
+    type GameEvent,
 } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
@@ -23,6 +24,8 @@ import {
     applyRankedUnitSnapshotStats,
     rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
+    rankedSecondarySceneLogLines,
+    rankedSpellPrimaryDamageSummary,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
     multiHitSceneLogLines,
@@ -953,6 +956,61 @@ describe("ranked multi-hit scene log", () => {
 
         expect(multiHitSceneLogLines(secondWhiffed, "Berserker", "Peasant", "⚔️", "🟢")).toEqual([
             "🟢 Berserker ⚔️ Peasant (7)",
+        ]);
+    });
+});
+
+describe("ranked spell secondary-damage scene log", () => {
+    const spellEvent = {
+        type: "spell_cast",
+        casterId: "mage",
+        spellName: "Lightning Strike",
+        targetId: "target",
+        unitIdsDied: ["mage"],
+        animations: [],
+        damaged: [
+            {
+                unitId: "target",
+                position: { x: 1, y: 2 },
+                amount: 70,
+                unitsDied: 0,
+            },
+            {
+                unitId: "mage",
+                position: { x: 3, y: 4 },
+                amount: 570,
+                unitsDied: 1,
+                rebounded: true,
+            },
+        ],
+        secondary: [
+            {
+                source: "flesh_shield",
+                unitId: "shield",
+                position: { x: 5, y: 6 },
+                amount: 500,
+                unitsDied: 0,
+            },
+        ],
+    } as unknown as GameEvent;
+    const names = new Map([
+        ["mage", "Battle Mage"],
+        ["target", "Satyr"],
+        ["shield", "Abomination"],
+    ]);
+
+    test("does not roll a Magic Mirror rebound into the cast's primary total", () => {
+        expect(rankedSpellPrimaryDamageSummary(spellEvent)).toEqual({
+            total: 70,
+            unitsDied: 0,
+            unitCount: 1,
+        });
+    });
+
+    test("reports Flesh Shield and Magic Mirror as separate authoritative follow-ups", () => {
+        expect(rankedSecondarySceneLogLines(spellEvent, names, () => "🟢")).toEqual([
+            "🟢 Abomination absorbed (500) with Flesh Shield",
+            "🟢 Battle Mage received (570) from Magic Mirror rebound 💀 1",
         ]);
     });
 });

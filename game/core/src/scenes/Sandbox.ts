@@ -98,6 +98,37 @@ import { createSummonedUnitProperties } from "./summonedUnitProperties";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
+/**
+ * Client-side aim preview for a stack-powered offensive spell. Kept as a pure helper so the hover card,
+ * aim overlay and authoritative engine can be regression-checked against the same five inputs.
+ */
+export const stackPoweredSpellPreviewDamage = (
+    spellPower: number,
+    casterAmountAlive: number,
+    casterStackPower: number,
+    casterMagicDamageBonusPercentage: number,
+    targetMagicResist: number,
+): number =>
+    applyMagicResistToSpellDamage(
+        calculateStackPoweredSpellDamage(
+            spellPower,
+            casterAmountAlive,
+            casterStackPower,
+            casterMagicDamageBonusPercentage,
+        ),
+        targetMagicResist,
+    );
+
+/**
+ * Spell Flesh Shield damage was added to GameEvent after the original client event union. The structural
+ * read keeps the client backward-compatible with older journals while giving both sandbox and ranked one
+ * typed path to the optional secondary-damage payload.
+ */
+export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["secondary"] =>
+    event.type === "spell_cast"
+        ? (event as Extract<GameEvent, { type: "spell_cast" }> & { secondary?: IVisibleDamage["secondary"] }).secondary
+        : undefined;
+
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
 interface IUnitFightSnapshot {
     properties: UnitProperties;
@@ -5599,7 +5630,7 @@ export class Sandbox extends PixiScene {
                       caster.getAmountAlive(),
                       caster.getCumulativeMaxHp(),
                       caster.getLuck(),
-                      caster.getEmpowerPercentage(),
+                      caster.getMagicDamageBonusPercentage(),
                   )
                 : [];
         const key = lines.join("\n");
@@ -6450,8 +6481,11 @@ export class Sandbox extends PixiScene {
         if (spell.getMultiplierType() !== SpellMultiplierType.UNIT_AMOUNT_STACK_POWER) {
             return undefined;
         }
-        return applyMagicResistToSpellDamage(
-            calculateStackPoweredSpellDamage(spell.getPower(), caster.getAmountAlive(), caster.getStackPower()),
+        return stackPoweredSpellPreviewDamage(
+            spell.getPower(),
+            caster.getAmountAlive(),
+            caster.getStackPower(),
+            caster.getMagicDamageBonusPercentage(),
             target.getMagicResist(),
         );
     }
@@ -6505,9 +6539,16 @@ export class Sandbox extends PixiScene {
         }
         const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
         for (const event of events) {
-            if (event.type !== "spell_cast" || !event.damaged?.length) {
+            if (event.type !== "spell_cast") {
                 continue;
             }
+            const secondary = spellCastSecondaryDamage(event);
+            if (!event.damaged?.length && !secondary?.length) {
+                continue;
+            }
+            // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
+            // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
+            this.showFleshShieldAbsorbedDamage(secondary, casterPosition);
             // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
             // Strike, Meteor Shower) have nothing to travel and just burst where they land.
             //
@@ -6528,7 +6569,7 @@ export class Sandbox extends PixiScene {
                     this.combatVisuals.spawnFireRing(ringCenter, cellSize);
                 }
             }
-            for (const hit of event.damaged) {
+            for (const hit of event.damaged ?? []) {
                 if (isThrown && !isRing && casterPosition) {
                     this.combatVisuals.spawnFireSweep(casterPosition, hit.position, cellSize);
                 }

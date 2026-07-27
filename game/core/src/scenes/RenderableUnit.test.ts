@@ -117,6 +117,46 @@ describe("RenderableUnit runtime spell synchronization", () => {
     });
 });
 
+describe("RenderableUnit runtime aura and reflection descriptions", () => {
+    const descriptionFor = (
+        creatureName: "Dryad" | "Satyr" | "Magic Dragon",
+        textureName: string,
+        abilityName: string,
+        stackPower: number,
+        luck: number,
+    ): string => {
+        const effectFactory = new EffectFactory();
+        const properties = HoCConfig.getCreatureConfig(TeamVals.LOWER, "Nature", creatureName, textureName, 1);
+        properties.luck = luck;
+        const base = Unit.createUnit(
+            properties,
+            gridSettings,
+            TeamVals.LOWER,
+            UnitVals.CREATURE,
+            new AbilityFactory(effectFactory),
+            effectFactory,
+            false,
+        );
+        const unit = RenderableUnit.fromBase(base, () => undefined);
+        unit.setStackPower(stackPower);
+        unit.adjustBaseStats(false, 0, 0, 0, 0, 0, luck);
+
+        const abilityIndex = unit.getUnitProperties().abilities.indexOf(abilityName);
+        expect(abilityIndex).toBeGreaterThanOrEqual(0);
+        return unit.getUnitProperties().abilities_descriptions[abilityIndex] ?? "";
+    };
+
+    test("replaces live Guiding Winds, Sylvan Focus and Magic Mirror values", () => {
+        expect(descriptionFor("Dryad", "dryad_512", "Guiding Winds Aura", 2, 10)).toContain("shoot 20% further");
+        expect(descriptionFor("Satyr", "satyr_512", "Sylvan Focus Aura", 1, 10)).toContain(
+            "deal 25% more magic damage",
+        );
+        expect(descriptionFor("Magic Dragon", "magic_dragon_512", "Magic Mirror", 1, 10)).toContain(
+            "creature 85% of the time",
+        );
+    });
+});
+
 describe("RenderableUnit revealed roster card", () => {
     // Revealed units carry a ColorMatrixFilter (the B&W pass), whose constructor probes a WebGL context
     // through the DOM adapter. Headless bun has no document; hand it a canvas stub whose getContext

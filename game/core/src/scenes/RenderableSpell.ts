@@ -201,17 +201,16 @@ export class PixiRenderableSpell extends Spell {
         return this.amountRemaining > 0 && ownerStackPower >= this.getMinimalCasterStackPower();
     }
     /**
-     * @param casterEmpowerPercentage the caster team's Empower Augment (0 when unbought). Every damage figure
-     *        printed below is raised by it, from the same helpers the engine deals with — an Empowered card
-     *        that still promised the base number would be exactly the "card says 152, cast lands 163" bug the
-     *        stack-powered helper exists to prevent.
+     * @param casterMagicDamageBonusPercentage the caster's total magic-damage bonus (Empower augment/spell
+     *        plus Sylvan Focus). Every damage figure printed below is raised by it through the same helpers
+     *        the engine uses, so the card cannot promise a different number from the cast.
      */
     public getHoverInfo(
         ownerStackPower: number,
         casterAmountAlive: number,
         casterCumulativeMaxHp: number,
         casterLuck?: number,
-        casterEmpowerPercentage = 0,
+        casterMagicDamageBonusPercentage = 0,
     ): string[] {
         const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
         if (this.amountRemaining <= 0) {
@@ -258,14 +257,14 @@ export class PixiRenderableSpell extends Spell {
         // Fire Wall burns a share of whatever walks into it, and the share is fixed when the wall is LIT —
         // so the card prints the Empower-raised percentage the cast will bake into the flames.
         if (this.getName() === "Fire Wall") {
-            const burn = FireWallHelper.fireWallBurnPercentage(casterEmpowerPercentage);
+            const burn = FireWallHelper.fireWallBurnPercentage(casterMagicDamageBonusPercentage);
             return [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, burn.toString()))];
         }
         // Fireforged Sword grants a percentage of extra (burning) damage, raised by Empower like every other
         // magic source. It is a NO_MULTIPLIER spell, so it never reached the caster-scaled branch below and
         // used to print an empty placeholder — "Adds % of additional damage".
         if (this.getName() === "Fireforged Sword") {
-            const bonus = fireforgedSwordPower(this.getPower(), casterEmpowerPercentage);
+            const bonus = fireforgedSwordPower(this.getPower(), casterMagicDamageBonusPercentage);
             return [...lines, ...this.getDesc().map((line) => line.replace(/\{\}/g, bonus.toString()))];
         }
 
@@ -290,7 +289,7 @@ export class PixiRenderableSpell extends Spell {
                 this.getPower(),
                 casterAmountAlive,
                 ownerStackPower,
-                casterEmpowerPercentage,
+                casterMagicDamageBonusPercentage,
             ).toString();
         }
         const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));

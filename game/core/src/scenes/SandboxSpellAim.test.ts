@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { cellTargetedSpellBlockCells } from "./Sandbox";
+import type { GameEvent } from "@heroesofcrypto/common";
+
+import { cellTargetedSpellBlockCells, spellCastSecondaryDamage, stackPoweredSpellPreviewDamage } from "./Sandbox";
 
 const key = (c: { x: number; y: number }) => `${c.x},${c.y}`;
 
@@ -40,5 +42,43 @@ describe("cell-targeted spell aim footprint", () => {
         const b = cellTargetedSpellBlockCells("Meteor Shower", { x: 5, y: 3 });
 
         expect(a.map((c) => key({ x: c.x + 3, y: c.y }))).toEqual(b.map(key));
+    });
+});
+
+describe("spell damage preview parity", () => {
+    test("includes every caster magic-damage bonus before applying target resistance", () => {
+        // Lightning Strike: 30 * 2 creatures * 5 stack = 300. A combined +15% from
+        // Empower/Sylvan raises it to 345; 20% magic resistance then lands exactly 276.
+        expect(stackPoweredSpellPreviewDamage(30, 2, 5, 15, 20)).toBe(276);
+        expect(stackPoweredSpellPreviewDamage(30, 2, 5, 0, 20)).toBe(240);
+    });
+
+    test("reads spell Flesh Shield transfers even when no primary damage remains", () => {
+        const event = {
+            type: "spell_cast",
+            casterId: "mage",
+            spellName: "Lightning Strike",
+            unitIdsDied: [],
+            animations: [],
+            secondary: [
+                {
+                    source: "flesh_shield",
+                    unitId: "abomination",
+                    position: { x: 4, y: 5 },
+                    amount: 500,
+                    unitsDied: 1,
+                },
+            ],
+        } as unknown as GameEvent;
+
+        expect(spellCastSecondaryDamage(event)).toEqual([
+            {
+                source: "flesh_shield",
+                unitId: "abomination",
+                position: { x: 4, y: 5 },
+                amount: 500,
+                unitsDied: 1,
+            },
+        ]);
     });
 });

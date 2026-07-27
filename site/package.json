@@ -5,9 +5,10 @@
     "type": "module",
     "scripts": {
         "astro": "astro",
-        "build": "astro build",
+        "build": "bun run test:assets && astro build",
         "dev": "astro dev",
-        "preview": "astro preview"
+        "preview": "astro preview",
+        "test:assets": "bun test src/lib/catalog-assets.test.ts"
     },
     "dependencies": {
         "@astrojs/sitemap": "^3.7.1",

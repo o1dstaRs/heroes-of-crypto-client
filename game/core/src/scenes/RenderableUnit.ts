@@ -2245,15 +2245,32 @@ export class RenderableUnit extends Unit {
             }
         }
 
+        // Guiding Winds Aura (Dryad): stack-scaled plus the Dryad's luck, including the same cap the aura
+        // applies to ranged allies. Recompute at display time so stack/luck changes cannot leave a stale card.
+        const guidingWindsAbility = this.getAbility("Guiding Winds Aura");
+        if (guidingWindsAbility) {
+            const auraEffect = this.effectFactory.makeAuraEffect("Guiding Winds");
+            if (auraEffect) {
+                const percentage = Number(this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toFixed(2));
+                this.refreshAbiltyDescription(
+                    guidingWindsAbility.getName(),
+                    guidingWindsAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
+        }
+
         // Sylvan Focus Aura (Satyr): base % + the Satyr's own luck, matching what calculateAuraPower stores
         // on the aura the allies receive — so the card and the buff they get always read the same number.
         const sylvanFocusAbility = this.getAbility("Sylvan Focus Aura");
         if (sylvanFocusAbility) {
-            const percentage = Math.max(0, sylvanFocusAbility.getPower() + this.getLuck());
-            this.refreshAbiltyDescription(
-                sylvanFocusAbility.getName(),
-                sylvanFocusAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+            const auraEffect = this.effectFactory.makeAuraEffect("Sylvan Focus");
+            if (auraEffect) {
+                const percentage = Number(this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toFixed(2));
+                this.refreshAbiltyDescription(
+                    sylvanFocusAbility.getName(),
+                    sylvanFocusAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
         }
 
         // Magic Mirror (Magic Dragon's passive): flat base % + the unit's own luck, exactly as the engine
@@ -2261,7 +2278,7 @@ export class RenderableUnit extends Unit {
         // advertises a chance above certain. Luck-dependent but not stack-powered, like the poison auras.
         const magicMirrorAbility = this.getAbility("Magic Mirror");
         if (magicMirrorAbility) {
-            const percentage = Math.max(0, Math.min(100, Math.floor(magicMirrorAbility.getPower() + this.getLuck())));
+            const percentage = SpellHelper.getMagicMirrorAbilityChance(this);
             this.refreshAbiltyDescription(
                 magicMirrorAbility.getName(),
                 magicMirrorAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
@@ -2955,6 +2972,9 @@ export class RenderableUnit extends Unit {
                     // still be refreshed with the live value like the stack-powered ones.
                     (this.unitProperties.abilities_stack_powered[i] ||
                         abilityName === "Blind Fury" ||
+                        abilityName === "Guiding Winds Aura" ||
+                        abilityName === "Sylvan Focus Aura" ||
+                        abilityName === "Magic Mirror" ||
                         HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES.has(abilityName))
                 ) {
                     this.unitProperties.abilities_descriptions[i] = abilityDescription;

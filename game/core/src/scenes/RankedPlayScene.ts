@@ -31,7 +31,13 @@ import type {
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
-import { Sandbox, type SandboxSceneState, type SandboxSceneUnitState, type SceneActionEngine } from "./Sandbox";
+import {
+    Sandbox,
+    spellCastSecondaryDamage,
+    type SandboxSceneState,
+    type SandboxSceneUnitState,
+    type SceneActionEngine,
+} from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects, newlyCraftedAbilities } from "./effect_pops";
 import { PlayActionType } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
@@ -501,6 +507,90 @@ export const multiHitSceneLogLines = (
         const text = `${attackerName} ${icon} ${targetName} (${hit.amount})${kills}`;
         lines.push(flag ? `${flag} ${text}` : text);
     }
+    return lines;
+};
+
+/** Primary spell damage only; Magic Mirror rebounds are reported as their own follow-up lines. */
+export const rankedSpellPrimaryDamageSummary = (
+    event: GameEvent,
+): { total: number; unitsDied: number; unitCount: number } => {
+    const entries = event.type === "spell_cast" ? (event.damaged ?? []).filter((entry) => !entry.rebounded) : [];
+    return {
+        total: entries.reduce((sum, entry) => sum + entry.amount, 0),
+        unitsDied: entries.reduce((sum, entry) => sum + entry.unitsDied, 0),
+        unitCount: entries.length,
+    };
+};
+
+/**
+ * Follow-up damage lines shared by attack payloads and spell casts. Spell casts add two authoritative
+ * surfaces: Flesh Shield transfers from `secondary`, and Magic Mirror hits flagged in `damaged`.
+ */
+export const rankedSecondarySceneLogLines = (
+    event: GameEvent,
+    unitNames: ReadonlyMap<string, string>,
+    flagForUnit: (unitId: string) => string = () => "",
+): string[] => {
+    const secondary =
+        event.type === "unit_attacked" || event.type === "area_attacked"
+            ? event.damage?.secondary
+            : spellCastSecondaryDamage(event);
+    const lines: string[] = [];
+    for (const entry of secondary ?? []) {
+        if (entry.amount <= 0 && entry.unitsDied <= 0) {
+            continue;
+        }
+        const name = unitNames.get(entry.unitId) ?? "Unit";
+        const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
+        let text: string;
+        switch (entry.source) {
+            case "fire_shield":
+                text = `${name} received (${entry.amount}) from Fire Shield${kills}`;
+                break;
+            case "flesh_shield":
+                text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
+                break;
+            case "chain_lightning":
+                text = `${name} hit ${entry.amount} by Chain Lightning${kills}`;
+                break;
+            case "magic_mirror":
+                text = `${name} hit ${entry.amount} by Magic Mirror${kills}`;
+                break;
+            case "fire_breath":
+                text = `${name} hit ${entry.amount} by Fire Breath${kills}`;
+                break;
+            case "lightning_spin":
+                text = `${name} hit ${entry.amount} by Lightning Spin${kills}`;
+                break;
+            case "skewer_strike":
+                text = `${name} hit ${entry.amount} by Skewer Strike${kills}`;
+                break;
+            case "petrifying_gaze":
+                text =
+                    entry.unitsDied > 0
+                        ? `${entry.unitsDied} ${name} killed by Petrifying Gaze`
+                        : `${name} hit (${entry.amount}) by Petrifying Gaze`;
+                break;
+            default:
+                continue;
+        }
+        const flag = flagForUnit(entry.unitId);
+        lines.push(flag ? `${flag} ${text}` : text);
+    }
+
+    if (event.type === "spell_cast") {
+        for (const entry of event.damaged ?? []) {
+            if (!entry.rebounded || (entry.amount <= 0 && entry.unitsDied <= 0)) {
+                continue;
+            }
+            const name = unitNames.get(entry.unitId) ?? "Unit";
+            const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
+            const text = `${name} received (${entry.amount}) from Magic Mirror rebound${kills}`;
+            const flag = flagForUnit(entry.unitId);
+            lines.push(flag ? `${flag} ${text}` : text);
+        }
+    }
+
     return lines;
 };
 
@@ -1774,8 +1864,8 @@ export class RankedPlayScene extends Sandbox {
                 for (const hitLine of this.multiHitLogLines(event, unitNames)) {
                     lines.push(hitLine);
                 }
-                // Secondary-damage abilities (Fire Shield / Chain Lightning / Petrifying Gaze / Magic
-                // Mirror) ride on the attack's damage payload — each gets its own follow-up log line.
+                // Secondary damage (Fire/Flesh Shield, Chain Lightning, Petrifying Gaze) and spell
+                // Magic Mirror rebounds each get their own authoritative follow-up log line.
                 for (const secondaryLine of this.secondaryLogLines(event, unitNames)) {
                     lines.push(secondaryLine);
                 }
@@ -1847,54 +1937,7 @@ export class RankedPlayScene extends Sandbox {
     }
     /** Log lines for secondary-damage abilities carried on an attack's damage payload. */
     private secondaryLogLines(event: GameEvent, unitNames: ReadonlyMap<string, string>): string[] {
-        const damage = event.type === "unit_attacked" || event.type === "area_attacked" ? event.damage : undefined;
-        const secondary = damage?.secondary;
-        if (!secondary?.length) {
-            return [];
-        }
-        const lines: string[] = [];
-        for (const entry of secondary) {
-            if (entry.amount <= 0 && entry.unitsDied <= 0) {
-                continue;
-            }
-            const name = unitNames.get(entry.unitId) ?? "Unit";
-            const kills = entry.unitsDied > 0 ? ` 💀 ${entry.unitsDied}` : "";
-            let text: string;
-            switch (entry.source) {
-                case "fire_shield":
-                    text = `${name} received (${entry.amount}) from Fire Shield${kills}`;
-                    break;
-                case "flesh_shield":
-                    text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
-                    break;
-                case "chain_lightning":
-                    text = `${name} hit ${entry.amount} by Chain Lightning${kills}`;
-                    break;
-                case "magic_mirror":
-                    text = `${name} hit ${entry.amount} by Magic Mirror${kills}`;
-                    break;
-                case "fire_breath":
-                    text = `${name} hit ${entry.amount} by Fire Breath${kills}`;
-                    break;
-                case "lightning_spin":
-                    text = `${name} hit ${entry.amount} by Lightning Spin${kills}`;
-                    break;
-                case "skewer_strike":
-                    text = `${name} hit ${entry.amount} by Skewer Strike${kills}`;
-                    break;
-                case "petrifying_gaze":
-                    text =
-                        entry.unitsDied > 0
-                            ? `${entry.unitsDied} ${name} killed by Petrifying Gaze`
-                            : `${name} hit (${entry.amount}) by Petrifying Gaze`;
-                    break;
-                default:
-                    continue;
-            }
-            const flag = this.logTeamFlag(entry.unitId);
-            lines.push(flag ? `${flag} ${text}` : text);
-        }
-        return lines;
+        return rankedSecondarySceneLogLines(event, unitNames, (unitId) => this.logTeamFlag(unitId));
     }
     /** Unit id for an event where the unit actively took its turn (so a trailing manual skip is noise). */
     private actedUnitId(event: GameEvent): string | undefined {
@@ -2077,15 +2120,9 @@ export class RankedPlayScene extends Sandbox {
                 // The same for a DAMAGING spell (Fire Strike / Meteorite): only the engine knows what landed
                 // after magic resistance, so without `damaged` the ranked log would read as a bare
                 // "cast Fire Strike on X" with no number — exactly the gap `healed` was added to close.
-                const damagedEntries = event.damaged ?? [];
-                // A Magic Mirror sent the spell back at its caster. Called out on its own line, because in the
-                // roll-up below it would just look like the caster taking mystery damage from its own cast.
-                const reboundSuffix = damagedEntries
-                    .filter((entry) => entry.rebounded)
-                    .map((entry) => ` ↩️ rebounded onto ${nameOf(entry.unitId)} for ${entry.amount}`)
-                    .join("");
-                const damagedTotal = damagedEntries.reduce((sum, entry) => sum + entry.amount, 0);
-                const killed = damagedEntries.reduce((sum, entry) => sum + entry.unitsDied, 0);
+                const primaryDamage = rankedSpellPrimaryDamageSummary(event);
+                const damagedTotal = primaryDamage.total;
+                const killed = primaryDamage.unitsDied;
                 const damageSuffix =
                     damagedTotal > 0 ? ` for ${damagedTotal} damage${killed > 0 ? ` 💀 ${killed}` : ""}` : "";
                 // The Angel's Resurrection: how many stacks actually came back, which again only the engine
@@ -2116,13 +2153,13 @@ export class RankedPlayScene extends Sandbox {
                     // the same way a mass heal rolls up the allies it reached.
                     const massDamageSuffix =
                         damagedTotal > 0
-                            ? `${damageSuffix} across ${damagedEntries.length} unit${damagedEntries.length === 1 ? "" : "s"}`
+                            ? `${damageSuffix} across ${primaryDamage.unitCount} unit${primaryDamage.unitCount === 1 ? "" : "s"}`
                             : "";
-                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}${reboundSuffix}`;
+                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}`;
                 }
                 return event.targetId === event.casterId
-                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}${reboundSuffix}`
-                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}${reboundSuffix}`;
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}`;
             }
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM
