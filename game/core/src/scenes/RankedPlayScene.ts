@@ -2,6 +2,8 @@ import {
     allFactions,
     AttackVals,
     Augment,
+    BLIND_FURY_ABILITY_NAME,
+    blindFuryDescription,
     FightStateManager,
     Spell,
     getFactionOf,
@@ -301,30 +303,53 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                     return {};
                 }
 
-                const abilities = unitState.abilities.flatMap((name) => {
-                    const configured = getAbilityDisplayMetadata(name);
-                    if (!configured) {
-                        return [];
-                    }
+                const abilities = unitState.abilities
+                    .flatMap((name) => {
+                        const configured = getAbilityDisplayMetadata(name);
+                        if (!configured) {
+                            return [];
+                        }
 
-                    const baseIndex = baseProperties.abilities.indexOf(name);
-                    if (baseIndex >= 0) {
-                        return [
-                            {
-                                name,
-                                description: baseProperties.abilities_descriptions[baseIndex],
-                                isStackPowered: baseProperties.abilities_stack_powered[baseIndex],
-                                isAura: baseProperties.abilities_auras[baseIndex],
-                                auraEffect: configured.auraEffect,
-                                auraRange: configured.auraRange,
-                                auraIsBuff: configured.auraIsBuff,
-                                spellEntry: configured.spellEntry,
-                            },
-                        ];
-                    }
+                        const baseIndex = baseProperties.abilities.indexOf(name);
+                        if (baseIndex >= 0) {
+                            return [
+                                {
+                                    name,
+                                    description: baseProperties.abilities_descriptions[baseIndex],
+                                    isStackPowered: baseProperties.abilities_stack_powered[baseIndex],
+                                    isAura: baseProperties.abilities_auras[baseIndex],
+                                    auraEffect: configured.auraEffect,
+                                    auraRange: configured.auraRange,
+                                    auraIsBuff: configured.auraIsBuff,
+                                    spellEntry: configured.spellEntry,
+                                },
+                            ];
+                        }
 
-                    return [{ name, ...configured }];
-                });
+                        return [{ name, ...configured }];
+                    })
+                    .map((ability) => {
+                        // Blind Fury's power is not in the config -- it IS the stack's casualty count, and the
+                        // config carries 0. Everything above this line reads a description that was baked from
+                        // that 0 (baseProperties via config_provider, `configured` via getAbilityDisplayMetadata),
+                        // so without this the ranked card sat at "Current power: 0%" for the whole fight while
+                        // the unit was in fact swinging at +40%. The snapshot has the live counts; use them.
+                        if (ability.name !== BLIND_FURY_ABILITY_NAME) {
+                            return ability;
+                        }
+                        try {
+                            return {
+                                ...ability,
+                                description: blindFuryDescription(
+                                    HoCConfig.getAbilityConfig(ability.name).desc.join("\n"),
+                                    Math.max(0, Math.floor(unitState.amountAlive)),
+                                    Math.max(0, Math.floor(unitState.amountDied)),
+                                ),
+                            };
+                        } catch {
+                            return ability;
+                        }
+                    });
                 const auras = abilities.filter(
                     (
                         ability,

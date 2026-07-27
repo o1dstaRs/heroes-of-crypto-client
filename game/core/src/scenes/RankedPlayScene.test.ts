@@ -517,6 +517,29 @@ describe("ranked placement scene state", () => {
         expect(properties?.abilities_auras).toEqual([false]);
     });
 
+    test("prints Blind Fury's live bonus, not the config's 0", () => {
+        // The ability's configured power is 0 -- its real power is the share of the stack already lost.
+        // Both sources this scene builds cards from (the creature config and the ability catalogue) bake
+        // that 0 into the text, so a ranked player used to read "Current power: 0%" all fight while the
+        // unit swung at +40%. The snapshot carries the counts; the card has to use them.
+        const descriptionFor = (amountAlive: number, amountDied: number): string => {
+            const state = authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({ id: "trog", name: "Troglodyte", abilities: ["Blind Fury"], amountAlive, amountDied }),
+                ]),
+            );
+            const properties = state.units.find((unit) => unit.properties.id === "trog")?.properties;
+            const index = properties?.abilities.indexOf("Blind Fury") ?? -1;
+            expect(index).toBeGreaterThanOrEqual(0);
+            return properties?.abilities_descriptions[index] ?? "";
+        };
+
+        expect(descriptionFor(10, 0)).toContain("Current power: 0.0%");
+        expect(descriptionFor(6, 4)).toContain("Current power: 40.0%");
+        expect(descriptionFor(1, 9)).toContain("Current power: 90.0%");
+        expect(descriptionFor(6, 4)).not.toContain("{}");
+    });
+
     test("reconstructs runtime-granted aura mechanics and removes stolen native aura mechanics", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
