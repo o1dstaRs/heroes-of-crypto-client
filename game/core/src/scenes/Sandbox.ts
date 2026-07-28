@@ -9250,7 +9250,11 @@ export class Sandbox extends PixiScene {
                             this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                         ) &&
                         !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
-                        !this.currentActiveUnit.hasDebuffActive("Rangebane");
+                        // hasStatusApplied, not hasDebuffActive: Rangebane is applied in COMBAT (Spit Ball),
+                        // and ranked leaves the debuff OBJECT arrays empty, so the plain check is always
+                        // false there and the client kept offering ranged attacks the server refuses. The
+                        // aura above is safe either way — auras are reconciled from the snapshot.
+                        !this.currentActiveUnit.hasStatusApplied("Rangebane");
 
                     // 1. Static Range Priority
                     // Relaxed check: Allow visualization even if technically out of 'shot_distance' (for Penalty logic)
@@ -12026,7 +12030,7 @@ export class Sandbox extends PixiScene {
         // board silently ignores move clicks and the player can't tell why their unit "won't move"
         // (the hover popover adds a persistent "Paralyzed" hint on top of this). Genuine activations
         // only: ranked re-runs this for the same unit on every snapshot echo mid-turn.
-        if (!reactivatingSameUnit && nextUnit.hasEffectActive("Paralysis")) {
+        if (!reactivatingSameUnit && nextUnit.hasStatusApplied("Paralysis")) {
             this.sc_sceneLog.updateLog(`${nextUnit.getName()} is paralyzed and cannot move this turn`);
             this.popEffectOnUnit(nextUnit, "Paralysis", 0, "debuff");
         }
@@ -12120,7 +12124,10 @@ export class Sandbox extends PixiScene {
     // debuff makes illegal. Only the aimed/primary target is checked (AOE splash onto stronger stacks is fine).
     private isCowardiceBlockedTarget(targetUnit: Unit): boolean {
         const active = this.currentActiveUnit;
-        if (!active || !active.hasDebuffActive("Cowardice")) {
+        // hasStatusApplied: Cowardice arrives from Spit Ball in combat, so in ranked the OBJECT array is
+        // empty and this guard never fired — the very mirroring it exists for was sandbox-only, and ranked
+        // highlighted targets the server then rejected.
+        if (!active || !active.hasStatusApplied("Cowardice")) {
             return false;
         }
         return active.getCumulativeHp() < targetUnit.getCumulativeHp();
@@ -12479,7 +12486,7 @@ export class Sandbox extends PixiScene {
             // branch below pins it to its base cell). Without web-lock here the UI silently drops its melee
             // targets and the player can't attack, even though the engine (AI path) allows it.
             (this.currentActiveUnit.canMove() ||
-                this.currentActiveUnit.hasEffectActive("Paralysis") ||
+                this.currentActiveUnit.hasStatusApplied("Paralysis") ||
                 this.currentActiveUnit.isWebMovementLocked()) &&
             this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
         ) {

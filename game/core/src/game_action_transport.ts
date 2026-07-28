@@ -70,7 +70,14 @@ export interface AuthoritativeUnitState {
      */
     armorMod?: number;
     attackMod?: number;
-    /** Set only by a server that computed both, so a genuine mod of 0 is distinguishable from an old server. */
+    /**
+     * Movement pair. getSteps() is steps + steps_mod, and the ranked client computes its OWN reachable
+     * cells from it, so a combat slow (Quagmire/Hamstrung/Vine Throw) or haste (Battle Roar) has to travel
+     * or the client offers moves the server rejects — and hides ones it would allow.
+     */
+    steps?: number;
+    stepsMod?: number;
+    /** Set only by a server that computed these, so a genuine 0 is distinguishable from an old server. */
     statModsAuthoritative?: boolean;
 }
 

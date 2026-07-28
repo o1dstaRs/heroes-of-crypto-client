@@ -1212,11 +1212,17 @@ export class AIController {
             }
 
             // Beneficial: heal the most-hurt ally / buff allies not already carrying this buff.
+            // hasStatusBuffApplied / hasStatusApplied, not hasBuffActive / hasDebuffActive: these
+            // "don't re-cast what the target already has" guards also run for the RANKED auto-play AI,
+            // where the buff/debuff OBJECT arrays are empty and the plain checks answer "no" forever —
+            // so the AI re-cast the same Riot or Quagmire every turn and burned its scrolls.
             if (spell.isBuff() || isHeal) {
                 if (tt === SpellTargetType.ALL_ALLIES || tt === SpellTargetType.ALL_FLYING) {
                     const benef = (
                         tt === SpellTargetType.ALL_FLYING ? allyCandidates.filter((a) => a.canFly()) : allyCandidates
-                    ).filter((a) => (isHeal ? a.canBeHealed() && a.getHp() < a.getMaxHp() : !a.hasBuffActive(name)));
+                    ).filter((a) =>
+                        isHeal ? a.canBeHealed() && a.getHp() < a.getMaxHp() : !a.hasStatusBuffApplied(name),
+                    );
                     if (benef.length) {
                         consider(benef.length * MASS_VALUE, { spellName: name });
                     }
@@ -1236,7 +1242,7 @@ export class AIController {
                         }
                     } else {
                         for (const a of allyCandidates) {
-                            if (a.hasBuffActive(name)) {
+                            if (a.hasStatusBuffApplied(name)) {
                                 continue;
                             }
                             const v = threat(a);
@@ -1287,7 +1293,7 @@ export class AIController {
                 continue;
             }
             if (tt === SpellTargetType.ALL_ENEMIES) {
-                const benef = enemies.filter((e) => !e.hasDebuffActive(name));
+                const benef = enemies.filter((e) => !e.hasStatusApplied(name));
                 if (benef.length) {
                     consider(benef.length * MASS_VALUE, { spellName: name });
                 }
@@ -1295,7 +1301,7 @@ export class AIController {
                 let target: Unit | undefined;
                 let value = 0;
                 for (const e of enemies) {
-                    if (e.hasDebuffActive(name) || !canCast(spell, e)) {
+                    if (e.hasStatusApplied(name) || !canCast(spell, e)) {
                         continue;
                     }
                     const v = threat(e);

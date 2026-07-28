@@ -466,6 +466,15 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                           attack_mod: unitState.attackMod ?? 0,
                           armor_mod_authoritative: true,
                           attack_mod_authoritative: true,
+                          // Movement only when the server actually sent it: a slightly older server may
+                          // carry the mods but not this pair, and defaulting steps to 0 would freeze units.
+                          ...(unitState.steps !== undefined
+                              ? {
+                                    steps: unitState.steps,
+                                    steps_mod: unitState.stepsMod ?? 0,
+                                    steps_authoritative: true,
+                                }
+                              : {}),
                       }
                     : {}),
                 // Server-applied combat debuffs + effects for the HUD's Debuffs list. Ranked can't run the
