@@ -1,0 +1,266 @@
+---
+/**
+ * The menu theme ("The Last Stand") plus the volume control that governs it.
+ *
+ * Included only on the screens that should sing — mode select and profile here, with the client mounting its
+ * own copy for matchmaking and lobbies. Deliberately NOT in BaseLayout: the blog, the codex and the docs
+ * pages have no business playing music.
+ *
+ * Two sources: Opus/WebM (~1.7 MB) is picked by Chrome, Firefox, Edge and Safari 17+; the MP3 (~3.1 MB) is
+ * the fallback everywhere else. The browser downloads only the one it chooses, so most visitors pay the
+ * smaller price. `preload="none"` means nobody pays anything until the track is actually wanted.
+ *
+ * VOLUME IS SHARED WITH THE GAME CLIENT, which is a different ORIGIN (heroesofcrypto.io vs
+ * beta.heroesofcrypto.io) and therefore cannot see this localStorage. The redirect pages under /play carry
+ * the setting across in the query string instead — see THEME_VOLUME_PARAM below, and keep the two in step.
+ */
+---
+
+<div class="theme-music" data-theme-music>
+    <audio data-theme-audio loop preload="none">
+        <source src="/assets/audio/the_last_stand.webm" type="audio/webm; codecs=opus" />
+        <source src="/assets/audio/the_last_stand.mp3" type="audio/mpeg" />
+    </audio>
+
+    <button
+        class="theme-music-toggle"
+        type="button"
+        data-theme-toggle
+        aria-pressed="false"
+        title="Music volume"
+        aria-label="Toggle music"
+    >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" data-theme-icon-on>
+            <path
+                d="M4 9v6h4l5 4V5L8 9H4z"
+                fill="currentColor"></path>
+            <path
+                d="M16.5 8.5a4.5 4.5 0 0 1 0 7M19 6a8 8 0 0 1 0 12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"></path>
+        </svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" data-theme-icon-off hidden>
+            <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"></path>
+            <path
+                d="M16 9.5l5 5m0-5l-5 5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"></path>
+        </svg>
+    </button>
+
+    <label class="theme-music-slider">
+        <span class="sr-only">Music volume</span>
+        <input type="range" min="0" max="100" step="1" value="50" data-theme-volume aria-label="Music volume" />
+    </label>
+</div>
+
+<script>
+    // Kept in step with the client's own copy (game/core/src/ui/audio/themeMusic.ts) and with the redirect
+    // pages under /play, which hand these across the origin boundary in the query string.
+    const VOLUME_KEY = "hoc:themeVolume";
+    const MUTED_KEY = "hoc:themeMuted";
+    const DEFAULT_VOLUME = 0.5; // "medium"
+    const FADE_MS = 900;
+
+    const root = document.querySelector<HTMLElement>("[data-theme-music]");
+    const audio = document.querySelector<HTMLAudioElement>("[data-theme-audio]");
+    const toggle = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
+    const slider = document.querySelector<HTMLInputElement>("[data-theme-volume]");
+    const iconOn = document.querySelector<SVGElement>("[data-theme-icon-on]");
+    const iconOff = document.querySelector<SVGElement>("[data-theme-icon-off]");
+
+    if (root && audio && toggle && slider && iconOn && iconOff) {
+        const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+        const readStored = (): { volume: number; muted: boolean } => {
+            // A URL parameter wins over stored state: it is how the site hands the setting to the client (and
+            // back), so arriving with one means "the player just set this next door".
+            const params = new URLSearchParams(window.location.search);
+            const fromUrl = params.get("vol");
+            let volume = DEFAULT_VOLUME;
+            let muted = false;
+            try {
+                const storedVolume = window.localStorage.getItem(VOLUME_KEY);
+                if (storedVolume !== null && Number.isFinite(Number(storedVolume))) {
+                    volume = clamp01(Number(storedVolume));
+                }
+                muted = window.localStorage.getItem(MUTED_KEY) === "1";
+            } catch {
+                // Private mode / storage disabled: fall back to the default rather than breaking the page.
+            }
+            if (fromUrl !== null && Number.isFinite(Number(fromUrl))) {
+                volume = clamp01(Number(fromUrl));
+                muted = params.get("muted") === "1";
+            }
+            return { volume, muted };
+        };
+
+        const persist = (volume: number, muted: boolean) => {
+            try {
+                window.localStorage.setItem(VOLUME_KEY, String(volume));
+                window.localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
+            } catch {
+                // Nothing to do — the session still works, the choice just will not outlive it.
+            }
+        };
+
+        let { volume, muted } = readStored();
+        let started = false;
+
+        const paint = () => {
+            slider.value = String(Math.round(volume * 100));
+            const silent = muted || volume === 0;
+            iconOn.hidden = silent;
+            iconOff.hidden = !silent;
+            toggle.setAttribute("aria-pressed", silent ? "true" : "false");
+            root.dataset.silent = silent ? "true" : "false";
+        };
+
+        const effectiveVolume = () => (muted ? 0 : volume);
+
+        // Fade rather than snap: the theme arriving at full volume the instant someone clicks a menu button
+        // is startling, and that click is usually aimed at something else entirely.
+        const fadeTo = (target: number) => {
+            const from = audio.volume;
+            const startedAt = performance.now();
+            const step = (now: number) => {
+                const t = Math.min(1, (now - startedAt) / FADE_MS);
+                audio.volume = clamp01(from + (target - from) * t);
+                if (t < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+        };
+
+        // Autoplay is blocked until the page has been interacted with, so the theme waits for the first
+        // gesture of any kind and slips in behind it. `once` keeps this from firing on every later click.
+        const startOnFirstGesture = () => {
+            if (started) return;
+            started = true;
+            audio.volume = 0;
+            audio.play()
+                .then(() => fadeTo(effectiveVolume()))
+                .catch(() => {
+                    // Still refused (some mobile power-saving modes do). The toggle below remains, so the
+                    // player can ask for it explicitly.
+                    started = false;
+                });
+        };
+
+        for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
+            window.addEventListener(event, startOnFirstGesture, { once: true, passive: true });
+        }
+
+        toggle.addEventListener("click", () => {
+            muted = !muted;
+            // Pressing the speaker when the slider sits at zero means "I want to hear it" — put the volume
+            // somewhere audible rather than unmuting into silence.
+            if (!muted && volume === 0) volume = DEFAULT_VOLUME;
+            persist(volume, muted);
+            paint();
+            if (!started) {
+                startOnFirstGesture();
+                return;
+            }
+            fadeTo(effectiveVolume());
+        });
+
+        slider.addEventListener("input", () => {
+            volume = clamp01(Number(slider.value) / 100);
+            if (volume > 0) muted = false;
+            persist(volume, muted);
+            paint();
+            // Dragging is continuous, so track it directly instead of fading to each intermediate value.
+            audio.volume = effectiveVolume();
+            if (!started) startOnFirstGesture();
+        });
+
+        paint();
+        audio.volume = 0;
+    }
+</script>
+
+<style>
+    .theme-music {
+        position: fixed;
+        right: clamp(0.75rem, 2vw, 1.5rem);
+        bottom: clamp(0.75rem, 2vw, 1.5rem);
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(12, 14, 20, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(6px);
+        color: #e8e2d4;
+    }
+
+    .theme-music-toggle {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    .theme-music-toggle:hover,
+    .theme-music-toggle:focus-visible {
+        color: #ffd88a;
+    }
+
+    .theme-music-toggle svg {
+        width: 1.15rem;
+        height: 1.15rem;
+    }
+
+    .theme-music[data-silent="true"] {
+        color: #8d8778;
+    }
+
+    /* The slider stays out of the way until the control is wanted, so it does not sit over the art. On
+       touch, where there is no hover, it is always available. */
+    .theme-music-slider {
+        width: 0;
+        overflow: hidden;
+        transition: width 160ms ease;
+    }
+
+    .theme-music:hover .theme-music-slider,
+    .theme-music:focus-within .theme-music-slider {
+        width: 5.5rem;
+    }
+
+    @media (hover: none) {
+        .theme-music-slider {
+            width: 5.5rem;
+        }
+    }
+
+    .theme-music-slider input {
+        width: 5.5rem;
+        accent-color: #ffd88a;
+        cursor: pointer;
+    }
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+    }
+</style>

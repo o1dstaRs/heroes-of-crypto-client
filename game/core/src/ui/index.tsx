@@ -34,6 +34,7 @@ import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
+import { ThemeMusic } from "./audio/ThemeMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
@@ -656,6 +657,9 @@ const App: React.FC = () => {
     return (
         <AuthProvider>
             <Router>
+                {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
+                    screens does not restart the theme. It decides for itself which routes sing. */}
+                <ThemeMusic />
                 <AuthedRoutes windowSize={windowSize} />
             </Router>
         </AuthProvider>
