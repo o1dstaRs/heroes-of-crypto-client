@@ -17,9 +17,11 @@
 ---
 
 <div class="theme-music" data-theme-music>
-    <audio data-theme-audio loop preload="none">
-        <source src="/assets/audio/the_last_stand.webm" type="audio/webm; codecs=opus" />
-        <source src="/assets/audio/the_last_stand.mp3" type="audio/mpeg" />
+    <!-- No `loop`: the playlist below hands one track to the next, and loop would pin us to the first.
+         Sources are set by the script so the track can be swapped without rebuilding the element. -->
+    <audio data-theme-audio preload="none">
+        <source data-theme-src-webm src="/assets/audio/the_last_stand.webm" type="audio/webm; codecs=opus" />
+        <source data-theme-src-mp3 src="/assets/audio/the_last_stand.mp3" type="audio/mpeg" />
     </audio>
 
     <button
@@ -66,14 +68,24 @@
     const DEFAULT_VOLUME = 0.5; // "medium"
     const FADE_MS = 900;
 
+    // The menu playlist, in order; wraps back to the first when the last ends. Kept in step with the
+    // client's copy in game/core/src/ui/audio/ThemeMusic.tsx, which serves the same files from /audio.
+    const PLAYLIST = [
+        { webm: "/assets/audio/the_last_stand.webm", mp3: "/assets/audio/the_last_stand.mp3" },
+        { webm: "/assets/audio/the_stone_lullaby.webm", mp3: "/assets/audio/the_stone_lullaby.mp3" },
+    ];
+
     const root = document.querySelector<HTMLElement>("[data-theme-music]");
     const audio = document.querySelector<HTMLAudioElement>("[data-theme-audio]");
     const toggle = document.querySelector<HTMLButtonElement>("[data-theme-toggle]");
     const slider = document.querySelector<HTMLInputElement>("[data-theme-volume]");
     const iconOn = document.querySelector<SVGElement>("[data-theme-icon-on]");
     const iconOff = document.querySelector<SVGElement>("[data-theme-icon-off]");
+    const srcWebm = document.querySelector<HTMLSourceElement>("[data-theme-src-webm]");
+    const srcMp3 = document.querySelector<HTMLSourceElement>("[data-theme-src-mp3]");
 
-    if (root && audio && toggle && slider && iconOn && iconOff) {
+    if (root && audio && toggle && slider && iconOn && iconOff && srcWebm && srcMp3) {
+        let trackIndex = 0;
         const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
         const readStored = (): { volume: number; muted: boolean } => {
@@ -176,6 +188,16 @@
             // Dragging is continuous, so track it directly instead of fading to each intermediate value.
             audio.volume = effectiveVolume();
             if (!started) startOnFirstGesture();
+        });
+
+        // One track ending hands over to the next, wrapping at the end of the list.
+        audio.addEventListener("ended", () => {
+            trackIndex = (trackIndex + 1) % PLAYLIST.length;
+            srcWebm.src = PLAYLIST[trackIndex].webm;
+            srcMp3.src = PLAYLIST[trackIndex].mp3;
+            audio.load();
+            audio.volume = 0;
+            audio.play().then(() => fadeTo(effectiveVolume())).catch(() => undefined);
         });
 
         paint();

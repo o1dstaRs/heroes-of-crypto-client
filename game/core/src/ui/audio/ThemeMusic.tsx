@@ -21,6 +21,19 @@ const MUTED_KEY = "hoc:themeMuted";
 const DEFAULT_VOLUME = 0.5; // "medium"
 const FADE_MS = 900;
 
+/**
+ * The menu playlist, in order. Tracks run one after another and wrap back to the first, so the music never
+ * stops while a player sits in the menus — a single looping track gets old fast at the matchmaking screen,
+ * where the wait can be minutes.
+ *
+ * Each entry ships as Opus/WebM and MP3; the browser picks. Adding a track is a matter of dropping both
+ * encodes into public/audio and appending here (and to the site's copy, which keeps its own list).
+ */
+const PLAYLIST = [
+    { webm: "/audio/the_last_stand.webm", mp3: "/audio/the_last_stand.mp3" },
+    { webm: "/audio/the_stone_lullaby.webm", mp3: "/audio/the_stone_lullaby.mp3" },
+] as const;
+
 /** Route prefixes that carry the theme. Everything else — the fight, the sandbox — stays quiet. */
 const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
 
@@ -67,6 +80,7 @@ export const ThemeMusic: React.FC = () => {
     const initial = useRef(readInitialSettings());
     const [volume, setVolume] = useState(initial.current.volume);
     const [muted, setMuted] = useState(initial.current.muted);
+    const [trackIndex, setTrackIndex] = useState(0);
 
     const singing = shouldSing(pathname);
     const effectiveVolume = muted ? 0 : volume;
@@ -149,6 +163,34 @@ export const ThemeMusic: React.FC = () => {
         }
     }, [singing, effectiveVolume, fadeTo]);
 
+    // One track ending hands over to the next, wrapping at the end of the list. `loop` is deliberately NOT
+    // set on the element: it would pin playback to a single track and this handler would never fire.
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) {
+            return undefined;
+        }
+        const onEnded = (): void => setTrackIndex((current) => (current + 1) % PLAYLIST.length);
+        audio.addEventListener("ended", onEnded);
+        return () => audio.removeEventListener("ended", onEnded);
+    }, []);
+
+    // Load and play whatever track the list has moved to. Skipped on the very first render so it does not
+    // fight the autoplay gate — `started` only becomes true once a gesture has let us in.
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio || !startedRef.current) {
+            return;
+        }
+        audio.load();
+        audio.volume = 0;
+        audio
+            .play()
+            .then(() => fadeTo(shouldSing(window.location.pathname) ? (muted ? 0 : volume) : 0))
+            .catch(() => undefined);
+        // volume/muted are read at fade time on purpose: a mid-track volume change must not reload the track.
+    }, [trackIndex]);
+
     useEffect(() => {
         try {
             window.localStorage.setItem(VOLUME_KEY, String(volume));
@@ -160,7 +202,12 @@ export const ThemeMusic: React.FC = () => {
 
     if (!singing) {
         // The element itself stays mounted (so the track keeps its position); only the control is hidden.
-        return <audio ref={audioRef} loop preload="none" hidden />;
+        return (
+            <audio ref={audioRef} preload="none" hidden>
+                <source src={PLAYLIST[trackIndex].webm} type="audio/webm; codecs=opus" />
+                <source src={PLAYLIST[trackIndex].mp3} type="audio/mpeg" />
+            </audio>
+        );
     }
 
     const silent = muted || volume === 0;
@@ -183,9 +230,9 @@ export const ThemeMusic: React.FC = () => {
                 color: silent ? "#8d8778" : "#e8e2d4",
             }}
         >
-            <audio ref={audioRef} loop preload="none">
-                <source src="/audio/the_last_stand.webm" type="audio/webm; codecs=opus" />
-                <source src="/audio/the_last_stand.mp3" type="audio/mpeg" />
+            <audio ref={audioRef} preload="none">
+                <source src={PLAYLIST[trackIndex].webm} type="audio/webm; codecs=opus" />
+                <source src={PLAYLIST[trackIndex].mp3} type="audio/mpeg" />
             </audio>
             <button
                 type="button"
