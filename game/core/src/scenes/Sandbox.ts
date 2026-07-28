@@ -446,6 +446,9 @@ export class Sandbox extends PixiScene {
     private splitHintText?: Text;
     private splitHintUnitId?: string;
     private splitHintRoll = false;
+    // Aim hint ("Shift to rotate"): shown whenever a rotatable area spell is armed. See
+    // updateFireWallRotateHint for why this one does not roll a chance the way the split hint does.
+    private fireWallRotateHintText?: Text;
     /** Is there an actual *active* selection (overlay or board)? */
     private hasActiveSelection = false;
     /** True if the active selection came from overlay; false if from board. */
@@ -10396,6 +10399,44 @@ export class Sandbox extends PixiScene {
         this.splitHintRoll = false;
         if (this.splitHintText) this.splitHintText.visible = false;
     }
+    /**
+     * "⇧ Shift to rotate" under the armed Fire Wall footprint — the same on-board cue the split gesture gets,
+     * because Shift-to-rotate is no more discoverable than Shift-to-drag.
+     *
+     * Arming already writes a line to the scene log, but that log is a busy side panel during a fight and the
+     * one moment this matters is while the player is looking at the board, aiming.
+     *
+     * Unlike the split hint this shows EVERY time rather than rolling a chance: hovering stacks during
+     * placement happens constantly, so that one nags if it always fires, whereas this appears only while a
+     * rotatable spell is actually armed — a deliberate, short-lived moment where missing the cue means laying
+     * the wall the wrong way across the board.
+     */
+    private updateFireWallRotateHint(): void {
+        const spell = this.currentActiveSpell;
+        if (!spell || !this.isRotatableAreaSpell(spell)) {
+            this.clearFireWallRotateHint();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const anchor = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+        if (!anchor) {
+            this.clearFireWallRotateHint();
+            return;
+        }
+        const pos = GridMath.getPositionForCell(anchor, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        if (!pos) {
+            this.clearFireWallRotateHint();
+            return;
+        }
+        this.fireWallRotateHintText = this.ensureSplitText(this.fireWallRotateHintText, 20, 0xffe08a);
+        this.fireWallRotateHintText.text = "⇧ Shift to rotate";
+        // Below the footprint, clear of the 3-cell line itself whichever way it currently lies.
+        this.fireWallRotateHintText.position.set(pos.x, pos.y + gs.getCellSize() * 1.35);
+        this.fireWallRotateHintText.visible = true;
+    }
+    private clearFireWallRotateHint(): void {
+        if (this.fireWallRotateHintText) this.fireWallRotateHintText.visible = false;
+    }
     protected updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const started = fightProps.hasFightStarted();
@@ -10890,6 +10931,8 @@ export class Sandbox extends PixiScene {
         this.drawCraftAim(g);
         // Vine Throw (ANY_ENEMY) aim preview: highlight the lane the vine would cover.
         this.drawVineThrowAim(g);
+        // "Shift to rotate" under an armed Fire Wall, alongside its footprint preview.
+        this.updateFireWallRotateHint();
     }
     /**
      * Vine Throw aim preview: while the spell is armed and the cursor is over an enemy, highlight every cell
