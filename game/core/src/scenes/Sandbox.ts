@@ -2528,7 +2528,7 @@ export class Sandbox extends PixiScene {
             case "obstacle_attack":
                 return this.playReplayObstacleAttackAction(record);
             case "area_throw_attack":
-                return this.playReplayAreaThrowAction(action);
+                return this.playReplayAreaThrowAction(record);
             case "cast_spell":
                 return this.playReplayCastSpellAction(record);
             case "end_turn":
@@ -3941,9 +3941,11 @@ export class Sandbox extends PixiScene {
     private getReplayObstacleStrikeHoldMs(landedHits: number): number {
         return Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS + Math.max(0, landedHits - 1) * 240;
     }
-    private async playReplayAreaThrowAction(
-        action: Extract<GameAction, { type: "area_throw_attack" }>,
-    ): Promise<boolean> {
+    private async playReplayAreaThrowAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = record.action;
+        if (action.type !== "area_throw_attack") {
+            return false;
+        }
         const unit = this.unitsHolder.getAllUnits().get(action.attackerId) as RenderableUnit | undefined;
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellPosition = GridMath.getPositionForCell(
@@ -3956,7 +3958,10 @@ export class Sandbox extends PixiScene {
             return false;
         }
         this.currentActiveUnit = unit;
-        await this.performAreaThrow(unit, action.targetCell, cellPosition);
+        // Hand the RECORD down, not just the action: every other replay path renders from the recorded
+        // events, and the area throw was the last one still reading its own local re-run (see the note in
+        // performAreaThrow on why that showed re-rolled numbers and could drop the action entirely).
+        await this.performAreaThrow(unit, action.targetCell, cellPosition, record);
         return true;
     }
     private async playReplayCastSpellAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
@@ -7397,10 +7402,25 @@ export class Sandbox extends PixiScene {
         void this.performAreaThrow(unit, mouseCell, cellPosition);
         return true;
     }
+    /**
+     * `replayRecord` marks this as a REPLAY of an already-resolved throw (the ranked opponent's, and in
+     * ranked the local player's own — it is deferred and comes back through the same path). The record's
+     * `area_attacked` event is what the SERVER resolved, so it drives every visual; the local engine
+     * re-apply is then only there to move local state along. Two things went wrong while this path read
+     * its own re-run instead:
+     *   - damage is `getRandomInt(min, max)` (plus luck/crit rolls), so each side re-rolled its own
+     *     numbers — the figures on screen were not the damage the server dealt, and the two players
+     *     disagreed. Every other replay path renders from the record for exactly this reason.
+     *   - a re-apply the engine REJECTS (`unit_already_acted` once a snapshot has synced the actor,
+     *     `fight_finished`, spent shots) returned early and swallowed the whole action: no projectile
+     *     numbers, no deaths, and none of the events bundled onto it (turn advance, lap flip, Armageddon,
+     *     narrowing). The cast/attack/obstacle replays all fall back to the recorded events here.
+     */
     private async performAreaThrow(
         unit: RenderableUnit,
         mouseCell: HoCMath.XY,
         cellPosition: HoCMath.XY,
+        replayRecord?: SandboxReplay["actions"][number],
     ): Promise<void> {
         const action: GameAction = {
             type: "area_throw_attack",
@@ -7447,15 +7467,26 @@ export class Sandbox extends PixiScene {
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
-        if (!result.completed) {
+        const findAreaEvent = (
+            events: readonly GameEvent[],
+        ): Extract<GameEvent, { type: "area_attacked" }> | undefined =>
+            events.find((e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked");
+        // The record wins whenever there is one: it is the throw the server actually resolved, while
+        // `result` is a local re-roll of the same dice (see the note on this method).
+        const recordedAreaEvent = replayRecord ? findAreaEvent(replayRecord.events) : undefined;
+        if (!result.completed && !recordedAreaEvent) {
+            // Nothing to draw — but a replayed record still owes its deaths and turn advance. The caller
+            // reports this action as played, so nobody else will apply them.
+            if (replayRecord) {
+                this.applyReplayEvents(replayRecord.events);
+            }
             return;
         }
 
         // Prefer the engine's per-unit `splash` breakdown (the HP-diff fallback only sums to one number per
         // unit). Attribute kills before cleanupDeadUnits below tears the dead down and spawns death visuals.
-        const areaEvent = result.events.find(
-            (e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked",
-        );
+        const areaEvent = recordedAreaEvent ?? findAreaEvent(result.events);
+
         if (areaEvent) {
             this.noteDeathBlowsFromAttackEvent(areaEvent);
         }
@@ -7496,7 +7527,14 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clearHoverSilhouette();
         this.cleanupDeadUnits();
         this.refreshUnits();
-        this.applyTurnEngineEvents(result.events, unitSnapshot);
+        if (result.completed) {
+            this.applyTurnEngineEvents(result.events, unitSnapshot);
+        } else if (replayRecord) {
+            // The re-apply was rejected but the server did resolve this throw. Apply what it recorded so the
+            // deaths, the turn advance and any lap mechanics riding on this action still land — the same
+            // fallback playReplayCastSpellAction takes. Amounts reconcile from the next snapshot.
+            this.applyReplayEvents(replayRecord.events);
+        }
     }
     /**
      * Pick the visible edge of `target` a ranged shot is aimed at, from the current cursor position.
