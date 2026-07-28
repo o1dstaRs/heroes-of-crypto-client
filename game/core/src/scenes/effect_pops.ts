@@ -96,27 +96,3 @@ export function diffUnitEffects(
     const flash: EffectFlash = newDebuffs.length ? "debuff" : newBuffs.length ? "buff" : "none";
     return { newDebuffs, newBuffs, flash, seeded: false };
 }
-
-/** Prefix every ability the Blacksmith's Craft grants shares ("Crafted Double Punch", ...). */
-export const CRAFTED_ABILITY_PREFIX = "Crafted ";
-
-/**
- * Which Craft-granted abilities a unit has newly gained, in iteration order.
- *
- * Craft's outcome is a luck-weighted roll the client must never re-derive locally — a ranked replay
- * re-runs the cast with unseeded RNG and would show a different result on each player's screen. The
- * authoritative snapshot's ability list is the only honest source, so this diffs that instead.
- *
- * Restricted to the "Crafted " prefix on purpose: a unit's permanent abilities are already on it when
- * it is first seen, and other runtime ability changes (Predatory Assimilation steals) have their own
- * dedicated VFX. Seeds silently on first sighting, exactly like diffUnitEffects.
- */
-export function newlyCraftedAbilities(
-    previous: ReadonlySet<string> | undefined,
-    current: ReadonlySet<string>,
-): string[] {
-    if (!previous) {
-        return [];
-    }
-    return [...current].filter((name) => name.startsWith(CRAFTED_ABILITY_PREFIX) && !previous.has(name));
-}

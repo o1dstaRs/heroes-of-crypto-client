@@ -42,7 +42,7 @@ import {
     type SandboxSceneUnitState,
     type SceneActionEngine,
 } from "./Sandbox";
-import { animatableEffectNames, diffUnitEffects, newlyCraftedAbilities } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import { PlayActionType } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
@@ -728,12 +728,6 @@ export class RankedPlayScene extends Sandbox {
     // don't burst.
     private readonly unitDebuffs = new Map<string, Set<string>>();
     private readonly unitBuffs = new Map<string, Set<string>>();
-    // Craft grants ABILITIES ("Crafted Double Punch" / "Crafted Frozen Sword"), which are not buffs and so
-    // never show up in the buff/debuff diff. Sandbox pops them from its own local cast (popCraftResults),
-    // but ranked defers the cast to the authoritative replay and must NOT re-roll the outcome there (the
-    // replay re-runs with unseeded RNG and would show a random wrong result). Tracking the snapshot's
-    // ability list instead pops the REAL outcome, identically for the caster and the opponent.
-    private readonly unitAbilities = new Map<string, Set<string>>();
     // High-water sequence for effect-pop diffing, kept separate from the board sequence so a freshly
     // applied debuff/buff is popped exactly once, in order — even when the snapshot that carries it is
     // otherwise board-skipped (mid-animation), which used to defer or drop the pop on the receiving side.
@@ -965,7 +959,6 @@ export class RankedPlayScene extends Sandbox {
             this.effectPopsSequence = -1;
             this.unitDebuffs.clear();
             this.unitBuffs.clear();
-            this.unitAbilities.clear();
         }
         // Process each snapshot's effects at most once and only forward in sequence: this runs BEFORE the
         // board-rebuild guards (so a debuff applied during an opponent's attack animation still pops on
@@ -986,7 +979,6 @@ export class RankedPlayScene extends Sandbox {
                 // Record the effects silently — never animate a pop on a dead unit.
                 this.unitDebuffs.set(unitState.id, currentDebuffs);
                 this.unitBuffs.set(unitState.id, currentBuffs);
-                this.unitAbilities.set(unitState.id, new Set(unitState.abilities ?? []));
                 continue;
             }
             const diff = diffUnitEffects(
@@ -1013,26 +1005,20 @@ export class RankedPlayScene extends Sandbox {
             }
             this.unitDebuffs.set(unitState.id, currentDebuffs);
             this.unitBuffs.set(unitState.id, currentBuffs);
-            const currentAbilities = new Set(unitState.abilities ?? []);
-            const craftedAbilities = newlyCraftedAbilities(this.unitAbilities.get(unitState.id), currentAbilities);
-            this.unitAbilities.set(unitState.id, currentAbilities);
             // Diffed eagerly (above) so a mid-animation snapshot can't drop the effect, but ANIMATED only
             // once the strike that applied it connects: the server resolves an action — and this snapshot
             // lands — while the replayed arrow is still flying or the attacker is still walking in.
             this.queueOrPlayEffectPops({
                 unit,
-                // A crafted ability is a good outcome, so flash the buff wash when nothing else landed.
-                flash: diff.flash === "none" && craftedAbilities.length ? "buff" : diff.flash,
+                flash: diff.flash,
                 debuffs: [...diff.newDebuffs],
                 buffs: [...diff.newBuffs],
-                abilities: craftedAbilities,
             });
         }
         for (const id of [...this.unitDebuffs.keys()]) {
             if (!seen.has(id)) {
                 this.unitDebuffs.delete(id);
                 this.unitBuffs.delete(id);
-                this.unitAbilities.delete(id);
             }
         }
     }

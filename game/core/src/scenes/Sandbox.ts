@@ -146,12 +146,6 @@ interface IPendingEffectPop {
     flash: EffectFlash;
     debuffs: string[];
     buffs: string[];
-    /**
-     * Newly gained ABILITY names (Craft's "Crafted ..." grants). Abilities are not buffs, so they never
-     * appear in the buff/debuff diff — ranked pops them from the authoritative snapshot's ability list.
-     * Sandbox leaves this empty: its own popCraftResults already pops the crafted ability locally.
-     */
-    abilities?: string[];
 }
 
 /** Full board snapshot taken at fight start (pre-supply) for "Rematch". */
@@ -3990,7 +3984,7 @@ export class Sandbox extends PixiScene {
         // pops through processDebuffPops, and a crafted weapon / rune buff shows in the unit's panel. The
         // forge itself is outcome-independent, so it is safe to play. The crafted ABILITY additionally pops
         // on the board in ranked, diffed off the snapshot's ability list (RankedPlayScene.processDebuffPops
-        // -> newlyCraftedAbilities), which is authoritative and so identical on both players' screens.
+        // -> renderCastOutcomes), which is authoritative and so identical on both players' screens.
         const isCraftCast = action.spellName === "Craft";
         const craftCasterPos = { ...caster.getPosition() };
 
@@ -4094,7 +4088,14 @@ export class Sandbox extends PixiScene {
         // snapshot (`spell_not_available`), or the turn has handed over. Gating the animation on
         // `result.completed` therefore swallowed the whole forge in ranked while it always played in sandbox.
         if (isCraftCast) {
-            this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize());
+            const forgeMs = this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize()) ?? 0;
+            // The per-ally results the SERVER rolled, held until the forge finishes so they read as its
+            // output. Safe from the replay precisely because they are stated on the record rather than
+            // re-derived — re-running the roll locally would show each player a different craft.
+            setTimeout(() => this.renderCastOutcomes(record.events), forgeMs + 80);
+        } else {
+            // Rune success/failure and any other stated roll; no forge to wait on.
+            this.renderCastOutcomes(record.events);
         }
         if (result.completed) {
             this.cleanupAfterSpell(result.events, unitSnapshot);
@@ -5877,11 +5878,6 @@ export class Sandbox extends PixiScene {
         // Where the caster stands BEFORE the cast — the origin a thrown spell's projectile flies from.
         const casterPosBeforeCast = { ...caster.getPosition() };
 
-        // Armor Rune/Weapon: snapshot the running +N BEFORE the cast so we can tell success (it rose) from
-        // the 50% miss (unchanged) afterwards and play the matching attempt->resolve VFX on the target.
-        const isEnchant = spell.getName() === "Armor Rune" || spell.getName() === "Weapon Rune";
-        const enchantBefore = isEnchant ? (targetUnit.getBuff(spell.getName())?.getFirstSpellProperty() ?? 0) : 0;
-
         const action: GameAction = {
             type: "cast_spell",
             casterId: caster.getId(),
@@ -5928,18 +5924,61 @@ export class Sandbox extends PixiScene {
         }
 
         this.cleanupAfterSpell(result.events, unitSnapshot);
-        if (isEnchant) {
-            this.playEnchantResult(targetUnit as RenderableUnit, spell.getName(), enchantBefore);
-        }
+        // Craft and the Runes report their roll on the event; renderCastOutcomes turns it into the pop.
+        this.renderCastOutcomes(result.events);
         return true;
     }
     /**
      * Play the Armor Rune / Weapon attempt->resolve VFX on the target and, on success, flash it. Success is
      * detected by the buff's running +N total having risen past its pre-cast value.
      */
-    private playEnchantResult(target: RenderableUnit, spellName: string, before: number): void {
-        const after = target.getBuff(spellName)?.getFirstSpellProperty() ?? 0;
-        const success = after > before;
+    /**
+     * Render a cast's per-target ROLL from the authoritative event.
+     *
+     * Craft and the Runes resolve by dice, not by state change, so two of their outcomes — Craft's "nothing"
+     * and a failed rune — leave the board untouched. That made them invisible to a snapshot diff and unsafe
+     * to re-derive in a ranked replay, which re-runs with unseeded RNG and would show each player a different
+     * answer. The engine now states the roll on `spell_cast.outcomes`, so this reads the server's result and
+     * is correct on BOTH sides: sandbox passes its own local events, ranked passes the authoritative record.
+     *
+     * Stun deliberately pops nothing here — the generic effect diff (reconcileEffectVisuals in sandbox,
+     * processDebuffPops in ranked) already pops a newly gained Stun, and popping it again would double it.
+     */
+    protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
+        for (const event of events ?? []) {
+            if (event.type !== "spell_cast" || !event.outcomes?.length) {
+                continue;
+            }
+            for (const entry of event.outcomes) {
+                const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+                if (!unit || unit.isDead()) {
+                    continue;
+                }
+                switch (entry.outcome) {
+                    case "double":
+                    case "frozen":
+                        // Each ally is a DISTINCT unit at its own position, so every pop uses stackIndex 0.
+                        if (entry.grantedAbility) {
+                            this.popAbilityOnUnit(unit, entry.grantedAbility, 0);
+                        }
+                        break;
+                    case "stun":
+                        break;
+                    case "nothing":
+                        this.combatVisuals?.showCraftFail(unit.getPosition());
+                        break;
+                    case "enchanted":
+                    case "failed":
+                        this.showEnchantResult(unit, event.spellName, entry.outcome === "enchanted", entry.amount);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+    /** The rune's attempt->resolve flourish, driven by the server's roll rather than a before/after diff. */
+    private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean, total?: number): void {
         const isArmor = spellName === "Armor Rune";
         const iconTexture = this.texAny(isArmor ? "armor_rune_256" : "weapon_rune_256");
         if (!iconTexture) {
@@ -5954,7 +5993,7 @@ export class Sandbox extends PixiScene {
             {
                 tint: isArmor ? 0x59b6ff : 0xff7a3c,
                 iconTexture,
-                label: success ? `+${after} ${isArmor ? "armor" : "attack"}` : "Failed",
+                label: success ? `+${total ?? 1} ${isArmor ? "armor" : "attack"}` : "Failed",
                 success,
             },
         );
@@ -5993,9 +6032,6 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        // Snapshot each ally inside the 2x2 BEFORE the cast (abilities + stun state) so we can diff the
-        // per-unit Craft outcome afterwards and pop an explicit result over every affected ally.
-        const before = this.snapshotCraftTargets(cell, caster);
         const casterPos = { ...caster.getPosition() };
 
         const action: GameAction = {
@@ -6030,77 +6066,11 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
                 0;
             this.cleanupAfterSpell(result.events, unitSnapshot);
-            setTimeout(() => this.popCraftResults(before), forgeMs + 80);
+            setTimeout(() => this.renderCastOutcomes(result.events), forgeMs + 80);
             return true;
         }
         this.cleanupAfterSpell(result.events, unitSnapshot);
         return true;
-    }
-    /**
-     * Capture the pre-cast state (ability names + whether already stunned) of every distinct ally occupying
-     * the Craft 2x2 whose top-left is `cell`. Keyed by unit id so a large (2x2) ally is captured once.
-     */
-    private snapshotCraftTargets(
-        cell: HoCMath.XY,
-        caster: Unit,
-    ): Map<string, { abilities: Set<string>; stunned: boolean }> {
-        const areaCells: HoCMath.XY[] = [
-            cell,
-            { x: cell.x + 1, y: cell.y },
-            { x: cell.x, y: cell.y + 1 },
-            { x: cell.x + 1, y: cell.y + 1 },
-        ];
-        const before = new Map<string, { abilities: Set<string>; stunned: boolean }>();
-        for (const c of areaCells) {
-            const id = this.grid.getOccupantUnitId(c);
-            if (!id || before.has(id)) {
-                continue;
-            }
-            const unit = this.unitsHolder.getAllUnits().get(id);
-            if (!unit || unit.getTeam() !== caster.getTeam()) {
-                continue;
-            }
-            before.set(id, {
-                abilities: new Set(unit.getAbilities().map((a) => a.getName())),
-                stunned: unit.hasEffectActive("Stun"),
-            });
-        }
-        return before;
-    }
-    /**
-     * Pop an explicit icon+label over each Craft target showing what it received: the granted weapon
-     * (Crafted Double / Frozen — green buff pop), a fresh Stun (violet debuff pop), or "No effect" for a
-     * failed craft. Driven by diffing post-cast state against the pre-cast snapshot.
-     */
-    private popCraftResults(before: Map<string, { abilities: Set<string>; stunned: boolean }>): void {
-        for (const [id, prev] of before) {
-            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (!unit || unit.isDead()) {
-                continue;
-            }
-            // Each ally is a DISTINCT unit at its own board position, so every pop uses stackIndex 0. (The
-            // stack index only lifts multiple pops landing on the SAME unit; feeding an incrementing index
-            // across different units floated each successive pop half a cell farther off its target.)
-            const gained = unit
-                .getAbilities()
-                .map((a) => a.getName())
-                .find((name) => name.startsWith("Crafted ") && !prev.abilities.has(name));
-            if (gained) {
-                const tex = this.texAny(AbilityHelper.abilityToTextureName(gained));
-                if (tex) {
-                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, gained, 0, "buff");
-                }
-            } else if (!prev.stunned && unit.hasStatusEffect("Stun")) {
-                // Stun outcome: intentionally NO pop here. The generic effect-diff already pops a newly
-                // gained Stun from applied_effects/debuffs — processDebuffPops in ranked (which now runs on
-                // the replayed Craft), reconcileEffectVisuals in sandbox — so popping it again here would
-                // double it (~1.58s apart, after the forge). We still branch (rather than fall through) so a
-                // stun isn't mislabelled as a "No effect" fail below.
-            } else {
-                // Failed craft: plain dark-grey "No effect!" text, no icon.
-                this.combatVisuals?.showCraftFail(unit.getPosition());
-            }
-        }
     }
     /**
      * Shared post-cast cleanup: remove units killed by the spell, refresh stacks, clear the
@@ -6389,10 +6359,9 @@ export class Sandbox extends PixiScene {
                 unit: renderable,
                 flash: diff.flash,
                 debuffs: [...diff.newDebuffs],
-                // Armor Rune / Weapon Rune play a dedicated attempt->resolve VFX (playEnchantResult) in the
-                // local cast path, so skip the generic buff-applied pop here — otherwise the rune bubbles up
-                // a second time on a successful enchant. Ranked has no playEnchantResult and pops via its own
-                // path, so this sandbox-only reconcile skip doesn't touch it.
+                // Armor Rune / Weapon Rune render their own attempt->resolve flourish from the cast's
+                // authoritative outcome (renderCastOutcomes), so skip the generic buff-applied pop here —
+                // otherwise the rune bubbles up a second time on a successful enchant.
                 buffs: [...diff.newBuffs].filter((name) => name !== "Armor Rune" && name !== "Weapon Rune"),
             });
         }
@@ -6748,7 +6717,7 @@ export class Sandbox extends PixiScene {
      * swallowed even if an attack ends without reaching its impact hook.
      */
     protected queueOrPlayEffectPops(entry: IPendingEffectPop): void {
-        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length && !entry.abilities?.length) {
+        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
             return;
         }
         if (this.isStrikeInFlight()) {
@@ -6785,9 +6754,6 @@ export class Sandbox extends PixiScene {
         }
         for (const name of entry.buffs) {
             this.popEffectOnUnit(entry.unit, name, stackIndex++, "buff");
-        }
-        for (const name of entry.abilities ?? []) {
-            this.popAbilityOnUnit(entry.unit, name, stackIndex++);
         }
     }
     /**
@@ -7486,7 +7452,6 @@ export class Sandbox extends PixiScene {
         // Prefer the engine's per-unit `splash` breakdown (the HP-diff fallback only sums to one number per
         // unit). Attribute kills before cleanupDeadUnits below tears the dead down and spawns death visuals.
         const areaEvent = recordedAreaEvent ?? findAreaEvent(result.events);
-
         if (areaEvent) {
             this.noteDeathBlowsFromAttackEvent(areaEvent);
         }
