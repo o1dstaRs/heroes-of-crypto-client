@@ -160,6 +160,46 @@ interface IFightSnapshot {
     gridType: GridType;
 }
 
+/**
+ * Which kind of strike, if any, the active unit can land on the mountain it is pointing at.
+ *
+ * "melee" is CONDITIONAL: it still needs a reachable cell to swing from, which only the scene can work
+ * out. Kept separate so that lookup stays lazy -- a shot needs no attack-from cell, and this runs on
+ * every mouse move.
+ *
+ * This is the single rule behind BOTH the themed sword/bow cursor and the click that actually damages
+ * the rock. They must not be able to disagree: an attack cursor is a promise that clicking lands a hit.
+ */
+export type ObstacleAttackKind = "none" | "range" | "melee";
+
+export const obstacleAttackKind = (params: {
+    hasActiveUnit: boolean;
+    gridType: number;
+    obstacleHitsLeft: number;
+    /** Lazy: this runs on every mouse move, and the cheap map/hit-count gates reject most of them. */
+    isCenterCell: () => boolean;
+    attackTypeSelection: AttackType;
+    /** Lazy for the same reason -- an aggro-matrix lookup is not worth doing off the mountain. */
+    canLandRangeHit: () => boolean;
+}): ObstacleAttackKind => {
+    if (!params.hasActiveUnit || params.gridType !== GridVals.BLOCK_CENTER || params.obstacleHitsLeft <= 0) {
+        return "none";
+    }
+    if (!params.isCenterCell()) {
+        return "none";
+    }
+    if (params.attackTypeSelection === AttackVals.RANGE && params.canLandRangeHit()) {
+        return "range";
+    }
+    // Magic never chips the mountain, so it must not raise an attack cursor over one either. A ranged
+    // unit that cannot land its shot (locked in melee, out of ammo) falls through to its melee swing,
+    // which is exactly what clicking would do.
+    if (params.attackTypeSelection === AttackVals.MAGIC) {
+        return "none";
+    }
+    return "melee";
+};
+
 export type SceneActionEngine = Pick<GameActionEngine, "apply">;
 
 export interface SandboxSceneUnitState {
@@ -6161,37 +6201,63 @@ export class Sandbox extends PixiScene {
      * pathHelper.calculateClosestAttackFrom. Ranged units shoot in place. Returns true if a hit was
      * initiated (turn consumed).
      */
-    private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
+    /**
+     * How the active unit would strike the mountain under `worldPos`, or undefined if it cannot.
+     *
+     * Split out of attemptObstacleAttack so the CURSOR and the CLICK are decided by one function. The
+     * themed sword/bow cursor is a promise that a click will land a hit; when the two were worked out
+     * separately the mountain read as plain terrain — no attack cursor at all — right up until the click
+     * that damaged it. The melee branch resolves its attack-from cell here rather than leaving it to the
+     * caller: a sword cursor over a mountain the unit cannot actually reach is exactly the false promise
+     * this is meant to remove.
+     */
+    private resolveObstacleAttack(
+        worldPos: HoCMath.XY,
+    ): { unit: RenderableUnit; attackType: AttackType; attackFrom?: HoCMath.XY } | undefined {
         const unit = this.currentActiveUnit;
-        if (!unit) {
-            return false;
-        }
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
-            return false;
+        const kind = obstacleAttackKind({
+            hasActiveUnit: !!unit,
+            gridType: fightProps.getGridType(),
+            obstacleHitsLeft: fightProps.getObstacleHitsLeft(),
+            isCenterCell: () => {
+                const hoveredCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), worldPos);
+                return (
+                    !!hoveredCell &&
+                    this.grid.getCenterCells().some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)
+                );
+            },
+            attackTypeSelection: unit?.getAttackTypeSelection() ?? AttackVals.MELEE,
+            canLandRangeHit: () =>
+                !!unit &&
+                this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId())),
+        });
+        if (!unit || kind === "none") {
+            return undefined;
         }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const hoveredCell = GridMath.getCellForPosition(gs, worldPos);
-        const centerCells = this.grid.getCenterCells();
-        if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
-            return false;
+        if (kind === "range") {
+            // A shot at the mountain needs no attack-from cell: the unit fires from where it stands.
+            return { unit, attackType: AttackVals.RANGE };
         }
-
-        const canLandRangeHit =
-            unit.getAttackTypeSelection() === AttackVals.RANGE &&
-            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()));
-        if (canLandRangeHit) {
-            return this.executeObstacleAttackSequence(unit, worldPos, undefined);
-        }
-        if (unit.getAttackTypeSelection() === AttackVals.MAGIC) {
-            return false;
-        }
-
         const attackFrom = this.resolveMountainAttackFrom(worldPos);
         if (!attackFrom) {
+            return undefined;
+        }
+        return { unit, attackType: AttackVals.MELEE, attackFrom };
+    }
+    /**
+     * Whether the cursor at `worldPos` is aiming at a mountain the active unit can actually hit — the
+     * gate for showing the sword/bow attack cursor over destructible terrain.
+     */
+    private isHoveringAttackableObstacle(worldPos: HoCMath.XY): boolean {
+        return !!this.resolveObstacleAttack(worldPos);
+    }
+    private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
+        const resolved = this.resolveObstacleAttack(worldPos);
+        if (!resolved) {
             return false;
         }
-        return this.executeObstacleAttackSequence(unit, worldPos, attackFrom);
+        return this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom);
     }
     /**
      * Whether the straight world-space segment from -> to passes over anything a FLYER cannot
@@ -10068,7 +10134,14 @@ export class Sandbox extends PixiScene {
         // HoMM-style attack cursor (themed melee/ranged/magic PNG) only renders while actively aiming
         // at a valid target. Flag a hover-text refresh so UpdateHoverInfo re-emits this frame.
         const wasHoveringTarget = this.sc_isHoveringAttackTarget;
-        this.sc_isHoveringAttackTarget = !!this.hoverManager.hoverAttackTargetUnit;
+        // Mountains are attackable too, and they are not units, so hoverAttackTargetUnit never covers
+        // them: aiming at a destructible centre showed the plain cursor even though the very next click
+        // would chip it. hoverRangeAttackObstacle is the blocked-shot case -- the mountain intercepting a
+        // shot aimed at someone behind it -- which is just as much an attack as aiming at the rock itself.
+        this.sc_isHoveringAttackTarget =
+            !!this.hoverManager.hoverAttackTargetUnit ||
+            !!this.hoverRangeAttackObstacle ||
+            this.isHoveringAttackableObstacle(p);
         if (wasHoveringTarget !== this.sc_isHoveringAttackTarget) {
             this.sc_hoverTextUpdateNeeded = true;
         }
