@@ -146,7 +146,9 @@ const augmentTable = [
         icon: "/assets/images/units/abilities/armor_augment_256.webp",
         name: isRu ? "Броня" : "Armor",
         tiers: ["+6%", "+13%", "+21%"],
-        note: isRu ? "броня команды" : "team armor",
+        // One purchase, both defences: the same percentage lands on magic resist as on physical armor.
+        // It is a percentage of the unit's OWN stat, so a creature with no magic resist gains none.
+        note: isRu ? "броня и магическая броня" : "team armor + magic armor",
     },
     {
         icon: "/assets/images/units/abilities/might_augment_256.webp",
@@ -231,10 +233,29 @@ const copy = isRu
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
               "Публичный список сейчас сфокусирован на четырех игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
           ],
+          draftSteps: [
+              {
+                  title: "1. Доктрина",
+                  text: "Ваша разведка на весь драфт — и она же покупает очки апгрейдов. «Шпион» видит все пики соперника и дает 5 очков, «Разведчик» вскрывает 3 случайных слота за 6, «Слепая ярость» не видит ничего и дает 7. Информация или сила — вместе не получится.",
+              },
+              {
+                  title: "2. Бандл",
+                  text: "Вам предлагают два бандла, вы берете один. В каждом сразу существо 1 уровня, существо 2 уровня и артефакт 1 тира — нужный артефакт может стоить вам нужного существа.",
+              },
+              {
+                  title: "3-5, 7. Пики по уровням",
+                  text: "По одному существу на уровень, первый ход чередуется: вы начинаете на 1 и 3 уровнях, соперник — на 2 и 4. Серые портреты забанены. Если доктрина не вскрывает пики соперника, вы их не видите: возьмете уже занятое — просто выберете заново.",
+              },
+              {
+                  title: "6. Артефакт 2 тира",
+                  text: "Из двенадцати артефактов 2 тира вам предлагают три; выбираете один на всю армию. Это происходит до пика 4 уровня, поэтому последнее существо можно подобрать под него.",
+              },
+          ],
           draftNotes: [
-              "Базовый пул драфта по уровням: 2/2/1/1.",
-              "Баны по уровню разрешены только если в пуле остается достаточно вариантов.",
-              "Раскрытие полезно, когда важнее узнать угрозу соперника, чем забрать еще один неизвестный слот.",
+              "Базовый пул драфта по уровням: 2/2/1/1 — бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
+              "Баны раздает игра до драфта, игроки их не выбирают: случайно убираются 5 существ 1 уровня, 5 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. То, что предложено в бандлах, не банится никогда.",
+              "Бан по уровню возможен только если в пуле остается достаточно вариантов на все пики обеих команд.",
+              "Что вы видите, решает только доктрина, поэтому выбирайте ее как план на весь драфт, а не как реакцию на один пик.",
           ],
           unitsTitle: "Как читать юнита",
           unitStats: [
@@ -256,9 +277,9 @@ const copy = isRu
                   text: "полная невосприимчивость к эффектам разума (Blindness, Aggravating, Boar Saliva, Petrifying Gaze). Даётся только способностями Madness/Mechanism, не артефактами",
               },
           ],
-          upgradesTitle: "Апгрейды команды: 7 очков, настоящие компромиссы",
+          upgradesTitle: "Апгрейды команды: 5-7 очков, настоящие компромиссы",
           upgradesIntro:
-              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения.",
+              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет — это то, что заплатила ваша доктрина: 5 очков за «Шпиона», 6 за «Разведчика», 7 за «Слепую ярость». Чем меньше видите драфт соперника, тем сильнее армия.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -446,11 +467,31 @@ const copy = isRu
               "Conceptually every unit pulls roughly the same weight in your army: a weaker creature simply arrives as a bigger stack, so no single unit is just 'better' than another. Fights are won by your plan and how your units synergize — not by raw stats or flashy abilities.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
               "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large 2x2 creatures, and utility pieces with auras.",
+              "The draft runs in eight steps: Doctrine, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, Level 4, then placement. You end with the same 2/2/1/1 army either way — the order is what makes it a read on your opponent.",
+          ],
+          draftSteps: [
+              {
+                  title: "1. Doctrine",
+                  text: "Your scouting stance for the whole draft, and it buys your upgrade points. Spymaster sees every opponent pick and grants 5 points; Scout reveals 3 random slots for 6; Blind Fury sees nothing and grants 7. Information or power — you cannot have both.",
+              },
+              {
+                  title: "2. Bundle",
+                  text: "You are offered two bundles and take one. Each is a level-1 creature, a level-2 creature, and a Tier-1 artifact together, so the artifact you want may cost you the creature you wanted.",
+              },
+              {
+                  title: "3-5, 7. Level picks",
+                  text: "One creature per level, alternating who picks first: you lead on levels 1 and 3, your opponent leads on levels 2 and 4. Greyed portraits are banned. Unless your doctrine reveals it, you cannot see what the opponent has taken — pick something they already own and you simply pick again.",
+              },
+              {
+                  title: "6. Tier-2 artifact",
+                  text: "Three of the twelve Tier-2 artifacts are offered to you; choose one for the whole army. It lands before the level-4 pick, so your last creature can be chosen to suit it.",
+              },
           ],
           draftNotes: [
-              "The baseline draft pool by level is 2/2/1/1.",
-              "A level can only be banned if enough units of that level remain available.",
-              "Reveal is best when knowing the opponent's threat matters more than taking another unknown slot.",
+              "The baseline draft pool by level is 2/2/1/1 — the bundle already covers one level-1 and one level-2.",
+              "Bans are dealt by the game before the draft, not chosen by players: 5 creatures at level 1, 5 at level 2, 3 at level 3 and 5 at level 4 are removed at random. Nothing offered inside a bundle is ever banned.",
+              "A level can only be banned if enough units of that level remain available for every pick both teams are owed.",
+              "Your doctrine is the only thing that decides what you see, so choose it as a plan for the whole draft rather than a reaction to one pick.",
           ],
           unitsTitle: "How to read a unit",
           unitStats: [
@@ -472,9 +513,9 @@ const copy = isRu
                   text: "full immunity to mind effects (Blindness, Aggravating, Boar Saliva, Petrifying Gaze). Comes only from the Madness/Mechanism abilities, never from an artifact",
               },
           ],
-          upgradesTitle: "Team upgrades: 7 points, real tradeoffs",
+          upgradesTitle: "Team upgrades: 5-7 points, real tradeoffs",
           upgradesIntro:
-              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts.",
+              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft doctrine paid you: 5 points for Spymaster, 6 for Scout, 7 for Blind Fury. Seeing less of the opponent\u2019s draft is what buys the bigger army.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -744,6 +785,16 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <p class="eyebrow">{isRu ? "Драфт" : "Draft"}</p>
             <h2>{copy.draftTitle}</h2>
             {copy.draftParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+            <div class="rules-action-grid">
+                {
+                    copy.draftSteps.map((step) => (
+                        <article class="rules-card compact">
+                            <h3>{step.title}</h3>
+                            <p>{step.text}</p>
+                        </article>
+                    ))
+                }
+            </div>
             <ul class="rules-clean-list">
                 {copy.draftNotes.map((note) => <li>{note}</li>)}
             </ul>
