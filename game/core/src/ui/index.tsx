@@ -11,7 +11,6 @@ import "typeface-open-sans";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
-import DraggableToolbar from "./DraggableToolbar";
 import { Main } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
@@ -34,8 +33,6 @@ import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
-import { ThemeMusic } from "./audio/ThemeMusic";
-import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
@@ -187,7 +184,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
                     )}
                     {!isLoading && !replayPlaybackActive && <PlayRankedBadge left={aiBadgeLeft(windowSize)} />}
-                    {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />
                 <Popover />
@@ -340,15 +336,6 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
     const [routeMode, setRouteMode] = useState<"checking" | "pick" | "play">("checking");
-
-    // "Iron and Silk" covers everything between the match being found and the first turn: the match check,
-    // picks and augments here, then placement inside RankedGameView, which takes over the flag once the
-    // board is up (it is the only screen that sees the phase). Cleared on unmount so leaving mid-draft — a
-    // decline, a reload, a navigation away — never leaves the pre-fight track playing over the menus.
-    useEffect(() => {
-        setPrefightMusicActive(!!gameId && !showOverlay && routeMode !== "play");
-    }, [gameId, showOverlay, routeMode]);
-    useEffect(() => () => setPrefightMusicActive(false), []);
     // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
     // phases that hand the completed draft off to placement/play (see LIVE_PICK_PHASES in
     // common/picks/pick_sim.ts — AUGMENTS/AUGMENTS_SCOUT are last, PICK/BAN/ARTIFACT_* come first).
@@ -667,9 +654,6 @@ const App: React.FC = () => {
     return (
         <AuthProvider>
             <Router>
-                {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
-                    screens does not restart the theme. It decides for itself which routes sing. */}
-                <ThemeMusic />
                 <AuthedRoutes windowSize={windowSize} />
             </Router>
         </AuthProvider>

@@ -183,8 +183,10 @@ export const FightLog = ({ text }: { text: string }) => {
             <Box
                 sx={{
                     width: "100%",
-                    minHeight: "56px",
-                    maxHeight: "168px",
+                    // Fixed, not elastic: the well used to start at 56px and grow to 168px as entries
+                    // arrived, which nudged everything around it for the first few turns of every fight.
+                    // It now opens at its final height and simply fills up.
+                    height: "168px",
                     overflowY: "auto",
                     overflowX: "hidden",
                     // Contain wheel scrolling here so it doesn't bubble to the sidebar when over the log.

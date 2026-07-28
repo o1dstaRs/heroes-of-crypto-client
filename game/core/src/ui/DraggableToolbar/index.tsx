@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Sheet, Box, Divider, Tooltip } from "@mui/joy";
-import { useTheme } from "@mui/joy/styles";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Sheet, Box, Tooltip } from "@mui/joy";
 import { styled } from "@mui/system";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import RotateRightIcon from "@mui/icons-material/RotateRight";
 
 import { images } from "../../generated/image_imports";
 const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
@@ -17,8 +14,6 @@ const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.met
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
-const blackImage = new URL("../../../images/overlay_black.webp", import.meta.url).toString();
-const lightImage = new URL("../../../images/overlay_light.webp", import.meta.url).toString();
 
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
@@ -37,6 +32,23 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
 };
 
+/**
+ * How each glyph is cropped out of its plaque. The atlas art is a decorated tile — a square plate with
+ * ornamental corners (or, for the clover, a round medallion) with the glyph in the middle. `zoom` blows the
+ * art up inside the button so the plate falls outside the circular clip; `inset` then pulls the whole layer
+ * in from the button's rim so the glyph does not touch the border. Values are per icon because the plates
+ * are not laid out identically.
+ */
+const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {
+    // Round medallion, no corner ornaments: show it almost whole, filling the button to its rim.
+    [luckShieldIconImage]: { zoom: 108, inset: 3 },
+    // The spellbook already reads well at the conservative crop — left alone deliberately.
+    [spellbookIconImage]: { zoom: 140, inset: 16 },
+};
+// Square plates: crop past the corner ornaments (they occupy the outer ~20%), which lands the glyph
+// filling the disc.
+const GLYPH_CROP_DEFAULT = { zoom: 168, inset: 7 };
+
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
     [hourglassIconImage]: true,
@@ -48,81 +60,83 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [luckShieldIconImage]: false,
 };
 
-const StyledSheet = styled(Sheet, {
-    shouldForwardProp: (prop) => prop !== "isDragging",
-})<{ isDragging?: boolean }>(({ theme, isDragging }) => ({
-    backgroundImage: `url(${theme.palette.mode === "dark" ? blackImage : lightImage})`,
-    backgroundSize: "cover",
-    // Bronze/gold dungeon trim to match the tooltips + fire-lit board.
-    border: `${Math.max(1, Math.round(2 * SCREEN_RATIO))}px solid`,
-    borderColor: "#caa24f",
-    borderRadius: `${10 * SCREEN_RATIO}px`,
-    padding: `${0.7 * SCREEN_RATIO}rem`,
-    // Depth shadow + a faint warm glow so it reads as a lit dungeon panel, plus an inner darkening
-    // so the trim frames a recessed stone face.
-    boxShadow: `0 ${3 * SCREEN_RATIO}px ${10 * SCREEN_RATIO}px rgba(0,0,0,0.6), 0 0 ${
-        12 * SCREEN_RATIO
-    }px rgba(220,177,88,0.18), inset 0 0 ${10 * SCREEN_RATIO}px rgba(0,0,0,0.45)`,
-    // No position easing while dragging — the old left/top transition made the bar float behind the
-    // cursor. Re-enabled on release so the snap-to-edge glides into place.
-    transition: isDragging
-        ? "none"
-        : "left 0.4s cubic-bezier(0.22, 1, 0.36, 1), top 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
+// The `icon_*_black.webp` atlas is named for the dark theme it ships against — the glyphs themselves are
+// already light. So the handoff's ember values are reached by warming them, NOT by inverting: an invert
+// drives a light glyph to near-black and it vanishes on the obsidian disc.
+const EMBER_GLYPH_FILTER =
+    "sepia(48%) saturate(240%) hue-rotate(-6deg) brightness(1.02) drop-shadow(0 0 2px rgba(0,0,0,.9))";
+const EMBER_GLYPH_FILTER_BRIGHT =
+    "sepia(24%) saturate(165%) hue-rotate(-4deg) brightness(1.16) drop-shadow(0 0 3px rgba(243,212,136,.5))";
+
+// Obsidian shell from the fight-sidebar handoff. The old bronze-trimmed stone panel read as another gold
+// frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
+const StyledSheet = styled(Sheet)(() => ({
+    backgroundImage: "linear-gradient(180deg, rgba(28,20,12,.96), rgba(8,6,4,.96))",
+    padding: "12px 8px",
+    borderRadius: "14px",
+    border: "3px solid #0a0705",
+    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
 }));
 
 const StyledIconButton = styled("button", {
-    shouldForwardProp: (prop) =>
-        typeof prop === "string" && !["rotationDegrees", "isDark", "clickEffectNeeded"].includes(prop),
-})<{ rotationDegrees: number; isDark: boolean; clickEffectNeeded?: boolean }>(
-    ({ rotationDegrees, isDark, clickEffectNeeded }) => ({
-        width: 45 * SCREEN_RATIO,
-        height: 45 * SCREEN_RATIO,
-        padding: 0,
-        border: "none",
-        borderRadius: "50%",
-        backgroundSize: "contain",
+    shouldForwardProp: (prop) => typeof prop === "string" && !["rotationDegrees", "clickEffectNeeded"].includes(prop),
+})<{ rotationDegrees: number; clickEffectNeeded?: boolean }>(({ rotationDegrees, clickEffectNeeded }) => ({
+    width: 45 * SCREEN_RATIO,
+    height: 45 * SCREEN_RATIO,
+    padding: 0,
+    borderRadius: "50%",
+    transition: "all 0.3s ease",
+    position: "relative",
+    overflow: "hidden",
+    cursor: "pointer",
+    transform: `rotate(${rotationDegrees}deg)`,
+    // Obsidian disc with a black rim. The glyph rides on the ::before layer so the ember filter tints the
+    // artwork only — filtering the button itself inverted the disc along with it.
+    background: "radial-gradient(circle at 42% 32%, #2b2118, #120c07 70%)",
+    border: "2px solid #241a10",
+    boxShadow: "inset 0 2px 6px rgba(0,0,0,.9), 0 0 12px rgba(0,0,0,.5)",
+    "&::before": {
+        content: '""',
+        position: "absolute",
+        // Both values come from GLYPH_CROP, set per icon on the element (see ButtonComponent).
+        inset: "var(--hoc-glyph-inset)",
+        backgroundImage: "var(--hoc-glyph)",
+        backgroundSize: "var(--hoc-glyph-zoom)",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
-        transition: "all 0.3s ease",
-        position: "relative",
-        cursor: "pointer",
-        transform: `rotate(${rotationDegrees}deg)`,
-        backgroundColor: "transparent",
-        "&:hover:not(:disabled)": {
-            transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
-            ...(isDark
-                ? {
-                      boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(255, 255, 255, 0.5)`,
-                      filter: "brightness(1.1) drop-shadow(0 0 3.5px rgba(255, 255, 255, 0.5))",
-                      backgroundColor: "rgba(255, 255, 255, 0.14)",
-                  }
-                : {
-                      boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(255, 0, 0, 0.5)`,
-                      filter: "brightness(1.1) drop-shadow(0 0 3.5px rgba(255, 0, 0, 0.5))",
-                      backgroundColor: "rgba(255, 0, 0, 0.14)",
-                  }),
-        },
-        "&:disabled": {
-            opacity: 0.5,
-            cursor: "not-allowed",
-        },
-        "&:active:not(:disabled)": {
-            ...(clickEffectNeeded
-                ? {
-                      transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
-                      boxShadow: `0 0 ${10.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.2)`,
-                  }
-                : {}),
-        },
-    }),
-);
+        filter: EMBER_GLYPH_FILTER,
+        transition: "filter 0.3s ease",
+        pointerEvents: "none",
+    },
+    "&:hover:not(:disabled)": {
+        transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
+        background: "radial-gradient(circle at 42% 32%, #3a2c1c, #1a1109 70%)",
+        borderColor: "#8a7136",
+        boxShadow: "inset 0 2px 6px rgba(0,0,0,.8), 0 0 18px rgba(243,212,136,.4)",
+        "&::before": { filter: EMBER_GLYPH_FILTER_BRIGHT },
+    },
+    "&:disabled": {
+        background: "radial-gradient(circle at 42% 32%, #201811, #0d0905 70%)",
+        borderColor: "rgba(202,162,79,.35)",
+        boxShadow: "none",
+        opacity: 0.5,
+        cursor: "not-allowed",
+    },
+    "&:active:not(:disabled)": {
+        ...(clickEffectNeeded
+            ? {
+                  transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
+                  boxShadow: `0 0 ${10.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.2)`,
+              }
+            : {}),
+    },
+}));
 
 interface ButtonComponentProps {
     iconImage: string;
     text: string;
     isVisible: boolean;
     isDisabled: boolean;
-    isDark: boolean;
     onClick?: () => void;
     isHourglass?: boolean;
     customSpriteName?: string;
@@ -135,7 +149,6 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     text,
     isVisible,
     isDisabled,
-    isDark,
     onClick,
     isHourglass = false,
     customSpriteName,
@@ -169,6 +182,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
         return null;
     }
 
+    const glyphCrop = GLYPH_CROP[iconImage] ?? GLYPH_CROP_DEFAULT;
     const needRotate = ICON_IMAGE_NEED_ROTATE[iconImage];
     const initialRotation = needRotate ? 180 : 0;
 
@@ -180,18 +194,24 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         onClick={handleClick}
                         disabled={isDisabled}
                         rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
-                        isDark={isDark}
                         clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
-                        style={{
-                            backgroundImage: `url(${iconImage})`,
-                            width: 45 * SCREEN_RATIO,
-                            height: 45 * SCREEN_RATIO,
-                            filter: transfusionEffect ? "brightness(1.2)" : "none",
-                            animation: transfusionEffect ? "transfusion 1.5s linear" : "none",
-                            boxShadow: transfusionEffect
-                                ? `0 0 ${14 * SCREEN_RATIO}px rgba(255, 255, 255, 0.7)`
-                                : "none",
-                        }}
+                        style={
+                            {
+                                // The glyph URL reaches the ::before layer through a custom property, so the
+                                // ember filter tints the artwork without touching the disc underneath.
+                                "--hoc-glyph": `url(${iconImage})`,
+                                "--hoc-glyph-zoom": `${glyphCrop.zoom}%`,
+                                "--hoc-glyph-inset": `${glyphCrop.inset}%`,
+                                width: 45 * SCREEN_RATIO,
+                                height: 45 * SCREEN_RATIO,
+                                ...(transfusionEffect
+                                    ? {
+                                          animation: "transfusion 1.5s linear",
+                                          boxShadow: `0 0 ${14 * SCREEN_RATIO}px rgba(243, 212, 136, 0.7)`,
+                                      }
+                                    : {}),
+                            } as React.CSSProperties
+                        }
                         data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                     />
                 </Tooltip>
@@ -236,226 +256,28 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     );
 };
 
-const getBarSize = (width: number, height: number) => {
-    const widthRatio = width / 2048;
-    const heightRatio = height / 2048;
-    const scaleRatio = Math.min(widthRatio, heightRatio);
-    const scaledBoardSize = 2048 * scaleRatio;
-    const rightBarEndAtBoard = (width - scaledBoardSize) / 2;
-    return rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0;
-};
-
-// Analytic fallback for the toolbar's own rendered width, used only before toolbarRef has mounted (the
-// very first default-position computation happens in a useState initializer, ahead of the DOM existing
-// to measure). In its default single-column layout the widest child is always a 45px-diameter button —
-// the drag-indicator/divider/rotate icons are all narrower — so width = button + StyledSheet's own
-// padding/border on both sides. Mirrors those CSS values exactly (1rem = 16px) so this estimate lines
-// up with the real rendered box once toolbarRef.current.offsetWidth takes over on the next resize/reset.
-const estimateToolbarWidth = (): number => {
-    const buttonWidthPx = 45 * SCREEN_RATIO;
-    const paddingPx = 0.7 * SCREEN_RATIO * 16 * 2;
-    const borderPx = Math.max(1, Math.round(2 * SCREEN_RATIO)) * 2;
-    return buttonWidthPx + paddingPx + borderPx;
-};
-
 const DraggableToolbar: React.FC = () => {
-    // Declared before getDefaultSettings below (which reads toolbarRef.current) so there's no temporal
-    // deadzone: getDefaultSettings is CALLED from the position/isVertical useState initializers further
-    // down, i.e. before a `const toolbarRef` declared after them would be initialized.
-    const toolbarRef = React.useRef<HTMLDivElement>(null);
+    // Kept only so the styled components re-render at the right scale after a resize/zoom — SCREEN_RATIO
+    // is module-level and read at render time.
+    const [, bumpScaleTick] = useState(0);
 
     const updateScreenRatios = useCallback(() => {
         SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+        bumpScaleTick((tick) => tick + 1);
     }, []);
-
-    const getDefaultSettings = useCallback((): { x: number; y: number; isVertical: boolean } => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        const isLandscape = width / height >= 16 / 9;
-        const barSize = getBarSize(width, height);
-
-        // Landscape: Left side (right edge of Left Sidebar)
-        // Vertical: Right side, docked just OUTSIDE the Right Sidebar's left edge — offset left by the
-        // toolbar's own rendered width (measured once mounted, else estimated) so the bar never sits on
-        // top of the sidebar's list/wallet/version controls. Audit found it fully overlapping the Right
-        // Sidebar at narrower-than-16:9 resolutions (e.g. 1680x1000), which take this vertical branch;
-        // the old formula placed the toolbar's LEFT edge flush with the sidebar's left edge, so the whole
-        // bar rendered on top of the sidebar instead of beside it.
-        // Update: Landscape should stick to inside edge of sidebar (move left by button width)
-        const toolbarWidth = toolbarRef.current?.offsetWidth ?? estimateToolbarWidth();
-        const x = isLandscape ? barSize - 48 * SCREEN_RATIO : Math.max(0, width - barSize - toolbarWidth);
-
-        return {
-            x,
-            y: height / 3.2,
-            isVertical: true,
-        };
-    }, []);
-
-    const [position, setPosition] = useState<{ x: number; y: number }>(() => {
-        const ds = getDefaultSettings();
-        return { x: ds.x, y: ds.y };
-    });
-
-    const [isDragging, setIsDragging] = useState<boolean>(false);
-    const [isVertical, setIsVertical] = useState<boolean>(() => getDefaultSettings().isVertical);
-    const theme = useTheme();
-
     const { buttons: buttonGroup, propagateClick } = useButtonContext();
-    // Live drag state kept in refs so dragging doesn't re-render the bar on every mousemove.
-    const positionRef = useRef(position);
-    const draggingRef = useRef(false);
-    const movedRef = useRef(false);
-    const dragStartRef = useRef({ x: 0, y: 0 });
-    const dragOffsetRef = useRef({ x: 0, y: 0 });
-    const pendingRef = useRef<{ x: number; y: number } | null>(null);
-    const rafRef = useRef<number | null>(null);
-    useEffect(() => {
-        positionRef.current = position;
-    }, [position]);
-
-    const resetToDefaultPosition = useCallback(() => {
-        const ds = getDefaultSettings();
-        setPosition({ x: ds.x, y: ds.y });
-        setIsVertical(ds.isVertical);
-    }, [getDefaultSettings]);
 
     useEffect(() => {
-        const resetPositionIfNeeded = () => {
-            const ds = getDefaultSettings();
-            setPosition((prevPosition) => {
-                const dragIndicatorPosition = {
-                    x: prevPosition.x,
-                    y: prevPosition.y,
-                };
-
-                // If currently off-screen (or uninitialized), reset to default
-                if (
-                    dragIndicatorPosition.x < -50 ||
-                    dragIndicatorPosition.y < -50 ||
-                    dragIndicatorPosition.x > window.innerWidth ||
-                    dragIndicatorPosition.y > window.innerHeight
-                ) {
-                    return { x: ds.x, y: ds.y };
-                }
-
-                // If the screen resized significantly, we might want to snap back or clamp?
-                // For now, let's keep the user's manual position UNLESS it's lost.
-                // But the user constraint implies "appear at..." which is initial.
-
-                return prevPosition;
-            });
-            setIsVertical(ds.isVertical);
-        };
-
-        // Run once on mount to set initial correct position
-        // This is now handled by the functional useState initializer for position and isVertical.
-        // const ds = getDefaultSettings();
-        // setPosition({ x: ds.x, y: ds.y });
-
-        const handleResizeOrZoom = () => {
-            updateScreenRatios();
-            resetPositionIfNeeded();
-        };
-
-        window.addEventListener("resize", handleResizeOrZoom);
-        window.addEventListener("zoom", handleResizeOrZoom as EventListener);
-        document.addEventListener("fullscreenchange", resetToDefaultPosition);
+        window.addEventListener("resize", updateScreenRatios);
+        window.addEventListener("zoom", updateScreenRatios as EventListener);
+        document.addEventListener("fullscreenchange", updateScreenRatios);
 
         return () => {
-            window.removeEventListener("resize", handleResizeOrZoom);
-            window.removeEventListener("zoom", handleResizeOrZoom as EventListener);
-            document.removeEventListener("fullscreenchange", resetToDefaultPosition);
+            window.removeEventListener("resize", updateScreenRatios);
+            window.removeEventListener("zoom", updateScreenRatios as EventListener);
+            document.removeEventListener("fullscreenchange", updateScreenRatios);
         };
-    }, [updateScreenRatios, buttonGroup.length, isVertical, resetToDefaultPosition, getDefaultSettings]);
-
-    // Distinguish a real drag from a plain click so clicking a button doesn't fling the bar to an edge.
-    const DRAG_THRESHOLD = 4;
-
-    // On release, dock to whichever screen edge is closest (with a small margin).
-    const snapToNearestEdge = useCallback((x: number, y: number): { x: number; y: number } => {
-        const el = toolbarRef.current;
-        const w = el?.offsetWidth ?? 0;
-        const h = el?.offsetHeight ?? 0;
-        const margin = Math.round(8 * SCREEN_RATIO);
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-        const distLeft = x;
-        const distRight = winW - (x + w);
-        const distTop = y;
-        const distBottom = winH - (y + h);
-        const nearest = Math.min(distLeft, distRight, distTop, distBottom);
-        let nx = x;
-        let ny = y;
-        if (nearest === distLeft) nx = margin;
-        else if (nearest === distRight) nx = winW - w - margin;
-        else if (nearest === distTop) ny = margin;
-        else ny = winH - h - margin;
-        nx = Math.max(margin, Math.min(nx, winW - w - margin));
-        ny = Math.max(margin, Math.min(ny, winH - h - margin));
-        return { x: nx, y: ny };
-    }, []);
-
-    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-        if (e.button !== 0) return;
-        draggingRef.current = true;
-        movedRef.current = false;
-        dragStartRef.current = { x: e.clientX, y: e.clientY };
-        dragOffsetRef.current = { x: e.clientX - positionRef.current.x, y: e.clientY - positionRef.current.y };
-    }, []);
-
-    useEffect(() => {
-        const handleMove = (e: MouseEvent) => {
-            if (!draggingRef.current || !toolbarRef.current) return;
-            if (!movedRef.current) {
-                const dx = e.clientX - dragStartRef.current.x;
-                const dy = e.clientY - dragStartRef.current.y;
-                if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
-                movedRef.current = true;
-                setIsDragging(true); // kills the position transition so the bar tracks the cursor 1:1
-            }
-            const w = toolbarRef.current.offsetWidth;
-            const h = toolbarRef.current.offsetHeight;
-            let newX = e.clientX - dragOffsetRef.current.x;
-            let newY = e.clientY - dragOffsetRef.current.y;
-            newX = Math.max(0, Math.min(newX, window.innerWidth - w));
-            newY = Math.max(0, Math.min(newY, window.innerHeight - h));
-            pendingRef.current = { x: newX, y: newY };
-            positionRef.current = { x: newX, y: newY };
-            // Coalesce bursts of mousemove into a single state write per frame.
-            if (rafRef.current == null) {
-                rafRef.current = window.requestAnimationFrame(() => {
-                    rafRef.current = null;
-                    if (pendingRef.current) setPosition(pendingRef.current);
-                });
-            }
-        };
-        const handleUp = () => {
-            if (!draggingRef.current) return;
-            draggingRef.current = false;
-            if (rafRef.current != null) {
-                window.cancelAnimationFrame(rafRef.current);
-                rafRef.current = null;
-            }
-            if (!movedRef.current) return; // was a click, not a drag — leave the bar where it is
-            setIsDragging(false); // re-enables the transition so the snap glides
-            const snapped = snapToNearestEdge(positionRef.current.x, positionRef.current.y);
-            positionRef.current = snapped;
-            setPosition(snapped);
-        };
-        document.addEventListener("mousemove", handleMove);
-        document.addEventListener("mouseup", handleUp);
-        return () => {
-            document.removeEventListener("mousemove", handleMove);
-            document.removeEventListener("mouseup", handleUp);
-        };
-    }, [snapToNearestEdge]);
-
-    const handleRotate = () => {
-        setIsVertical(!isVertical);
-    };
-
-    const isDark = theme.palette.mode === "dark";
+    }, [updateScreenRatios]);
 
     const getButtonIcon = (button: IVisibleButton) => {
         if (button.customSpriteName) {
@@ -465,13 +287,13 @@ const DraggableToolbar: React.FC = () => {
         return BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
     };
 
-    // Memoized so the per-frame position updates during a drag don't re-render every button.
     const buttonsContent = useMemo(
         () => (
             <Box
                 sx={{
                     display: "flex",
-                    flexDirection: isVertical ? "column" : "row",
+                    flexDirection: "column",
+                    alignItems: "center",
                     gap: 1.5,
                 }}
             >
@@ -482,7 +304,6 @@ const DraggableToolbar: React.FC = () => {
                         text={button.name}
                         isVisible={button.isVisible}
                         isDisabled={button.isDisabled}
-                        isDark={isDark}
                         onClick={() => propagateClick(button.name, button.state)}
                         isHourglass={button.name === "Hourglass"}
                         customSpriteName={button.customSpriteName}
@@ -493,71 +314,32 @@ const DraggableToolbar: React.FC = () => {
             </Box>
         ),
 
-        [buttonGroup, isVertical, isDark, propagateClick],
+        [buttonGroup, propagateClick],
     );
 
-    return buttonGroup.length > 0 ? (
+    // Every button hides itself when it is not applicable (ButtonComponent returns null), so on the
+    // opponent's turn the group is non-empty but renders nothing — which used to leave an empty framed
+    // column sitting in the sidebar. Drop the frame too when there is nothing inside it.
+    const hasVisibleButton = buttonGroup.some((button) => button.isVisible);
+
+    return hasVisibleButton ? (
         <StyledSheet
-            ref={toolbarRef}
-            isDragging={isDragging}
             sx={{
-                position: "absolute",
-                left: `${position.x}px`,
-                top: `${position.y}px`,
+                // In-flow inside the right sidebar. It used to float over the board — first wherever the
+                // player had dragged it, then pinned to the board's right edge — and either way it sat on
+                // cells that have to be clickable to move and attack. Sized to the button column so the
+                // damage table sits beside it rather than under it.
+                position: "relative",
+                width: "fit-content",
+                flex: "none",
                 display: "flex",
-                flexDirection: isVertical ? "column" : "row",
+                flexDirection: "column",
                 alignItems: "center",
                 gap: 1.5,
-                zIndex: 1000,
-                cursor: isDragging ? "grabbing" : "default",
                 userSelect: "none",
             }}
-            onMouseDown={handleMouseDown}
         >
-            <Box
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0,
-                    marginBottom: isVertical ? 0 : 0,
-                    marginRight: isVertical ? 0 : 0,
-                    cursor: "grab",
-                    color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
-                    "&:hover": {
-                        color: isDark ? "white" : "black",
-                    },
-                }}
-            >
-                <DragIndicatorIcon />
-            </Box>
-
-            <Divider orientation={isVertical ? "horizontal" : "vertical"} />
-
             {buttonsContent}
-
-            <Divider orientation={isVertical ? "horizontal" : "vertical"} />
-
-            <Tooltip title="Rotate Toolbar" variant="soft">
-                <StyledIconButton
-                    rotationDegrees={0} // No rotation for the icon itself
-                    isDark={isDark}
-                    onClick={handleRotate}
-                    sx={{
-                        width: "auto",
-                        height: "auto",
-                        padding: "4px",
-                        borderRadius: "50%",
-                        color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
-                        "&:hover": {
-                            backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-                            color: isDark ? "white" : "black",
-                            transform: "scale(1.1)",
-                        },
-                    }}
-                >
-                    <RotateRightIcon />
-                </StyledIconButton>
-            </Tooltip>
         </StyledSheet>
     ) : null;
 };
