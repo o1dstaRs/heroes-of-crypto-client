@@ -5,7 +5,8 @@
 //
 // Army-wide artifacts are modelled as System spells in spells.json too. They are filtered out here
 // because they already have their own codex at /artifacts — keeping them would list every artifact
-// twice under a misleading "spell" label.
+// twice under a misleading "spell" label. Pre-game augments are excluded for the same reason: they are
+// drafted, not cast, so a codex of castable spells is the wrong place for them.
 
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
 
@@ -17,11 +18,10 @@ export type SpellBook = "System" | "Life" | "Nature" | "Chaos" | "Death" | "Orde
 /**
  * How a spell reaches the battlefield:
  * - `spellbook` — a scroll a unit casts from its spell book during the fight
- * - `augment`   — an army-wide upgrade chosen before the fight
  * - `ability`   — cast by a unit ability rather than from the spell book
  * - `effect`    — a buff/debuff applied automatically by attacks, abilities, terrain or game state
  */
-export type SpellKind = "spellbook" | "augment" | "ability" | "effect";
+export type SpellKind = "spellbook" | "ability" | "effect";
 
 /**
  * How long a spell sticks, taken from the description's own "Lasts ..." line rather than from `laps`.
@@ -107,6 +107,12 @@ export const bookColors: Record<SpellBook, string> = {
     System: "#9aa3ab",
 };
 
+/**
+ * Pre-game army augments, which spells.json also models as System spells so the engine can apply them
+ * through the same machinery. Nobody ever casts one — they are drafted and apply to the whole army — so
+ * they are excluded from this codex entirely and documented on /rules, which covers all six with their
+ * point costs. Listing them here duplicated that under a misleading "spell" label.
+ */
 const augmentSpells = new Set([
     "Armor Augment",
     "Might Augment",
@@ -293,9 +299,6 @@ function spellKind(book: SpellBook, raw: RawSpell, casterCount: number): SpellKi
     if (casterCount > 0) {
         return "spellbook";
     }
-    if (augmentSpells.has(raw.name)) {
-        return "augment";
-    }
     if (abilityCastSpells.has(raw.name)) {
         return "ability";
     }
@@ -326,7 +329,7 @@ export const spells: Spell[] = bookOrder
     .filter((book) => rawBooks[book])
     .flatMap((book) =>
         Object.values(rawBooks[book])
-            .filter((raw) => !artifactSpellNames.has(normalizeName(raw.name)))
+            .filter((raw) => !artifactSpellNames.has(normalizeName(raw.name)) && !augmentSpells.has(raw.name))
             .map((raw) => {
                 const casters = (castersBySpell.get(`${book}:${raw.name}`) ?? []).sort((a, b) =>
                     a.name.localeCompare(b.name),
