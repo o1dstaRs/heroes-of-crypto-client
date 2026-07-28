@@ -5,7 +5,6 @@ import Box from "@mui/joy/Box";
 import Divider from "@mui/joy/Divider";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
-import Typography from "@mui/joy/Typography";
 import { AnimatePresence, motion } from "framer-motion";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -14,7 +13,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
 import { TeamAmountFlag } from "../TeamAmountFlag";
 import { resolveUnitImage } from "../unitImage";
-import { prefetchUnitAtlas } from "./UnitStatsListItem";
+import { prefetchUnitAtlas, SectionTitle } from "./UnitStatsListItem";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
@@ -39,6 +38,16 @@ const commonTooltipSx = {
     maxWidth: "280px",
     zIndex: 10000,
 };
+
+// The full-queue overlay is bound to the Alt key (see UpNextOverlay's `event.altKey` handler), but that
+// key is labelled Option on Apple keyboards — the hint has to name the key the player can actually see.
+const FULL_QUEUE_KEY_LABEL = /mac|iphone|ipad|ipod/i.test(
+    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+        navigator.platform ??
+        navigator.userAgent,
+)
+    ? "Option (⌥)"
+    : "Alt";
 
 // Copied from UnitStatsListItem.tsx
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
@@ -157,11 +166,23 @@ export const UpNext: React.FC = () => {
 
     const leadAvatar = Math.round(metrics.avatarPx * 1.16);
     const markerPx = Math.round(Math.max(12, metrics.avatarPx * 0.28));
+    // How many avatars fit end to end without the last one being sliced: the first slot is the enlarged
+    // lead, every following slot is a normal avatar plus the gap before it.
+    const queueGapPx = Math.round(metrics.gapPx * 0.5);
+    const visibleQueueCount = Math.max(
+        1,
+        1 + Math.floor((metrics.contentWidth - leadAvatar) / (metrics.avatarPx + queueGapPx)),
+    );
+    const stripWidth = leadAvatar + (visibleQueueCount - 1) * (metrics.avatarPx + queueGapPx);
 
     return (
         <>
             <Divider />
-            <Tooltip title="Click ALT to see who is turning next" placement="top" sx={commonTooltipSx}>
+            <Tooltip
+                title={`Hold ${FULL_QUEUE_KEY_LABEL} to see the full turn order`}
+                placement="top"
+                sx={commonTooltipSx}
+            >
                 {/* Container Box acts as the trigger, separated from Tooltip styles */}
                 <Box
                     sx={{
@@ -171,19 +192,33 @@ export const UpNext: React.FC = () => {
                         pt: `${Math.round(metrics.gapPx * 0.5)}px`,
                     }}
                 >
-                    <Typography level="title-md" sx={{ fontSize: `${0.8 * metrics.fontScale}rem`, lineHeight: 1.2 }}>
-                        Up next
-                    </Typography>
+                    <SectionTitle title="Up next" metrics={metrics} />
 
-                    <Box sx={{ overflow: "hidden" }}>
+                    {/* Width is snapped to a whole number of avatars so the strip never shows a sliced one
+                        at its right edge — anything that does not fit completely lives behind the scroller. */}
+                    <Box sx={{ overflow: "hidden", width: `${stripWidth}px`, maxWidth: "100%" }}>
                         <Stack
                             direction="row"
                             sx={{
-                                gap: `${Math.round(metrics.gapPx * 0.5)}px`,
+                                gap: `${queueGapPx}px`,
                                 overflowX: "auto",
                                 flexWrap: "nowrap",
-                                "&::-webkit-scrollbar": { display: "none" },
-                                scrollbarWidth: "none",
+                                // The strip has always scrolled, but with the scrollbar hidden there was
+                                // nothing to tell the player the queue continues past the last avatar. A slim
+                                // bronze bar under the row both shows that and gives it a drag handle.
+                                pb: `${Math.round(metrics.gapPx * 0.4)}px`,
+                                "&::-webkit-scrollbar": { height: "6px" },
+                                "&::-webkit-scrollbar-track": {
+                                    background: "rgba(0,0,0,0.35)",
+                                    borderRadius: "3px",
+                                },
+                                "&::-webkit-scrollbar-thumb": {
+                                    background: "rgba(202,162,79,0.65)",
+                                    borderRadius: "3px",
+                                    "&:hover": { background: "rgba(202,162,79,0.9)" },
+                                },
+                                scrollbarWidth: "thin",
+                                scrollbarColor: "rgba(202,162,79,0.65) rgba(0,0,0,0.35)",
                             }}
                         >
                             <AnimatePresence initial={false} mode="popLayout">

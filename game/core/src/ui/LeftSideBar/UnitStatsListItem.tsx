@@ -28,6 +28,7 @@ import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../g
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../scenes/VisibleState";
+import SynergiesRow from "./SynergiesRow";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";
@@ -37,14 +38,10 @@ import { LuckIcon } from "../svg/luck";
 import { MagicShieldIcon } from "../svg/magic_shield";
 import { MoraleIcon } from "../svg/morale";
 import { QuiverIcon } from "../svg/quiver";
-import { ScrollIcon } from "../svg/scroll";
 import { ShieldIcon } from "../svg/shield";
 import { ShotRangeIcon } from "../svg/shot_range";
 import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
-import { GreenUserIcon } from "../svg/user_green";
-import { RedUserIcon } from "../svg/user_red";
-import { GrayUserIcon } from "../svg/user_gray";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
@@ -436,6 +433,9 @@ const AbilityCell: React.FC<{
                     flex: "none",
                     overflow: "visible",
                     borderRadius: ability.isAura ? "50%" : "15%",
+                    // Handoff tile frame — bronze rim, gold hairline, drop shadow.
+                    border: "2px solid #0d0906",
+                    boxShadow: "inset 0 0 0 1px rgba(150,130,98,.22), 0 2px 6px rgba(0,0,0,.7)",
                     "&::before": {
                         content: '""',
                         position: "absolute",
@@ -560,7 +560,160 @@ const StackCountBadge: React.FC<{ stacks?: number }> = ({ stacks }) => {
  * different looks and a 13%-wide icon that vanished on a narrow bar; a single row that wraps behaves the
  * same everywhere and costs one line when the unit only carries one or two effects.
  */
-const EffectRow: React.FC<{
+// Carved stone panel from the fight-sidebar handoff. Wraps the stat grid (and the turn card) so the block
+// reads as an inset plate rather than icons floating on the bar.
+export const stonePlateSx = {
+    padding: "10px",
+    borderRadius: "8px",
+    background: "linear-gradient(180deg, rgba(38,26,14,.92), rgba(16,11,6,.94))",
+    border: "2px solid #100b07",
+    boxShadow: "inset 0 0 0 1px rgba(150,130,98,.16), inset 0 2px 10px rgba(0,0,0,.75), 0 2px 6px rgba(0,0,0,.6)",
+} as const;
+
+// Team colour lives only as a diffuse, fire-like aura behind the portrait — three blurred discs that
+// breathe and flicker. No cloth banner, and nothing clips the ring.
+const TEAM_AURA = {
+    green: {
+        outer: "radial-gradient(circle, rgba(30,255,105,.42) 34%, rgba(0,215,70,.22) 60%, transparent 82%)",
+        mid: "radial-gradient(circle, rgba(90,255,150,.36) 40%, rgba(10,230,85,.19) 64%, transparent 86%)",
+        inner: "radial-gradient(circle, rgba(160,255,195,.3) 46%, rgba(35,245,105,.16) 68%, transparent 88%)",
+        ringHalo: "rgba(46,240,104,.4)",
+    },
+    red: {
+        outer: "radial-gradient(circle, rgba(255,70,45,.42) 34%, rgba(225,25,15,.22) 60%, transparent 82%)",
+        mid: "radial-gradient(circle, rgba(255,120,95,.36) 40%, rgba(240,45,28,.19) 64%, transparent 86%)",
+        inner: "radial-gradient(circle, rgba(255,175,160,.3) 46%, rgba(250,70,45,.16) 68%, transparent 88%)",
+        ringHalo: "rgba(255,90,63,.4)",
+    },
+} as const;
+
+// A slow, steady burn. Opacity barely moves (no blinking) — what changes is the silhouette: the corner
+// radii creep from one irregular shape to the next over ~20s, so the edge is always drifting and never
+// snaps. Long, mutually indivisible periods keep the layers from ever lining up into a visible cycle.
+const teamAuraKeyframes = {
+    "@keyframes hocFlameA": {
+        "0%": { borderRadius: "46% 54% 43% 57% / 56% 49% 51% 44%", transform: "translate(-50%, -50%) scale(1, 1)" },
+        "27%": {
+            borderRadius: "55% 45% 52% 48% / 47% 57% 43% 53%",
+            transform: "translate(-50%, -51%) scale(1.02, 1.05)",
+        },
+        "53%": {
+            borderRadius: "43% 57% 47% 53% / 58% 45% 55% 42%",
+            transform: "translate(-50%, -50%) scale(0.99, 1.01)",
+        },
+        "78%": {
+            borderRadius: "52% 48% 56% 44% / 49% 54% 46% 51%",
+            transform: "translate(-50%, -51%) scale(1.03, 1.06)",
+        },
+        "100%": { borderRadius: "46% 54% 43% 57% / 56% 49% 51% 44%", transform: "translate(-50%, -50%) scale(1, 1)" },
+    },
+    "@keyframes hocFlameB": {
+        "0%": { borderRadius: "57% 43% 51% 49% / 45% 55% 45% 55%", transform: "translate(-50%, -50%) scale(1, 1)" },
+        "31%": {
+            borderRadius: "45% 55% 44% 56% / 57% 44% 56% 43%",
+            transform: "translate(-50%, -51%) scale(1.03, 1.06)",
+        },
+        "59%": {
+            borderRadius: "53% 47% 57% 43% / 44% 56% 44% 56%",
+            transform: "translate(-50%, -50%) scale(0.98, 1.01)",
+        },
+        "84%": {
+            borderRadius: "48% 52% 47% 53% / 54% 47% 53% 46%",
+            transform: "translate(-50%, -51%) scale(1.02, 1.04)",
+        },
+        "100%": { borderRadius: "57% 43% 51% 49% / 45% 55% 45% 55%", transform: "translate(-50%, -50%) scale(1, 1)" },
+    },
+} as const;
+
+const auraFlameSx = (width: number, background: string, blur: number, animation: string, opacity: number) =>
+    ({
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        width: `${width}px`,
+        height: `${Math.round(width * 1.04)}px`,
+        transform: "translate(-50%, -50%)",
+        background,
+        filter: `blur(${blur}px)`,
+        opacity,
+        pointerEvents: "none",
+        zIndex: 0,
+        animation,
+        "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+    }) as const;
+
+const STAT_ROW_GAP = 8;
+
+// Slim bronze scrollbar, shared with the Up-next strip.
+export const hocScrollSx = {
+    "&::-webkit-scrollbar": { width: "6px", height: "6px" },
+    "&::-webkit-scrollbar-track": { background: "rgba(0,0,0,0.35)", borderRadius: "3px" },
+    "&::-webkit-scrollbar-thumb": {
+        background: "rgba(202,162,79,0.65)",
+        borderRadius: "3px",
+        "&:hover": { background: "rgba(202,162,79,0.9)" },
+    },
+    scrollbarWidth: "thin",
+    scrollbarColor: "rgba(202,162,79,0.65) rgba(0,0,0,0.35)",
+} as const;
+
+// A constant-height well. Whatever the unit carries — one ability or nine buffs — the block occupies the
+// same space and the overflow scrolls, so the card's geometry never depends on the creature.
+const ScrollWell: React.FC<{ height: number; children: React.ReactNode }> = ({ height, children }) => (
+    <Box sx={{ height: `${height}px`, overflowY: "auto", overflowX: "hidden", pr: "2px", ...hocScrollSx }}>
+        {children}
+    </Box>
+);
+
+// Section caption + the 2px rule under it. Used for Abilities / Buffs / Debuffs here and for Up next in
+// the sidebar itself, so all four headings read as one family.
+export const SectionTitle: React.FC<{ title: string; metrics: ISidebarMetrics }> = ({ title, metrics }) => (
+    <Box sx={{ width: "100%" }}>
+        <Typography
+            level="title-sm"
+            sx={{
+                fontSize: `${0.8 * metrics.fontScale}rem`,
+                fontWeight: 800,
+                lineHeight: 1.2,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "#dcb158",
+                textShadow: "0 1px 0 rgba(0,0,0,.8)",
+            }}
+        >
+            {title}
+        </Typography>
+        <Box
+            sx={{
+                height: "2px",
+                mt: "2px",
+                background: "linear-gradient(90deg, rgba(120,104,80,.5), transparent)",
+            }}
+        />
+    </Box>
+);
+
+const PanelSection: React.FC<{
+    title: string;
+    metrics: ISidebarMetrics;
+    children: React.ReactNode;
+}> = ({ title, metrics, children }) => (
+    <Box
+        sx={{
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            gap: `${Math.max(2, Math.round(metrics.gapPx * 0.4))}px`,
+        }}
+    >
+        <SectionTitle title={title} metrics={metrics} />
+        {children}
+    </Box>
+);
+
+// Just the tiles. Split out of EffectRow so the Buffs section can put buff tiles and synergy badges under
+// a single caption.
+const EffectTiles: React.FC<{
     effects: IVisibleImpact[];
     title: string;
     metrics: ISidebarMetrics;
@@ -568,10 +721,7 @@ const EffectRow: React.FC<{
     if (!effects.length) return null;
 
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", width: "100%", gap: "2px" }}>
-            <Typography level="title-sm" sx={{ fontSize: `${0.75 * metrics.fontScale}rem`, lineHeight: 1.2 }}>
-                {title}
-            </Typography>
+        <>
             <Box sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: `${metrics.gapPx * 0.6}px` }}>
                 {effects.map((effect, index) => (
                     <Tooltip
@@ -586,6 +736,10 @@ const EffectRow: React.FC<{
                                 width: `${metrics.effectIcon}px`,
                                 height: `${metrics.effectIcon}px`,
                                 flex: "none",
+                                // Same tile frame as the ability cells — see the handoff.
+                                borderRadius: effect.isAura ? "50%" : "15%",
+                                border: "2px solid #0d0906",
+                                boxShadow: "inset 0 0 0 1px rgba(150,130,98,.22), 0 2px 6px rgba(0,0,0,.7)",
                             }}
                         >
                             <Box
@@ -611,113 +765,72 @@ const EffectRow: React.FC<{
                     </Tooltip>
                 ))}
             </Box>
-        </Box>
+        </>
     );
 };
 
 /**
- * A single stat. The grid that hosts it (see `StatsGrid`) decides how many fit per row, so the item only
- * has to stay inside its cell: a stat carrying a modifier chip claims two columns instead of overflowing
- * the bar, which is what used to cut "812/1000" and "+12 x1.25" in half on narrow screens.
+ * One cell of the stat plate. Optionally carries a second stat beside the first — morale and luck share a
+ * cell so a creature with extra (ranged) stats still fits the fixed three-row grid.
  */
+const StatValue: React.FC<{
+    icon: React.ReactElement<Record<string, unknown>>;
+    value: string | number;
+    color: string;
+    metrics: ISidebarMetrics;
+}> = ({ icon, value, color, metrics }) => (
+    // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
+    // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
+    <Box sx={{ display: "inline-flex", alignItems: "center", width: "fit-content", minWidth: 0 }}>
+        {React.cloneElement(icon, {
+            sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
+        })}
+        <Typography fontSize={`${metrics.statFontRem}rem`} component="span" sx={{ whiteSpace: "nowrap" }}>
+            {value}
+        </Typography>
+    </Box>
+);
+
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
     value: string | number;
     tooltip: string;
     color: string;
     metrics: ISidebarMetrics;
-    badgeContent?: string;
-    badgeColor?: string;
-    positiveFrame?: boolean;
-    negativeFrame?: boolean;
-}> = ({ icon, value, tooltip, color, metrics, badgeContent, badgeColor, positiveFrame, negativeFrame }) => {
-    const framed = Boolean(positiveFrame || negativeFrame);
-    // Accent reuses the modifier-chip palette: green for a buff, red for a debuff.
-    const accent = positiveFrame ? "22, 163, 74" : "220, 38, 38";
-    const pulseName = positiveFrame ? "hocStatPulseUp" : "hocStatPulseDown";
+    secondIcon?: React.ReactElement<Record<string, unknown>>;
+    secondValue?: string | number;
+    secondColor?: string;
+    secondTooltip?: string;
+}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
 
     return (
-        <Tooltip title={tooltip} sx={commonTooltipSx}>
-            <Box
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    flexWrap: "nowrap",
-                    overflow: "visible",
-                    minWidth: 0,
-                    // A stat carrying a modifier chip needs about twice the room, so it takes two grid
-                    // columns whenever there is more than one.
-                    gridColumn: badgeContent && metrics.statColumns > 1 ? "span 2" : "auto",
-                }}
-            >
-                {/* The highlight hugs only the icon + value + modifier chip (not the whole row) and
-                    softly pulses, so an active buff/debuff reads as a tight, accurate accent rather
-                    than a long fuzzy bar. */}
-                <Box
-                    sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        width: "fit-content",
-                        ...(framed
-                            ? {
-                                  px: 0.75,
-                                  py: 0.25,
-                                  borderRadius: "9px",
-                                  border: `1.5px solid rgba(${accent}, 0.85)`,
-                                  backgroundColor: `rgba(${accent}, 0.14)`,
-                                  animation: `${pulseName} 1.6s ease-in-out infinite`,
-                                  [`@keyframes ${pulseName}`]: {
-                                      "0%, 100%": { boxShadow: `0 0 0 0 rgba(${accent}, 0)` },
-                                      "50%": { boxShadow: `0 0 0 3px rgba(${accent}, 0.35)` },
-                                  },
-                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                              }
-                            : {}),
-                    }}
-                >
-                    {React.cloneElement(icon, {
-                        sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
-                    })}
-                    <Typography
-                        fontSize={`${metrics.statFontRem}rem`}
-                        component="span"
-                        sx={{
-                            whiteSpace: "nowrap",
-                            ...(framed ? { fontWeight: "bold" } : {}),
-                        }}
-                    >
-                        {value}
-                    </Typography>
-                    {badgeContent && (
-                        <Typography
-                            component="span"
-                            sx={{
-                                fontSize: `${0.62 * metrics.fontScale}rem`,
-                                fontWeight: "bold",
-                                lineHeight: 1,
-                                px: "4px",
-                                py: "1px",
-                                ml: 0.5,
-                                borderRadius: "8px",
-                                color: "#fff",
-                                whiteSpace: "nowrap",
-                                backgroundColor:
-                                    badgeColor === "success"
-                                        ? "rgba(22, 163, 74, 0.9)"
-                                        : badgeColor === "danger"
-                                          ? "rgba(220, 38, 38, 0.9)"
-                                          : badgeColor === "warning"
-                                            ? "rgba(217, 119, 6, 0.9)"
-                                            : "rgba(37, 99, 235, 0.9)",
-                                border: "1px solid rgba(0,0,0,0.45)",
-                            }}
-                        >
-                            {badgeContent}
-                        </Typography>
-                    )}
-                </Box>
-            </Box>
-        </Tooltip>
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexWrap: "nowrap",
+                overflow: "hidden",
+                minWidth: 0,
+                gap: "4px",
+                // Per the handoff each stat sits in its own shallow recess inside the stone plate. Every
+                // cell is one grid track wide, so the block is the same three-up shape for every creature.
+                padding: "3px 6px",
+                borderRadius: "5px",
+                background: "rgba(0,0,0,.32)",
+                boxShadow: "inset 0 0 0 1px rgba(150,130,98,.14)",
+            }}
+        >
+            <Tooltip title={tooltip} sx={commonTooltipSx}>
+                {first}
+            </Tooltip>
+            {secondIcon && secondValue !== undefined && (
+                <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
+                    <StatValue icon={secondIcon} value={secondValue} color={secondColor ?? color} metrics={metrics} />
+                </Tooltip>
+            )}
+        </Box>
     );
 };
 
@@ -726,10 +839,8 @@ const UnitStatsLayout: React.FC<{
     damageRange: string;
     attackTypeSelected: AttackType;
     attackDamage: number;
-    attackMod: number;
     meleeArmor: number;
     rangeArmor: number;
-    armorMod: number;
     stepsMod: number;
     hasDifferentRangeArmor: boolean;
     isDarkMode: boolean;
@@ -747,10 +858,8 @@ const UnitStatsLayout: React.FC<{
     damageRange,
     attackTypeSelected,
     attackDamage,
-    attackMod,
     meleeArmor,
     rangeArmor,
-    armorMod,
     stepsMod,
     hasDifferentRangeArmor,
     isDarkMode,
@@ -764,20 +873,6 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
-    const attackModBadgeValue = `${attackMod ? (attackMod > 0 ? "+" : "") + unitProperties.attack_mod : ""}${unitProperties.attack_multiplier !== 1 ? ` x${unitProperties.attack_multiplier}` : ""}`;
-    const armorModBadgeValue = armorMod ? (armorMod > 0 ? "+" : "") + armorMod : "";
-    const stepsModBadgeValue = stepsMod ? (stepsMod > 0 ? "+" : "") + stepsMod : "";
-    const luckBadgeValue = unitProperties.luck_mod
-        ? (unitProperties.luck_mod > 0 ? "+" : "") + unitProperties.luck_mod
-        : "";
-
-    let attackColor: "success" | "danger" | "primary" | "neutral" | "warning" = "success";
-    if (
-        unitProperties.attack_multiplier < 1 ||
-        (unitProperties.attack_multiplier === 1 && unitProperties.attack_mod < 0)
-    )
-        attackColor = "danger";
-
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -785,26 +880,18 @@ const UnitStatsLayout: React.FC<{
         // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
         (unitProperties.shot_distance > 0 && (unitProperties.range_shots_mod || unitProperties.range_shots) > 0);
 
-    // One flat list of stats rather than six fixed pairs: the grid around it decides how many sit on a
-    // row, so the same markup reads as one column on a 128px bar and four on an ultrawide.
+    // Order matters: the seven stats every creature has come first, in a fixed sequence, and the handful
+    // that only some carry are appended after them. Otherwise a conditional cell in the middle re-seats
+    // everything behind it, and the same stat lands in a different grid slot from one creature to the next.
     const statsContent = (
         <>
             <StatItem
                 icon={<HeartIcon />}
-                value={`${unitProperties.hp}/${unitProperties.max_hp}`}
+                value={`${Math.round(unitProperties.hp)}/${Math.round(unitProperties.max_hp)}`}
                 tooltip="Current/max Health Points"
                 color="#ff4d4d"
                 metrics={metrics}
             />
-            {unitProperties.can_cast_spells && (
-                <StatItem
-                    icon={<ScrollIcon />}
-                    value={unitProperties.spells.length}
-                    tooltip="Number of magic scrolls"
-                    color="#add8e6"
-                    metrics={metrics}
-                />
-            )}
             <StatItem
                 icon={<FistIcon />}
                 value={damageRange}
@@ -814,19 +901,65 @@ const UnitStatsLayout: React.FC<{
             />
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
-                value={Number(attackDamage.toFixed(2))}
+                value={Math.round(attackDamage)}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
-                badgeContent={attackModBadgeValue}
-                badgeColor={attackColor}
-                positiveFrame={unitProperties.attack_multiplier > 1}
-                negativeFrame={unitProperties.attack_multiplier < 1}
                 metrics={metrics}
             />
+            <StatItem
+                icon={<ShieldIcon />}
+                value={Math.round(meleeArmor)}
+                tooltip="Armor"
+                color="#4682b4"
+                metrics={metrics}
+            />
+            <StatItem
+                icon={<MagicShieldIcon />}
+                value={`${Math.round(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
+                tooltip="Magic resist in %"
+                color="#8a2be2"
+                metrics={metrics}
+            />
+            {/* Movement range and initiative share a cell: both answer "how does this stack move through
+                the turn", and pairing them keeps the plate at seven fixed slots. */}
+            <StatItem
+                icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
+                value={Math.floor(unitProperties.steps + stepsMod)}
+                tooltip="Movement type and number of steps in cells"
+                color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
+                metrics={metrics}
+                secondIcon={<SpeedIcon />}
+                secondValue={Math.round(unitProperties.speed)}
+                secondColor={isDarkMode ? "#f5fefd" : "#000000"}
+                secondTooltip="Units with higher speed turn first"
+            />
+            {/* Morale and luck share one cell. They are the two smallest, most closely related numbers, and
+                pairing them buys back a slot — a ranged creature carries enough extra stats to spill onto a
+                fourth row otherwise, which moved everything below the plate. */}
+            <StatItem
+                icon={<MoraleIcon />}
+                value={Math.round(unitProperties.morale)}
+                tooltip="Morale affects extra actions"
+                color={isDarkMode ? "#ffff00" : "#DC4D01"}
+                metrics={metrics}
+                secondIcon={<LuckIcon />}
+                secondValue={Math.round(unitProperties.luck + unitProperties.luck_mod)}
+                secondColor="#ff4040"
+                secondTooltip="Luck affects damage variance"
+            />
+            {hasDifferentRangeArmor && (
+                <StatItem
+                    icon={<ArrowShieldIcon />}
+                    value={Math.round(rangeArmor)}
+                    tooltip="Range armor"
+                    color="#f4a460"
+                    metrics={metrics}
+                />
+            )}
             {showRangedStats && (
                 <StatItem
                     icon={<ShotRangeIcon />}
-                    value={unitProperties.shot_distance}
+                    value={Math.round(unitProperties.shot_distance)}
                     tooltip="Ranged shot distance in cells"
                     color="#ffff00"
                     metrics={metrics}
@@ -841,176 +974,211 @@ const UnitStatsLayout: React.FC<{
                     metrics={metrics}
                 />
             )}
-            <StatItem
-                icon={<ShieldIcon />}
-                value={Number(meleeArmor.toFixed(2))}
-                tooltip="Armor"
-                color="#4682b4"
-                badgeContent={armorModBadgeValue}
-                badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
-                positiveFrame={unitProperties.armor_mod > 0}
-                negativeFrame={unitProperties.armor_mod < 0}
-                metrics={metrics}
-            />
-            <StatItem
-                icon={<MagicShieldIcon />}
-                value={`${unitProperties.magic_resist_mod || unitProperties.magic_resist}%`}
-                tooltip="Magic resist in %"
-                color="#8a2be2"
-                metrics={metrics}
-            />
-            {hasDifferentRangeArmor && (
-                <StatItem
-                    icon={<ArrowShieldIcon />}
-                    value={Number(rangeArmor.toFixed(2))}
-                    tooltip="Range armor"
-                    color="#f4a460"
-                    badgeContent={armorModBadgeValue}
-                    badgeColor={unitProperties.armor_mod > 0 ? "success" : "danger"}
-                    metrics={metrics}
-                />
-            )}
-            <StatItem
-                icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
-                value={Number((unitProperties.steps + stepsMod).toFixed(1))}
-                tooltip="Movement type and number of steps in cells"
-                color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
-                badgeContent={stepsModBadgeValue}
-                badgeColor={stepsMod > 0 ? "success" : "danger"}
-                positiveFrame={stepsMod > 0}
-                negativeFrame={stepsMod < 0}
-                metrics={metrics}
-            />
-            <StatItem
-                icon={<SpeedIcon />}
-                value={Number(unitProperties.speed.toFixed(2))}
-                tooltip="Units with higher speed turn first"
-                color={isDarkMode ? "#f5fefd" : "#000000"}
-                metrics={metrics}
-            />
-            <StatItem
-                icon={<MoraleIcon />}
-                value={unitProperties.morale}
-                tooltip="Morale affects extra actions"
-                color={isDarkMode ? "#ffff00" : "#DC4D01"}
-                positiveFrame={
-                    unitProperties.morale >= HoCConstants.MORALE_MAX_VALUE_TOTAL && unitProperties.attack_multiplier > 1
-                }
-                negativeFrame={
-                    unitProperties.morale <= -HoCConstants.MORALE_MAX_VALUE_TOTAL &&
-                    unitProperties.attack_multiplier < 1
-                }
-                metrics={metrics}
-            />
-            <StatItem
-                icon={<LuckIcon />}
-                value={unitProperties.luck + unitProperties.luck_mod}
-                tooltip="Luck affects damage variance"
-                color="#ff4040"
-                badgeContent={luckBadgeValue}
-                badgeColor={unitProperties.luck_mod > 0 ? "success" : "danger"}
-                positiveFrame={unitProperties.luck + unitProperties.luck_mod >= HoCConstants.LUCK_MAX_VALUE_TOTAL}
-                negativeFrame={unitProperties.luck + unitProperties.luck_mod <= -HoCConstants.LUCK_MAX_VALUE_TOTAL}
-                metrics={metrics}
-            />
         </>
     );
-
-    const hasAbilities = abilities.some((ability) => ability.laps > 0);
-    const sectionTitleSx = { fontSize: `${0.78 * metrics.fontScale}rem`, lineHeight: 1.2 } as const;
+    const unitSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
+    const auraTone = team === TeamVals.LOWER ? TEAM_AURA.green : TEAM_AURA.red;
+    // Three stat rows, always — the well below scrolls if a creature carries more than nine.
+    const statRowHeight = Math.round(metrics.statIconPx + 12);
+    const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
+    // One row of tiles each; anything beyond that scrolls inside the well rather than growing the card.
+    const abilityWellHeight = metrics.abilityCell + 6;
+    const effectWellHeight = metrics.effectIcon + 6;
+    // A blurred layer paints well outside its own box — roughly one blur radius in every direction — and
+    // that overspill is what the bar's `overflowX: hidden` was slicing into a visible edge. So each layer
+    // is sized as (bar width - 2x its own blur), which makes it fade to nothing before it ever reaches the
+    // panel edge. The portrait then matches the innermost layer, so the glow reads as a ring around it.
+    const flameBlur = { outer: 26, mid: 18, inner: 12 };
+    const flameWidth = {
+        outer: Math.max(80, metrics.contentWidth - flameBlur.outer * 2),
+        mid: Math.max(70, metrics.contentWidth - flameBlur.mid * 2 - 26),
+        inner: Math.max(60, metrics.contentWidth - flameBlur.inner * 2 - 52),
+    };
+    const portraitBox = Math.round(Math.min(metrics.portraitMax, flameWidth.inner));
 
     return (
         <Box
             sx={{
                 position: "relative",
                 width: "100%",
+                height: "100%",
+                minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
-                gap: `${metrics.gapPx}px`,
+                gap: `${Math.round(metrics.gapPx * 0.5)}px`,
             }}
         >
-            {/* Portrait above the stats when the height is there for it, beside them when it is not —
-                see `columnize` in sidebarMetrics for which screens land where. */}
+            {/* Portrait on top, stats under it. The portrait is the only block allowed to flex: the stat
+                plate and the three wells below have fixed heights, so it absorbs whatever the screen has
+                left. That keeps the card identical from creature to creature — only the screen changes it. */}
             <Box
                 sx={{
                     display: "flex",
-                    flexDirection: metrics.columnize ? "row" : "column",
-                    alignItems: metrics.columnize ? "flex-start" : "stretch",
-                    gap: `${metrics.gapPx}px`,
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    gap: `${Math.round(metrics.gapPx * 0.5)}px`,
                     width: "100%",
+                    flex: "0 1 auto",
+                    minHeight: 0,
                 }}
             >
                 <Box
                     sx={{
-                        width: metrics.columnize ? "45%" : "100%",
-                        flex: "none",
+                        width: "100%",
+                        flex: "0 1 auto",
+                        minHeight: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         position: "relative",
+                        // The block is taller than the art so the glow has somewhere to go. Every layer is
+                        // sized off the portrait and stays inside the bar's width — when they were fixed
+                        // 470px discs the sidebar's `overflowX: hidden` sliced them into a visible black
+                        // rectangle around the icon.
+                        // Hugs the art. The flame layers are absolutely positioned, so they spill past this
+                        // box without reserving any layout height — reserving it left a wide empty band
+                        // between the name and the portrait, and again under it.
+                        height: `${portraitBox}px`,
+                        overflow: "visible",
+                        ...teamAuraKeyframes,
                     }}
                 >
-                    {animationConfig ? (
-                        <AtlasAnimation
-                            meta={animationConfig.meta}
-                            src={animationConfig.imageSrc}
-                            onLoaded={onImageLoaded}
-                            maxHeight={metrics.portraitMax}
-                        />
-                    ) : (
-                        <Box
-                            component="img"
-                            // @ts-ignore: images index signature
-                            src={images[largeTextureName]}
-                            sx={{
-                                display: "block",
-                                width: "100%",
-                                maxHeight: `${metrics.portraitMax}px`,
-                                height: "auto",
-                                objectFit: "contain",
-                                mx: "auto",
-                                transition: "opacity 120ms ease-out",
-                                imageRendering: "auto",
-                                transform: "translateZ(0)",
-                            }}
-                            onLoad={onImageLoaded}
-                            onError={onImageLoaded}
-                        />
-                    )}
+                    {/* Team colour burns behind the art. Long, mutually indivisible periods so the layers
+                        never resynchronise into a visible pulse. */}
+                    <Box
+                        sx={auraFlameSx(
+                            flameWidth.outer,
+                            auraTone.outer,
+                            flameBlur.outer,
+                            "hocFlameA 23s ease-in-out infinite",
+                            1,
+                        )}
+                    />
+                    <Box
+                        sx={auraFlameSx(
+                            flameWidth.mid,
+                            auraTone.mid,
+                            flameBlur.mid,
+                            "hocFlameB 17s ease-in-out infinite",
+                            0.95,
+                        )}
+                    />
+                    <Box
+                        sx={auraFlameSx(
+                            flameWidth.inner,
+                            auraTone.inner,
+                            flameBlur.inner,
+                            "hocFlameA 13s ease-in-out infinite reverse",
+                            0.9,
+                        )}
+                    />
+                    <Box
+                        sx={{
+                            // No circular clip and no frame: the art keeps its own silhouette, so wings,
+                            // weapons and limbs that hang outside the portrait's box still show. The flame
+                            // simply burns behind it.
+                            position: "relative",
+                            zIndex: 1,
+                            width: `${portraitBox}px`,
+                            maxWidth: "100%",
+                            maxHeight: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        {animationConfig ? (
+                            <AtlasAnimation
+                                meta={animationConfig.meta}
+                                src={animationConfig.imageSrc}
+                                onLoaded={onImageLoaded}
+                                maxHeight={portraitBox}
+                            />
+                        ) : (
+                            <Box
+                                component="img"
+                                // @ts-ignore: images index signature
+                                src={images[largeTextureName]}
+                                sx={{
+                                    display: "block",
+                                    width: "100%",
+                                    maxHeight: "100%",
+                                    height: "auto",
+                                    objectFit: "contain",
+                                    mx: "auto",
+                                    transition: "opacity 120ms ease-out",
+                                    imageRendering: "auto",
+                                    transform: "translateZ(0)",
+                                }}
+                                onLoad={onImageLoaded}
+                                onError={onImageLoaded}
+                            />
+                        )}
+                    </Box>
                 </Box>
-                <Box
-                    sx={{
-                        flex: "1 1 auto",
-                        minWidth: 0,
-                        display: "grid",
-                        gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
-                        // Capping the grid keeps the stats a tight block on a 740px ultrawide bar instead
-                        // of scattering twelve icons across half a screen. Flow stays in source order (no
-                        // `dense`) so related stats keep reading together even when a wide modifier row
-                        // leaves a gap.
-                        maxWidth: `${metrics.statColumns * 132}px`,
-                        columnGap: `${metrics.gapPx}px`,
-                        rowGap: `${Math.max(2, Math.round(metrics.gapPx * 0.4))}px`,
-                        alignContent: "start",
-                    }}
-                >
-                    {statsContent}
+                <Box sx={{ flex: "none", minWidth: 0, ...stonePlateSx }}>
+                    {/* Exactly three columns by three rows, always. A creature with extra stats (scrolls,
+                        shot distance, shot count, separate range armour) scrolls inside this well instead
+                        of adding a fourth row and pushing everything below the plate down. */}
+                    <ScrollWell height={statWellHeight}>
+                        <Box
+                            sx={{
+                                display: "grid",
+                                gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
+                                gridAutoRows: `${statRowHeight}px`,
+                                // Full width, matching the turn card below it.
+                                width: "100%",
+                                columnGap: "8px",
+                                rowGap: `${STAT_ROW_GAP}px`,
+                                alignContent: "start",
+                            }}
+                        >
+                            {statsContent}
+                        </Box>
+                    </ScrollWell>
                 </Box>
             </Box>
 
-            {hasAbilities && (
-                <Box sx={{ width: "100%" }}>
-                    <Typography level="title-sm" sx={sectionTitleSx}>
-                        Abilities
-                    </Typography>
+            {/* All three blocks are always rendered at a constant height, empty or not, so the card is the
+                same shape for every creature and nothing below it ever moves. */}
+            <PanelSection title="Abilities" metrics={metrics}>
+                <ScrollWell height={abilityWellHeight}>
                     <AbilityStack
                         abilities={abilities}
                         teamType={team}
                         metrics={metrics}
                         hasBreakApplied={hasBreakApplied}
                     />
-                </Box>
-            )}
+                </ScrollWell>
+            </PanelSection>
 
-            <EffectRow effects={buffs} title="Buffs" metrics={metrics} />
-            <EffectRow effects={debuffs} title="Debuffs" metrics={metrics} />
+            {/* Synergies ride along with the buffs instead of a separate top-left HUD: they come off the
+                selected unit's own properties, so a green stack shows green's synergies and a red one
+                shows red's, with no extra plumbing. */}
+            <PanelSection title="Buffs" metrics={metrics}>
+                <ScrollWell height={effectWellHeight}>
+                    {/* Buff tiles and synergy badges share one wrapping row rather than stacking as two
+                        blocks — they are all "what is currently boosting this stack". */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                            alignItems: "flex-start",
+                            gap: `${metrics.gapPx * 0.6}px`,
+                        }}
+                    >
+                        {buffs.length > 0 && <EffectTiles effects={buffs} title="Buffs" metrics={metrics} />}
+                        {unitSynergies.length > 0 && <SynergiesRow synergies={unitSynergies} />}
+                    </Box>
+                </ScrollWell>
+            </PanelSection>
+
+            <PanelSection title="Debuffs" metrics={metrics}>
+                <ScrollWell height={effectWellHeight}>
+                    <EffectTiles effects={debuffs} title="Debuffs" metrics={metrics} />
+                </ScrollWell>
+            </PanelSection>
         </Box>
     );
 };
@@ -1220,10 +1388,8 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
 
     if (unitProperties && Object.keys(unitProperties).length) {
         const stackName = `${unitProperties.name} x${unitProperties.amount_alive}`;
-        const damageRange = `${unitProperties.attack_damage_min} - ${unitProperties.attack_damage_max}`;
-        const armorMod = Number(unitProperties.armor_mod.toFixed(2));
+        const damageRange = `${Math.round(unitProperties.attack_damage_min)} - ${Math.round(unitProperties.attack_damage_max)}`;
         const stepsMod = Number(unitProperties.steps_mod.toFixed(1));
-        const attackMod = Number(unitProperties.attack_mod.toFixed(2));
         const attackTypeSelected = unitProperties.attack_type_selected;
 
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;
@@ -1242,53 +1408,46 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
         return (
             // @ts-ignore: MUI type mismatch
             <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
-                <Toggler
-                    renderToggle={({ open, setOpen }) => (
-                        <ListItemButton onClick={() => setOpen(!open)} sx={{ minHeight: 0, px: 0 }}>
-                            {!unitProperties.team ? (
-                                <GrayUserIcon />
-                            ) : unitProperties.team === 1 ? (
-                                <RedUserIcon />
-                            ) : (
-                                <GreenUserIcon />
-                            )}
-                            <ListItemContent>
-                                <Typography
-                                    level="title-sm"
-                                    sx={{ fontSize: `${0.78 * metrics.fontScale}rem`, lineHeight: 1.2 }}
-                                >
-                                    {stackName}
-                                </Typography>
-                            </ListItemContent>
-                            <KeyboardArrowDownIcon />
-                        </ListItemButton>
-                    )}
+                {/* Plain headline: no team crest (the portrait's aura carries the side) and no collapse
+                    chevron — the stats are the point of the card, so they are always open. */}
+                <Typography
+                    level="title-sm"
+                    sx={{
+                        fontSize: `${1.02 * metrics.fontScale}rem`,
+                        fontWeight: 800,
+                        letterSpacing: "0.03em",
+                        lineHeight: 1.2,
+                        color: "#f2e3c0",
+                        textShadow: "0 1px 0 rgba(0,0,0,.85)",
+                        textAlign: "center",
+                        px: 0,
+                        pt: "2px",
+                    }}
                 >
-                    <List sx={{ p: 0, gap: 0 }}>
-                        <UnitStatsLayout
-                            unitProperties={unitProperties}
-                            damageRange={damageRange}
-                            attackTypeSelected={attackTypeSelected}
-                            attackDamage={attackDamage}
-                            attackMod={attackMod}
-                            meleeArmor={meleeArmor}
-                            rangeArmor={rangeArmor}
-                            armorMod={armorMod}
-                            stepsMod={stepsMod}
-                            hasDifferentRangeArmor={hasDifferentRangeArmor}
-                            isDarkMode={isDarkMode}
-                            metrics={metrics}
-                            largeTextureName={largeTextureName}
-                            images={images}
-                            onImageLoaded={onImageLoaded}
-                            abilities={abilities}
-                            buffs={buffs}
-                            debuffs={debuffs}
-                            hasBreakApplied={hasBreakApplied}
-                            team={unitProperties.team}
-                        />
-                    </List>
-                </Toggler>
+                    {stackName}
+                </Typography>
+                <List sx={{ p: 0, gap: 0 }}>
+                    <UnitStatsLayout
+                        unitProperties={unitProperties}
+                        damageRange={damageRange}
+                        attackTypeSelected={attackTypeSelected}
+                        attackDamage={attackDamage}
+                        meleeArmor={meleeArmor}
+                        rangeArmor={rangeArmor}
+                        stepsMod={stepsMod}
+                        hasDifferentRangeArmor={hasDifferentRangeArmor}
+                        isDarkMode={isDarkMode}
+                        metrics={metrics}
+                        largeTextureName={largeTextureName}
+                        images={images}
+                        onImageLoaded={onImageLoaded}
+                        abilities={abilities}
+                        buffs={buffs}
+                        debuffs={debuffs}
+                        hasBreakApplied={hasBreakApplied}
+                        team={unitProperties.team}
+                    />
+                </List>
             </ListItem>
         );
     }

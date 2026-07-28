@@ -32,7 +32,9 @@ const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?:
                 rowGap: wrap ? 1.5 : `${metrics.gapPx * 0.5}px`,
                 flexWrap: "wrap",
                 justifyContent: wrap ? "center" : "flex-start",
-                width: "100%",
+                // Shrink to content when inlined (the Buffs row puts these beside the buff tiles); only the
+                // standalone wrapped variant claims the full width.
+                width: wrap ? "100%" : "auto",
                 alignItems: "flex-start",
             }}
         >
