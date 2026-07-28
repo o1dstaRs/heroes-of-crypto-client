@@ -184,7 +184,7 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
     "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
     "System:Armor Augment":
-        "Boosts the entire team's base armor and magic armor. Level 1: +6%. Level 2: +13%. Level 3: +21%.",
+        "Boosts the entire team's base armor by a percentage and adds the same number of points straight onto its magic armor. Level 1: +6% armor, +6 magic armor. Level 2: +13% and +13. Level 3: +21% and +21.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
     "System:Empower Augment":
         "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
@@ -209,7 +209,7 @@ const descriptionsRu: Record<string, string> = {
     "System:Resurrection":
         "Воскрешает павших союзников на поле боя — суммарно до совокупного максимального запаса здоровья стека заклинателя.",
     "System:Armor Augment":
-        "Повышает базовую и магическую броню всей команды. Уровень 1: +6%. Уровень 2: +13%. Уровень 3: +21%.",
+        "Повышает базовую броню всей команды в процентах и добавляет столько же очков к магической броне. Уровень 1: +6% брони и +6 магической брони. Уровень 2: +13% и +13. Уровень 3: +21% и +21.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
     "System:Empower Augment":
         "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Огненный меч, Цепную молнию, Огненное дыхание и Огненный щит. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",

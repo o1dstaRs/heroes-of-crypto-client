@@ -248,7 +248,7 @@ const ArmorToggler = ({
                         <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="No Augment" />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor & Magic Armor`}
+                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor, +${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)} Magic Armor`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_1 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_1
@@ -256,7 +256,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_2}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor & Magic Armor`}
+                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor, +${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)} Magic Armor`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_2 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_2
@@ -264,7 +264,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_3}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor & Magic Armor`}
+                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor, +${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)} Magic Armor`}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_3 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_3

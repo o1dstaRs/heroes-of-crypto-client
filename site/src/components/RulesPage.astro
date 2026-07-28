@@ -145,10 +145,11 @@ const augmentTable = [
     {
         icon: "/assets/images/units/abilities/armor_augment_256.webp",
         name: isRu ? "Броня" : "Armor",
-        tiers: ["+6%", "+13%", "+21%"],
-        // One purchase, both defences: the same percentage lands on magic resist as on physical armor.
-        // It is a percentage of the unit's OWN stat, so a creature with no magic resist gains none.
-        note: isRu ? "броня и магическая броня" : "team armor + magic armor",
+        tiers: ["+6% / +6", "+13% / +13", "+21% / +21"],
+        // One purchase, both defences, but they land differently: physical armor gains a PERCENTAGE of the
+        // unit's own stat, magic armor gains the points outright (base magic armor is 0/5/10/15 by creature
+        // level, so a percentage would give a level 1 creature nothing at all).
+        note: isRu ? "% брони, очки магической брони" : "% armor, flat magic armor",
     },
     {
         icon: "/assets/images/units/abilities/might_augment_256.webp",
@@ -289,7 +290,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
                   title: "Броня",
-                  text: "+6%, +13% или +21% к броне команды. Хорошо работает с армиями, которые хотят пережить первый контакт.",
+                  text: "+6%, +13% или +21% к броне команды и столько же очков к магической броне. Хорошо работает с армиями, которые хотят пережить первый контакт.",
               },
               {
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
@@ -525,7 +526,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
                   title: "Armor",
-                  text: "+6%, +13%, or +21% team armor. Strong when your army needs to survive first contact.",
+                  text: "+6%, +13%, or +21% team armor, plus the same number of points added straight onto magic armor. Strong when your army needs to survive first contact.",
               },
               {
                   icon: "/assets/images/units/abilities/might_augment_256.webp",
