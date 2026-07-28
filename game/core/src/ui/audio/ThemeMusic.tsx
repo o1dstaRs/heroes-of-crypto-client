@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
+import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
+
 /**
  * The menu theme ("The Last Stand") and the volume control that governs it.
  *
@@ -33,6 +35,13 @@ const PLAYLIST = [
     { webm: "/audio/the_last_stand.webm", mp3: "/audio/the_last_stand.mp3" },
     { webm: "/audio/the_stone_lullaby.webm", mp3: "/audio/the_stone_lullaby.mp3" },
 ] as const;
+
+/**
+ * The pre-fight track. It replaces the menu playlist from the moment a ranked match is found until the fight
+ * starts — match check, picks, augments, placement — then hands back to silence when the first turn begins.
+ * A single track rather than a list: that stretch is a few minutes at most and wants one continuous mood.
+ */
+const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_and_silk.mp3" } as const;
 
 /** Route prefixes that carry the theme. Everything else — the fight, the sandbox — stays quiet. */
 const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
@@ -81,8 +90,13 @@ export const ThemeMusic: React.FC = () => {
     const [volume, setVolume] = useState(initial.current.volume);
     const [muted, setMuted] = useState(initial.current.muted);
     const [trackIndex, setTrackIndex] = useState(0);
+    const [prefight, setPrefight] = useState(false);
 
-    const singing = shouldSing(pathname);
+    useEffect(() => subscribePrefightMusic(setPrefight), []);
+
+    // The pre-fight stretch sings wherever it happens — it lives under /game, which is otherwise silent.
+    const singing = prefight || shouldSing(pathname);
+    const source = prefight ? PREFIGHT_TRACK : PLAYLIST[trackIndex];
     const effectiveVolume = muted ? 0 : volume;
 
     // Fade rather than snap: the theme arriving at full volume the instant someone clicks is startling, and
@@ -170,7 +184,15 @@ export const ThemeMusic: React.FC = () => {
         if (!audio) {
             return undefined;
         }
-        const onEnded = (): void => setTrackIndex((current) => (current + 1) % PLAYLIST.length);
+        // The pre-fight track loops on itself; only the menu playlist advances.
+        const onEnded = (): void => {
+            if (isPrefightMusicActive()) {
+                audio.currentTime = 0;
+                audio.play().catch(() => undefined);
+                return;
+            }
+            setTrackIndex((current) => (current + 1) % PLAYLIST.length);
+        };
         audio.addEventListener("ended", onEnded);
         return () => audio.removeEventListener("ended", onEnded);
     }, []);
@@ -204,8 +226,8 @@ export const ThemeMusic: React.FC = () => {
         // The element itself stays mounted (so the track keeps its position); only the control is hidden.
         return (
             <audio ref={audioRef} preload="none" hidden>
-                <source src={PLAYLIST[trackIndex].webm} type="audio/webm; codecs=opus" />
-                <source src={PLAYLIST[trackIndex].mp3} type="audio/mpeg" />
+                <source src={source.webm} type="audio/webm; codecs=opus" />
+                <source src={source.mp3} type="audio/mpeg" />
             </audio>
         );
     }
@@ -231,8 +253,8 @@ export const ThemeMusic: React.FC = () => {
             }}
         >
             <audio ref={audioRef} preload="none">
-                <source src={PLAYLIST[trackIndex].webm} type="audio/webm; codecs=opus" />
-                <source src={PLAYLIST[trackIndex].mp3} type="audio/mpeg" />
+                <source src={source.webm} type="audio/webm; codecs=opus" />
+                <source src={source.mp3} type="audio/mpeg" />
             </audio>
             <button
                 type="button"

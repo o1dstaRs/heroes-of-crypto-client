@@ -42,6 +42,7 @@ import {
     toAuthoritativeGameSnapshot,
 } from "../api/ranked_play_client";
 import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASON } from "../api/play_protocol";
+import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { images } from "../generated/image_imports";
@@ -854,6 +855,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+
+    // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
+    // once the board is up; from here it is simply "we have a board and the fight has not started", which is
+    // placement. It goes quiet the moment the fight begins, and a replay never plays it — the outcome is
+    // already decided, so there is no tension to score.
+    useEffect(() => {
+        setPrefightMusicActive(!replayOnly && hasSnapshot && !gameStarted);
+    }, [replayOnly, hasSnapshot, gameStarted]);
+    useEffect(() => () => setPrefightMusicActive(false), []);
 
     const sendPlayAction = useCallback(
         async (payload: PlayAction, options?: { authorization?: string; silent?: boolean }): Promise<boolean> => {
