@@ -453,6 +453,21 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 luck: unitState.luck,
                 luck_mod: 0,
                 luck_authoritative: true,
+                // Every debuff/buff-driven change to armor and attack, straight from the server. Ranked
+                // seeds the effect/buff DISPLAY strings but deliberately not the OBJECT arrays that
+                // adjustBaseStats derives these from, so without them the HUD showed a unit's base armor
+                // while the server had (say) Shatter Armor's -10 applied — the effect looked like it did
+                // nothing. The *_authoritative flags tell adjustBaseStats to keep these verbatim rather
+                // than re-deriving from arrays it cannot see; an older server sends neither field, and
+                // then we fall through to the local derivation exactly as before.
+                ...(unitState.statModsAuthoritative
+                    ? {
+                          armor_mod: unitState.armorMod ?? 0,
+                          attack_mod: unitState.attackMod ?? 0,
+                          armor_mod_authoritative: true,
+                          attack_mod_authoritative: true,
+                      }
+                    : {}),
                 // Server-applied combat debuffs + effects for the HUD's Debuffs list. Ranked can't run the
                 // engine, so these arrive pre-computed in the snapshot (name + laps + power-filled description).
                 // DISPLAY strings ONLY — we deliberately do NOT rebuild the debuff/effect OBJECT arrays
