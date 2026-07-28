@@ -1949,9 +1949,12 @@ export class RenderableUnit extends Unit {
      * Freeze ice crust, the icy death shatter — MUST key off this, not hasEffectActive, or they never fire
      * in ranked. Safe in Sandbox: applied_debuffs never holds effect names there, so it reduces to
      * hasEffectActive.
+     *
+     * Kept as the visual-side name, but delegating: the same question is asked by engine rules through
+     * Unit.hasStatusApplied, and two independent implementations of one predicate is how they drift.
      */
     public hasStatusEffect(name: string): boolean {
-        return this.hasEffectActive(name) || (this.unitProperties.applied_debuffs ?? []).includes(name);
+        return this.hasStatusApplied(name);
     }
     /**
      * The buff-side twin of hasStatusEffect. Ranked fills only the DISPLAY array (applied_buffs) and
@@ -1960,7 +1963,7 @@ export class RenderableUnit extends Unit {
      * off a buff (e.g. the Fireforged Sword burn) must ask this instead, or it only ever fires in sandbox.
      */
     public hasStatusBuff(name: string): boolean {
-        return this.hasBuffActive(name) || (this.unitProperties.applied_buffs ?? []).includes(name);
+        return this.hasStatusBuffApplied(name);
     }
     /**
      * Ranked-only: the client never runs applyDamage, so the engine's `waterShieldSpent` flag stays false
