@@ -123,7 +123,14 @@ const augmentSpells = new Set([
 
 // Spells cast by a unit ability instead of from a spell book — these are exactly the abilities.json
 // entries with `can_be_cast: true`.
-const abilityCastSpells = new Set(["Wild Regeneration", "Resurrection", "Wind Flow", "Battle Roar", "Castling"]);
+const abilityCastSpells = new Set([
+    "Wild Regeneration",
+    "Resurrection",
+    "Wind Flow",
+    "Vine Throw",
+    "Battle Roar",
+    "Castling",
+]);
 
 // Which ability applies each non-castable buff/debuff. Curated because the link lives in ability code
 // rather than in the data files; every entry here is an ability name shown on /abilities.
@@ -144,6 +151,9 @@ const appliedByAbility: Record<string, string[]> = {
     Cowardice: ["Spit Ball"],
     Resurrection: ["Resurrection"],
     "Wind Flow": ["Wind Flow"],
+    // Both cast by Trent's ability AND applied on arrival to anyone who ends a move standing in the vine,
+    // so the ability is the right link either way.
+    "Vine Throw": ["Vine Throw"],
     "Battle Roar": ["Battle Roar"],
     Castling: ["Castling"],
 };
@@ -191,6 +201,8 @@ const descriptionsRu: Record<string, string> = {
     "System:Wild Regeneration":
         "Дает способность восстанавливать здоровье до максимума в начале своего хода. Эффект можно подарить.",
     "System:Wind Flow": "Все летающие юниты получают +4 к базовой броне и теряют 4 очка перемещения, включая врагов.",
+    "System:Vine Throw":
+        "Бросает лозу во врага в пределах прямой видимости, оставляя её на каждой клетке по пути. Нелетающее существо тратит 1 дополнительный шаг, чтобы пересечь клетку с лозой. Поражённое существо теряет ещё 1.5 шага — если только его магическая броня не стряхнёт захват. Лоза ложится на клетки в любом случае.",
     "System:Battle Roar":
         "Все союзники получают по одному дополнительному шагу за каждое живое существо в стеке заклинателя и гарантированно наносят максимальный урон каждой атакой.",
     "System:Castling": "Меняется местами с малым противником в пределах дистанции движения заклинателя.",
