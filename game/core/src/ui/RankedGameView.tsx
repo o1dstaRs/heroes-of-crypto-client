@@ -13,7 +13,6 @@ import {
     Alert,
     Box,
     Button,
-    Chip,
     CircularProgress,
     Modal,
     ModalDialog,
@@ -70,7 +69,7 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { RankedFinishedActions } from "./RankedFinishedActions";
-import { WalletLinker } from "./WalletLinker";
+import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx, hocSpinnerSx } from "./hocTheme";
@@ -81,8 +80,7 @@ import {
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
-import { resolveUnitImage } from "./unitImage";
-import { DraftStepper } from "./PickAndBan";
+import { draftShellSx, DraftStepper, DraftTitle, MyDraftBar, OpponentDraftBar, PickCommitButton } from "./PickAndBan";
 import {
     aiOpponentLabel,
     findAiSeatPlayerId,
@@ -112,12 +110,18 @@ const isGameGoneError = (err: unknown): boolean => {
 };
 
 const phaseLabel = (phase: number): string => {
-    if (phase === PlayPhase.PLACEMENT) return "Placement";
+    if (phase === PlayPhase.PLACEMENT) return "Pre-fight placement";
     if (phase === PlayPhase.PLAY) return "Fight";
     if (phase === PlayPhase.FINISHED) return "Finished";
     if (phase === PlayPhase.ABANDONED) return "Abandoned";
     return "Loading";
 };
+
+// The header no longer carries a status chip, so connection state only surfaces when something is off:
+// everything NOT in this set (Connecting, Reconnecting, and every *failed*/unavailable) shows as a
+// one-line warning above "You: <team>". Keep replay's normal progress steps listed here — they are not
+// problems and would otherwise sit on screen for the whole playback.
+const HEALTHY_STATUSES = new Set(["Connected", "Loading replay", "Preparing replay", "Replaying", "Replay complete"]);
 
 const teamLabel = (team: number): string => {
     if (team === TeamVals.LOWER) return "Green";
@@ -1638,7 +1642,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             embedded
             error={error}
             gameStarted={gameStarted}
-            opponentLabel={vsAiOpponentLabel}
             ready={ready}
             selectedUnit={selectedUnit}
             snapshot={snapshot}
@@ -1723,8 +1726,6 @@ interface RankedOverlayProps {
     embedded?: boolean;
     error: string;
     gameStarted: boolean;
-    /** Set for vs-AI matches: the tiered bot identity, e.g. "AI — Hard (v0.7)". */
-    opponentLabel?: string;
     ready: boolean;
     selectedUnit?: PlayUnitState;
     snapshot: PlaySnapshot;
@@ -1830,43 +1831,6 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                 Remove Selected
             </Button>
         </Stack>
-    );
-};
-
-const formatPlacementCountdown = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainder = Math.max(0, seconds % 60);
-    return `${minutes}:${remainder.toString().padStart(2, "0")}`;
-};
-
-const PlacementCountdownChip: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => {
-    const [nowMs, setNowMs] = useState(Date.now());
-
-    useEffect(() => {
-        if (snapshot.phase !== PlayPhase.PLACEMENT || snapshot.placementDeadlineMs <= 0) {
-            return undefined;
-        }
-        const timer = window.setInterval(() => setNowMs(Date.now()), 500);
-        return () => window.clearInterval(timer);
-    }, [snapshot.phase, snapshot.placementDeadlineMs]);
-
-    if (snapshot.phase !== PlayPhase.PLACEMENT || snapshot.placementDeadlineMs <= 0) {
-        return null;
-    }
-
-    const remainingSeconds = Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000));
-    return (
-        <Chip
-            size="sm"
-            variant="soft"
-            sx={{
-                bgcolor: remainingSeconds <= 10 ? "rgba(185,28,28,0.22)" : "rgba(22,101,52,0.18)",
-                color: remainingSeconds <= 10 ? "#fecaca" : "#bbf7d0",
-                border: `1px solid ${remainingSeconds <= 10 ? "rgba(248,113,113,0.35)" : "rgba(74,222,128,0.28)"}`,
-            }}
-        >
-            {formatPlacementCountdown(remainingSeconds)}
-        </Chip>
     );
 };
 
@@ -2137,136 +2101,99 @@ const RankedAugmentSummary: React.FC<{
     );
 };
 
-// One army's roster as a wrapping grid of unit icons, with a title + readiness chip. Reused for both
-// the viewer's own army and the opponent's during placement.
-const RankedArmyRosterRow: React.FC<{
+// Fixed six level slots, in the order the draft fills them.
+const ROSTER_LEVEL_SLOTS: number[] = [1, 1, 2, 2, 3, 4];
+
+// Sidebar roster row. The draft rails (MyDraftBar/OpponentDraftBar) are laid out for the 1340px draft
+// column and get clipped at the ~340px sidebar width, so placement renders this compact variant instead;
+// the rails stay in the full-screen augment pop-up where they fit.
+const RankedRosterRow: React.FC<{
     title: string;
-    units: PlaySnapshot["units"];
-    ready: boolean;
-    // Accent for KNOWN units (your own are always known; the server reveals the opponent's identities).
-    accent: { border: string; bg: string };
-}> = ({ title, units, ready, accent }) => {
-    if (!units.length) {
-        return null;
-    }
-    return (
-        <Stack spacing={0.5}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Typography level="body-sm" textColor={hocColors.parchment}>
-                        {title}
-                    </Typography>
-                    <Chip
-                        size="sm"
-                        variant="soft"
-                        sx={{
-                            bgcolor: ready ? "rgba(34,197,94,0.18)" : "rgba(148,163,184,0.12)",
-                            color: ready ? "#4ade80" : hocColors.muted,
-                            border: `1px solid ${ready ? "rgba(34,197,94,0.5)" : "rgba(148,163,184,0.25)"}`,
-                        }}
-                    >
-                        {ready ? "Ready" : "Placing…"}
-                    </Chip>
-                </Stack>
-                <Typography level="body-xs" textColor={hocColors.muted}>
-                    {units.length} units
-                </Typography>
-            </Stack>
-            <Box
-                sx={{
-                    display: "flex",
-                    // Wrap onto multiple rows so every unit stays visible when the right sidebar is narrow —
-                    // a single scrolling row would hide units off-screen.
-                    flexWrap: "wrap",
-                    gap: 0.6,
-                    pb: 0.25,
-                }}
-            >
-                {units.map((unit) => {
-                    const known = unit.creatureId > 0 && unit.name !== "Unknown";
-                    return (
-                        <Tooltip key={unit.id} title={known ? unit.name : "Unknown"} placement="top">
-                            <Box
-                                sx={{
-                                    position: "relative",
-                                    flex: "0 0 auto",
-                                    width: 52,
-                                    height: 52,
-                                    borderRadius: 6,
-                                    border: `1px solid ${known ? accent.border : "rgba(148,163,184,0.18)"}`,
-                                    bgcolor: known ? accent.bg : "rgba(15,23,42,0.45)",
-                                    display: "grid",
-                                    placeItems: "center",
-                                    overflow: "hidden",
-                                }}
-                            >
+    accent: string;
+    borderColor: string;
+    bgcolor: string;
+    creatureIds: number[];
+}> = ({ title, accent, borderColor, bgcolor, creatureIds }) => (
+    <Box sx={{ p: 0.75, borderRadius: "10px", bgcolor, border: `1px solid ${borderColor}` }}>
+        <Typography
+            level="body-xs"
+            sx={{ color: accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, mb: 0.5 }}
+        >
+            {title}
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+            {ROSTER_LEVEL_SLOTS.map((level, index) => {
+                const creatureId = creatureIds[index] ?? 0;
+                const src = creatureId ? UNIT_ID_TO_IMAGE[creatureId] : undefined;
+                const name = creatureId ? (UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`) : "Not revealed";
+                return (
+                    <Tooltip key={`${title}-slot-${index}`} title={`${name} · Lvl ${level}`} variant="soft">
+                        <Box
+                            sx={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: "8px",
+                                overflow: "hidden",
+                                border: `1px solid ${borderColor}`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                bgcolor: "rgba(0,0,0,0.35)",
+                                color: accent,
+                                fontSize: 15,
+                                fontWeight: 700,
+                            }}
+                        >
+                            {src ? (
                                 <Box
                                     component="img"
-                                    src={resolveUnitImage(undefined, known ? unit.name : undefined)}
-                                    alt=""
-                                    sx={{
-                                        width: 46,
-                                        height: 46,
-                                        objectFit: "contain",
-                                        // Full roster is visible in color during placement; the grayscale
-                                        // silhouette is only a fallback for legacy/edge-case unknown units.
-                                        filter: known ? "none" : "grayscale(1) brightness(0.42) opacity(0.55)",
-                                    }}
+                                    src={src}
+                                    alt={name}
+                                    sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                                 />
-                            </Box>
-                        </Tooltip>
-                    );
-                })}
-            </Box>
-        </Stack>
-    );
-};
+                            ) : (
+                                "?"
+                            )}
+                        </Box>
+                    </Tooltip>
+                );
+            })}
+        </Box>
+    </Box>
+);
 
-const RankedOpponentPlacementIntel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({
-    snapshot,
-    userTeam,
-}) => {
+// Both rosters as the placement sidebar shows them: your six slots, and the opponent's full army. Slots the
+// server has not revealed yet (creatureId 0 during the split Setup stage) render as "?" rather than vanish,
+// so the army always reads as six slots.
+const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
     if (snapshot.phase !== PlayPhase.PLACEMENT) {
         return null;
     }
 
-    const myUnits = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead);
-    // Only opponent units with a real identity (creatureId > 0). The server masks the opponent's roster to
-    // identity-less stubs (creatureId 0) during the split Setup stage, revealing only what the viewer
-    // learned in the pick phase; the full roster is revealed once the Board stage opens.
-    const opponentUnits = snapshot.units.filter((unit) => unit.team !== userTeam && !unit.dead && unit.creatureId > 0);
-    if (!myUnits.length && !opponentUnits.length) {
+    const myIds = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead).map((unit) => unit.creatureId);
+    const opponentIds = snapshot.units
+        .filter((unit) => unit.team !== userTeam && !unit.dead)
+        .map((unit) => unit.creatureId);
+    if (!myIds.length && !opponentIds.length) {
         return null;
     }
 
-    // Readiness rides along in the broadcast snapshot's readyPlayerIds — show both sides so each player
-    // sees when the other clicks "Ready Placement" (and their own state for symmetry).
-    const myPlayer = snapshot.players.find((player) => player.team === userTeam);
-    const myReady = !!myPlayer && snapshot.readyPlayerIds.includes(myPlayer.playerId);
-    const opponentPlayer = snapshot.players.find((player) => player.team !== userTeam);
-    const opponentReady = !!opponentPlayer && snapshot.readyPlayerIds.includes(opponentPlayer.playerId);
-
     return (
-        <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ width: "100%" }}>
-            {/* Your army first — the units you're placing. Friendly green accent. */}
-            <RankedArmyRosterRow
-                title="Your army"
-                units={myUnits}
-                ready={myReady}
-                accent={{ border: "rgba(34,197,94,0.35)", bg: "rgba(34,197,94,0.10)" }}
+        <Stack spacing={1.75}>
+            <RankedRosterRow
+                title="Opponent"
+                accent="#ff9d9d"
+                borderColor="rgba(138,43,43,0.6)"
+                bgcolor="#241416"
+                creatureIds={opponentIds}
             />
-            {/* Opponent roster. On the Board stage the server reveals every opponent unit's identity (stack
-                sizes + positions still hidden); on the split Setup stage only pick-revealed opponents come
-                through, so this row is hidden entirely until you've scouted something (or the board opens).
-                Amber accent to distinguish it from your own army. */}
-            {opponentUnits.length > 0 && (
-                <RankedArmyRosterRow
-                    title="Opponent army"
-                    units={opponentUnits}
-                    ready={opponentReady}
-                    accent={{ border: "rgba(245,158,11,0.28)", bg: "rgba(245,158,11,0.08)" }}
-                />
-            )}
+            <RankedRosterRow
+                title="Your army"
+                accent="#dcb158"
+                borderColor="rgba(255,255,255,0.12)"
+                bgcolor="#171a23"
+                creatureIds={myIds}
+            />
         </Stack>
     );
 };
@@ -2339,7 +2266,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     embedded = false,
     error,
     gameStarted,
-    opponentLabel,
     ready,
     selectedUnit,
     snapshot,
@@ -2365,6 +2291,16 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // split Board stage the picker is locked shut (augments committed) and the board opens.
     const inSetupStage = snapshot.placementSplit && snapshot.placementStage === 0;
     const inBoardStage = !snapshot.placementSplit || snapshot.placementStage === 1;
+    // Same countdown the placement chip renders, so the shared commit button can show it inline.
+    const [augmentNowMs, setAugmentNowMs] = useState(Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setAugmentNowMs(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, []);
+    const augmentSecondsLeft =
+        snapshot.placementDeadlineMs > 0
+            ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - augmentNowMs) / 1000))
+            : -1;
     const augmentOverlayOpen = inSetupStage
         ? true
         : snapshot.placementSplit
@@ -2398,49 +2334,25 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
             }}
         >
             <Stack spacing={1}>
-                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
-                    <Typography level="title-md" textColor={hocColors.parchment}>
-                        Ranked Fight
-                    </Typography>
-                    <Chip
-                        size="sm"
-                        variant="soft"
+                <Typography level="title-md" textColor={hocColors.parchment}>
+                    {phaseLabel(snapshot.phase)}
+                </Typography>
+
+                {!HEALTHY_STATUSES.has(status) && (
+                    <Typography
+                        level="body-xs"
+                        textColor={hocColors.gold}
                         sx={{
+                            px: 0.75,
+                            py: 0.25,
+                            borderRadius: "6px",
                             bgcolor: hocColors.orangeSoft,
-                            color: hocColors.gold,
                             border: `1px solid ${hocColors.orangeBorder}`,
                         }}
                     >
-                        {phaseLabel(snapshot.phase)}
-                    </Chip>
-                    <PlacementCountdownChip snapshot={snapshot} />
-                    {opponentLabel && (
-                        <Chip
-                            size="sm"
-                            variant="soft"
-                            sx={{
-                                bgcolor: hocColors.orangeSoft,
-                                color: hocColors.parchment,
-                                border: `1px solid ${hocColors.orangeBorder}`,
-                            }}
-                        >
-                            {opponentLabel}
-                        </Chip>
-                    )}
-                    <Chip size="sm" variant="soft" color={status === "Connected" ? "success" : "warning"}>
                         {status}
-                    </Chip>
-                    <Chip size="sm" variant="soft" color="neutral">
-                        Seq {snapshot.latestSequence}
-                    </Chip>
-                    {isObserver && (
-                        <Chip size="sm" variant="soft" color="primary">
-                            Observer
-                        </Chip>
-                    )}
-                </Stack>
-
-                <WalletLinker compact />
+                    </Typography>
+                )}
 
                 <Typography level="body-sm" textColor={hocColors.mutedStrong}>
                     {isObserver ? "Watching as observer" : `You: ${teamLabel(userTeam)}`}
@@ -2449,31 +2361,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                 {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
                     <Stack spacing={0.75}>
-                        {/* Prompt both players up-front: augments + placement share this single timer. */}
-                        <Box
-                            sx={{
-                                p: 1,
-                                borderRadius: "8px",
-                                bgcolor: hocColors.orangeSoft,
-                                border: `1px solid ${hocColors.orangeBorder}`,
-                            }}
-                        >
-                            <Typography level="title-sm" textColor={hocColors.gold}>
-                                {snapshot.placementSplit
-                                    ? inSetupStage
-                                        ? "Step 1 of 2 — Augments & synergies"
-                                        : "Step 2 of 2 — Position your army"
-                                    : "Set up your army"}
-                            </Typography>
-                            <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                                {snapshot.placementSplit
-                                    ? inSetupStage
-                                        ? "Spend your upgrade points on augments & synergies in the pop-up, then lock in. The board unlocks next (units are auto-placed if you run out of time)."
-                                        : "Position and split your units on the board, then hit Ready. Augments are locked for this fight."
-                                    : "1) Choose augments & synergies in the pop-up, 2) position your units on the board, then hit Ready. Augments and placement share one timer."}
-                            </Typography>
-                        </Box>
-                        <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
+                        <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                         {/* The augment/synergy picker lives in an overlay (open by default at placement
                             start), not the sidebar. After "Continue to placement" the chosen upgrades
@@ -2499,38 +2387,55 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 layout="fullscreen"
                                 variant="plain"
                                 sx={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: "clamp(10px, 1.6vh, 30px)",
-                                    p: "clamp(10px, 2vh, 36px) 40px clamp(10px, 1.6vh, 36px)",
-                                    overflow: "hidden",
-                                    background: "radial-gradient(120% 80% at 50% 0%, #171a23 0%, #0b0d12 60%)",
-                                    color: "#e9e6df",
+                                    ...draftShellSx,
+                                    gap: "calc(clamp(10px, 1.6vh, 30px) * 0.5)",
+                                    height: "100%",
+                                    justifyContent: "center",
                                     border: "none",
                                 }}
                             >
                                 {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
-                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                                    <Typography
-                                        sx={{
-                                            fontSize: "clamp(26px, 3vw, 62px)",
-                                            fontWeight: 600,
-                                            lineHeight: 1.1,
-                                            color: "#efe4cc",
-                                        }}
-                                    >
-                                        Choose your augments
-                                    </Typography>
-                                    <PlacementCountdownChip snapshot={snapshot} />
+                                <DraftTitle>Choose your augments</DraftTitle>
+                                {/* The draft's own rails, fed from the play snapshot, so this screen shows the
+                                    armies exactly like every pick phase before it. */}
+                                <Stack
+                                    direction={{ xs: "column", md: "row" }}
+                                    spacing={1.25}
+                                    sx={{
+                                        width: "min(1340px, 97vw)",
+                                        mx: "auto",
+                                        mb: "calc(clamp(10px, 1.6vh, 30px) * -0.35)",
+                                    }}
+                                >
+                                    <MyDraftBar
+                                        perk={
+                                            (userTeam === TeamVals.LOWER ? snapshot.lowerPerk : snapshot.upperPerk) ?? 0
+                                        }
+                                        picked={snapshot.units
+                                            .filter((unit) => unit.team === userTeam && !unit.dead)
+                                            .map((unit) => unit.creatureId)}
+                                        artifactTier1={
+                                            (userTeam === TeamVals.LOWER
+                                                ? snapshot.lowerArtifactTier1
+                                                : snapshot.upperArtifactTier1) ?? 0
+                                        }
+                                        artifactTier2={
+                                            (userTeam === TeamVals.LOWER
+                                                ? snapshot.lowerArtifactTier2
+                                                : snapshot.upperArtifactTier2) ?? 0
+                                        }
+                                    />
+                                    <OpponentDraftBar
+                                        opponentPicked={snapshot.units
+                                            .filter(
+                                                (unit) => unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
+                                            )
+                                            .map((unit) => unit.creatureId)}
+                                        opponentLabel="Opponent"
+                                        watchedSlots={[0, 1, 2, 3, 4, 5]}
+                                    />
                                 </Stack>
-                                {/* Their 6-creature roster is the only opponent intel the engine reveals during
-                                    placement (their augments/synergies/artifacts stay hidden until the fight) — so
-                                    surface it INSIDE the picker, above the selectors, to choose your build against
-                                    their army instead of blind. The identical sidebar panel sits behind this modal
-                                    while it's open, so without this the roster is invisible exactly when it matters. */}
-                                <RankedOpponentPlacementIntel snapshot={snapshot} userTeam={userTeam} />
                                 <Box
                                     component="fieldset"
                                     disabled={ready}
@@ -2552,17 +2457,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         onReadyChange={setAugmentReady}
                                     />
                                 </Box>
-                                {!setupComplete && (
-                                    <Typography level="body-xs" textColor={hocColors.muted}>
-                                        {augmentReady.pointsRemaining > 0
-                                            ? `${augmentReady.pointsRemaining} upgrade point${
-                                                  augmentReady.pointsRemaining === 1 ? "" : "s"
-                                              } still unspent`
-                                            : "Some factions still have an unpicked synergy"}{" "}
-                                        — finish picking to continue (if the timer runs out, the rest is picked for
-                                        you).
-                                    </Typography>
-                                )}
                                 {/* Split Setup: this is the setup-ready that advances to the board (both-ready
                                     or the 30s deadline advances; the AI auto-spends for anyone not locked in).
                                     Legacy: choices commit as clicked, so this just closes the pop-up.
@@ -2571,62 +2465,39 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     disabled regardless. */}
                                 {/* One bar carries the action, the budget and the clock: gold while points are
                                     still unspent, green once the build is complete. */}
-                                <Button
-                                    variant="solid"
-                                    disabled={(!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready))}
-                                    onClick={() => {
-                                        if (inSetupStage) {
-                                            void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT });
-                                        } else {
-                                            setAugmentOverlayOpen(false);
-                                        }
-                                    }}
-                                    sx={{
-                                        minHeight: 64,
-                                        borderRadius: "14px",
-                                        fontSize: 20,
-                                        fontWeight: 700,
-                                        letterSpacing: "0.04em",
-                                        textTransform: "uppercase",
-                                        color: "#fff",
-                                        border: `2px solid ${
-                                            setupComplete ? "rgba(214,240,200,0.55)" : "rgba(245,220,160,0.5)"
-                                        }`,
-                                        background: setupComplete
-                                            ? "linear-gradient(180deg, #7ab86a 0%, #4e9450 46%, #2f6b3c 100%)"
-                                            : "linear-gradient(180deg, #d9a94f 0%, #b2823a 46%, #7d5a24 100%)",
-                                        "&:hover": {
-                                            background: setupComplete
-                                                ? "linear-gradient(180deg, #86c476 0%, #57a059 46%, #35773f 100%)"
-                                                : "linear-gradient(180deg, #e5b658 0%, #bd8c3f 46%, #886228 100%)",
-                                        },
-                                    }}
-                                >
-                                    <Box component="span" sx={{ flex: "1 1 auto", textAlign: "center" }}>
-                                        {inSetupStage
-                                            ? ready
-                                                ? "Waiting for opponent…"
-                                                : "Continue to placement"
-                                            : "Continue to placement"}
-                                    </Box>
-                                    <Box
-                                        component="span"
-                                        sx={{
-                                            px: 2,
-                                            mx: 2,
-                                            borderLeft: "2px solid rgba(255,255,255,0.35)",
-                                            borderRight: "2px solid rgba(255,255,255,0.35)",
-                                            fontVariantNumeric: "tabular-nums",
-                                        }}
-                                    >
-                                        {`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
-                                    </Box>
-                                    <PlacementCountdownChip snapshot={snapshot} />
-                                </Button>
                                 <Box
-                                    sx={{ mt: "auto", pt: 2, width: "100%", display: "flex", justifyContent: "center" }}
+                                    sx={{
+                                        mt: "clamp(8px, 1.4vh, 22px)",
+                                        width: "100%",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                    }}
                                 >
-                                    <DraftStepper step={6} />
+                                    <PickCommitButton
+                                        label={inSetupStage && ready ? "Waiting for opponent…" : "Lock in augments"}
+                                        armed={!((!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready)))}
+                                        isYourTurn
+                                        tone={setupComplete ? "green" : "gold"}
+                                        seconds={augmentSecondsLeft}
+                                        extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
+                                        onCommit={() => {
+                                            if (inSetupStage) {
+                                                void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT });
+                                            } else {
+                                                setAugmentOverlayOpen(false);
+                                            }
+                                        }}
+                                    />
+                                </Box>
+                                <Box
+                                    sx={{
+                                        mt: "clamp(10px, 2vh, 28px)",
+                                        width: "100%",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <DraftStepper step={6} userTeam={userTeam} />
                                 </Box>
                             </ModalDialog>
                         </Modal>

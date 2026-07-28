@@ -9,16 +9,14 @@ import {
     MightSynergyNames,
     MightSynergy,
     NatureSynergyNames,
-    ToFactionName,
     NatureSynergy,
-    SynergyKeysToPower,
     SpecificSynergy,
     TeamType,
     FactionType,
     FactionVals,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
-import { Radio, RadioGroup, FormControl, FormLabel, Sheet, Box, Tooltip, Typography, Divider } from "@mui/joy";
+import { Sheet, Box, Tooltip, Typography, Divider } from "@mui/joy";
 import { VisibleSynergyLevel } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { ArtifactToggler } from "./ArtifactToggler";
@@ -26,8 +24,6 @@ const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
 const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", import.meta.url).toString();
-// No dedicated Magic Defense art yet — the armour plate reads closest to "magic armour" of what ships today.
-const augmentMagicDefenseImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
 const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
 const synergyAbilitiesPowerImg = new URL(
@@ -75,50 +71,6 @@ type SelectedSynergy = {
     name: string;
 };
 
-const SynergyToggler = ({ selectedSynergy }: { selectedSynergy: SelectedSynergy | null }) => {
-    if (!selectedSynergy) {
-        return null;
-    }
-
-    const selectedSynergyFactionName = ToFactionName[selectedSynergy.faction];
-    const selectedSynergyKey = `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${selectedSynergy.level}`;
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            <Sheet variant="outlined" sx={{ padding: 2, borderRadius: "md" }}>
-                <FormControl>
-                    <FormLabel>{`Picked ${selectedSynergy.name}`}</FormLabel>
-                    <RadioGroup value={selectedSynergyKey}>
-                        {Array.from({ length: HoCConstants.MAX_SYNERGY_LEVEL }, (_, i) => (
-                            <Radio
-                                key={`${selectedSynergyKey}:${i + 1}`}
-                                value={`${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`}
-                                label={`${SYNERGY_NAME_TO_DESCRIPTION[selectedSynergy.synergyName]
-                                    ?.replace(
-                                        "{}",
-                                        SynergyKeysToPower[
-                                            `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
-                                        ]?.[0]?.toString() || "0",
-                                    )
-                                    ?.replace(
-                                        "{}",
-                                        SynergyKeysToPower[
-                                            `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
-                                        ]?.[1]?.toString() || "0",
-                                    )}`}
-                                disabled={
-                                    selectedSynergyKey !==
-                                    `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
-                                }
-                            />
-                        ))}
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
 type SynergyOption = {
     label: string;
     icon: string;
@@ -151,21 +103,40 @@ const SynergyFactionPanel = ({
                 bgcolor: "#12151d",
                 border: "2px solid rgba(255,255,255,0.08)",
                 display: "flex",
-                flexDirection: "column",
+                flexDirection: "row",
+                alignItems: "center",
                 gap: 1,
+                height: "100%",
+                overflow: "hidden",
+                // Factions you can actually pick sort to the front; "needs 2 units" ones drop to the end.
+                order: locked ? 2 : 1,
             }}
         >
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Box
+                sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    flex: "0 0 auto",
+                    minWidth: 96,
+                }}
+            >
                 <Typography
-                    sx={{ fontSize: 14, letterSpacing: "0.12em", textTransform: "uppercase", color, fontWeight: 700 }}
+                    sx={{
+                        fontSize: 13,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: locked ? "#5d636e" : color,
+                        fontWeight: 700,
+                    }}
                 >
                     {faction}
                 </Typography>
-                <Typography sx={{ fontSize: 13, color: locked ? "#7c8290" : "#9aa0ab" }}>
+                <Typography sx={{ fontSize: 12, color: locked ? "#5d636e" : "#9aa0ab" }}>
                     {locked ? "needs 2 units" : `level ${level}`}
                 </Typography>
             </Box>
-            <Box sx={{ display: "flex", gap: 1 }}>
+            <Box sx={{ display: "flex", gap: 1, flex: "1 1 auto", minWidth: 0 }}>
                 {options.map((option) => {
                     const isSelected = selectedLabel === option.label;
                     return (
@@ -199,8 +170,20 @@ const SynergyFactionPanel = ({
                                     textAlign: "left",
                                 }}
                             >
-                                <img src={option.icon} alt="" style={{ width: 26, height: 26, objectFit: "contain" }} />
-                                <span>{option.label}</span>
+                                <img src={option.icon} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
+                                <span
+                                    style={{
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        minWidth: 0,
+                                    }}
+                                >
+                                    {option.label}
+                                </span>
+                                <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
+                                    {option.level > 0 ? `lvl ${option.level}` : ""}
+                                </span>
                             </Box>
                         </Tooltip>
                     );
@@ -247,8 +230,27 @@ const AugmentCard = ({
             variant="outlined"
             sx={{ p: "12px", borderRadius: "18px", bgcolor: "#12151d", border: "1px solid rgba(255,255,255,0.12)" }}
         >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <img src={icon} alt="" style={{ width: 36, height: 36, objectFit: "contain" }} />
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1 }}>
+                {icon ? (
+                    <img src={icon} alt="" style={{ width: 36, height: 36, objectFit: "contain" }} />
+                ) : (
+                    <Box
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: "10px",
+                            display: "grid",
+                            placeItems: "center",
+                            bgcolor: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            color: "#7c8290",
+                            fontSize: 20,
+                            fontWeight: 700,
+                        }}
+                    >
+                        ?
+                    </Box>
+                )}
                 <Typography sx={{ fontSize: 17, fontWeight: 600, color: "#e9e6df" }}>{label}</Typography>
             </Box>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
@@ -274,12 +276,23 @@ const AugmentCard = ({
                                 bgcolor: isSelected ? "rgba(220,177,88,0.14)" : "rgba(255,255,255,0.03)",
                                 border: `1px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
                                 color: affordable || isSelected ? "#e9e6df" : "#5d636e",
-                                fontSize: 13,
+                                fontSize: 12.5,
                                 textAlign: "left",
                             }}
                         >
                             <span>{option.label}</span>
-                            <span style={{ opacity: 0.75 }}>{option.value}</span>
+                            <Box
+                                component="span"
+                                sx={{
+                                    width: 15,
+                                    height: 15,
+                                    ml: "auto",
+                                    borderRadius: "50%",
+                                    flex: "0 0 auto",
+                                    border: `2px solid ${isSelected ? "#4b90e2" : "rgba(255,255,255,0.35)"}`,
+                                    boxShadow: isSelected ? "inset 0 0 0 3px #4b90e2" : "none",
+                                }}
+                            />
                         </Box>
                     );
                 })}
@@ -315,7 +328,6 @@ const SideToggleContainer = ({
     const [armorSelection, setArmorSelection] = useState<number | null>(null);
     const [mightSelection, setMightSelection] = useState<number | null>(null);
     const [empowerSelection, setEmpowerSelection] = useState<number | null>(null);
-    const [magicDefenseSelection, setMagicDefenseSelection] = useState<number | null>(null);
     const [sniperSelection, setSniperSelection] = useState<number | null>(null);
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
     const [possibleSynergies, setPossibleSynergies] = useState<Map<TeamType, SynergyWithLevel[]>>(new Map());
@@ -327,7 +339,6 @@ const SideToggleContainer = ({
     const [synergyPairChaos, setSynergyPairTypeChaos] = useState<SelectedSynergy | null>(null);
     const [synergyPairMight, setSynergyPairTypeMight] = useState<SelectedSynergy | null>(null);
     const [synergyPairNature, setSynergyPairTypeNature] = useState<SelectedSynergy | null>(null);
-    const [synergyTogglerKey, setSynergyTogglerKey] = useState(0);
 
     const handleLevelChange = (kind: Augment.AugmentType["type"], pointsUsed: number, previousPointsUsed: number) => {
         if (kind === "Placement") {
@@ -338,8 +349,6 @@ const SideToggleContainer = ({
             setMightSelection(pointsUsed);
         } else if (kind === "Empower") {
             setEmpowerSelection(pointsUsed);
-        } else if (kind === "MagicDefense") {
-            setMagicDefenseSelection(pointsUsed);
         } else if (kind === "Sniper") {
             setSniperSelection(pointsUsed);
         } else {
@@ -412,8 +421,6 @@ const SideToggleContainer = ({
                 level: synergyLevel,
                 name: selectedSynergy.name,
             });
-            // Force a re-render of the SynergyToggler by updating its key
-            setSynergyTogglerKey((prev) => prev + 1);
         }
     }
 
@@ -442,16 +449,6 @@ const SideToggleContainer = ({
             setTogglerType("Synergy");
         }
     };
-
-    const hasAnySynergies =
-        possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 ||
-        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0 ||
-        possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 ||
-        possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0 ||
-        possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 ||
-        possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0 ||
-        possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 ||
-        possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0;
 
     // A faction's synergy is "done" when it isn't available for this army, or the player has picked one of
     // its two variants. All available synergies are selected once every faction is done.
@@ -536,20 +533,6 @@ const SideToggleContainer = ({
             ],
         },
         {
-            kind: "MagicDefense",
-            label: "Magic defense",
-            icon: (augmentMagicDefenseImg as unknown as { default?: string }).default ?? augmentMagicDefenseImg,
-            selection: magicDefenseSelection,
-            options: [
-                { value: Augment.MagicDefenseAugment.NO_AUGMENT, label: "No augment" },
-                ...[
-                    Augment.MagicDefenseAugment.LEVEL_1,
-                    Augment.MagicDefenseAugment.LEVEL_2,
-                    Augment.MagicDefenseAugment.LEVEL_3,
-                ].map((level) => ({ value: level, label: `+${Augment.getMagicDefensePower(level)}% magic defense` })),
-            ],
-        },
-        {
             kind: "Sniper",
             label: "Sniper",
             icon: (augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg,
@@ -580,13 +563,16 @@ const SideToggleContainer = ({
     ];
 
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "min(1340px, 97vw)", mx: "auto" }}>
             {/* Every category on screen at once: 4 columns, one card per augment, levels priced inline. */}
             <Box
                 sx={{
                     display: "grid",
-                    gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
+                    gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
                     gap: "10px",
+                    width: "100%",
+                    gridAutoRows: "minmax(0, 1fr)",
+                    alignItems: "stretch",
                 }}
             >
                 {augmentCards.map((card) => (
@@ -605,13 +591,15 @@ const SideToggleContainer = ({
             </Box>
             <Divider />
 
-            {hasAnySynergies && (
+            {
                 <Box
                     sx={{
                         display: "grid",
-                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
-                        gap: "14px",
-                        p: "16px",
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 1fr))" },
+                        width: "87%",
+                        mx: "auto",
+                        gap: "8px",
+                        p: "8px",
                         borderRadius: "30px",
                         bgcolor: "rgba(255,255,255,0.025)",
                         border: "2px solid rgba(255,255,255,0.1)",
@@ -770,9 +758,7 @@ const SideToggleContainer = ({
                         ]}
                     />
                 </Box>
-            )}
-
-            {togglerType === "Synergy" && <SynergyToggler key={synergyTogglerKey} selectedSynergy={selectedSynergy} />}
+            }
 
             {showArtifactPicker && <ArtifactToggler teamType={teamType} />}
         </Box>
