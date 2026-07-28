@@ -33,6 +33,7 @@ import {
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
+import { isTargetedSpellReachable } from "./spell_targeting";
 
 /**
  * Simple log interface for scene logging.
@@ -1164,7 +1165,14 @@ export class AIController {
                 target?.hasMindAttackResistance(),
                 target?.canBeHealed(),
                 enemiesInRange,
-            );
+            ) &&
+            (!target ||
+                isTargetedSpellReachable(
+                    spell.getName(),
+                    this.context.getGrid(),
+                    caster.getBaseCell(),
+                    target.getBaseCell(),
+                ));
 
         let best: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined;
         let bestValue = 0;
@@ -1287,7 +1295,7 @@ export class AIController {
                 let target: Unit | undefined;
                 let value = 0;
                 for (const e of enemies) {
-                    if (e.hasDebuffActive(name)) {
+                    if (e.hasDebuffActive(name) || !canCast(spell, e)) {
                         continue;
                     }
                     const v = threat(e);
@@ -1296,7 +1304,7 @@ export class AIController {
                         target = e;
                     }
                 }
-                if (target && canCast(spell, target)) {
+                if (target) {
                     consider(value, {
                         spellName: name,
                         targetUnitId: target.getId(),

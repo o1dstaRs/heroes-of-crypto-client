@@ -95,6 +95,7 @@ import {
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
+import { isTargetedSpellReachable } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
@@ -5818,6 +5819,9 @@ export class Sandbox extends PixiScene {
         if (!spell || !caster) {
             return false;
         }
+        if (!isTargetedSpellReachable(spell.getName(), this.grid, caster.getBaseCell(), targetUnit.getBaseCell())) {
+            return false;
+        }
 
         // Castling (POSITION_CHANGE) swaps caster↔target. The engine teleports both instantly, so
         // capture their pre-swap positions and animate them arcing to their new cells afterwards.
@@ -6496,15 +6500,6 @@ export class Sandbox extends PixiScene {
      * so a stack that died still gets its number where it stood.
      */
     /**
-     * Is a THROWN offensive spell (Fire Strike, Ring of Fire) actually able to reach the hovered target?
-     *
-     * canCastSpell knows about teams, magic resistance and stack power but nothing about the board between the
-     * two units, so on its own it would light up a target the engine then refuses. Uses the engine's OWN
-     * predicate, the same way the Smoke preview uses isSmokeableCell. Any other spell passes straight through —
-     * a buff or a debuff is willed onto its target, not thrown at it, and Lightning Strike is called down out
-     * of the sky, so nothing on the board can stand in its way (see isThrownOffensiveSpell).
-     */
-    /**
      * What an offensive spell would actually land on `target`, for the aim preview — or undefined when the
      * hovered spell has no damage to show (a buff, a heal, a plain debuff, a summon).
      *
@@ -6571,17 +6566,12 @@ export class Sandbox extends PixiScene {
     private cellTargetedSpellBlock(spell: Spell, origin: HoCMath.XY): HoCMath.XY[] {
         return cellTargetedSpellBlockCells(spell.getName(), origin);
     }
-    private hasThrownSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
-        if (!isOffensiveSpellMultiplier(spell.getMultiplierType()) || !isThrownOffensiveSpell(spell.getName())) {
-            return true;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        return SpellHelper.isSpellLineOfSightClear(
-            this.grid,
-            (cell) => GridMath.isCellWithinGrid(gs, cell),
-            caster.getBaseCell(),
-            target.getBaseCell(),
-        );
+    /**
+     * Whether a unit-targeted spell can reach the target through the current board. The common classifier
+     * includes Vine Throw despite its non-damaging status multiplier and lets called-down spells pass.
+     */
+    private hasTargetedSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
+        return isTargetedSpellReachable(spell.getName(), this.grid, caster.getBaseCell(), target.getBaseCell());
     }
     /**
      * Where to start a Magic Mirror rebound beam: the holder's CURRENT visual center when it is still on the
@@ -9001,7 +8991,7 @@ export class Sandbox extends PixiScene {
                         hoveredUnit.canBeHealed(),
                         this.currentEnemiesCellsWithinMovementRange,
                     ) &&
-                    this.hasThrownSpellLineOfSight(spell, caster, hoveredUnit)
+                    this.hasTargetedSpellLineOfSight(spell, caster, hoveredUnit)
                 ) {
                     // A target-sparing spell (Ring of Fire) aims AT this creature but never damages it, so
                     // it must not wear the red "this burns" tint the ring itself gets. Gold marks it as the
@@ -10942,8 +10932,8 @@ export class Sandbox extends PixiScene {
      *
      * All-or-nothing like Smoke and Fire Wall: the engine refuses a throw whose lane is blocked, so an
      * illegal target draws nothing at all rather than dangling a highlight over a cast that would be
-     * rejected. Legality comes from the ENGINE's own predicate (isVineCrossableCell) walking the ENGINE's own
-     * path (vinePathCells), so the preview cannot promise something vineThrowCast will refuse.
+     * rejected. Legality comes from the shared targeted-spell predicate and the lane comes from the engine's
+     * own vinePathCells walk, so the preview cannot promise something vineThrowCast will refuse.
      */
     private drawVineThrowAim(g: Graphics): void {
         const spell = this.currentActiveSpell;
@@ -10975,13 +10965,8 @@ export class Sandbox extends PixiScene {
         if (!pathCells.length) {
             return;
         }
-        // Everything short of the target's own cell must be clear; the target occupies the last one by
-        // definition, which is why the engine excludes it from this same check.
-        if (
-            !pathCells
-                .slice(0, -1)
-                .every((c) => VineHelper.isVineCrossableCell(this.grid, GridMath.isCellWithinGrid(gs, c), c))
-        ) {
+        // The same target-specific predicate gates fallback AI, local-model choices, hover and the click.
+        if (!isTargetedSpellReachable(spell.getName(), this.grid, from, to)) {
             return;
         }
 
