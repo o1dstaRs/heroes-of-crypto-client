@@ -56,7 +56,6 @@ import {
 import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
-import DraggableToolbar from "./DraggableToolbar";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
@@ -1672,7 +1671,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
                     </ViewerTeamContext.Provider>
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
-                    {gameStarted && <RankedSynergiesPanel snapshot={snapshot} userTeam={userTeam} />}
                     {gameStarted && <UpNextOverlay />}
                     {gameStarted && <NextLapHazardBadge />}
                     {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
@@ -1710,7 +1708,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                 onHome={() => navigate("/play")}
                             />
                         )}
-                    {gameStarted && !isObserver && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
@@ -2198,67 +2195,6 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     );
 };
 
-// Top-left HUD panel showing both armies' active synergies once the fight has started. The server only
-// populates snapshot.*Synergies after fight start (empty during placement), so this stays hidden until the
-// fight begins — and it never reveals picks during placement.
-const RankedSynergiesPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
-    const isLower = userTeam === TeamVals.LOWER;
-    const yours = (isLower ? snapshot.lowerSynergies : snapshot.upperSynergies) ?? [];
-    const theirs = (isLower ? snapshot.upperSynergies : snapshot.lowerSynergies) ?? [];
-    if (!yours.length && !theirs.length) {
-        return null;
-    }
-    return (
-        <Sheet
-            variant="outlined"
-            sx={{
-                position: "fixed",
-                top: 12,
-                left: 12,
-                zIndex: 15,
-                p: 1,
-                borderRadius: "md",
-                minWidth: 120,
-                ...hocPanelSx,
-                backdropFilter: "blur(10px)",
-            }}
-        >
-            <Stack spacing={0.75}>
-                <Box>
-                    <Typography
-                        level="body-xs"
-                        sx={{ color: "#46d160", textTransform: "uppercase", letterSpacing: 0.5, mb: 0.25 }}
-                    >
-                        Your synergies
-                    </Typography>
-                    {yours.length ? (
-                        <SynergiesRow synergies={yours} />
-                    ) : (
-                        <Typography level="body-xs" textColor={hocColors.muted}>
-                            None
-                        </Typography>
-                    )}
-                </Box>
-                <Box>
-                    <Typography
-                        level="body-xs"
-                        sx={{ color: "#ff5a5a", textTransform: "uppercase", letterSpacing: 0.5, mb: 0.25 }}
-                    >
-                        Opponent
-                    </Typography>
-                    {theirs.length ? (
-                        <SynergiesRow synergies={theirs} />
-                    ) : (
-                        <Typography level="body-xs" textColor={hocColors.muted}>
-                            None
-                        </Typography>
-                    )}
-                </Box>
-            </Stack>
-        </Sheet>
-    );
-};
-
 const RankedOverlay: React.FC<RankedOverlayProps> = ({
     busy,
     canSubmit,
@@ -2317,6 +2253,66 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         allSynergiesSelected: false,
     });
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
+
+    const confirmExitModal = (
+        <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
+            <ModalDialog sx={hocPanelSx}>
+                <Typography level="h4" sx={{ color: hocColors.parchment }}>
+                    Exit the fight?
+                </Typography>
+                <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
+                    <Typography level="body-sm" textColor={hocColors.mutedStrong}>
+                        This forfeits the fight — your opponent is declared the winner immediately and it counts as a
+                        loss for you. This cannot be undone.
+                    </Typography>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <Button
+                            variant="plain"
+                            disabled={busy}
+                            onClick={() => setConfirmExitOpen(false)}
+                            sx={hocSoftButtonSx}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="solid"
+                            color="danger"
+                            loading={busy}
+                            onClick={async () => {
+                                // Record the forfeit (opponent wins), then drop the player back to
+                                // game-mode selection instead of leaving them on the finished board.
+                                await submitProtocolAction({ type: PlayActionType.ABANDON });
+                                setConfirmExitOpen(false);
+                                navigate("/play");
+                            }}
+                        >
+                            Forfeit
+                        </Button>
+                    </Stack>
+                </Stack>
+            </ModalDialog>
+        </Modal>
+    );
+
+    // Once the fight starts the sidebar belongs to the turn controls, the damage table and the log — the
+    // whole placement sheet is gone. Forfeit is the one control that has to survive, so it ships on its own
+    // and the sidebar parks it at the bottom.
+    if (gameStarted && !isObserver) {
+        return (
+            <>
+                <Button
+                    variant="soft"
+                    color="danger"
+                    disabled={busy}
+                    onClick={() => setConfirmExitOpen(true)}
+                    sx={{ width: "100%" }}
+                >
+                    Exit Fight
+                </Button>
+                {confirmExitModal}
+            </>
+        );
+    }
     return (
         <Sheet
             variant="outlined"
@@ -2491,7 +2487,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 </Box>
                                 <Box
                                     sx={{
-                                        mt: "clamp(10px, 2vh, 28px)",
+                                        position: "absolute",
+                                        left: 0,
+                                        right: 0,
+                                        bottom: "clamp(10px, 1.6vh, 30px)",
                                         width: "100%",
                                         display: "flex",
                                         justifyContent: "center",
@@ -2526,24 +2525,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Stack>
                 )}
 
-                {gameStarted && !isObserver && (
-                    <Stack spacing={0.75}>
-                        <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
-                        <Typography level="body-xs" textColor={hocColors.muted}>
-                            Use the board and combat toolbar for movement, attacks, spells, and turn actions.
-                        </Typography>
-                        <Button
-                            variant="soft"
-                            color="danger"
-                            disabled={busy}
-                            onClick={() => setConfirmExitOpen(true)}
-                            sx={{ mt: 0.5 }}
-                        >
-                            Exit Fight (Forfeit)
-                        </Button>
-                    </Stack>
-                )}
-
                 {isObserver && (
                     <Typography level="body-xs" textColor={hocColors.muted}>
                         Live observer mode. Controls are disabled; replay is available after the fight ends.
@@ -2564,43 +2545,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     </Alert>
                 )}
 
-                <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
-                    <ModalDialog sx={hocPanelSx}>
-                        <Typography level="h4" sx={{ color: hocColors.parchment }}>
-                            Exit the fight?
-                        </Typography>
-                        <Stack spacing={2} sx={{ mt: 1, minWidth: 300, maxWidth: 360 }}>
-                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                This forfeits the fight — your opponent is declared the winner immediately and it counts
-                                as a loss for you. This cannot be undone.
-                            </Typography>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <Button
-                                    variant="plain"
-                                    disabled={busy}
-                                    onClick={() => setConfirmExitOpen(false)}
-                                    sx={hocSoftButtonSx}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    variant="solid"
-                                    color="danger"
-                                    loading={busy}
-                                    onClick={async () => {
-                                        // Record the forfeit (opponent wins), then drop the player back to
-                                        // game-mode selection instead of leaving them on the finished board.
-                                        await submitProtocolAction({ type: PlayActionType.ABANDON });
-                                        setConfirmExitOpen(false);
-                                        navigate("/play");
-                                    }}
-                                >
-                                    Forfeit
-                                </Button>
-                            </Stack>
-                        </Stack>
-                    </ModalDialog>
-                </Modal>
+                {confirmExitModal}
             </Stack>
         </Sheet>
     );
