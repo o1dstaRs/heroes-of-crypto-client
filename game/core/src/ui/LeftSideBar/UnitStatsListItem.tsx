@@ -39,6 +39,7 @@ import { MagicShieldIcon } from "../svg/magic_shield";
 import { MoraleIcon } from "../svg/morale";
 import { QuiverIcon } from "../svg/quiver";
 import { ShieldIcon } from "../svg/shield";
+import { ScrollIcon } from "../svg/scroll";
 import { ShotRangeIcon } from "../svg/shot_range";
 import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
@@ -585,6 +586,16 @@ const TEAM_AURA = {
         inner: "radial-gradient(circle, rgba(255,175,160,.3) 46%, rgba(250,70,45,.16) 68%, transparent 88%)",
         ringHalo: "rgba(255,90,63,.4)",
     },
+    // Unaffiliated creatures — the units overlay, where nothing has picked a side yet. A hueless light
+    // grey, and slightly dimmer than the team tones so a roster entry never competes with a real
+    // combatant for attention. Without this the tone was chosen by a two-way LOWER/else ternary, so every
+    // teamless creature burned red and read as an enemy.
+    neutral: {
+        outer: "radial-gradient(circle, rgba(228,228,228,.30) 34%, rgba(176,176,176,.16) 60%, transparent 82%)",
+        mid: "radial-gradient(circle, rgba(238,238,238,.26) 40%, rgba(190,190,190,.14) 64%, transparent 86%)",
+        inner: "radial-gradient(circle, rgba(248,248,248,.22) 46%, rgba(205,205,205,.12) 68%, transparent 88%)",
+        ringHalo: "rgba(216,216,216,.32)",
+    },
 } as const;
 
 // A slow, steady burn. Opacity barely moves (no blinking) — what changes is the silhouette: the corner
@@ -773,15 +784,30 @@ const EffectTiles: React.FC<{
  * One cell of the stat plate. Optionally carries a second stat beside the first — morale and luck share a
  * cell so a creature with extra (ranged) stats still fits the fixed three-row grid.
  */
-const StatValue: React.FC<{
-    icon: React.ReactElement<Record<string, unknown>>;
-    value: string | number;
-    color: string;
-    metrics: ISidebarMetrics;
-}> = ({ icon, value, color, metrics }) => (
+/**
+ * One icon + number.
+ *
+ * forwardRef, and it spreads whatever else it is given onto the Box, because every one of these is wrapped
+ * in a <Tooltip>. MUI hands its child the hover/focus handlers and a ref by cloning it; a plain function
+ * component silently drops both, and the stat explanations stop appearing on hover with nothing in the
+ * console to say why. If this stops forwarding, the tooltips go quiet again.
+ */
+const StatValue = React.forwardRef<
+    HTMLDivElement,
+    {
+        icon: React.ReactElement<Record<string, unknown>>;
+        value: string | number;
+        color: string;
+        metrics: ISidebarMetrics;
+    } & React.HTMLAttributes<HTMLDivElement>
+>(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
     // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
     // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
-    <Box sx={{ display: "inline-flex", alignItems: "center", width: "fit-content", minWidth: 0 }}>
+    <Box
+        ref={ref}
+        {...tooltipProps}
+        sx={{ display: "inline-flex", alignItems: "center", width: "fit-content", minWidth: 0 }}
+    >
         {React.cloneElement(icon, {
             sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
         })}
@@ -789,7 +815,8 @@ const StatValue: React.FC<{
             {value}
         </Typography>
     </Box>
-);
+));
+StatValue.displayName = "StatValue";
 
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
@@ -909,9 +936,17 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<ShieldIcon />}
                 value={Math.round(meleeArmor)}
-                tooltip="Armor"
+                tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
+                // A creature that armours differently against arrows shows both figures in ONE cell, the
+                // way morale and luck share theirs. They are the same stat read against two attack types,
+                // so splitting them across the grid made the pair read as unrelated -- and the second cell
+                // only existed for some creatures, which shifted every stat after it.
+                secondIcon={hasDifferentRangeArmor ? <ArrowShieldIcon /> : undefined}
+                secondValue={hasDifferentRangeArmor ? Math.round(rangeArmor) : undefined}
+                secondColor="#f4a460"
+                secondTooltip="Armor against ranged attacks"
             />
             <StatItem
                 icon={<MagicShieldIcon />}
@@ -939,20 +974,23 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
-                tooltip="Morale affects extra actions"
+                tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
                 secondIcon={<LuckIcon />}
                 secondValue={Math.round(unitProperties.luck + unitProperties.luck_mod)}
                 secondColor="#ff4040"
-                secondTooltip="Luck affects damage variance"
+                secondTooltip="Luck raises damage rolls and the power of abilities"
             />
-            {hasDifferentRangeArmor && (
+            {/* Spellbook scroll count. Dropped in the sidebar rebuild -- it is the only readout of how many
+                casts a spellcaster has left, so losing it meant checking the spellbook to answer a question
+                the stat block used to answer at a glance. */}
+            {unitProperties.can_cast_spells && (
                 <StatItem
-                    icon={<ArrowShieldIcon />}
-                    value={Math.round(rangeArmor)}
-                    tooltip="Range armor"
-                    color="#f4a460"
+                    icon={<ScrollIcon />}
+                    value={unitProperties.spells.length}
+                    tooltip="Magic scrolls left to cast"
+                    color="#add8e6"
                     metrics={metrics}
                 />
             )}
@@ -977,7 +1015,8 @@ const UnitStatsLayout: React.FC<{
         </>
     );
     const unitSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
-    const auraTone = team === TeamVals.LOWER ? TEAM_AURA.green : TEAM_AURA.red;
+    const auraTone =
+        team === TeamVals.LOWER ? TEAM_AURA.green : team === TeamVals.UPPER ? TEAM_AURA.red : TEAM_AURA.neutral;
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
@@ -1152,25 +1191,20 @@ const UnitStatsLayout: React.FC<{
                 </ScrollWell>
             </PanelSection>
 
-            {/* Synergies ride along with the buffs instead of a separate top-left HUD: they come off the
-                selected unit's own properties, so a green stack shows green's synergies and a red one
-                shows red's, with no extra plumbing. */}
+            {/* Synergies get their own section rather than sharing the Buffs well. They are not buffs: a buff
+                is something applied to THIS stack that will expire, while a synergy is a standing property of
+                the army's faction make-up. Mixed into one row they read as castable effects someone could
+                dispel, and the Buffs count stopped matching what was actually on the unit. Still driven by the
+                selected unit's own properties, so a green stack shows green's synergies and a red one red's. */}
+            {unitSynergies.length > 0 && (
+                <PanelSection title="Synergies" metrics={metrics}>
+                    <SynergiesRow synergies={unitSynergies} />
+                </PanelSection>
+            )}
+
             <PanelSection title="Buffs" metrics={metrics}>
                 <ScrollWell height={effectWellHeight}>
-                    {/* Buff tiles and synergy badges share one wrapping row rather than stacking as two
-                        blocks — they are all "what is currently boosting this stack". */}
-                    <Box
-                        sx={{
-                            display: "flex",
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            alignItems: "flex-start",
-                            gap: `${metrics.gapPx * 0.6}px`,
-                        }}
-                    >
-                        {buffs.length > 0 && <EffectTiles effects={buffs} title="Buffs" metrics={metrics} />}
-                        {unitSynergies.length > 0 && <SynergiesRow synergies={unitSynergies} />}
-                    </Box>
+                    {buffs.length > 0 && <EffectTiles effects={buffs} title="Buffs" metrics={metrics} />}
                 </ScrollWell>
             </PanelSection>
 

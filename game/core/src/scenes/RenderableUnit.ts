@@ -198,6 +198,16 @@ export const dropDuplicateAppliedEntries = (
  * We never `new RenderableUnit` directly; instead we "upgrade"
  * an existing Unit via `RenderableUnit.fromBase`.
  */
+/**
+ * The roster-card colour for a unit that belongs to NO team.
+ *
+ * A neutral light grey, deliberately with no hue in it. The previous value (0x8b94a6) was a blue-cast
+ * slate, which on the units overlay read as a third TEAM colour sitting alongside the green and the red
+ * rather than as "unaffiliated". Matches the grey the overlay already uses for its unselected faction
+ * icons, so the two neutral states look like the same state.
+ */
+const NO_TEAM_ROSTER_COLOR = 0xd0d0d0;
+
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
     // Server-authoritative "already used its hourglass (wait) this lap" flag, synced from the snapshot in
@@ -1415,7 +1425,7 @@ export class RenderableUnit extends Unit {
         const top = pos.y + visualSide * 0.5 + cell * 0.1;
         const bottom = pos.y - visualSide * 0.5 - captionGap - fontSize;
         const teamColor =
-            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : NO_TEAM_ROSTER_COLOR;
 
         const plate = this.rosterCardPlate!;
         plate.clear();
@@ -1479,7 +1489,7 @@ export class RenderableUnit extends Unit {
         const bannerTop = -flagHeight * 0.5;
         const bannerBottom = flagHeight * 0.5;
         const teamColor =
-            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : NO_TEAM_ROSTER_COLOR;
         const borderWidth = this.isActiveTurn ? 1.75 : 1.25;
         const borderColor = this.isActiveTurn ? 0xffffff : 0x000000;
         const borderAlpha = this.isActiveTurn ? 1 : 0.58;
@@ -2085,8 +2095,10 @@ export class RenderableUnit extends Unit {
         const segmentWidth = (totalBarWidth - 4 * gap) / 5;
         const cornerRadius = 3;
 
-        // Colors
-        const teamColor = props.team === TeamVals.LOWER ? 0x00d200 : 0xff0000;
+        // Colors. Three-way, not LOWER/else: a teamless creature (the units overlay) has no side to
+        // advertise, and falling through to red made every roster entry read as an enemy stack.
+        const teamColor =
+            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : NO_TEAM_ROSTER_COLOR;
         const emptyColor = 0x222222; // Dark grey for empty slots
         const borderColor = 0x000000;
 
