@@ -839,6 +839,7 @@ export class Sandbox extends PixiScene {
         // Initialize AI Controller with IAIContext implementation
         this.aiController = new AIController({
             getCurrentActiveUnit: () => this.currentActiveUnit,
+            getTurnActivationKey: () => this.getTurnActivationKey(),
             getGrid: () => this.grid,
             getGridMatrix: () => this.gridMatrix,
             getUnitsHolder: () => this.unitsHolder,
@@ -4304,6 +4305,15 @@ export class Sandbox extends PixiScene {
      * unit positions before an AI decision (ranked skip-rebuild snapshots leave the aggro board stale).
      */
     protected ensureAuthoritativeGrid(): void {}
+    /**
+     * Activation identity for AI retry guards. FightProperties refreshes currentTurnStart on every genuine
+     * activation, including a same-unit hourglass return, while leaving it stable through multi-action turns.
+     * Ranked overrides this with the server's raw turn-start tuple.
+     */
+    protected getTurnActivationKey(): string {
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+        return `${fightProperties.getCurrentLap()}:${this.currentActiveUnit?.getId() ?? ""}:${fightProperties.getCurrentTurnStart()}`;
+    }
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();

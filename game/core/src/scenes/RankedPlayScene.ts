@@ -771,6 +771,9 @@ export class RankedPlayScene extends Sandbox {
     private rankedPlacementSecondsMax = 0;
     private rankedTurnStartLocalMs = 0;
     private rankedTurnEndLocalMs = 0;
+    // Raw server tuple used by AIController retry guards. Do not use rankedTurnStartLocalMs: its clock-offset
+    // conversion can jitter between snapshots, while the authoritative start is stable for one activation.
+    private rankedTurnActivationKey = "";
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
@@ -1170,6 +1173,13 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
             return;
         }
+        this.rankedTurnActivationKey =
+            snapshot.fightStarted &&
+            !snapshot.fightFinished &&
+            !!snapshot.currentUnitId &&
+            !!snapshot.currentTurnStartMs
+                ? `${snapshot.gameId}:${snapshot.currentLap}:${snapshot.currentUnitId}:${snapshot.currentTurnStartMs}`
+                : "";
         this.applyRankedTimer(snapshot);
         this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
@@ -3093,6 +3103,9 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         this.grid.rebuildAggrBoards(ranges);
+    }
+    protected override getTurnActivationKey(): string {
+        return this.rankedTurnActivationKey || super.getTurnActivationKey();
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({

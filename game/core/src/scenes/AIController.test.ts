@@ -393,6 +393,157 @@ describe("AIController", () => {
             expect(controller.performingAction).toBe(false);
         });
 
+        it("does not carry AI-Driven rejection guards across intervening manual turns", async () => {
+            const berserker = {
+                ...createUnit("48df5f34"),
+                getName: () => "Berserker",
+                hasAbilityActive: (name: string): boolean => name === "AI Driven",
+            } as unknown as RenderableUnit;
+            const manualUnit = createUnit("manual-troll");
+            let currentUnit: RenderableUnit | undefined = berserker;
+            const decideTurn = mock(
+                () =>
+                    [
+                        {
+                            type: "melee_attack",
+                            attackerId: berserker.getId(),
+                            targetId: "forced-pikeman",
+                            attackFrom: { x: 4, y: 11 },
+                        },
+                    ] as GameAction[],
+            );
+            stubStrategy(decideTurn);
+            const submitted: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => currentUnit,
+                applyGameAction: (action: GameAction) => {
+                    submitted.push(action);
+                    if (action.type === "defend_turn") {
+                        currentUnit = undefined;
+                    }
+                    return true;
+                },
+            });
+            const controller = new AIController(context);
+            controller.isAIActive = false;
+            const internals = controller as unknown as {
+                performStrategyActions(
+                    unit: RenderableUnit,
+                    actions: GameAction[],
+                    wasAIActive: boolean,
+                ): Promise<boolean>;
+                performFindTargetAction(unit: RenderableUnit, wasAIActive: boolean): Promise<void>;
+                turnActionAttemptAtMs: number;
+                strategyRejectedCount: number;
+                strategyRejectedUnitId?: string;
+            };
+            const performedStrategyActions = mock(async () => {
+                currentUnit = undefined;
+                controller.performingAction = false;
+                return true;
+            });
+            const performedFallback = mock(async () => {
+                currentUnit = undefined;
+                controller.performingAction = false;
+            });
+            internals.performStrategyActions = performedStrategyActions;
+            internals.performFindTargetAction = performedFallback;
+
+            // Reproduce three accepted activations of the same self-playing stack. Every activation is
+            // separated by a manual teammate turn, which must clear activation-scoped retry state even
+            // though performAction() is never called for that teammate.
+            for (let lap = 1; lap <= 3; lap += 1) {
+                currentUnit = berserker;
+                controller.performingAction = true;
+                await controller.performAction(false);
+                if (lap < 3) {
+                    internals.turnActionAttemptAtMs = HoC.HoCLib.getTimeMillis() - 4_001;
+                    currentUnit = manualUnit;
+                    expect(controller.shouldTriggerAI()).toBe(false);
+                }
+            }
+
+            expect(performedStrategyActions).toHaveBeenCalledTimes(3);
+            expect(performedFallback).not.toHaveBeenCalled();
+            expect(decideTurn).toHaveBeenCalledTimes(3);
+            expect(strategySpy).toHaveBeenCalledTimes(3);
+            expect((strategySpy?.mock.calls as unknown[][]).every((call) => call[0] === "v0.1")).toBe(true);
+            expect(submitted.some((action) => action.type === "defend_turn")).toBe(false);
+            expect(internals.strategyRejectedCount).toBe(0);
+            expect(internals.strategyRejectedUnitId).toBeUndefined();
+        });
+
+        it("distinguishes consecutive authoritative activations of the same AI-Driven unit", async () => {
+            const berserker = {
+                ...createUnit("48df5f34"),
+                getName: () => "Berserker",
+                hasAbilityActive: (name: string): boolean => name === "AI Driven",
+            } as unknown as RenderableUnit;
+            let activationKey = "game:1:48df5f34:1000";
+            const decideTurn = mock(
+                () =>
+                    [
+                        {
+                            type: "melee_attack",
+                            attackerId: berserker.getId(),
+                            targetId: "forced-pikeman",
+                            attackFrom: { x: 4, y: 11 },
+                        },
+                    ] as GameAction[],
+            );
+            stubStrategy(decideTurn);
+            const submitted: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => berserker,
+                getTurnActivationKey: () => activationKey,
+                applyGameAction: (action: GameAction) => {
+                    submitted.push(action);
+                    return true;
+                },
+            });
+            const controller = new AIController(context);
+            controller.isAIActive = false;
+            const internals = controller as unknown as {
+                performStrategyActions(
+                    unit: RenderableUnit,
+                    actions: GameAction[],
+                    wasAIActive: boolean,
+                ): Promise<boolean>;
+                performFindTargetAction(unit: RenderableUnit, wasAIActive: boolean): Promise<void>;
+                turnActionAttemptAtMs: number;
+                strategyRejectedCount: number;
+            };
+            const performedStrategyActions = mock(async () => {
+                controller.performingAction = false;
+                return true;
+            });
+            const performedFallback = mock(async () => {
+                controller.performingAction = false;
+            });
+            internals.performStrategyActions = performedStrategyActions;
+            internals.performFindTargetAction = performedFallback;
+
+            // Simulate a client that receives only each Berserker activation snapshot (intervening turns
+            // advanced too quickly to be observed). A new server turn-start token must re-arm v0.1 directly.
+            for (let activation = 1; activation <= 3; activation += 1) {
+                activationKey = `game:${activation}:48df5f34:${activation * 1_000}`;
+                controller.performingAction = true;
+                await controller.performAction(false);
+                // A repeated poll/snapshot echo inside the SAME activation remains suppressed: the new key
+                // must reset cross-activation state without reopening the original reject-storm.
+                controller.performingAction = true;
+                await controller.performAction(false);
+                expect(performedStrategyActions).toHaveBeenCalledTimes(activation);
+                internals.turnActionAttemptAtMs = HoC.HoCLib.getTimeMillis() - 4_001;
+            }
+
+            expect(performedStrategyActions).toHaveBeenCalledTimes(3);
+            expect(performedFallback).not.toHaveBeenCalled();
+            expect(decideTurn).toHaveBeenCalledTimes(3);
+            expect(submitted.some((action) => action.type === "defend_turn")).toBe(false);
+            expect(internals.strategyRejectedCount).toBe(0);
+        });
+
         it("translates a melee_attack plan into executeAttackSequence with the target and attackFrom", async () => {
             const unit = createUnit();
             const attackFrom = { x: 3, y: 4 };
