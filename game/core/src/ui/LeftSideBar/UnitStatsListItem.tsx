@@ -739,6 +739,14 @@ const EffectTiles: React.FC<{
  * component silently drops both, and the stat explanations stop appearing on hover with nothing in the
  * console to say why. If this stops forwarding, the tooltips go quiet again.
  */
+// Gold-friendly green/red for a modified stat: bright enough to read against the dark plate without
+// fighting the parchment numbers around them.
+const MOD_UP_COLOR = "#7ee787";
+const MOD_DOWN_COLOR = "#ff8a7a";
+
+/** undefined when a stat sits at its base value, so unmodified stats stay plain parchment. */
+const modOf = (delta: number): "up" | "down" | undefined => (delta > 0 ? "up" : delta < 0 ? "down" : undefined);
+
 const StatValue = React.forwardRef<
     HTMLDivElement,
     {
@@ -746,8 +754,10 @@ const StatValue = React.forwardRef<
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
+        /** Set when a buff or debuff has moved this stat off its base value. */
+        modifier?: "up" | "down";
     } & React.HTMLAttributes<HTMLDivElement>
->(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
+>(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
     // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
     // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
     <Box
@@ -758,8 +768,26 @@ const StatValue = React.forwardRef<
         {React.cloneElement(icon, {
             sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
         })}
-        <Typography fontSize={`${metrics.statFontRem}rem`} component="span" sx={{ whiteSpace: "nowrap" }}>
+        <Typography
+            fontSize={`${metrics.statFontRem}rem`}
+            component="span"
+            sx={{
+                whiteSpace: "nowrap",
+                // A buffed or debuffed stat is TINTED, and carries a small caret. The rebuild dropped the
+                // old treatment -- a pulsing green/red ring around the whole cell -- because on a creature
+                // with a permanent modifier it sat on screen all fight and read as clutter. The
+                // information still matters, so it moves onto the number itself: no animation, no extra
+                // chrome, and the caret keeps it readable without relying on colour alone.
+                color: modifier === "up" ? MOD_UP_COLOR : modifier === "down" ? MOD_DOWN_COLOR : undefined,
+                fontWeight: modifier ? 700 : undefined,
+            }}
+        >
             {value}
+            {modifier && (
+                <Box component="span" sx={{ fontSize: "0.72em", ml: "1px", verticalAlign: "0.08em" }}>
+                    {modifier === "up" ? "\u25B2" : "\u25BC"}
+                </Box>
+            )}
         </Typography>
     </Box>
 ));
@@ -775,8 +803,22 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
+    modifier?: "up" | "down";
+    secondModifier?: "up" | "down";
+}> = ({
+    icon,
+    value,
+    tooltip,
+    color,
+    metrics,
+    secondIcon,
+    secondValue,
+    secondColor,
+    secondTooltip,
+    modifier,
+    secondModifier,
+}) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
 
     return (
         <Box
@@ -801,7 +843,13 @@ const StatItem: React.FC<{
             </Tooltip>
             {secondIcon && secondValue !== undefined && (
                 <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
-                    <StatValue icon={secondIcon} value={secondValue} color={secondColor ?? color} metrics={metrics} />
+                    <StatValue
+                        icon={secondIcon}
+                        value={secondValue}
+                        color={secondColor ?? color}
+                        metrics={metrics}
+                        modifier={secondModifier}
+                    />
                 </Tooltip>
             )}
         </Box>
@@ -876,6 +924,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                 value={Math.round(attackDamage)}
+                modifier={modOf(unitProperties.attack_multiplier - 1)}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
@@ -886,6 +935,8 @@ const UnitStatsLayout: React.FC<{
                 tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
+                modifier={modOf(unitProperties.armor_mod)}
+                secondModifier={modOf(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
@@ -907,6 +958,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                 value={Math.floor(unitProperties.steps + stepsMod)}
+                modifier={modOf(stepsMod)}
                 tooltip="Movement type and number of steps in cells"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
@@ -921,6 +973,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
+                secondModifier={modOf(unitProperties.luck_mod)}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
