@@ -4,10 +4,6 @@ import { useTheme } from "@mui/joy/styles";
 import { styled } from "@mui/system";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 import { images } from "../../generated/image_imports";
 const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
@@ -16,9 +12,7 @@ const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.m
 const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
 const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
 const aiIconImage = new URL("../../../images/icon_ai_black.webp", import.meta.url).toString();
-// The redraw supplied one brain for the AI control; the ON state reuses it and is distinguished by the
-// toggle's own glow rather than by a second, differently-drawn icon.
-const aiOnIconImage = new URL("../../../images/icon_ai_black.webp", import.meta.url).toString();
+const aiOnIconImage = new URL("../../../images/icon_ai_on_black.webp", import.meta.url).toString();
 const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
@@ -56,8 +50,9 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 const StyledSheet = styled(Sheet, {
     shouldForwardProp: (prop) => prop !== "isDragging",
 })<{ isDragging?: boolean }>(({ isDragging }) => ({
-    // The SAME carved-stone overlay the left and right sidebars use, on black -- the bar is one of the
-    // game's panels, so it should be made of the same material rather than carrying its own texture.
+    // The same dark brick overlay the left and right sidebars wear, on black. The bar is one of the game's
+    // panels, so it is made of the same material; it also no longer picks its plate by theme, since the
+    // game renders dark-only and the light branch put a pale panel under gold-on-dark icons.
     backgroundColor: "#000",
     backgroundImage: `url(${sidebarOverlayImage})`,
     backgroundSize: "cover",
@@ -122,27 +117,6 @@ const StyledIconButton = styled("button", {
                   }
                 : {}),
         },
-        // Click feedback. The medallions are struck metal, so the press reads as the coin being knocked:
-        // a quick dip with a gold flare that decays, rather than a flat scale. The hourglass and the AI
-        // toggle get their own because a state CHANGE deserves more than a press acknowledgement — you
-        // should be able to tell you flipped something without reading the icon.
-        "@keyframes hocIconPress": {
-            "0%": { transform: `scale(1) rotate(${rotationDegrees}deg)`, filter: "brightness(1)" },
-            "35%": { transform: `scale(0.9) rotate(${rotationDegrees}deg)`, filter: "brightness(1.5)" },
-            "100%": { transform: `scale(1) rotate(${rotationDegrees}deg)`, filter: "brightness(1)" },
-        },
-        "@keyframes hocIconFlip": {
-            "0%": { filter: "brightness(1)" },
-            "45%": { filter: "brightness(1.7) drop-shadow(0 0 6px rgba(255, 214, 140, 0.85))" },
-            "100%": { filter: "brightness(1)" },
-        },
-        "@keyframes hocToggleSnap": {
-            "0%": { transform: `scale(1) rotate(${rotationDegrees}deg)`, filter: "brightness(1)" },
-            "30%": { transform: `scale(0.86) rotate(${rotationDegrees}deg)`, filter: "brightness(1.6)" },
-            "62%": { transform: `scale(1.12) rotate(${rotationDegrees}deg)`, filter: "brightness(1.3)" },
-            "100%": { transform: `scale(1) rotate(${rotationDegrees}deg)`, filter: "brightness(1)" },
-        },
-        "@media (prefers-reduced-motion: reduce)": { animation: "none !important" },
     }),
 );
 
@@ -172,31 +146,16 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     selectedOption = 1,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
-    const [clickPulse, setClickPulse] = useState(0);
-    // The AI control is the only two-state toggle in the bar.
-    const isToggle = iconImage === aiIconImage || iconImage === aiOnIconImage;
     const [transfusionEffect, setTransfusionEffect] = useState(false);
 
     const handleClick = useCallback(() => {
         if (isHourglass) {
             setRotationDegrees((prev) => prev + 180);
         }
-        // Re-trigger by clearing first: setting the same animation name again does not restart it, so a
-        // second click on the same button would otherwise do nothing visible.
-        setClickPulse(0);
-        requestAnimationFrame(() => setClickPulse((n) => n + 1));
         if (onClick) {
             onClick();
         }
     }, [isHourglass, onClick]);
-
-    useEffect(() => {
-        if (!clickPulse) {
-            return undefined;
-        }
-        const timer = setTimeout(() => setClickPulse(0), 420);
-        return () => clearTimeout(timer);
-    }, [clickPulse]);
 
     useEffect(() => {
         if (iconImage === spellbookIconImage && !isDisabled && !customSpriteName) {
@@ -231,18 +190,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                             width: 45 * SCREEN_RATIO,
                             height: 45 * SCREEN_RATIO,
                             filter: transfusionEffect ? "brightness(1.2)" : "none",
-                            animation: clickPulse
-                                ? // The hourglass already spins 180deg on click, so it takes a flare only —
-                                  // scaling it as well fights the rotation. The AI control is a TOGGLE, so it
-                                  // gets the springier snap; everything else gets the plain press.
-                                  isHourglass
-                                    ? "hocIconFlip 0.42s ease-out"
-                                    : isToggle
-                                      ? "hocToggleSnap 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)"
-                                      : "hocIconPress 0.28s ease-out"
-                                : transfusionEffect
-                                  ? "transfusion 1.5s linear"
-                                  : "none",
+                            animation: transfusionEffect ? "transfusion 1.5s linear" : "none",
                             boxShadow: transfusionEffect
                                 ? `0 0 ${14 * SCREEN_RATIO}px rgba(255, 255, 255, 0.7)`
                                 : "none",
@@ -291,19 +239,6 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     );
 };
 
-// The FIGHT SQUARE's rect. The board is a 2048 square scaled to fit and centred, so this is what the dock
-// arrows should snap to -- sticking the bar to the WINDOW edge parks it out over the sidebars, and on a
-// wide screen leaves it stranded far from the board it acts on.
-const getBoardRect = (width: number, height: number) => {
-    const board = 2048 * Math.min(width / 2048, height / 2048);
-    return {
-        left: (width - board) / 2,
-        top: (height - board) / 2,
-        right: (width + board) / 2,
-        bottom: (height + board) / 2,
-    };
-};
-
 const getBarSize = (width: number, height: number) => {
     const widthRatio = width / 2048;
     const heightRatio = height / 2048;
@@ -350,20 +285,8 @@ const DraggableToolbar: React.FC = () => {
         // the old formula placed the toolbar's LEFT edge flush with the sidebar's left edge, so the whole
         // bar rendered on top of the sidebar instead of beside it.
         // Update: Landscape should stick to inside edge of sidebar (move left by button width)
-        // DEFAULT: docked into the RIGHT sidebar, sitting over it rather than beside it — the placement
-        // the bar has always had, and the one players reach for. Centred across the sidebar's width so it
-        // reads as part of that panel instead of a strip floating on its edge. The four dock arrows move
-        // it from here; nothing about this is sticky, so a reset always comes back to the right bar.
-        // Start docked INSIDE the fight square's right edge. The old formula used getBarSize(), the gutter
-        // between board and screen, which is 0 whenever the board fills the width -- so it collapsed to
-        // `width - toolbarWidth`, i.e. hard against the window's right edge, on top of the right sidebar.
-        // That is why the bar kept looking like part of that panel. The board rect has no such degenerate
-        // case, and the dock arrows move it from here.
         const toolbarWidth = toolbarRef.current?.offsetWidth ?? estimateToolbarWidth();
-        void isLandscape;
-        void barSize;
-        const board = getBoardRect(width, height);
-        const x = Math.min(Math.max(0, board.right - toolbarWidth), Math.max(0, width - toolbarWidth));
+        const x = isLandscape ? barSize - 48 * SCREEN_RATIO : Math.max(0, width - barSize - toolbarWidth);
 
         return {
             x,
@@ -376,48 +299,6 @@ const DraggableToolbar: React.FC = () => {
         const ds = getDefaultSettings();
         return { x: ds.x, y: ds.y };
     });
-
-    // Snap the bar to an edge of the battle screen instead of leaving it wherever it was dragged.
-    //
-    // Left and right dock VERTICALLY, top and bottom HORIZONTALLY, because the bar is a single strip and
-    // the long axis has to run along the edge it is stuck to. Right reproduces the default placement --
-    // overlapping the right sidebar rather than sitting beside it -- since that is where the bar already
-    // lives and what players are used to reaching for.
-    type DockSide = "left" | "right" | "top" | "bottom";
-    const dockTo = useCallback((side: DockSide) => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        const toolbarW = toolbarRef.current?.offsetWidth ?? estimateToolbarWidth();
-        const toolbarH = toolbarRef.current?.offsetHeight ?? estimateToolbarWidth();
-        const vertical = side === "left" || side === "right";
-
-        setIsVertical(vertical);
-        // Measured AFTER the orientation flip so the long/short axes are the right way round; without the
-        // frame delay the bar snaps using its pre-rotation size and hangs off the edge.
-        requestAnimationFrame(() => {
-            const w = toolbarRef.current?.offsetWidth ?? toolbarW;
-            const h = toolbarRef.current?.offsetHeight ?? toolbarH;
-            const board = getBoardRect(width, height);
-            const midY = board.top + (board.bottom - board.top) / 2 - h / 2;
-            const midX = board.left + (board.right - board.left) / 2 - w / 2;
-            const raw =
-                side === "left"
-                    ? { x: board.left, y: midY }
-                    : side === "right"
-                      ? { x: board.right - w, y: midY }
-                      : side === "top"
-                        ? { x: midX, y: board.top }
-                        : { x: midX, y: board.bottom - h };
-            // Clamped to the viewport last, so a board taller than the window can never push the bar off
-            // the bottom -- it was rendering partly outside the window.
-            const next = {
-                x: Math.min(Math.max(0, raw.x), Math.max(0, width - w)),
-                y: Math.min(Math.max(0, raw.y), Math.max(0, height - h)),
-            };
-            positionRef.current = next;
-            setPosition(next);
-        });
-    }, []);
 
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const [isVertical, setIsVertical] = useState<boolean>(() => getDefaultSettings().isVertical);
@@ -623,14 +504,21 @@ const DraggableToolbar: React.FC = () => {
             ref={toolbarRef}
             isDragging={isDragging}
             sx={{
-                position: "absolute",
+                // FIXED, not absolute. The drag maths clamps against window.innerWidth/Height, but an
+                // absolutely positioned sheet resolves left/top against its nearest positioned ancestor --
+                // so the coordinates the drag computed and the coordinates the browser applied were two
+                // different spaces, and the bar could not be moved out from over the sidebar. Fixed makes
+                // left/top viewport-relative, which is what the rest of this component already assumes,
+                // and the bar belongs to the whole game window.
+                position: "fixed",
                 left: `${position.x}px`,
                 top: `${position.y}px`,
                 display: "flex",
                 flexDirection: isVertical ? "column" : "row",
                 alignItems: "center",
                 gap: 1.5,
-                zIndex: 1000,
+                // Above both sidebars (they sit at zIndex 1) so the bar can be parked anywhere.
+                zIndex: 1200,
                 cursor: isDragging ? "grabbing" : "default",
                 userSelect: "none",
             }}
@@ -658,60 +546,6 @@ const DraggableToolbar: React.FC = () => {
             {buttonsContent}
 
             <Divider orientation={isVertical ? "horizontal" : "vertical"} />
-
-            {/* Dock arrows. Left/right stand the bar up along a side; top/bottom lay it across. */}
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gridTemplateAreas: `". up ." "left . right" ". down ."`,
-                    justifyItems: "center",
-                    alignItems: "center",
-                    gap: "1px",
-                    opacity: 0.75,
-                    "&:hover": { opacity: 1 },
-                }}
-            >
-                {(
-                    [
-                        ["up", "top", <KeyboardArrowUpIcon key="u" fontSize="small" />, "Dock to top"],
-                        ["left", "left", <ArrowBackIosNewIcon key="l" fontSize="small" />, "Dock to left"],
-                        ["right", "right", <ArrowForwardIosIcon key="r" fontSize="small" />, "Dock to right"],
-                        ["down", "bottom", <KeyboardArrowDownIcon key="d" fontSize="small" />, "Dock to bottom"],
-                    ] as const
-                ).map(([area, side, icon, label]) => (
-                    <Tooltip key={area} title={label} variant="soft">
-                        <Box
-                            component="button"
-                            aria-label={label}
-                            onClick={() => dockTo(side)}
-                            sx={{
-                                gridArea: area,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: 16 * SCREEN_RATIO,
-                                height: 16 * SCREEN_RATIO,
-                                padding: 0,
-                                border: "none",
-                                background: "transparent",
-                                cursor: "pointer",
-                                borderRadius: "4px",
-                                color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)",
-                                transition: "transform 120ms ease-out, color 120ms ease-out",
-                                "& svg": { fontSize: `${12 * SCREEN_RATIO}px` },
-                                "&:hover": {
-                                    color: isDark ? "#fff" : "#000",
-                                    transform: "scale(1.25)",
-                                },
-                                "&:active": { transform: "scale(0.9)" },
-                            }}
-                        >
-                            {icon}
-                        </Box>
-                    </Tooltip>
-                ))}
-            </Box>
 
             <Tooltip title="Rotate Toolbar" variant="soft">
                 <StyledIconButton
