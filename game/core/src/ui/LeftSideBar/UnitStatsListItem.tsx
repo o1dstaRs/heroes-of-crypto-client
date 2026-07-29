@@ -744,8 +744,14 @@ const EffectTiles: React.FC<{
 const MOD_UP_COLOR = "#7ee787";
 const MOD_DOWN_COLOR = "#ff8a7a";
 
-/** undefined when a stat sits at its base value, so unmodified stats stay plain parchment. */
-const modOf = (delta: number): "up" | "down" | undefined => (delta > 0 ? "up" : delta < 0 ? "down" : undefined);
+/**
+ * The signed delta a buff/debuff applied, as the text shown beside the stat -- "+2", "-1".
+ *
+ * The AMOUNT is the point: the number displayed is already the modified one, so a tint alone tells you
+ * something changed but not what it cost. Empty when the stat is at its base, so unmodified stats stay
+ * plain parchment.
+ */
+const modLabel = (delta: number): string => (delta ? `${delta > 0 ? "+" : ""}${Number(delta.toFixed(2))}` : "");
 
 const StatValue = React.forwardRef<
     HTMLDivElement,
@@ -754,8 +760,8 @@ const StatValue = React.forwardRef<
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
-        /** Set when a buff or debuff has moved this stat off its base value. */
-        modifier?: "up" | "down";
+        /** Signed delta text ("+2", "-1"); empty when the stat is at its base value. */
+        modifier?: string;
     } & React.HTMLAttributes<HTMLDivElement>
 >(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
     // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
@@ -778,14 +784,20 @@ const StatValue = React.forwardRef<
                 // with a permanent modifier it sat on screen all fight and read as clutter. The
                 // information still matters, so it moves onto the number itself: no animation, no extra
                 // chrome, and the caret keeps it readable without relying on colour alone.
-                color: modifier === "up" ? MOD_UP_COLOR : modifier === "down" ? MOD_DOWN_COLOR : undefined,
-                fontWeight: modifier ? 700 : undefined,
             }}
         >
             {value}
             {modifier && (
-                <Box component="span" sx={{ fontSize: "0.72em", ml: "1px", verticalAlign: "0.08em" }}>
-                    {modifier === "up" ? "\u25B2" : "\u25BC"}
+                <Box
+                    component="span"
+                    sx={{
+                        fontSize: "0.78em",
+                        ml: "2px",
+                        fontWeight: 700,
+                        color: modifier.startsWith("-") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
+                    }}
+                >
+                    {modifier}
                 </Box>
             )}
         </Typography>
@@ -803,8 +815,8 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-    modifier?: "up" | "down";
-    secondModifier?: "up" | "down";
+    modifier?: string;
+    secondModifier?: string;
 }> = ({
     icon,
     value,
@@ -924,7 +936,11 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                 value={Math.round(attackDamage)}
-                modifier={modOf(unitProperties.attack_multiplier - 1)}
+                modifier={
+                    unitProperties.attack_multiplier !== 1
+                        ? `x${Number(unitProperties.attack_multiplier.toFixed(2))}`
+                        : ""
+                }
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
@@ -935,8 +951,8 @@ const UnitStatsLayout: React.FC<{
                 tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
-                modifier={modOf(unitProperties.armor_mod)}
-                secondModifier={modOf(unitProperties.armor_mod)}
+                modifier={modLabel(unitProperties.armor_mod)}
+                secondModifier={modLabel(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
@@ -958,7 +974,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                 value={Math.floor(unitProperties.steps + stepsMod)}
-                modifier={modOf(stepsMod)}
+                modifier={modLabel(stepsMod)}
                 tooltip="Movement type and number of steps in cells"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
@@ -973,7 +989,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
-                secondModifier={modOf(unitProperties.luck_mod)}
+                secondModifier={modLabel(unitProperties.luck_mod)}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
