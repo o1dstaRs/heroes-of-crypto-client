@@ -53,6 +53,8 @@ export interface ISidebarMetrics {
     statColumns: number;
     statIconPx: number;
     statFontRem: number;
+    /** Uppercase section headings: Abilities / Buffs / Debuffs / Up next. */
+    sectionTitleRem: number;
     /** Edge length of one ability tile, and how many fit per row. */
     abilityCell: number;
     abilitiesPerRow: number;
@@ -97,6 +99,10 @@ export function computeSidebarMetrics(
     const roomy = barSize >= 620;
     const fontScale = density === "micro" ? 0.85 : density === "narrow" ? 0.93 : roomy ? 1.12 : 1;
     const statFontRem = 0.75 * fontScale;
+    // Section headings are uppercase and widely letter-spaced, so they carry at a smaller size than body
+    // text and were previously oversized against the content they label. Derived from the same fontScale
+    // as everything else rather than a literal, and clamped so the micro density stays legible.
+    const sectionTitleRem = clamp(0.64 * fontScale, 0.54, 0.74);
     const statIconPx = Math.round(19 * fontScale);
 
     // Tiles stay in a comfortable 26–86px band; the row count follows from the width rather than a fixed
@@ -142,6 +148,7 @@ export function computeSidebarMetrics(
         statColumns,
         statIconPx,
         statFontRem,
+        sectionTitleRem,
         abilityCell,
         abilitiesPerRow,
         effectIcon,

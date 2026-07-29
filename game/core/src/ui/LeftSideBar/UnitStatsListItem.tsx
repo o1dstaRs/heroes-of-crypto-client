@@ -48,22 +48,11 @@ import Toggler from "../Toggler";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
+import { commonTooltipSx } from "./tooltipStyles";
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
     teamType: TeamType;
 }
-
-const commonTooltipSx = {
-    backgroundColor: "#2d1606",
-    border: "2px solid #dcb158",
-    color: "#efe4cc",
-    borderRadius: "8px",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    maxWidth: "280px",
-    zIndex: 10000,
-};
 
 const FACTION_SYNERGY_IDS = [1, 2] as const;
 const FACTION_SYNERGY_LEVELS = [1, 2, 3] as const;
@@ -573,30 +562,6 @@ export const stonePlateSx = {
 
 // Team colour lives only as a diffuse, fire-like aura behind the portrait — three blurred discs that
 // breathe and flicker. No cloth banner, and nothing clips the ring.
-const TEAM_AURA = {
-    green: {
-        outer: "radial-gradient(circle, rgba(30,255,105,.42) 34%, rgba(0,215,70,.22) 60%, transparent 82%)",
-        mid: "radial-gradient(circle, rgba(90,255,150,.36) 40%, rgba(10,230,85,.19) 64%, transparent 86%)",
-        inner: "radial-gradient(circle, rgba(160,255,195,.3) 46%, rgba(35,245,105,.16) 68%, transparent 88%)",
-        ringHalo: "rgba(46,240,104,.4)",
-    },
-    red: {
-        outer: "radial-gradient(circle, rgba(255,70,45,.42) 34%, rgba(225,25,15,.22) 60%, transparent 82%)",
-        mid: "radial-gradient(circle, rgba(255,120,95,.36) 40%, rgba(240,45,28,.19) 64%, transparent 86%)",
-        inner: "radial-gradient(circle, rgba(255,175,160,.3) 46%, rgba(250,70,45,.16) 68%, transparent 88%)",
-        ringHalo: "rgba(255,90,63,.4)",
-    },
-    // Unaffiliated creatures — the units overlay, where nothing has picked a side yet. A hueless light
-    // grey, and slightly dimmer than the team tones so a roster entry never competes with a real
-    // combatant for attention. Without this the tone was chosen by a two-way LOWER/else ternary, so every
-    // teamless creature burned red and read as an enemy.
-    neutral: {
-        outer: "radial-gradient(circle, rgba(228,228,228,.30) 34%, rgba(176,176,176,.16) 60%, transparent 82%)",
-        mid: "radial-gradient(circle, rgba(238,238,238,.26) 40%, rgba(190,190,190,.14) 64%, transparent 86%)",
-        inner: "radial-gradient(circle, rgba(248,248,248,.22) 46%, rgba(205,205,205,.12) 68%, transparent 88%)",
-        ringHalo: "rgba(216,216,216,.32)",
-    },
-} as const;
 
 // A slow, steady burn. Opacity barely moves (no blinking) — what changes is the silhouette: the corner
 // radii creep from one irregular shape to the next over ~20s, so the edge is always drifting and never
@@ -636,23 +601,6 @@ const teamAuraKeyframes = {
     },
 } as const;
 
-const auraFlameSx = (width: number, background: string, blur: number, animation: string, opacity: number) =>
-    ({
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        width: `${width}px`,
-        height: `${Math.round(width * 1.04)}px`,
-        transform: "translate(-50%, -50%)",
-        background,
-        filter: `blur(${blur}px)`,
-        opacity,
-        pointerEvents: "none",
-        zIndex: 0,
-        animation,
-        "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-    }) as const;
-
 const STAT_ROW_GAP = 8;
 
 // Slim bronze scrollbar, shared with the Up-next strip.
@@ -683,7 +631,7 @@ export const SectionTitle: React.FC<{ title: string; metrics: ISidebarMetrics }>
         <Typography
             level="title-sm"
             sx={{
-                fontSize: `${0.8 * metrics.fontScale}rem`,
+                fontSize: `${metrics.sectionTitleRem}rem`,
                 fontWeight: 800,
                 lineHeight: 1.2,
                 letterSpacing: "0.12em",
@@ -1015,8 +963,6 @@ const UnitStatsLayout: React.FC<{
         </>
     );
     const unitSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
-    const auraTone =
-        team === TeamVals.LOWER ? TEAM_AURA.green : team === TeamVals.UPPER ? TEAM_AURA.red : TEAM_AURA.neutral;
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
@@ -1082,35 +1028,28 @@ const UnitStatsLayout: React.FC<{
                         ...teamAuraKeyframes,
                     }}
                 >
-                    {/* Team colour burns behind the art. Long, mutually indivisible periods so the layers
-                        never resynchronise into a visible pulse. */}
-                    <Box
-                        sx={auraFlameSx(
-                            flameWidth.outer,
-                            auraTone.outer,
-                            flameBlur.outer,
-                            "hocFlameA 23s ease-in-out infinite",
-                            1,
-                        )}
-                    />
-                    <Box
-                        sx={auraFlameSx(
-                            flameWidth.mid,
-                            auraTone.mid,
-                            flameBlur.mid,
-                            "hocFlameB 17s ease-in-out infinite",
-                            0.95,
-                        )}
-                    />
-                    <Box
-                        sx={auraFlameSx(
-                            flameWidth.inner,
-                            auraTone.inner,
-                            flameBlur.inner,
-                            "hocFlameA 13s ease-in-out infinite reverse",
-                            0.9,
-                        )}
-                    />
+                    {/* Synergies sit in the portrait block's top-left corner as a column, not as a section
+                        of their own. They are a standing property of the army rather than an effect on this
+                        stack, so they read better as a quiet marker beside the art than as a titled band
+                        competing with Buffs and Debuffs for the card's vertical space. */}
+                    {unitSynergies.length > 0 && (
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                zIndex: 2,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                                gap: `${Math.round(metrics.gapPx * 0.4)}px`,
+                                pointerEvents: "auto",
+                            }}
+                        >
+                            <SynergiesRow synergies={unitSynergies} column />
+                        </Box>
+                    )}
+
                     <Box
                         sx={{
                             // No circular clip and no frame: the art keeps its own silhouette, so wings,
@@ -1190,17 +1129,6 @@ const UnitStatsLayout: React.FC<{
                     />
                 </ScrollWell>
             </PanelSection>
-
-            {/* Synergies get their own section rather than sharing the Buffs well. They are not buffs: a buff
-                is something applied to THIS stack that will expire, while a synergy is a standing property of
-                the army's faction make-up. Mixed into one row they read as castable effects someone could
-                dispel, and the Buffs count stopped matching what was actually on the unit. Still driven by the
-                selected unit's own properties, so a green stack shows green's synergies and a red one red's. */}
-            {unitSynergies.length > 0 && (
-                <PanelSection title="Synergies" metrics={metrics}>
-                    <SynergiesRow synergies={unitSynergies} />
-                </PanelSection>
-            )}
 
             <PanelSection title="Buffs" metrics={metrics}>
                 <ScrollWell height={effectWellHeight}>

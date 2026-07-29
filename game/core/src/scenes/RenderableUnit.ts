@@ -206,6 +206,15 @@ export const dropDuplicateAppliedEntries = (
  * rather than as "unaffiliated". Matches the grey the overlay already uses for its unselected faction
  * icons, so the two neutral states look like the same state.
  */
+/**
+ * The board's own text face, matching the UI's (see ui/style.scss).
+ *
+ * PixiJS TextStyle defaults to Arial when fontFamily is omitted, so unit names and stack counts were
+ * rendering in a different typeface from every other piece of text in the game — close enough to look
+ * like a mistake rather than a choice. Anything drawn onto the board should use this.
+ */
+const BOARD_FONT_FAMILY = '"Open Sans", Verdana, sans-serif';
+
 const NO_TEAM_ROSTER_COLOR = 0xd0d0d0;
 
 export class RenderableUnit extends Unit {
@@ -1403,6 +1412,7 @@ export class RenderableUnit extends Unit {
                     fill: 0xefe4cc,
                     fontSize: 13,
                     fontWeight: "700",
+                    fontFamily: BOARD_FONT_FAMILY,
                     stroke: { color: 0x000000, width: 3, join: "round" },
                 }),
             });
@@ -1439,6 +1449,7 @@ export class RenderableUnit extends Unit {
             fill: 0xefe4cc,
             fontSize,
             fontWeight: "700",
+            fontFamily: BOARD_FONT_FAMILY,
             stroke: { color: 0x000000, width: 3, join: "round" },
         });
         label.text = props.name;
@@ -1458,6 +1469,7 @@ export class RenderableUnit extends Unit {
                     fill: 0xffffff,
                     fontSize: 14,
                     fontWeight: "700",
+                    fontFamily: BOARD_FONT_FAMILY,
                     stroke: { color: 0x000000, width: 3, join: "round" },
                 }),
             });
@@ -1520,6 +1532,7 @@ export class RenderableUnit extends Unit {
             fill: 0xffffff,
             fontSize: fs,
             fontWeight: "700",
+            fontFamily: BOARD_FONT_FAMILY,
             stroke: { color: 0x000000, width: 2, join: "round" },
         });
         text.text = label;
