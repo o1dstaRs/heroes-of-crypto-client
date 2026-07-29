@@ -83,7 +83,7 @@ const START_BUTTON_FRAME_WIDTH = 344;
 export function computeSidebarMetrics(
     barSize: number,
     cardHeight: number,
-    load: ISidebarContentLoad = EMPTY_CONTENT_LOAD,
+    _load: ISidebarContentLoad = EMPTY_CONTENT_LOAD,
 ): ISidebarMetrics {
     const density = densityFor(barSize);
     const compact = density === "micro" || density === "narrow";
@@ -99,10 +99,6 @@ export function computeSidebarMetrics(
     const statFontRem = 0.75 * fontScale;
     const statIconPx = Math.round(19 * fontScale);
 
-    // "812/1000" plus its modifier chip is the widest stat row; keep that as the column floor.
-    const statMinWidth = 92 * fontScale;
-    const statColumnsFor = (width: number) => clamp(Math.floor(width / statMinWidth), 1, 4);
-
     // Tiles stay in a comfortable 26–86px band; the row count follows from the width rather than a fixed
     // "3 per row", which is what used to blow the card up on wide bars and crush it on narrow ones.
     const abilitiesPerRow = clamp(Math.floor(contentWidth / (compact ? 42 : 62)), 3, 8);
@@ -113,39 +109,23 @@ export function computeSidebarMetrics(
     );
     const effectIcon = clamp(Math.round(abilityCell * 0.62), 20, 42);
 
-    // Whether the portrait sits beside the stats or above them is a question of the space that is left,
-    // not of the screen's aspect ratio. A full-width portrait costs as much height as the bar is wide, so
-    // it is only taken when the stats, abilities and effects underneath still fit — otherwise the whole
-    // card would have to be scaled down, and crisp numbers beat a big picture. That makes a 1366x768
-    // laptop and an ultrawide put the stats beside the portrait, while 1080p and 1440p stack them.
-    // Narrow bars always stack: a 116px-wide bar cannot split into a portrait and a readable stat column.
+    // The card used to reflow around its content: a unit with many buffs pushed the portrait beside the
+    // stats and shrank it, so every creature looked different. The layout is now fixed — portrait on top
+    // at full width, stats under it — and the variable-length blocks (abilities, buffs, debuffs) scroll
+    // inside their own constant-height wells instead of changing the card. `columnize` stays in the
+    // contract for callers, permanently false.
     const portraitCap = roomy ? 430 : 340;
-    const statRowHeight = Math.round(22 * fontScale) + 4;
-    // Twelve stats, plus a row's worth of slack for the modifier rows that claim two columns.
-    const stackedStatRows = Math.ceil(12 / statColumnsFor(contentWidth)) + 1;
-    const abilityRows = Math.ceil(load.abilities / abilitiesPerRow);
-    const effectBlocks = (load.buffs > 0 ? 1 : 0) + (load.debuffs > 0 ? 1 : 0);
-    const stackedPortrait = Math.min(contentWidth, cardHeight * 0.5, portraitCap);
-    const stackedHeight =
-        stackedPortrait +
-        34 +
-        stackedStatRows * statRowHeight +
-        (abilityRows > 0 ? 20 + abilityRows * (abilityCell + gapPx) : 0) +
-        effectBlocks * (18 + effectIcon + gapPx);
-
-    // The 6% tolerance buys the big portrait for the price of a shrink nobody can see; anything worse
-    // than that and the stats move alongside instead.
-    const columnize = contentWidth >= 200 && stackedHeight > cardHeight * 1.06;
-    const statsWidth = columnize ? Math.floor(contentWidth * 0.55) - gapPx : contentWidth;
-    const statColumns = statColumnsFor(statsWidth);
+    const columnize = false;
+    // A fixed three-up grid of equal cells. It used to be derived from the bar width (1–4 columns) and a
+    // stat carrying a modifier chip claimed two of them, so the block re-flowed per creature.
+    const statColumns = 3;
 
     const avatarPx = clamp(Math.floor(contentWidth / 2.6), 34, roomy ? 86 : 74);
     const synergyIcon = clamp(Math.round(30 * fontScale), 22, 34);
 
-    // The portrait is the one block that can give space back, so it is capped by the height actually left
-    // for the card rather than by its own width — and by `portraitCap`, which keeps it a portrait rather
-    // than a poster on the tallest screens.
-    const portraitMax = clamp(Math.min(cardHeight * 0.5, contentWidth * (columnize ? 0.52 : 1)), 72, portraitCap);
+    // Sized off the bar alone. It used to also depend on the height left for the card, which is what made
+    // a heavily buffed unit render a visibly smaller portrait than a plain one.
+    const portraitMax = clamp(contentWidth, 72, portraitCap);
 
     const startButtonScale = clamp(contentWidth / START_BUTTON_FRAME_WIDTH, 0.3, 0.62);
 
