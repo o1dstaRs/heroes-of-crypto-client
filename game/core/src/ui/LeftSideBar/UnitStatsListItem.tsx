@@ -19,7 +19,6 @@ import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
-import { useTheme } from "@mui/joy/styles";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import React, { useCallback } from "react";
@@ -360,8 +359,8 @@ const AbilityCell: React.FC<{
     size: number;
     hasBreakApplied: boolean;
 }> = ({ ability, teamType, size, hasBreakApplied }) => {
-    const theme = useTheme();
-    const isDarkMode = theme.palette.mode === "dark";
+    // The game renders dark-only; the light palette is gone, so this is a constant.
+    const isDarkMode = true;
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
     const disabledStatus = ability.isStolen
         ? { label: "STOLEN", color: "#9acd32", tooltip: "ABILITY STOLEN PERMANENTLY!\n" }
@@ -1189,9 +1188,9 @@ type UnitStatsListItemProps = {
 };
 
 const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperties, overallImpact, factionType }) => {
-    const theme = useTheme();
     const metrics = useSidebarMetrics();
-    const isDarkMode = theme.palette.mode === "dark";
+    // The game renders dark-only; the light palette is gone, so this is a constant.
+    const isDarkMode = true;
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
