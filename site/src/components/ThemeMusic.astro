@@ -61,6 +61,8 @@
 </div>
 
 <script>
+    import { createThemeMusicPlayer, toggleThemeMusicSettings } from "../lib/theme-music-player";
+
     // Kept in step with the client's own copy (game/core/src/ui/audio/themeMusic.ts) and with the redirect
     // pages under /play, which hand these across the origin boundary in the query string.
     const VOLUME_KEY = "hoc:themeVolume";
@@ -85,7 +87,6 @@
     const srcMp3 = document.querySelector<HTMLSourceElement>("[data-theme-src-mp3]");
 
     if (root && audio && toggle && slider && iconOn && iconOff && srcWebm && srcMp3) {
-        let trackIndex = 0;
         const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
         const readStored = (): { volume: number; muted: boolean } => {
@@ -121,7 +122,8 @@
         };
 
         let { volume, muted } = readStored();
-        let started = false;
+        let fadeFrame: number | null = null;
+        let gestureListenersArmed = false;
 
         const paint = () => {
             slider.value = String(Math.round(volume * 100));
@@ -134,50 +136,88 @@
 
         const effectiveVolume = () => (muted ? 0 : volume);
 
+        const stopFade = () => {
+            if (fadeFrame !== null) {
+                cancelAnimationFrame(fadeFrame);
+                fadeFrame = null;
+            }
+        };
+
         // Fade rather than snap: the theme arriving at full volume the instant someone clicks a menu button
         // is startling, and that click is usually aimed at something else entirely.
         const fadeTo = (target: number) => {
+            const clampedTarget = clamp01(target);
+            stopFade();
+            if (audio.paused && clampedTarget === 0) {
+                audio.volume = 0;
+                return;
+            }
             const from = audio.volume;
             const startedAt = performance.now();
             const step = (now: number) => {
                 const t = Math.min(1, (now - startedAt) / FADE_MS);
-                audio.volume = clamp01(from + (target - from) * t);
-                if (t < 1) requestAnimationFrame(step);
+                audio.volume = clamp01(from + (clampedTarget - from) * t);
+                if (t < 1) {
+                    fadeFrame = requestAnimationFrame(step);
+                    return;
+                }
+                fadeFrame = null;
+                if (clampedTarget === 0) {
+                    audio.pause();
+                }
             };
-            requestAnimationFrame(step);
+            fadeFrame = requestAnimationFrame(step);
         };
 
-        // Autoplay is blocked until the page has been interacted with, so the theme waits for the first
-        // gesture of any kind and slips in behind it. `once` keeps this from firing on every later click.
-        const startOnFirstGesture = () => {
-            if (started) return;
-            started = true;
-            audio.volume = 0;
-            audio.play()
-                .then(() => fadeTo(effectiveVolume()))
-                .catch(() => {
-                    // Still refused (some mobile power-saving modes do). The toggle below remains, so the
-                    // player can ask for it explicitly.
-                    started = false;
-                });
+        // Touch playback is unlocked on touchend/click rather than touchstart in mobile browsers. Keep these
+        // capture listeners until play ACTUALLY succeeds: a blocked autoplay attempt must not consume the
+        // only retry and force the player to jiggle the volume control.
+        const unlockEvents = ["click", "keydown", "touchend"] as const;
+        const onUnlockGesture = () => {
+            const target = effectiveVolume();
+            if (target > 0) {
+                void player.start(target, true);
+            }
+        };
+        const armGestureUnlock = () => {
+            if (gestureListenersArmed) return;
+            gestureListenersArmed = true;
+            for (const event of unlockEvents) {
+                window.addEventListener(event, onUnlockGesture, { capture: true, passive: true });
+            }
+        };
+        const disarmGestureUnlock = () => {
+            if (!gestureListenersArmed) return;
+            gestureListenersArmed = false;
+            for (const event of unlockEvents) {
+                window.removeEventListener(event, onUnlockGesture, true);
+            }
         };
 
-        for (const event of ["pointerdown", "keydown", "touchstart"] as const) {
-            window.addEventListener(event, startOnFirstGesture, { once: true, passive: true });
-        }
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource: srcWebm,
+            mp3Source: srcMp3,
+            playlist: PLAYLIST,
+            getTargetVolume: effectiveVolume,
+            fadeTo,
+            onPlaybackStarted: disarmGestureUnlock,
+            onPlaybackBlocked: armGestureUnlock,
+        });
+
+        armGestureUnlock();
 
         toggle.addEventListener("click", () => {
-            muted = !muted;
-            // Pressing the speaker when the slider sits at zero means "I want to hear it" — put the volume
-            // somewhere audible rather than unmuting into silence.
-            if (!muted && volume === 0) volume = DEFAULT_VOLUME;
+            ({ volume, muted } = toggleThemeMusicSettings({ volume, muted }, DEFAULT_VOLUME));
             persist(volume, muted);
             paint();
-            if (!started) {
-                startOnFirstGesture();
+            const target = effectiveVolume();
+            player.setTargetVolume(target);
+            if (target === 0) {
+                fadeTo(0);
                 return;
             }
-            fadeTo(effectiveVolume());
+            void player.start(target, true);
         });
 
         slider.addEventListener("input", () => {
@@ -186,22 +226,24 @@
             persist(volume, muted);
             paint();
             // Dragging is continuous, so track it directly instead of fading to each intermediate value.
-            audio.volume = effectiveVolume();
-            if (!started) startOnFirstGesture();
-        });
-
-        // One track ending hands over to the next, wrapping at the end of the list.
-        audio.addEventListener("ended", () => {
-            trackIndex = (trackIndex + 1) % PLAYLIST.length;
-            srcWebm.src = PLAYLIST[trackIndex].webm;
-            srcMp3.src = PLAYLIST[trackIndex].mp3;
-            audio.load();
-            audio.volume = 0;
-            audio.play().then(() => fadeTo(effectiveVolume())).catch(() => undefined);
+            const target = effectiveVolume();
+            player.setTargetVolume(target);
+            stopFade();
+            if (target === 0) {
+                audio.volume = 0;
+                audio.pause();
+            } else if (audio.paused) {
+                void player.start(target, true);
+            } else {
+                audio.volume = target;
+            }
         });
 
         paint();
         audio.volume = 0;
+        // Browsers that already granted this origin autoplay can begin immediately. Everyone else falls
+        // through to the retained gesture listeners above and starts on the first valid click/touchend.
+        void player.start();
     }
 </script>
 
