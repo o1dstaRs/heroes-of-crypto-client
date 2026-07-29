@@ -32,6 +32,13 @@ const createUnit = (id = "ai-unit-1", team = TeamVals.LOWER): RenderableUnit =>
         setOnHourglass: () => undefined,
     }) as unknown as RenderableUnit;
 
+const createMindlessUnit = (id = "mindless-unit-1", team = TeamVals.LOWER, aiDrivenActive = true): RenderableUnit =>
+    ({
+        ...createUnit(id, team),
+        getName: () => "Berserker",
+        hasAbilityActive: (abilityName: string) => aiDrivenActive && abilityName === "AI Driven",
+    }) as unknown as RenderableUnit;
+
 const createMoveAction = (cellToMove: HoCMath.XY) => {
     const route: IWeightedRoute = {
         cell: cellToMove,
@@ -391,6 +398,127 @@ describe("AIController", () => {
             // (iii) wait_turn is applied via applyGameAction and the AI lock is released (no animation).
             expect(appliedActions).toEqual([{ type: "wait_turn", unitId: unit.getId() }]);
             expect(controller.performingAction).toBe(false);
+        });
+
+        it("keeps an active AI-Driven unit on v0.1 instead of the configured local model", async () => {
+            const unit = createMindlessUnit();
+            const decideTurn = mock(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            stubStrategy(decideTurn);
+            const context = baseContext({ getCurrentActiveUnit: () => unit });
+            const controller = new AIController(context);
+            (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
+                enabled: true,
+                modelTeam: TeamVals.LOWER,
+                apiBase: "/hoc-local-model",
+                modelName: "auto",
+                authorization: "Bearer model-token",
+                playerId: "model-player",
+                style: "balanced",
+            };
+            const localModelAction = mock(async () => true);
+            (
+                controller as unknown as {
+                    performLocalModelAction: typeof localModelAction;
+                }
+            ).performLocalModelAction = localModelAction;
+            controller.performingAction = true;
+
+            await controller.performAction(false);
+
+            expect(localModelAction).not.toHaveBeenCalled();
+            expect(strategySpy).toHaveBeenCalledWith("v0.1");
+            expect(decideTurn).toHaveBeenCalledTimes(1);
+        });
+
+        it("retries active AI-Driven v0.1 through the disabled/rejected strategy gate without hardcoded shield", async () => {
+            const unit = createMindlessUnit();
+            const decideTurn = mock(() => [{ type: "wait_turn", unitId: unit.getId() }] as GameAction[]);
+            stubStrategy(decideTurn);
+            const submitted: GameAction[] = [];
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                applyGameAction: (action: GameAction) => {
+                    submitted.push(action);
+                    return true;
+                },
+            });
+            const controller = new AIController(context);
+            const internals = controller as unknown as {
+                strategyRejectedCount: number;
+                strategyRejectedUnitId?: string;
+            };
+            internals.strategyRejectedUnitId = unit.getId();
+            internals.strategyRejectedCount = 2;
+            const previousGate = process.env.V05_CLIENT_AI;
+            process.env.V05_CLIENT_AI = "off";
+            controller.performingAction = true;
+
+            try {
+                await controller.performAction(false);
+            } finally {
+                if (previousGate === undefined) {
+                    delete process.env.V05_CLIENT_AI;
+                } else {
+                    process.env.V05_CLIENT_AI = previousGate;
+                }
+            }
+
+            expect(strategySpy).toHaveBeenCalledWith("v0.1");
+            expect(decideTurn).toHaveBeenCalledTimes(1);
+            expect(submitted).toEqual([{ type: "wait_turn", unitId: unit.getId() }]);
+            expect(submitted.some((action) => action.type === "defend_turn")).toBe(false);
+        });
+
+        it("does not use generic findTarget when an active AI-Driven v0.1 action is declined", async () => {
+            const unit = createMindlessUnit();
+            const target = buildMoveMeleeTarget();
+            stubStrategy(() => moveMeleePlan(unit.getId()));
+            const context = baseContext({
+                getCurrentActiveUnit: () => unit,
+                executeAttackSequence: mock(async () => false),
+                isAuthoritativeAction: (action: GameAction) => action.type === "melee_attack",
+                getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            });
+            const controller = new AIController(context);
+            const fallback = mock(async () => undefined);
+            (controller as unknown as { performFindTargetAction: typeof fallback }).performFindTargetAction = fallback;
+            controller.performingAction = true;
+
+            await controller.performAction(false);
+
+            expect(strategySpy).toHaveBeenCalledWith("v0.1");
+            expect(fallback).not.toHaveBeenCalled();
+            expect(controller.performingAction).toBe(false);
+        });
+
+        it("returns an inactive AI-Driven carrier to the normal local-model path", async () => {
+            const unit = createMindlessUnit("broken-berserker", TeamVals.LOWER, false);
+            const context = baseContext({ getCurrentActiveUnit: () => unit });
+            const controller = new AIController(context);
+            (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
+                enabled: true,
+                modelTeam: TeamVals.LOWER,
+                apiBase: "/hoc-local-model",
+                modelName: "auto",
+                authorization: "Bearer model-token",
+                playerId: "model-player",
+                style: "balanced",
+            };
+            const localModelAction = mock(async () => {
+                controller.performingAction = false;
+                return true;
+            });
+            (
+                controller as unknown as {
+                    performLocalModelAction: typeof localModelAction;
+                }
+            ).performLocalModelAction = localModelAction;
+            controller.performingAction = true;
+
+            await controller.performAction(false);
+
+            expect(localModelAction).toHaveBeenCalledTimes(1);
+            expect(strategySpy).toBeUndefined();
         });
 
         it("does not carry AI-Driven rejection guards across intervening manual turns", async () => {

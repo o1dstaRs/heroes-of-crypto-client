@@ -4,6 +4,8 @@ import {
     DEFAULT_AI_VERSION,
     aiVersionForUnit,
     getAIStrategy,
+    isMindlessAiUnit,
+    MINDLESS_AI_VERSION,
     Grid,
     GridMath,
     HoCMath,
@@ -473,6 +475,7 @@ export class AIController {
             this.finishAIAction(wasAIActive);
             return;
         }
+        const mindlessAi = isMindlessAiUnit(currentUnit);
 
         // Turn-action loop guard: if we already submitted a turn-resolving action for THIS still-active
         // unit, don't recompute + resubmit it every frame while waiting for the authoritative handoff
@@ -488,9 +491,9 @@ export class AIController {
                 return;
             }
             // Grace elapsed but THIS unit is still active — our prior turn-action never advanced the turn
-            // (the optimistic submit was rejected or dropped). Escalate this unit's recovery ladder: 1st retry
-            // routes through findTarget (a different algorithm); a 2nd falls to an always-valid defend_turn so
-            // a client<->server desync neither algorithm can see past ends in a shield, not a forced skip.
+            // (the optimistic submit was rejected or dropped). Escalate this unit's recovery ladder. Normal
+            // units route the first retry through findTarget and the second through defend_turn; mindless units
+            // retain the count only as retry telemetry and stay pinned to rate-limited v0.1 re-decisions.
             this.turnActionAttemptUnitId = undefined;
             if (this.strategyRejectedUnitId === currentUnit.getId()) {
                 this.strategyRejectedCount += 1;
@@ -508,7 +511,8 @@ export class AIController {
         // attack_not_available three times, then a forced skip). Mirror the SIM's stuck-unit recovery
         // (battle_engine advanceTowardEnemy -> defend_turn) with an always-valid defend_turn: the unit shields
         // (+luck) and its turn resolves, instead of the reject-streak escape forcing a bare "skips turn".
-        if (this.strategyRejectedUnitId === currentUnit.getId() && this.strategyRejectedCount >= 2) {
+        // Mindless units deliberately bypass this policy action and retry only their pinned v0.1 strategy.
+        if (!mindlessAi && this.strategyRejectedUnitId === currentUnit.getId() && this.strategyRejectedCount >= 2) {
             if (
                 this.context.applyGameAction(
                     this.modelAction(currentUnit, { type: "defend_turn", unitId: currentUnit.getId() }),
@@ -521,7 +525,7 @@ export class AIController {
             // defend_turn itself refused (should never happen) — fall through to the normal decision path.
         }
 
-        if (this.shouldControlUnit(currentUnit)) {
+        if (!mindlessAi && this.shouldControlUnit(currentUnit)) {
             const actionPerformed = await this.performLocalModelAction(currentUnit, wasAIActive);
             if (actionPerformed) {
                 return;
@@ -551,8 +555,14 @@ export class AIController {
         // Skip the strategy for a unit whose previous strategy action was rejected/dropped this turn — its
         // deterministic re-decision would just re-emit the refused move/attack. Fall straight through to
         // findTarget (a different algorithm) for a real second attempt before the escape-hatch skip.
+        // AI Driven is a gameplay rule, not an AI-toggle/model preference: while the ability is active,
+        // every client-authored tactical action must come from v0.1. In particular, a local-model team,
+        // the rollout gate, and same-activation rejection recovery must not replace v0.1 with another
+        // chooser. The normal turn-action guard above still rate-limits rejected retries, and ranked's
+        // server-authoritative rejection/turn-timeout escape remains the final liveness backstop.
         const USE_STRATEGY =
-            (process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId();
+            mindlessAi ||
+            ((process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId());
         if (USE_STRATEGY) {
             let strategyActions: GameAction[] = [];
             try {
@@ -561,7 +571,9 @@ export class AIController {
                 // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
                 // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
                 // Keeps the client in step with battle_engine, which resolves the same rule.
-                const unitAiVersion = aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
+                const unitAiVersion = mindlessAi
+                    ? MINDLESS_AI_VERSION
+                    : aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
                 strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, {
                     grid: this.context.getGrid(),
                     matrix: this.context.getGridMatrix(),
@@ -572,15 +584,30 @@ export class AIController {
                     decisionOrigin: "root",
                 });
             } catch (err) {
-                // Never regress to a dead turn: a strategy throw drops us onto the proven findTarget path.
-                console.error("v0.5 decideTurn threw; falling back to base AI", err);
+                // Normal units retain the proven findTarget fallback. Mindless units release the client lock
+                // below and retry v0.1 after the activation guard, leaving final liveness to ranked recovery.
+                console.error(
+                    mindlessAi
+                        ? "v0.1 decideTurn threw; awaiting mindless retry/turn recovery"
+                        : "v0.5 decideTurn threw; falling back to base AI",
+                    err,
+                );
                 strategyActions = [];
             }
-            // Empty plan → fall back too (decideTurn never returns [] in practice, but be defensive).
+            // An empty normal plan falls back; an empty mindless plan follows the strict retry path below.
             if (
                 strategyActions.length &&
                 (await this.performStrategyActions(currentUnit, strategyActions, wasAIActive))
             ) {
+                return;
+            }
+            if (mindlessAi) {
+                // A rejected/empty v0.1 plan must not silently switch the unit to spell heuristics,
+                // AI.findTarget, or the hardcoded shield recovery. Release the local action lock and
+                // leave the activation guard armed; after its grace window the controller may retry
+                // v0.1 against a refreshed snapshot, while ranked timeout/rejection handling guarantees
+                // that a persistent transport/desync failure cannot deadlock the match.
+                this.finishAIAction(wasAIActive);
                 return;
             }
         }
