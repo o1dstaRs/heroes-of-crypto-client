@@ -1,4 +1,5 @@
 import {
+    HoCConfig,
     HoCConstants,
     UnitProperties,
     AttackVals,
@@ -907,6 +908,22 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
+    // Luck's display delta has to be DERIVED, not read from luck_mod.
+    //
+    // In the sandbox luck_mod carries the buff and the delta is just that. In ranked it is hardcoded to 0:
+    // the server ships luck already rolled (auras + the per-turn spread) with luck_authoritative set, so
+    // adjustBaseStats keeps it verbatim. Writing the delta into luck_mod to make the HUD work would be a
+    // gameplay bug, because getLuck() sums luck + luck_mod -- it would inflate real damage rolls and
+    // ability chances, not just this label. So the effective total is diffed against the creature's
+    // configured base instead, which is display-only and correct on both paths.
+    const configuredLuck = HoCConfig.getCreatureConfig(
+        unitProperties.team,
+        ToFactionName[unitProperties.faction],
+        unitProperties.name,
+        unitProperties.large_texture_name,
+        0,
+    ).luck;
+    const luckDelta = Math.round(unitProperties.luck + unitProperties.luck_mod) - Math.round(configuredLuck);
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -989,7 +1006,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
-                secondModifier={modLabel(unitProperties.luck_mod)}
+                secondModifier={modLabel(luckDelta)}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
@@ -1433,6 +1450,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
+
         const largeTextureName = unitProperties.large_texture_name;
 
         return (
