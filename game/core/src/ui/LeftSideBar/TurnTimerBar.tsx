@@ -35,12 +35,17 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
     const medallion = Math.round(Math.max(26, Math.min(40, metrics.contentWidth * 0.22)));
     const grooveHeight = Math.round(Math.max(12, medallion * 0.45));
 
-    // On the opponent's turn the fill goes red; otherwise it stays neutral so it does not
-    // read as green-team ownership.
-    const fillLight = enemyTurn ? "#ff8a73" : "#f4f6f8";
-    const fillBase = enemyTurn ? "#f4593f" : "#d5dbe3";
-    const fillDark = enemyTurn ? "#c2351f" : "#a8b1bf";
-    const fillGlow = enemyTurn ? "rgba(255, 90, 63, 0.5)" : "rgba(226, 232, 240, 0.45)";
+    // The fill carries the state rather than just filling space: warm amber while there is time, deepening
+    // to red under CRITICAL_SECONDS, and red throughout on the opponent's clock. The old fill was a
+    // grey-white gradient, which sat oddly inside a gold frame and — being the same colour whether you had
+    // fifty seconds or four — left the number doing all the work. Amber is deliberately not the team green,
+    // so a full bar never reads as "your team owns this".
+    const palette = enemyTurn
+        ? { light: "#ff8a73", base: "#f4593f", dark: "#c2351f", glow: "rgba(255,90,63,0.34)" }
+        : critical
+          ? { light: "#ffb36b", base: "#ef6c3a", dark: "#b83a17", glow: "rgba(239,108,58,0.38)" }
+          : { light: "#ffe6ab", base: "#e8b558", dark: "#a87526", glow: "rgba(232,181,88,0.28)" };
+    const { light: fillLight, base: fillBase, dark: fillDark, glow: fillGlow } = palette;
 
     return (
         <Box
@@ -134,7 +139,7 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                         borderRadius: "7px",
                         transition: TICK_TRANSITION,
                         background: `linear-gradient(180deg, ${fillLight} 0%, ${fillBase} 52%, ${fillDark} 100%)`,
-                        boxShadow: `0 0 7px ${fillGlow}`,
+                        boxShadow: `0 0 5px ${fillGlow}`,
                         // Glossy top sheen so the fill looks like a polished gauge, not a flat block.
                         "&::after": {
                             content: '""',
@@ -142,7 +147,7 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                             inset: 0,
                             borderRadius: "7px",
                             background:
-                                "linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.05) 42%, rgba(255,255,255,0) 60%)",
+                                "linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.04) 46%, rgba(255,255,255,0) 62%)",
                             pointerEvents: "none",
                         },
                     }}

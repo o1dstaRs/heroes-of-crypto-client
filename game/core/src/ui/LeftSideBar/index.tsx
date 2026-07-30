@@ -1,4 +1,4 @@
-import { UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
+import { TeamVals, UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
 import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
@@ -17,7 +17,32 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 // Near-black ground with a warm undertone, per the fight-sidebar handoff. No texture and no gold wash —
 // the board art has to stay the brightest thing on screen.
 export const SIDEBAR_BG = "#0b0806";
-export const SIDEBAR_BG_IMAGE = "linear-gradient(180deg, rgba(255,224,180,.02), rgba(0,0,0,.24))";
+const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString();
+const greenOverlayImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
+const redOverlayImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
+
+// The team colour, swept diagonally off the bar's right edge — the placement this artwork was drawn for.
+// Rotated about its top-left so the band runs corner to corner behind the panel's content, and wider than
+// the bar so the rotation never exposes an edge. Fades rather than pops when the selection changes.
+const teamOverlaySx = {
+    position: "absolute",
+    width: "350px",
+    height: "100%",
+    top: 0,
+    right: -350,
+    transform: "translateZ(0) rotate(65deg)",
+    transformOrigin: "top left",
+    zIndex: 0,
+    pointerEvents: "none",
+    transition: "opacity 220ms ease-out",
+    willChange: "opacity",
+} as const;
+
+// The panel's carved-stone texture with the rebuild's subtle gradient layered ON TOP of it, rather than
+// instead of it. The rebuild dropped the texture for the gradient alone, which left the left bar flat
+// while the right bar (RightSideBar/index.tsx) still carried the same artwork -- the two stopped looking
+// like the same panel.
+export const SIDEBAR_BG_IMAGE = `linear-gradient(180deg, rgba(255,224,180,.02), rgba(0,0,0,.24)), url(${sidebarOverlayImage})`;
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
@@ -181,8 +206,27 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                     willChange: "width",
                     backgroundColor: SIDEBAR_BG,
                     backgroundImage: SIDEBAR_BG_IMAGE,
+                    backgroundSize: "auto, cover",
+                    backgroundPosition: "center, center",
+                    backgroundRepeat: "no-repeat, no-repeat",
                 }}
             >
+                {/* Neutral (teamless) creatures get NEITHER band: the old code gated red on `team !== 2`,
+                    so a roster unit with no side was painted as an enemy. */}
+                <Box
+                    component="img"
+                    src={greenOverlayImage}
+                    alt=""
+                    aria-hidden
+                    sx={{ ...teamOverlaySx, opacity: unitProperties.team === TeamVals.LOWER ? 1 : 0 }}
+                />
+                <Box
+                    component="img"
+                    src={redOverlayImage}
+                    alt=""
+                    aria-hidden
+                    sx={{ ...teamOverlaySx, opacity: unitProperties.team === TeamVals.UPPER ? 1 : 0 }}
+                />
                 {/* The team colour is no longer a cloth banner across the bar — it is a fire-like aura
                     behind the portrait (see UnitStatsListItem). Synergies likewise moved into the unit's
                     Buffs block, which already scopes them to the right side. */}

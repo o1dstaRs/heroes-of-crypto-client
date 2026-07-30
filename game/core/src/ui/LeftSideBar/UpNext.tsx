@@ -2,7 +2,6 @@ import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
-import Divider from "@mui/joy/Divider";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import { AnimatePresence, motion } from "framer-motion";
@@ -16,6 +15,7 @@ import { resolveUnitImage } from "../unitImage";
 import { prefetchUnitAtlas, SectionTitle } from "./UnitStatsListItem";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
+import { commonTooltipSx } from "./tooltipStyles";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = images.hourglass;
 
@@ -27,17 +27,6 @@ const queueItemTransition = {
 };
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---
-const commonTooltipSx = {
-    backgroundColor: "#2d1606", // Deep dark brown/wood
-    border: "2px solid #dcb158", // Metallic gold/bronze border
-    color: "#efe4cc", // Parchment/Cream text for contrast
-    borderRadius: "8px",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    maxWidth: "280px",
-    zIndex: 10000,
-};
 
 // The full-queue overlay is bound to the Alt key (see UpNextOverlay's `event.altKey` handler), but that
 // key is labelled Option on Apple keyboards — the hint has to name the key the player can actually see.
@@ -177,7 +166,6 @@ export const UpNext: React.FC = () => {
 
     return (
         <>
-            <Divider />
             <Tooltip
                 title={`Hold ${FULL_QUEUE_KEY_LABEL} to see the full turn order`}
                 placement="top"
