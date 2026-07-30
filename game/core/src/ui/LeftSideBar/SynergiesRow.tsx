@@ -6,7 +6,18 @@ import React, { useMemo } from "react";
 
 import { useSidebarMetrics } from "./sidebarMetrics";
 
-const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?: boolean }) => {
+import { commonTooltipSx } from "./tooltipStyles";
+const SynergiesRow = ({
+    synergies,
+    wrap = false,
+    column = false,
+}: {
+    synergies: string[];
+    wrap?: boolean;
+    // Stack the badges vertically. Used where the strip is pinned into a corner beside the portrait rather
+    // than laid across the bar, where a horizontal run would cover the art.
+    column?: boolean;
+}) => {
     const metrics = useSidebarMetrics();
     const sortedSynergies = useMemo(
         () =>
@@ -28,11 +39,14 @@ const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?:
                 display: "flex",
                 // The strip wraps instead of overflowing: four synergy badges do not fit a 128px bar on
                 // one line, and the row is a fixed part of the sidebar's height budget.
+                flexDirection: column ? "column" : "row",
                 gap: `${metrics.gapPx * 0.6}px`,
                 rowGap: wrap ? 1.5 : `${metrics.gapPx * 0.5}px`,
-                flexWrap: "wrap",
+                flexWrap: column ? "nowrap" : "wrap",
                 justifyContent: wrap ? "center" : "flex-start",
-                width: "100%",
+                // Shrink to content when inlined (the Buffs row puts these beside the buff tiles); only the
+                // standalone wrapped variant claims the full width.
+                width: wrap ? "100%" : "auto",
                 alignItems: "flex-start",
             }}
         >
@@ -62,6 +76,7 @@ const SynergiesRow = ({ synergies, wrap = false }: { synergies: string[]; wrap?:
                                 .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[0]?.toString() || "0")
                                 .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`}
                             placement="bottom"
+                            sx={commonTooltipSx}
                         >
                             <Box
                                 component="img"

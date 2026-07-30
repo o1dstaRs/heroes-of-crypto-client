@@ -97,10 +97,9 @@ export class SandboxDrawer {
         // On the enemy's turn the movement highlight switches from white to red.
         const movementColor = ctx.enemyTurnView ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff;
 
-        // Glowing red border around the board while it is the enemy's turn.
-        if (ctx.enemyTurnView) {
-            SandboxDrawer.drawEnemyTurnBorder(g, gs, hoverGlowPhase);
-        }
+        // The board no longer gets a red frame on the enemy's turn — the turn card already says "Enemy
+        // turn" in red, and the frame fought with the board art. The red movement highlight above still
+        // carries the cue on the board itself.
 
         // 0. Hovered Move Range (Placement Phase)
         // 0. Hovered Move Range (Placement Phase) - Animated Dots
@@ -285,38 +284,6 @@ export class SandboxDrawer {
                 hoverManager.drawHoveredUnitHighlight(g);
             }
         }
-    }
-    /**
-     * Glowing red rectangle hugging the board edges, breathing with the shared hover-glow phase.
-     * Drawn while it is the enemy's turn so the viewer always has a clear "not your turn" cue even
-     * when no unit/move is highlighted.
-     */
-    private static drawEnemyTurnBorder(g: Graphics, gs: GridSettings, phase: number): void {
-        const minX = gs.getMinX();
-        const minY = gs.getMinY();
-        const width = gs.getMaxX() - minX;
-        const height = gs.getMaxY() - minY;
-        const cell = gs.getCellSize();
-        const pulse = (Math.sin(phase * 2) + 1) / 2; // 0..1 breathing
-
-        // Soft outer glow: several expanding strokes fading out as they move away from the edge.
-        const glowLayers = 6;
-        for (let i = glowLayers; i >= 1; i--) {
-            const spread = cell * 0.14 * i * (0.85 + 0.3 * pulse);
-            const alpha = (0.12 + 0.06 * pulse) * (1 - i / (glowLayers + 1));
-            g.rect(minX - spread, minY - spread, width + spread * 2, height + spread * 2).stroke({
-                width: Math.max(2, cell * 0.06),
-                color: ENEMY_TURN_HIGHLIGHT_COLOR,
-                alpha,
-            });
-        }
-
-        // Crisp inner border line sitting right on the board edge.
-        g.rect(minX, minY, width, height).stroke({
-            width: Math.max(2, cell * 0.05),
-            color: ENEMY_TURN_HIGHLIGHT_COLOR,
-            alpha: 0.55 + 0.25 * pulse,
-        });
     }
     private static drawAuraAndAttackRanges(
         g: Graphics,

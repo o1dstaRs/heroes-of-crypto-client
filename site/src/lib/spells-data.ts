@@ -5,7 +5,8 @@
 //
 // Army-wide artifacts are modelled as System spells in spells.json too. They are filtered out here
 // because they already have their own codex at /artifacts — keeping them would list every artifact
-// twice under a misleading "spell" label.
+// twice under a misleading "spell" label. Pre-game augments are excluded for the same reason: they are
+// drafted, not cast, so a codex of castable spells is the wrong place for them.
 
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
 
@@ -17,11 +18,10 @@ export type SpellBook = "System" | "Life" | "Nature" | "Chaos" | "Death" | "Orde
 /**
  * How a spell reaches the battlefield:
  * - `spellbook` — a scroll a unit casts from its spell book during the fight
- * - `augment`   — an army-wide upgrade chosen before the fight
  * - `ability`   — cast by a unit ability rather than from the spell book
  * - `effect`    — a buff/debuff applied automatically by attacks, abilities, terrain or game state
  */
-export type SpellKind = "spellbook" | "augment" | "ability" | "effect";
+export type SpellKind = "spellbook" | "ability" | "effect";
 
 /**
  * How long a spell sticks, taken from the description's own "Lasts ..." line rather than from `laps`.
@@ -107,6 +107,12 @@ export const bookColors: Record<SpellBook, string> = {
     System: "#9aa3ab",
 };
 
+/**
+ * Pre-game army augments, which spells.json also models as System spells so the engine can apply them
+ * through the same machinery. Nobody ever casts one — they are drafted and apply to the whole army — so
+ * they are excluded from this codex entirely and documented on /rules, which covers all six with their
+ * point costs. Listing them here duplicated that under a misleading "spell" label.
+ */
 const augmentSpells = new Set([
     "Armor Augment",
     "Might Augment",
@@ -117,7 +123,14 @@ const augmentSpells = new Set([
 
 // Spells cast by a unit ability instead of from a spell book — these are exactly the abilities.json
 // entries with `can_be_cast: true`.
-const abilityCastSpells = new Set(["Wild Regeneration", "Resurrection", "Wind Flow", "Battle Roar", "Castling"]);
+const abilityCastSpells = new Set([
+    "Wild Regeneration",
+    "Resurrection",
+    "Wind Flow",
+    "Vine Throw",
+    "Battle Roar",
+    "Castling",
+]);
 
 // Which ability applies each non-castable buff/debuff. Curated because the link lives in ability code
 // rather than in the data files; every entry here is an ability name shown on /abilities.
@@ -138,6 +151,9 @@ const appliedByAbility: Record<string, string[]> = {
     Cowardice: ["Spit Ball"],
     Resurrection: ["Resurrection"],
     "Wind Flow": ["Wind Flow"],
+    // Both cast by Trent's ability AND applied on arrival to anyone who ends a move standing in the vine,
+    // so the ability is the right link either way.
+    "Vine Throw": ["Vine Throw"],
     "Battle Roar": ["Battle Roar"],
     Castling: ["Castling"],
 };
@@ -168,7 +184,7 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Armor Rune": "50% chance per cast to add +1 armor to the target. The bonus stacks.",
     "System:Weapon Rune": "50% chance per cast to add +1 attack to the target. The bonus stacks.",
     "System:Armor Augment":
-        "Boosts the entire team's base armor and magic armor. Level 1: +6%. Level 2: +13%. Level 3: +21%.",
+        "Boosts the entire team's base armor by a percentage and adds the same number of points straight onto its magic armor. Level 1: +6% armor, +6 magic armor. Level 2: +13% and +13. Level 3: +21% and +21.",
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
     "System:Empower Augment":
         "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
@@ -185,13 +201,15 @@ const descriptionsRu: Record<string, string> = {
     "System:Wild Regeneration":
         "Дает способность восстанавливать здоровье до максимума в начале своего хода. Эффект можно подарить.",
     "System:Wind Flow": "Все летающие юниты получают +4 к базовой броне и теряют 4 очка перемещения, включая врагов.",
+    "System:Vine Throw":
+        "Бросает лозу во врага в пределах прямой видимости, оставляя её на каждой клетке по пути. Нелетающее существо тратит 1 дополнительный шаг, чтобы пересечь клетку с лозой. Поражённое существо теряет ещё 1.5 шага — если только его магическая броня не стряхнёт захват. Лоза ложится на клетки в любом случае.",
     "System:Battle Roar":
         "Все союзники получают по одному дополнительному шагу за каждое живое существо в стеке заклинателя и гарантированно наносят максимальный урон каждой атакой.",
     "System:Castling": "Меняется местами с малым противником в пределах дистанции движения заклинателя.",
     "System:Resurrection":
         "Воскрешает павших союзников на поле боя — суммарно до совокупного максимального запаса здоровья стека заклинателя.",
     "System:Armor Augment":
-        "Повышает базовую и магическую броню всей команды. Уровень 1: +6%. Уровень 2: +13%. Уровень 3: +21%.",
+        "Повышает базовую броню всей команды в процентах и добавляет столько же очков к магической броне. Уровень 1: +6% брони и +6 магической брони. Уровень 2: +13% и +13. Уровень 3: +21% и +21.",
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
     "System:Empower Augment":
         "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Огненный меч, Цепную молнию, Огненное дыхание и Огненный щит. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",
@@ -293,9 +311,6 @@ function spellKind(book: SpellBook, raw: RawSpell, casterCount: number): SpellKi
     if (casterCount > 0) {
         return "spellbook";
     }
-    if (augmentSpells.has(raw.name)) {
-        return "augment";
-    }
     if (abilityCastSpells.has(raw.name)) {
         return "ability";
     }
@@ -326,7 +341,7 @@ export const spells: Spell[] = bookOrder
     .filter((book) => rawBooks[book])
     .flatMap((book) =>
         Object.values(rawBooks[book])
-            .filter((raw) => !artifactSpellNames.has(normalizeName(raw.name)))
+            .filter((raw) => !artifactSpellNames.has(normalizeName(raw.name)) && !augmentSpells.has(raw.name))
             .map((raw) => {
                 const casters = (castersBySpell.get(`${book}:${raw.name}`) ?? []).sort((a, b) =>
                     a.name.localeCompare(b.name),

@@ -1,0 +1,166 @@
+export interface ThemeTrack {
+    webm: string;
+    mp3: string;
+}
+
+interface ThemeAudio {
+    volume: number;
+    readonly paused: boolean;
+    play(): Promise<void>;
+    load(): void;
+    addEventListener(type: "ended", listener: EventListener): void;
+    removeEventListener(type: "ended", listener: EventListener): void;
+}
+
+interface ThemeSource {
+    src: string;
+}
+
+interface ThemeMusicPlayerOptions {
+    audio: ThemeAudio;
+    webmSource: ThemeSource;
+    mp3Source: ThemeSource;
+    playlist: readonly ThemeTrack[];
+    getTargetVolume: () => number;
+    fadeTo: (targetVolume: number) => void;
+    onPlaybackStarted: () => void;
+    onPlaybackBlocked: () => void;
+}
+
+export interface ThemeMusicPlayer {
+    start(targetVolume?: number, forceRetry?: boolean): Promise<boolean>;
+    setTargetVolume(targetVolume: number): void;
+    advance(): Promise<boolean>;
+    destroy(): void;
+}
+
+export interface ThemeMusicSettings {
+    volume: number;
+    muted: boolean;
+}
+
+const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+
+/**
+ * Clicking the speaker while it is silent always means "make it audible". This also covers the subtle
+ * volume-zero case where `muted` may still be false: toggling that raw boolean would otherwise require two
+ * clicks before any sound could be heard.
+ */
+export const toggleThemeMusicSettings = (settings: ThemeMusicSettings, defaultVolume: number): ThemeMusicSettings => {
+    const silent = settings.muted || settings.volume === 0;
+    if (silent) {
+        return {
+            volume: settings.volume === 0 ? clamp01(defaultVolume) : settings.volume,
+            muted: false,
+        };
+    }
+    return { ...settings, muted: true };
+};
+
+/**
+ * Owns the native media playback lifecycle while the Astro component owns UI and persistence. In
+ * particular, a rejected autoplay attempt stays retryable and an `ended` event reloads and starts the next
+ * source instead of silently leaving the player paused.
+ */
+export const createThemeMusicPlayer = ({
+    audio,
+    webmSource,
+    mp3Source,
+    playlist,
+    getTargetVolume,
+    fadeTo,
+    onPlaybackStarted,
+    onPlaybackBlocked,
+}: ThemeMusicPlayerOptions): ThemeMusicPlayer => {
+    if (!playlist.length) {
+        throw new Error("Theme music playlist must contain at least one track");
+    }
+
+    let trackIndex = 0;
+    let desiredTargetVolume = clamp01(getTargetVolume());
+    let attemptGeneration = 0;
+    let currentAttempt: Promise<boolean> | null = null;
+
+    const setTargetVolume = (targetVolume: number): void => {
+        desiredTargetVolume = clamp01(targetVolume);
+    };
+
+    const start = (targetVolume = getTargetVolume(), forceRetry = false): Promise<boolean> => {
+        setTargetVolume(targetVolume);
+
+        if (desiredTargetVolume === 0) {
+            fadeTo(0);
+            return Promise.resolve(false);
+        }
+
+        if (!audio.paused) {
+            currentAttempt = null;
+            onPlaybackStarted();
+            fadeTo(desiredTargetVolume);
+            return Promise.resolve(true);
+        }
+
+        if (currentAttempt && !forceRetry) {
+            return currentAttempt;
+        }
+
+        const generation = ++attemptGeneration;
+        audio.volume = 0;
+
+        let nativeAttempt: Promise<void>;
+        try {
+            nativeAttempt = audio.play();
+        } catch {
+            if (generation === attemptGeneration) {
+                currentAttempt = null;
+                onPlaybackBlocked();
+            }
+            return Promise.resolve(false);
+        }
+
+        const attempt = nativeAttempt.then(
+            () => {
+                if (generation !== attemptGeneration) {
+                    return !audio.paused;
+                }
+                currentAttempt = null;
+                onPlaybackStarted();
+                fadeTo(desiredTargetVolume);
+                return true;
+            },
+            () => {
+                if (generation === attemptGeneration) {
+                    currentAttempt = null;
+                    onPlaybackBlocked();
+                }
+                return false;
+            },
+        );
+        currentAttempt = attempt;
+        return attempt;
+    };
+
+    const advance = (): Promise<boolean> => {
+        trackIndex = (trackIndex + 1) % playlist.length;
+        webmSource.src = playlist[trackIndex].webm;
+        mp3Source.src = playlist[trackIndex].mp3;
+
+        ++attemptGeneration;
+        currentAttempt = null;
+        audio.load();
+        audio.volume = 0;
+        return start(getTargetVolume(), true);
+    };
+
+    const onEnded: EventListener = () => {
+        void advance();
+    };
+    audio.addEventListener("ended", onEnded);
+
+    return {
+        start,
+        setTargetVolume,
+        advance,
+        destroy: () => audio.removeEventListener("ended", onEnded),
+    };
+};

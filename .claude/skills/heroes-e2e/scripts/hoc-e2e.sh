@@ -74,7 +74,10 @@ ensure_monitor() {
 ensure_client() {
     if port_busy "$CLIENT_PORT"; then echo "client: already on :$CLIENT_PORT"; return; fi
     echo "client: starting (vite --port $CLIENT_PORT --strictPort) -> $CLIENT_LOG"
-    (cd "$CLIENT_DIR/game/core" && nohup bun x vite --port "$CLIENT_PORT" --strictPort >"$CLIENT_LOG" 2>&1 &)
+    # NODE_ENV=development is what `npm start` sets via cross-env, and the app needs it: without it the
+    # bundle takes the production path, the dev `?e2eEmail=`/`?e2ePlayerId=` auto-login never runs, and
+    # React mounts nothing at all — a blank page on every URL, with no error in the console or vite log.
+    (cd "$CLIENT_DIR/game/core" && NODE_ENV=development nohup bun x vite --port "$CLIENT_PORT" --strictPort >"$CLIENT_LOG" 2>&1 &)
     wait_for "port_busy $CLIENT_PORT" 60 || { echo "client failed; see $CLIENT_LOG"; tail -20 "$CLIENT_LOG"; exit 1; }
     echo "client: up on :$CLIENT_PORT"
 }

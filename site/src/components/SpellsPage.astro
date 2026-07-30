@@ -95,8 +95,8 @@ const labels =
 
 const kindLabels: Record<SpellKind, string> =
     lang === "ru"
-        ? { spellbook: "Книга заклинаний", augment: "Аугмент", ability: "От способности", effect: "Эффект" }
-        : { spellbook: "Spell book", augment: "Augment", ability: "Ability", effect: "Effect" };
+        ? { spellbook: "Книга заклинаний", ability: "От способности", effect: "Эффект" }
+        : { spellbook: "Spell book", ability: "Ability", effect: "Effect" };
 
 const bookLabels: Record<SpellBook, string> =
     lang === "ru"
@@ -161,7 +161,6 @@ const summaryStats = [
 const kinds: { key: string; label: string }[] = [
     { key: "all", label: labels.all },
     { key: "spellbook", label: kindLabels.spellbook },
-    { key: "augment", label: kindLabels.augment },
     { key: "ability", label: kindLabels.ability },
     { key: "effect", label: kindLabels.effect },
 ];
@@ -646,11 +645,6 @@ const metaRows = (spell: Spell) => {
     .spell-kind.spellbook {
         background: rgba(224, 176, 74, 0.18);
         color: var(--gold);
-    }
-
-    .spell-kind.augment {
-        background: rgba(111, 155, 214, 0.18);
-        color: #9ec1f2;
     }
 
     .spell-polarity.buff {
