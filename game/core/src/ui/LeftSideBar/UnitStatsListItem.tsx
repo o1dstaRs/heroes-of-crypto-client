@@ -908,6 +908,24 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
+    // magic_resist_mod and range_shots_mod REPLACE their base rather than adding to it (Enchanted Skin
+    // sets the resist outright), so the delta has to be computed against the base instead of printed
+    // straight -- "+40" would be wrong for a mod that means "40 total".
+    const magicResistDelta = unitProperties.magic_resist_mod
+        ? Math.round(unitProperties.magic_resist_mod) - Math.round(unitProperties.magic_resist)
+        : 0;
+    const rangeShotsDelta = unitProperties.range_shots_mod
+        ? Math.round(unitProperties.range_shots_mod) - Math.round(unitProperties.range_shots)
+        : 0;
+
+    // Additive first, then the multiplier — the same order and shape mainline used.
+    const attackModifierLabel = [
+        modLabel(unitProperties.attack_mod),
+        unitProperties.attack_multiplier !== 1 ? `x${Number(unitProperties.attack_multiplier.toFixed(2))}` : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
+
     // Luck's display delta has to be DERIVED, not read from luck_mod.
     //
     // In the sandbox luck_mod carries the buff and the delta is just that. In ranked it is hardcoded to 0:
@@ -953,11 +971,11 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                 value={Math.round(attackDamage)}
-                modifier={
-                    unitProperties.attack_multiplier !== 1
-                        ? `x${Number(unitProperties.attack_multiplier.toFixed(2))}`
-                        : ""
-                }
+                // Attack carries TWO kinds of modifier and both have to show. Mass Riot (and Weakness,
+                // Fireforged Sword, Warlord's Edge...) move attack_mod, which is ADDITIVE and already folded
+                // into the number above -- so without printing it the buff simply disappeared into the stat.
+                // attack_multiplier is separate and multiplicative. Mainline printed both, e.g. "+5 x1.5".
+                modifier={attackModifierLabel}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
@@ -982,6 +1000,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MagicShieldIcon />}
                 value={`${Math.round(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
+                modifier={modLabel(magicResistDelta)}
                 tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
@@ -1040,6 +1059,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<QuiverIcon />}
                     value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                    modifier={modLabel(rangeShotsDelta)}
                     tooltip="Number of ranged shots"
                     color="#cd5c5c"
                     metrics={metrics}
