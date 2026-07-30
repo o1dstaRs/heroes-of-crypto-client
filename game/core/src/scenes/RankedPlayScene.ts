@@ -42,7 +42,7 @@ import {
     type SandboxSceneUnitState,
     type SceneActionEngine,
 } from "./Sandbox";
-import { animatableEffectNames, diffUnitEffects, newlyCraftedAbilities } from "./effect_pops";
+import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
 import { PlayActionType } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
@@ -453,6 +453,30 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 luck: unitState.luck,
                 luck_mod: 0,
                 luck_authoritative: true,
+                // Every debuff/buff-driven change to armor and attack, straight from the server. Ranked
+                // seeds the effect/buff DISPLAY strings but deliberately not the OBJECT arrays that
+                // adjustBaseStats derives these from, so without them the HUD showed a unit's base armor
+                // while the server had (say) Shatter Armor's -10 applied — the effect looked like it did
+                // nothing. The *_authoritative flags tell adjustBaseStats to keep these verbatim rather
+                // than re-deriving from arrays it cannot see; an older server sends neither field, and
+                // then we fall through to the local derivation exactly as before.
+                ...(unitState.statModsAuthoritative
+                    ? {
+                          armor_mod: unitState.armorMod ?? 0,
+                          attack_mod: unitState.attackMod ?? 0,
+                          armor_mod_authoritative: true,
+                          attack_mod_authoritative: true,
+                          // Movement only when the server actually sent it: a slightly older server may
+                          // carry the mods but not this pair, and defaulting steps to 0 would freeze units.
+                          ...(unitState.steps !== undefined
+                              ? {
+                                    steps: unitState.steps,
+                                    steps_mod: unitState.stepsMod ?? 0,
+                                    steps_authoritative: true,
+                                }
+                              : {}),
+                      }
+                    : {}),
                 // Server-applied combat debuffs + effects for the HUD's Debuffs list. Ranked can't run the
                 // engine, so these arrive pre-computed in the snapshot (name + laps + power-filled description).
                 // DISPLAY strings ONLY — we deliberately do NOT rebuild the debuff/effect OBJECT arrays
@@ -704,12 +728,6 @@ export class RankedPlayScene extends Sandbox {
     // don't burst.
     private readonly unitDebuffs = new Map<string, Set<string>>();
     private readonly unitBuffs = new Map<string, Set<string>>();
-    // Craft grants ABILITIES ("Crafted Double Punch" / "Crafted Frozen Sword"), which are not buffs and so
-    // never show up in the buff/debuff diff. Sandbox pops them from its own local cast (popCraftResults),
-    // but ranked defers the cast to the authoritative replay and must NOT re-roll the outcome there (the
-    // replay re-runs with unseeded RNG and would show a random wrong result). Tracking the snapshot's
-    // ability list instead pops the REAL outcome, identically for the caster and the opponent.
-    private readonly unitAbilities = new Map<string, Set<string>>();
     // High-water sequence for effect-pop diffing, kept separate from the board sequence so a freshly
     // applied debuff/buff is popped exactly once, in order — even when the snapshot that carries it is
     // otherwise board-skipped (mid-animation), which used to defer or drop the pop on the receiving side.
@@ -753,6 +771,9 @@ export class RankedPlayScene extends Sandbox {
     private rankedPlacementSecondsMax = 0;
     private rankedTurnStartLocalMs = 0;
     private rankedTurnEndLocalMs = 0;
+    // Raw server tuple used by AIController retry guards. Do not use rankedTurnStartLocalMs: its clock-offset
+    // conversion can jitter between snapshots, while the authoritative start is stable for one activation.
+    private rankedTurnActivationKey = "";
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
     }
@@ -941,7 +962,6 @@ export class RankedPlayScene extends Sandbox {
             this.effectPopsSequence = -1;
             this.unitDebuffs.clear();
             this.unitBuffs.clear();
-            this.unitAbilities.clear();
         }
         // Process each snapshot's effects at most once and only forward in sequence: this runs BEFORE the
         // board-rebuild guards (so a debuff applied during an opponent's attack animation still pops on
@@ -962,7 +982,6 @@ export class RankedPlayScene extends Sandbox {
                 // Record the effects silently — never animate a pop on a dead unit.
                 this.unitDebuffs.set(unitState.id, currentDebuffs);
                 this.unitBuffs.set(unitState.id, currentBuffs);
-                this.unitAbilities.set(unitState.id, new Set(unitState.abilities ?? []));
                 continue;
             }
             const diff = diffUnitEffects(
@@ -989,26 +1008,20 @@ export class RankedPlayScene extends Sandbox {
             }
             this.unitDebuffs.set(unitState.id, currentDebuffs);
             this.unitBuffs.set(unitState.id, currentBuffs);
-            const currentAbilities = new Set(unitState.abilities ?? []);
-            const craftedAbilities = newlyCraftedAbilities(this.unitAbilities.get(unitState.id), currentAbilities);
-            this.unitAbilities.set(unitState.id, currentAbilities);
             // Diffed eagerly (above) so a mid-animation snapshot can't drop the effect, but ANIMATED only
             // once the strike that applied it connects: the server resolves an action — and this snapshot
             // lands — while the replayed arrow is still flying or the attacker is still walking in.
             this.queueOrPlayEffectPops({
                 unit,
-                // A crafted ability is a good outcome, so flash the buff wash when nothing else landed.
-                flash: diff.flash === "none" && craftedAbilities.length ? "buff" : diff.flash,
+                flash: diff.flash,
                 debuffs: [...diff.newDebuffs],
                 buffs: [...diff.newBuffs],
-                abilities: craftedAbilities,
             });
         }
         for (const id of [...this.unitDebuffs.keys()]) {
             if (!seen.has(id)) {
                 this.unitDebuffs.delete(id);
                 this.unitBuffs.delete(id);
-                this.unitAbilities.delete(id);
             }
         }
     }
@@ -1160,6 +1173,13 @@ export class RankedPlayScene extends Sandbox {
         if (snapshot.latestSequence < this.lastAuthoritativeSequence) {
             return;
         }
+        this.rankedTurnActivationKey =
+            snapshot.fightStarted &&
+            !snapshot.fightFinished &&
+            !!snapshot.currentUnitId &&
+            !!snapshot.currentTurnStartMs
+                ? `${snapshot.gameId}:${snapshot.currentLap}:${snapshot.currentUnitId}:${snapshot.currentTurnStartMs}`
+                : "";
         this.applyRankedTimer(snapshot);
         this.applyAuthoritativeSceneLog(snapshot);
         this.lastAuthoritativeSequence = snapshot.latestSequence;
@@ -3083,6 +3103,9 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         this.grid.rebuildAggrBoards(ranges);
+    }
+    protected override getTurnActivationKey(): string {
+        return this.rankedTurnActivationKey || super.getTurnActivationKey();
     }
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({

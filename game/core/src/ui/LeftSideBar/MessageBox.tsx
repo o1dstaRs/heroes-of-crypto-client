@@ -22,6 +22,7 @@ import { meteorIconDataUrl } from "../meteorIcon";
 import { TurnTimerBar } from "./TurnTimerBar";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
+import { commonTooltipSx } from "./tooltipStyles";
 // --- Configuration for the Start Button Atlas ---
 const START_BUTTON_META = {
     frameWidth: 344,
@@ -33,17 +34,6 @@ const START_BUTTON_META = {
 };
 
 // --- Custom Style for "Heroes" Aesthetic Tooltips ---
-const commonTooltipSx = {
-    backgroundColor: "#2d1606", // Deep dark brown/wood
-    border: "2px solid #dcb158", // Metallic gold/bronze border
-    color: "#efe4cc", // Parchment/Cream text for contrast
-    borderRadius: "8px",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    maxWidth: "280px",
-    zIndex: 10000,
-};
 
 // 1. Animated Button Component (Ping-Pong Loop)
 const AnimatedStartButton = ({ onClick, scale }: { onClick: () => void; scale: number }) => {
@@ -341,7 +331,6 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     let messageBoxColor: "primary" | "neutral" | "danger" | "success" | "warning" | undefined = "neutral";
     let messageBoxTitle = "";
     let messageBoxText = "";
-    let messageBoxButtonText = "";
     let messageBoxProgressValue = 0;
 
     messageBoxProgressValue = timerProgressValue;
@@ -350,19 +339,15 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         messageBoxColor = "neutral";
         messageBoxTitle = "Fight finished";
         messageBoxText = "Refresh the page to start a new one";
-        messageBoxButtonText = "";
     } else {
+        // The additional-time button is rendered unconditionally below (disabled when the reserve is
+        // spent), so nothing here decides whether it exists — only the panel's colour tracks the clock.
         if (messageBoxProgressValue <= 45 && !countdown) {
             messageBoxColor = "neutral";
-            messageBoxButtonText = "";
         } else if (messageBoxProgressValue <= 80 && !countdown) {
             messageBoxColor = "warning";
-            messageBoxButtonText = "";
         } else {
             messageBoxColor = "danger";
-            if (visibleState.canRequestAdditionalTime) {
-                messageBoxButtonText = "Use additional time";
-            }
         }
         // The lap now lives in the timer medallion, so the heading carries whose turn it is.
         if (!visibleState.teamTypeTurn) {
@@ -423,20 +408,39 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 variant={messageBoxVariant}
                 color={messageBoxColor}
                 size="sm"
-                sx={{ boxShadow: "none", p: `${metrics.gapPx}px`, gap: `${Math.round(metrics.gapPx * 0.5)}px` }}
+                // Trimmed down deliberately: this card and the queue are pinned to the bottom, so every
+                // pixel it gives back goes to the unit card above it.
+                sx={{
+                    boxShadow: "none",
+                    p: `${Math.round(metrics.gapPx * 0.6)}px`,
+                    gap: `${Math.round(metrics.gapPx * 0.35)}px`,
+                }}
             >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
                     <Typography
                         level="title-sm"
                         sx={{
-                            fontSize: `${0.78 * metrics.fontScale}rem`,
-                            lineHeight: 1.2,
+                            fontSize: `${0.72 * metrics.fontScale}rem`,
+                            lineHeight: 1.15,
                             ...(isEnemyTurn ? { color: hocColors.danger } : {}),
                         }}
                     >
                         {messageBoxTitle}
                     </Typography>
-                    {visibleState.hasFinished ? <RefreshRoundedIcon /> : defaultIcon}
+                    {/* Fixed slot: the hazard icons (narrowing / armageddon) swap in at different intrinsic
+                        sizes, and without this the header row grew and nudged the timer. */}
+                    <Box
+                        sx={{
+                            flex: "none",
+                            width: 22,
+                            height: 22,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        {visibleState.hasFinished ? <RefreshRoundedIcon /> : defaultIcon}
+                    </Box>
                 </Stack>
                 {messageBoxText && (
                     <Typography level="body-xs" sx={{ fontSize: `${0.7 * metrics.fontScale}rem` }}>
@@ -452,17 +456,20 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     />
                 )}
 
-                {messageBoxButtonText ? (
+                {/* The slot is always rendered, so the card never changes height: the button greys out when
+                    the reserve is unavailable instead of vanishing and reflowing everything below it. */}
+                {!visibleState.hasFinished && (
                     <Button
                         onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
                         onMouseDown={() => manager.RequestTime(visibleState.teamTypeTurn)}
                         size="sm"
                         variant="solid"
-                        sx={{ minHeight: 0, py: "4px", fontSize: `${0.75 * metrics.fontScale}rem` }}
+                        disabled={!visibleState.canRequestAdditionalTime}
+                        sx={{ minHeight: 0, py: "2px", fontSize: `${0.68 * metrics.fontScale}rem` }}
                     >
-                        {messageBoxButtonText}
+                        Use additional time
                     </Button>
-                ) : null}
+                )}
             </Card>
         </>
     );

@@ -95,6 +95,7 @@ import {
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
+import { isTargetedSpellReachable } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
@@ -145,12 +146,6 @@ interface IPendingEffectPop {
     flash: EffectFlash;
     debuffs: string[];
     buffs: string[];
-    /**
-     * Newly gained ABILITY names (Craft's "Crafted ..." grants). Abilities are not buffs, so they never
-     * appear in the buff/debuff diff — ranked pops them from the authoritative snapshot's ability list.
-     * Sandbox leaves this empty: its own popCraftResults already pops the crafted ability locally.
-     */
-    abilities?: string[];
 }
 
 /** Full board snapshot taken at fight start (pre-supply) for "Rematch". */
@@ -158,6 +153,46 @@ interface IFightSnapshot {
     units: IUnitFightSnapshot[];
     gridType: GridType;
 }
+
+/**
+ * Which kind of strike, if any, the active unit can land on the mountain it is pointing at.
+ *
+ * "melee" is CONDITIONAL: it still needs a reachable cell to swing from, which only the scene can work
+ * out. Kept separate so that lookup stays lazy -- a shot needs no attack-from cell, and this runs on
+ * every mouse move.
+ *
+ * This is the single rule behind BOTH the themed sword/bow cursor and the click that actually damages
+ * the rock. They must not be able to disagree: an attack cursor is a promise that clicking lands a hit.
+ */
+export type ObstacleAttackKind = "none" | "range" | "melee";
+
+export const obstacleAttackKind = (params: {
+    hasActiveUnit: boolean;
+    gridType: number;
+    obstacleHitsLeft: number;
+    /** Lazy: this runs on every mouse move, and the cheap map/hit-count gates reject most of them. */
+    isCenterCell: () => boolean;
+    attackTypeSelection: AttackType;
+    /** Lazy for the same reason -- an aggro-matrix lookup is not worth doing off the mountain. */
+    canLandRangeHit: () => boolean;
+}): ObstacleAttackKind => {
+    if (!params.hasActiveUnit || params.gridType !== GridVals.BLOCK_CENTER || params.obstacleHitsLeft <= 0) {
+        return "none";
+    }
+    if (!params.isCenterCell()) {
+        return "none";
+    }
+    if (params.attackTypeSelection === AttackVals.RANGE && params.canLandRangeHit()) {
+        return "range";
+    }
+    // Magic never chips the mountain, so it must not raise an attack cursor over one either. A ranged
+    // unit that cannot land its shot (locked in melee, out of ammo) falls through to its melee swing,
+    // which is exactly what clicking would do.
+    if (params.attackTypeSelection === AttackVals.MAGIC) {
+        return "none";
+    }
+    return "melee";
+};
 
 export type SceneActionEngine = Pick<GameActionEngine, "apply">;
 
@@ -446,6 +481,9 @@ export class Sandbox extends PixiScene {
     private splitHintText?: Text;
     private splitHintUnitId?: string;
     private splitHintRoll = false;
+    // Aim hint ("Shift to rotate"): shown whenever a rotatable area spell is armed. See
+    // updateFireWallRotateHint for why this one does not roll a chance the way the split hint does.
+    private fireWallRotateHintText?: Text;
     /** Is there an actual *active* selection (overlay or board)? */
     private hasActiveSelection = false;
     /** True if the active selection came from overlay; false if from board. */
@@ -801,6 +839,7 @@ export class Sandbox extends PixiScene {
         // Initialize AI Controller with IAIContext implementation
         this.aiController = new AIController({
             getCurrentActiveUnit: () => this.currentActiveUnit,
+            getTurnActivationKey: () => this.getTurnActivationKey(),
             getGrid: () => this.grid,
             getGridMatrix: () => this.gridMatrix,
             getUnitsHolder: () => this.unitsHolder,
@@ -2484,7 +2523,7 @@ export class Sandbox extends PixiScene {
             case "obstacle_attack":
                 return this.playReplayObstacleAttackAction(record);
             case "area_throw_attack":
-                return this.playReplayAreaThrowAction(action);
+                return this.playReplayAreaThrowAction(record);
             case "cast_spell":
                 return this.playReplayCastSpellAction(record);
             case "end_turn":
@@ -3897,9 +3936,11 @@ export class Sandbox extends PixiScene {
     private getReplayObstacleStrikeHoldMs(landedHits: number): number {
         return Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS + Math.max(0, landedHits - 1) * 240;
     }
-    private async playReplayAreaThrowAction(
-        action: Extract<GameAction, { type: "area_throw_attack" }>,
-    ): Promise<boolean> {
+    private async playReplayAreaThrowAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
+        const action = record.action;
+        if (action.type !== "area_throw_attack") {
+            return false;
+        }
         const unit = this.unitsHolder.getAllUnits().get(action.attackerId) as RenderableUnit | undefined;
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellPosition = GridMath.getPositionForCell(
@@ -3912,7 +3953,10 @@ export class Sandbox extends PixiScene {
             return false;
         }
         this.currentActiveUnit = unit;
-        await this.performAreaThrow(unit, action.targetCell, cellPosition);
+        // Hand the RECORD down, not just the action: every other replay path renders from the recorded
+        // events, and the area throw was the last one still reading its own local re-run (see the note in
+        // performAreaThrow on why that showed re-rolled numbers and could drop the action entirely).
+        await this.performAreaThrow(unit, action.targetCell, cellPosition, record);
         return true;
     }
     private async playReplayCastSpellAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
@@ -3941,7 +3985,7 @@ export class Sandbox extends PixiScene {
         // pops through processDebuffPops, and a crafted weapon / rune buff shows in the unit's panel. The
         // forge itself is outcome-independent, so it is safe to play. The crafted ABILITY additionally pops
         // on the board in ranked, diffed off the snapshot's ability list (RankedPlayScene.processDebuffPops
-        // -> newlyCraftedAbilities), which is authoritative and so identical on both players' screens.
+        // -> renderCastOutcomes), which is authoritative and so identical on both players' screens.
         const isCraftCast = action.spellName === "Craft";
         const craftCasterPos = { ...caster.getPosition() };
 
@@ -4045,7 +4089,14 @@ export class Sandbox extends PixiScene {
         // snapshot (`spell_not_available`), or the turn has handed over. Gating the animation on
         // `result.completed` therefore swallowed the whole forge in ranked while it always played in sandbox.
         if (isCraftCast) {
-            this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize());
+            const forgeMs = this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize()) ?? 0;
+            // The per-ally results the SERVER rolled, held until the forge finishes so they read as its
+            // output. Safe from the replay precisely because they are stated on the record rather than
+            // re-derived — re-running the roll locally would show each player a different craft.
+            setTimeout(() => this.renderCastOutcomes(record.events), forgeMs + 80);
+        } else {
+            // Rune success/failure and any other stated roll; no forge to wait on.
+            this.renderCastOutcomes(record.events);
         }
         if (result.completed) {
             this.cleanupAfterSpell(result.events, unitSnapshot);
@@ -4254,6 +4305,15 @@ export class Sandbox extends PixiScene {
      * unit positions before an AI decision (ranked skip-rebuild snapshots leave the aggro board stale).
      */
     protected ensureAuthoritativeGrid(): void {}
+    /**
+     * Activation identity for AI retry guards. FightProperties refreshes currentTurnStart on every genuine
+     * activation, including a same-unit hourglass return, while leaving it stable through multi-action turns.
+     * Ranked overrides this with the server's raw turn-start tuple.
+     */
+    protected getTurnActivationKey(): string {
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+        return `${fightProperties.getCurrentLap()}:${this.currentActiveUnit?.getId() ?? ""}:${fightProperties.getCurrentTurnStart()}`;
+    }
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();
@@ -4897,12 +4957,27 @@ export class Sandbox extends PixiScene {
             const prevTeamTypeTurn = this.sc_visibleState?.teamTypeTurn;
             const prevLapNumber = this.sc_visibleState?.lapNumber ?? 0;
             const prevUpNext = this.sc_visibleState?.upNext ?? [];
+            // The turn clock survives a rebuild too. Seeding it blank (-1 / MAX_SAFE_INTEGER) made the
+            // timer bar empty out and read "0s" until the next 500ms tick refilled it, which is visible
+            // as a flicker every time something forces a refresh mid-turn -- switching between melee and
+            // ranged does exactly that. The clock lives in FightProperties, so read it straight from
+            // there rather than carrying the previous frame's value forward: the rebuilt state is then
+            // correct immediately instead of being one tick stale.
+            const turnStart = fightProps.getCurrentTurnStart();
+            const turnEnd = fightProps.getCurrentTurnEnd();
+            const hasLiveTurnClock = turnEnd > turnStart;
+            const secondsRemaining = hasLiveTurnClock
+                ? Math.max(0, (turnEnd - HoCLib.getTimeMillis()) / 1000)
+                : (this.sc_visibleState?.secondsRemaining ?? -1);
+            const secondsMax = hasLiveTurnClock
+                ? (turnEnd - turnStart) / 1000
+                : (this.sc_visibleState?.secondsMax ?? Number.MAX_SAFE_INTEGER);
             this.sc_visibleState = {
                 canBeStarted: false,
                 hasFinished: prevHasFinished,
                 teamWin: prevTeamWin,
-                secondsRemaining: -1,
-                secondsMax: Number.MAX_SAFE_INTEGER,
+                secondsRemaining,
+                secondsMax,
                 teamTypeTurn: prevTeamTypeTurn,
                 hasAdditionalTime: false,
                 lapNumber: prevLapNumber,
@@ -5815,6 +5890,9 @@ export class Sandbox extends PixiScene {
         if (!spell || !caster) {
             return false;
         }
+        if (!isTargetedSpellReachable(spell.getName(), this.grid, caster.getBaseCell(), targetUnit.getBaseCell())) {
+            return false;
+        }
 
         // Castling (POSITION_CHANGE) swaps caster↔target. The engine teleports both instantly, so
         // capture their pre-swap positions and animate them arcing to their new cells afterwards.
@@ -5824,11 +5902,6 @@ export class Sandbox extends PixiScene {
 
         // Where the caster stands BEFORE the cast — the origin a thrown spell's projectile flies from.
         const casterPosBeforeCast = { ...caster.getPosition() };
-
-        // Armor Rune/Weapon: snapshot the running +N BEFORE the cast so we can tell success (it rose) from
-        // the 50% miss (unchanged) afterwards and play the matching attempt->resolve VFX on the target.
-        const isEnchant = spell.getName() === "Armor Rune" || spell.getName() === "Weapon Rune";
-        const enchantBefore = isEnchant ? (targetUnit.getBuff(spell.getName())?.getFirstSpellProperty() ?? 0) : 0;
 
         const action: GameAction = {
             type: "cast_spell",
@@ -5876,18 +5949,61 @@ export class Sandbox extends PixiScene {
         }
 
         this.cleanupAfterSpell(result.events, unitSnapshot);
-        if (isEnchant) {
-            this.playEnchantResult(targetUnit as RenderableUnit, spell.getName(), enchantBefore);
-        }
+        // Craft and the Runes report their roll on the event; renderCastOutcomes turns it into the pop.
+        this.renderCastOutcomes(result.events);
         return true;
     }
     /**
      * Play the Armor Rune / Weapon attempt->resolve VFX on the target and, on success, flash it. Success is
      * detected by the buff's running +N total having risen past its pre-cast value.
      */
-    private playEnchantResult(target: RenderableUnit, spellName: string, before: number): void {
-        const after = target.getBuff(spellName)?.getFirstSpellProperty() ?? 0;
-        const success = after > before;
+    /**
+     * Render a cast's per-target ROLL from the authoritative event.
+     *
+     * Craft and the Runes resolve by dice, not by state change, so two of their outcomes — Craft's "nothing"
+     * and a failed rune — leave the board untouched. That made them invisible to a snapshot diff and unsafe
+     * to re-derive in a ranked replay, which re-runs with unseeded RNG and would show each player a different
+     * answer. The engine now states the roll on `spell_cast.outcomes`, so this reads the server's result and
+     * is correct on BOTH sides: sandbox passes its own local events, ranked passes the authoritative record.
+     *
+     * Stun deliberately pops nothing here — the generic effect diff (reconcileEffectVisuals in sandbox,
+     * processDebuffPops in ranked) already pops a newly gained Stun, and popping it again would double it.
+     */
+    protected renderCastOutcomes(events: readonly GameEvent[] | undefined): void {
+        for (const event of events ?? []) {
+            if (event.type !== "spell_cast" || !event.outcomes?.length) {
+                continue;
+            }
+            for (const entry of event.outcomes) {
+                const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+                if (!unit || unit.isDead()) {
+                    continue;
+                }
+                switch (entry.outcome) {
+                    case "double":
+                    case "frozen":
+                        // Each ally is a DISTINCT unit at its own position, so every pop uses stackIndex 0.
+                        if (entry.grantedAbility) {
+                            this.popAbilityOnUnit(unit, entry.grantedAbility, 0);
+                        }
+                        break;
+                    case "stun":
+                        break;
+                    case "nothing":
+                        this.combatVisuals?.showCraftFail(unit.getPosition());
+                        break;
+                    case "enchanted":
+                    case "failed":
+                        this.showEnchantResult(unit, event.spellName, entry.outcome === "enchanted", entry.amount);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+    /** The rune's attempt->resolve flourish, driven by the server's roll rather than a before/after diff. */
+    private showEnchantResult(target: RenderableUnit, spellName: string, success: boolean, total?: number): void {
         const isArmor = spellName === "Armor Rune";
         const iconTexture = this.texAny(isArmor ? "armor_rune_256" : "weapon_rune_256");
         if (!iconTexture) {
@@ -5902,7 +6018,7 @@ export class Sandbox extends PixiScene {
             {
                 tint: isArmor ? 0x59b6ff : 0xff7a3c,
                 iconTexture,
-                label: success ? `+${after} ${isArmor ? "armor" : "attack"}` : "Failed",
+                label: success ? `+${total ?? 1} ${isArmor ? "armor" : "attack"}` : "Failed",
                 success,
             },
         );
@@ -5941,9 +6057,6 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        // Snapshot each ally inside the 2x2 BEFORE the cast (abilities + stun state) so we can diff the
-        // per-unit Craft outcome afterwards and pop an explicit result over every affected ally.
-        const before = this.snapshotCraftTargets(cell, caster);
         const casterPos = { ...caster.getPosition() };
 
         const action: GameAction = {
@@ -5978,77 +6091,11 @@ export class Sandbox extends PixiScene {
                 this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
                 0;
             this.cleanupAfterSpell(result.events, unitSnapshot);
-            setTimeout(() => this.popCraftResults(before), forgeMs + 80);
+            setTimeout(() => this.renderCastOutcomes(result.events), forgeMs + 80);
             return true;
         }
         this.cleanupAfterSpell(result.events, unitSnapshot);
         return true;
-    }
-    /**
-     * Capture the pre-cast state (ability names + whether already stunned) of every distinct ally occupying
-     * the Craft 2x2 whose top-left is `cell`. Keyed by unit id so a large (2x2) ally is captured once.
-     */
-    private snapshotCraftTargets(
-        cell: HoCMath.XY,
-        caster: Unit,
-    ): Map<string, { abilities: Set<string>; stunned: boolean }> {
-        const areaCells: HoCMath.XY[] = [
-            cell,
-            { x: cell.x + 1, y: cell.y },
-            { x: cell.x, y: cell.y + 1 },
-            { x: cell.x + 1, y: cell.y + 1 },
-        ];
-        const before = new Map<string, { abilities: Set<string>; stunned: boolean }>();
-        for (const c of areaCells) {
-            const id = this.grid.getOccupantUnitId(c);
-            if (!id || before.has(id)) {
-                continue;
-            }
-            const unit = this.unitsHolder.getAllUnits().get(id);
-            if (!unit || unit.getTeam() !== caster.getTeam()) {
-                continue;
-            }
-            before.set(id, {
-                abilities: new Set(unit.getAbilities().map((a) => a.getName())),
-                stunned: unit.hasEffectActive("Stun"),
-            });
-        }
-        return before;
-    }
-    /**
-     * Pop an explicit icon+label over each Craft target showing what it received: the granted weapon
-     * (Crafted Double / Frozen — green buff pop), a fresh Stun (violet debuff pop), or "No effect" for a
-     * failed craft. Driven by diffing post-cast state against the pre-cast snapshot.
-     */
-    private popCraftResults(before: Map<string, { abilities: Set<string>; stunned: boolean }>): void {
-        for (const [id, prev] of before) {
-            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            if (!unit || unit.isDead()) {
-                continue;
-            }
-            // Each ally is a DISTINCT unit at its own board position, so every pop uses stackIndex 0. (The
-            // stack index only lifts multiple pops landing on the SAME unit; feeding an incrementing index
-            // across different units floated each successive pop half a cell farther off its target.)
-            const gained = unit
-                .getAbilities()
-                .map((a) => a.getName())
-                .find((name) => name.startsWith("Crafted ") && !prev.abilities.has(name));
-            if (gained) {
-                const tex = this.texAny(AbilityHelper.abilityToTextureName(gained));
-                if (tex) {
-                    this.combatVisuals?.spawnDebuffPop(unit.getPosition(), tex, gained, 0, "buff");
-                }
-            } else if (!prev.stunned && unit.hasStatusEffect("Stun")) {
-                // Stun outcome: intentionally NO pop here. The generic effect-diff already pops a newly
-                // gained Stun from applied_effects/debuffs — processDebuffPops in ranked (which now runs on
-                // the replayed Craft), reconcileEffectVisuals in sandbox — so popping it again here would
-                // double it (~1.58s apart, after the forge). We still branch (rather than fall through) so a
-                // stun isn't mislabelled as a "No effect" fail below.
-            } else {
-                // Failed craft: plain dark-grey "No effect!" text, no icon.
-                this.combatVisuals?.showCraftFail(unit.getPosition());
-            }
-        }
     }
     /**
      * Shared post-cast cleanup: remove units killed by the spell, refresh stacks, clear the
@@ -6154,37 +6201,63 @@ export class Sandbox extends PixiScene {
      * pathHelper.calculateClosestAttackFrom. Ranged units shoot in place. Returns true if a hit was
      * initiated (turn consumed).
      */
-    private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
+    /**
+     * How the active unit would strike the mountain under `worldPos`, or undefined if it cannot.
+     *
+     * Split out of attemptObstacleAttack so the CURSOR and the CLICK are decided by one function. The
+     * themed sword/bow cursor is a promise that a click will land a hit; when the two were worked out
+     * separately the mountain read as plain terrain — no attack cursor at all — right up until the click
+     * that damaged it. The melee branch resolves its attack-from cell here rather than leaving it to the
+     * caller: a sword cursor over a mountain the unit cannot actually reach is exactly the false promise
+     * this is meant to remove.
+     */
+    private resolveObstacleAttack(
+        worldPos: HoCMath.XY,
+    ): { unit: RenderableUnit; attackType: AttackType; attackFrom?: HoCMath.XY } | undefined {
         const unit = this.currentActiveUnit;
-        if (!unit) {
-            return false;
-        }
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
-            return false;
+        const kind = obstacleAttackKind({
+            hasActiveUnit: !!unit,
+            gridType: fightProps.getGridType(),
+            obstacleHitsLeft: fightProps.getObstacleHitsLeft(),
+            isCenterCell: () => {
+                const hoveredCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), worldPos);
+                return (
+                    !!hoveredCell &&
+                    this.grid.getCenterCells().some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)
+                );
+            },
+            attackTypeSelection: unit?.getAttackTypeSelection() ?? AttackVals.MELEE,
+            canLandRangeHit: () =>
+                !!unit &&
+                this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId())),
+        });
+        if (!unit || kind === "none") {
+            return undefined;
         }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const hoveredCell = GridMath.getCellForPosition(gs, worldPos);
-        const centerCells = this.grid.getCenterCells();
-        if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
-            return false;
+        if (kind === "range") {
+            // A shot at the mountain needs no attack-from cell: the unit fires from where it stands.
+            return { unit, attackType: AttackVals.RANGE };
         }
-
-        const canLandRangeHit =
-            unit.getAttackTypeSelection() === AttackVals.RANGE &&
-            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId()));
-        if (canLandRangeHit) {
-            return this.executeObstacleAttackSequence(unit, worldPos, undefined);
-        }
-        if (unit.getAttackTypeSelection() === AttackVals.MAGIC) {
-            return false;
-        }
-
         const attackFrom = this.resolveMountainAttackFrom(worldPos);
         if (!attackFrom) {
+            return undefined;
+        }
+        return { unit, attackType: AttackVals.MELEE, attackFrom };
+    }
+    /**
+     * Whether the cursor at `worldPos` is aiming at a mountain the active unit can actually hit — the
+     * gate for showing the sword/bow attack cursor over destructible terrain.
+     */
+    private isHoveringAttackableObstacle(worldPos: HoCMath.XY): boolean {
+        return !!this.resolveObstacleAttack(worldPos);
+    }
+    private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
+        const resolved = this.resolveObstacleAttack(worldPos);
+        if (!resolved) {
             return false;
         }
-        return this.executeObstacleAttackSequence(unit, worldPos, attackFrom);
+        return this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom);
     }
     /**
      * Whether the straight world-space segment from -> to passes over anything a FLYER cannot
@@ -6311,10 +6384,9 @@ export class Sandbox extends PixiScene {
                 unit: renderable,
                 flash: diff.flash,
                 debuffs: [...diff.newDebuffs],
-                // Armor Rune / Weapon Rune play a dedicated attempt->resolve VFX (playEnchantResult) in the
-                // local cast path, so skip the generic buff-applied pop here — otherwise the rune bubbles up
-                // a second time on a successful enchant. Ranked has no playEnchantResult and pops via its own
-                // path, so this sandbox-only reconcile skip doesn't touch it.
+                // Armor Rune / Weapon Rune render their own attempt->resolve flourish from the cast's
+                // authoritative outcome (renderCastOutcomes), so skip the generic buff-applied pop here —
+                // otherwise the rune bubbles up a second time on a successful enchant.
                 buffs: [...diff.newBuffs].filter((name) => name !== "Armor Rune" && name !== "Weapon Rune"),
             });
         }
@@ -6493,15 +6565,6 @@ export class Sandbox extends PixiScene {
      * so a stack that died still gets its number where it stood.
      */
     /**
-     * Is a THROWN offensive spell (Fire Strike, Ring of Fire) actually able to reach the hovered target?
-     *
-     * canCastSpell knows about teams, magic resistance and stack power but nothing about the board between the
-     * two units, so on its own it would light up a target the engine then refuses. Uses the engine's OWN
-     * predicate, the same way the Smoke preview uses isSmokeableCell. Any other spell passes straight through —
-     * a buff or a debuff is willed onto its target, not thrown at it, and Lightning Strike is called down out
-     * of the sky, so nothing on the board can stand in its way (see isThrownOffensiveSpell).
-     */
-    /**
      * What an offensive spell would actually land on `target`, for the aim preview — or undefined when the
      * hovered spell has no damage to show (a buff, a heal, a plain debuff, a summon).
      *
@@ -6568,17 +6631,12 @@ export class Sandbox extends PixiScene {
     private cellTargetedSpellBlock(spell: Spell, origin: HoCMath.XY): HoCMath.XY[] {
         return cellTargetedSpellBlockCells(spell.getName(), origin);
     }
-    private hasThrownSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
-        if (!isOffensiveSpellMultiplier(spell.getMultiplierType()) || !isThrownOffensiveSpell(spell.getName())) {
-            return true;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        return SpellHelper.isSpellLineOfSightClear(
-            this.grid,
-            (cell) => GridMath.isCellWithinGrid(gs, cell),
-            caster.getBaseCell(),
-            target.getBaseCell(),
-        );
+    /**
+     * Whether a unit-targeted spell can reach the target through the current board. The common classifier
+     * includes Vine Throw despite its non-damaging status multiplier and lets called-down spells pass.
+     */
+    private hasTargetedSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
+        return isTargetedSpellReachable(spell.getName(), this.grid, caster.getBaseCell(), target.getBaseCell());
     }
     /**
      * Where to start a Magic Mirror rebound beam: the holder's CURRENT visual center when it is still on the
@@ -6684,7 +6742,7 @@ export class Sandbox extends PixiScene {
      * swallowed even if an attack ends without reaching its impact hook.
      */
     protected queueOrPlayEffectPops(entry: IPendingEffectPop): void {
-        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length && !entry.abilities?.length) {
+        if (entry.flash === "none" && !entry.debuffs.length && !entry.buffs.length) {
             return;
         }
         if (this.isStrikeInFlight()) {
@@ -6721,9 +6779,6 @@ export class Sandbox extends PixiScene {
         }
         for (const name of entry.buffs) {
             this.popEffectOnUnit(entry.unit, name, stackIndex++, "buff");
-        }
-        for (const name of entry.abilities ?? []) {
-            this.popAbilityOnUnit(entry.unit, name, stackIndex++);
         }
     }
     /**
@@ -7338,10 +7393,25 @@ export class Sandbox extends PixiScene {
         void this.performAreaThrow(unit, mouseCell, cellPosition);
         return true;
     }
+    /**
+     * `replayRecord` marks this as a REPLAY of an already-resolved throw (the ranked opponent's, and in
+     * ranked the local player's own — it is deferred and comes back through the same path). The record's
+     * `area_attacked` event is what the SERVER resolved, so it drives every visual; the local engine
+     * re-apply is then only there to move local state along. Two things went wrong while this path read
+     * its own re-run instead:
+     *   - damage is `getRandomInt(min, max)` (plus luck/crit rolls), so each side re-rolled its own
+     *     numbers — the figures on screen were not the damage the server dealt, and the two players
+     *     disagreed. Every other replay path renders from the record for exactly this reason.
+     *   - a re-apply the engine REJECTS (`unit_already_acted` once a snapshot has synced the actor,
+     *     `fight_finished`, spent shots) returned early and swallowed the whole action: no projectile
+     *     numbers, no deaths, and none of the events bundled onto it (turn advance, lap flip, Armageddon,
+     *     narrowing). The cast/attack/obstacle replays all fall back to the recorded events here.
+     */
     private async performAreaThrow(
         unit: RenderableUnit,
         mouseCell: HoCMath.XY,
         cellPosition: HoCMath.XY,
+        replayRecord?: SandboxReplay["actions"][number],
     ): Promise<void> {
         const action: GameAction = {
             type: "area_throw_attack",
@@ -7388,15 +7458,25 @@ export class Sandbox extends PixiScene {
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
-        if (!result.completed) {
+        const findAreaEvent = (
+            events: readonly GameEvent[],
+        ): Extract<GameEvent, { type: "area_attacked" }> | undefined =>
+            events.find((e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked");
+        // The record wins whenever there is one: it is the throw the server actually resolved, while
+        // `result` is a local re-roll of the same dice (see the note on this method).
+        const recordedAreaEvent = replayRecord ? findAreaEvent(replayRecord.events) : undefined;
+        if (!result.completed && !recordedAreaEvent) {
+            // Nothing to draw — but a replayed record still owes its deaths and turn advance. The caller
+            // reports this action as played, so nobody else will apply them.
+            if (replayRecord) {
+                this.applyReplayEvents(replayRecord.events);
+            }
             return;
         }
 
         // Prefer the engine's per-unit `splash` breakdown (the HP-diff fallback only sums to one number per
         // unit). Attribute kills before cleanupDeadUnits below tears the dead down and spawns death visuals.
-        const areaEvent = result.events.find(
-            (e): e is Extract<GameEvent, { type: "area_attacked" }> => e.type === "area_attacked",
-        );
+        const areaEvent = recordedAreaEvent ?? findAreaEvent(result.events);
         if (areaEvent) {
             this.noteDeathBlowsFromAttackEvent(areaEvent);
         }
@@ -7437,7 +7517,14 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clearHoverSilhouette();
         this.cleanupDeadUnits();
         this.refreshUnits();
-        this.applyTurnEngineEvents(result.events, unitSnapshot);
+        if (result.completed) {
+            this.applyTurnEngineEvents(result.events, unitSnapshot);
+        } else if (replayRecord) {
+            // The re-apply was rejected but the server did resolve this throw. Apply what it recorded so the
+            // deaths, the turn advance and any lap mechanics riding on this action still land — the same
+            // fallback playReplayCastSpellAction takes. Amounts reconcile from the next snapshot.
+            this.applyReplayEvents(replayRecord.events);
+        }
     }
     /**
      * Pick the visible edge of `target` a ranged shot is aimed at, from the current cursor position.
@@ -8998,7 +9085,7 @@ export class Sandbox extends PixiScene {
                         hoveredUnit.canBeHealed(),
                         this.currentEnemiesCellsWithinMovementRange,
                     ) &&
-                    this.hasThrownSpellLineOfSight(spell, caster, hoveredUnit)
+                    this.hasTargetedSpellLineOfSight(spell, caster, hoveredUnit)
                 ) {
                     // A target-sparing spell (Ring of Fire) aims AT this creature but never damages it, so
                     // it must not wear the red "this burns" tint the ring itself gets. Gold marks it as the
@@ -9191,7 +9278,11 @@ export class Sandbox extends PixiScene {
                             this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
                         ) &&
                         !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
-                        !this.currentActiveUnit.hasDebuffActive("Rangebane");
+                        // hasStatusApplied, not hasDebuffActive: Rangebane is applied in COMBAT (Spit Ball),
+                        // and ranked leaves the debuff OBJECT arrays empty, so the plain check is always
+                        // false there and the client kept offering ranged attacks the server refuses. The
+                        // aura above is safe either way — auras are reconciled from the snapshot.
+                        !this.currentActiveUnit.hasStatusApplied("Rangebane");
 
                     // 1. Static Range Priority
                     // Relaxed check: Allow visualization even if technically out of 'shot_distance' (for Penalty logic)
@@ -10075,7 +10166,14 @@ export class Sandbox extends PixiScene {
         // HoMM-style attack cursor (themed melee/ranged/magic PNG) only renders while actively aiming
         // at a valid target. Flag a hover-text refresh so UpdateHoverInfo re-emits this frame.
         const wasHoveringTarget = this.sc_isHoveringAttackTarget;
-        this.sc_isHoveringAttackTarget = !!this.hoverManager.hoverAttackTargetUnit;
+        // Mountains are attackable too, and they are not units, so hoverAttackTargetUnit never covers
+        // them: aiming at a destructible centre showed the plain cursor even though the very next click
+        // would chip it. hoverRangeAttackObstacle is the blocked-shot case -- the mountain intercepting a
+        // shot aimed at someone behind it -- which is just as much an attack as aiming at the rock itself.
+        this.sc_isHoveringAttackTarget =
+            !!this.hoverManager.hoverAttackTargetUnit ||
+            !!this.hoverRangeAttackObstacle ||
+            this.isHoveringAttackableObstacle(p);
         if (wasHoveringTarget !== this.sc_isHoveringAttackTarget) {
             this.sc_hoverTextUpdateNeeded = true;
         }
@@ -10395,6 +10493,44 @@ export class Sandbox extends PixiScene {
         this.splitHintUnitId = undefined;
         this.splitHintRoll = false;
         if (this.splitHintText) this.splitHintText.visible = false;
+    }
+    /**
+     * "⇧ Shift to rotate" under the armed Fire Wall footprint — the same on-board cue the split gesture gets,
+     * because Shift-to-rotate is no more discoverable than Shift-to-drag.
+     *
+     * Arming already writes a line to the scene log, but that log is a busy side panel during a fight and the
+     * one moment this matters is while the player is looking at the board, aiming.
+     *
+     * Unlike the split hint this shows EVERY time rather than rolling a chance: hovering stacks during
+     * placement happens constantly, so that one nags if it always fires, whereas this appears only while a
+     * rotatable spell is actually armed — a deliberate, short-lived moment where missing the cue means laying
+     * the wall the wrong way across the board.
+     */
+    private updateFireWallRotateHint(): void {
+        const spell = this.currentActiveSpell;
+        if (!spell || !this.isRotatableAreaSpell(spell)) {
+            this.clearFireWallRotateHint();
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const anchor = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
+        if (!anchor) {
+            this.clearFireWallRotateHint();
+            return;
+        }
+        const pos = GridMath.getPositionForCell(anchor, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        if (!pos) {
+            this.clearFireWallRotateHint();
+            return;
+        }
+        this.fireWallRotateHintText = this.ensureSplitText(this.fireWallRotateHintText, 20, 0xffe08a);
+        this.fireWallRotateHintText.text = "⇧ Shift to rotate";
+        // Below the footprint, clear of the 3-cell line itself whichever way it currently lies.
+        this.fireWallRotateHintText.position.set(pos.x, pos.y + gs.getCellSize() * 1.35);
+        this.fireWallRotateHintText.visible = true;
+    }
+    private clearFireWallRotateHint(): void {
+        if (this.fireWallRotateHintText) this.fireWallRotateHintText.visible = false;
     }
     protected updateUnitsOverlayVisibility(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
@@ -10890,6 +11026,8 @@ export class Sandbox extends PixiScene {
         this.drawCraftAim(g);
         // Vine Throw (ANY_ENEMY) aim preview: highlight the lane the vine would cover.
         this.drawVineThrowAim(g);
+        // "Shift to rotate" under an armed Fire Wall, alongside its footprint preview.
+        this.updateFireWallRotateHint();
     }
     /**
      * Vine Throw aim preview: while the spell is armed and the cursor is over an enemy, highlight every cell
@@ -10899,8 +11037,8 @@ export class Sandbox extends PixiScene {
      *
      * All-or-nothing like Smoke and Fire Wall: the engine refuses a throw whose lane is blocked, so an
      * illegal target draws nothing at all rather than dangling a highlight over a cast that would be
-     * rejected. Legality comes from the ENGINE's own predicate (isVineCrossableCell) walking the ENGINE's own
-     * path (vinePathCells), so the preview cannot promise something vineThrowCast will refuse.
+     * rejected. Legality comes from the shared targeted-spell predicate and the lane comes from the engine's
+     * own vinePathCells walk, so the preview cannot promise something vineThrowCast will refuse.
      */
     private drawVineThrowAim(g: Graphics): void {
         const spell = this.currentActiveSpell;
@@ -10932,13 +11070,8 @@ export class Sandbox extends PixiScene {
         if (!pathCells.length) {
             return;
         }
-        // Everything short of the target's own cell must be clear; the target occupies the last one by
-        // definition, which is why the engine excludes it from this same check.
-        if (
-            !pathCells
-                .slice(0, -1)
-                .every((c) => VineHelper.isVineCrossableCell(this.grid, GridMath.isCellWithinGrid(gs, c), c))
-        ) {
+        // The same target-specific predicate gates fallback AI, local-model choices, hover and the click.
+        if (!isTargetedSpellReachable(spell.getName(), this.grid, from, to)) {
             return;
         }
 
@@ -11925,7 +12058,7 @@ export class Sandbox extends PixiScene {
         // board silently ignores move clicks and the player can't tell why their unit "won't move"
         // (the hover popover adds a persistent "Paralyzed" hint on top of this). Genuine activations
         // only: ranked re-runs this for the same unit on every snapshot echo mid-turn.
-        if (!reactivatingSameUnit && nextUnit.hasEffectActive("Paralysis")) {
+        if (!reactivatingSameUnit && nextUnit.hasStatusApplied("Paralysis")) {
             this.sc_sceneLog.updateLog(`${nextUnit.getName()} is paralyzed and cannot move this turn`);
             this.popEffectOnUnit(nextUnit, "Paralysis", 0, "debuff");
         }
@@ -12019,7 +12152,10 @@ export class Sandbox extends PixiScene {
     // debuff makes illegal. Only the aimed/primary target is checked (AOE splash onto stronger stacks is fine).
     private isCowardiceBlockedTarget(targetUnit: Unit): boolean {
         const active = this.currentActiveUnit;
-        if (!active || !active.hasDebuffActive("Cowardice")) {
+        // hasStatusApplied: Cowardice arrives from Spit Ball in combat, so in ranked the OBJECT array is
+        // empty and this guard never fired — the very mirroring it exists for was sandbox-only, and ranked
+        // highlighted targets the server then rejected.
+        if (!active || !active.hasStatusApplied("Cowardice")) {
             return false;
         }
         return active.getCumulativeHp() < targetUnit.getCumulativeHp();
@@ -12378,7 +12514,7 @@ export class Sandbox extends PixiScene {
             // branch below pins it to its base cell). Without web-lock here the UI silently drops its melee
             // targets and the player can't attack, even though the engine (AI path) allows it.
             (this.currentActiveUnit.canMove() ||
-                this.currentActiveUnit.hasEffectActive("Paralysis") ||
+                this.currentActiveUnit.hasStatusApplied("Paralysis") ||
                 this.currentActiveUnit.isWebMovementLocked()) &&
             this.currentActiveSpell?.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE
         ) {

@@ -17,8 +17,7 @@ const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.met
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
-const blackImage = new URL("../../../images/overlay_black.webp", import.meta.url).toString();
-const lightImage = new URL("../../../images/overlay_light.webp", import.meta.url).toString();
+const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString();
 
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
@@ -50,8 +49,12 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 
 const StyledSheet = styled(Sheet, {
     shouldForwardProp: (prop) => prop !== "isDragging",
-})<{ isDragging?: boolean }>(({ theme, isDragging }) => ({
-    backgroundImage: `url(${theme.palette.mode === "dark" ? blackImage : lightImage})`,
+})<{ isDragging?: boolean }>(({ isDragging }) => ({
+    // The same dark brick overlay the left and right sidebars wear, on black. The bar is one of the game's
+    // panels, so it is made of the same material; it also no longer picks its plate by theme, since the
+    // game renders dark-only and the light branch put a pale panel under gold-on-dark icons.
+    backgroundColor: "#000",
+    backgroundImage: `url(${sidebarOverlayImage})`,
     backgroundSize: "cover",
     // Bronze/gold dungeon trim to match the tooltips + fire-lit board.
     border: `${Math.max(1, Math.round(2 * SCREEN_RATIO))}px solid`,
@@ -501,14 +504,21 @@ const DraggableToolbar: React.FC = () => {
             ref={toolbarRef}
             isDragging={isDragging}
             sx={{
-                position: "absolute",
+                // FIXED, not absolute. The drag maths clamps against window.innerWidth/Height, but an
+                // absolutely positioned sheet resolves left/top against its nearest positioned ancestor --
+                // so the coordinates the drag computed and the coordinates the browser applied were two
+                // different spaces, and the bar could not be moved out from over the sidebar. Fixed makes
+                // left/top viewport-relative, which is what the rest of this component already assumes,
+                // and the bar belongs to the whole game window.
+                position: "fixed",
                 left: `${position.x}px`,
                 top: `${position.y}px`,
                 display: "flex",
                 flexDirection: isVertical ? "column" : "row",
                 alignItems: "center",
                 gap: 1.5,
-                zIndex: 1000,
+                // Above both sidebars (they sit at zIndex 1) so the bar can be parked anywhere.
+                zIndex: 1200,
                 cursor: isDragging ? "grabbing" : "default",
                 userSelect: "none",
             }}

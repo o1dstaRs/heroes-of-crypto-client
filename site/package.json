@@ -5,9 +5,10 @@
     "type": "module",
     "scripts": {
         "astro": "astro",
-        "build": "bun run test:assets && astro build",
+        "build": "bun run test && astro build",
         "dev": "astro dev",
         "preview": "astro preview",
+        "test": "bun test src/lib",
         "test:assets": "bun test src/lib/catalog-assets.test.ts"
     },
     "dependencies": {

@@ -4,6 +4,8 @@ import {
     DEFAULT_AI_VERSION,
     aiVersionForUnit,
     getAIStrategy,
+    isMindlessAiUnit,
+    MINDLESS_AI_VERSION,
     Grid,
     GridMath,
     HoCMath,
@@ -33,6 +35,7 @@ import {
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
+import { isTargetedSpellReachable } from "./spell_targeting";
 
 /**
  * Simple log interface for scene logging.
@@ -66,6 +69,11 @@ export function cloneAIKnownPaths(paths: AIKnownPaths | undefined): Map<number, 
 export interface IAIContext {
     // State accessors
     getCurrentActiveUnit(): RenderableUnit | undefined;
+    /**
+     * Stable identity of the current unit ACTIVATION. It must stay unchanged through multi-action turns
+     * and change when the same unit becomes active again (next lap or after hourglass).
+     */
+    getTurnActivationKey?(): string;
     getGrid(): Grid;
     getGridMatrix(): number[][];
     getUnitsHolder(): UnitsHolder;
@@ -174,11 +182,15 @@ export class AIController {
     // OPTIMISTICALLY (fire-and-forget), so a server rejection leaves the same unit active and the
     // ~60fps AI poll would recompute the SAME doomed action against the still-stale scene and resubmit
     // it every frame — the observed reject storm. While this id stays the active unit we refuse to
-    // resubmit and wait for the authoritative snapshot to hand off the turn. Cleared when a DIFFERENT
-    // unit becomes active (turn advanced) or after TURN_ACTION_GUARD_GRACE_MS so a dropped submit can't
-    // wedge the unit. Mirrors the spellCastAttemptUnitId / auraWaitAttemptUnitId loop guards.
+    // resubmit and wait for the authoritative snapshot to hand off the turn. Cleared as soon as the
+    // regular scene poll OBSERVES a different active unit (including a manually controlled unit), or
+    // after TURN_ACTION_GUARD_GRACE_MS so a dropped submit can't wedge the unit. Mirrors the
+    // spellCastAttemptUnitId / auraWaitAttemptUnitId loop guards.
     private turnActionAttemptUnitId: string | undefined;
     private turnActionAttemptAtMs = 0;
+    // Unlike unit id, this distinguishes separate activations of the same stack. Ranked uses the raw
+    // authoritative (game, lap, unit, turn-start) tuple; sandbox uses FightProperties' turn-start clock.
+    private turnActivationKey: string | undefined;
     // Unit whose last strategy-chosen turn-action did NOT advance the turn (still active after the guard
     // grace = the optimistic ranked submit was rejected/dropped). decideTurn is deterministic on the board,
     // so re-running it re-emits the SAME doomed move/attack — an invalid_move / attack_not_available reject
@@ -222,6 +234,58 @@ export class AIController {
         this.performingAction = false;
         this.performingActionSinceMs = 0;
     }
+    /**
+     * Clear state that belongs to one unit activation after the scene observes a real handoff.
+     *
+     * This must run from shouldTriggerAI(), before the auto-play check: a human army can contain a single
+     * self-playing "AI Driven" Berserker/Boar while every intervening unit is manual. Those manual turns
+     * never enter performAction(), so clearing only there leaves the same self-playing unit id armed across
+     * laps. After two laps the rejected-action recovery ladder then mistakes two accepted attacks for two
+     * same-activation retries and forces defend_turn (Luck Shield) before v0.1 gets to decide.
+     */
+    private observeActiveUnitHandoff(currentUnitId: string): void {
+        const activationKey = this.context.getTurnActivationKey?.();
+        const activationChanged =
+            !!activationKey && !!this.turnActivationKey && activationKey !== this.turnActivationKey;
+        if (activationKey) {
+            this.turnActivationKey = activationKey;
+        }
+        if (activationChanged) {
+            // A new activation is never a retry of the old one, even when a fast ranked snapshot skipped
+            // every intervening unit or the same stack returned from hourglass in the same lap.
+            this.turnActionAttemptUnitId = undefined;
+            this.turnActionAttemptAtMs = 0;
+            this.strategyWaitAttemptUnitId = undefined;
+            this.spellCastAttemptUnitId = undefined;
+            this.auraWaitAttemptUnitId = undefined;
+            this.strategyRejectedUnitId = undefined;
+            this.strategyRejectedCount = 0;
+            this.lastLocalModelUnitId = undefined;
+            this.attackTypeSetupUnitId = undefined;
+            return;
+        }
+        if (this.turnActionAttemptUnitId && this.turnActionAttemptUnitId !== currentUnitId) {
+            this.turnActionAttemptUnitId = undefined;
+            this.turnActionAttemptAtMs = 0;
+        }
+        if (this.strategyWaitAttemptUnitId && this.strategyWaitAttemptUnitId !== currentUnitId) {
+            this.strategyWaitAttemptUnitId = undefined;
+        }
+        if (this.spellCastAttemptUnitId && this.spellCastAttemptUnitId !== currentUnitId) {
+            this.spellCastAttemptUnitId = undefined;
+        }
+        if (this.auraWaitAttemptUnitId && this.auraWaitAttemptUnitId !== currentUnitId) {
+            this.auraWaitAttemptUnitId = undefined;
+        }
+        if (this.strategyRejectedUnitId && this.strategyRejectedUnitId !== currentUnitId) {
+            this.strategyRejectedUnitId = undefined;
+            this.strategyRejectedCount = 0;
+        }
+        if (this.lastLocalModelUnitId && this.lastLocalModelUnitId !== currentUnitId) {
+            this.lastLocalModelUnitId = undefined;
+            this.attackTypeSetupUnitId = undefined;
+        }
+    }
     private endTurnIfStillActive(unit: RenderableUnit): void {
         const currentUnit = this.context.getCurrentActiveUnit();
         if (currentUnit?.getId() === unit.getId()) {
@@ -256,6 +320,9 @@ export class AIController {
         this.recoverIfActionStalled();
         const currentUnit = this.context.getCurrentActiveUnit();
         if (!currentUnit) return false;
+        // Observe EVERY active unit, not only units this controller will play. Manual turns are the handoff
+        // boundary for activation-scoped retry/wait/cast guards in mixed human + AI-Driven armies.
+        this.observeActiveUnitHandoff(currentUnit.getId());
         return this.shouldAutoPlay(currentUnit) && !this.performingAction;
     }
     /**
@@ -408,41 +475,25 @@ export class AIController {
             this.finishAIAction(wasAIActive);
             return;
         }
+        const mindlessAi = isMindlessAiUnit(currentUnit);
 
         // Turn-action loop guard: if we already submitted a turn-resolving action for THIS still-active
         // unit, don't recompute + resubmit it every frame while waiting for the authoritative handoff
         // (ranked submits are optimistic, so a rejection keeps the unit active — that is the reject
         // storm). The guard clears as soon as a different unit is active (turn advanced) or after a grace
         // window (dropped submit), so it re-arms each turn and can never permanently wedge the AI.
-        if (this.turnActionAttemptUnitId && this.turnActionAttemptUnitId !== currentUnit.getId()) {
-            this.turnActionAttemptUnitId = undefined;
-        }
-        // Clear the wait-loop guard once the turn has genuinely advanced to a different unit.
-        if (this.strategyWaitAttemptUnitId && this.strategyWaitAttemptUnitId !== currentUnit.getId()) {
-            this.strategyWaitAttemptUnitId = undefined;
-        }
-        // Clear the cast-loop guard once the turn has genuinely advanced to a different unit — same
-        // discipline as its sibling guards above. Previously it only cleared when a DIFFERENT unit
-        // attempted a cast (tryCastSpell), so an army's SOLE caster (e.g. a lone Angel/Troll routed by the
-        // v0.6 caster router) stayed suppressed on every lap after its first strategy cast: the guard held
-        // its id, executeStrategyPrimary returned false, and the cast silently degraded to findTarget.
-        if (this.spellCastAttemptUnitId && this.spellCastAttemptUnitId !== currentUnit.getId()) {
-            this.spellCastAttemptUnitId = undefined;
-        }
-        // Clear the strategy-rejected recovery ladder once the turn has genuinely advanced to a different unit.
-        if (this.strategyRejectedUnitId && this.strategyRejectedUnitId !== currentUnit.getId()) {
-            this.strategyRejectedUnitId = undefined;
-            this.strategyRejectedCount = 0;
-        }
+        // forceCurrentTurn() can enter here without shouldTriggerAI(), so keep the handoff observation at
+        // the decision boundary too. It is idempotent when shouldTriggerAI() already observed this unit.
+        this.observeActiveUnitHandoff(currentUnit.getId());
         if (this.turnActionAttemptUnitId === currentUnit.getId()) {
             if (HoCLib.getTimeMillis() - this.turnActionAttemptAtMs < AIController.TURN_ACTION_GUARD_GRACE_MS) {
                 this.finishAIAction(wasAIActive);
                 return;
             }
             // Grace elapsed but THIS unit is still active — our prior turn-action never advanced the turn
-            // (the optimistic submit was rejected or dropped). Escalate this unit's recovery ladder: 1st retry
-            // routes through findTarget (a different algorithm); a 2nd falls to an always-valid defend_turn so
-            // a client<->server desync neither algorithm can see past ends in a shield, not a forced skip.
+            // (the optimistic submit was rejected or dropped). Escalate this unit's recovery ladder. Normal
+            // units route the first retry through findTarget and the second through defend_turn; mindless units
+            // retain the count only as retry telemetry and stay pinned to rate-limited v0.1 re-decisions.
             this.turnActionAttemptUnitId = undefined;
             if (this.strategyRejectedUnitId === currentUnit.getId()) {
                 this.strategyRejectedCount += 1;
@@ -460,7 +511,8 @@ export class AIController {
         // attack_not_available three times, then a forced skip). Mirror the SIM's stuck-unit recovery
         // (battle_engine advanceTowardEnemy -> defend_turn) with an always-valid defend_turn: the unit shields
         // (+luck) and its turn resolves, instead of the reject-streak escape forcing a bare "skips turn".
-        if (this.strategyRejectedUnitId === currentUnit.getId() && this.strategyRejectedCount >= 2) {
+        // Mindless units deliberately bypass this policy action and retry only their pinned v0.1 strategy.
+        if (!mindlessAi && this.strategyRejectedUnitId === currentUnit.getId() && this.strategyRejectedCount >= 2) {
             if (
                 this.context.applyGameAction(
                     this.modelAction(currentUnit, { type: "defend_turn", unitId: currentUnit.getId() }),
@@ -473,7 +525,7 @@ export class AIController {
             // defend_turn itself refused (should never happen) — fall through to the normal decision path.
         }
 
-        if (this.shouldControlUnit(currentUnit)) {
+        if (!mindlessAi && this.shouldControlUnit(currentUnit)) {
             const actionPerformed = await this.performLocalModelAction(currentUnit, wasAIActive);
             if (actionPerformed) {
                 return;
@@ -503,8 +555,14 @@ export class AIController {
         // Skip the strategy for a unit whose previous strategy action was rejected/dropped this turn — its
         // deterministic re-decision would just re-emit the refused move/attack. Fall straight through to
         // findTarget (a different algorithm) for a real second attempt before the escape-hatch skip.
+        // AI Driven is a gameplay rule, not an AI-toggle/model preference: while the ability is active,
+        // every client-authored tactical action must come from v0.1. In particular, a local-model team,
+        // the rollout gate, and same-activation rejection recovery must not replace v0.1 with another
+        // chooser. The normal turn-action guard above still rate-limits rejected retries, and ranked's
+        // server-authoritative rejection/turn-timeout escape remains the final liveness backstop.
         const USE_STRATEGY =
-            (process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId();
+            mindlessAi ||
+            ((process.env.V05_CLIENT_AI ?? "on") !== "off" && this.strategyRejectedUnitId !== currentUnit.getId());
         if (USE_STRATEGY) {
             let strategyActions: GameAction[] = [];
             try {
@@ -513,7 +571,9 @@ export class AIController {
                 // such a unit gets played: the AI toggle, an AI-controlled team, player-vs-AI, and the
                 // human army whose Berserker plays itself (shouldAutoPlay's "AI Driven" branch above).
                 // Keeps the client in step with battle_engine, which resolves the same rule.
-                const unitAiVersion = aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
+                const unitAiVersion = mindlessAi
+                    ? MINDLESS_AI_VERSION
+                    : aiVersionForUnit(currentUnit, DEFAULT_AI_VERSION);
                 strategyActions = getAIStrategy(unitAiVersion).decideTurn(currentUnit, {
                     grid: this.context.getGrid(),
                     matrix: this.context.getGridMatrix(),
@@ -524,15 +584,30 @@ export class AIController {
                     decisionOrigin: "root",
                 });
             } catch (err) {
-                // Never regress to a dead turn: a strategy throw drops us onto the proven findTarget path.
-                console.error("v0.5 decideTurn threw; falling back to base AI", err);
+                // Normal units retain the proven findTarget fallback. Mindless units release the client lock
+                // below and retry v0.1 after the activation guard, leaving final liveness to ranked recovery.
+                console.error(
+                    mindlessAi
+                        ? "v0.1 decideTurn threw; awaiting mindless retry/turn recovery"
+                        : "v0.5 decideTurn threw; falling back to base AI",
+                    err,
+                );
                 strategyActions = [];
             }
-            // Empty plan → fall back too (decideTurn never returns [] in practice, but be defensive).
+            // An empty normal plan falls back; an empty mindless plan follows the strict retry path below.
             if (
                 strategyActions.length &&
                 (await this.performStrategyActions(currentUnit, strategyActions, wasAIActive))
             ) {
+                return;
+            }
+            if (mindlessAi) {
+                // A rejected/empty v0.1 plan must not silently switch the unit to spell heuristics,
+                // AI.findTarget, or the hardcoded shield recovery. Release the local action lock and
+                // leave the activation guard armed; after its grace window the controller may retry
+                // v0.1 against a refreshed snapshot, while ranked timeout/rejection handling guarantees
+                // that a persistent transport/desync failure cannot deadlock the match.
+                this.finishAIAction(wasAIActive);
                 return;
             }
         }
@@ -1164,7 +1239,14 @@ export class AIController {
                 target?.hasMindAttackResistance(),
                 target?.canBeHealed(),
                 enemiesInRange,
-            );
+            ) &&
+            (!target ||
+                isTargetedSpellReachable(
+                    spell.getName(),
+                    this.context.getGrid(),
+                    caster.getBaseCell(),
+                    target.getBaseCell(),
+                ));
 
         let best: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined;
         let bestValue = 0;
@@ -1204,11 +1286,17 @@ export class AIController {
             }
 
             // Beneficial: heal the most-hurt ally / buff allies not already carrying this buff.
+            // hasStatusBuffApplied / hasStatusApplied, not hasBuffActive / hasDebuffActive: these
+            // "don't re-cast what the target already has" guards also run for the RANKED auto-play AI,
+            // where the buff/debuff OBJECT arrays are empty and the plain checks answer "no" forever —
+            // so the AI re-cast the same Riot or Quagmire every turn and burned its scrolls.
             if (spell.isBuff() || isHeal) {
                 if (tt === SpellTargetType.ALL_ALLIES || tt === SpellTargetType.ALL_FLYING) {
                     const benef = (
                         tt === SpellTargetType.ALL_FLYING ? allyCandidates.filter((a) => a.canFly()) : allyCandidates
-                    ).filter((a) => (isHeal ? a.canBeHealed() && a.getHp() < a.getMaxHp() : !a.hasBuffActive(name)));
+                    ).filter((a) =>
+                        isHeal ? a.canBeHealed() && a.getHp() < a.getMaxHp() : !a.hasStatusBuffApplied(name),
+                    );
                     if (benef.length) {
                         consider(benef.length * MASS_VALUE, { spellName: name });
                     }
@@ -1228,7 +1316,7 @@ export class AIController {
                         }
                     } else {
                         for (const a of allyCandidates) {
-                            if (a.hasBuffActive(name)) {
+                            if (a.hasStatusBuffApplied(name)) {
                                 continue;
                             }
                             const v = threat(a);
@@ -1279,7 +1367,7 @@ export class AIController {
                 continue;
             }
             if (tt === SpellTargetType.ALL_ENEMIES) {
-                const benef = enemies.filter((e) => !e.hasDebuffActive(name));
+                const benef = enemies.filter((e) => !e.hasStatusApplied(name));
                 if (benef.length) {
                     consider(benef.length * MASS_VALUE, { spellName: name });
                 }
@@ -1287,7 +1375,7 @@ export class AIController {
                 let target: Unit | undefined;
                 let value = 0;
                 for (const e of enemies) {
-                    if (e.hasDebuffActive(name)) {
+                    if (e.hasStatusApplied(name) || !canCast(spell, e)) {
                         continue;
                     }
                     const v = threat(e);
@@ -1296,7 +1384,7 @@ export class AIController {
                         target = e;
                     }
                 }
-                if (target && canCast(spell, target)) {
+                if (target) {
                     consider(value, {
                         spellName: name,
                         targetUnitId: target.getId(),

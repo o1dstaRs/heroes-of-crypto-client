@@ -1,10 +1,9 @@
-import { UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
+import { TeamVals, UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
 import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
 import TerrainRoundedIcon from "@mui/icons-material/TerrainRounded";
 import Box from "@mui/joy/Box";
-import Divider from "@mui/joy/Divider";
 import List from "@mui/joy/List";
 import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
@@ -15,31 +14,16 @@ import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } fro
 
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+// Near-black ground with a warm undertone, per the fight-sidebar handoff. No texture and no gold wash —
+// the board art has to stay the brightest thing on screen.
+export const SIDEBAR_BG = "#0b0806";
+const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString();
 const greenOverlayImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
 const redOverlayImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
-const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString(); // [NEW]
-import { UnitStatsListItem } from "./UnitStatsListItem";
-import { UpNext } from "./UpNext";
-import SynergiesRow from "./SynergiesRow";
-import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
-import type { IVisibleImpact } from "../../scenes/VisibleState";
-import { useFitScale } from "./useFitScale";
-import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
 
-type SidebarSelectionState = {
-    unit: UnitProperties;
-    overallImpact: IVisibleOverallImpact;
-    factionType: FactionType;
-};
-
-const emptyUnit = {} as UnitProperties;
-const emptyImpact = {} as IVisibleOverallImpact;
-const sidebarImageUrls = [greenOverlayImage, redOverlayImage, sidebarOverlayImage];
-
-// Floor for the unit card. Past this the sidebar as a whole starts scrolling rather than squeezing the
-// card into nothing — the point where the screen is simply too short for the panel.
-const MIN_CARD_HEIGHT = 140;
-
+// The team colour, swept diagonally off the bar's right edge — the placement this artwork was drawn for.
+// Rotated about its top-left so the band runs corner to corner behind the panel's content, and wider than
+// the bar so the rotation never exposes an edge. Fades rather than pops when the selection changes.
 const teamOverlaySx = {
     position: "absolute",
     width: "350px",
@@ -53,6 +37,31 @@ const teamOverlaySx = {
     transition: "opacity 220ms ease-out",
     willChange: "opacity",
 } as const;
+
+// The panel's carved-stone texture with the rebuild's subtle gradient layered ON TOP of it, rather than
+// instead of it. The rebuild dropped the texture for the gradient alone, which left the left bar flat
+// while the right bar (RightSideBar/index.tsx) still carried the same artwork -- the two stopped looking
+// like the same panel.
+export const SIDEBAR_BG_IMAGE = `linear-gradient(180deg, rgba(255,224,180,.02), rgba(0,0,0,.24)), url(${sidebarOverlayImage})`;
+import { UnitStatsListItem } from "./UnitStatsListItem";
+import { UpNext } from "./UpNext";
+import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
+import type { IVisibleImpact } from "../../scenes/VisibleState";
+import { useFitScale } from "./useFitScale";
+import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
+
+type SidebarSelectionState = {
+    unit: UnitProperties;
+    overallImpact: IVisibleOverallImpact;
+    factionType: FactionType;
+};
+
+const emptyUnit = {} as UnitProperties;
+const emptyImpact = {} as IVisibleOverallImpact;
+
+// Floor for the unit card. Past this the sidebar as a whole starts scrolling rather than squeezing the
+// card into nothing — the point where the screen is simply too short for the panel.
+const MIN_CARD_HEIGHT = 140;
 
 export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
     const [barSize, setBarSize] = useState(280);
@@ -90,16 +99,6 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     useEffect(() => {
         adjustBarSize();
     }, [adjustBarSize]);
-
-    useEffect(() => {
-        if (typeof Image === "undefined") return;
-
-        sidebarImageUrls.forEach((src) => {
-            const img = new Image();
-            img.decoding = "async";
-            img.src = src;
-        });
-    }, []);
 
     // ✅ Subscribe to combined selection event
     useEffect(() => {
@@ -155,11 +154,6 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     );
 
     const unitProperties = selection.unit || ({} as UnitProperties);
-    const hasSelectedUnit = !!unitProperties.team;
-    const synergies = ((unitProperties as UnitProperties).synergies as string[]) || [];
-
-    const hasSynergies = Array.isArray(synergies) && synergies.length > 0;
-    const showSynergies = hasSelectedUnit && hasSynergies;
 
     // The card is the only elastic block: everything else is pinned, so it both reports its own height
     // (feeding the metrics above) and scales itself down if its content still cannot fit.
@@ -194,12 +188,15 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                     top: 0,
                     left: 0,
                     px: `${metrics.padPx}px`,
-                    py: `${metrics.padPx}px`,
+                    // Less dead air above the unit name; the height goes to the card.
+                    pt: `${Math.round(metrics.padPx * 0.4)}px`,
+                    pb: `${metrics.padPx}px`,
                     display: "flex",
                     flexDirection: "column",
                     gap: `${metrics.gapPx}px`,
-                    borderRight: "1px solid",
-                    borderColor: "divider",
+                    // Board-facing edge from the handoff: a dark rule with a warm hairline, not a gold line.
+                    borderRight: "3px solid #0a0705",
+                    boxShadow: "inset -1px 0 0 rgba(120,104,80,.22), 6px 0 18px rgba(0,0,0,.7)",
                     // Everything below sizes itself to the bar, and the card scales down when its content
                     // cannot fit, so a scrollbar only ever appears on a screen too short for the pinned
                     // turn panel and queue alone.
@@ -207,50 +204,32 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                     overflowX: "hidden",
                     transition: "width 180ms ease-out",
                     willChange: "width",
-                    // Background Image Overlay
-                    backgroundImage: `url(${sidebarOverlayImage})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    backgroundRepeat: "no-repeat",
+                    backgroundColor: SIDEBAR_BG,
+                    backgroundImage: SIDEBAR_BG_IMAGE,
+                    backgroundSize: "auto, cover",
+                    backgroundPosition: "center, center",
+                    backgroundRepeat: "no-repeat, no-repeat",
                 }}
             >
+                {/* Neutral (teamless) creatures get NEITHER band: the old code gated red on `team !== 2`,
+                    so a roster unit with no side was painted as an enemy. */}
                 <Box
                     component="img"
                     src={greenOverlayImage}
                     alt=""
                     aria-hidden
-                    sx={{
-                        ...teamOverlaySx,
-                        opacity: hasSelectedUnit && unitProperties.team === 2 ? 1 : 0,
-                    }}
+                    sx={{ ...teamOverlaySx, opacity: unitProperties.team === TeamVals.LOWER ? 1 : 0 }}
                 />
                 <Box
                     component="img"
                     src={redOverlayImage}
                     alt=""
                     aria-hidden
-                    sx={{
-                        ...teamOverlaySx,
-                        opacity: hasSelectedUnit && unitProperties.team !== 2 ? 1 : 0,
-                    }}
+                    sx={{ ...teamOverlaySx, opacity: unitProperties.team === TeamVals.UPPER ? 1 : 0 }}
                 />
-
-                {/* The strip collapses completely when there is nothing to show — reserving a fixed 52px
-                    band cost the card a whole ability row on a 768px-tall screen. */}
-                <Box
-                    sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        flexShrink: 0,
-                        height: showSynergies ? "auto" : 0,
-                        opacity: showSynergies ? 1 : 0,
-                        overflow: "hidden",
-                        transition: "opacity 160ms ease-out",
-                    }}
-                >
-                    {showSynergies && <SynergiesRow synergies={synergies} />}
-                </Box>
-
+                {/* The team colour is no longer a cloth banner across the bar — it is a fire-like aura
+                    behind the portrait (see UnitStatsListItem). Synergies likewise moved into the unit's
+                    Buffs block, which already scopes them to the right side. */}
                 <Box
                     ref={attachViewport}
                     sx={{
@@ -329,8 +308,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                                 </Box>
                             )}
 
-                            <Divider />
-
+                            {/* No rule above the unit name — the card is the first thing in the bar. */}
                             <UnitStatsListItem
                                 unitProperties={unitProperties}
                                 overallImpact={selection.overallImpact}
