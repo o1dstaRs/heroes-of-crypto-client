@@ -2435,6 +2435,12 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     aria-disabled={ready}
                                     sx={{
                                         minWidth: 0,
+                                        // The draft shell centers its column (alignItems: center → fit-content
+                                        // width), and the picker root is an inline-size container whose children
+                                        // no longer count toward its width — so without an explicit width this
+                                        // fieldset collapses to zero and the picker with it. Same column as the
+                                        // army rails above.
+                                        width: "min(1340px, 97vw)",
                                         m: 0,
                                         p: 0,
                                         border: 0,
