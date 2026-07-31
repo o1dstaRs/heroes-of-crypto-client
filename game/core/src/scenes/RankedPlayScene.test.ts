@@ -730,6 +730,58 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.canMove()).toBe(true);
     });
 
+    test("syncs Dulling Defense into the ranked debuff display without rebuilding the unit", () => {
+        const snapshotProperties = (totalReduced?: number) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "dulled-attacker",
+                        debuffs: totalReduced === undefined ? [] : ["Dulling Defense"],
+                        debuffLaps: totalReduced === undefined ? [] : [15],
+                        debuffDescriptions:
+                            totalReduced === undefined
+                                ? []
+                                : [`Base attack permanently reduced by {} by Dulling Defense.;${totalReduced};`],
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2))).toBe(true);
+        expect(liveUnit.getUnitProperties().applied_debuffs).toEqual(["Dulling Defense"]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_laps).toEqual([15]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([
+            "Base attack permanently reduced by {} by Dulling Defense.;2;",
+        ]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_powers).toEqual([0]);
+
+        // Repeated triggers replace the row's accumulated value rather than duplicating it.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(4))).toBe(true);
+        expect(liveUnit.getUnitProperties().applied_debuffs).toEqual(["Dulling Defense"]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([
+            "Base attack permanently reduced by {} by Dulling Defense.;4;",
+        ]);
+
+        // The same non-destructive path must remove effects absent from a later authoritative snapshot.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties())).toBe(true);
+        expect(liveUnit.getUnitProperties().applied_debuffs).toEqual([]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_laps).toEqual([]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_powers).toEqual([]);
+    });
+
     test("detects authoritative ability and remaining-spell changes before a skip-rebuild is cached", () => {
         const initialProperties = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
