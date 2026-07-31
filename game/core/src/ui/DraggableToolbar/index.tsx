@@ -516,9 +516,7 @@ const DraggableToolbar: React.FC = () => {
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
-                        badge={
-                            button.name === "AI" && button.state === VisibleButtonState.SECOND ? "ON" : undefined
-                        }
+                        badge={button.name === "AI" && button.state === VisibleButtonState.SECOND ? "ON" : undefined}
                     />
                 ))}
             </Box>
