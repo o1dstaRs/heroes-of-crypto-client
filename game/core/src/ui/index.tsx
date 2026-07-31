@@ -11,7 +11,6 @@ import "typeface-open-sans";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
-import DraggableToolbar from "./DraggableToolbar";
 import { Main } from "./Main";
 import RightSideBar from "./RightSideBar";
 import "./style.scss";
@@ -187,7 +186,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
                     )}
                     {!isLoading && !replayPlaybackActive && <PlayRankedBadge left={aiBadgeLeft(windowSize)} />}
-                    {!isLoading && started && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main />
                 <Popover />

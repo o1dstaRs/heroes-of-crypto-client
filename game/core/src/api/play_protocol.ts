@@ -218,6 +218,8 @@ export interface PlaySnapshot {
      * the numbers above are the wire format, and renumbering them would desync an in-flight client. */
     lowerAugmentEmpower?: number;
     upperAugmentEmpower?: number;
+    lowerAugmentMagicDefense?: number;
+    upperAugmentMagicDefense?: number;
     /** Each team's selected synergies (keys like "Might:2:1"). Only populated once the fight has started
      * (empty during placement, for both teams) — the ranked HUD shows them top-left. Absent from older
      * servers (decoder defaults to []). */
@@ -704,6 +706,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         upperAugmentMovement: 0,
         lowerAugmentEmpower: 0,
         upperAugmentEmpower: 0,
+        lowerAugmentMagicDefense: 0,
+        upperAugmentMagicDefense: 0,
         lowerSynergies: [],
         upperSynergies: [],
         lowerStartRosterCreatureIds: [],
@@ -822,6 +826,10 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.lowerAugmentEmpower = reader.varintNumber();
         } else if (field === 54) {
             snapshot.upperAugmentEmpower = reader.varintNumber();
+        } else if (field === 55) {
+            snapshot.lowerAugmentMagicDefense = reader.varintNumber();
+        } else if (field === 56) {
+            snapshot.upperAugmentMagicDefense = reader.varintNumber();
         } else {
             reader.skip(wireType);
         }

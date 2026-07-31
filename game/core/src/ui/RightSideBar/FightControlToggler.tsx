@@ -12,7 +12,8 @@ import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
-import SideToggleContainer from "./SideToggleContainer";
+// Sandbox keeps its own panel: SideToggleContainer is now the ranked draft's expanded-card layout.
+import SandboxToggleContainer from "./SandboxToggleContainer";
 import UnitSplitter from "./UnitSplitter";
 
 const FightControlToggler: React.FC = () => {
@@ -254,7 +255,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
+                    <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
 
@@ -317,7 +318,11 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="green" teamType={TeamVals.LOWER} unitFaction={unitProperties.faction} />
+                    <SandboxToggleContainer
+                        side="green"
+                        teamType={TeamVals.LOWER}
+                        unitFaction={unitProperties.faction}
+                    />
                 </List>
             </Toggler>
         </ListItem>

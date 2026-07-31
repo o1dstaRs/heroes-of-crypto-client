@@ -1,5 +1,7 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { FightLog } from "./FightLog";
+import DraggableToolbar from "../DraggableToolbar";
+import { SIDEBAR_BG, SIDEBAR_BG_IMAGE } from "../LeftSideBar";
 import Divider from "@mui/joy/Divider";
 import Box from "@mui/joy/Box";
 import LinearProgress from "@mui/joy/LinearProgress";
@@ -12,7 +14,6 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
-const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString(); // [NEW]
 import Toggler from "../Toggler";
 import FightControlToggler from "./FightControlToggler";
 import { VersionDisplay } from "./VersionDisplay";
@@ -195,14 +196,14 @@ export default function RightSideBar({
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
-                borderRight: "1px solid",
-                borderColor: "divider",
+                // Board-facing edge, mirrored from LeftSideBar per the handoff.
+                borderLeft: "3px solid #0a0705",
+                boxShadow: "inset 1px 0 0 rgba(120,104,80,.22), -6px 0 18px rgba(0,0,0,.7)",
                 overflowY: "auto", // Allow vertical scrolling
                 overflowX: "hidden", // Prevent horizontal scrolling
-                // Background Image Overlay
-                backgroundImage: `url(${sidebarOverlayImage})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
+                // Same ground as the left bar.
+                backgroundColor: SIDEBAR_BG,
+                backgroundImage: SIDEBAR_BG_IMAGE,
             }}
         >
             <Box
@@ -221,13 +222,27 @@ export default function RightSideBar({
                         "--ListItem-radius": (t) => t.vars.radius.sm,
                     }}
                 >
-                    {rankedPanel && <Box sx={{ mb: 1 }}>{rankedPanel}</Box>}
+                    {/* The ranked sheet is placement-only; during the fight the same slot ships just the
+                        forfeit control, which is parked at the bottom of the bar instead (see below). */}
+                    {rankedPanel && !gameStarted && <Box sx={{ mb: 1 }}>{rankedPanel}</Box>}
                     {!gameStarted && !rankedPanel && <FightControlToggler />}
-                    {gameStarted && unitStats.length > 0 && (
-                        <DamageStatsToggler unitStatsElements={unitStatsElements} />
+                    {/* Turn actions live here rather than floating over the board — those cells have to stay
+                        clickable to move and attack. The buttons keep their own narrow column and the damage
+                        table takes the rest of the width beside them. */}
+                    {gameStarted && (
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 1 }}>
+                            <DraggableToolbar />
+                            {/* Shown from the first turn, not from the first hit: the table keeps its place
+                                and simply lists nothing until damage is dealt, instead of appearing out of
+                                nowhere mid-fight and pushing everything below it. */}
+                            <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
+                                <DamageStatsToggler unitStatsElements={unitStatsElements} />
+                            </Box>
+                        </Box>
                     )}
                     <Box sx={{ flexGrow: 1 }} />
                     <FightLog text={attackText} />
+                    {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
                     <Divider />
                     {showWallet && <WalletLinker />}
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

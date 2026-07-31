@@ -13,6 +13,9 @@ interface IUnitSplitterProps {
     onSplit: (split1: number, split2: number) => void;
 }
 
+// Half the 24px thumb, plus a little air so it never touches the panel wall.
+const SLIDER_INSET_PX = 16;
+
 const shortcutTooltipSx = {
     backgroundColor: "#2d1606",
     border: "2px solid #dcb158",
@@ -81,6 +84,11 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                 spacing={2}
                 alignItems="center"
                 sx={{
+                    // The thumb is 24px and centres on its value, so at either end half of it hangs past the
+                    // rail. Flush against the panel edge that half was being clipped - the slider read as a
+                    // half-circle stuck to the wall. Inset the whole block by more than half a thumb so both
+                    // ends, and the counts sitting above them, stay inside the panel.
+                    paddingX: `${SLIDER_INSET_PX}px`,
                     "& .MuiTypography-root": {
                         color: "rgba(255, 143, 0, 0.5)",
                         transition: "all 0.2s ease",
