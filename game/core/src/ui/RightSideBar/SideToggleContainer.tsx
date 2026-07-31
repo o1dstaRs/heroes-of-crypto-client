@@ -332,7 +332,7 @@ const SideToggleContainer = ({
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
     const [possibleSynergies, setPossibleSynergies] = useState<Map<TeamType, SynergyWithLevel[]>>(new Map());
     const [togglerType, setTogglerType] = useState<
-        "Placement" | "Armor" | "Might" | "Empower" | "MagicDefense" | "Sniper" | "Movement" | "Synergy" | "None"
+        "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
     const [selectedSynergy, setSelectedSynergy] = useState<SelectedSynergy | null>(null);
     const [synergyPairLife, setSynergyPairTypeLife] = useState<SelectedSynergy | null>(null);
@@ -504,9 +504,8 @@ const SideToggleContainer = ({
             options: [
                 { value: Augment.ArmorAugment.NO_AUGMENT, label: "No augment" },
                 ...[Augment.ArmorAugment.LEVEL_1, Augment.ArmorAugment.LEVEL_2, Augment.ArmorAugment.LEVEL_3].map(
-                    // Both halves, per d0dd7c7 on main: the Armor augment raises physical armor by a PERCENTAGE and adds
-                    // its points FLAT to magic armor. Saying only "% armor" hides the magic half entirely, which is
-                    // the whole reason a separate Magic Defense augment looked necessary.
+                    // Both halves, per d0dd7c7 on main: the Armor augment raises physical armor by a PERCENTAGE and
+                    // adds its points FLAT to magic armor. Saying only "% armor" would hide the magic half entirely.
                     (level) => ({
                         value: level,
                         label: `+${Augment.getArmorPower(level)}% armor, +${Augment.getArmorPower(level)} magic armor`,
