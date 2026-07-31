@@ -113,6 +113,8 @@ export class DungeonVisuals {
     // right-hand one; centerTerrainSprite is the left). Hidden for lava/water (single sprite).
     private centerTerrainSpriteB?: Sprite;
     private centerHitBar?: Graphics;
+    /** The bar only changes after an obstacle hit; retain the last state to avoid rebuilding it every frame. */
+    private lastCenterHitBarKey?: string;
     /** Once the lava/water center dries out it becomes walkable and shows a frozen/dry sprite. */
     private centerDried = false;
     // Last observed per-mountain hit counts. undefined until first sight: a mid-game (re)join or board
@@ -278,7 +280,7 @@ export class DungeonVisuals {
 
         if (!texKey) {
             if (this.centerTerrainSprite) this.centerTerrainSprite.visible = false;
-            if (this.centerHitBar) this.centerHitBar.clear();
+            this.clearCenterHitBars();
             return;
         }
 
@@ -289,7 +291,7 @@ export class DungeonVisuals {
         ) {
             if (this.centerTerrainSprite) this.centerTerrainSprite.visible = false;
             if (this.centerTerrainSpriteB) this.centerTerrainSpriteB.visible = false;
-            if (this.centerHitBar) this.centerHitBar.clear();
+            this.clearCenterHitBars();
             return;
         }
 
@@ -362,16 +364,27 @@ export class DungeonVisuals {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (gridType === GridVals.BLOCK_CENTER && fightProps.hasFightStarted()) {
             this.drawCenterHitBars(fightProps.getObstacleHitsLeftLeft(), fightProps.getObstacleHitsLeftRight());
-        } else if (this.centerHitBar) {
+        } else {
+            this.clearCenterHitBars();
+        }
+    }
+    private clearCenterHitBars(): void {
+        if (this.centerHitBar && this.lastCenterHitBarKey !== undefined) {
             this.centerHitBar.clear();
+            this.lastCenterHitBarKey = undefined;
         }
     }
     /** One compact HP meter drawn inside the base of each mountain, HITS_PER_MOUNTAIN pips max. */
     private drawCenterHitBars(leftHits: number, rightHits: number): void {
+        const key = `${leftHits}:${rightHits}`;
+        if (this.lastCenterHitBarKey === key) {
+            return;
+        }
         if (!this.centerHitBar) {
             this.centerHitBar = new Graphics();
             this.context.attachToWorldRoot(this.centerHitBar, 52); // above the mountain sprites (z=50)
         }
+        this.lastCenterHitBarKey = key;
         const bar = this.centerHitBar;
         bar.clear();
 
@@ -643,10 +656,15 @@ export class DungeonVisuals {
         if (!this.bgSprite) return;
         const { width: vw, height: vh } = this.context.getViewportSize();
         const size = Math.min(vw, vh);
-        this.bgSprite.x = vw * 0.5;
-        this.bgSprite.y = vh * 0.5;
-        this.bgSprite.width = size;
-        this.bgSprite.height = size;
+        const x = vw * 0.5;
+        const y = vh * 0.5;
+        if (this.bgSprite.x !== x || this.bgSprite.y !== y) {
+            this.bgSprite.position.set(x, y);
+        }
+        if (this.bgSprite.width !== size || this.bgSprite.height !== size) {
+            this.bgSprite.width = size;
+            this.bgSprite.height = size;
+        }
         const wantKey = "background_new";
         const wantTex = this.context.texAny(wantKey);
 

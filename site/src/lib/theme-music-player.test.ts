@@ -7,12 +7,17 @@ class FakeAudio extends EventTarget {
     public paused = true;
     public loadCalls = 0;
     public playCalls = 0;
-    public playResults: boolean[] = [];
+    public playResults: Array<boolean | "pending"> = [];
 
     public play(): Promise<void> {
         this.playCalls += 1;
-        const succeeds = this.playResults.shift() ?? true;
-        if (!succeeds) {
+        const result = this.playResults.shift() ?? true;
+        if (result === "pending") {
+            // Mirrors browsers that report paused=false before the play promise has actually succeeded.
+            this.paused = false;
+            return new Promise(() => undefined);
+        }
+        if (!result) {
             this.paused = true;
             return Promise.reject(new Error("autoplay blocked"));
         }
@@ -57,6 +62,32 @@ describe("theme music player", () => {
         expect(await player.start(0.5, true)).toBe(true);
         expect(audio.playCalls).toBe(2);
         expect(blocked).toBe(1);
+        expect(started).toBe(1);
+        expect(fades).toEqual([0.5]);
+    });
+
+    test("retries from a user gesture while an autoplay attempt is pending", async () => {
+        const audio = new FakeAudio();
+        audio.playResults.push("pending", true);
+        const fades: number[] = [];
+        let started = 0;
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource: { src: playlist[0].webm },
+            mp3Source: { src: playlist[0].mp3 },
+            playlist,
+            getTargetVolume: () => 0.5,
+            fadeTo: (target) => fades.push(target),
+            onPlaybackBlocked: () => undefined,
+            onPlaybackStarted: () => {
+                started += 1;
+            },
+        });
+
+        void player.start();
+        expect(audio.paused).toBe(false);
+        expect(await player.start(0.5, true)).toBe(true);
+        expect(audio.playCalls).toBe(2);
         expect(started).toBe(1);
         expect(fades).toEqual([0.5]);
     });

@@ -254,6 +254,61 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         }
     }
 
+    // Same-board and replayed-action snapshots deliberately keep the existing RenderableUnit alive. That
+    // preserves animation continuity, but it also means a newly-applied server debuff never reaches the
+    // DISPLAY arrays that PixiScene uses to build the sidebar. Dulling Defense exposed the gap clearly: its
+    // popup animated, and its base-attack reduction was authoritative, while the selected attacker's Debuffs
+    // section stayed unchanged. Mirror all parallel display metadata in place without creating AppliedSpell
+    // objects — ranked stats already arrive computed by the server, so reconstructing objects would apply the
+    // penalties a second time.
+    const liveProperties = unit.getUnitProperties();
+    const replaceIfDifferent = <T>(target: T[], source: readonly T[]): boolean => {
+        if (target.length === source.length && target.every((value, index) => value === source[index])) {
+            return false;
+        }
+        target.splice(0, target.length, ...source);
+        return true;
+    };
+    const syncDisplayEntries = (
+        targetNames: string[],
+        targetLaps: number[],
+        targetDescriptions: string[],
+        targetPowers: number[],
+        sourceNames: readonly string[],
+        sourceLaps: readonly number[],
+        sourceDescriptions: readonly string[],
+        sourcePowers: readonly number[],
+    ): boolean => {
+        let entriesChanged = replaceIfDifferent(targetNames, sourceNames);
+        entriesChanged = replaceIfDifferent(targetLaps, sourceLaps) || entriesChanged;
+        entriesChanged = replaceIfDifferent(targetDescriptions, sourceDescriptions) || entriesChanged;
+        entriesChanged = replaceIfDifferent(targetPowers, sourcePowers) || entriesChanged;
+        return entriesChanged;
+    };
+
+    changed =
+        syncDisplayEntries(
+            liveProperties.applied_debuffs,
+            liveProperties.applied_debuffs_laps,
+            liveProperties.applied_debuffs_descriptions,
+            liveProperties.applied_debuffs_powers,
+            properties.applied_debuffs,
+            properties.applied_debuffs_laps,
+            properties.applied_debuffs_descriptions,
+            properties.applied_debuffs_powers,
+        ) || changed;
+    changed =
+        syncDisplayEntries(
+            liveProperties.applied_buffs,
+            liveProperties.applied_buffs_laps,
+            liveProperties.applied_buffs_descriptions,
+            liveProperties.applied_buffs_powers,
+            properties.applied_buffs,
+            properties.applied_buffs_laps,
+            properties.applied_buffs_descriptions,
+            properties.applied_buffs_powers,
+        ) || changed;
+
     return changed;
 };
 
@@ -619,6 +674,10 @@ export const rankedSecondarySceneLogLines = (
             case "flesh_shield":
                 text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
                 break;
+            case "devour_essence":
+                // A HEAL: same wording the engine writes to the local sandbox log, so both modes match.
+                text = `${name} rejuvinated for ${entry.amount} hp`;
+                break;
             case "chain_lightning":
                 text = `${name} hit ${entry.amount} by Chain Lightning${kills}`;
                 break;
@@ -902,6 +961,9 @@ export class RankedPlayScene extends Sandbox {
             this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined
         )?.getVisualCenter(gs);
         this.showFleshShieldAbsorbedDamage(secondary, attackerPos);
+        // Devour Essence heal (Hydra): green "+N" + buff-wash on the devourer; skipped in the generic
+        // red-number loop below.
+        this.showDevourEssenceHeals(secondary);
         // The purple arc itself. Sandbox draws it from spawnChainLightningVfx on its own attack paths, which
         // ranked never runs — so a Thunderbird's bounces used to appear as bare numbers with nothing visibly
         // jumping between them. Built from the AUTHORITATIVE bounce entries rather than re-deriving the chain
@@ -921,7 +983,7 @@ export class RankedPlayScene extends Sandbox {
         for (const entry of secondary) {
             // Flesh Shield was grouped and rendered above as a labelled yellow value. Keeping it out of
             // this generic loop prevents the same absorption from also appearing as an ordinary red hit.
-            if (entry.source === "flesh_shield") continue;
+            if (entry.source === "flesh_shield" || entry.source === "devour_essence") continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const pos = unit?.getVisualCenter(gs) ?? entry.position;
@@ -1923,6 +1985,16 @@ export class RankedPlayScene extends Sandbox {
                 if (event.type === "unit_skipped" && event.reason === "manual" && actedUnitIds.has(event.unitId)) {
                     continue;
                 }
+                // Lucky Strike procs never reach ranked as text (the engine's sceneLog is sandbox-only);
+                // rebuild the "activates Lucky Strike" line from the damage payload, BEFORE the strike's
+                // own line — matching the engine's ordering. Covers attacker and responder procs alike.
+                if (event.type === "unit_attacked" && event.damage.luckyStrikeBy?.length) {
+                    for (const strikerId of event.damage.luckyStrikeBy) {
+                        const procText = `${unitNames.get(strikerId) ?? "Unit"} activates Lucky Strike`;
+                        const procFlag = this.logTeamFlag(strikerId);
+                        lines.push(procFlag ? `${procFlag} ${procText}` : procText);
+                    }
+                }
                 const line = this.eventToSceneLogLine(event, unitNames);
                 if (line) {
                     const actorId = this.logActorUnitId(event);
@@ -2495,6 +2567,13 @@ export class RankedPlayScene extends Sandbox {
         }
         if (changed) {
             this.refreshUnits();
+            // Rebuild the selected unit's visible impact after the in-place property sync. The React sidebar
+            // receives a cached IVisibleOverallImpact rather than deriving rows directly from UnitProperties,
+            // so merely copying Dulling Defense into applied_debuffs is not enough while that unit is selected.
+            if (this.sc_selectedUnitProperties) {
+                this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+                this.sc_unitPropertiesUpdateNeeded = true;
+            }
             this.sc_visibleStateUpdateNeeded = true;
         }
     }

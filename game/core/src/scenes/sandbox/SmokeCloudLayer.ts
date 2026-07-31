@@ -197,6 +197,8 @@ export class SmokeCloudLayer {
     private windX = 1;
     private windY = 0;
     private readonly clouds = new Map<number, ITrackedCloud>();
+    /** Avoid repeatedly invalidating an already-empty Pixi Graphics buffer. */
+    private hasGeometry = false;
     public constructor() {
         this.container.addChild(this.graphics);
         try {
@@ -294,10 +296,15 @@ export class SmokeCloudLayer {
     }
     private draw(cellSize: number): void {
         const g = this.graphics;
-        g.clear();
         if (!this.clouds.size) {
+            if (this.hasGeometry) {
+                g.clear();
+                this.hasGeometry = false;
+            }
             return;
         }
+        g.clear();
+        this.hasGeometry = true;
 
         const rnd = (a: number, b: number): number => {
             const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;

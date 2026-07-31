@@ -27,7 +27,7 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                 return (
                     <Tooltip
                         key={artifact.id}
-                        // formatArtifactDescription fills the {}/[] placeholders in artifact.description with
+                        // formatArtifactDescription fills the {}/[]/<> placeholders in artifact.description with
                         // the real power values — the raw description would show literal "{}" otherwise.
                         title={
                             <Box sx={{ maxWidth: 240, py: 0.25 }}>

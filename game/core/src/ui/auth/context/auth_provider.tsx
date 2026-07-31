@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 import { v4 as uuidv4 } from "uuid";
 
-import { isValidToken, setSession } from "./auth_utils";
+import { isValidToken, setSession, tokenExpSafe } from "./auth_utils";
 import { ActionMapType, AuthStateType, AuthUserType } from "./types";
 import { AuthContext } from "./auth_context";
 import { axiosAuthInstance, axiosMMInstance, axiosGameInstance, endpoints } from "../../../api/axios";
@@ -100,10 +100,36 @@ type Props = {
     children: React.ReactNode;
 };
 
+/**
+ * Expire the SSO handoff cookie under every scope it could have been set with. The cookie may carry
+ * a domain attribute (e.g. `.heroesofcrypto.io` from the main-site handoff); a bare `path=/` expiry
+ * silently fails to delete that variant, which left an immortal stale cookie clobbering the fresh
+ * localStorage token on every boot — the "always prompts login again" bug.
+ */
+const clearAccessTokenCookie = () => {
+    document.cookie = `${STORAGE_KEY}=; Max-Age=0; path=/`;
+    const hostname = window.location.hostname;
+    const labels = hostname.split(".");
+    if (labels.length >= 2 && !/^[0-9.]+$/.test(hostname)) {
+        const apex = labels.slice(-2).join(".");
+        document.cookie = `${STORAGE_KEY}=; Max-Age=0; path=/; domain=.${apex}`;
+    }
+};
+
 const refreshLocalStorageFromCookie = () => {
     const accessTokenCookie = getCookie(STORAGE_KEY);
     if (accessTokenCookie) {
-        localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+        // The cookie is a single-use handoff, not a store of record: adopt it only when it is a
+        // decodable, unexpired token that is FRESHER than what localStorage already holds, and
+        // always consume (delete) it afterwards. Unconditional copying let one stale cookie
+        // overwrite every future login's token on every page load.
+        const cookieExp = tokenExpSafe(accessTokenCookie);
+        const storedExp = tokenExpSafe(localStorage.getItem(STORAGE_KEY));
+        const cookieIsLive = cookieExp !== null && cookieExp > Date.now() / 1000;
+        if (cookieIsLive && (storedExp === null || cookieExp > storedExp)) {
+            localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+        }
+        clearAccessTokenCookie();
     }
 
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
@@ -221,7 +247,7 @@ export function AuthProvider({ children }: Props) {
             // this game") and so the route enters clean observer mode and resolves the team.
             if (isE2eLoginEnabled() && new URL(window.location.href).searchParams.has("e2ePlayerId")) {
                 setSession(null);
-                document.cookie = "accessToken=; Max-Age=0; path=/";
+                clearAccessTokenCookie();
                 dispatch({ type: Types.INITIAL, payload: { user: null } });
                 return;
             }

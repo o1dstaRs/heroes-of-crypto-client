@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { TeamType } from "@heroesofcrypto/common";
 import { CustomEventSource } from "@heroesofcrypto/common";
 import { IS_PROD } from "../env";
+import { tokenExpSafe } from "../auth/context/auth_utils";
 import { IPickPhaseEventData, PickBanContext } from "./PickBanContextDefs";
 
 export { usePickBanEvents } from "./PickBanContextDefs";
@@ -47,7 +48,24 @@ export const PickBanEventProvider: React.FC<{
         const refreshLocalStorageFromCookie = () => {
             const accessTokenCookie = getCookie(STORAGE_KEY);
             if (accessTokenCookie) {
-                localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+                // Single-use handoff with a freshness guard, mirroring auth_provider: only a live
+                // token newer than the stored one may be adopted, and the cookie is always
+                // consumed so a stale copy can't clobber future logins on every mount.
+                const cookieExp = tokenExpSafe(accessTokenCookie);
+                const storedExp = tokenExpSafe(localStorage.getItem(STORAGE_KEY));
+                if (
+                    cookieExp !== null &&
+                    cookieExp > Date.now() / 1000 &&
+                    (storedExp === null || cookieExp > storedExp)
+                ) {
+                    localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+                }
+                document.cookie = `${STORAGE_KEY}=; Max-Age=0; path=/`;
+                const hostname = window.location.hostname;
+                const labels = hostname.split(".");
+                if (labels.length >= 2 && !/^[0-9.]+$/.test(hostname)) {
+                    document.cookie = `${STORAGE_KEY}=; Max-Age=0; path=/; domain=.${labels.slice(-2).join(".")}`;
+                }
             }
         };
         refreshLocalStorageFromCookie();
