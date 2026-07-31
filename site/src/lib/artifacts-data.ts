@@ -1,7 +1,7 @@
 // Army-wide artifacts chosen during the pick phase (one Tier 1 + one Tier 2 per team). Mirrors the
 // game's game/heroes-of-crypto-common/src/artifacts/artifact_properties.ts — names, tiers, slugs and
-// images are kept in sync with it; descriptions here have the {} / [] power placeholders already filled
-// with the ARTIFACT_POWER values so the codex reads cleanly.
+// images are kept in sync with it; descriptions here have the {} / [] / <> power placeholders already
+// filled with the ARTIFACT_POWER values so the codex reads cleanly.
 
 export type ArtifactTier = 1 | 2;
 
@@ -50,11 +50,7 @@ export const artifacts: Artifact[] = [
         "Grants the whole army Deep Wounds Level 1: each attack or response stacks +6% damage amplification on the target.",
     ),
     t1("cursed_ward", "Cursed Ward", "Cursed: +3 luck but -6 morale for the whole army.", true),
-    t1(
-        "hunters_longbow",
-        "Hunter's Longbow",
-        "Ranged units gain +1 attack for each ranged unit in the army.",
-    ),
+    t1("hunters_longbow", "Hunter's Longbow", "Ranged units gain +1 attack for each ranged unit in the army."),
     t1("helm_of_focus", "Helm of Focus", "Increases the army's mind resistance by 25%."),
     t1(
         "broken_aegis",
@@ -68,7 +64,7 @@ export const artifacts: Artifact[] = [
     t2("titan_plate", "Titan Plate", "Grants the whole army an additional 12% defense (melee and ranged)."),
     t2("holy_cross", "Holy Cross", "+50% healing and resurrection; the Troll's ability is not consumed on cast."),
     t2("clover_of_fortune", "Clover of Fortune", "Increases the army's luck by 10."),
-    t2("crown_of_command", "Crown of Command", "Grants +1 movement and +5 morale to the whole army."),
+    t2("crown_of_command", "Crown of Command", "Grants +1 movement, +8 morale, and +1 armor to the whole army."),
     t2(
         "giants_maul",
         "Giant's Maul",

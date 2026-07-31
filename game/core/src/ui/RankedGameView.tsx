@@ -1895,7 +1895,7 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
                 const src = art ? artifactImageFor(art.imageKey) : undefined;
                 const tierLabel = key === "t1" ? "Tier 1" : "Tier 2";
                 // Rich hover: name + tier + the effect text with its real numbers substituted in
-                // (art.description keeps {}/[] placeholders — formatArtifactDescription fills them).
+                // (art.description keeps {}/[]/<> placeholders — formatArtifactDescription fills them).
                 const tip = art ? (
                     <Box sx={{ maxWidth: 260, py: 0.5 }}>
                         <Typography level="title-sm" textColor={hocColors.gold}>
