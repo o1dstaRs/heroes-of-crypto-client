@@ -1958,7 +1958,7 @@ const AUGMENT_SIDEBAR_IMAGES: Record<string, keyof typeof images> = {
 const augmentEffectText = (label: string, level: number): string => {
     switch (label) {
         case "Placement":
-            return ["Height 3 partial", "Height 4 full", "Height 5 full"][level] ?? "Height 3 partial";
+            return ["Height 3 partial", "Height 4 full", "Height 6 full + edge line"][level] ?? "Height 3 partial";
         case "Armor":
             return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor, +${Augment.getArmorPower(
                 level as Augment.ArmorAugment,

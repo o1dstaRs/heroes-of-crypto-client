@@ -1026,6 +1026,30 @@ export class Sandbox extends PixiScene {
                 this.renderResurrectionVfx(position, amount ?? 3);
                 return true;
             };
+            // Diagnostic: the ENGINE's augment + placement-zone truth for a team — lets a headless run
+            // (or a human in the console) confirm a picked Placement level actually reached
+            // FightProperties and what rows the rebuilt zone covers, independent of the React sidebar.
+            (w as { __hocPlacementState?: (team?: number) => Record<string, unknown> }).__hocPlacementState = (
+                team = TeamVals.LOWER,
+            ) => {
+                const fp = FightStateManager.getInstance().getFightProperties();
+                const zone = this.getPlacement(team as TeamType, 0);
+                const cells = zone?.possibleCellPositions() ?? [];
+                return {
+                    augmentPlacementLevel: fp.getAugmentPlacementLevel(team as TeamType),
+                    placementSizes: fp.getAugmentPlacement(team as TeamType),
+                    zoneCellCount: cells.length,
+                    zoneRowSpan: cells.length
+                        ? [Math.min(...cells.map((c) => c.y)), Math.max(...cells.map((c) => c.y))]
+                        : null,
+                };
+            };
+            // Diagnostic twin of the sidebar's augment click: drive the SCENE's own propagation directly,
+            // bypassing React — separates "engine/zone path broken" from "UI holds a stale scene".
+            (w as { __hocPropagatePlacement?: (level?: number, team?: number) => boolean }).__hocPropagatePlacement = (
+                level = 1,
+                team = TeamVals.LOWER,
+            ) => this.propagateAugmentation(team as TeamType, { type: "Placement", value: level });
             // Visual smoke/tuning hook for the mountain-collapse VFX: crashes one/both mountains apart
             // on demand (BLOCK_CENTER map only) without grinding their hit points down in a real fight.
             (w as { __hocMountainCollapseTest?: (side?: "left" | "right") => boolean }).__hocMountainCollapseTest = (

@@ -510,7 +510,7 @@ const SideToggleContainer = ({
             options: [
                 { value: Augment.PlacementAugment.LEVEL_1, label: "Height 3 partial" },
                 { value: Augment.PlacementAugment.LEVEL_2, label: "Height 4 full" },
-                { value: Augment.PlacementAugment.LEVEL_3, label: "Height 5 full" },
+                { value: Augment.PlacementAugment.LEVEL_3, label: "Height 6 full + edge line" },
             ],
         },
         {
