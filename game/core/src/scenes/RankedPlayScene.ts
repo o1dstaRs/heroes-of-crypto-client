@@ -11,6 +11,8 @@ import {
     getFactionOf,
     GridMath,
     HoCConfig,
+    HoCConstants,
+    HoCLib,
     TeamVals,
     ToFactionName,
     type AttackType,
@@ -43,6 +45,7 @@ import {
     type SceneActionEngine,
 } from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
+import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { PlayActionType } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
@@ -634,6 +637,60 @@ export const multiHitSceneLogLines = (
     return lines;
 };
 
+/**
+ * One scene-log line per buff/debuff/effect the action landed (or a debuff a target resisted), from
+ * the authoritative `effects_applied` event — the ONLY source that names every recipient of a mass
+ * cast and every on-hit rider (Stun, Break, Poison, …) in ranked. `suppress` holds "unitId|name"
+ * pairs already told by the entry's own cast line ("cast Riot on Pikeman"), so a single-target cast
+ * is not narrated twice.
+ */
+export const effectsAppliedSceneLogLines = (
+    event: GameEvent,
+    unitNames: ReadonlyMap<string, string>,
+    flagForUnit: (unitId: string) => string = () => "",
+    suppress: ReadonlySet<string> = new Set(),
+): string[] => {
+    if (event.type !== "effects_applied") {
+        return [];
+    }
+    const lines: string[] = [];
+    for (const entry of event.applications) {
+        if (suppress.has(`${entry.unitId}|${entry.name}`)) {
+            continue;
+        }
+        const name = unitNames.get(entry.unitId) ?? "Unit";
+        const flag = flagForUnit(entry.unitId);
+        let text: string;
+        if (entry.resisted) {
+            text = `${name} resisted ${entry.name}`;
+        } else {
+            const verb = entry.kind === "buff" ? "gains" : entry.kind === "debuff" ? "suffers" : "got";
+            // A duration at or past the whole-fight cap reads as "permanent" — no lap suffix.
+            const lapSuffix =
+                entry.laps && entry.laps > 0 && entry.laps < HoCConstants.NUMBER_OF_LAPS_TOTAL
+                    ? ` for ${HoCLib.getLapString(entry.laps)}`
+                    : "";
+            text = `${name} ${verb} ${entry.name}${lapSuffix}`;
+        }
+        lines.push(flag ? `${flag} ${text}` : text);
+    }
+    return lines;
+};
+
+/**
+ * The "unitId|name" pairs a journal entry's spell_cast events already narrate ("cast Riot on
+ * Pikeman"), used to keep effectsAppliedSceneLogLines from repeating them.
+ */
+export const spellCastNarratedPairs = (events: readonly GameEvent[]): Set<string> => {
+    const pairs = new Set<string>();
+    for (const event of events) {
+        if (event.type === "spell_cast" && event.targetId) {
+            pairs.add(`${event.targetId}|${event.spellName}`);
+        }
+    }
+    return pairs;
+};
+
 /** Primary spell damage only; Magic Mirror rebounds are reported as their own follow-up lines. */
 export const rankedSpellPrimaryDamageSummary = (
     event: GameEvent,
@@ -808,6 +865,10 @@ export class RankedPlayScene extends Sandbox {
     private rankedStatsSeries: IFightStatsSample[] = [];
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
+    // Turn-grouping state for the journal-rebuilt log: the current lap and the unit whose turn header
+    // is open (cleared by its turn_completed so a re-selected unit next lap gets a fresh header).
+    private rankedSceneLogLap = 1;
+    private rankedSceneLogHeaderUnitId?: string;
     // High-water mark for Armageddon-wave VFX driven off the authoritative journal. Tracked separately
     // from the scene-log sequence so the wave's floating damage + shake fire exactly once when the wave
     // first appears, and historical waves already in the journal on (re)join aren't replayed.
@@ -1419,6 +1480,8 @@ export class RankedPlayScene extends Sandbox {
         this.resetRankedFightStats();
         this.rankedSceneLogGameId = "";
         this.rankedSceneLogSequence = -1;
+        this.rankedSceneLogLap = 1;
+        this.rankedSceneLogHeaderUnitId = undefined;
         // Re-baseline the Armageddon high-water mark so the next snapshot doesn't replay historical waves.
         this.armageddonVfxGameId = "";
         this.armageddonVfxSequence = -1;
@@ -1944,6 +2007,10 @@ export class RankedPlayScene extends Sandbox {
         const lastLoggedSequence = gameChanged ? -1 : this.rankedSceneLogSequence;
         this.rankedSceneLogGameId = snapshot.gameId;
         this.rankedSceneLogSequence = maxSequence;
+        if (gameChanged) {
+            this.rankedSceneLogLap = 1;
+            this.rankedSceneLogHeaderUnitId = undefined;
+        }
         const newEntries = journalTail.filter((entry) => entry.sequence > lastLoggedSequence);
         const lines = this.buildAuthoritativeSceneLogLines(newEntries, this.rankedUnitNamesById, snapshot.units);
 
@@ -1981,9 +2048,45 @@ export class RankedPlayScene extends Sandbox {
                     actedUnitIds.add(actedId);
                 }
             }
+            // Pairs the entry's cast line already narrates — effectsAppliedSceneLogLines skips them.
+            const narratedPairs = spellCastNarratedPairs(events);
             for (const event of events) {
                 if (event.type === "unit_skipped" && event.reason === "manual" && actedUnitIds.has(event.unitId)) {
                     continue;
+                }
+                // Turn grouping: track the lap and open a header line whenever the ACTIVE unit changes.
+                // next_unit_selected trails the previous action's events, so the header lands right
+                // before the incoming unit's own lines; turn_completed re-arms the header so a unit
+                // that acts on consecutive laps gets one per turn, while a mid-turn re-selection
+                // (Double Shot's second volley) does not repeat it.
+                if (event.type === "lap_initialized" || event.type === "lap_flipped") {
+                    this.rankedSceneLogLap = event.type === "lap_initialized" ? event.lap : event.currentLap;
+                } else if (event.type === "turn_completed") {
+                    if (this.rankedSceneLogHeaderUnitId === event.unitId) {
+                        this.rankedSceneLogHeaderUnitId = undefined;
+                    }
+                } else if (event.type === "next_unit_selected") {
+                    if (this.rankedSceneLogHeaderUnitId !== event.unitId) {
+                        this.rankedSceneLogHeaderUnitId = event.unitId;
+                        lines.push(
+                            formatTurnLogHeader(
+                                this.logTeamFlag(event.unitId),
+                                unitNames.get(event.unitId) ?? "Unit",
+                                this.rankedSceneLogLap,
+                            ),
+                        );
+                    }
+                    continue;
+                }
+                // Every buff/debuff/effect this action landed, with EVERY recipient named (mass casts,
+                // on-hit riders, resists). The single-target cast line's own target is filtered out.
+                for (const effectLine of effectsAppliedSceneLogLines(
+                    event,
+                    unitNames,
+                    (unitId) => this.logTeamFlag(unitId),
+                    narratedPairs,
+                )) {
+                    lines.push(effectLine);
                 }
                 // Lucky Strike procs never reach ranked as text (the engine's sceneLog is sandbox-only);
                 // rebuild the "activates Lucky Strike" line from the damage payload, BEFORE the strike's

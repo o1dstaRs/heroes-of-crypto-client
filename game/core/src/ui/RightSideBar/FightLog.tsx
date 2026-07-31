@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/joy/Box";
 import { keyframes } from "@emotion/react";
+
+import { fightLogExportLine, groupFightLogEntries } from "./fightLogGrouping";
 
 /**
  * FightLog - a custom, animated combat chronicle that replaces the old read-only <Textarea>.
@@ -10,6 +12,10 @@ import { keyframes } from "@emotion/react";
  * ONLY the new rows in: they slide down from above, fade up, and flash a warm ember highlight that
  * settles into a thin left accent bar. The panel scrolls (themed thin scrollbar) so the full history
  * is reachable, and a tiny corner button copies the whole log to the clipboard.
+ *
+ * The flat list renders GROUPED BY TURN: the scenes emit a marked header line whenever the active
+ * unit changes ("⌖ 🟢 Fairy — Lap 2"), and groupFightLogEntries folds the stream into turn cards —
+ * newest turn on top, each card's actions reading chronologically under its header.
  */
 
 // New row drops in from above and fades up.
@@ -107,8 +113,8 @@ export const FightLog = ({ text }: { text: string }) => {
         (e: React.MouseEvent) => {
             e.stopPropagation();
             // Export oldest-first so a pasted log reads top-to-bottom in chronological order, even
-            // though the panel shows newest-first.
-            const chronological = splitLines(text).reverse().join("\n");
+            // though the panel shows newest-first. Turn headers export as readable dividers.
+            const chronological = splitLines(text).reverse().map(fightLogExportLine).join("\n");
             if (!chronological) return;
             void copyToClipboard(chronological);
             setCopied(true);
@@ -119,6 +125,8 @@ export const FightLog = ({ text }: { text: string }) => {
     );
 
     const hasEntries = entries.length > 0;
+    const groups = useMemo(() => groupFightLogEntries(entries, (entry) => entry.text), [entries]);
+    const newestEntryId = entries[0]?.id;
 
     return (
         <Box sx={{ position: "relative", width: "100%" }}>
@@ -222,34 +230,69 @@ export const FightLog = ({ text }: { text: string }) => {
                         Fight log
                     </Box>
                 ) : (
-                    entries.map((entry, idx) => (
+                    groups.map((group, groupIdx) => (
                         <Box
-                            key={entry.id}
-                            sx={{
-                                position: "relative",
-                                // Leave room on the first row so the copy button never overlaps text.
-                                pl: "10px",
-                                pr: idx === 0 ? "34px" : "10px",
-                                py: "2.5px",
-                                fontSize: "10.5px",
-                                lineHeight: 1.32,
-                                letterSpacing: "0.015em",
-                                color: "rgba(255, 167, 64, 0.92)",
-                                whiteSpace: "normal",
-                                wordBreak: "break-word",
-                                // The very newest line glows a touch hotter than the rest.
-                                ...(idx === 0
-                                    ? {
-                                          color: "#FFB347",
-                                          textShadow: "0 0 6px rgba(255, 143, 0, 0.45)",
-                                      }
-                                    : {}),
-                                // Only freshly-mounted rows run the entrance + ember flash; existing rows
-                                // keep their key, so React never remounts them and they stay calm.
-                                animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
-                            }}
+                            key={group.headerEntry?.id ?? group.entries[0]?.id ?? `tail-${groupIdx}`}
+                            sx={{ pb: "1px" }}
                         >
-                            {entry.text}
+                            {group.headerEntry && (
+                                <Box
+                                    sx={{
+                                        position: "relative",
+                                        mt: groupIdx === 0 ? 0 : "3px",
+                                        px: "10px",
+                                        py: "3px",
+                                        fontSize: "10.5px",
+                                        fontWeight: 700,
+                                        lineHeight: 1.3,
+                                        letterSpacing: "0.05em",
+                                        color: "#FFC067",
+                                        whiteSpace: "normal",
+                                        wordBreak: "break-word",
+                                        background:
+                                            "linear-gradient(90deg, rgba(255, 143, 0, 0.14) 0%, rgba(255, 143, 0, 0.03) 70%, transparent 100%)",
+                                        borderTop: "1px solid rgba(255, 143, 0, 0.18)",
+                                        // Same freshness rule as regular rows: only a newly-mounted header animates.
+                                        animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
+                                    }}
+                                >
+                                    {group.headerLabel}
+                                </Box>
+                            )}
+                            {group.entries.map((entry) => (
+                                <Box
+                                    key={entry.id}
+                                    sx={{
+                                        position: "relative",
+                                        // Turn rows sit indented under their header, hanging off a faint
+                                        // rail; the pre-turn block (no header) keeps the flush layout.
+                                        pl: group.headerEntry ? "16px" : "10px",
+                                        ml: group.headerEntry ? "6px" : 0,
+                                        borderLeft: group.headerEntry ? "1px solid rgba(255, 143, 0, 0.16)" : "none",
+                                        // Leave room on the newest row so the copy button never overlaps text.
+                                        pr: entry.id === newestEntryId ? "34px" : "10px",
+                                        py: "2.5px",
+                                        fontSize: "10.5px",
+                                        lineHeight: 1.32,
+                                        letterSpacing: "0.015em",
+                                        color: "rgba(255, 167, 64, 0.92)",
+                                        whiteSpace: "normal",
+                                        wordBreak: "break-word",
+                                        // The very newest line glows a touch hotter than the rest.
+                                        ...(entry.id === newestEntryId
+                                            ? {
+                                                  color: "#FFB347",
+                                                  textShadow: "0 0 6px rgba(255, 143, 0, 0.45)",
+                                              }
+                                            : {}),
+                                        // Only freshly-mounted rows run the entrance + ember flash; existing rows
+                                        // keep their key, so React never remounts them and they stay calm.
+                                        animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
+                                    }}
+                                >
+                                    {entry.text}
+                                </Box>
+                            ))}
                         </Box>
                     ))
                 )}

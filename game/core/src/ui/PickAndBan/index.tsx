@@ -771,7 +771,9 @@ export const PickCommitButton: React.FC<{
                         animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
                     }}
                 >
-                    {`0:${String(Math.max(0, seconds)).padStart(2, "0")}`}
+                    {/* divmod into minutes:seconds — the legacy combined placement window runs past a
+                        minute, and "0:80" is not a clock. Same fix the draft Timer chip carries. */}
+                    {`${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`}
                 </Box>
             )}
         </Box>

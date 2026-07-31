@@ -12,6 +12,7 @@ import {
     Alert,
     Box,
     Button,
+    Chip,
     CircularProgress,
     Modal,
     ModalDialog,
@@ -82,6 +83,8 @@ import {
 } from "./rankedActionResponse";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
 import { draftShellSx, DraftStepper, DraftTitle, MyDraftBar, OpponentDraftBar, PickCommitButton } from "./PickAndBan";
+import { MapBadge } from "./PickAndBan/MapReveal";
+import { Timer } from "./PickAndBan/Timer";
 import {
     aiOpponentLabel,
     findAiSeatPlayerId,
@@ -2390,6 +2393,33 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
                                 <DraftTitle>Choose your augments</DraftTitle>
+                                {/* The same status row every draft step shows under its title — points, the
+                                    STANDALONE countdown chip and the map. The commit button's inline clock
+                                    alone read as "no timer on the augment/synergy picks": it sat at the far
+                                    end of the button, nowhere near where every previous screen put it. */}
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 1.5,
+                                    }}
+                                >
+                                    <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
+                                        <Chip color="primary" variant="soft">
+                                            {`${augmentReady.pointsRemaining} upgrade pts`}
+                                        </Chip>
+                                    </Tooltip>
+                                    {augmentSecondsLeft >= 0 && (
+                                        <Timer
+                                            localSeconds={augmentSecondsLeft}
+                                            // Pulse-urgent while the build is still yours to finish; once
+                                            // locked in ("Waiting for opponent…") the clock stays calm.
+                                            isYourTurn={inSetupStage ? !ready : true}
+                                        />
+                                    )}
+                                    <MapBadge mapType={snapshot.gridType} />
+                                </Box>
                                 {/* The draft's own rails, fed from the play snapshot, so this screen shows the
                                     armies exactly like every pick phase before it. */}
                                 <Stack

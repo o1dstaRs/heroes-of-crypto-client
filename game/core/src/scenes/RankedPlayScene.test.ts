@@ -22,6 +22,7 @@ import {
     authoritativeSnapshotToSandboxSceneState,
     applyRankedUnitMechanicalEffects,
     applyRankedUnitSnapshotStats,
+    effectsAppliedSceneLogLines,
     rankedUnitMechanicsMatch,
     rankedUnitAliveHealth,
     rankedSecondarySceneLogLines,
@@ -34,6 +35,7 @@ import {
     revealedOpponentRowX,
     revealedOpponentRowY,
     shouldPublishRankedFinish,
+    spellCastNarratedPairs,
 } from "./RankedPlayScene";
 import { RenderableUnit } from "./RenderableUnit";
 import { shouldDisplayAppliedBuff } from "../pixi/PixiScene";
@@ -1117,5 +1119,62 @@ describe("ranked spell secondary-damage scene log", () => {
             "🟢 Abomination absorbed (500) with Flesh Shield",
             "🟢 Battle Mage received (570) from Magic Mirror rebound 💀 1",
         ]);
+    });
+});
+
+describe("ranked effects_applied scene log", () => {
+    const names = new Map([
+        ["healer", "Healer"],
+        ["pikeman", "Pikeman"],
+        ["squire", "Squire"],
+        ["hyena", "Hyena"],
+    ]);
+    const flags = (unitId: string): string => (unitId === "hyena" ? "🔴" : "🟢");
+
+    const massEvent = {
+        type: "effects_applied",
+        applications: [
+            { unitId: "pikeman", name: "Mass Riot", kind: "buff", laps: 3 },
+            { unitId: "squire", name: "Mass Riot", kind: "buff", laps: 3 },
+            { unitId: "hyena", name: "Quagmire", kind: "debuff", laps: 2 },
+            { unitId: "hyena", name: "Stun", kind: "effect", laps: 1 },
+            { unitId: "hyena", name: "Misfortune", kind: "debuff", resisted: true },
+        ],
+    } as unknown as Parameters<typeof effectsAppliedSceneLogLines>[0];
+
+    test("names EVERY recipient of a mass cast, on-hit riders and resists, each with its own flag", () => {
+        expect(effectsAppliedSceneLogLines(massEvent, names, flags)).toEqual([
+            "🟢 Pikeman gains Mass Riot for 3 laps",
+            "🟢 Squire gains Mass Riot for 3 laps",
+            "🔴 Hyena suffers Quagmire for 2 laps",
+            "🔴 Hyena got Stun for 1 lap",
+            "🔴 Hyena resisted Misfortune",
+        ]);
+    });
+
+    test("a whole-fight duration reads as permanent (no lap suffix)", () => {
+        const permanent = {
+            type: "effects_applied",
+            applications: [{ unitId: "pikeman", name: "Dulling Defense", kind: "debuff", laps: 15 }],
+        } as unknown as Parameters<typeof effectsAppliedSceneLogLines>[0];
+        expect(effectsAppliedSceneLogLines(permanent, names, flags)).toEqual(["🟢 Pikeman suffers Dulling Defense"]);
+    });
+
+    test("skips the pair the cast line already narrates, keeps everything else", () => {
+        const events = [
+            { type: "spell_cast", casterId: "healer", spellName: "Quagmire", targetId: "hyena" },
+        ] as unknown as Parameters<typeof spellCastNarratedPairs>[0];
+        const narrated = spellCastNarratedPairs(events);
+        expect(narrated.has("hyena|Quagmire")).toBe(true);
+        const lines = effectsAppliedSceneLogLines(massEvent, names, flags, narrated);
+        expect(lines.some((line) => line.includes("suffers Quagmire"))).toBe(false);
+        expect(lines.some((line) => line.includes("got Stun"))).toBe(true);
+    });
+
+    test("returns nothing for other event types", () => {
+        const other = { type: "unit_waited", unitId: "pikeman", team: 2 } as unknown as Parameters<
+            typeof effectsAppliedSceneLogLines
+        >[0];
+        expect(effectsAppliedSceneLogLines(other, names, flags)).toEqual([]);
     });
 });
