@@ -24,7 +24,7 @@
         "@emotion/styled": "^11.11.5",
         "@heroesofcrypto/common": "workspace:*",
         "@mui/base": "^5.0.0-beta.70",
-        "@mui/icons-material": "^7.3.5",
+        "@mui/icons-material": "^9.2.0",
         "@mui/joy": "^5.0.0-beta.52",
         "@mui/material": "^7.3.5",
         "@mui/system": "^7.3.5",
