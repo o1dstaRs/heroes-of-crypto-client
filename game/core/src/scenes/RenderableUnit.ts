@@ -2021,6 +2021,11 @@ export class RenderableUnit extends Unit {
         this.effectFlashStartMs = performance.now();
         this.effectFlashColor = 0x4dff9e; // bright green (keeps a positive, "buffed" feel)
     }
+    /** Gold wash for a Lucky Strike proc — same envelope as the buff/debuff flash, luck-colored. */
+    public flashLuckyStrike(): void {
+        this.effectFlashStartMs = performance.now();
+        this.effectFlashColor = 0xffd94d;
+    }
     private currentEffectTint(): number {
         // Frozen (Blacksmith's "Freeze" status): a persistent icy-blue cast so the unit visibly reads as
         // encased in ice, overriding any transient buff/debuff flash for as long as the freeze holds.

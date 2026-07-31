@@ -764,6 +764,21 @@ export class CombatVisuals {
         return this.stolenAbilityNameStyle;
     }
     /** Put an upright container into the shared damage/MISS rise, drift, pop and fade animation. */
+    /**
+     * Green "+N" heal pop (e.g. Hydra's Devour Essence rejuvenation): the same float/pop mechanics as
+     * a damage number, but healing green with a plus sign, rising straight up (no fling direction —
+     * nothing "hit" the unit).
+     */
+    public showHealPop(pos: HoCMath.XY, amount: number): void {
+        if (amount <= 0) {
+            return;
+        }
+        const container = new Container();
+        const healText = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#4dff9e", "#0b4d26") });
+        healText.anchor.set(0.5);
+        container.addChild(healText);
+        this.enqueueFloatingContainer(container, pos);
+    }
     private enqueueFloatingContainer(container: Container, pos: HoCMath.XY, direction?: HoCMath.XY): void {
         // Anti-overlap: if numbers are already floating near this spot, stack this one
         // above them instead of drawing on top.
@@ -815,6 +830,27 @@ export class CombatVisuals {
     public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
         const container = new Container();
         const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
+     * Lucky Strike proc: a gold "LUCKY!" that rises over the STRIKER (the MISS label's counterpart —
+     * same floating lifecycle, luck-gold styling so it reads as a positive roll, not damage).
+     */
+    public showLuckyLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "LUCKY!",
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 32,
+                fontWeight: "900",
+                fill: "#ffd94d",
+                stroke: { color: "#5c4600", width: 5 },
+                dropShadow: { color: "#000000", blur: 4, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
         label.anchor.set(0.5);
         container.addChild(label);
         this.enqueueFloatingContainer(container, pos, direction);

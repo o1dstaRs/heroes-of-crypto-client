@@ -997,6 +997,22 @@ export class Sandbox extends PixiScene {
                 });
                 return true;
             };
+            // Same idea for the Lucky Strike proc VFX: fire the gold flash + "LUCKY!" on the first
+            // placed unit on demand (the proc is a ~35% roll — waiting for a natural one wastes time).
+            (w as { __hocLuckyVfxTest?: () => boolean }).__hocLuckyVfxTest = () => {
+                const units = [...this.unitsHolder.getAllUnits().values()];
+                if (!units.length) {
+                    return false;
+                }
+                this.spawnLuckyStrikeVfx({
+                    amount: 0,
+                    render: false,
+                    unitPosition: units[0].getPosition(),
+                    unitIsSmall: units[0].isSmallSize(),
+                    luckyStrikeBy: [units[0].getId()],
+                });
+                return true;
+            };
             // Visual smoke/tuning hook for the mountain-collapse VFX: crashes one/both mountains apart
             // on demand (BLOCK_CENTER map only) without grinding their hit points down in a real fight.
             (w as { __hocMountainCollapseTest?: (side?: "left" | "right") => boolean }).__hocMountainCollapseTest = (
@@ -3120,6 +3136,30 @@ export class Sandbox extends PixiScene {
         const below = { x: vCenter.x, y: vCenter.y - (victim.isSmallSize() ? cell * 0.85 : cell * 1.25) };
         this.combatVisuals.showMissLabel(below, dir);
     }
+    /**
+     * Lucky Strike proc VFX: gold "LUCKY!" + gold flash over each unit whose Lucky Strike fired this
+     * exchange (damage.luckyStrikeBy, written by the engine — covers attacker AND responder procs).
+     * ABILITY VFX CONTRACT: called from BOTH the live attack path and the ranked replay path; no-op
+     * unless the payload carries procs, so callers pass the damage unconditionally.
+     */
+    protected spawnLuckyStrikeVfx(damage?: IVisibleDamage): void {
+        if (!damage?.luckyStrikeBy?.length) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        for (const strikerId of damage.luckyStrikeBy) {
+            const striker = this.unitsHolder.getAllUnits().get(strikerId) as RenderableUnit | undefined;
+            if (!striker || striker.isDead()) {
+                continue;
+            }
+            striker.flashLuckyStrike();
+            const center = striker.getVisualCenter(gs);
+            // ABOVE the striker (world +y is up) — the MISS label owns the space below its victim.
+            const above = { x: center.x, y: center.y + (striker.isSmallSize() ? cell * 0.85 : cell * 1.25) };
+            this.combatVisuals.showLuckyLabel(above);
+        }
+    }
     private async playReplayAttackRecord(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = cloneReplayData(record.action);
         if (action.type !== "melee_attack" && action.type !== "range_attack") {
@@ -3415,6 +3455,23 @@ export class Sandbox extends PixiScene {
      * already-aggregated entry, but grouping here keeps old/replayed journals and multi-hit attacks from
      * producing several overlapping ABSORBED pops for the same Abomination.
      */
+    /**
+     * Devour Essence (Hydra) heals riding the attack's secondary payload: a green "+N" pop + a green
+     * buff-wash on the devourer. A HEAL, so it must never enter the generic secondary loops that draw
+     * red "-N" hits — every caller filters the source out of those. Shared by the live sandbox,
+     * replay, and ranked event paths so all three read identically.
+     */
+    protected showDevourEssenceHeals(secondary?: IVisibleDamage["secondary"]): void {
+        for (const entry of secondary ?? []) {
+            if (entry.source !== "devour_essence" || entry.amount <= 0) {
+                continue;
+            }
+            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getVisualCenter(this.sc_sceneSettings.getGridSettings()) ?? entry.position;
+            this.combatVisuals?.showHealPop(pos, entry.amount);
+            unit?.flashBuffApplied();
+        }
+    }
     protected aggregateFleshShieldDamage(
         secondary?: IVisibleDamage["secondary"],
     ): Map<string, { unitId: string; position: HoCMath.XY; amount: number; unitsDied: number }> {
@@ -3554,8 +3611,11 @@ export class Sandbox extends PixiScene {
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
         this.showFleshShieldAbsorbedDamage(damage.secondary, attackerCenter, 220);
+        // Devour Essence is a HEAL riding the same payload — green "+N" on the devourer, kept out of
+        // the red-number loop below.
+        this.showDevourEssenceHeals(damage.secondary);
         (damage.secondary ?? [])
-            .filter((entry) => entry.source !== "flesh_shield")
+            .filter((entry) => entry.source !== "flesh_shield" && entry.source !== "devour_essence")
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;
                 const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
@@ -3635,6 +3695,7 @@ export class Sandbox extends PixiScene {
         // Fully-missed attack: "MISS" + bullet-time dodge instead of a damage number. Placed after the
         // secondary/deepWounds rendering above (a missed primary can still land Skewer/Lightning-Spin
         // side damage) and before the HP-diff fallback, which must not run for a dodge.
+        this.spawnLuckyStrikeVfx(damage);
         if (damage.missed) {
             this.showAttackMissedVfx(attacker, target, damage);
             return;
@@ -8075,6 +8136,9 @@ export class Sandbox extends PixiScene {
             180,
         );
 
+        // Devour Essence heal (Hydra devouring a slain enemy): green "+N" + buff-wash on the devourer.
+        this.showDevourEssenceHeals(damageForAnimation.secondary);
+
         // Fire damage burst — Fire Shield reflect, dragon-breath burn, Fireforged Sword strike. Lives
         // in this shared section (not the melee branch above) so a RANGED attacker's fire also burns,
         // and delayed like the Flesh Shield pops so it lands with the numbers rather than the wind-up.
@@ -8084,6 +8148,9 @@ export class Sandbox extends PixiScene {
         // Fully-missed attack: no damage number to draw — pop "MISS" under the dodging unit and play
         // its bullet-time dodge instead (no-op unless damageForAnimation.missed).
         this.showAttackMissedVfx(attacker, target, damageForAnimation);
+
+        // Lucky Strike procs (attacker and/or responder): gold flash + "LUCKY!" over each striker.
+        this.spawnLuckyStrikeVfx(damageForAnimation);
 
         // 1. Target Damage
         // AOE shots (Gargantuan Area Throw / Large Caliber) convey their damage per-affected-unit via
