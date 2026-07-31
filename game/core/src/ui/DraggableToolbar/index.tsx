@@ -33,21 +33,22 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
 };
 
 /**
- * How each glyph is cropped out of its plaque. The atlas art is a decorated tile — a square plate with
- * ornamental corners (or, for the clover, a round medallion) with the glyph in the middle. `zoom` blows the
- * art up inside the button so the plate falls outside the circular clip; `inset` then pulls the whole layer
- * in from the button's rim so the glyph does not touch the border. Values are per icon because the plates
- * are not laid out identically.
+ * How each glyph is fitted into its button. `zoom` scales the art inside the button; `inset` pulls the whole
+ * layer in from the rim so nothing touches the border.
+ *
+ * The whole set is now round medallions — the glyph sits on its own disc that already fills the source
+ * canvas edge to edge (verified: the opaque area is π/4 of the square, i.e. an inscribed circle). So the art
+ * needs showing very nearly whole, and the button's own rim becomes its frame.
+ *
+ * It used to be square plates with ornamental corners, which had to be zoomed to 168% so the plate fell
+ * outside the circular clip. Feeding a medallion through that crop threw away roughly 40% of it — the disc
+ * was blown up until its edge, and part of the glyph, was clipped away. Hence the far gentler default.
+ * Per-icon entries stay available for art that does not follow the medallion layout.
  */
-const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {
-    // Round medallion, no corner ornaments: show it almost whole, filling the button to its rim.
-    [luckShieldIconImage]: { zoom: 108, inset: 3 },
-    // The spellbook already reads well at the conservative crop — left alone deliberately.
-    [spellbookIconImage]: { zoom: 140, inset: 16 },
-};
-// Square plates: crop past the corner ornaments (they occupy the outer ~20%), which lands the glyph
-// filling the disc.
-const GLYPH_CROP_DEFAULT = { zoom: 168, inset: 7 };
+const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {};
+// The medallion is cut to its own circle and already includes the bezel, so it maps 1:1 onto the button:
+// no zoom to push a plate out of frame, no inset to hold a glyph off a rim that no longer exists.
+const GLYPH_CROP_DEFAULT = { zoom: 100, inset: 0 };
 
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
@@ -60,13 +61,12 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [luckShieldIconImage]: false,
 };
 
-// The `icon_*_black.webp` atlas is named for the dark theme it ships against — the glyphs themselves are
-// already light. So the handoff's ember values are reached by warming them, NOT by inverting: an invert
-// drives a light glyph to near-black and it vanishes on the obsidian disc.
-const EMBER_GLYPH_FILTER =
-    "sepia(48%) saturate(240%) hue-rotate(-6deg) brightness(1.02) drop-shadow(0 0 2px rgba(0,0,0,.9))";
-const EMBER_GLYPH_FILTER_BRIGHT =
-    "sepia(24%) saturate(165%) hue-rotate(-4deg) brightness(1.16) drop-shadow(0 0 3px rgba(243,212,136,.5))";
+// The art now arrives already finished: a gold medallion, its own bezel included, on transparency. So it is
+// left in its own colour rather than warmed to ember — the old sepia/saturate pass existed to push pale
+// glyphs into gold on the obsidian disc, and running already-gold art through it just oversaturated the
+// bezel. Only the shadow is kept, to hold the medallion off the panel behind it.
+const GLYPH_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,.85))";
+const GLYPH_FILTER_BRIGHT = "brightness(1.12) drop-shadow(0 2px 5px rgba(243,212,136,.45))";
 
 // Obsidian shell from the fight-sidebar handoff. The old bronze-trimmed stone panel read as another gold
 // frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
@@ -90,11 +90,12 @@ const StyledIconButton = styled("button", {
     overflow: "hidden",
     cursor: "pointer",
     transform: `rotate(${rotationDegrees}deg)`,
-    // Obsidian disc with a black rim. The glyph rides on the ::before layer so the ember filter tints the
-    // artwork only — filtering the button itself inverted the disc along with it.
-    background: "radial-gradient(circle at 42% 32%, #2b2118, #120c07 70%)",
-    border: "2px solid #241a10",
-    boxShadow: "inset 0 2px 6px rgba(0,0,0,.9), 0 0 12px rgba(0,0,0,.5)",
+    // No shell of our own: the medallion art carries its own bezel, so an obsidian disc and a rim behind it
+    // only produced a second ring around the first. The button is a bare, transparent circle and the glyph
+    // layer is the whole of it.
+    background: "transparent",
+    border: "none",
+    boxShadow: "none",
     "&::before": {
         content: '""',
         position: "absolute",
@@ -104,21 +105,15 @@ const StyledIconButton = styled("button", {
         backgroundSize: "var(--hoc-glyph-zoom)",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
-        filter: EMBER_GLYPH_FILTER,
+        filter: GLYPH_FILTER,
         transition: "filter 0.3s ease",
         pointerEvents: "none",
     },
     "&:hover:not(:disabled)": {
         transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
-        background: "radial-gradient(circle at 42% 32%, #3a2c1c, #1a1109 70%)",
-        borderColor: "#8a7136",
-        boxShadow: "inset 0 2px 6px rgba(0,0,0,.8), 0 0 18px rgba(243,212,136,.4)",
-        "&::before": { filter: EMBER_GLYPH_FILTER_BRIGHT },
+        "&::before": { filter: GLYPH_FILTER_BRIGHT },
     },
     "&:disabled": {
-        background: "radial-gradient(circle at 42% 32%, #201811, #0d0905 70%)",
-        borderColor: "rgba(202,162,79,.35)",
-        boxShadow: "none",
         opacity: 0.5,
         cursor: "not-allowed",
     },
