@@ -6938,6 +6938,21 @@ export class Sandbox extends PixiScene {
         attackFromCell?: HoCMath.XY,
         onComplete?: () => void,
     ): boolean {
+        // Ranked: the engine folds the melee approach into the obstacle_attack itself (attackFrom +
+        // path), and the authoritative echo replays walk + strike exactly once
+        // (playReplayObstacleAttackAction) — so submit the single combined action, mirroring the
+        // unit-vs-unit melee fold. Running the local move sequence here instead submitted a bare
+        // move_unit whose deferred branch never fires this strike callback: the unit walked up to
+        // the mountain and its turn ended without an attack (and the server's post-move follow-up
+        // whitelist has no OBSTACLE_ATTACK, so a second click couldn't land the strike either).
+        const rankedAction = this.buildObstacleAttackAction(unit, targetPosition, attackFromCell);
+        if (this.shouldDeferActionToAuthoritativeReplay(rankedAction)) {
+            const submitted = this.submitActionForAuthoritativeReplay(rankedAction);
+            if (submitted) {
+                onComplete?.();
+            }
+            return submitted;
+        }
         if (!attackFromCell) {
             const ok = this.applyObstacleAttackAction(unit, targetPosition);
             if (ok) {
@@ -6979,15 +6994,15 @@ export class Sandbox extends PixiScene {
         });
         return true;
     }
-    private applyObstacleAttackAction(
+    private buildObstacleAttackAction(
         unit: RenderableUnit,
         worldPos: HoCMath.XY,
         attackFromCell?: HoCMath.XY,
-    ): boolean {
+    ): GameAction {
         const routeMetadata = attackFromCell
             ? this.currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y)?.[0]
             : undefined;
-        const action: GameAction = {
+        return {
             type: "obstacle_attack",
             attackerId: unit.getId(),
             targetPosition: worldPos,
@@ -6996,6 +7011,13 @@ export class Sandbox extends PixiScene {
             hasLavaCell: routeMetadata?.hasLavaCell,
             hasWaterCell: routeMetadata?.hasWaterCell,
         };
+    }
+    private applyObstacleAttackAction(
+        unit: RenderableUnit,
+        worldPos: HoCMath.XY,
+        attackFromCell?: HoCMath.XY,
+    ): boolean {
+        const action = this.buildObstacleAttackAction(unit, worldPos, attackFromCell);
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
         if (!result.completed) {
