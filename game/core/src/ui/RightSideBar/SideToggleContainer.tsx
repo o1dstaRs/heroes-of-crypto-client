@@ -568,7 +568,12 @@ const SideToggleContainer = ({
     ];
 
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "min(1340px, 97vw)", mx: "auto" }}>
+        <Box
+            // Fill the PARENT, never the viewport: the ranked overlay already sizes itself to
+            // min(1340px, 97vw), so 100% matches it exactly there — while in the sandbox right
+            // sidebar a viewport-relative width escaped the panel and clipped the right column.
+            sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "min(1340px, 100%)", mx: "auto" }}
+        >
             {/* Every category on screen at once: 4 columns, one card per augment, levels priced inline. */}
             <Box
                 sx={{
