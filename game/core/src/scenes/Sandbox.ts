@@ -1013,6 +1013,19 @@ export class Sandbox extends PixiScene {
                 });
                 return true;
             };
+            // And for the resurrection burst + head-count label: play it over the first placed unit
+            // with the given raised amount (a real raise needs a dead stack and an Angel's cast).
+            (w as { __hocResurrectVfxTest?: (amount?: number) => boolean }).__hocResurrectVfxTest = (
+                amount?: number,
+            ) => {
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const units = [...this.unitsHolder.getAllUnits().values()];
+                const position =
+                    units[0]?.getPosition() ??
+                    GridMath.getPositionForCell({ x: 8, y: 8 }, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                this.renderResurrectionVfx(position, amount ?? 3);
+                return true;
+            };
             // Visual smoke/tuning hook for the mountain-collapse VFX: crashes one/both mountains apart
             // on demand (BLOCK_CENTER map only) without grinding their hit points down in a real fight.
             (w as { __hocMountainCollapseTest?: (side?: "left" | "right") => boolean }).__hocMountainCollapseTest = (
@@ -11559,8 +11572,15 @@ export class Sandbox extends PixiScene {
      * land here. Shared rather than inlined at each call site so ranked's live and replay paths render it
      * identically to the sandbox (the recurring "works in sandbox, missing in ranked" trap).
      */
-    protected renderResurrectionVfx(position: HoCMath.XY): void {
-        this.combatVisuals?.spawnResurrectionBurst(position, this.sc_sceneSettings.getGridSettings().getCellSize());
+    protected renderResurrectionVfx(position: HoCMath.XY, raisedCount?: number): void {
+        const cell = this.sc_sceneSettings.getGridSettings().getCellSize();
+        this.combatVisuals?.spawnResurrectionBurst(position, cell);
+        // A cast can restore HP without raising a whole unit (amount 0) — the burst alone covers that;
+        // the head-count label only appears when stacks actually came back.
+        if (raisedCount && raisedCount > 0) {
+            // Above the ground rings (world +y is up) so the count rides the light column, not the unit.
+            this.combatVisuals?.showResurrectedCount({ x: position.x, y: position.y + cell * 1.4 }, raisedCount);
+        }
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
         const armageddonWaves = new Set<number>();
@@ -11768,7 +11788,7 @@ export class Sandbox extends PixiScene {
                 case "spell_cast":
                     // A RESURRECT cast reports what it raised; play the burst over each stack it brought back.
                     for (const raised of event.resurrected ?? []) {
-                        this.renderResurrectionVfx(raised.position);
+                        this.renderResurrectionVfx(raised.position, raised.amount);
                     }
                     shouldRefreshVisibleState = true;
                     break;
@@ -12013,7 +12033,7 @@ export class Sandbox extends PixiScene {
 
         unit.setPosition(event.position.x, event.position.y);
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
-        this.renderResurrectionVfx(event.position);
+        this.renderResurrectionVfx(event.position, event.amount);
         unit.playOneShotAnimation("death", () => {
             unit.setVisualGhost(true);
             setTimeout(() => {

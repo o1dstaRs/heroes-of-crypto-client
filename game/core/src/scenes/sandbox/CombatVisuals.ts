@@ -856,6 +856,32 @@ export class CombatVisuals {
         this.enqueueFloatingContainer(container, pos, direction);
     }
     /**
+     * Resurrection head-count: a "+N RAISED" that rides the golden burst so a raise shows its SIZE, not
+     * just that it happened. Resurrection palette rather than the damage yellow, so the number reads as
+     * units returned — never as points dealt.
+     */
+    public showResurrectedCount(pos: HoCMath.XY, amount: number): void {
+        const container = new Container();
+        const caption = new PixiText({
+            text: "RAISED",
+            style: new TextStyle({
+                fontFamily: "Arial",
+                fontSize: 26,
+                fontWeight: "900",
+                fill: "#fff3c4",
+                stroke: { color: "#7a5b12", width: 5 },
+                dropShadow: { color: "#000000", blur: 4, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
+        caption.anchor.set(0.5);
+        caption.position.set(0, -34);
+        const count = new PixiText({ text: `+${amount}`, style: this.getDamageStyle("#ffd76a", "#5c4600") });
+        count.anchor.set(0.5);
+        count.position.set(0, 16);
+        container.addChild(caption, count);
+        this.enqueueFloatingContainer(container, pos);
+    }
+    /**
      * Craft "failed" result: a plain dark-grey "No effect!" label with NO icon, reusing the floating-text
      * rise/fade. Deliberately unlike the icon pops used for a successful craft so a dud reads as nothing.
      */
