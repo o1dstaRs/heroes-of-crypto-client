@@ -9951,6 +9951,8 @@ export class Sandbox extends PixiScene {
 
                         // --- Multi-Target Highlight (AOE) ---
                         const secondaryTargets: Unit[] = [];
+                        // Per-victim damage scaling for the prediction (Chakram halves 2-cell bounces).
+                        const secondaryDamageFactorById = new Map<string, number>();
 
                         // Common AOE (Lightning Spin, Fire Breath, Skewer Strike) - Usually Melee triggered?
                         // If Move-and-Shoot (Range), we probably shouldn't trigger Melee AOE visuals unless logic supports it.
@@ -10022,6 +10024,28 @@ export class Sandbox extends PixiScene {
                             }
                         }
 
+                        // Chakram (Zena): the disc's separation chain is deterministic, so the hover shows
+                        // the EXACT victims the engine will strike — same resolver, zero drift. Each joins
+                        // the red-highlight set; 2-cell bounces carry their half-damage factor into the
+                        // prediction number.
+                        if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Chakram")) {
+                            const chakramPreview = AllAbilities.resolveChakramTrajectory(
+                                this.currentActiveUnit,
+                                targetUnit,
+                                this.unitsHolder,
+                                this.grid,
+                            );
+                            for (const enemy of chakramPreview.hitUnits) {
+                                if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
+                                    secondaryTargets.push(enemy);
+                                    secondaryDamageFactorById.set(
+                                        enemy.getId(),
+                                        chakramPreview.damageFactorByUnitId[enemy.getId()] ?? 1,
+                                    );
+                                }
+                            }
+                        }
+
                         // Calculate stats for secondary targets
                         for (const enemy of secondaryTargets) {
                             // Apply same modifiers to secondary targets
@@ -10066,9 +10090,14 @@ export class Sandbox extends PixiScene {
                                 );
                             }
 
-                            totalMinDmg += sMin;
+                            // Chakram's 2-cell bounces land at half strength; other secondaries factor 1.
+                            const secondaryFactor = secondaryDamageFactorById.get(enemy.getId()) ?? 1;
+                            const sMinFinal = Math.floor(sMin * secondaryFactor);
+                            sMaxFinal = Math.floor(sMaxFinal * secondaryFactor);
+
+                            totalMinDmg += sMinFinal;
                             totalMaxDmg += sMaxFinal;
-                            totalMinKills += enemy.calculatePossibleLosses(sMin);
+                            totalMinKills += enemy.calculatePossibleLosses(sMinFinal);
                             totalMaxKills += enemy.calculatePossibleLosses(sMaxFinal);
                         }
 
