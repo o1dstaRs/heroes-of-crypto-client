@@ -11,6 +11,7 @@ import {
     NatureSynergyNames,
     NatureSynergy,
     SpecificSynergy,
+    SynergyKeysToPower,
     TeamType,
     FactionType,
     FactionVals,
@@ -76,7 +77,20 @@ type SynergyOption = {
     icon: string;
     level: number;
     synergyName: string;
+    synergyValue: number;
     onSelect: () => void;
+};
+
+/**
+ * Fill a synergy description's {} placeholders with the actual powers for this faction/variant/level
+ * (SynergyKeysToPower is keyed `Faction:variant:level`; "Morale & luck" carries two values). Without
+ * this the tooltip showed the raw template braces. A locked/unformed synergy previews level 1.
+ */
+const synergyDescription = (faction: string, synergyValue: number, synergyName: string, level: number): string => {
+    const template = SYNERGY_NAME_TO_DESCRIPTION[synergyName] ?? synergyName;
+    const powers = SynergyKeysToPower[`${faction}:${synergyValue}:${Math.max(level, 1)}`] ?? [];
+    let index = 0;
+    return template.replace(/\{\}/g, () => String(powers[index++] ?? "?"));
 };
 
 // One faction's synergy pair: pick 1 of 2, free, unlocked by how many units of that faction you drafted
@@ -159,7 +173,7 @@ const SynergyFactionPanel = ({
                     return (
                         <Tooltip
                             key={option.label}
-                            title={SYNERGY_NAME_TO_DESCRIPTION[option.synergyName] ?? option.label}
+                            title={synergyDescription(faction, option.synergyValue, option.synergyName, option.level)}
                             variant="soft"
                             placement="top"
                         >
@@ -664,6 +678,7 @@ const SideToggleContainer = ({
                                         synergySupplyImg,
                                     level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
                                     synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                    synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeLife, {
                                             faction: FactionVals.LIFE as FactionType,
@@ -680,6 +695,7 @@ const SideToggleContainer = ({
                                         synergyMoraleImg,
                                     level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
                                     synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                    synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeLife, {
                                             faction: FactionVals.LIFE as FactionType,
@@ -705,6 +721,7 @@ const SideToggleContainer = ({
                                         synergyIncreaseBoardUnitsImg,
                                     level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
                                     synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                    synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeNature, {
                                             faction: FactionVals.NATURE as FactionType,
@@ -721,6 +738,7 @@ const SideToggleContainer = ({
                                         synergyPlusFlyArmorImg,
                                     level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
                                     synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                    synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeNature, {
                                             faction: FactionVals.NATURE as FactionType,
@@ -746,6 +764,7 @@ const SideToggleContainer = ({
                                         synergyMovementImg,
                                     level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
                                     synergyName: ChaosSynergyNames.MOVEMENT,
+                                    synergyValue: ChaosSynergy.MOVEMENT,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeChaos, {
                                             faction: FactionVals.CHAOS as FactionType,
@@ -762,6 +781,7 @@ const SideToggleContainer = ({
                                         synergyBreakOnAttackImg,
                                     level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
                                     synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                    synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeChaos, {
                                             faction: FactionVals.CHAOS as FactionType,
@@ -787,6 +807,7 @@ const SideToggleContainer = ({
                                         synergyAurasRangeImg,
                                     level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
                                     synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                    synergyValue: MightSynergy.PLUS_AURAS_RANGE,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeMight, {
                                             faction: FactionVals.MIGHT as FactionType,
@@ -803,6 +824,7 @@ const SideToggleContainer = ({
                                         synergyAbilitiesPowerImg,
                                     level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
                                     synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                    synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
                                     onSelect: () =>
                                         handleSynergySelect(setSynergyPairTypeMight, {
                                             faction: FactionVals.MIGHT as FactionType,
