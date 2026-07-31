@@ -354,6 +354,9 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     );
 };
 
+// Ability textures that have completed a load once this session (see the fade note in AbilityCell).
+const loadedAbilityTextures = new Set<string>();
+
 const AbilityCell: React.FC<{
     ability: IVisibleImpact;
     teamType: TeamType;
@@ -372,13 +375,25 @@ const AbilityCell: React.FC<{
     // The stack-power pips and disabled-status overlay are pure CSS, so they'd otherwise pop in before the
     // ability image finishes loading (the pips visibly racing ahead). Gate them — and fade the image
     // in — on the image's load so everything appears together.
-    const [loaded, setLoaded] = React.useState(false);
-    const setImgRef = React.useCallback((node: HTMLImageElement | null) => {
-        // A cached image can already be complete before onLoad attaches — reconcile on mount.
-        if (node?.complete && node.naturalWidth > 0) {
-            setLoaded(true);
-        }
-    }, []);
+    //
+    // The fade is a FIRST-load nicety only: the sidebar remounts these cells on every active-unit swap
+    // (each replayed action!), and re-fading a texture that already loaded this session read as constant
+    // sidebar flicker during replays. loadedAbilityTextures remembers what has loaded once so remounts
+    // start visible.
+    const [loaded, setLoaded] = React.useState(() => loadedAbilityTextures.has(ability.smallTextureName));
+    const markLoaded = React.useCallback(() => {
+        loadedAbilityTextures.add(ability.smallTextureName);
+        setLoaded(true);
+    }, [ability.smallTextureName]);
+    const setImgRef = React.useCallback(
+        (node: HTMLImageElement | null) => {
+            // A cached image can already be complete before onLoad attaches — reconcile on mount.
+            if (node?.complete && node.naturalWidth > 0) {
+                markLoaded();
+            }
+        },
+        [markLoaded],
+    );
 
     return (
         <Tooltip
@@ -445,8 +460,10 @@ const AbilityCell: React.FC<{
                     ref={setImgRef}
                     // @ts-ignore: images index signature
                     src={images[ability.smallTextureName]}
-                    onLoad={() => setLoaded(true)}
-                    onError={() => setLoaded(true)}
+                    // Cached textures paint on the same frame instead of flashing one blank frame.
+                    decoding="sync"
+                    onLoad={markLoaded}
+                    onError={markLoaded}
                     sx={{
                         position: "absolute",
                         top: 0,
@@ -705,6 +722,10 @@ const EffectTiles: React.FC<{
                                 component="img"
                                 // @ts-ignore: images index signature
                                 src={images[effect.smallTextureName]}
+                                // The buffs/debuffs rows remount on every active-unit swap (each replayed
+                                // action); sync decoding paints cached tiles on the same frame instead of
+                                // flashing one blank frame per swap.
+                                decoding="sync"
                                 sx={{
                                     width: "100%",
                                     maxWidth: "100%",
