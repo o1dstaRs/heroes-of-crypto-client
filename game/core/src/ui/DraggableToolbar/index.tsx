@@ -12,7 +12,6 @@ const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.m
 const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
 const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
 const aiIconImage = new URL("../../../images/icon_ai_black.webp", import.meta.url).toString();
-const aiOnIconImage = new URL("../../../images/icon_ai_on_black.webp", import.meta.url).toString();
 const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
@@ -31,7 +30,8 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
     [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
     [`AI${VisibleButtonState.FIRST}`]: aiIconImage,
-    [`AI${VisibleButtonState.SECOND}`]: aiOnIconImage,
+    // AI active keeps the SAME art — the on-state is an "ON" badge overlay, not a different image.
+    [`AI${VisibleButtonState.SECOND}`]: aiIconImage,
     [`Next${VisibleButtonState.FIRST}`]: skipIconImage,
     [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
 };
@@ -42,7 +42,6 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [swordIconImage]: false,
     [scepterIconImage]: false,
     [aiIconImage]: false,
-    [aiOnIconImage]: false,
     [skipIconImage]: false,
     [luckShieldIconImage]: false,
 };
@@ -131,6 +130,8 @@ interface ButtonComponentProps {
     customSpriteName?: string;
     numberOfOptions?: number;
     selectedOption?: number;
+    /** Small pill rendered over the icon's corner (e.g. "ON" while the AI drives) — same art, badged. */
+    badge?: string;
 }
 
 const ButtonComponent: React.FC<ButtonComponentProps> = ({
@@ -144,6 +145,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     customSpriteName,
     numberOfOptions = 1,
     selectedOption = 1,
+    badge,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
     const [transfusionEffect, setTransfusionEffect] = useState(false);
@@ -177,7 +179,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO }}>
+            <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO, position: "relative" }}>
                 <Tooltip title={text} placement="top">
                     <StyledIconButton
                         onClick={handleClick}
@@ -198,6 +200,29 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                     />
                 </Tooltip>
+                {badge && (
+                    <Box
+                        component="span"
+                        sx={{
+                            position: "absolute",
+                            right: -5 * SCREEN_RATIO,
+                            bottom: -3 * SCREEN_RATIO,
+                            px: `${4 * SCREEN_RATIO}px`,
+                            borderRadius: `${7 * SCREEN_RATIO}px`,
+                            fontSize: 10 * SCREEN_RATIO,
+                            lineHeight: `${14 * SCREEN_RATIO}px`,
+                            fontWeight: 900,
+                            letterSpacing: "0.5px",
+                            color: "#0b2e12",
+                            backgroundColor: "#46d160",
+                            border: "1px solid rgba(6, 46, 16, 0.9)",
+                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.55)",
+                            pointerEvents: "none",
+                        }}
+                    >
+                        {badge}
+                    </Box>
+                )}
             </Box>
             {numberOfOptions > 1 && (
                 <Box
@@ -491,6 +516,9 @@ const DraggableToolbar: React.FC = () => {
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
+                        badge={
+                            button.name === "AI" && button.state === VisibleButtonState.SECOND ? "ON" : undefined
+                        }
                     />
                 ))}
             </Box>
