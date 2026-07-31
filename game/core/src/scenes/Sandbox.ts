@@ -49,7 +49,9 @@ import {
     IVisibleDamage,
     AbilityHelper,
     AllAbilities,
+    Artifact,
     IDamageStatistic,
+    FightProperties,
     GameAction,
     GameActionEngine,
     TurnEngine,
@@ -79,10 +81,11 @@ import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
-import { SmokeCloudLayer } from "./sandbox/SmokeCloudLayer";
-import { VineLayer } from "./sandbox/VineLayer";
-import { FireWallLayer } from "./sandbox/FireWallLayer";
+import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
+import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
+import { FireWallLayer, type IFireWallCell } from "./sandbox/FireWallLayer";
 import { WindLayer } from "./sandbox/WindLayer";
+import { TerrainCellSnapshotCache } from "./sandbox/TerrainCellSnapshotCache";
 import { createCinematicFilter } from "./sandbox/CinematicFilter";
 import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
@@ -129,6 +132,44 @@ export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["seco
     event.type === "spell_cast"
         ? (event as Extract<GameEvent, { type: "spell_cast" }> & { secondary?: IVisibleDamage["secondary"] }).secondary
         : undefined;
+
+/**
+ * Setup choices are not part of SandboxSceneState, but ranked applies them to FightProperties immediately
+ * before hydrating an authoritative snapshot. Capture and restore them around FightStateManager.reset() so
+ * every hydrate retains the exact setup that drives placement, stats, artifact buffs, and synergies.
+ */
+export const captureFightSetupForHydration = (fightProps: FightProperties) =>
+    [TeamVals.LOWER, TeamVals.UPPER].map((team) => ({
+        team,
+        perk: fightProps.getPerk(team),
+        placement: fightProps.getAugmentPlacementLevel(team),
+        armor: fightProps.getAugmentArmor(team),
+        might: fightProps.getAugmentMight(team),
+        empower: fightProps.getAugmentEmpower(team),
+        sniper: fightProps.getAugmentSniper(team),
+        movement: fightProps.getAugmentMovement(team),
+        artifactTier1: fightProps.getArtifactTier1(team),
+        artifactTier2: fightProps.getArtifactTier2(team),
+        synergies: fightProps.getSynergiesPerTeam(team),
+    }));
+
+export const restoreFightSetupAfterHydrationReset = (
+    fightProps: FightProperties,
+    priorSetup: ReturnType<typeof captureFightSetupForHydration>,
+): void => {
+    for (const setup of priorSetup) {
+        fightProps.setPerkPerTeam(setup.team, setup.perk);
+        fightProps.setAugmentPerTeam(setup.team, { type: "Placement", value: setup.placement });
+        fightProps.setAugmentPerTeam(setup.team, { type: "Armor", value: setup.armor });
+        fightProps.setAugmentPerTeam(setup.team, { type: "Might", value: setup.might });
+        fightProps.setAugmentPerTeam(setup.team, { type: "Empower", value: setup.empower });
+        fightProps.setAugmentPerTeam(setup.team, { type: "Sniper", value: setup.sniper });
+        fightProps.setAugmentPerTeam(setup.team, { type: "Movement", value: setup.movement });
+        fightProps.setArtifactPerTeam(setup.team, Artifact.ArtifactTier.TIER_1, setup.artifactTier1);
+        fightProps.setArtifactPerTeam(setup.team, Artifact.ArtifactTier.TIER_2, setup.artifactTier2);
+        fightProps.setSynergiesPerTeam(setup.team, setup.synergies);
+    }
+};
 
 /** One unit captured at fight start, enough to recreate it exactly on "Rematch". */
 interface IUnitFightSnapshot {
@@ -539,6 +580,8 @@ export class Sandbox extends PixiScene {
     /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
     private atlasesPrewarmed = false;
     private gameplayGraphics?: Graphics;
+    /** Tracks whether the dynamic board-overlay buffer needs one final clear after it becomes idle. */
+    private gameplayGraphicsHasGeometry = false;
     private currentActiveSpell?: PixiRenderableSpell;
     private hoveredSpell?: PixiRenderableSpell;
     private spellHoverInfoKey = "";
@@ -556,8 +599,11 @@ export class Sandbox extends PixiScene {
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
     private smokeCloudLayer?: SmokeCloudLayer;
+    private readonly smokeCloudSnapshotCache = new TerrainCellSnapshotCache<ISmokeCloudCell>();
     private vineLayer?: VineLayer;
+    private readonly vineSnapshotCache = new TerrainCellSnapshotCache<IVineCell>();
     private fireWallLayer?: FireWallLayer;
+    private readonly fireWallSnapshotCache = new TerrainCellSnapshotCache<IFireWallCell>();
     /**
      * Which way the armed Fire Wall will lie when the player clicks. Rotated by Shift while aiming (see
      * rotateFireWallAim); reset to the default horizontal lay every time a spell is armed, so the wall never
@@ -1967,40 +2013,18 @@ export class Sandbox extends PixiScene {
         const priorObstacleHitsLeft = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftLeft() : undefined;
         const priorObstacleHitsRight = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftRight() : undefined;
 
-        // Preserve each team's SETUP (perk + augments) across reset(): reset() builds a fresh FightProperties
-        // with no perk/augments, and the authoritative snapshot doesn't carry these into hydrate. Without this
-        // any full hydrate (e.g. the opponent placing a unit) reverted the placement zone to the base 3x3 —
-        // so a Placement augment "worked in sandbox but not ranked" — and dropped the stat-augment buffs.
-        const priorSetup = [TeamVals.LOWER, TeamVals.UPPER].map((team) => ({
-            team,
-            perk: priorFightProps.getPerk(team),
-            placement: priorFightProps.getAugmentPlacementLevel(team),
-            armor: priorFightProps.getAugmentArmor(team),
-            might: priorFightProps.getAugmentMight(team),
-            empower: priorFightProps.getAugmentEmpower(team),
-            sniper: priorFightProps.getAugmentSniper(team),
-            movement: priorFightProps.getAugmentMovement(team),
-            // FightStateManager.reset() does not preserve active synergies.
-            synergies: priorFightProps.getSynergiesPerTeam(team),
-        }));
+        // Preserve each team's SETUP (perk + augments + artifacts + synergies) across reset(): reset() builds
+        // a fresh FightProperties and the authoritative scene state itself does not carry these into hydrate.
+        // Without this, full ranked hydrates silently lose setup-driven placement, stats, and visible buffs.
+        const priorSetup = captureFightSetupForHydration(priorFightProps);
 
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
         fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         fightProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
-        // Restore the captured setup BEFORE rebuildFromFightProps so the placement zone (getAugmentPlacement)
-        // reflects the augment and the stat-augment buffs survive. Perk first — setAugmentPerTeam budget-checks
-        // against it; the running total is monotonic so every restore stays within the (already-valid) budget.
-        for (const s of priorSetup) {
-            fightProps.setPerkPerTeam(s.team, s.perk);
-            fightProps.setAugmentPerTeam(s.team, { type: "Placement", value: s.placement });
-            fightProps.setAugmentPerTeam(s.team, { type: "Armor", value: s.armor });
-            fightProps.setAugmentPerTeam(s.team, { type: "Might", value: s.might });
-            fightProps.setAugmentPerTeam(s.team, { type: "Empower", value: s.empower });
-            fightProps.setAugmentPerTeam(s.team, { type: "Sniper", value: s.sniper });
-            fightProps.setAugmentPerTeam(s.team, { type: "Movement", value: s.movement });
-            fightProps.setSynergiesPerTeam(s.team, s.synergies);
-        }
+        // Restore BEFORE rebuildFromFightProps so every setup-derived placement/stat/buff is available while
+        // units are reconstructed. Perk goes first inside the helper because augment restores budget-check it.
+        restoreFightSetupAfterHydrationReset(fightProps, priorSetup);
         fightProps.setGridType(snapshot.gridType);
         this.grid.refreshWithNewType(snapshot.gridType);
         this.placementManager.rebuildFromFightProps();
@@ -10697,8 +10721,13 @@ export class Sandbox extends PixiScene {
 
         // 1. Update Visual Overlays
         if (fightStarted) {
-            this.unitsOverlay?.destroy();
-            this.placementGraphics?.clear();
+            // Both are static placement-only layers. Destroy/hide them once instead of invalidating their
+            // graphics buffers on every simulation tick for the entire fight.
+            if (!this.unitsOverlay.container.destroyed) this.unitsOverlay.destroy();
+            if (this.placementGraphics?.visible) {
+                this.placementGraphics.clear();
+                this.placementGraphics.visible = false;
+            }
         }
 
         // 2. Background & Static Elements
@@ -10715,9 +10744,6 @@ export class Sandbox extends PixiScene {
         // Re-assert the opponent's relayed move silhouette every frame so it stays put and
         // tracks the unit, independent of the viewer's own (mouse-driven) hover updates.
         this.renderOpponentMoveIntent();
-
-        // 3. Clear dynamic graphics every frame
-        this.gameplayGraphics?.clear();
 
         // ==========================================================================================
         // CORE GAME LOGIC
@@ -10793,48 +10819,48 @@ export class Sandbox extends PixiScene {
             // tracks on screen forever once the move finished.
             this.stepMoveAnimation(timeStep);
             const lingeringTracks = this.moveAnimManager.getLingeringTracks();
-            // Ground units kick up dust; flying units displace air into wind.
-            this.smokeLayer?.update(
-                timeStep,
-                lingeringTracks.filter((t) => !t.flying),
-            );
-            this.windLayer?.update(
-                timeStep,
-                lingeringTracks.filter((t) => t.flying),
-            );
+            // Both layers select the relevant tracks while drawing. Passing the shared list avoids two
+            // short-lived filtered arrays on every simulation tick.
+            this.smokeLayer?.update(timeStep, lingeringTracks);
+            this.windLayer?.update(timeStep, lingeringTracks);
+            const terrainGridSettings = this.sc_sceneSettings.getGridSettings();
+            const terrainCellToWorld = (cell: HoCMath.XY) =>
+                GridMath.getPositionForCell(
+                    cell,
+                    terrainGridSettings.getMinX(),
+                    terrainGridSettings.getStep(),
+                    terrainGridSettings.getHalfStep(),
+                );
             // Spell smoke is read straight from the authoritative store rather than from the
             // smoke_placed/dispel/expired events, so sandbox and ranked share one path: the ranked client
             // already carries smokeClouds on every snapshot, exactly like narrowing and terrain.
             if (this.smokeCloudLayer) {
-                const gsSmoke = this.sc_sceneSettings.getGridSettings();
+                const smokeClouds = fightProps.getSmokeClouds();
                 this.smokeCloudLayer.update(
                     timeStep,
-                    FightStateManager.getInstance().getFightProperties().getSmokeClouds().toJSON(),
-                    gsSmoke.getCellSize(),
-                    (cell) =>
-                        GridMath.getPositionForCell(cell, gsSmoke.getMinX(), gsSmoke.getStep(), gsSmoke.getHalfStep()),
+                    this.smokeCloudSnapshotCache.get(smokeClouds),
+                    terrainGridSettings.getCellSize(),
+                    terrainCellToWorld,
                 );
             }
             // Vines, same authoritative-store pattern as the smoke above.
             if (this.vineLayer) {
-                const gsVine = this.sc_sceneSettings.getGridSettings();
+                const vines = fightProps.getVines();
                 this.vineLayer.update(
                     timeStep,
-                    FightStateManager.getInstance().getFightProperties().getVines().toJSON(),
-                    gsVine.getCellSize(),
-                    (cell) =>
-                        GridMath.getPositionForCell(cell, gsVine.getMinX(), gsVine.getStep(), gsVine.getHalfStep()),
+                    this.vineSnapshotCache.get(vines),
+                    terrainGridSettings.getCellSize(),
+                    terrainCellToWorld,
                 );
             }
             // Fire walls, same authoritative-store pattern as the smoke and vines above.
             if (this.fireWallLayer) {
-                const gsFire = this.sc_sceneSettings.getGridSettings();
+                const fireWalls = fightProps.getFireWalls();
                 this.fireWallLayer.update(
                     timeStep,
-                    FightStateManager.getInstance().getFightProperties().getFireWalls().toJSON(),
-                    gsFire.getCellSize(),
-                    (cell) =>
-                        GridMath.getPositionForCell(cell, gsFire.getMinX(), gsFire.getStep(), gsFire.getHalfStep()),
+                    this.fireWallSnapshotCache.get(fireWalls),
+                    terrainGridSettings.getCellSize(),
+                    terrainCellToWorld,
                 );
             }
             this.lightingLayer?.update(timeStep);
@@ -10857,6 +10883,7 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
             }
             if (this.placementGraphics) {
+                this.placementGraphics.visible = true;
                 this.drawPlacements();
             }
         }
@@ -10906,6 +10933,19 @@ export class Sandbox extends PixiScene {
         }
     }
     private drawGameplayVisuals(g: Graphics): void {
+        if (!this.hasGameplayVisuals()) {
+            if (this.gameplayGraphicsHasGeometry) {
+                g.clear();
+                this.gameplayGraphicsHasGeometry = false;
+            }
+            // This text is owned by the dynamic overlay lifecycle too; run its hide path even when
+            // no geometry is necessary so a disarmed Fire Wall does not leave a stale instruction behind.
+            this.updateFireWallRotateHint();
+            return;
+        }
+
+        g.clear();
+        this.gameplayGraphicsHasGeometry = true;
         let sidebarUnitRanges:
             | {
                   xy: HoCMath.XY;
@@ -11013,6 +11053,17 @@ export class Sandbox extends PixiScene {
         this.drawVineThrowAim(g);
         // "Shift to rotate" under an armed Fire Wall, alongside its footprint preview.
         this.updateFireWallRotateHint();
+    }
+    /** Whether the board-overlay Graphics has anything to render this simulation tick. */
+    private hasGameplayVisuals(): boolean {
+        if (this.sc_placementMoveRange?.length || this.sc_hoveredMoveRange?.length) return true;
+        if (this.sc_hoveredShotRange || this.sc_hoveredAuraRanges || this.sc_currentActiveShotRange) return true;
+        if (this.currentActivePath?.length || this.currentShiftedUnit || this.selectedBoardUnit) return true;
+        if (this.currentActiveSpell) return true;
+
+        const activeUnit = this.currentActiveUnit;
+        if (!activeUnit || this.isActiveUnitMoving) return false;
+        return activeUnit.getAuraRanges().some((range) => range > 0);
     }
     /**
      * Vine Throw aim preview: while the spell is armed and the cursor is over an enemy, highlight every cell

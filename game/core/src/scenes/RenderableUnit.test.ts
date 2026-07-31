@@ -235,6 +235,63 @@ describe("RenderableUnit revealed roster card", () => {
     });
 });
 
+describe("RenderableUnit steady-state overlays", () => {
+    type OverlayInternals = {
+        badgeFlag?: Graphics;
+        stackPowerPips: Graphics[];
+        hourglassContainer?: Container;
+        stunContainer?: Container;
+        respondContainer?: Container;
+    };
+
+    test("reuses static badge and stack geometry without allocating inactive status icons", () => {
+        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.setStackPower(3);
+        unit.setVisualVisible(false);
+        const worldRoot = new Container();
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        const internals = unit as unknown as OverlayInternals;
+        expect(internals.badgeFlag).toBeDefined();
+        expect(internals.stackPowerPips).toHaveLength(5);
+        expect(internals.hourglassContainer).toBeUndefined();
+        expect(internals.stunContainer).toBeUndefined();
+        expect(internals.respondContainer).toBeUndefined();
+
+        type ClearableGraphics = { clear: () => void };
+        const trackedGraphics = [internals.badgeFlag!, ...internals.stackPowerPips];
+        const restores: Array<() => void> = [];
+        let clearCalls = 0;
+        for (const graphic of trackedGraphics) {
+            const clearable = graphic as unknown as ClearableGraphics;
+            const originalClear = clearable.clear;
+            clearable.clear = () => {
+                clearCalls++;
+                originalClear.call(graphic);
+            };
+            restores.push(() => {
+                clearable.clear = originalClear;
+            });
+        }
+
+        try {
+            unit.ensureVisual(worldRoot, gridSettings);
+            expect(clearCalls).toBe(0);
+
+            unit.setStackPower(4);
+            unit.ensureVisual(worldRoot, gridSettings);
+            expect(clearCalls).toBe(5);
+
+            unit.setActiveTurn(true);
+            unit.ensureVisual(worldRoot, gridSettings);
+            expect(clearCalls).toBe(6);
+        } finally {
+            restores.forEach((restore) => restore());
+        }
+    });
+});
+
 describe("RenderableUnit applied buff/debuff display de-duplication", () => {
     test("collapses a repeated name onto its first entry", () => {
         const names = ["Visible", "Hidden", "Visible"];

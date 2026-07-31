@@ -103,6 +103,8 @@ export class SmokeLayer {
     private readonly graphics = new Graphics();
     private filter?: Filter;
     private time = 0;
+    /** Whether the graphics currently contain dust that must be cleared when the last track expires. */
+    private hasGeometry = false;
     public constructor() {
         this.container.addChild(this.graphics);
         try {
@@ -129,7 +131,7 @@ export class SmokeLayer {
         return this.container;
     }
     /** Advance the smoke and redraw the blobs for the current tracks. */
-    public update(dt: number, tracks: ILingeringTrack[]): void {
+    public update(dt: number, tracks: readonly ILingeringTrack[]): void {
         this.time += dt;
         if (this.filter) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -139,9 +141,24 @@ export class SmokeLayer {
             }
         }
 
+        let hasGroundTrack = false;
+        for (const track of tracks) {
+            if (!track.flying) {
+                hasGroundTrack = true;
+                break;
+            }
+        }
+        if (!hasGroundTrack) {
+            if (this.hasGeometry) {
+                this.graphics.clear();
+                this.hasGeometry = false;
+            }
+            return;
+        }
+
         const g = this.graphics;
         g.clear();
-        if (!tracks.length) return;
+        this.hasGeometry = true;
 
         // Stable per-(track, index) pseudo-random seeded by the track's phase, so each cell's puff
         // differs but doesn't flicker frame to frame.
@@ -153,6 +170,7 @@ export class SmokeLayer {
         const dustTints = [0xc6bfb0, 0xbbb4a5, 0xcec7b8];
 
         for (const t of tracks) {
+            if (t.flying) continue;
             const seed = t.phase;
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off

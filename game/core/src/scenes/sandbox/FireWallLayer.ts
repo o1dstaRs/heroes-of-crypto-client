@@ -46,8 +46,11 @@ const TONGUES = 5;
 const EMBERS = 3;
 
 interface IFireVisual {
+    cell: HoCMath.XY;
     /** 0..1 catch-fire / burn-down progress. */
     life: number;
+    /** True while the authoritative store reports this cell during the current reconciliation. */
+    alive: boolean;
     /** True once the engine stopped reporting this cell — animate out, then drop. */
     dying: boolean;
     lapsRemaining: number;
@@ -62,6 +65,8 @@ export class FireWallLayer {
     private readonly flames = new Graphics();
     private readonly visuals = new Map<number, IFireVisual>();
     private time = 0;
+    /** Avoid repeatedly invalidating both Graphics buffers after the last wall burns out. */
+    private hasGeometry = false;
     public constructor() {
         this.glow.blendMode = "add";
         this.container.addChild(this.glow);
@@ -87,17 +92,21 @@ export class FireWallLayer {
     public update(dt: number, cells: readonly IFireWallCell[], cellSize: number, toWorld: ToWorld): void {
         this.time += dt;
 
-        const seen = new Set<number>();
+        for (const visual of this.visuals.values()) {
+            visual.alive = false;
+        }
         for (const cell of cells) {
             const key = FireWallLayer.key(cell);
-            seen.add(key);
             const existing = this.visuals.get(key);
             if (existing) {
+                existing.alive = true;
                 existing.dying = false;
                 existing.lapsRemaining = cell.l;
             } else {
                 this.visuals.set(key, {
+                    cell: { x: cell.x, y: cell.y },
                     life: 0,
+                    alive: true,
                     dying: false,
                     lapsRemaining: cell.l,
                     phase: FireWallLayer.seed(key, 1) * Math.PI * 2,
@@ -106,7 +115,7 @@ export class FireWallLayer {
         }
 
         for (const [key, visual] of this.visuals) {
-            if (!seen.has(key)) {
+            if (!visual.alive) {
                 visual.dying = true;
             }
             const rate = visual.dying ? -dt / BURNOUT_SECONDS : dt / IGNITE_SECONDS;
@@ -121,15 +130,20 @@ export class FireWallLayer {
     private redraw(cellSize: number, toWorld: ToWorld): void {
         const glow = this.glow;
         const flames = this.flames;
-        glow.clear();
-        flames.clear();
         if (!this.visuals.size) {
+            if (this.hasGeometry) {
+                glow.clear();
+                flames.clear();
+                this.hasGeometry = false;
+            }
             return;
         }
+        glow.clear();
+        flames.clear();
+        this.hasGeometry = true;
 
         for (const [key, visual] of this.visuals) {
-            const cell = { x: key >> 8, y: key & 0xff };
-            const pos = toWorld(cell);
+            const pos = toWorld(visual.cell);
             if (!pos) {
                 continue;
             }

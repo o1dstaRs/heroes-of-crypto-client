@@ -121,6 +121,15 @@ export class VineLayer {
     private windX = 1;
     private windY = 0;
     private readonly vines = new Map<number, ITrackedVine>();
+    /** Connectivity changes only when cells arrive, expire, or their authoritative throw order changes. */
+    private chains: ITrackedVine[][] = [];
+    private topologyDirty = true;
+    /** Avoid repeatedly invalidating an already-empty Pixi Graphics buffer. */
+    private hasGeometry = false;
+    /** Reused while drawing each chain to avoid short-lived sample and strand arrays every frame. */
+    private readonly sampleScratch: ISamplePoint[] = [];
+    private readonly grownScratch: ISamplePoint[] = [];
+    private readonly wovenScratch: [ISamplePoint[], ISamplePoint[], ISamplePoint[], ISamplePoint[]] = [[], [], [], []];
     public constructor() {
         this.container.addChild(this.graphics);
     }
@@ -149,10 +158,11 @@ export class VineLayer {
         // Cells of one throw all arrive in the same frame, so rank within THIS frame's new arrivals is the
         // vine's own base-to-tip order — that is what the creep is staggered by.
         let arrivalsThisFrame = 0;
-        cells.forEach((c, index) => {
+        for (let index = 0; index < cells.length; index++) {
+            const c = cells[index];
             const world = toWorld(c);
             if (!world) {
-                return;
+                continue;
             }
             const key = VineLayer.key(c);
             const existing = this.vines.get(key);
@@ -161,8 +171,11 @@ export class VineLayer {
                 existing.lapsRemaining = c.l;
                 existing.x = world.x;
                 existing.y = world.y;
-                existing.order = index;
-                return;
+                if (existing.order !== index) {
+                    existing.order = index;
+                    this.topologyDirty = true;
+                }
+                continue;
             }
             this.vines.set(key, {
                 cell: { x: c.x, y: c.y },
@@ -177,7 +190,8 @@ export class VineLayer {
                 delay: arrivalsThisFrame++ * CREEP_STAGGER_SECONDS,
                 firstSeen: this.time,
             });
-        });
+            this.topologyDirty = true;
+        }
 
         for (const [key, vine] of this.vines) {
             if (vine.alive) {
@@ -187,8 +201,14 @@ export class VineLayer {
                 vine.presence -= dt / WITHER_SECONDS;
                 if (vine.presence <= 0) {
                     this.vines.delete(key);
+                    this.topologyDirty = true;
                 }
             }
+        }
+
+        if (this.topologyDirty) {
+            this.chains = this.buildChains();
+            this.topologyDirty = false;
         }
 
         this.draw(cellSize);
@@ -323,21 +343,43 @@ export class VineLayer {
             }
         }
     }
-    private sampleChain(chain: ITrackedVine[], cellSize: number): ISamplePoint[] {
-        const pts = chain.map((v) => ({ x: v.x, y: v.y }));
-        if (pts.length === 1) {
-            return [{ x: pts[0].x, y: pts[0].y, t: 0, presence: chain[0].presence, dry: chain[0].lapsRemaining <= 1 }];
+    private writeSample(
+        samples: ISamplePoint[],
+        index: number,
+        x: number,
+        y: number,
+        t: number,
+        presence: number,
+        dry: boolean,
+    ): void {
+        const sample = samples[index] ?? (samples[index] = { x, y, t, presence, dry });
+        sample.x = x;
+        sample.y = y;
+        sample.t = t;
+        sample.presence = presence;
+        sample.dry = dry;
+    }
+    private sampleChain(chain: ITrackedVine[], cellSize: number, samples: ISamplePoint[]): ISamplePoint[] {
+        if (chain.length === 1) {
+            const vine = chain[0];
+            this.writeSample(samples, 0, vine.x, vine.y, 0, vine.presence, vine.lapsRemaining <= 1);
+            samples.length = 1;
+            return samples;
         }
-        const at = (i: number) => pts[Math.max(0, Math.min(pts.length - 1, i))];
-        const out: ISamplePoint[] = [];
-        const segments = pts.length - 1;
+        const segments = chain.length - 1;
+        let sampleCount = 0;
         for (let s = 0; s < segments; s++) {
-            const p0 = at(s - 1);
-            const p1 = at(s);
-            const p2 = at(s + 1);
-            const p3 = at(s + 2);
+            const p0 = chain[Math.max(0, s - 1)];
+            const p1 = chain[s];
+            const p2 = chain[s + 1];
+            const p3 = chain[Math.min(chain.length - 1, s + 2)];
             const from = chain[s];
             const to = chain[Math.min(chain.length - 1, s + 1)];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
             for (let k = 0; k < SAMPLES_PER_SEGMENT; k++) {
                 const u = k / SAMPLES_PER_SEGMENT;
                 const u2 = u * u;
@@ -358,11 +400,6 @@ export class VineLayer {
 
                 // Perpendicular wobble, so the vine meanders through the cells instead of running dead
                 // centre. Seeded per anchor pair, so it is fixed for the life of the vine.
-                const dx = p2.x - p1.x;
-                const dy = p2.y - p1.y;
-                const len = Math.hypot(dx, dy) || 1;
-                const nx = -dy / len;
-                const ny = dx / len;
                 const wobbleSeed = hash(from.seed + s, to.seed + k);
                 const wobble = Math.sin(u * Math.PI) * (wobbleSeed - 0.5) * cellSize * 0.3;
                 // Gentle sway on the shared breeze, strongest mid-segment and toward the tip.
@@ -370,32 +407,40 @@ export class VineLayer {
                 const sway =
                     Math.sin(this.time * 0.9 + from.seed * 0.01 + tGlobal * 2.4) * cellSize * 0.035 * (0.3 + tGlobal);
 
-                out.push({
-                    x: x + nx * wobble + this.windX * sway,
-                    y: y + ny * wobble + this.windY * sway,
-                    t: tGlobal,
-                    presence: from.presence + (to.presence - from.presence) * u,
-                    dry: (from.lapsRemaining <= 1 && to.lapsRemaining <= 1) || from.lapsRemaining <= 1,
-                });
+                this.writeSample(
+                    samples,
+                    sampleCount++,
+                    x + nx * wobble + this.windX * sway,
+                    y + ny * wobble + this.windY * sway,
+                    tGlobal,
+                    from.presence + (to.presence - from.presence) * u,
+                    (from.lapsRemaining <= 1 && to.lapsRemaining <= 1) || from.lapsRemaining <= 1,
+                );
             }
         }
         const last = chain[chain.length - 1];
-        out.push({ x: last.x, y: last.y, t: 1, presence: last.presence, dry: last.lapsRemaining <= 1 });
-        return out;
+        this.writeSample(samples, sampleCount++, last.x, last.y, 1, last.presence, last.lapsRemaining <= 1);
+        samples.length = sampleCount;
+        return samples;
     }
     private draw(cellSize: number): void {
         const g = this.graphics;
-        g.clear();
         if (!this.vines.size) {
+            if (this.hasGeometry) {
+                g.clear();
+                this.hasGeometry = false;
+            }
             return;
         }
+        g.clear();
+        this.hasGeometry = true;
 
         // The cell footprint goes down FIRST, under the plant, so the vine still reads as lying on top of
         // the board rather than inside a box.
         this.drawCellFootprint(g, cellSize);
 
-        for (const chain of this.buildChains()) {
-            const samples = this.sampleChain(chain, cellSize);
+        for (const chain of this.chains) {
+            const samples = this.sampleChain(chain, cellSize, this.sampleScratch);
             const dry = samples[0]?.dry ?? false;
             const darkColour = dry ? DRY_DARK : BARK_DARK;
             const midColour = dry ? DRY_MID : BARK_MID;
@@ -404,7 +449,15 @@ export class VineLayer {
 
             // Only draw as far as the vine has actually grown, so the creep reads as movement along the
             // chain rather than a global fade.
-            const grown = samples.filter((p) => p.presence > 0.02);
+            const grown = this.grownScratch;
+            let grownCount = 0;
+            for (let i = 0; i < samples.length; i++) {
+                const sample = samples[i];
+                if (sample.presence > 0.02) {
+                    grown[grownCount++] = sample;
+                }
+            }
+            grown.length = grownCount;
             if (grown.length < 2) {
                 // A single cell still gets its knot, so a one-cell throw is never invisible.
                 const only = samples[0];
@@ -432,14 +485,22 @@ export class VineLayer {
             // three strands wound around the centreline on their own phases, crossing over one another.
             for (let strand = 0; strand < STRANDS; strand += 1) {
                 const phase = (strand * Math.PI * 2) / STRANDS;
-                const woven = grown.map((pt, i) => {
+                const woven = this.wovenScratch[strand];
+                for (let i = 0; i < grown.length; i++) {
+                    const pt = grown[i];
                     const prev = grown[Math.max(0, i - 1)];
                     const dx = pt.x - prev.x;
                     const dy = pt.y - prev.y;
                     const len = Math.hypot(dx, dy) || 1;
                     const swing = Math.sin(pt.t * 26 + phase + chainSeed * 0.01) * widthAt(pt) * 0.5;
-                    return { ...pt, x: pt.x + (-dy / len) * swing, y: pt.y + (dx / len) * swing };
-                });
+                    const wovenPoint = woven[i] ?? (woven[i] = { ...pt });
+                    wovenPoint.x = pt.x + (-dy / len) * swing;
+                    wovenPoint.y = pt.y + (dx / len) * swing;
+                    wovenPoint.t = pt.t;
+                    wovenPoint.presence = pt.presence;
+                    wovenPoint.dry = pt.dry;
+                }
+                woven.length = grown.length;
                 // The middle strand catches the light; the outer two stay in shadow.
                 const colour = strand === 1 ? rimColour : midColour;
                 this.strokePolyline(g, woven, (pt) => widthAt(pt) * 0.52, colour, strand === 1 ? 0.85 : 1);
@@ -453,13 +514,18 @@ export class VineLayer {
 
             // 4 — rim highlight on ONE side only, offset up-left, so the vine reads as round. Kept narrow
             // and dim: a bright pass across the whole body is what flattened this into a pale noodle.
-            this.strokePolyline(
-                g,
-                grown.map((p) => ({ ...p, x: p.x - baseWidth * 0.3, y: p.y - baseWidth * 0.34 })),
-                (p) => widthAt(p) * 0.2,
-                rimColour,
-                0.4,
-            );
+            const highlight = this.wovenScratch[STRANDS];
+            for (let i = 0; i < grown.length; i++) {
+                const point = grown[i];
+                const highlightedPoint = highlight[i] ?? (highlight[i] = { ...point });
+                highlightedPoint.x = point.x - baseWidth * 0.3;
+                highlightedPoint.y = point.y - baseWidth * 0.34;
+                highlightedPoint.t = point.t;
+                highlightedPoint.presence = point.presence;
+                highlightedPoint.dry = point.dry;
+            }
+            highlight.length = grown.length;
+            this.strokePolyline(g, highlight, (p) => widthAt(p) * 0.2, rimColour, 0.4);
 
             this.drawThorns(g, grown, widthAt, rimColour, dry);
             this.drawLeaves(g, grown, cellSize, dry);

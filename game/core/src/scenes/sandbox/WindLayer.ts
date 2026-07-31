@@ -100,6 +100,8 @@ export class WindLayer {
     private readonly graphics = new Graphics();
     private filter?: Filter;
     private time = 0;
+    /** Whether the graphics currently contain wind that must be cleared when the last track expires. */
+    private hasGeometry = false;
     public constructor() {
         this.container.addChild(this.graphics);
         try {
@@ -125,7 +127,7 @@ export class WindLayer {
         return this.container;
     }
     /** Advance the wind and redraw the streaks for the current flying-unit tracks. */
-    public update(dt: number, tracks: ILingeringTrack[]): void {
+    public update(dt: number, tracks: readonly ILingeringTrack[]): void {
         this.time += dt;
         if (this.filter) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,9 +137,24 @@ export class WindLayer {
             }
         }
 
+        let hasFlyingTrack = false;
+        for (const track of tracks) {
+            if (track.flying) {
+                hasFlyingTrack = true;
+                break;
+            }
+        }
+        if (!hasFlyingTrack) {
+            if (this.hasGeometry) {
+                this.graphics.clear();
+                this.hasGeometry = false;
+            }
+            return;
+        }
+
         const g = this.graphics;
         g.clear();
-        if (!tracks.length) return;
+        this.hasGeometry = true;
 
         // Stable per-(track, index) pseudo-random seeded by the track's phase so each gust differs
         // but doesn't flicker frame to frame.
@@ -148,6 +165,7 @@ export class WindLayer {
         const windTints = [0xe8f4ff, 0xd8ecff, 0xf2f8ff];
 
         for (const t of tracks) {
+            if (!t.flying) continue;
             const seed = t.phase;
             const k = Math.max(0, t.life / t.maxLife); // 1 -> 0
             const fade = Math.min(1, k * 1.6); // hold then fall off

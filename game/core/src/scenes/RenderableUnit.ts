@@ -126,6 +126,26 @@ interface DodgeAnimState {
     lastGhostMs: number;
     ghosts: DodgeGhost[];
 }
+interface BadgeDrawState {
+    iconSide: number;
+    label: string;
+    teamColor: number;
+    isActiveTurn: boolean;
+}
+interface StackPowerDrawState {
+    power: number;
+    cellSize: number;
+    unitSizeInCells: number;
+    teamColor: number;
+}
+interface RosterCardDrawState {
+    x: number;
+    y: number;
+    visualSide: number;
+    cell: number;
+    name: string;
+    teamColor: number;
+}
 // Tuning for the "bullet-time" dodge played when an attack fully MISSES this unit (Dodge /
 // Small Specie / Boar Saliva / Broken Aegis): dash out of the strike line, hang at full extension
 // for a beat, then spring back — trailing matrix-style afterimages the whole way out.
@@ -214,8 +234,10 @@ export class RenderableUnit extends Unit {
     private badgeContainer?: Container;
     private badgeFlag?: Graphics;
     private badgeText?: Text;
+    private badgeDrawState?: BadgeDrawState;
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
+    private stackPowerDrawState?: StackPowerDrawState;
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
     /** Stun/skip indicator (shown when the unit is skipping its turn) — shares the hourglass corner. */
@@ -245,6 +267,7 @@ export class RenderableUnit extends Unit {
     private rosterCard?: Container;
     private rosterCardPlate?: Graphics;
     private rosterCardLabel?: Text;
+    private rosterCardDrawState?: RosterCardDrawState;
     // Uniform multiplier applied to the rendered sprite, shadow, badge and corner indicators.
     // 1 = normal one-cell board size. The placement bench renders unplaced units larger (>1) so
     // they read at "full size" while waiting to be deployed; placed/board units keep the default 1.
@@ -312,6 +335,9 @@ export class RenderableUnit extends Unit {
         // defaults never run — initialise every added field explicitly or it stays `undefined`.
         ru.badgeEmphasisScale = 1;
         ru.badgeAmountOverride = undefined;
+        ru.badgeDrawState = undefined;
+        ru.stackPowerDrawState = undefined;
+        ru.rosterCardDrawState = undefined;
         ru.activeAura = undefined;
         ru.waterShieldAura = undefined;
         ru.freezeCrust = undefined;
@@ -466,7 +492,7 @@ export class RenderableUnit extends Unit {
         } else {
             // ⬇️ IMPORTANT: only force base texture if NOT in selection animation
             const selectionActive = this.boardSelected && !!this.selectionAnimFrames?.length;
-            if (!selectionActive) {
+            if (!selectionActive && this.sprite.texture !== baseTex) {
                 this.sprite.texture = baseTex;
             }
             if (!this.sprite.parent || this.sprite.parent !== worldRoot) {
@@ -477,17 +503,25 @@ export class RenderableUnit extends Unit {
         const currentTexture = this.sprite.texture;
         const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
         const scale = targetSize / currentWidth;
-        this.sprite.scale.set(scale, -scale);
+        if (this.sprite.scale.x !== scale || this.sprite.scale.y !== -scale) {
+            this.sprite.scale.set(scale, -scale);
+        }
         const recoil = this.currentRecoil();
-        this.sprite.x = pos.x + recoil.x;
-        this.sprite.y = pos.y + recoil.y;
-        this.sprite.visible = this.visualMode !== "hidden";
+        const spriteX = pos.x + recoil.x;
+        const spriteY = pos.y + recoil.y;
+        if (this.sprite.x !== spriteX || this.sprite.y !== spriteY) {
+            this.sprite.position.set(spriteX, spriteY);
+        }
+        const spriteVisible = this.visualMode !== "hidden";
+        if (this.sprite.visible !== spriteVisible) this.sprite.visible = spriteVisible;
         // Units with the "Hidden" buff (e.g. White Tiger) are drawn semi-transparent as a cue.
         const isHidden = this.hasBuffActive("Hidden");
         const normalSpriteAlpha = isHidden ? 0.4 : 1;
-        this.sprite.alpha =
+        const spriteAlpha =
             this.visualMode === "ghost" ? 0.25 : this.visualMode === "revealed" ? 0.9 : normalSpriteAlpha;
-        this.sprite.tint = this.currentEffectTint();
+        if (this.sprite.alpha !== spriteAlpha) this.sprite.alpha = spriteAlpha;
+        const spriteTint = this.currentEffectTint();
+        if (this.sprite.tint !== spriteTint) this.sprite.tint = spriteTint;
         // "Revealed" mode (ranked placement: the opponent's known roster) draws the sprite in black &
         // white so it clearly reads as an enemy silhouette, not one of the viewer's own units.
         if (this.visualMode === "revealed") {
@@ -509,21 +543,27 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.shadow);
             this.shadow.filters = [];
         } else {
-            this.shadow.texture = baseTex;
+            if (this.shadow.texture !== baseTex) this.shadow.texture = baseTex;
             if (!this.shadow.parent || this.shadow.parent !== worldRoot) {
                 worldRoot.addChild(this.shadow);
             }
         }
         // Silhouette positioning same as before
-        this.shadow.scale.set(scale, -scale);
+        if (this.shadow.scale.x !== scale || this.shadow.scale.y !== -scale) {
+            this.shadow.scale.set(scale, -scale);
+        }
         const shadowOffsetX = targetSize * 0.04;
         const shadowOffsetY = targetSize * 0.08;
-        this.shadow.x = pos.x + shadowOffsetX + recoil.x;
-        this.shadow.y = pos.y + shadowOffsetY + recoil.y;
-        this.shadow.visible = this.visualMode !== "hidden";
+        const shadowX = pos.x + shadowOffsetX + recoil.x;
+        const shadowY = pos.y + shadowOffsetY + recoil.y;
+        if (this.shadow.x !== shadowX || this.shadow.y !== shadowY) {
+            this.shadow.position.set(shadowX, shadowY);
+        }
+        if (this.shadow.visible !== spriteVisible) this.shadow.visible = spriteVisible;
         const normalShadowAlpha = isHidden ? 0.15 : 0.35;
-        this.shadow.alpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
-        this.shadow.tint = 0x000000;
+        const shadowAlpha = this.visualMode === "ghost" ? 0.1 : normalShadowAlpha;
+        if (this.shadow.alpha !== shadowAlpha) this.shadow.alpha = shadowAlpha;
+        if (this.shadow.tint !== 0x000000) this.shadow.tint = 0x000000;
         // --- bullet-time dodge (missed attack): offsets sprite+shadow, leans, trails ghosts ---
         this.stepDodgeAnimation(worldRoot);
         // --- revealed-roster card (plate + name), drawn under the sprite ---
@@ -725,13 +765,19 @@ export class RenderableUnit extends Unit {
         // Update Z-Index for depth sorting
         if (this.sprite) {
             const baseZ = 4000 - pos.y;
-            this.sprite.zIndex = baseZ;
-            if (this.shadow) this.shadow.zIndex = baseZ - 0.5;
-            if (this.badgeContainer) this.badgeContainer.zIndex = baseZ + 1;
-            if (this.stackPowerContainer) this.stackPowerContainer.zIndex = baseZ + 1;
-            if (this.hourglassContainer) this.hourglassContainer.zIndex = baseZ + 2;
-            if (this.stunContainer) this.stunContainer.zIndex = baseZ + 2;
-            if (this.respondContainer) this.respondContainer.zIndex = baseZ + 2;
+            if (this.sprite.zIndex !== baseZ) this.sprite.zIndex = baseZ;
+            if (this.shadow && this.shadow.zIndex !== baseZ - 0.5) this.shadow.zIndex = baseZ - 0.5;
+            if (this.badgeContainer && this.badgeContainer.zIndex !== baseZ + 1) this.badgeContainer.zIndex = baseZ + 1;
+            if (this.stackPowerContainer && this.stackPowerContainer.zIndex !== baseZ + 1) {
+                this.stackPowerContainer.zIndex = baseZ + 1;
+            }
+            if (this.hourglassContainer && this.hourglassContainer.zIndex !== baseZ + 2) {
+                this.hourglassContainer.zIndex = baseZ + 2;
+            }
+            if (this.stunContainer && this.stunContainer.zIndex !== baseZ + 2) this.stunContainer.zIndex = baseZ + 2;
+            if (this.respondContainer && this.respondContainer.zIndex !== baseZ + 2) {
+                this.respondContainer.zIndex = baseZ + 2;
+            }
         }
 
         // Active-turn "light waves" pulse: the SAME animated glow + radiating rings under EVERY
@@ -1312,18 +1358,21 @@ export class RenderableUnit extends Unit {
             this.badgeContainer = undefined;
             this.badgeFlag = undefined;
             this.badgeText = undefined;
+            this.badgeDrawState = undefined;
         }
         if (this.rosterCard) {
             this.rosterCard.destroy({ children: true });
             this.rosterCard = undefined;
             this.rosterCardPlate = undefined;
             this.rosterCardLabel = undefined;
+            this.rosterCardDrawState = undefined;
         }
         if (this.stackPowerContainer) {
             this.stackPowerContainer.destroy({ children: true });
             this.stackPowerContainer.removeFromParent();
             this.stackPowerContainer = undefined;
             this.stackPowerPips = [];
+            this.stackPowerDrawState = undefined;
         }
         if (this.activeAura) {
             this.activeAura.destroy({ children: true });
@@ -1416,27 +1465,47 @@ export class RenderableUnit extends Unit {
         const bottom = pos.y - visualSide * 0.5 - captionGap - fontSize;
         const teamColor =
             props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
+        const previousDrawState = this.rosterCardDrawState;
+        const needsRedraw =
+            !previousDrawState ||
+            previousDrawState.x !== pos.x ||
+            previousDrawState.y !== pos.y ||
+            previousDrawState.visualSide !== visualSide ||
+            previousDrawState.cell !== cell ||
+            previousDrawState.name !== props.name ||
+            previousDrawState.teamColor !== teamColor;
 
-        const plate = this.rosterCardPlate!;
-        plate.clear();
-        plate
-            .roundRect(pos.x - halfWidth, bottom, halfWidth * 2, top - bottom, Math.max(6, cell * 0.18))
-            .fill({ color: 0x05070c, alpha: 0.58 })
-            .stroke({ width: Math.max(1, cell * 0.016), color: teamColor, alpha: 0.55 });
+        if (needsRedraw) {
+            const plate = this.rosterCardPlate!;
+            plate.clear();
+            plate
+                .roundRect(pos.x - halfWidth, bottom, halfWidth * 2, top - bottom, Math.max(6, cell * 0.18))
+                .fill({ color: 0x05070c, alpha: 0.58 })
+                .stroke({ width: Math.max(1, cell * 0.016), color: teamColor, alpha: 0.55 });
 
-        const label = this.rosterCardLabel!;
-        label.style = new TextStyle({
-            fill: 0xefe4cc,
-            fontSize,
-            fontWeight: "700",
-            stroke: { color: 0x000000, width: 3, join: "round" },
-        });
-        label.text = props.name;
-        label.position.set(pos.x, bottom + fontSize * 0.62);
+            const label = this.rosterCardLabel!;
+            label.style = new TextStyle({
+                fill: 0xefe4cc,
+                fontSize,
+                fontWeight: "700",
+                stroke: { color: 0x000000, width: 3, join: "round" },
+            });
+            label.text = props.name;
+            label.position.set(pos.x, bottom + fontSize * 0.62);
+            this.rosterCardDrawState = {
+                x: pos.x,
+                y: pos.y,
+                visualSide,
+                cell,
+                name: props.name,
+                teamColor,
+            };
+        }
 
         // Just under the sprite/shadow pair so the silhouette always sits on top of its own card.
-        this.rosterCard.zIndex = 4000 - pos.y - 1;
-        this.rosterCard.visible = true;
+        const zIndex = 4000 - pos.y - 1;
+        if (this.rosterCard.zIndex !== zIndex) this.rosterCard.zIndex = zIndex;
+        if (!this.rosterCard.visible) this.rosterCard.visible = true;
     }
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!this.badgeContainer) {
@@ -1470,60 +1539,76 @@ export class RenderableUnit extends Unit {
         // team-colored, with "?" standing in for the hidden stack size.
         const isRevealed = this.visualMode === "revealed";
         const label = isRevealed && amount <= 0 ? "?" : String(amount);
-        const fs = Math.max(10, Math.floor(iconSide * 0.18));
-        const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
-        const flagWidth = Math.max(26, Math.floor(iconSide * 0.44), Math.ceil(label.length * fs * 0.62 + fs * 0.9));
-        const notchDepth = Math.max(4, Math.floor(flagWidth * 0.15));
-        const bannerLeft = -flagWidth * 0.82;
-        const bannerRight = flagWidth * 0.18;
-        const bannerTop = -flagHeight * 0.5;
-        const bannerBottom = flagHeight * 0.5;
         const teamColor =
             props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : 0x8b94a6;
-        const borderWidth = this.isActiveTurn ? 1.75 : 1.25;
-        const borderColor = this.isActiveTurn ? 0xffffff : 0x000000;
-        const borderAlpha = this.isActiveTurn ? 1 : 0.58;
+        const previousDrawState = this.badgeDrawState;
+        const needsRedraw =
+            !previousDrawState ||
+            previousDrawState.iconSide !== iconSide ||
+            previousDrawState.label !== label ||
+            previousDrawState.teamColor !== teamColor ||
+            previousDrawState.isActiveTurn !== this.isActiveTurn;
 
-        flag.clear();
-        flag.moveTo(bannerLeft, bannerTop)
-            .lineTo(bannerRight, bannerTop)
-            .lineTo(bannerRight - notchDepth, 0)
-            .lineTo(bannerRight, bannerBottom)
-            .lineTo(bannerLeft, bannerBottom)
-            .closePath()
-            .fill({ color: teamColor, alpha: 0.96 });
-        flag.moveTo(bannerLeft, bannerTop)
-            .lineTo(bannerRight, bannerTop)
-            .lineTo(bannerRight - notchDepth, 0)
-            .lineTo(bannerRight, bannerBottom)
-            .lineTo(bannerLeft, bannerBottom)
-            .closePath()
-            .stroke({ width: borderWidth, color: borderColor, alpha: borderAlpha, join: "round" });
-        flag.moveTo(bannerLeft, bannerTop - 2)
-            .lineTo(bannerLeft, bannerBottom + 3)
-            .stroke({ width: Math.max(1.5, iconSide * 0.024), color: 0x1b140f, alpha: 0.88, cap: "round" });
-        flag.moveTo(bannerLeft + 2, bannerTop + 2)
-            .lineTo(bannerRight - 2, bannerTop + 2)
-            .stroke({ width: 1, color: 0xffffff, alpha: 0.32, cap: "round" });
+        if (needsRedraw) {
+            const fs = Math.max(10, Math.floor(iconSide * 0.18));
+            const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
+            const flagWidth = Math.max(26, Math.floor(iconSide * 0.44), Math.ceil(label.length * fs * 0.62 + fs * 0.9));
+            const notchDepth = Math.max(4, Math.floor(flagWidth * 0.15));
+            const bannerLeft = -flagWidth * 0.82;
+            const bannerRight = flagWidth * 0.18;
+            const bannerTop = -flagHeight * 0.5;
+            const bannerBottom = flagHeight * 0.5;
+            const borderWidth = this.isActiveTurn ? 1.75 : 1.25;
+            const borderColor = this.isActiveTurn ? 0xffffff : 0x000000;
+            const borderAlpha = this.isActiveTurn ? 1 : 0.58;
 
-        text.style = new TextStyle({
-            fill: 0xffffff,
-            fontSize: fs,
-            fontWeight: "700",
-            stroke: { color: 0x000000, width: 2, join: "round" },
-        });
-        text.text = label;
-        text.position.set(bannerLeft + (flagWidth - notchDepth) * 0.5, 0);
+            flag.clear();
+            flag.moveTo(bannerLeft, bannerTop)
+                .lineTo(bannerRight, bannerTop)
+                .lineTo(bannerRight - notchDepth, 0)
+                .lineTo(bannerRight, bannerBottom)
+                .lineTo(bannerLeft, bannerBottom)
+                .closePath()
+                .fill({ color: teamColor, alpha: 0.96 });
+            flag.moveTo(bannerLeft, bannerTop)
+                .lineTo(bannerRight, bannerTop)
+                .lineTo(bannerRight - notchDepth, 0)
+                .lineTo(bannerRight, bannerBottom)
+                .lineTo(bannerLeft, bannerBottom)
+                .closePath()
+                .stroke({ width: borderWidth, color: borderColor, alpha: borderAlpha, join: "round" });
+            flag.moveTo(bannerLeft, bannerTop - 2)
+                .lineTo(bannerLeft, bannerBottom + 3)
+                .stroke({ width: Math.max(1.5, iconSide * 0.024), color: 0x1b140f, alpha: 0.88, cap: "round" });
+            flag.moveTo(bannerLeft + 2, bannerTop + 2)
+                .lineTo(bannerRight - 2, bannerTop + 2)
+                .stroke({ width: 1, color: 0xffffff, alpha: 0.32, cap: "round" });
+
+            text.style = new TextStyle({
+                fill: 0xffffff,
+                fontSize: fs,
+                fontWeight: "700",
+                stroke: { color: 0x000000, width: 2, join: "round" },
+            });
+            text.text = label;
+            text.position.set(bannerLeft + (flagWidth - notchDepth) * 0.5, 0);
+            this.badgeDrawState = { iconSide, label, teamColor, isActiveTurn: this.isActiveTurn };
+        }
+
         // position top-right of stack (1×1 or 2×2)
         const w = iconSide * (props.size === 2 ? 2 : 1);
         const h = iconSide * (props.size === 2 ? 2 : 1);
         const margin = Math.max(2, Math.floor(iconSide * 0.045));
         const offsetX = w * 0.5 - margin;
         const offsetY = h * 0.5 - margin;
-        container.x = pos.x + offsetX;
-        container.y = pos.y + offsetY;
-        container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
-        container.visible = amount > 0 || isRevealed;
+        const x = pos.x + offsetX;
+        const y = pos.y + offsetY;
+        if (container.x !== x || container.y !== y) container.position.set(x, y);
+        if (container.scale.x !== this.badgeEmphasisScale || container.scale.y !== this.badgeEmphasisScale) {
+            container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
+        }
+        const visible = amount > 0 || isRevealed;
+        if (container.visible !== visible) container.visible = visible;
     }
     private ensureHourglassIndicator(
         worldRoot: Container,
@@ -1531,11 +1616,25 @@ export class RenderableUnit extends Unit {
         props: UnitProperties,
         pos: HoCMath.XY,
     ): void {
+        const shouldRender =
+            (this.visualMode ?? "normal") === "normal" &&
+            this.getAmountAlive() > 0 &&
+            this.shouldShowHourglassIndicator();
+        if (!this.hourglassContainer && !shouldRender) return;
+        if (!shouldRender) {
+            if (this.hourglassContainer?.visible) this.hourglassContainer.visible = false;
+            return;
+        }
+
         const tex = this.texResolver("hourglass");
+        if (!tex) {
+            if (this.hourglassContainer?.visible) this.hourglassContainer.visible = false;
+            return;
+        }
 
         if (!this.hourglassContainer) {
             this.hourglassContainer = new Container();
-            this.hourglassSprite = new Sprite(tex ?? Texture.EMPTY);
+            this.hourglassSprite = new Sprite(tex);
             this.hourglassSprite.anchor.set(0.5);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             this.hourglassContainer.zIndex = 4000 - pos.y + 2;
@@ -1545,40 +1644,28 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(this.hourglassContainer);
         }
 
-        if (this.hourglassSprite) {
-            this.hourglassSprite.texture = tex ?? Texture.EMPTY;
-            this.hourglassSprite.visible = !!tex;
-        }
-
-        if (this.hourglassContainer) {
-            this.hourglassContainer.zIndex = 4000 - pos.y + 2;
-        }
+        const container = this.hourglassContainer;
+        const sprite = this.hourglassSprite;
+        if (!container || !sprite) return;
+        if (sprite.texture !== tex) sprite.texture = tex;
+        if (!sprite.visible) sprite.visible = true;
 
         const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const iconSide = Math.round((visualSide * 20) / 72);
         const unitHalfSize = visualSide / 2;
         const halfIcon = iconSide / 2;
 
-        if (this.hourglassSprite) {
-            this.hourglassSprite.width = iconSide;
-            this.hourglassSprite.height = iconSide;
-            this.hourglassSprite.scale.y = -Math.abs(this.hourglassSprite.scale.y);
-        }
+        if (sprite.width !== iconSide) sprite.width = iconSide;
+        if (sprite.height !== iconSide) sprite.height = iconSide;
+        const flippedScaleY = -Math.abs(sprite.scale.y);
+        if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
 
-        if (this.hourglassContainer) {
-            this.hourglassContainer.x = pos.x - unitHalfSize + halfIcon;
-            this.hourglassContainer.y = pos.y + unitHalfSize - halfIcon;
-            this.hourglassContainer.visible =
-                (this.visualMode ?? "normal") === "normal" &&
-                this.getAmountAlive() > 0 &&
-                !!tex &&
-                this.shouldShowHourglassIndicator();
-            for (const child of this.hourglassContainer.children) {
-                if (child instanceof Sprite) {
-                    child.scale.y = -Math.abs(child.scale.y);
-                }
-            }
-        }
+        const zIndex = 4000 - pos.y + 2;
+        if (container.zIndex !== zIndex) container.zIndex = zIndex;
+        const x = pos.x - unitHalfSize + halfIcon;
+        const y = pos.y + unitHalfSize - halfIcon;
+        if (container.x !== x || container.y !== y) container.position.set(x, y);
+        if (!container.visible) container.visible = true;
     }
     private shouldShowHourglassIndicator(): boolean {
         // A stunned/skipping unit shows the stun icon in this same corner instead, so suppress the
@@ -1659,11 +1746,23 @@ export class RenderableUnit extends Unit {
         ax: number,
         ay: number,
         shouldShow: boolean,
-    ): { container: Container; sprite: Sprite } {
+    ): { container?: Container; sprite?: Sprite } {
+        const shouldRender = (this.visualMode ?? "normal") === "normal" && this.getAmountAlive() > 0 && shouldShow;
+        if (!container && !shouldRender) return { container, sprite };
+        if (!shouldRender) {
+            if (container?.visible) container.visible = false;
+            return { container, sprite };
+        }
+
         const tex = this.texResolver(texKey);
+        if (!tex) {
+            if (container?.visible) container.visible = false;
+            return { container, sprite };
+        }
+
         if (!container) {
             container = new Container();
-            sprite = new Sprite(tex ?? Texture.EMPTY);
+            sprite = new Sprite(tex);
             sprite.anchor.set(0.5);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             container.addChild(sprite);
@@ -1672,24 +1771,24 @@ export class RenderableUnit extends Unit {
             worldRoot.addChild(container);
         }
         const icon = sprite!;
-        icon.texture = tex ?? Texture.EMPTY;
+        if (icon.texture !== tex) icon.texture = tex;
+        if (!icon.visible) icon.visible = true;
 
         const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const iconSide = Math.round((visualSide * 20) / 72);
         const reach = visualSide / 2 - iconSide / 2;
 
-        icon.width = iconSide;
-        icon.height = iconSide;
-        icon.scale.y = -Math.abs(icon.scale.y);
+        if (icon.width !== iconSide) icon.width = iconSide;
+        if (icon.height !== iconSide) icon.height = iconSide;
+        const flippedScaleY = -Math.abs(icon.scale.y);
+        if (icon.scale.y !== flippedScaleY) icon.scale.y = flippedScaleY;
 
-        container.zIndex = 4000 - pos.y + 2;
-        container.x = pos.x + ax * reach;
-        container.y = pos.y + ay * reach;
-        container.visible =
-            (this.visualMode ?? "normal") === "normal" && this.getAmountAlive() > 0 && !!tex && shouldShow;
-        for (const child of container.children) {
-            if (child instanceof Sprite) child.scale.y = -Math.abs(child.scale.y);
-        }
+        const zIndex = 4000 - pos.y + 2;
+        if (container.zIndex !== zIndex) container.zIndex = zIndex;
+        const x = pos.x + ax * reach;
+        const y = pos.y + ay * reach;
+        if (container.x !== x || container.y !== y) container.position.set(x, y);
+        if (!container.visible) container.visible = true;
         return { container, sprite: icon };
     }
     public setActiveTurn(active: boolean): void {
@@ -2048,7 +2147,7 @@ export class RenderableUnit extends Unit {
 
         // Hide if 0 (or remove this check if you want to see the empty bar always)
         if (power <= 0) {
-            if (this.stackPowerContainer) {
+            if (this.stackPowerContainer?.visible) {
                 this.stackPowerContainer.visible = false;
             }
             return;
@@ -2101,36 +2200,48 @@ export class RenderableUnit extends Unit {
         const unitHalfHeight = (cellSize * unitSizeInCells) / 2;
         const bottomPadding = barHeight * 0.5;
         const offsetY = -unitHalfHeight + bottomPadding;
+        const container = this.stackPowerContainer;
+        const x = pos.x;
+        const y = pos.y + offsetY;
+        if (container.x !== x || container.y !== y) container.position.set(x, y);
 
-        this.stackPowerContainer.x = pos.x;
-        this.stackPowerContainer.y = pos.y + offsetY;
+        const previousDrawState = this.stackPowerDrawState;
+        const needsRedraw =
+            !previousDrawState ||
+            previousDrawState.power !== power ||
+            previousDrawState.cellSize !== cellSize ||
+            previousDrawState.unitSizeInCells !== unitSizeInCells ||
+            previousDrawState.teamColor !== teamColor;
 
-        // 4. Draw Segments
-        for (let i = 0; i < 5; i++) {
-            const pip = this.stackPowerPips[i];
-            const segX = startX + i * (segmentWidth + gap);
+        if (needsRedraw) {
+            // 4. Draw Segments
+            for (let i = 0; i < 5; i++) {
+                const pip = this.stackPowerPips[i];
+                const segX = startX + i * (segmentWidth + gap);
 
-            pip.clear();
+                pip.clear();
 
-            // Draw background/fill
-            if (i < power) {
-                // Active Stack
-                pip.roundRect(0, 0, segmentWidth, barHeight, cornerRadius);
-                pip.fill({ color: teamColor, alpha: 1 });
-                // Add a bright border to active cells to make them pop
-                pip.stroke({ width: 1.5, color: borderColor, alpha: 0.8 });
-            } else {
-                // Empty Slot (Background)
-                pip.roundRect(0, 0, segmentWidth, barHeight, cornerRadius);
-                pip.fill({ color: emptyColor, alpha: 0.6 });
-                pip.stroke({ width: 1, color: borderColor, alpha: 0.4 });
+                // Draw background/fill
+                if (i < power) {
+                    // Active Stack
+                    pip.roundRect(0, 0, segmentWidth, barHeight, cornerRadius);
+                    pip.fill({ color: teamColor, alpha: 1 });
+                    // Add a bright border to active cells to make them pop
+                    pip.stroke({ width: 1.5, color: borderColor, alpha: 0.8 });
+                } else {
+                    // Empty Slot (Background)
+                    pip.roundRect(0, 0, segmentWidth, barHeight, cornerRadius);
+                    pip.fill({ color: emptyColor, alpha: 0.6 });
+                    pip.stroke({ width: 1, color: borderColor, alpha: 0.4 });
+                }
+
+                if (pip.x !== segX || pip.y !== 0) pip.position.set(segX, 0);
             }
-
-            pip.x = segX;
-            pip.y = 0;
+            this.stackPowerDrawState = { power, cellSize, unitSizeInCells, teamColor };
         }
 
-        this.stackPowerContainer.visible = !this.stackForcedHidden;
+        const visible = !this.stackForcedHidden;
+        if (container.visible !== visible) container.visible = visible;
     }
     protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {
         // Heavy Armor
