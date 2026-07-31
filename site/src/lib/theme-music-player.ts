@@ -93,15 +93,17 @@ export const createThemeMusicPlayer = ({
             return Promise.resolve(false);
         }
 
-        if (!audio.paused) {
-            currentAttempt = null;
+        if (currentAttempt && !forceRetry) {
+            return currentAttempt;
+        }
+
+        // Some browsers flip `paused` to false as soon as play() is requested, even while that promise is
+        // still pending and no audio is audible. A user gesture must be allowed to retry that pending
+        // attempt; treating `paused === false` as success here would consume the unlock gesture.
+        if (!currentAttempt && !audio.paused) {
             onPlaybackStarted();
             fadeTo(desiredTargetVolume);
             return Promise.resolve(true);
-        }
-
-        if (currentAttempt && !forceRetry) {
-            return currentAttempt;
         }
 
         const generation = ++attemptGeneration;
