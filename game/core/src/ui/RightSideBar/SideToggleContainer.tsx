@@ -110,6 +110,9 @@ const SynergyFactionPanel = ({
                 overflow: "hidden",
                 // Factions you can actually pick sort to the front; "needs 2 units" ones drop to the end.
                 order: locked ? 2 : 1,
+                // Narrow host (sandbox sidebar): faction label on top, one pill per row beneath —
+                // the side-by-side layout needs ~500px and pushed the pills clean out of the panel.
+                "@container augframe (max-width: 640px)": { flexDirection: "column", alignItems: "stretch" },
             }}
         >
             <Box
@@ -119,6 +122,12 @@ const SynergyFactionPanel = ({
                     justifyContent: "center",
                     flex: "0 0 auto",
                     minWidth: 96,
+                    "@container augframe (max-width: 640px)": {
+                        flexDirection: "row",
+                        alignItems: "baseline",
+                        justifyContent: "space-between",
+                        minWidth: 0,
+                    },
                 }}
             >
                 <Typography
@@ -136,7 +145,15 @@ const SynergyFactionPanel = ({
                     {locked ? "needs 2 units" : `level ${level}`}
                 </Typography>
             </Box>
-            <Box sx={{ display: "flex", gap: 1, flex: "1 1 auto", minWidth: 0 }}>
+            <Box
+                sx={{
+                    display: "flex",
+                    gap: 1,
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    "@container augframe (max-width: 640px)": { flexDirection: "column" },
+                }}
+            >
                 {options.map((option) => {
                     const isSelected = selectedLabel === option.label;
                     return (
@@ -572,7 +589,20 @@ const SideToggleContainer = ({
         // min(1340px, 97vw), so 100% matches it exactly there — while in the sandbox right
         // sidebar a viewport-relative width escaped the panel and clipped the right column.
         // (Comment sits OUTSIDE the JSX tag: vite 8's oxc transform rejects `//` between attributes.)
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "min(1340px, 100%)", mx: "auto" }}>
+        <Box
+            sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 1.5,
+                width: "min(1340px, 100%)",
+                mx: "auto",
+                // Size queries below key off THIS box (the panel), not the viewport: the same component
+                // renders in the 1340px ranked frame AND the ~250px sandbox right sidebar, where the
+                // viewport-based md breakpoint lies about the space actually available.
+                containerType: "inline-size",
+                containerName: "augframe",
+            }}
+        >
             {/* Every category on screen at once: 4 columns, one card per augment, levels priced inline. */}
             <Box
                 sx={{
@@ -582,6 +612,8 @@ const SideToggleContainer = ({
                     width: "100%",
                     gridAutoRows: "minmax(0, 1fr)",
                     alignItems: "stretch",
+                    // Narrow host (sandbox sidebar / squeezed ranked window): one card per row.
+                    "@container augframe (max-width: 520px)": { gridTemplateColumns: "minmax(0, 1fr)" },
                 }}
             >
                 {augmentCards.map((card) => (
@@ -612,6 +644,11 @@ const SideToggleContainer = ({
                         borderRadius: "30px",
                         bgcolor: "rgba(255,255,255,0.025)",
                         border: "2px solid rgba(255,255,255,0.1)",
+                        // Narrow host: one faction panel per row, using the full panel width.
+                        "@container augframe (max-width: 640px)": {
+                            gridTemplateColumns: "minmax(0, 1fr)",
+                            width: "100%",
+                        },
                     }}
                 >
                     <SynergyFactionPanel
