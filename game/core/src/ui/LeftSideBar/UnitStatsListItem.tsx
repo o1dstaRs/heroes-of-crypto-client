@@ -1,4 +1,5 @@
 import {
+    HoCConfig,
     HoCConstants,
     UnitProperties,
     AttackVals,
@@ -19,7 +20,6 @@ import ListItem from "@mui/joy/ListItem";
 import ListItemButton from "@mui/joy/ListItemButton";
 import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
-import { useTheme } from "@mui/joy/styles";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import React, { useCallback } from "react";
@@ -39,6 +39,7 @@ import { MagicShieldIcon } from "../svg/magic_shield";
 import { MoraleIcon } from "../svg/morale";
 import { QuiverIcon } from "../svg/quiver";
 import { ShieldIcon } from "../svg/shield";
+import { ScrollIcon } from "../svg/scroll";
 import { ShotRangeIcon } from "../svg/shot_range";
 import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
@@ -47,22 +48,11 @@ import Toggler from "../Toggler";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
+import { commonTooltipSx } from "./tooltipStyles";
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
     teamType: TeamType;
 }
-
-const commonTooltipSx = {
-    backgroundColor: "#2d1606",
-    border: "2px solid #dcb158",
-    color: "#efe4cc",
-    borderRadius: "8px",
-    boxShadow: "0 6px 12px rgba(0,0,0,0.8)",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    maxWidth: "280px",
-    zIndex: 10000,
-};
 
 const FACTION_SYNERGY_IDS = [1, 2] as const;
 const FACTION_SYNERGY_LEVELS = [1, 2, 3] as const;
@@ -370,8 +360,8 @@ const AbilityCell: React.FC<{
     size: number;
     hasBreakApplied: boolean;
 }> = ({ ability, teamType, size, hasBreakApplied }) => {
-    const theme = useTheme();
-    const isDarkMode = theme.palette.mode === "dark";
+    // The game renders dark-only; the light palette is gone, so this is a constant.
+    const isDarkMode = true;
     const auraColor = isDarkMode ? "rgba(255, 255, 255, 0.75)" : "rgba(0, 0, 0, 0.75)";
     const disabledStatus = ability.isStolen
         ? { label: "STOLEN", color: "#9acd32", tooltip: "ABILITY STOLEN PERMANENTLY!\n" }
@@ -572,20 +562,6 @@ export const stonePlateSx = {
 
 // Team colour lives only as a diffuse, fire-like aura behind the portrait — three blurred discs that
 // breathe and flicker. No cloth banner, and nothing clips the ring.
-const TEAM_AURA = {
-    green: {
-        outer: "radial-gradient(circle, rgba(30,255,105,.42) 34%, rgba(0,215,70,.22) 60%, transparent 82%)",
-        mid: "radial-gradient(circle, rgba(90,255,150,.36) 40%, rgba(10,230,85,.19) 64%, transparent 86%)",
-        inner: "radial-gradient(circle, rgba(160,255,195,.3) 46%, rgba(35,245,105,.16) 68%, transparent 88%)",
-        ringHalo: "rgba(46,240,104,.4)",
-    },
-    red: {
-        outer: "radial-gradient(circle, rgba(255,70,45,.42) 34%, rgba(225,25,15,.22) 60%, transparent 82%)",
-        mid: "radial-gradient(circle, rgba(255,120,95,.36) 40%, rgba(240,45,28,.19) 64%, transparent 86%)",
-        inner: "radial-gradient(circle, rgba(255,175,160,.3) 46%, rgba(250,70,45,.16) 68%, transparent 88%)",
-        ringHalo: "rgba(255,90,63,.4)",
-    },
-} as const;
 
 // A slow, steady burn. Opacity barely moves (no blinking) — what changes is the silhouette: the corner
 // radii creep from one irregular shape to the next over ~20s, so the edge is always drifting and never
@@ -625,23 +601,6 @@ const teamAuraKeyframes = {
     },
 } as const;
 
-const auraFlameSx = (width: number, background: string, blur: number, animation: string, opacity: number) =>
-    ({
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        width: `${width}px`,
-        height: `${Math.round(width * 1.04)}px`,
-        transform: "translate(-50%, -50%)",
-        background,
-        filter: `blur(${blur}px)`,
-        opacity,
-        pointerEvents: "none",
-        zIndex: 0,
-        animation,
-        "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-    }) as const;
-
 const STAT_ROW_GAP = 8;
 
 // Slim bronze scrollbar, shared with the Up-next strip.
@@ -672,7 +631,7 @@ export const SectionTitle: React.FC<{ title: string; metrics: ISidebarMetrics }>
         <Typography
             level="title-sm"
             sx={{
-                fontSize: `${0.8 * metrics.fontScale}rem`,
+                fontSize: `${metrics.sectionTitleRem}rem`,
                 fontWeight: 800,
                 lineHeight: 1.2,
                 letterSpacing: "0.12em",
@@ -773,23 +732,79 @@ const EffectTiles: React.FC<{
  * One cell of the stat plate. Optionally carries a second stat beside the first — morale and luck share a
  * cell so a creature with extra (ranged) stats still fits the fixed three-row grid.
  */
-const StatValue: React.FC<{
-    icon: React.ReactElement<Record<string, unknown>>;
-    value: string | number;
-    color: string;
-    metrics: ISidebarMetrics;
-}> = ({ icon, value, color, metrics }) => (
+/**
+ * One icon + number.
+ *
+ * forwardRef, and it spreads whatever else it is given onto the Box, because every one of these is wrapped
+ * in a <Tooltip>. MUI hands its child the hover/focus handlers and a ref by cloning it; a plain function
+ * component silently drops both, and the stat explanations stop appearing on hover with nothing in the
+ * console to say why. If this stops forwarding, the tooltips go quiet again.
+ */
+// Gold-friendly green/red for a modified stat: bright enough to read against the dark plate without
+// fighting the parchment numbers around them.
+const MOD_UP_COLOR = "#7ee787";
+const MOD_DOWN_COLOR = "#ff8a7a";
+
+/**
+ * The signed delta a buff/debuff applied, as the text shown beside the stat -- "+2", "-1".
+ *
+ * The AMOUNT is the point: the number displayed is already the modified one, so a tint alone tells you
+ * something changed but not what it cost. Empty when the stat is at its base, so unmodified stats stay
+ * plain parchment.
+ */
+const modLabel = (delta: number): string => (delta ? `${delta > 0 ? "+" : ""}${Number(delta.toFixed(2))}` : "");
+
+const StatValue = React.forwardRef<
+    HTMLDivElement,
+    {
+        icon: React.ReactElement<Record<string, unknown>>;
+        value: string | number;
+        color: string;
+        metrics: ISidebarMetrics;
+        /** Signed delta text ("+2", "-1"); empty when the stat is at its base value. */
+        modifier?: string;
+    } & React.HTMLAttributes<HTMLDivElement>
+>(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
     // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
     // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
-    <Box sx={{ display: "inline-flex", alignItems: "center", width: "fit-content", minWidth: 0 }}>
+    <Box
+        ref={ref}
+        {...tooltipProps}
+        sx={{ display: "inline-flex", alignItems: "center", width: "fit-content", minWidth: 0 }}
+    >
         {React.cloneElement(icon, {
             sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
         })}
-        <Typography fontSize={`${metrics.statFontRem}rem`} component="span" sx={{ whiteSpace: "nowrap" }}>
+        <Typography
+            fontSize={`${metrics.statFontRem}rem`}
+            component="span"
+            sx={{
+                whiteSpace: "nowrap",
+                // A buffed or debuffed stat is TINTED, and carries a small caret. The rebuild dropped the
+                // old treatment -- a pulsing green/red ring around the whole cell -- because on a creature
+                // with a permanent modifier it sat on screen all fight and read as clutter. The
+                // information still matters, so it moves onto the number itself: no animation, no extra
+                // chrome, and the caret keeps it readable without relying on colour alone.
+            }}
+        >
             {value}
+            {modifier && (
+                <Box
+                    component="span"
+                    sx={{
+                        fontSize: "0.78em",
+                        ml: "2px",
+                        fontWeight: 700,
+                        color: modifier.startsWith("-") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
+                    }}
+                >
+                    {modifier}
+                </Box>
+            )}
         </Typography>
     </Box>
-);
+));
+StatValue.displayName = "StatValue";
 
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
@@ -801,8 +816,22 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
+    modifier?: string;
+    secondModifier?: string;
+}> = ({
+    icon,
+    value,
+    tooltip,
+    color,
+    metrics,
+    secondIcon,
+    secondValue,
+    secondColor,
+    secondTooltip,
+    modifier,
+    secondModifier,
+}) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
 
     return (
         <Box
@@ -827,7 +856,13 @@ const StatItem: React.FC<{
             </Tooltip>
             {secondIcon && secondValue !== undefined && (
                 <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
-                    <StatValue icon={secondIcon} value={secondValue} color={secondColor ?? color} metrics={metrics} />
+                    <StatValue
+                        icon={secondIcon}
+                        value={secondValue}
+                        color={secondColor ?? color}
+                        metrics={metrics}
+                        modifier={secondModifier}
+                    />
                 </Tooltip>
             )}
         </Box>
@@ -873,6 +908,40 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
+    // magic_resist_mod and range_shots_mod REPLACE their base rather than adding to it (Enchanted Skin
+    // sets the resist outright), so the delta has to be computed against the base instead of printed
+    // straight -- "+40" would be wrong for a mod that means "40 total".
+    const magicResistDelta = unitProperties.magic_resist_mod
+        ? Math.round(unitProperties.magic_resist_mod) - Math.round(unitProperties.magic_resist)
+        : 0;
+    const rangeShotsDelta = unitProperties.range_shots_mod
+        ? Math.round(unitProperties.range_shots_mod) - Math.round(unitProperties.range_shots)
+        : 0;
+
+    // Additive first, then the multiplier — the same order and shape mainline used.
+    const attackModifierLabel = [
+        modLabel(unitProperties.attack_mod),
+        unitProperties.attack_multiplier !== 1 ? `x${Number(unitProperties.attack_multiplier.toFixed(2))}` : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
+
+    // Luck's display delta has to be DERIVED, not read from luck_mod.
+    //
+    // In the sandbox luck_mod carries the buff and the delta is just that. In ranked it is hardcoded to 0:
+    // the server ships luck already rolled (auras + the per-turn spread) with luck_authoritative set, so
+    // adjustBaseStats keeps it verbatim. Writing the delta into luck_mod to make the HUD work would be a
+    // gameplay bug, because getLuck() sums luck + luck_mod -- it would inflate real damage rolls and
+    // ability chances, not just this label. So the effective total is diffed against the creature's
+    // configured base instead, which is display-only and correct on both paths.
+    const configuredLuck = HoCConfig.getCreatureConfig(
+        unitProperties.team,
+        ToFactionName[unitProperties.faction],
+        unitProperties.name,
+        unitProperties.large_texture_name,
+        0,
+    ).luck;
+    const luckDelta = Math.round(unitProperties.luck + unitProperties.luck_mod) - Math.round(configuredLuck);
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -902,6 +971,11 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                 value={Math.round(attackDamage)}
+                // Attack carries TWO kinds of modifier and both have to show. Mass Riot (and Weakness,
+                // Fireforged Sword, Warlord's Edge...) move attack_mod, which is ADDITIVE and already folded
+                // into the number above -- so without printing it the buff simply disappeared into the stat.
+                // attack_multiplier is separate and multiplicative. Mainline printed both, e.g. "+5 x1.5".
+                modifier={attackModifierLabel}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
@@ -909,13 +983,24 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<ShieldIcon />}
                 value={Math.round(meleeArmor)}
-                tooltip="Armor"
+                tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
+                modifier={modLabel(unitProperties.armor_mod)}
+                secondModifier={modLabel(unitProperties.armor_mod)}
+                // A creature that armours differently against arrows shows both figures in ONE cell, the
+                // way morale and luck share theirs. They are the same stat read against two attack types,
+                // so splitting them across the grid made the pair read as unrelated -- and the second cell
+                // only existed for some creatures, which shifted every stat after it.
+                secondIcon={hasDifferentRangeArmor ? <ArrowShieldIcon /> : undefined}
+                secondValue={hasDifferentRangeArmor ? Math.round(rangeArmor) : undefined}
+                secondColor="#f4a460"
+                secondTooltip="Armor against ranged attacks"
             />
             <StatItem
                 icon={<MagicShieldIcon />}
                 value={`${Math.round(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
+                modifier={modLabel(magicResistDelta)}
                 tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
@@ -925,6 +1010,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                 value={Math.floor(unitProperties.steps + stepsMod)}
+                modifier={modLabel(stepsMod)}
                 tooltip="Movement type and number of steps in cells"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
@@ -939,20 +1025,24 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
-                tooltip="Morale affects extra actions"
+                secondModifier={modLabel(luckDelta)}
+                tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
                 secondIcon={<LuckIcon />}
                 secondValue={Math.round(unitProperties.luck + unitProperties.luck_mod)}
                 secondColor="#ff4040"
-                secondTooltip="Luck affects damage variance"
+                secondTooltip="Luck raises damage rolls and the power of abilities"
             />
-            {hasDifferentRangeArmor && (
+            {/* Spellbook scroll count. Dropped in the sidebar rebuild -- it is the only readout of how many
+                casts a spellcaster has left, so losing it meant checking the spellbook to answer a question
+                the stat block used to answer at a glance. */}
+            {unitProperties.can_cast_spells && (
                 <StatItem
-                    icon={<ArrowShieldIcon />}
-                    value={Math.round(rangeArmor)}
-                    tooltip="Range armor"
-                    color="#f4a460"
+                    icon={<ScrollIcon />}
+                    value={unitProperties.spells.length}
+                    tooltip="Magic scrolls left to cast"
+                    color="#add8e6"
                     metrics={metrics}
                 />
             )}
@@ -969,6 +1059,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<QuiverIcon />}
                     value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                    modifier={modLabel(rangeShotsDelta)}
                     tooltip="Number of ranged shots"
                     color="#cd5c5c"
                     metrics={metrics}
@@ -977,7 +1068,6 @@ const UnitStatsLayout: React.FC<{
         </>
     );
     const unitSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
-    const auraTone = team === TeamVals.LOWER ? TEAM_AURA.green : TEAM_AURA.red;
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
@@ -1043,35 +1133,28 @@ const UnitStatsLayout: React.FC<{
                         ...teamAuraKeyframes,
                     }}
                 >
-                    {/* Team colour burns behind the art. Long, mutually indivisible periods so the layers
-                        never resynchronise into a visible pulse. */}
-                    <Box
-                        sx={auraFlameSx(
-                            flameWidth.outer,
-                            auraTone.outer,
-                            flameBlur.outer,
-                            "hocFlameA 23s ease-in-out infinite",
-                            1,
-                        )}
-                    />
-                    <Box
-                        sx={auraFlameSx(
-                            flameWidth.mid,
-                            auraTone.mid,
-                            flameBlur.mid,
-                            "hocFlameB 17s ease-in-out infinite",
-                            0.95,
-                        )}
-                    />
-                    <Box
-                        sx={auraFlameSx(
-                            flameWidth.inner,
-                            auraTone.inner,
-                            flameBlur.inner,
-                            "hocFlameA 13s ease-in-out infinite reverse",
-                            0.9,
-                        )}
-                    />
+                    {/* Synergies sit in the portrait block's top-left corner as a column, not as a section
+                        of their own. They are a standing property of the army rather than an effect on this
+                        stack, so they read better as a quiet marker beside the art than as a titled band
+                        competing with Buffs and Debuffs for the card's vertical space. */}
+                    {unitSynergies.length > 0 && (
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                zIndex: 2,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                                gap: `${Math.round(metrics.gapPx * 0.4)}px`,
+                                pointerEvents: "auto",
+                            }}
+                        >
+                            <SynergiesRow synergies={unitSynergies} column />
+                        </Box>
+                    )}
+
                     <Box
                         sx={{
                             // No circular clip and no frame: the art keeps its own silhouette, so wings,
@@ -1152,25 +1235,9 @@ const UnitStatsLayout: React.FC<{
                 </ScrollWell>
             </PanelSection>
 
-            {/* Synergies ride along with the buffs instead of a separate top-left HUD: they come off the
-                selected unit's own properties, so a green stack shows green's synergies and a red one
-                shows red's, with no extra plumbing. */}
             <PanelSection title="Buffs" metrics={metrics}>
                 <ScrollWell height={effectWellHeight}>
-                    {/* Buff tiles and synergy badges share one wrapping row rather than stacking as two
-                        blocks — they are all "what is currently boosting this stack". */}
-                    <Box
-                        sx={{
-                            display: "flex",
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            alignItems: "flex-start",
-                            gap: `${metrics.gapPx * 0.6}px`,
-                        }}
-                    >
-                        {buffs.length > 0 && <EffectTiles effects={buffs} title="Buffs" metrics={metrics} />}
-                        {unitSynergies.length > 0 && <SynergiesRow synergies={unitSynergies} />}
-                    </Box>
+                    {buffs.length > 0 && <EffectTiles effects={buffs} title="Buffs" metrics={metrics} />}
                 </ScrollWell>
             </PanelSection>
 
@@ -1227,9 +1294,9 @@ type UnitStatsListItemProps = {
 };
 
 const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperties, overallImpact, factionType }) => {
-    const theme = useTheme();
     const metrics = useSidebarMetrics();
-    const isDarkMode = theme.palette.mode === "dark";
+    // The game renders dark-only; the light palette is gone, so this is a constant.
+    const isDarkMode = true;
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
     const buffs: IVisibleImpact[] = overallImpact.buffs || [];
     const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
@@ -1403,6 +1470,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
         const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
+
         const largeTextureName = unitProperties.large_texture_name;
 
         return (

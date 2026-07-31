@@ -4981,12 +4981,27 @@ export class Sandbox extends PixiScene {
             const prevTeamTypeTurn = this.sc_visibleState?.teamTypeTurn;
             const prevLapNumber = this.sc_visibleState?.lapNumber ?? 0;
             const prevUpNext = this.sc_visibleState?.upNext ?? [];
+            // The turn clock survives a rebuild too. Seeding it blank (-1 / MAX_SAFE_INTEGER) made the
+            // timer bar empty out and read "0s" until the next 500ms tick refilled it, which is visible
+            // as a flicker every time something forces a refresh mid-turn -- switching between melee and
+            // ranged does exactly that. The clock lives in FightProperties, so read it straight from
+            // there rather than carrying the previous frame's value forward: the rebuilt state is then
+            // correct immediately instead of being one tick stale.
+            const turnStart = fightProps.getCurrentTurnStart();
+            const turnEnd = fightProps.getCurrentTurnEnd();
+            const hasLiveTurnClock = turnEnd > turnStart;
+            const secondsRemaining = hasLiveTurnClock
+                ? Math.max(0, (turnEnd - HoCLib.getTimeMillis()) / 1000)
+                : (this.sc_visibleState?.secondsRemaining ?? -1);
+            const secondsMax = hasLiveTurnClock
+                ? (turnEnd - turnStart) / 1000
+                : (this.sc_visibleState?.secondsMax ?? Number.MAX_SAFE_INTEGER);
             this.sc_visibleState = {
                 canBeStarted: false,
                 hasFinished: prevHasFinished,
                 teamWin: prevTeamWin,
-                secondsRemaining: -1,
-                secondsMax: Number.MAX_SAFE_INTEGER,
+                secondsRemaining,
+                secondsMax,
                 teamTypeTurn: prevTeamTypeTurn,
                 hasAdditionalTime: false,
                 lapNumber: prevLapNumber,
