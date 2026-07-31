@@ -24,3 +24,25 @@ export const isTargetedSpellReachable = (
         to,
     );
 };
+
+/**
+ * Who intercepted a thrown spell's line, for the refusal message: undefined when the line is clear
+ * (or the spell is not thrown), otherwise the blocking unit's id or "B"/"H" for terrain.
+ */
+export const targetedSpellBlockerId = (
+    spellName: string,
+    grid: ClientSpellSightGrid,
+    from: HoCMath.XY,
+    to: HoCMath.XY,
+): string | undefined => {
+    if (!SpellHelper.targetedSpellRequiresLineOfSight(spellName)) {
+        return undefined;
+    }
+    const settings = grid.getSettings();
+    return SpellHelper.firstSpellSightBlocker(
+        grid,
+        (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
+        from,
+        to,
+    )?.occupantId;
+};
