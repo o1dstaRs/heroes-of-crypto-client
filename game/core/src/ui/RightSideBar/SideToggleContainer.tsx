@@ -9,27 +9,14 @@ import {
     MightSynergyNames,
     MightSynergy,
     NatureSynergyNames,
-    ToFactionName,
     NatureSynergy,
-    SynergyKeysToPower,
     SpecificSynergy,
     TeamType,
     FactionType,
     FactionVals,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
-import {
-    Radio,
-    RadioGroup,
-    FormControl,
-    FormLabel,
-    Sheet,
-    Box,
-    Typography,
-    IconButton,
-    Tooltip,
-    Divider,
-} from "@mui/joy";
+import { Sheet, Box, Tooltip, Typography, Divider } from "@mui/joy";
 import { VisibleSynergyLevel } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { ArtifactToggler } from "./ArtifactToggler";
@@ -65,7 +52,7 @@ const SYNERGY_NAME_TO_FACTION = {
     [NatureSynergyNames.PLUS_FLY_ARMOR]: FactionVals.NATURE,
 };
 
-const SYNERGY_NAME_TO_DESCRIPTION = {
+const SYNERGY_NAME_TO_DESCRIPTION: Record<string, string> = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Increase each unit's supply by {}%",
     [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "The entire army gets +{} morale and +{} luck",
     [ChaosSynergyNames.MOVEMENT]: "Improve movement steps by {} cells",
@@ -84,499 +71,238 @@ type SelectedSynergy = {
     name: string;
 };
 
-const SynergyToggler = ({ selectedSynergy }: { selectedSynergy: SelectedSynergy | null }) => {
-    if (!selectedSynergy) {
-        return null;
-    }
+type SynergyOption = {
+    label: string;
+    icon: string;
+    level: number;
+    synergyName: string;
+    onSelect: () => void;
+};
 
-    const selectedSynergyFactionName = ToFactionName[selectedSynergy.faction];
-    const selectedSynergyKey = `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${selectedSynergy.level}`;
+// One faction's synergy pair: pick 1 of 2, free, unlocked by how many units of that faction you drafted
+// (2/4/6 -> level 1/2/3). A faction with too few units shows both options dashed and "needs 2 units".
+const SynergyFactionPanel = ({
+    faction,
+    color,
+    options,
+    selectedLabel,
+}: {
+    faction: string;
+    color: string;
+    options: SynergyOption[];
+    selectedLabel?: string;
+}) => {
+    const level = Math.max(0, ...options.map((o) => o.level));
+    const locked = level < 1;
+    return (
+        <Sheet
+            variant="outlined"
+            sx={{
+                p: "12px",
+                borderRadius: "18px",
+                bgcolor: "#12151d",
+                border: "2px solid rgba(255,255,255,0.08)",
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 1,
+                height: "100%",
+                overflow: "hidden",
+                // Factions you can actually pick sort to the front; "needs 2 units" ones drop to the end.
+                order: locked ? 2 : 1,
+            }}
+        >
+            <Box
+                sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    flex: "0 0 auto",
+                    minWidth: 96,
+                }}
+            >
+                <Typography
+                    sx={{
+                        fontSize: 13,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: locked ? "#5d636e" : color,
+                        fontWeight: 700,
+                    }}
+                >
+                    {faction}
+                </Typography>
+                <Typography sx={{ fontSize: 12, color: locked ? "#5d636e" : "#9aa0ab" }}>
+                    {locked ? "needs 2 units" : `level ${level}`}
+                </Typography>
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, flex: "1 1 auto", minWidth: 0 }}>
+                {options.map((option) => {
+                    const isSelected = selectedLabel === option.label;
+                    return (
+                        <Tooltip
+                            key={option.label}
+                            title={SYNERGY_NAME_TO_DESCRIPTION[option.synergyName] ?? option.label}
+                            variant="soft"
+                            placement="top"
+                        >
+                            <Box
+                                component={locked ? "div" : "button"}
+                                type={locked ? undefined : "button"}
+                                onClick={locked ? undefined : option.onSelect}
+                                sx={{
+                                    flex: "1 1 0",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.25,
+                                    p: "7px 10px",
+                                    borderRadius: "14px",
+                                    cursor: locked ? "default" : "pointer",
+                                    opacity: locked ? 0.45 : 1,
+                                    border: locked
+                                        ? "2px dashed rgba(255,255,255,0.14)"
+                                        : isSelected
+                                          ? "2px solid #3b9b5c"
+                                          : "2px solid rgba(255,255,255,0.12)",
+                                    bgcolor: isSelected ? "rgba(59,155,92,0.16)" : "rgba(255,255,255,0.03)",
+                                    color: isSelected ? "#8ff0b4" : "#e9e6df",
+                                    fontSize: 13,
+                                    textAlign: "left",
+                                }}
+                            >
+                                <img src={option.icon} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
+                                <span
+                                    style={{
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        minWidth: 0,
+                                    }}
+                                >
+                                    {option.label}
+                                </span>
+                                <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
+                                    {option.level > 0 ? `lvl ${option.level}` : ""}
+                                </span>
+                            </Box>
+                        </Tooltip>
+                    );
+                })}
+            </Box>
+        </Sheet>
+    );
+};
+
+type AugmentCardOption = { value: number; label: string };
+
+// One augment category as a card: header + one row per level. Replaces the old icon-row + single-open
+// toggler, so the whole budget is visible at once on the full-screen setup step.
+const AugmentCard = ({
+    label,
+    icon,
+    kind,
+    options,
+    teamType,
+    totalPoints,
+    currentSelection,
+    onLevelChange,
+}: {
+    label: string;
+    icon: string;
+    kind: Augment.AugmentType["type"];
+    options: AugmentCardOption[];
+    teamType: TeamType;
+    totalPoints: number;
+    currentSelection: number | null;
+    onLevelChange: (kind: Augment.AugmentType["type"], pointsUsed: number, previousPointsUsed: number) => void;
+}) => {
+    const manager = usePixiManager();
+    const selected = currentSelection ?? 0;
+
+    const select = (value: number) => {
+        if (manager.PropagateAugmentation(teamType, { type: kind, value } as Augment.AugmentType)) {
+            onLevelChange(kind, value, selected);
+        }
+    };
 
     return (
-        <Box sx={{ marginBottom: 2 }}>
-            <Sheet variant="outlined" sx={{ padding: 2, borderRadius: "md" }}>
-                <FormControl>
-                    <FormLabel>{`Picked ${selectedSynergy.name}`}</FormLabel>
-                    <RadioGroup value={selectedSynergyKey}>
-                        {Array.from({ length: HoCConstants.MAX_SYNERGY_LEVEL }, (_, i) => (
-                            <Radio
-                                key={`${selectedSynergyKey}:${i + 1}`}
-                                value={`${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`}
-                                label={`${SYNERGY_NAME_TO_DESCRIPTION[selectedSynergy.synergyName]
-                                    ?.replace(
-                                        "{}",
-                                        SynergyKeysToPower[
-                                            `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
-                                        ]?.[0]?.toString() || "0",
-                                    )
-                                    ?.replace(
-                                        "{}",
-                                        SynergyKeysToPower[
-                                            `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
-                                        ]?.[1]?.toString() || "0",
-                                    )}`}
-                                disabled={
-                                    selectedSynergyKey !==
-                                    `${selectedSynergyFactionName}:${selectedSynergy.synergyValue}:${i + 1}`
-                                }
+        <Sheet
+            variant="outlined"
+            sx={{ p: "12px", borderRadius: "18px", bgcolor: "#12151d", border: "1px solid rgba(255,255,255,0.12)" }}
+        >
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1 }}>
+                {icon ? (
+                    <img src={icon} alt="" style={{ width: 36, height: 36, objectFit: "contain" }} />
+                ) : (
+                    <Box
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: "10px",
+                            display: "grid",
+                            placeItems: "center",
+                            bgcolor: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            color: "#7c8290",
+                            fontSize: 20,
+                            fontWeight: 700,
+                        }}
+                    >
+                        ?
+                    </Box>
+                )}
+                <Typography sx={{ fontSize: 17, fontWeight: 600, color: "#e9e6df" }}>{label}</Typography>
+            </Box>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+                {options.map((option) => {
+                    const isSelected = selected === option.value;
+                    const affordable = totalPoints + selected >= option.value;
+                    return (
+                        <Box
+                            key={option.value}
+                            component="button"
+                            type="button"
+                            disabled={!affordable && !isSelected}
+                            onClick={() => select(option.value)}
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 1,
+                                width: "100%",
+                                padding: "5px 10px",
+                                borderRadius: "12px",
+                                cursor: affordable || isSelected ? "pointer" : "default",
+                                bgcolor: isSelected ? "rgba(220,177,88,0.14)" : "rgba(255,255,255,0.03)",
+                                border: `1px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
+                                color: affordable || isSelected ? "#e9e6df" : "#5d636e",
+                                fontSize: 12.5,
+                                textAlign: "left",
+                            }}
+                        >
+                            <span>{option.label}</span>
+                            <Box
+                                component="span"
+                                sx={{
+                                    width: 15,
+                                    height: 15,
+                                    ml: "auto",
+                                    borderRadius: "50%",
+                                    flex: "0 0 auto",
+                                    border: `2px solid ${isSelected ? "#4b90e2" : "rgba(255,255,255,0.35)"}`,
+                                    boxShadow: isSelected ? "inset 0 0 0 3px #4b90e2" : "none",
+                                }}
                             />
-                        ))}
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
-const PlacementToggler = ({
-    title,
-    teamType,
-    totalPoints,
-    onLevelChange,
-    currentSelection,
-}: {
-    title: string;
-    teamType: TeamType;
-    totalPoints: number;
-    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
-    currentSelection: number | null;
-}) => {
-    const manager = usePixiManager();
-
-    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const augmentType = Augment.ToPlacementAugment[event.target.value.toString()];
-        if (manager.PropagateAugmentation(teamType, { type: "Placement", value: augmentType })) {
-            onLevelChange(augmentType, currentSelection ?? 0);
-        }
-    };
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
-                <FormControl>
-                    <FormLabel>Augment Board Placement</FormLabel>
-                    <RadioGroup
-                        name={`${title}-placement-type`}
-                        onChange={handleSelectionChange}
-                        value={currentSelection ?? Augment.PlacementAugment.LEVEL_1}
-                    >
-                        <Radio
-                            value={Augment.PlacementAugment.LEVEL_1}
-                            label="Height 3 partial"
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_1 &&
-                                currentSelection !== Augment.PlacementAugment.LEVEL_1
-                            }
-                        />
-                        <Radio
-                            value={Augment.PlacementAugment.LEVEL_2}
-                            label="Height 4 full"
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_2 &&
-                                currentSelection !== Augment.PlacementAugment.LEVEL_2
-                            }
-                        />
-                        <Radio
-                            value={Augment.PlacementAugment.LEVEL_3}
-                            label="Height 5 full"
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_3 &&
-                                currentSelection !== Augment.PlacementAugment.LEVEL_3
-                            }
-                        />
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
-const ArmorToggler = ({
-    title,
-    teamType,
-    totalPoints,
-    onLevelChange,
-    currentSelection,
-}: {
-    title: string;
-    teamType: TeamType;
-    totalPoints: number;
-    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
-    currentSelection: number | null;
-}) => {
-    const manager = usePixiManager();
-
-    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const augmentType = Augment.ToArmorAugment[event.target.value.toString()];
-        if (manager.PropagateAugmentation(teamType, { type: "Armor", value: augmentType })) {
-            onLevelChange(augmentType, currentSelection ?? 0);
-        }
-    };
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            {/* Remaining Points Text (Orange and Bold) */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
-            {/* The Toggler Sheet */}
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
-                <FormControl>
-                    <FormLabel>Augment Armor</FormLabel>
-                    <RadioGroup
-                        name={`${title}-armor-type`}
-                        onChange={handleSelectionChange}
-                        value={currentSelection ?? Augment.ArmorAugment.NO_AUGMENT}
-                    >
-                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="No Augment" />
-                        <Radio
-                            value={Augment.ArmorAugment.LEVEL_1}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor, +${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)} Magic Armor`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_1 &&
-                                currentSelection !== Augment.ArmorAugment.LEVEL_1
-                            }
-                        />
-                        <Radio
-                            value={Augment.ArmorAugment.LEVEL_2}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor, +${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)} Magic Armor`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_2 &&
-                                currentSelection !== Augment.ArmorAugment.LEVEL_2
-                            }
-                        />
-                        <Radio
-                            value={Augment.ArmorAugment.LEVEL_3}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor, +${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)} Magic Armor`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_3 &&
-                                currentSelection !== Augment.ArmorAugment.LEVEL_3
-                            }
-                        />
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
-const MightToggler = ({
-    title,
-    teamType,
-    totalPoints,
-    onLevelChange,
-    currentSelection,
-}: {
-    title: string;
-    teamType: TeamType;
-    totalPoints: number;
-    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
-    currentSelection: number | null;
-}) => {
-    const manager = usePixiManager();
-
-    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const augmentType = Augment.ToMightAugment[event.target.value.toString()];
-        if (manager.PropagateAugmentation(teamType, { type: "Might", value: augmentType })) {
-            onLevelChange(augmentType, currentSelection ?? 0);
-        }
-    };
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            {/* Remaining Points Text (Orange and Bold) */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
-            {/* The Toggler Sheet */}
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
-                <FormControl>
-                    <FormLabel>Augment Might</FormLabel>
-                    <RadioGroup
-                        name={`${title}-might-type`}
-                        onChange={handleSelectionChange}
-                        value={currentSelection ?? Augment.MightAugment.NO_AUGMENT}
-                    >
-                        <Radio value={Augment.MightAugment.NO_AUGMENT} label="No Augment" />
-                        <Radio
-                            value={Augment.MightAugment.LEVEL_1}
-                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_1)}% Melee attack`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_1 &&
-                                currentSelection !== Augment.MightAugment.LEVEL_1
-                            }
-                        />
-                        <Radio
-                            value={Augment.MightAugment.LEVEL_2}
-                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_2)}% Melee attack`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_2 &&
-                                currentSelection !== Augment.MightAugment.LEVEL_2
-                            }
-                        />
-                        <Radio
-                            value={Augment.MightAugment.LEVEL_3}
-                            label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_3)}% Melee attack`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.MightAugment.LEVEL_3 &&
-                                currentSelection !== Augment.MightAugment.LEVEL_3
-                            }
-                        />
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
-const EmpowerToggler = ({
-    title,
-    teamType,
-    totalPoints,
-    onLevelChange,
-    currentSelection,
-}: {
-    title: string;
-    teamType: TeamType;
-    totalPoints: number;
-    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
-    currentSelection: number | null;
-}) => {
-    const manager = usePixiManager();
-
-    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const augmentType = Augment.ToEmpowerAugment[event.target.value.toString()];
-        if (manager.PropagateAugmentation(teamType, { type: "Empower", value: augmentType })) {
-            onLevelChange(augmentType, currentSelection ?? 0);
-        }
-    };
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            {/* Remaining Points Text (Orange and Bold) */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
-            {/* The Toggler Sheet */}
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
-                <FormControl>
-                    <FormLabel>Augment Empower</FormLabel>
-                    <RadioGroup
-                        name={`${title}-empower-type`}
-                        onChange={handleSelectionChange}
-                        value={currentSelection ?? Augment.EmpowerAugment.NO_AUGMENT}
-                    >
-                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label="No Augment" />
-                        <Radio
-                            value={Augment.EmpowerAugment.LEVEL_1}
-                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_1)}% Magic damage`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_1 &&
-                                currentSelection !== Augment.EmpowerAugment.LEVEL_1
-                            }
-                        />
-                        <Radio
-                            value={Augment.EmpowerAugment.LEVEL_2}
-                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_2)}% Magic damage`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_2 &&
-                                currentSelection !== Augment.EmpowerAugment.LEVEL_2
-                            }
-                        />
-                        <Radio
-                            value={Augment.EmpowerAugment.LEVEL_3}
-                            label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_3)}% Magic damage`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.EmpowerAugment.LEVEL_3 &&
-                                currentSelection !== Augment.EmpowerAugment.LEVEL_3
-                            }
-                        />
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
-const SniperToggler = ({
-    title,
-    teamType,
-    totalPoints,
-    onLevelChange,
-    currentSelection,
-}: {
-    title: string;
-    teamType: TeamType;
-    totalPoints: number;
-    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
-    currentSelection: number | null;
-}) => {
-    const manager = usePixiManager();
-
-    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const augmentType = Augment.ToSniperAugment[event.target.value.toString()];
-        if (manager.PropagateAugmentation(teamType, { type: "Sniper", value: augmentType })) {
-            onLevelChange(augmentType, currentSelection ?? 0);
-        }
-    };
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
-                <FormControl>
-                    <FormLabel>Augment Sniper</FormLabel>
-                    <RadioGroup
-                        name={`${title}-sniper-type`}
-                        onChange={handleSelectionChange}
-                        value={currentSelection ?? Augment.SniperAugment.NO_AUGMENT}
-                    >
-                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label="No Augment" />
-                        <Radio
-                            value={Augment.SniperAugment.LEVEL_1}
-                            label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[0]}% attack/+${
-                                Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[1]
-                            }% distance`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.SniperAugment.LEVEL_1 &&
-                                currentSelection !== Augment.SniperAugment.LEVEL_1
-                            }
-                        />
-                        <Radio
-                            value={Augment.SniperAugment.LEVEL_2}
-                            label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_2)[0]}% attack/+${
-                                Augment.getSniperPower(Augment.SniperAugment.LEVEL_2)[1]
-                            }% distance`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.SniperAugment.LEVEL_2 &&
-                                currentSelection !== Augment.SniperAugment.LEVEL_2
-                            }
-                        />
-                        <Radio
-                            value={Augment.SniperAugment.LEVEL_3}
-                            label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_3)[0]}% attack/+${
-                                Augment.getSniperPower(Augment.SniperAugment.LEVEL_3)[1]
-                            }% distance`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.SniperAugment.LEVEL_3 &&
-                                currentSelection !== Augment.SniperAugment.LEVEL_3
-                            }
-                        />
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
-    );
-};
-
-const MovementToggler = ({
-    title,
-    teamType,
-    totalPoints,
-    onLevelChange,
-    currentSelection,
-}: {
-    title: string;
-    teamType: TeamType;
-    totalPoints: number;
-    onLevelChange: (pointsUsed: number, previousPointsUsed: number) => void;
-    currentSelection: number | null;
-}) => {
-    const manager = usePixiManager();
-
-    const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const augmentType = Augment.ToMovementAugment[event.target.value.toString()];
-        if (manager.PropagateAugmentation(teamType, { type: "Movement", value: augmentType })) {
-            onLevelChange(augmentType, currentSelection ?? 0);
-        }
-    };
-
-    return (
-        <Box sx={{ marginBottom: 2 }}>
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
-                <FormControl>
-                    <FormLabel>Augment Movement</FormLabel>
-                    <RadioGroup
-                        name={`${title}-movement-type`}
-                        onChange={handleSelectionChange}
-                        value={currentSelection ?? Augment.MovementAugment.NO_AUGMENT}
-                    >
-                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label="No Augment" />
-                        <Radio
-                            value={Augment.MovementAugment.LEVEL_1}
-                            label={`+${Augment.getMovementPower(Augment.MovementAugment.LEVEL_1)} Movement steps`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.MovementAugment.LEVEL_1 &&
-                                currentSelection !== Augment.MovementAugment.LEVEL_1
-                            }
-                        />
-                        <Radio
-                            value={Augment.MovementAugment.LEVEL_2}
-                            label={`+${Augment.getMovementPower(Augment.MovementAugment.LEVEL_2)} Movement steps`}
-                            disabled={
-                                totalPoints + (currentSelection ?? 0) < Augment.MovementAugment.LEVEL_2 &&
-                                currentSelection !== Augment.MovementAugment.LEVEL_2
-                            }
-                        />
-                    </RadioGroup>
-                </FormControl>
-            </Sheet>
-        </Box>
+                        </Box>
+                    );
+                })}
+            </Box>
+        </Sheet>
     );
 };
 
 const SideToggleContainer = ({
-    side,
+    side: _side,
     teamType,
     unitFaction,
     // Free army-wide artifact picking (one per tier) is a SANDBOX-only tool. In ranked the artifacts are
@@ -613,30 +339,22 @@ const SideToggleContainer = ({
     const [synergyPairChaos, setSynergyPairTypeChaos] = useState<SelectedSynergy | null>(null);
     const [synergyPairMight, setSynergyPairTypeMight] = useState<SelectedSynergy | null>(null);
     const [synergyPairNature, setSynergyPairTypeNature] = useState<SelectedSynergy | null>(null);
-    const [synergyTogglerKey, setSynergyTogglerKey] = useState(0);
 
-    // Function to handle augment button clicks
-    const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement") => {
-        setTogglerType(type);
-        setSelectedSynergy(null); // Clear selected synergy when switching to augment
-    };
-
-    const handleLevelChange = (pointsUsed: number, previousPointsUsed: number) => {
-        if (togglerType === "Placement") {
+    const handleLevelChange = (kind: Augment.AugmentType["type"], pointsUsed: number, previousPointsUsed: number) => {
+        if (kind === "Placement") {
             setPlacementSelection(pointsUsed);
-        } else if (togglerType === "Armor") {
+        } else if (kind === "Armor") {
             setArmorSelection(pointsUsed);
-        } else if (togglerType === "Might") {
+        } else if (kind === "Might") {
             setMightSelection(pointsUsed);
-        } else if (togglerType === "Empower") {
+        } else if (kind === "Empower") {
             setEmpowerSelection(pointsUsed);
-        } else if (togglerType === "Sniper") {
+        } else if (kind === "Sniper") {
             setSniperSelection(pointsUsed);
         } else {
             setMovementSelection(pointsUsed);
         }
-        const remainingPoints = totalPoints + previousPointsUsed - pointsUsed;
-        setTotalPoints(remainingPoints);
+        setTotalPoints(totalPoints + previousPointsUsed - pointsUsed);
     };
 
     const possibleSynergiesObj: Record<string, VisibleSynergyLevel> = {};
@@ -703,8 +421,6 @@ const SideToggleContainer = ({
                 level: synergyLevel,
                 name: selectedSynergy.name,
             });
-            // Force a re-render of the SynergyToggler by updating its key
-            setSynergyTogglerKey((prev) => prev + 1);
         }
     }
 
@@ -734,16 +450,6 @@ const SideToggleContainer = ({
         }
     };
 
-    const hasAnySynergies =
-        possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 ||
-        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0 ||
-        possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 ||
-        possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0 ||
-        possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 ||
-        possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0 ||
-        possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 ||
-        possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0;
-
     // A faction's synergy is "done" when it isn't available for this army, or the player has picked one of
     // its two variants. All available synergies are selected once every faction is done.
     const lifeAvailable =
@@ -770,486 +476,298 @@ const SideToggleContainer = ({
         onReadyChange?.({ pointsRemaining: totalPoints, allSynergiesSelected });
     }, [onReadyChange, totalPoints, allSynergiesSelected]);
 
+    // One entry per augment category. The level value IS its point cost, which is why the option value can
+    // double as the price shown on the right of each row.
+    const augmentCards: Array<{
+        kind: Augment.AugmentType["type"];
+        label: string;
+        icon: string;
+        selection: number | null;
+        options: AugmentCardOption[];
+    }> = [
+        {
+            kind: "Placement",
+            label: "Board placement",
+            icon: (augmentBoardImg as unknown as { default?: string }).default ?? augmentBoardImg,
+            selection: placementSelection,
+            options: [
+                { value: Augment.PlacementAugment.LEVEL_1, label: "Height 3 partial" },
+                { value: Augment.PlacementAugment.LEVEL_2, label: "Height 4 full" },
+                { value: Augment.PlacementAugment.LEVEL_3, label: "Height 5 full" },
+            ],
+        },
+        {
+            kind: "Armor",
+            label: "Armor",
+            icon: (augmentArmorImg as unknown as { default?: string }).default ?? augmentArmorImg,
+            selection: armorSelection,
+            options: [
+                { value: Augment.ArmorAugment.NO_AUGMENT, label: "No augment" },
+                ...[Augment.ArmorAugment.LEVEL_1, Augment.ArmorAugment.LEVEL_2, Augment.ArmorAugment.LEVEL_3].map(
+                    // Both halves, per d0dd7c7 on main: the Armor augment raises physical armor by a PERCENTAGE and
+                    // adds its points FLAT to magic armor. Saying only "% armor" would hide the magic half entirely.
+                    (level) => ({
+                        value: level,
+                        label: `+${Augment.getArmorPower(level)}% armor, +${Augment.getArmorPower(level)} magic armor`,
+                    }),
+                ),
+            ],
+        },
+        {
+            kind: "Might",
+            label: "Might",
+            icon: (augmentMightImg as unknown as { default?: string }).default ?? augmentMightImg,
+            selection: mightSelection,
+            options: [
+                { value: Augment.MightAugment.NO_AUGMENT, label: "No augment" },
+                ...[Augment.MightAugment.LEVEL_1, Augment.MightAugment.LEVEL_2, Augment.MightAugment.LEVEL_3].map(
+                    (level) => ({ value: level, label: `+${Augment.getMightPower(level)}% melee` }),
+                ),
+            ],
+        },
+        {
+            kind: "Empower",
+            label: "Magic",
+            icon: (augmentEmpowerImg as unknown as { default?: string }).default ?? augmentEmpowerImg,
+            selection: empowerSelection,
+            options: [
+                { value: Augment.EmpowerAugment.NO_AUGMENT, label: "No augment" },
+                ...[Augment.EmpowerAugment.LEVEL_1, Augment.EmpowerAugment.LEVEL_2, Augment.EmpowerAugment.LEVEL_3].map(
+                    (level) => ({ value: level, label: `+${Augment.getEmpowerPower(level)}% magic attack` }),
+                ),
+            ],
+        },
+        {
+            kind: "Sniper",
+            label: "Sniper",
+            icon: (augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg,
+            selection: sniperSelection,
+            options: [
+                { value: Augment.SniperAugment.NO_AUGMENT, label: "No augment" },
+                ...[Augment.SniperAugment.LEVEL_1, Augment.SniperAugment.LEVEL_2, Augment.SniperAugment.LEVEL_3].map(
+                    (level) => ({
+                        value: level,
+                        label: `+${Augment.getSniperPower(level)[0]}% atk / +${Augment.getSniperPower(level)[1]}% range`,
+                    }),
+                ),
+            ],
+        },
+        {
+            kind: "Movement",
+            label: "Movement",
+            icon: (augmentMovementImg as unknown as { default?: string }).default ?? augmentMovementImg,
+            selection: movementSelection,
+            options: [
+                { value: Augment.MovementAugment.NO_AUGMENT, label: "No augment" },
+                ...[Augment.MovementAugment.LEVEL_1, Augment.MovementAugment.LEVEL_2].map((level) => ({
+                    value: level,
+                    label: `+${Augment.getMovementPower(level)} movement step${Augment.getMovementPower(level) > 1 ? "s" : ""}`,
+                })),
+            ],
+        },
+    ];
+
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
-            {/* One row, always. Six 48px icons with gap 2 wrapped onto a second line in a narrow sidebar once
-                Empower made it six, so they now share the row with no gap and shrink to fit. */}
-            <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}>
-                <Tooltip title="Augment board placements" style={{ zIndex: 1 }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Placement")}
-                        title="Augment board placements"
-                    >
-                        <img
-                            src={(augmentBoardImg as unknown as { default?: string }).default ?? augmentBoardImg}
-                            alt="Placement Icon"
-                            style={{
-                                filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment armor" style={{ zIndex: 1 }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Armor")}
-                        title="Augment armor"
-                    >
-                        <img
-                            src={(augmentArmorImg as unknown as { default?: string }).default ?? augmentArmorImg}
-                            alt="Armor Icon"
-                            style={{
-                                filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment melee attack" style={{ zIndex: 1 }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Might")}
-                        title="Augment melee attack"
-                    >
-                        <img
-                            src={(augmentMightImg as unknown as { default?: string }).default ?? augmentMightImg}
-                            alt="Might Icon"
-                            style={{
-                                filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment magic damage" style={{ zIndex: 1 }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Empower")}
-                        title="Augment magic damage"
-                    >
-                        <img
-                            src={(augmentEmpowerImg as unknown as { default?: string }).default ?? augmentEmpowerImg}
-                            alt="Empower Icon"
-                            style={{
-                                filter: togglerType === "Empower" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment ranged attack" style={{ zIndex: 1 }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Sniper")}
-                        title="Augment ranged attack"
-                    >
-                        <img
-                            src={(augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg}
-                            alt="Sniper Icon"
-                            style={{
-                                filter: togglerType === "Sniper" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment movement" style={{ zIndex: 1 }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Movement")}
-                        title="Augment movement"
-                    >
-                        <img
-                            src={(augmentMovementImg as unknown as { default?: string }).default ?? augmentMovementImg}
-                            alt="Movement Icon"
-                            style={{
-                                filter: togglerType === "Movement" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
+        // Fill the PARENT, never the viewport: the ranked overlay already sizes itself to
+        // min(1340px, 97vw), so 100% matches it exactly there — while in the sandbox right
+        // sidebar a viewport-relative width escaped the panel and clipped the right column.
+        // (Comment sits OUTSIDE the JSX tag: vite 8's oxc transform rejects `//` between attributes.)
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "min(1340px, 100%)", mx: "auto" }}>
+            {/* Every category on screen at once: 4 columns, one card per augment, levels priced inline. */}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(3, minmax(0, 1fr))" },
+                    gap: "10px",
+                    width: "100%",
+                    gridAutoRows: "minmax(0, 1fr)",
+                    alignItems: "stretch",
+                }}
+            >
+                {augmentCards.map((card) => (
+                    <AugmentCard
+                        key={card.kind}
+                        label={card.label}
+                        icon={card.icon}
+                        kind={card.kind}
+                        options={card.options}
+                        teamType={teamType}
+                        totalPoints={totalPoints}
+                        currentSelection={card.selection}
+                        onLevelChange={handleLevelChange}
+                    />
+                ))}
             </Box>
             <Divider />
 
-            {hasAnySynergies && (
-                <Box sx={{ display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
-                    {possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 &&
-                        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0 && (
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    gap: 0,
-                                    flexBasis: { xs: "100%", sm: "auto" },
-                                }}
-                            >
-                                <Tooltip title="Pick Supply synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeLife, {
-                                                faction: FactionVals.LIFE as FactionType,
-                                                synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                                synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
-                                                level:
-                                                    possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
-                                                name: "Supply Synergy",
-                                            })
-                                        }
-                                        title="Supply synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergySupplyImg as unknown as { default?: string }).default ??
-                                                synergySupplyImg
-                                            }
-                                            alt="Supply Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairLife?.synergyName ===
-                                                    LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Pick Morale & Luck synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeLife, {
-                                                faction: FactionVals.LIFE as FactionType,
-                                                synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
-                                                synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
-                                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
-                                                name: "Morale Synergy",
-                                            })
-                                        }
-                                        title="Morale synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyMoraleImg as unknown as { default?: string }).default ??
-                                                synergyMoraleImg
-                                            }
-                                            alt="Morale Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairLife?.synergyName ===
-                                                    LifeSynergyNames.PLUS_MORALE_AND_LUCK
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                            </Box>
-                        )}
-                    {possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 &&
-                        possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0 && (
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    gap: 0,
-                                    flexBasis: { xs: "100%", sm: "auto" },
-                                }}
-                            >
-                                <Tooltip title="Pick Movement synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeChaos, {
-                                                faction: FactionVals.CHAOS as FactionType,
-                                                synergyName: ChaosSynergyNames.MOVEMENT,
-                                                synergyValue: ChaosSynergy.MOVEMENT,
-                                                level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
-                                                name: "Movement Synergy",
-                                            })
-                                        }
-                                        title="Movement synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyMovementImg as unknown as { default?: string }).default ??
-                                                synergyMovementImg
-                                            }
-                                            alt="Movement Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairChaos?.synergyName === ChaosSynergyNames.MOVEMENT
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Pick Break on Attack synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeChaos, {
-                                                faction: FactionVals.CHAOS as FactionType,
-                                                synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                                synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
-                                                level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
-                                                name: "Break on Attack Synergy",
-                                            })
-                                        }
-                                        title="Break on Attack synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyBreakOnAttackImg as unknown as { default?: string }).default ??
-                                                synergyBreakOnAttackImg
-                                            }
-                                            alt="Break on Attack Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairChaos?.synergyName === ChaosSynergyNames.BREAK_ON_ATTACK
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                            </Box>
-                        )}
-                    {possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 &&
-                        possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0 && (
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    gap: 0,
-                                    flexBasis: { xs: "100%", sm: "auto" },
-                                }}
-                            >
-                                <Tooltip title="Pick Auras Range synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeMight, {
-                                                faction: FactionVals.MIGHT as FactionType,
-                                                synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
-                                                synergyValue: MightSynergy.PLUS_AURAS_RANGE,
-                                                level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
-                                                name: "Aura Range Synergy",
-                                            })
-                                        }
-                                        title="Auras Range synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyAurasRangeImg as unknown as { default?: string }).default ??
-                                                synergyAurasRangeImg
-                                            }
-                                            alt="Auras Range Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairMight?.synergyName === MightSynergyNames.PLUS_AURAS_RANGE
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Pick Abilities Power synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeMight, {
-                                                faction: FactionVals.MIGHT as FactionType,
-                                                synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                                synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
-                                                level:
-                                                    possibleSynergiesObj[
-                                                        MightSynergyNames.PLUS_STACK_ABILITIES_POWER
-                                                    ] ?? 0,
-                                                name: "Abilities Power Synergy",
-                                            })
-                                        }
-                                        title="Abilities Power synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyAbilitiesPowerImg as unknown as { default?: string }).default ??
-                                                synergyAbilitiesPowerImg
-                                            }
-                                            alt="Abilities Power Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairMight?.synergyName ===
-                                                    MightSynergyNames.PLUS_STACK_ABILITIES_POWER
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                            </Box>
-                        )}
-                    {possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 &&
-                        possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0 && (
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "center",
-                                    gap: 0,
-                                    flexBasis: { xs: "100%", sm: "auto" },
-                                }}
-                            >
-                                <Tooltip title="Pick Board Units synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeNature, {
-                                                faction: FactionVals.NATURE as FactionType,
-                                                synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                                synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
-                                                level:
-                                                    possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
-                                                name: "Board Units Synergy",
-                                            })
-                                        }
-                                        title="Board Units synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyIncreaseBoardUnitsImg as unknown as { default?: string })
-                                                    .default ?? synergyIncreaseBoardUnitsImg
-                                            }
-                                            alt="Board Units Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairNature?.synergyName ===
-                                                    NatureSynergyNames.INCREASE_BOARD_UNITS
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Pick Fly Armor synergy" style={{ zIndex: 1 }}>
-                                    <IconButton
-                                        onClick={() =>
-                                            handleSynergySelect(setSynergyPairTypeNature, {
-                                                faction: FactionVals.NATURE as FactionType,
-                                                synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                                synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
-                                                level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
-                                                name: "Fly Armor Synergy",
-                                            })
-                                        }
-                                        title="Fly Armor synergy"
-                                    >
-                                        <img
-                                            src={
-                                                (synergyPlusFlyArmorImg as unknown as { default?: string }).default ??
-                                                synergyPlusFlyArmorImg
-                                            }
-                                            alt="Fly Armor Icon"
-                                            style={{
-                                                filter:
-                                                    synergyPairNature?.synergyName === NatureSynergyNames.PLUS_FLY_ARMOR
-                                                        ? "brightness(1.2)"
-                                                        : "brightness(0.6)",
-                                                width: 45,
-                                                height: 45,
-                                            }}
-                                        />
-                                    </IconButton>
-                                </Tooltip>
-                            </Box>
-                        )}
+            {
+                <Box
+                    sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(2, minmax(0, 1fr))" },
+                        width: "87%",
+                        mx: "auto",
+                        gap: "8px",
+                        p: "8px",
+                        borderRadius: "30px",
+                        bgcolor: "rgba(255,255,255,0.025)",
+                        border: "2px solid rgba(255,255,255,0.1)",
+                    }}
+                >
+                    <SynergyFactionPanel
+                        faction="Life"
+                        color="#e0d3b0"
+                        selectedLabel={synergyPairLife?.name}
+                        options={[
+                            {
+                                label: "Supply",
+                                icon: (synergySupplyImg as unknown as { default?: string }).default ?? synergySupplyImg,
+                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
+                                synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeLife, {
+                                        faction: FactionVals.LIFE as FactionType,
+                                        synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                        synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
+                                        level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
+                                        name: "Supply",
+                                    }),
+                            },
+                            {
+                                label: "Morale & luck",
+                                icon: (synergyMoraleImg as unknown as { default?: string }).default ?? synergyMoraleImg,
+                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
+                                synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeLife, {
+                                        faction: FactionVals.LIFE as FactionType,
+                                        synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                        synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
+                                        level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
+                                        name: "Morale & luck",
+                                    }),
+                            },
+                        ]}
+                    />
+                    <SynergyFactionPanel
+                        faction="Nature"
+                        color="#aebf92"
+                        selectedLabel={synergyPairNature?.name}
+                        options={[
+                            {
+                                label: "Board units",
+                                icon:
+                                    (synergyIncreaseBoardUnitsImg as unknown as { default?: string }).default ??
+                                    synergyIncreaseBoardUnitsImg,
+                                level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
+                                synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeNature, {
+                                        faction: FactionVals.NATURE as FactionType,
+                                        synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                        synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
+                                        level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
+                                        name: "Board units",
+                                    }),
+                            },
+                            {
+                                label: "Fly armor",
+                                icon:
+                                    (synergyPlusFlyArmorImg as unknown as { default?: string }).default ??
+                                    synergyPlusFlyArmorImg,
+                                level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
+                                synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeNature, {
+                                        faction: FactionVals.NATURE as FactionType,
+                                        synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                        synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
+                                        level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
+                                        name: "Fly armor",
+                                    }),
+                            },
+                        ]}
+                    />
+                    <SynergyFactionPanel
+                        faction="Chaos"
+                        color="#e0a06a"
+                        selectedLabel={synergyPairChaos?.name}
+                        options={[
+                            {
+                                label: "Movement",
+                                icon:
+                                    (synergyMovementImg as unknown as { default?: string }).default ??
+                                    synergyMovementImg,
+                                level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
+                                synergyName: ChaosSynergyNames.MOVEMENT,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeChaos, {
+                                        faction: FactionVals.CHAOS as FactionType,
+                                        synergyName: ChaosSynergyNames.MOVEMENT,
+                                        synergyValue: ChaosSynergy.MOVEMENT,
+                                        level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
+                                        name: "Movement",
+                                    }),
+                            },
+                            {
+                                label: "Break on attack",
+                                icon:
+                                    (synergyBreakOnAttackImg as unknown as { default?: string }).default ??
+                                    synergyBreakOnAttackImg,
+                                level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
+                                synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeChaos, {
+                                        faction: FactionVals.CHAOS as FactionType,
+                                        synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                        synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
+                                        level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
+                                        name: "Break on attack",
+                                    }),
+                            },
+                        ]}
+                    />
+                    <SynergyFactionPanel
+                        faction="Might"
+                        color="#9fb6d4"
+                        selectedLabel={synergyPairMight?.name}
+                        options={[
+                            {
+                                label: "Auras range",
+                                icon:
+                                    (synergyAurasRangeImg as unknown as { default?: string }).default ??
+                                    synergyAurasRangeImg,
+                                level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
+                                synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeMight, {
+                                        faction: FactionVals.MIGHT as FactionType,
+                                        synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                        synergyValue: MightSynergy.PLUS_AURAS_RANGE,
+                                        level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
+                                        name: "Auras range",
+                                    }),
+                            },
+                            {
+                                label: "Abilities power",
+                                icon:
+                                    (synergyAbilitiesPowerImg as unknown as { default?: string }).default ??
+                                    synergyAbilitiesPowerImg,
+                                level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
+                                synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                onSelect: () =>
+                                    handleSynergySelect(setSynergyPairTypeMight, {
+                                        faction: FactionVals.MIGHT as FactionType,
+                                        synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                        synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
+                                        level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
+                                        name: "Abilities power",
+                                    }),
+                            },
+                        ]}
+                    />
                 </Box>
-            )}
-            {togglerType === "Synergy" ? (
-                <SynergyToggler key={synergyTogglerKey} selectedSynergy={selectedSynergy} />
-            ) : (
-                togglerType !== "None" && (
-                    <>
-                        {togglerType === "Placement" ? (
-                            <PlacementToggler
-                                key={teamType}
-                                teamType={teamType}
-                                title={side}
-                                totalPoints={totalPoints}
-                                onLevelChange={handleLevelChange}
-                                currentSelection={placementSelection}
-                            />
-                        ) : togglerType === "Armor" ? (
-                            <ArmorToggler
-                                key={teamType}
-                                teamType={teamType}
-                                title={side}
-                                totalPoints={totalPoints}
-                                onLevelChange={handleLevelChange}
-                                currentSelection={armorSelection}
-                            />
-                        ) : togglerType === "Might" ? (
-                            <MightToggler
-                                key={teamType}
-                                teamType={teamType}
-                                title={side}
-                                totalPoints={totalPoints}
-                                onLevelChange={handleLevelChange}
-                                currentSelection={mightSelection}
-                            />
-                        ) : togglerType === "Empower" ? (
-                            <EmpowerToggler
-                                key={teamType}
-                                teamType={teamType}
-                                title={side}
-                                totalPoints={totalPoints}
-                                onLevelChange={handleLevelChange}
-                                currentSelection={empowerSelection}
-                            />
-                        ) : togglerType === "Sniper" ? (
-                            <SniperToggler
-                                key={teamType}
-                                teamType={teamType}
-                                title={side}
-                                totalPoints={totalPoints}
-                                onLevelChange={handleLevelChange}
-                                currentSelection={sniperSelection}
-                            />
-                        ) : (
-                            <MovementToggler
-                                key={teamType}
-                                teamType={teamType}
-                                title={side}
-                                totalPoints={totalPoints}
-                                onLevelChange={handleLevelChange}
-                                currentSelection={movementSelection}
-                            />
-                        )}
-                    </>
-                )
-            )}
+            }
 
             {showArtifactPicker && <ArtifactToggler teamType={teamType} />}
         </Box>
