@@ -651,158 +651,171 @@ const SideToggleContainer = ({
                         },
                     }}
                 >
-                    <SynergyFactionPanel
-                        faction="Life"
-                        color="#e0d3b0"
-                        selectedLabel={synergyPairLife?.name}
-                        options={[
-                            {
-                                label: "Supply",
-                                icon: (synergySupplyImg as unknown as { default?: string }).default ?? synergySupplyImg,
-                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
-                                synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeLife, {
-                                        faction: FactionVals.LIFE as FactionType,
-                                        synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                        synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
-                                        level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
-                                        name: "Supply",
-                                    }),
-                            },
-                            {
-                                label: "Morale & luck",
-                                icon: (synergyMoraleImg as unknown as { default?: string }).default ?? synergyMoraleImg,
-                                level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
-                                synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeLife, {
-                                        faction: FactionVals.LIFE as FactionType,
-                                        synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
-                                        synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
-                                        level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
-                                        name: "Morale & luck",
-                                    }),
-                            },
-                        ]}
-                    />
-                    <SynergyFactionPanel
-                        faction="Nature"
-                        color="#aebf92"
-                        selectedLabel={synergyPairNature?.name}
-                        options={[
-                            {
-                                label: "Board units",
-                                icon:
-                                    (synergyIncreaseBoardUnitsImg as unknown as { default?: string }).default ??
-                                    synergyIncreaseBoardUnitsImg,
-                                level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
-                                synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeNature, {
-                                        faction: FactionVals.NATURE as FactionType,
-                                        synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                        synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
-                                        level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
-                                        name: "Board units",
-                                    }),
-                            },
-                            {
-                                label: "Fly armor",
-                                icon:
-                                    (synergyPlusFlyArmorImg as unknown as { default?: string }).default ??
-                                    synergyPlusFlyArmorImg,
-                                level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
-                                synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeNature, {
-                                        faction: FactionVals.NATURE as FactionType,
-                                        synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                        synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
-                                        level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
-                                        name: "Fly armor",
-                                    }),
-                            },
-                        ]}
-                    />
-                    <SynergyFactionPanel
-                        faction="Chaos"
-                        color="#e0a06a"
-                        selectedLabel={synergyPairChaos?.name}
-                        options={[
-                            {
-                                label: "Movement",
-                                icon:
-                                    (synergyMovementImg as unknown as { default?: string }).default ??
-                                    synergyMovementImg,
-                                level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
-                                synergyName: ChaosSynergyNames.MOVEMENT,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeChaos, {
-                                        faction: FactionVals.CHAOS as FactionType,
-                                        synergyName: ChaosSynergyNames.MOVEMENT,
-                                        synergyValue: ChaosSynergy.MOVEMENT,
-                                        level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
-                                        name: "Movement",
-                                    }),
-                            },
-                            {
-                                label: "Break on attack",
-                                icon:
-                                    (synergyBreakOnAttackImg as unknown as { default?: string }).default ??
-                                    synergyBreakOnAttackImg,
-                                level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
-                                synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeChaos, {
-                                        faction: FactionVals.CHAOS as FactionType,
-                                        synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                        synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
-                                        level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
-                                        name: "Break on attack",
-                                    }),
-                            },
-                        ]}
-                    />
-                    <SynergyFactionPanel
-                        faction="Might"
-                        color="#9fb6d4"
-                        selectedLabel={synergyPairMight?.name}
-                        options={[
-                            {
-                                label: "Auras range",
-                                icon:
-                                    (synergyAurasRangeImg as unknown as { default?: string }).default ??
-                                    synergyAurasRangeImg,
-                                level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
-                                synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeMight, {
-                                        faction: FactionVals.MIGHT as FactionType,
-                                        synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
-                                        synergyValue: MightSynergy.PLUS_AURAS_RANGE,
-                                        level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
-                                        name: "Auras range",
-                                    }),
-                            },
-                            {
-                                label: "Abilities power",
-                                icon:
-                                    (synergyAbilitiesPowerImg as unknown as { default?: string }).default ??
-                                    synergyAbilitiesPowerImg,
-                                level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
-                                synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                onSelect: () =>
-                                    handleSynergySelect(setSynergyPairTypeMight, {
-                                        faction: FactionVals.MIGHT as FactionType,
-                                        synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                        synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
-                                        level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
-                                        name: "Abilities power",
-                                    }),
-                            },
-                        ]}
-                    />
+                    {lifeAvailable && (
+                        <SynergyFactionPanel
+                            faction="Life"
+                            color="#e0d3b0"
+                            selectedLabel={synergyPairLife?.name}
+                            options={[
+                                {
+                                    label: "Supply",
+                                    icon:
+                                        (synergySupplyImg as unknown as { default?: string }).default ??
+                                        synergySupplyImg,
+                                    level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
+                                    synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeLife, {
+                                            faction: FactionVals.LIFE as FactionType,
+                                            synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                            synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
+                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
+                                            name: "Supply",
+                                        }),
+                                },
+                                {
+                                    label: "Morale & luck",
+                                    icon:
+                                        (synergyMoraleImg as unknown as { default?: string }).default ??
+                                        synergyMoraleImg,
+                                    level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
+                                    synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeLife, {
+                                            faction: FactionVals.LIFE as FactionType,
+                                            synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                            synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
+                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
+                                            name: "Morale & luck",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                    {natureAvailable && (
+                        <SynergyFactionPanel
+                            faction="Nature"
+                            color="#aebf92"
+                            selectedLabel={synergyPairNature?.name}
+                            options={[
+                                {
+                                    label: "Board units",
+                                    icon:
+                                        (synergyIncreaseBoardUnitsImg as unknown as { default?: string }).default ??
+                                        synergyIncreaseBoardUnitsImg,
+                                    level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
+                                    synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeNature, {
+                                            faction: FactionVals.NATURE as FactionType,
+                                            synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                            synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
+                                            level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
+                                            name: "Board units",
+                                        }),
+                                },
+                                {
+                                    label: "Fly armor",
+                                    icon:
+                                        (synergyPlusFlyArmorImg as unknown as { default?: string }).default ??
+                                        synergyPlusFlyArmorImg,
+                                    level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
+                                    synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeNature, {
+                                            faction: FactionVals.NATURE as FactionType,
+                                            synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                            synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
+                                            level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
+                                            name: "Fly armor",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                    {chaosAvailable && (
+                        <SynergyFactionPanel
+                            faction="Chaos"
+                            color="#e0a06a"
+                            selectedLabel={synergyPairChaos?.name}
+                            options={[
+                                {
+                                    label: "Movement",
+                                    icon:
+                                        (synergyMovementImg as unknown as { default?: string }).default ??
+                                        synergyMovementImg,
+                                    level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
+                                    synergyName: ChaosSynergyNames.MOVEMENT,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeChaos, {
+                                            faction: FactionVals.CHAOS as FactionType,
+                                            synergyName: ChaosSynergyNames.MOVEMENT,
+                                            synergyValue: ChaosSynergy.MOVEMENT,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
+                                            name: "Movement",
+                                        }),
+                                },
+                                {
+                                    label: "Break on attack",
+                                    icon:
+                                        (synergyBreakOnAttackImg as unknown as { default?: string }).default ??
+                                        synergyBreakOnAttackImg,
+                                    level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
+                                    synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeChaos, {
+                                            faction: FactionVals.CHAOS as FactionType,
+                                            synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                            synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
+                                            name: "Break on attack",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                    {mightAvailable && (
+                        <SynergyFactionPanel
+                            faction="Might"
+                            color="#9fb6d4"
+                            selectedLabel={synergyPairMight?.name}
+                            options={[
+                                {
+                                    label: "Auras range",
+                                    icon:
+                                        (synergyAurasRangeImg as unknown as { default?: string }).default ??
+                                        synergyAurasRangeImg,
+                                    level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
+                                    synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeMight, {
+                                            faction: FactionVals.MIGHT as FactionType,
+                                            synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                            synergyValue: MightSynergy.PLUS_AURAS_RANGE,
+                                            level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
+                                            name: "Auras range",
+                                        }),
+                                },
+                                {
+                                    label: "Abilities power",
+                                    icon:
+                                        (synergyAbilitiesPowerImg as unknown as { default?: string }).default ??
+                                        synergyAbilitiesPowerImg,
+                                    level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
+                                    synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeMight, {
+                                            faction: FactionVals.MIGHT as FactionType,
+                                            synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                            synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
+                                            level:
+                                                possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
+                                            name: "Abilities power",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
                 </Box>
             }
 
