@@ -44,10 +44,7 @@ import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
-import {
-    SYNERGY_KEY_TO_IMAGE,
-    SYNERGY_NAME_TO_DESCRIPTION,
-} from "./SynergiesConstants";
+import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
