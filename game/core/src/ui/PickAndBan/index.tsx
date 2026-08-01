@@ -25,7 +25,7 @@ import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../ful
 import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
-import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { PERK_COPY } from "../perkCopy";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -1334,17 +1334,35 @@ const BarDivider: React.FC = () => (
     <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "rgba(255,255,255,0.14)", mx: 0.25 }} />
 );
 
-// ---- Automatic synergies --------------------------------------------------
+// ---- Synergy progress -----------------------------------------------------
 //
-// Synergies are no longer drafted: every faction has exactly ONE synergy, and it switches itself on as soon
-// as the army holds 2 units of that faction (level 1/2/3 at 2/4/6 units — the same UNITS_TO_SYNERGY_LEVEL
-// ladder the engine applies). These four dots ride in the army rails so a player watches their synergies
-// light up while picking, instead of choosing them on a separate board.
-const FIXED_SYNERGY: Record<string, { index: number; label: string }> = {
-    Life: { index: LifeSynergy.PLUS_SUPPLY_PERCENTAGE, label: "Supply" },
-    Nature: { index: NatureSynergy.PLUS_FLY_ARMOR, label: "Flying armor" },
-    Chaos: { index: ChaosSynergy.MOVEMENT, label: "Movement" },
-    Might: { index: MightSynergy.PLUS_AURAS_RANGE, label: "Aura range" },
+// The synergy LEVEL climbs automatically while drafting (level 1/2/3 at 2/4/6 units of a faction — the
+// same UNITS_TO_SYNERGY_LEVEL ladder the engine applies), but WHICH of the faction's two synergies
+// applies is picked later, at the setup stage. So these rail dots track the level under the FACTION
+// crest and name both candidates — presuming neither, since the choice hasn't happened yet.
+const FACTION_SYNERGY_OPTIONS: Record<string, { index: number; label: string }[]> = {
+    Life: [
+        { index: LifeSynergy.PLUS_SUPPLY_PERCENTAGE, label: "Supply" },
+        { index: LifeSynergy.PLUS_MORALE_AND_LUCK, label: "Morale & luck" },
+    ],
+    Nature: [
+        { index: NatureSynergy.INCREASE_BOARD_UNITS, label: "Board units" },
+        { index: NatureSynergy.PLUS_FLY_ARMOR, label: "Flying armor" },
+    ],
+    Chaos: [
+        { index: ChaosSynergy.MOVEMENT, label: "Movement" },
+        { index: ChaosSynergy.BREAK_ON_ATTACK, label: "Break on attack" },
+    ],
+    Might: [
+        { index: MightSynergy.PLUS_AURAS_RANGE, label: "Aura range" },
+        { index: MightSynergy.PLUS_STACK_ABILITIES_POWER, label: "Abilities power" },
+    ],
+};
+const FACTION_CREST_IMAGE: Record<string, string> = {
+    Life: rawImages.life_128,
+    Nature: rawImages.nature_128,
+    Chaos: rawImages.chaos_128,
+    Might: rawImages.might_128,
 };
 
 export const synergyLevelForFaction = (picked: number[], faction: string): number => {
@@ -1363,14 +1381,16 @@ const describeSynergy = (key: string): string => {
 export const SynergyDots: React.FC<{ picked: number[]; tone: "own" | "opponent" }> = ({ picked, tone }) => (
     <Box sx={{ display: "flex", gap: 0.5, flexWrap: "nowrap" }}>
         {FACTION_ORDER.map((faction) => {
-            const { index, label } = FIXED_SYNERGY[faction];
+            const options = FACTION_SYNERGY_OPTIONS[faction];
             const level = synergyLevelForFaction(picked, faction);
-            const key = `${faction}:${index}:${level || 1}`;
-            const img = SYNERGY_KEY_TO_IMAGE[key as keyof typeof SYNERGY_KEY_TO_IMAGE];
+            const img = FACTION_CREST_IMAGE[faction];
             const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
+            const pair = options.map((o) => o.label).join(" or ");
             const tip = level
-                ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${index}:${level}`)}`
-                : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+                ? `${faction} lvl ${level} — pick one at setup: ${options
+                      .map((o) => `${o.label} (${describeSynergy(`${faction}:${o.index}:${level}`)})`)
+                      .join(" or ")}`
+                : `${faction} — locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1; at setup you'll pick ${pair}`;
             return (
                 <Tooltip key={faction} title={tip} variant="soft" placement="top">
                     <Box
@@ -1392,7 +1412,7 @@ export const SynergyDots: React.FC<{ picked: number[]; tone: "own" | "opponent" 
                             transition: "opacity 160ms ease, box-shadow 160ms ease",
                         }}
                     >
-                        {img && <img src={img} alt={label} style={{ width: 16, height: 16, objectFit: "contain" }} />}
+                        {img && <img src={img} alt={faction} style={{ width: 16, height: 16, objectFit: "contain" }} />}
                         {level > 0 && (
                             <Typography
                                 sx={{
