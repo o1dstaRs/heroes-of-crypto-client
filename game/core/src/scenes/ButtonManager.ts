@@ -233,10 +233,10 @@ export class ButtonManager {
             attackTypeButton.isDisabled = !(fightStarted && hasActiveUnit);
 
             hourglassButton.isDisabled = !this.checkHourglassCondition();
-            // Stays clickable even when the unit has nothing to cast: a DOM-disabled button swallows the
-            // click with zero feedback (the ranked "tried to cast and nothing happened" report), while the
-            // click handler can say WHY there is nothing to cast.
-            spellBookButton.isDisabled = false;
+            // OWNER (2026-08-01): the book is greyed out when the unit has nothing to cast — an active
+            // button promising an empty book reads worse than a disabled one. The click handler keeps its
+            // "why not" scene-log guard for the overlay-open edge, but the primary signal is the state.
+            spellBookButton.isDisabled = !(fightStarted && hasActiveUnit && this.checkCastCondition());
 
             if (hasActiveUnit) {
                 const active = currentActiveUnit!;

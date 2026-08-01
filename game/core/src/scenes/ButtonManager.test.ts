@@ -172,3 +172,46 @@ describe("ButtonManager hourglass eligibility", () => {
         expect(checkHourglass(manager)).toBe(true);
     });
 });
+
+describe("ButtonManager spellbook gating", () => {
+    const makeCaster = (opts: { spells: number; canCast: boolean }): Unit =>
+        ({
+            getId: () => "u1",
+            hasAbilityActive: () => false,
+            getSpellsCount: () => opts.spells,
+            getCanCastSpells: () => opts.canCast,
+            getAttackTypeSelectionIndex: () => [-1, 0],
+            getAttackTypeSelection: () => 0,
+        }) as unknown as Unit;
+
+    const spellbookStateFor = (spells: number, canCast: boolean): boolean | undefined => {
+        const manager = FightStateManager.getInstance();
+        manager.reset();
+        manager.getFightProperties().startFight();
+        try {
+            let captured: IVisibleButton[] = [];
+            const { ctx } = makeContext({
+                getCurrentActiveUnit: () => makeCaster({ spells, canCast }),
+                setVisibleButtons: (buttons: IVisibleButton[]) => {
+                    captured = buttons;
+                },
+            });
+            new ButtonManager(ctx, false).refreshButtons(true);
+            return captured.find((button) => button.name === "Spellbook")?.isDisabled;
+        } finally {
+            manager.reset();
+        }
+    };
+
+    it("disables the spellbook when the unit has no spells to cast", () => {
+        expect(spellbookStateFor(0, false)).toBe(true);
+    });
+
+    it("disables the spellbook when casting is blocked despite remaining scrolls", () => {
+        expect(spellbookStateFor(2, false)).toBe(true);
+    });
+
+    it("enables the spellbook when the unit can cast", () => {
+        expect(spellbookStateFor(2, true)).toBe(false);
+    });
+});
