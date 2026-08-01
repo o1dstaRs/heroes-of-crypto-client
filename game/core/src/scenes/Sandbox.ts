@@ -284,6 +284,12 @@ interface PlacementBenchHitBox {
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
 
+/**
+ * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
+ * landing its hit, so consecutive victims always bleed one after another — never in the same frame.
+ */
+const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
+
 // Magic Mirror rebound damage numbers: cold cyan rather than the usual red, so a hit the caster took off its
 // own reflected spell is instantly distinguishable from the damage it dealt.
 const MIRROR_DAMAGE_FILL = "#bfefff";
@@ -6579,10 +6585,27 @@ export class Sandbox extends PixiScene {
             splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
         }
 
+        // This runs at the exact moment the thrown disc lands on the PRIMARY target (both call sites await
+        // the throw first), so the primary's wound opens right here — then each ricochet victim bleeds AS
+        // the disc reaches it, never all at once.
+        const attackerCenter = attacker.getVisualCenter(gs);
+        if (primaryTarget) {
+            const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as
+                | RenderableUnit
+                | undefined;
+            if (primary && !primary.isDead()) {
+                const center = primary.getVisualCenter(gs);
+                const throwDir = this.chakramWorldDir(attackerCenter, center);
+                this.combatVisuals?.spawnBloodSpray(center, cellSize, throwDir);
+                this.combatVisuals?.spawnSlash(center, cellSize, throwDir);
+            }
+        }
+
         // Each leg is a RICOCHET: a curve TRUNCATED at the single unit it struck (or the terminal flourish
         // loop, which strikes nobody). So fly the whole leg, then land that one victim's number + blood + push
         // right where the disc ended — shoved the way the disc was travelling as it arrived. Short arcs (an
-        // adjacent victim caught on the very first cell) still land the hit; they just skip the flight.
+        // adjacent victim caught on the very first cell) still get a beat before the hit, so back-to-back
+        // victims never pop in the same frame.
         let discEnd: HoCMath.XY | undefined;
         let lastDir: HoCMath.XY = { x: 0, y: 1 };
         for (const arc of damage?.chakramArcs ?? []) {
@@ -6596,8 +6619,11 @@ export class Sandbox extends PixiScene {
             if (points.length >= 2) {
                 await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
                 lastDir = this.chakramWorldDir(points[points.length - 2], arrival);
-            } else if (discEnd) {
-                lastDir = this.chakramWorldDir(discEnd, arrival);
+            } else {
+                await new Promise((resolve) => setTimeout(resolve, CHAKRAM_FLIGHTLESS_HOP_MS));
+                if (discEnd) {
+                    lastDir = this.chakramWorldDir(discEnd, arrival);
+                }
             }
             discEnd = arrival;
 
@@ -6614,6 +6640,7 @@ export class Sandbox extends PixiScene {
                 if (dmg && dmg.amount > 0) {
                     this.combatVisuals?.showFloatingDamage(center, dmg.amount, lastDir, dmg.unitsDied);
                 }
+                this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir);
                 this.combatVisuals?.spawnSlash(center, cellSize, lastDir);
                 unit.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
             }

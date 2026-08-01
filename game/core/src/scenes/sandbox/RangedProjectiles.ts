@@ -61,6 +61,9 @@ interface IProjectile {
 const PROJECTILE_Z = 1950; // above the units container (z=1000), below floating numbers (z=2000)
 // speed = cellSize * factor. Unit walking uses ~16 (=4 cells/real-sec); projectiles fly ~4x that.
 const PROJECTILE_SPEED_FACTOR = 64; // ~16 cells/real-second — snappy
+// The chakram flies slower than a bolt on purpose: its whole show is the ricochet path, and at bolt
+// speed the eye can't follow which victim it curls to next. Slow enough to track, fast enough to cut.
+const CHAKRAM_SPEED_FACTOR = 42; // ~10.5 cells/real-second
 const BIG_RADIUS_FACTOR = 0.32; // cannonball radius relative to cell
 const BIG_ARC_FACTOR = 0.4; // cannonball lob height relative to cell
 const BOLT_LEN_FACTOR = 0.55; // default bolt length relative to cell
@@ -126,7 +129,7 @@ export class RangedProjectiles {
                 angle,
                 dist,
                 traveled: 0,
-                speed: cell * PROJECTILE_SPEED_FACTOR,
+                speed: cell * (opts.chakram ? CHAKRAM_SPEED_FACTOR : PROJECTILE_SPEED_FACTOR),
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,
                 cell,
