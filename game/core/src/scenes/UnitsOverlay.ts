@@ -43,6 +43,21 @@ type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
 type FactionIcon = Readonly<{ type: FactionType; cont: Container; sprite: Sprite; mask: Graphics; ring: Graphics }>;
 type LevelTab = Readonly<{ level: number; cont: Container; plate: Graphics; label: Text }>;
 
+/**
+ * Pixi's `visible` flag is local to each display object. A child remains `visible === true` even when a
+ * grandparent is hidden, and `getBounds()` still returns its old bounds. Manual hit-testing therefore has to
+ * verify the whole branch, not just the chip and its immediate bucket.
+ */
+export const isVisibleThroughAncestor = (displayObject: Container, ancestor: Container): boolean => {
+    let current: Container | null = displayObject;
+    while (current) {
+        if (!current.visible) return false;
+        if (current === ancestor) return true;
+        current = current.parent;
+    }
+    return false;
+};
+
 export class UnitsOverlay {
     private app: Application;
     private getTex: GetTexture;
@@ -246,9 +261,11 @@ export class UnitsOverlay {
         // falls through to the "clicked empty panel" branch below like any other dead space.
 
         for (const chip of this.allChips) {
-            // Chips of the three collapsed levels are still in the list but hidden; without this they would
-            // keep answering hit-tests from wherever they were last laid out.
-            if (!chip.visible || !chip.parent?.visible) continue;
+            // Chips of the three collapsed levels are still in this flat list. Their direct bucket remains
+            // visible; it is the bucket's ROW that is hidden, so checking only `chip.parent.visible` lets an
+            // invisible earlier-level chip steal a click from the expanded level wherever their old bounds
+            // overlap. Follow the complete branch through rowsContainer before asking Pixi for stale bounds.
+            if (!isVisibleThroughAncestor(chip, this.rowsContainer)) continue;
 
             const b = chip.getBounds();
             if (!b) continue;
@@ -474,6 +491,10 @@ export class UnitsOverlay {
     /** Expand one level and collapse the rest. Chips of a collapsed level are hidden, so they also stop
      *  answering hit-tests — the pointer code walks `allChips` flat and cannot otherwise tell them apart. */
     private setSelectedLevel(level: number): void {
+        // Never leave a creature from the collapsed row active in the player's hand. Besides being invisible,
+        // that stale selection makes the next board click place the old level before the player has actually
+        // picked a creature from the newly expanded row.
+        this.clearSelection(true);
         this.selectedLevel = level;
         this.onResize(this.app.renderer.width, this.app.renderer.height);
     }
