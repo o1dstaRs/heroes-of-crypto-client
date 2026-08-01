@@ -11,11 +11,16 @@ import {
     Augment,
     HoCConstants,
     SynergyWithLevel,
+    LifeSynergy,
     LifeSynergyNames,
+    ChaosSynergy,
     ChaosSynergyNames,
+    MightSynergy,
     MightSynergyNames,
+    NatureSynergy,
     NatureSynergyNames,
     SpecificSynergy,
+    SynergyKeysToPower,
     TeamType,
     FactionType,
     FactionVals,
@@ -64,6 +69,114 @@ type SelectedSynergy = {
     synergyValue: SpecificSynergy;
     level: VisibleSynergyLevel;
     name: string;
+};
+
+const SYNERGY_NAME_TO_DESCRIPTION: Record<string, string> = {
+    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Increase each unit's supply by {}%",
+    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "The entire army gets +{} morale and +{} luck",
+    [ChaosSynergyNames.MOVEMENT]: "Improve movement steps by {} cells",
+    [ChaosSynergyNames.BREAK_ON_ATTACK]: "{}% chance to apply Break on attack",
+    [MightSynergyNames.PLUS_AURAS_RANGE]: "Increase auras range by {} cells",
+    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: "Increase stack abilities power by {}%",
+    [NatureSynergyNames.INCREASE_BOARD_UNITS]: "Place {} more units on the board",
+    [NatureSynergyNames.PLUS_FLY_ARMOR]: "Flying units get +{}% armor",
+};
+
+/** Fill a synergy description's {} placeholders with the powers for this faction/variant/level. */
+const synergyDescription = (faction: string, synergyValue: number, synergyName: string, level: number): string => {
+    const template = SYNERGY_NAME_TO_DESCRIPTION[synergyName] ?? synergyName;
+    const powers = SynergyKeysToPower[`${faction}:${synergyValue}:${Math.max(level, 1)}`] ?? [];
+    let index = 0;
+    return template.replace(/\{\}/g, () => String(powers[index++] ?? "?"));
+};
+
+/**
+ * One faction's synergy pair for the NARROW sandbox sidebar: pick 1 of 2, free, unlocked at 2/4/6
+ * units of the faction. The two variants stack vertically (the ranked screen's side-by-side panel
+ * needs ~500px). The engine enforces the one-of-two rule — updateSynergyPerTeam strips the faction's
+ * previous entry before writing the new pick — so re-picking the other variant SWITCHES, never stacks.
+ */
+const SandboxSynergyFactionPanel = ({
+    faction,
+    color,
+    options,
+    selectedLabel,
+}: {
+    faction: string;
+    color: string;
+    options: Array<{ label: string; level: number; synergyName: string; synergyValue: number; onSelect: () => void }>;
+    selectedLabel?: string;
+}) => {
+    const level = Math.max(0, ...options.map((o) => o.level));
+    const locked = level < 1;
+    return (
+        <Box
+            sx={{
+                p: "8px 10px",
+                borderRadius: "12px",
+                bgcolor: "#12151d",
+                border: "1px solid rgba(255,255,255,0.1)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.5,
+                order: locked ? 2 : 1,
+            }}
+        >
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <Typography
+                    sx={{
+                        fontSize: 12,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color: locked ? "#5d636e" : color,
+                        fontWeight: 700,
+                    }}
+                >
+                    {faction}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: locked ? "#5d636e" : "#9aa0ab" }}>
+                    {locked ? "needs 2 units" : `level ${level}`}
+                </Typography>
+            </Box>
+            {options.map((option) => {
+                const isSelected = selectedLabel === option.label;
+                return (
+                    <Tooltip
+                        key={option.label}
+                        title={synergyDescription(faction, option.synergyValue, option.synergyName, option.level)}
+                        variant="soft"
+                        placement="top"
+                        sx={{ zIndex: AUGMENT_TOOLTIP_Z }}
+                    >
+                        <Box
+                            component={locked ? "div" : "button"}
+                            type={locked ? undefined : "button"}
+                            onClick={locked ? undefined : option.onSelect}
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                p: "6px 9px",
+                                borderRadius: "10px",
+                                cursor: locked ? "default" : "pointer",
+                                opacity: locked ? 0.45 : 1,
+                                border: locked
+                                    ? "2px dashed rgba(255,255,255,0.14)"
+                                    : isSelected
+                                      ? "2px solid #3b9b5c"
+                                      : "2px solid rgba(255,255,255,0.12)",
+                                bgcolor: isSelected ? "rgba(59,155,92,0.16)" : "rgba(255,255,255,0.03)",
+                                color: isSelected ? "#8ff0b4" : "#e9e6df",
+                                fontSize: 12.5,
+                                textAlign: "left",
+                            }}
+                        >
+                            {option.label}
+                        </Box>
+                    </Tooltip>
+                );
+            })}
+        </Box>
+    );
 };
 
 const PlacementToggler = ({
@@ -667,6 +780,19 @@ const SandboxToggleContainer = ({
         };
     }, [manager]);
 
+    const handleSynergySelect = (
+        setSynergy: React.Dispatch<React.SetStateAction<SelectedSynergy | null>>,
+        synergy: SelectedSynergy,
+    ) => {
+        if (
+            synergy.level >= 1 &&
+            manager.PropagateSynergy(teamType, synergy.faction, synergy.synergyName, synergy.level)
+        ) {
+            setSynergy(synergy);
+            setSelectedSynergy(synergy);
+        }
+    };
+
     // A faction's synergy is "done" when it isn't available for this army, or the player has picked one of
     // its two variants. All available synergies are selected once every faction is done.
     const lifeAvailable =
@@ -867,6 +993,174 @@ const SandboxToggleContainer = ({
                         />
                     )}
                 </>
+            )}
+
+            {/* Synergies: pick exactly ONE of each drafted faction's two variants — same rule as ranked,
+                stacked vertically for the narrow sidebar. */}
+            {(lifeAvailable || chaosAvailable || mightAvailable || natureAvailable) && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Typography
+                        sx={{
+                            fontSize: 12,
+                            letterSpacing: "0.14em",
+                            textTransform: "uppercase",
+                            color: "#9aa0ab",
+                            fontWeight: 700,
+                            textAlign: "center",
+                        }}
+                    >
+                        Synergies
+                    </Typography>
+                    {lifeAvailable && (
+                        <SandboxSynergyFactionPanel
+                            faction="Life"
+                            color="#e0d3b0"
+                            selectedLabel={synergyPairLife?.name}
+                            options={[
+                                {
+                                    label: "Supply",
+                                    level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
+                                    synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                    synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeLife, {
+                                            faction: FactionVals.LIFE as FactionType,
+                                            synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
+                                            synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
+                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
+                                            name: "Supply",
+                                        }),
+                                },
+                                {
+                                    label: "Morale & luck",
+                                    level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
+                                    synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                    synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeLife, {
+                                            faction: FactionVals.LIFE as FactionType,
+                                            synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
+                                            synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
+                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
+                                            name: "Morale & luck",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                    {chaosAvailable && (
+                        <SandboxSynergyFactionPanel
+                            faction="Chaos"
+                            color="#d98b8b"
+                            selectedLabel={synergyPairChaos?.name}
+                            options={[
+                                {
+                                    label: "Movement",
+                                    level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
+                                    synergyName: ChaosSynergyNames.MOVEMENT,
+                                    synergyValue: ChaosSynergy.MOVEMENT,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeChaos, {
+                                            faction: FactionVals.CHAOS as FactionType,
+                                            synergyName: ChaosSynergyNames.MOVEMENT,
+                                            synergyValue: ChaosSynergy.MOVEMENT,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
+                                            name: "Movement",
+                                        }),
+                                },
+                                {
+                                    label: "Break on attack",
+                                    level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
+                                    synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                    synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeChaos, {
+                                            faction: FactionVals.CHAOS as FactionType,
+                                            synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
+                                            synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
+                                            level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
+                                            name: "Break on attack",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                    {mightAvailable && (
+                        <SandboxSynergyFactionPanel
+                            faction="Might"
+                            color="#c8a96b"
+                            selectedLabel={synergyPairMight?.name}
+                            options={[
+                                {
+                                    label: "Auras range",
+                                    level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
+                                    synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                    synergyValue: MightSynergy.PLUS_AURAS_RANGE,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeMight, {
+                                            faction: FactionVals.MIGHT as FactionType,
+                                            synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
+                                            synergyValue: MightSynergy.PLUS_AURAS_RANGE,
+                                            level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
+                                            name: "Auras range",
+                                        }),
+                                },
+                                {
+                                    label: "Abilities power",
+                                    level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
+                                    synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                    synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeMight, {
+                                            faction: FactionVals.MIGHT as FactionType,
+                                            synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
+                                            synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
+                                            level:
+                                                possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
+                                            name: "Abilities power",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                    {natureAvailable && (
+                        <SandboxSynergyFactionPanel
+                            faction="Nature"
+                            color="#aebf92"
+                            selectedLabel={synergyPairNature?.name}
+                            options={[
+                                {
+                                    label: "Board units",
+                                    level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
+                                    synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                    synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeNature, {
+                                            faction: FactionVals.NATURE as FactionType,
+                                            synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
+                                            synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
+                                            level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
+                                            name: "Board units",
+                                        }),
+                                },
+                                {
+                                    label: "Fly armor",
+                                    level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
+                                    synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                    synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
+                                    onSelect: () =>
+                                        handleSynergySelect(setSynergyPairTypeNature, {
+                                            faction: FactionVals.NATURE as FactionType,
+                                            synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
+                                            synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
+                                            level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
+                                            name: "Fly armor",
+                                        }),
+                                },
+                            ]}
+                        />
+                    )}
+                </Box>
             )}
 
             {showArtifactPicker && (
