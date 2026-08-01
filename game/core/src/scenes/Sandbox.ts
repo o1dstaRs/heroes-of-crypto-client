@@ -6590,9 +6590,7 @@ export class Sandbox extends PixiScene {
         // the disc reaches it, never all at once.
         const attackerCenter = attacker.getVisualCenter(gs);
         if (primaryTarget) {
-            const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as
-                | RenderableUnit
-                | undefined;
+            const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as RenderableUnit | undefined;
             if (primary && !primary.isDead()) {
                 const center = primary.getVisualCenter(gs);
                 const throwDir = this.chakramWorldDir(attackerCenter, center);
