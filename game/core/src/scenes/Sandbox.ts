@@ -72,6 +72,7 @@ import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
 import { animatableEffectNames, diffUnitEffects, type EffectFlash } from "./effect_pops";
+import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
@@ -98,7 +99,7 @@ import {
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
-import { isTargetedSpellReachable } from "./spell_targeting";
+import { isTargetedSpellReachable, targetedSpellBlockerId } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
@@ -282,6 +283,12 @@ interface PlacementBenchHitBox {
 
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
+
+/**
+ * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
+ * landing its hit, so consecutive victims always bleed one after another — never in the same frame.
+ */
+const CHAKRAM_FLIGHTLESS_HOP_MS = 150;
 
 // Magic Mirror rebound damage numbers: cold cyan rather than the usual red, so a hit the caster took off its
 // own reflected spell is instantly distinguishable from the damage it dealt.
@@ -483,6 +490,9 @@ export class Sandbox extends PixiScene {
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
     private replayPlaybackActive = false;
+    // The unit whose turn header is currently open in the scene log (sandbox text channel only;
+    // ranked builds its headers from the journal). Cleared by that unit's turn_completed.
+    private sandboxTurnLogHeaderUnitId?: string;
     // Ranked: a deferred local action (submitActionForAuthoritativeReplay) applies the engine action
     // immediately, mutating unit HP to its post-action value. The authoritative replay that follows
     // derives the attacker's counter-attack damage from an HP diff (getReplayUnitDamage), which would
@@ -1026,6 +1036,30 @@ export class Sandbox extends PixiScene {
                 this.renderResurrectionVfx(position, amount ?? 3);
                 return true;
             };
+            // Diagnostic: the ENGINE's augment + placement-zone truth for a team — lets a headless run
+            // (or a human in the console) confirm a picked Placement level actually reached
+            // FightProperties and what rows the rebuilt zone covers, independent of the React sidebar.
+            (w as { __hocPlacementState?: (team?: number) => Record<string, unknown> }).__hocPlacementState = (
+                team = TeamVals.LOWER,
+            ) => {
+                const fp = FightStateManager.getInstance().getFightProperties();
+                const zone = this.getPlacement(team as TeamType, 0);
+                const cells = zone?.possibleCellPositions() ?? [];
+                return {
+                    augmentPlacementLevel: fp.getAugmentPlacementLevel(team as TeamType),
+                    placementSizes: fp.getAugmentPlacement(team as TeamType),
+                    zoneCellCount: cells.length,
+                    zoneRowSpan: cells.length
+                        ? [Math.min(...cells.map((c) => c.y)), Math.max(...cells.map((c) => c.y))]
+                        : null,
+                };
+            };
+            // Diagnostic twin of the sidebar's augment click: drive the SCENE's own propagation directly,
+            // bypassing React — separates "engine/zone path broken" from "UI holds a stale scene".
+            (w as { __hocPropagatePlacement?: (level?: number, team?: number) => boolean }).__hocPropagatePlacement = (
+                level = 1,
+                team = TeamVals.LOWER,
+            ) => this.propagateAugmentation(team as TeamType, { type: "Placement", value: level });
             // Visual smoke/tuning hook for the mountain-collapse VFX: crashes one/both mountains apart
             // on demand (BLOCK_CENTER map only) without grinding their hit points down in a real fight.
             (w as { __hocMountainCollapseTest?: (side?: "left" | "right") => boolean }).__hocMountainCollapseTest = (
@@ -5435,10 +5469,10 @@ export class Sandbox extends PixiScene {
                     if (this.castSpellOnTarget(spellTarget)) {
                         return;
                     }
-                    // Target invalid per spell rules — keep the spell armed for another pick.
-                    this.sc_sceneLog.updateLog(
-                        `Cannot cast ${this.currentActiveSpell.getName()} on ${spellTarget.getName()}`,
-                    );
+                    // Target invalid per spell rules — keep the spell armed for another pick. When a thrown
+                    // spell's line is intercepted, say by WHOM: "for some reason it will not cast" is the
+                    // difference between the player repositioning and the player filing a bug.
+                    this.sc_sceneLog.updateLog(this.describeSpellRefusal(this.currentActiveSpell, spellTarget));
                     return;
                 }
                 // Clicked empty ground — cancel the armed spell.
@@ -5888,7 +5922,14 @@ export class Sandbox extends PixiScene {
 
         if (!hovered.canUse(caster.getStackPower())) {
             this.setHoveredSpell(hovered, caster);
-            this.sc_sceneLog.updateLog(`${hovered.getName()} is unavailable`);
+            // Say WHICH gate refused the pick — "is unavailable" alone reads as a bug when the card
+            // sits right there in the book (the ranked Vine Throw report).
+            const minPower = hovered.getMinimalCasterStackPower();
+            this.sc_sceneLog.updateLog(
+                caster.getStackPower() < minPower
+                    ? `${hovered.getName()} needs stack power ${minPower} — ${caster.getName()} has ${caster.getStackPower()}`
+                    : `${hovered.getName()} has no casts left`,
+            );
             return;
         }
 
@@ -5982,6 +6023,23 @@ export class Sandbox extends PixiScene {
      * handler (handles heal / resurrect / buff / debuff, magic-resist rolls, and spell consumption).
      * Returns true if the spell was applied (turn finished), false if the target was invalid.
      */
+    /**
+     * The scene-log line for a refused single-target cast. A thrown spell (Vine Throw, Fire Strike …)
+     * most often fails on line of sight, and the generic "Cannot cast X on Y" reads as a bug when the
+     * interceptor is a third body two cells away — so name the blocker when there is one.
+     */
+    private describeSpellRefusal(spell: Spell, targetUnit: Unit): string {
+        const casterCell = this.currentActiveUnit?.getBaseCell();
+        const targetCell = targetUnit.getBaseCell();
+        if (casterCell && targetCell) {
+            const blockerId = targetedSpellBlockerId(spell.getName(), this.grid, casterCell, targetCell);
+            if (blockerId) {
+                const blockerName = this.unitsHolder.getAllUnits().get(blockerId)?.getName();
+                return `${spell.getName()} is blocked by ${blockerName ?? "an obstacle"}`;
+            }
+        }
+        return `Cannot cast ${spell.getName()} on ${targetUnit.getName()}`;
+    }
     private castSpellOnTarget(targetUnit: Unit): boolean {
         const caster = this.currentActiveUnit;
         const spell = this.currentActiveSpell;
@@ -6527,10 +6585,25 @@ export class Sandbox extends PixiScene {
             splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
         }
 
+        // This runs at the exact moment the thrown disc lands on the PRIMARY target (both call sites await
+        // the throw first), so the primary's wound opens right here — then each ricochet victim bleeds AS
+        // the disc reaches it, never all at once.
+        const attackerCenter = attacker.getVisualCenter(gs);
+        if (primaryTarget && !damage?.missed) {
+            const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as RenderableUnit | undefined;
+            if (primary && !primary.isDead()) {
+                const center = primary.getVisualCenter(gs);
+                const throwDir = this.chakramWorldDir(attackerCenter, center);
+                this.combatVisuals?.spawnBloodSpray(center, cellSize, throwDir);
+                this.combatVisuals?.spawnSlash(center, cellSize, throwDir);
+            }
+        }
+
         // Each leg is a RICOCHET: a curve TRUNCATED at the single unit it struck (or the terminal flourish
         // loop, which strikes nobody). So fly the whole leg, then land that one victim's number + blood + push
         // right where the disc ended — shoved the way the disc was travelling as it arrived. Short arcs (an
-        // adjacent victim caught on the very first cell) still land the hit; they just skip the flight.
+        // adjacent victim caught on the very first cell) still get a beat before the hit, so back-to-back
+        // victims never pop in the same frame.
         let discEnd: HoCMath.XY | undefined;
         let lastDir: HoCMath.XY = { x: 0, y: 1 };
         for (const arc of damage?.chakramArcs ?? []) {
@@ -6544,8 +6617,11 @@ export class Sandbox extends PixiScene {
             if (points.length >= 2) {
                 await this.rangedProjectiles.fireAlongPath(points, { big, chakram: true });
                 lastDir = this.chakramWorldDir(points[points.length - 2], arrival);
-            } else if (discEnd) {
-                lastDir = this.chakramWorldDir(discEnd, arrival);
+            } else {
+                await new Promise((resolve) => setTimeout(resolve, CHAKRAM_FLIGHTLESS_HOP_MS));
+                if (discEnd) {
+                    lastDir = this.chakramWorldDir(discEnd, arrival);
+                }
             }
             discEnd = arrival;
 
@@ -6562,6 +6638,7 @@ export class Sandbox extends PixiScene {
                 if (dmg && dmg.amount > 0) {
                     this.combatVisuals?.showFloatingDamage(center, dmg.amount, lastDir, dmg.unitsDied);
                 }
+                this.combatVisuals?.spawnBloodSpray(center, cellSize, lastDir);
                 this.combatVisuals?.spawnSlash(center, cellSize, lastDir);
                 unit.applyRecoil(lastDir.x * cellSize * 0.16, lastDir.y * cellSize * 0.16);
             }
@@ -6932,6 +7009,25 @@ export class Sandbox extends PixiScene {
      * Shared by sandbox (live, from applyTurnEngineEvents) and ranked (from the snapshot journal). No-op
      * if the unit is gone/dead.
      */
+    /**
+     * Open the incoming unit's turn header in the sandbox scene log ("⌖ 🟢 Fairy — Lap 2"). Goes
+     * through updateLog — the engine/replay text channel — which ranked suppresses, so ranked (whose
+     * headers come from the authoritative journal) never sees a duplicate. Skipped while a unit is
+     * merely re-selected mid-turn (Double Shot's second volley).
+     */
+    private pushSandboxTurnLogHeader(unitId: string): void {
+        if (this.sandboxTurnLogHeaderUnitId === unitId) {
+            return;
+        }
+        const unit = this.unitsHolder.getAllUnits().get(unitId);
+        if (!unit) {
+            return;
+        }
+        this.sandboxTurnLogHeaderUnitId = unitId;
+        const flag = unit.getTeam() === TeamVals.LOWER ? "🟢" : unit.getTeam() === TeamVals.UPPER ? "🔴" : "";
+        const lap = FightStateManager.getInstance().getFightProperties().getCurrentLap();
+        this.sc_sceneLog.updateLog(formatTurnLogHeader(flag, unit.getName(), lap));
+    }
     protected spawnMoralePop(unitId: string, kind: "plus" | "minus"): void {
         const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
         if (!unit || unit.isDead()) {
@@ -9880,6 +9976,8 @@ export class Sandbox extends PixiScene {
 
                         // --- Multi-Target Highlight (AOE) ---
                         const secondaryTargets: Unit[] = [];
+                        // Per-victim damage scaling for the prediction (Chakram halves 2-cell bounces).
+                        const secondaryDamageFactorById = new Map<string, number>();
 
                         // Common AOE (Lightning Spin, Fire Breath, Skewer Strike) - Usually Melee triggered?
                         // If Move-and-Shoot (Range), we probably shouldn't trigger Melee AOE visuals unless logic supports it.
@@ -9951,6 +10049,28 @@ export class Sandbox extends PixiScene {
                             }
                         }
 
+                        // Chakram (Zena): the disc's separation chain is deterministic, so the hover shows
+                        // the EXACT victims the engine will strike — same resolver, zero drift. Each joins
+                        // the red-highlight set; 2-cell bounces carry their half-damage factor into the
+                        // prediction number.
+                        if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Chakram")) {
+                            const chakramPreview = AllAbilities.resolveChakramTrajectory(
+                                this.currentActiveUnit,
+                                targetUnit,
+                                this.unitsHolder,
+                                this.grid,
+                            );
+                            for (const enemy of chakramPreview.hitUnits) {
+                                if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
+                                    secondaryTargets.push(enemy);
+                                    secondaryDamageFactorById.set(
+                                        enemy.getId(),
+                                        chakramPreview.damageFactorByUnitId[enemy.getId()] ?? 1,
+                                    );
+                                }
+                            }
+                        }
+
                         // Calculate stats for secondary targets
                         for (const enemy of secondaryTargets) {
                             // Apply same modifiers to secondary targets
@@ -9995,9 +10115,14 @@ export class Sandbox extends PixiScene {
                                 );
                             }
 
-                            totalMinDmg += sMin;
+                            // Chakram's 2-cell bounces land at half strength; other secondaries factor 1.
+                            const secondaryFactor = secondaryDamageFactorById.get(enemy.getId()) ?? 1;
+                            const sMinFinal = Math.floor(sMin * secondaryFactor);
+                            sMaxFinal = Math.floor(sMaxFinal * secondaryFactor);
+
+                            totalMinDmg += sMinFinal;
                             totalMaxDmg += sMaxFinal;
-                            totalMinKills += enemy.calculatePossibleLosses(sMin);
+                            totalMinKills += enemy.calculatePossibleLosses(sMinFinal);
                             totalMaxKills += enemy.calculatePossibleLosses(sMaxFinal);
                         }
 
@@ -11716,6 +11841,11 @@ export class Sandbox extends PixiScene {
                     if (this.currentActiveUnit?.getId() === event.unitId || activeUnitIdAtStart === event.unitId) {
                         this.finishTurnVisualState(event.hourglass);
                     }
+                    // Re-arm the turn header: a unit re-selected on a LATER turn gets a fresh header,
+                    // while a mid-turn re-selection (Double Shot's second volley) does not repeat it.
+                    if (this.sandboxTurnLogHeaderUnitId === event.unitId) {
+                        this.sandboxTurnLogHeaderUnitId = undefined;
+                    }
                     // A turn finished by the human (not the AI mid-action) breaks the missed-turn streak
                     // that drives the sandbox AI takeover.
                     if (!this.aiController?.performingAction) {
@@ -11782,7 +11912,14 @@ export class Sandbox extends PixiScene {
                 case "unit_moved":
                 case "unit_placed":
                 case "unit_split":
+                    shouldRefreshVisibleState = true;
+                    break;
                 case "next_unit_selected":
+                    // Turn grouping: open the incoming unit's header in the scene log. updateLog is the
+                    // engine/replay text channel, which ranked suppresses — there the header comes from
+                    // the authoritative journal instead (buildAuthoritativeSceneLogLines), so this line
+                    // can never double up.
+                    this.pushSandboxTurnLogHeader(event.unitId);
                     shouldRefreshVisibleState = true;
                     break;
                 case "spell_cast":

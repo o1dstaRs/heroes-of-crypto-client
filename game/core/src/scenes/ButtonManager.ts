@@ -233,7 +233,10 @@ export class ButtonManager {
             attackTypeButton.isDisabled = !(fightStarted && hasActiveUnit);
 
             hourglassButton.isDisabled = !this.checkHourglassCondition();
-            spellBookButton.isDisabled = !this.checkCastCondition();
+            // Stays clickable even when the unit has nothing to cast: a DOM-disabled button swallows the
+            // click with zero feedback (the ranked "tried to cast and nothing happened" report), while the
+            // click handler can say WHY there is nothing to cast.
+            spellBookButton.isDisabled = false;
 
             if (hasActiveUnit) {
                 const active = currentActiveUnit!;
@@ -371,6 +374,18 @@ export class ButtonManager {
                 return;
             }
             case "Spellbook": {
+                // Nothing castable — say so instead of opening an empty book (or, before this guard's
+                // sibling in recomputeButtons, silently swallowing the click on a disabled button).
+                if (!this.sc_renderSpellBookOverlay && !this.checkCastCondition() && active) {
+                    this.context
+                        .getSceneLog()
+                        .updateLog(
+                            active.getSpellsCount() > 0
+                                ? `${active.getName()} cannot cast spells right now`
+                                : `${active.getName()} has no spells to cast`,
+                        );
+                    return;
+                }
                 this.sc_renderSpellBookOverlay = !this.sc_renderSpellBookOverlay;
                 // 👇 Fix: Push Spellbook state
                 this.context.setSpellBookOverlay(this.sc_renderSpellBookOverlay);

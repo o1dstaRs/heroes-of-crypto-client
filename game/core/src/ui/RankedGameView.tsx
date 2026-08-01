@@ -3,7 +3,6 @@ import {
     AttackVals,
     Augment,
     FightStateManager,
-    GridConstants,
     Perk,
     TeamVals,
     type GameAction,
@@ -13,6 +12,7 @@ import {
     Alert,
     Box,
     Button,
+    Chip,
     CircularProgress,
     Modal,
     ModalDialog,
@@ -76,6 +76,7 @@ import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx, hocSpinnerSx } from "./hocTheme";
 import {
+    hasOffGridSubmitCell,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -895,26 +896,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 }
                 return false;
             }
-            // Guard: never submit an action carrying an off-grid / non-integer cell. The server rejects it
-            // as invalid_cell (validateActionShape) — surfaced to the user as an "invalid cell" error — and
-            // a jammed unit that keeps retrying storms them. Mirror the server's bounds check and drop the
-            // doomed submit locally instead (the unit re-evaluates / ends its turn).
-            const cellInBounds = (c?: { x: number; y: number }): boolean =>
-                !c ||
-                (Number.isInteger(c.x) &&
-                    Number.isInteger(c.y) &&
-                    c.x >= 0 &&
-                    c.y >= 0 &&
-                    c.x < GridConstants.GRID_SIZE &&
-                    c.y < GridConstants.GRID_SIZE);
-            const submittedCells = [
-                ...(payload.cells ?? []),
-                ...(payload.path ?? []),
-                ...(payload.targetCells ?? []),
-                payload.attackFrom,
-                payload.targetCell,
-            ];
-            if (!submittedCells.every(cellInBounds)) {
+            if (hasOffGridSubmitCell(payload)) {
                 if (!isSilent) {
                     setError("Dropped an action with an off-grid cell");
                 }
@@ -1994,7 +1976,7 @@ const AUGMENT_SIDEBAR_IMAGES: Record<string, keyof typeof images> = {
 const augmentEffectText = (label: string, level: number): string => {
     switch (label) {
         case "Placement":
-            return ["Height 3 partial", "Height 4 full", "Height 5 full"][level] ?? "Height 3 partial";
+            return ["Height 3 partial", "Height 4 full", "Height 6 full + edge line"][level] ?? "Height 3 partial";
         case "Armor":
             return `+${Augment.getArmorPower(level as Augment.ArmorAugment)}% Armor, +${Augment.getArmorPower(
                 level as Augment.ArmorAugment,

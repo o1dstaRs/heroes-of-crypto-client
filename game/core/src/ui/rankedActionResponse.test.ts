@@ -4,6 +4,7 @@ import { TeamVals } from "@heroesofcrypto/common";
 import { PlayActionType, PlayPhase, type PlaySnapshot } from "../api/play_protocol";
 import type { LocalModelOpponentConfig } from "../scenes/LocalModelOpponent";
 import {
+    hasOffGridSubmitCell,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -172,5 +173,59 @@ describe("ranked action response snapshots", () => {
 
         expect(resolved.enabled).toBe(false);
         expect(resolved.modelTeam).toBe(TeamVals.LOWER);
+    });
+});
+
+describe("hasOffGridSubmitCell", () => {
+    test("OBSTACLE_ATTACK's targetCell is exempt — it carries a world position, not a grid cell", () => {
+        // Real strike on the left mountain: world (-320, 960) rides the targetCell wire field.
+        // Bounds-checking it dropped every ranked mountain attack ("off-grid cell" toast).
+        expect(
+            hasOffGridSubmitCell({
+                type: PlayActionType.OBSTACLE_ATTACK,
+                targetCell: { x: -320, y: 960 },
+                attackFrom: { x: 4, y: 6 },
+                path: [
+                    { x: 2, y: 4 },
+                    { x: 3, y: 5 },
+                    { x: 4, y: 6 },
+                ],
+            }),
+        ).toBe(false);
+    });
+
+    test("OBSTACLE_ATTACK's attackFrom and path are still real grid cells and stay validated", () => {
+        expect(
+            hasOffGridSubmitCell({
+                type: PlayActionType.OBSTACLE_ATTACK,
+                targetCell: { x: -320, y: 960 },
+                attackFrom: { x: 16, y: 6 },
+            }),
+        ).toBe(true);
+        expect(
+            hasOffGridSubmitCell({
+                type: PlayActionType.OBSTACLE_ATTACK,
+                targetCell: { x: -320, y: 960 },
+                attackFrom: { x: 4, y: 6 },
+                path: [{ x: 2.5, y: 4 }],
+            }),
+        ).toBe(true);
+    });
+
+    test("every other action's targetCell is bounds-checked", () => {
+        expect(hasOffGridSubmitCell({ type: PlayActionType.RANGE_ATTACK, targetCell: { x: -320, y: 960 } })).toBe(true);
+        expect(hasOffGridSubmitCell({ type: PlayActionType.RANGE_ATTACK, targetCell: { x: 3, y: 15 } })).toBe(false);
+    });
+
+    test("in-bounds cells across all fields pass", () => {
+        expect(
+            hasOffGridSubmitCell({
+                type: PlayActionType.MELEE_ATTACK,
+                attackFrom: { x: 0, y: 0 },
+                path: [{ x: 15, y: 15 }],
+                targetCells: [{ x: 7, y: 8 }],
+                cells: [{ x: 1, y: 1 }],
+            }),
+        ).toBe(false);
     });
 });

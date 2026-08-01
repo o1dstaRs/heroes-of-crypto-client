@@ -291,6 +291,27 @@ interface ISlash {
     woundLife: number; // how long the wound mark itself stays before it has faded
 }
 
+/** One flung droplet of a directional blood spray (see spawnBloodSpray). */
+interface IBloodSprayDrop {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number; // world px/s; y-up world, so gravity SUBTRACTS (matches the death-debris convention)
+    r: number;
+    age: number; // negative = staggered, not yet released
+    life: number;
+}
+
+interface IBloodSpray {
+    container: Container;
+    gfx: Graphics; // mist + droplets, redrawn each frame
+    drops: IBloodSprayDrop[];
+    mist: HoCMath.XY; // the brief red puff right at the wound
+    mistR: number;
+    age: number;
+    life: number;
+}
+
 interface IClawMark {
     top: HoCMath.XY[]; // one tapered edge of the gash
     bot: HoCMath.XY[]; // the other tapered edge
@@ -456,6 +477,18 @@ const SLASH_RIM = 0x300000; // near-black-red torn edge
 const SLASH_CORE = 0xe00000; // bright red deepest part of the cut
 const SLASH_DROP = 0xa80000; // dripping blood droplets
 
+// Tuning for the directional blood spray (chakram ricochets): droplets flung THE WAY THE BLOW WAS
+// TRAVELLING as it struck, plus a brief red mist at the wound. Where the slash gash is the wound left
+// ON the unit, the spray is the blood leaving it — together they mark "the disc cut through HERE".
+// Droplets streak along their velocity so fast blood reads as spray, not confetti.
+const BLOOD_SPRAY_Z = 2040; // just under the slash gash (2050): the wound reads on top of its spray
+const BLOOD_SPRAY_LIFE = 0.7; // seconds the whole spray lives (longest droplet)
+const BLOOD_SPRAY_DROPS = 13;
+const BLOOD_SPRAY_CONE = 0.5; // half-angle (radians) of the fan around the strike direction
+const BLOOD_SPRAY_SPEED_CELLS = 4.6; // fastest droplets, in cells/second
+const BLOOD_SPRAY_GRAVITY = 900; // world px/s^2 pulling the spray down (y-up world: subtracted)
+const BLOOD_MIST_LIFE = 0.24; // the red puff at the wound is gone before the droplets land
+
 // Tuning for the Deep Wounds "claw rake" — Ursa-style glowing orange claw marks that streak across the
 // target as the debuff lands. Snappy: each mark rakes in fast (staggered so they read as a swipe), holds,
 // then flares out. The mark count + rake width scale with the effect's power (Deep Wounds L1→L3, which
@@ -601,6 +634,7 @@ export class CombatVisuals {
     private mirrorRebounds: IMirrorRebound[] = [];
     private windSpears: IWindSpear[] = [];
     private slashes: ISlash[] = [];
+    private bloodSprays: IBloodSpray[] = [];
     private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
     private craftForges: ICraftForge[] = [];
@@ -1477,6 +1511,7 @@ export class CombatVisuals {
         this.stepWindSpears(dt);
         this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
+        this.stepBloodSprays(dt);
         this.stepClawSlashes(dt);
         this.stepCraftForges(dt);
         this.stepEnchants(dt);
@@ -3517,6 +3552,83 @@ export class CombatVisuals {
                 const dropAlpha = 1 - drop.age / drop.life;
                 gfx.circle(drop.x, drop.y, drop.r * (0.7 + 0.3 * dropAlpha));
                 gfx.fill({ color: SLASH_DROP, alpha: 0.9 * dropAlpha });
+            }
+        }
+    }
+    /**
+     * Directional blood spray: droplets flung in a cone along `dir` — the direction the blow was
+     * travelling as it struck — with a brief red mist right at the wound. Fired per victim AS the
+     * chakram reaches each one, so every ricochet bleeds at its own moment. Same in sandbox + ranked.
+     */
+    public spawnBloodSpray(center: HoCMath.XY, cellSize: number, dir?: HoCMath.XY): void {
+        const dirLen = dir ? Math.hypot(dir.x, dir.y) : 0;
+        const baseAng = dirLen > 0.001 ? Math.atan2(dir!.y, dir!.x) : Math.PI / 2;
+
+        const container = new Container();
+        this.context.attachToWorldRoot(container, BLOOD_SPRAY_Z);
+        const gfx = new Graphics();
+        container.addChild(gfx);
+
+        const drops: IBloodSprayDrop[] = [];
+        for (let d = 0; d < BLOOD_SPRAY_DROPS; d++) {
+            const ang = baseAng + (Math.random() - 0.5) * 2 * BLOOD_SPRAY_CONE;
+            const speed = cellSize * BLOOD_SPRAY_SPEED_CELLS * (0.35 + Math.random() * 0.65);
+            drops.push({
+                x: center.x + Math.cos(ang) * cellSize * 0.12,
+                y: center.y + Math.sin(ang) * cellSize * 0.12,
+                vx: Math.cos(ang) * speed,
+                // Slight upward kick on top of the fling, so the arcs open before gravity closes them.
+                vy: Math.sin(ang) * speed + cellSize * (0.3 + Math.random() * 0.8),
+                r: cellSize * (0.03 + Math.random() * 0.05),
+                age: -Math.random() * 0.06, // tiny stagger off the impact frame
+                life: BLOOD_SPRAY_LIFE * (0.5 + Math.random() * 0.5),
+            });
+        }
+
+        this.bloodSprays.push({
+            container,
+            gfx,
+            drops,
+            mist: { x: center.x, y: center.y },
+            mistR: cellSize * 0.34,
+            age: 0,
+            life: BLOOD_SPRAY_LIFE,
+        });
+    }
+    private stepBloodSprays(dt: number): void {
+        for (let i = this.bloodSprays.length - 1; i >= 0; i--) {
+            const spray = this.bloodSprays[i];
+            spray.age += dt;
+            if (spray.age >= spray.life) {
+                spray.container.destroy({ children: true });
+                this.bloodSprays.splice(i, 1);
+                continue;
+            }
+            const gfx = spray.gfx;
+            gfx.clear();
+
+            if (spray.age < BLOOD_MIST_LIFE) {
+                const mt = spray.age / BLOOD_MIST_LIFE;
+                gfx.circle(spray.mist.x, spray.mist.y, spray.mistR * (0.5 + mt * 0.9)).fill({
+                    color: SLASH_FILL,
+                    alpha: 0.42 * (1 - mt),
+                });
+            }
+
+            for (const drop of spray.drops) {
+                drop.age += dt;
+                if (drop.age < 0 || drop.age >= drop.life) {
+                    continue;
+                }
+                drop.vy -= BLOOD_SPRAY_GRAVITY * dt;
+                drop.x += drop.vx * dt;
+                drop.y += drop.vy * dt;
+                const k = 1 - drop.age / drop.life;
+                // A short streak back along the velocity: fast blood reads as spray, not confetti.
+                gfx.moveTo(drop.x - drop.vx * 0.03, drop.y - drop.vy * 0.03)
+                    .lineTo(drop.x, drop.y)
+                    .stroke({ width: drop.r * (1.1 + k), color: SLASH_DROP, alpha: 0.9 * k, cap: "round" });
+                gfx.circle(drop.x, drop.y, drop.r * (0.7 + 0.3 * k)).fill({ color: SLASH_CORE, alpha: 0.75 * k });
             }
         }
     }
