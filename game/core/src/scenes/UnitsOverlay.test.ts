@@ -111,9 +111,13 @@ describe("UnitsOverlay chip visibility", () => {
         // the newly expanded row. The old direct-parent check selected that hidden chip first.
         expect(click).toBeDefined();
         expect(overlay.handlePointerDown(click!.x, click!.y)).toBe(true);
-        expect(selected?.name).toBe(click!.expected.nameKey);
-        expect(selected?.level).toBe(4);
-        expect(selected?.size).toBe(2);
+        // Read through an asserted alias: control-flow analysis cannot see the callback assignment
+        // above (it keeps `selected` narrowed to null across the call), so only a type assertion
+        // widens it back for the property reads.
+        const picked = selected as UnitProperties | null;
+        expect(picked?.name).toBe(click!.expected.nameKey);
+        expect(picked?.level).toBe(4);
+        expect(picked?.size).toBe(2);
 
         overlay.destroy();
     });

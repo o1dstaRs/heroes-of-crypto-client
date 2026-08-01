@@ -81,18 +81,6 @@ import {
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
-import { MapBadge } from "./PickAndBan/MapReveal";
-import {
-    draftBoardSx,
-    draftShellSx,
-    DraftStepper,
-    DraftTitle,
-    MyDraftBar,
-    OpponentDraftBar,
-    PhasePanel,
-    PickCommitButton,
-    useDraftScale,
-} from "./PickAndBan";
 import {
     aiOpponentLabel,
     findAiSeatPlayerId,
@@ -2234,10 +2222,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 }) => {
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
-    // Ranked placement opens an augment/synergy overlay by default; the player picks there, hits
-    // "Continue to placement", and the chosen upgrades collapse to a read-only sidebar summary.
-    // null = not yet interacted -> open by default at placement start.
-    const [augmentOverlayOpenState, setAugmentOverlayOpen] = useState<boolean | null>(null);
     // The perk sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userPerkId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerPerk : snapshot?.upperPerk) ||
         Perk.Perk.NO_PERK) as Perk.Perk;
@@ -2248,7 +2232,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // split Board stage the picker is locked shut (augments committed) and the board opens.
     const inSetupStage = snapshot.placementSplit && snapshot.placementStage === 0;
     const inBoardStage = !snapshot.placementSplit || snapshot.placementStage === 1;
-    // Same countdown the placement chip renders, so the shared commit button can show it inline.
+    // Placement countdown for the header chip.
     const [augmentNowMs, setAugmentNowMs] = useState(Date.now());
     useEffect(() => {
         const id = setInterval(() => setAugmentNowMs(Date.now()), 1000);
@@ -2258,11 +2242,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         snapshot.placementDeadlineMs > 0
             ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - augmentNowMs) / 1000))
             : -1;
-    const augmentOverlayOpen = inSetupStage
-        ? true
-        : snapshot.placementSplit
-          ? false
-          : (augmentOverlayOpenState ?? true);
     // Remaining-points / synergy-completion state, reported up by SideToggleContainer via onReadyChange
     // (setAugmentReady is stable, no render loop). Gates the "Lock in augments" button: it stays disabled
     // until every upgrade point is spent, so nobody advances with an unfinished build by accident.
@@ -2273,8 +2252,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         pointsRemaining: 1,
         allSynergiesSelected: false,
     });
-    // Same fit-to-window scale the pick/ban board uses, so the augment step never re-flows either.
-    const draftScale = useDraftScale();
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
 
     const confirmExitModal = (
@@ -2405,156 +2382,40 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     <Stack spacing={0.75}>
                         <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
-                        {/* The augment/synergy picker lives in an overlay (open by default at placement
-                            start), not the sidebar. After "Continue to placement" the chosen upgrades
-                            collapse to this read-only summary — augments must be finished in the Setup
-                            stage, so there is no way to reopen the picker from here. The picker routes
-                            to the authoritative server via RankedPlayScene.propagateAugmentation
-                            (the AUGMENT play-action); artifacts are drafted in pick/ban (read-only above),
-                            so the sandbox-only artifact picker stays hidden. */}
-                        <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
-                        {/* The augment step is its own full screen, built like every draft phase before it:
-                            same gradient, same 1340px column, army rails on top and the progress rail at the
-                            bottom — not a dialog floating over the placement board. */}
-                        <Modal
-                            keepMounted
-                            open={augmentOverlayOpen}
-                            onClose={() => {
-                                if (!inSetupStage) {
-                                    setAugmentOverlayOpen(false);
-                                }
-                            }}
-                        >
-                            <ModalDialog
-                                layout="fullscreen"
-                                variant="plain"
-                                sx={{ ...draftShellSx, height: "100%", border: "none" }}
+                        {/* The augment/synergy picker lives HERE in the sidebar — the pre-#129 home,
+                            restored by owner request: pick augments beside the board instead of inside a
+                            fullscreen draft step. Interactive while augments are still editable (the split
+                            Setup stage before lock-in, or the whole legacy combined window), a read-only
+                            recap afterwards. The picker routes to the authoritative server via
+                            RankedPlayScene.propagateAugmentation (the AUGMENT play-action); artifacts are
+                            drafted in pick/ban (read-only above), so the sandbox-only artifact picker
+                            stays hidden. */}
+                        {(inSetupStage || !snapshot.placementSplit) && !ready ? (
+                            <SideToggleContainer
+                                side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                teamType={userTeam}
+                                showArtifactPicker={false}
+                                budgetPoints={augmentBudget}
+                                onReadyChange={setAugmentReady}
+                            />
+                        ) : (
+                            <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                        )}
+                        {/* Split Setup: lock-in advances the stage once every point is spent (both-ready or
+                            the deadline advances; the AI auto-spends for anyone not locked in). The header
+                            chip carries the countdown — no modal hides it anymore. */}
+                        {inSetupStage && (
+                            <Button
+                                variant="solid"
+                                disabled={!canSubmit || ready || !setupComplete}
+                                onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+                                sx={setupComplete && !ready ? hocPrimaryButtonSx : hocSoftButtonSx}
                             >
-                                {/* The same fixed 1340x800 board every draft phase uses, so this step is
-                                    pixel-identical to the ones before it and only scales with the window. */}
-                                <Box sx={draftBoardSx(draftScale)}>
-                                    {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
-                                    hidden behind this modal while the player picks augments/synergies. */}
-                                    <DraftTitle>Choose your augments</DraftTitle>
-                                    {/* The draft's own rails, fed from the play snapshot, so this screen shows the
-                                    armies exactly like every pick phase before it. */}
-                                    <Stack
-                                        direction="row"
-                                        spacing={1.25}
-                                        sx={{
-                                            width: "100%",
-                                            mx: "auto",
-                                            flex: "0 0 auto",
-                                            alignItems: "center",
-                                            flexWrap: "nowrap",
-                                        }}
-                                    >
-                                        <MyDraftBar
-                                            perk={
-                                                (userTeam === TeamVals.LOWER
-                                                    ? snapshot.lowerPerk
-                                                    : snapshot.upperPerk) ?? 0
-                                            }
-                                            picked={snapshot.units
-                                                .filter((unit) => unit.team === userTeam && !unit.dead)
-                                                .map((unit) => unit.creatureId)}
-                                            artifactTier1={
-                                                (userTeam === TeamVals.LOWER
-                                                    ? snapshot.lowerArtifactTier1
-                                                    : snapshot.upperArtifactTier1) ?? 0
-                                            }
-                                            artifactTier2={
-                                                (userTeam === TeamVals.LOWER
-                                                    ? snapshot.lowerArtifactTier2
-                                                    : snapshot.upperArtifactTier2) ?? 0
-                                            }
-                                        />
-                                        {/* Same centred map sign the pick phases show between the armies. */}
-                                        <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
-                                            <MapBadge mapType={snapshot.gridType ?? 0} />
-                                        </Box>
-                                        <OpponentDraftBar
-                                            opponentPicked={snapshot.units
-                                                .filter(
-                                                    (unit) =>
-                                                        unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
-                                                )
-                                                .map((unit) => unit.creatureId)}
-                                            opponentLabel="Opponent"
-                                            watchedSlots={[0, 1, 2, 3, 4, 5]}
-                                        />
-                                    </Stack>
-                                    <PhasePanel>
-                                        <Box
-                                            component="fieldset"
-                                            disabled={ready}
-                                            aria-disabled={ready}
-                                            sx={{
-                                                minWidth: 0,
-                                                m: 0,
-                                                p: 0,
-                                                border: 0,
-                                                height: "100%",
-                                                pointerEvents: ready ? "none" : "auto",
-                                                opacity: ready ? 0.64 : 1,
-                                            }}
-                                        >
-                                            <SideToggleContainer
-                                                side={userTeam === TeamVals.LOWER ? "green" : "red"}
-                                                teamType={userTeam}
-                                                showArtifactPicker={false}
-                                                budgetPoints={augmentBudget}
-                                                onReadyChange={setAugmentReady}
-                                            />
-                                        </Box>
-                                    </PhasePanel>
-                                    {/* Split Setup: this is the setup-ready that advances to the board (both-ready
-                                    or the 30s deadline advances; the AI auto-spends for anyone not locked in).
-                                    Legacy: choices commit as clicked, so this just closes the pop-up.
-                                    Disabled until the build is complete (all points spent + all synergies
-                                    picked) — see the setupComplete comment; the ready-locked state stays
-                                    disabled regardless. */}
-                                    {/* One bar carries the action, the budget and the clock: gold while points are
-                                    still unspent, green once the build is complete. */}
-                                    <Box
-                                        sx={{
-                                            width: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            flex: "0 0 auto",
-                                        }}
-                                    >
-                                        <PickCommitButton
-                                            label={inSetupStage && ready ? "Waiting for opponent…" : "Lock in augments"}
-                                            armed={
-                                                !((!ready && !setupComplete) || (inSetupStage && (!canSubmit || ready)))
-                                            }
-                                            isYourTurn
-                                            tone={setupComplete ? "green" : "gold"}
-                                            seconds={augmentSecondsLeft}
-                                            extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
-                                            onCommit={() => {
-                                                if (inSetupStage) {
-                                                    void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT });
-                                                } else {
-                                                    setAugmentOverlayOpen(false);
-                                                }
-                                            }}
-                                        />
-                                    </Box>
-                                    <Box
-                                        sx={{
-                                            width: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            flex: "0 0 auto",
-                                        }}
-                                    >
-                                        <DraftStepper step={6} userTeam={userTeam} />
-                                    </Box>
-                                </Box>
-                            </ModalDialog>
-                        </Modal>
+                                {ready
+                                    ? "Waiting for opponent…"
+                                    : `Lock in augments (${augmentBudget - augmentReady.pointsRemaining}/${augmentBudget} pts)`}
+                            </Button>
+                        )}
                         {/* The board-stage Ready (start the fight) + per-stack split/unplace controls are hidden
                             during the split Setup stage, when the board is locked. */}
                         {inBoardStage && (
