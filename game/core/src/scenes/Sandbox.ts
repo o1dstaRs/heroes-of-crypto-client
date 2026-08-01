@@ -961,6 +961,10 @@ export class Sandbox extends PixiScene {
             // Headless-harness hook: read the authoritative battle log (same lines the player sees) so an
             // automated run can measure skip/timeout/hourglass rates over many AI-vs-AI games.
             w.__hocGetLog = () => this.sc_sceneLog.getLog();
+            // QA rig for the units overlay: canvas-space click targets (tabs + visible chips), so
+            // automation can exercise every chip and assert the selection instead of guessing pixels.
+            (w as { __hocOverlayClickMap?: () => unknown }).__hocOverlayClickMap = () =>
+                this.unitsOverlay?.getDebugClickMap();
             // Diagnostic snapshot of the AI-gating state — lets a headless runner explain WHY the
             // autobattle isn't acting during a silent stall (which gate is stuck).
             w.__hocAiState = () => {
@@ -1034,6 +1038,27 @@ export class Sandbox extends PixiScene {
                     units[0]?.getPosition() ??
                     GridMath.getPositionForCell({ x: 8, y: 8 }, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                 this.renderResurrectionVfx(position, amount ?? 3);
+                return true;
+            };
+            // And for the melee death "cleave": tear the first placed unit along a CALLER-CHOSEN blow
+            // direction (world dx/dy, attacker -> victim). Deterministic — it calls the cleave directly
+            // rather than rolling the 50% dispatcher — so an automated run can screenshot the cut at a
+            // known angle and assert the slash actually follows the strike line.
+            (w as { __hocCleaveVfxTest?: (dx: number, dy: number) => boolean }).__hocCleaveVfxTest = (
+                dx: number,
+                dy: number,
+            ) => {
+                const units = [...this.unitsHolder.getAllUnits().values()];
+                const victim = units[0] as RenderableUnit | undefined;
+                const info = victim?.getShatterInfo();
+                if (!info || !this.combatVisuals) {
+                    return false;
+                }
+                (
+                    this.combatVisuals as unknown as {
+                        spawnCleaveDeath(i: typeof info, dir?: { x: number; y: number }): void;
+                    }
+                ).spawnCleaveDeath(info, { x: dx, y: dy });
                 return true;
             };
             // Diagnostic: the ENGINE's augment + placement-zone truth for a team — lets a headless run
