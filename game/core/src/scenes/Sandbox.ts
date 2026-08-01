@@ -236,6 +236,42 @@ export const obstacleAttackKind = (params: {
     return "melee";
 };
 
+/**
+ * Resolve the legal melee landing selected by a pointer over an enemy. This is the unit-target
+ * counterpart to `obstacleAttackKind`: the cursor may promise a sword only when the same click can
+ * resolve a real melee attack. Range targeting keeps its edge-aware path, but a ranged unit that
+ * cannot shoot may still fall through to this melee path.
+ */
+export const resolveMeleeAttackFromPointer = (params: {
+    attackTypeSelection: AttackType;
+    hasNoMelee: boolean;
+    hasEnemyTarget: boolean;
+    targetIsHidden: boolean;
+    isForcedTargetAllowed: boolean;
+    isCowardiceBlocked: boolean;
+    isEngineMeleeTarget: boolean;
+    /** Lazy because this runs from every pointer move over an enemy. */
+    isRangeAttackPreferred: () => boolean;
+    /** Called only after all cheap target legality gates pass. */
+    resolveAttackFrom: () => HoCMath.XY | undefined;
+}): HoCMath.XY | undefined => {
+    if (
+        params.attackTypeSelection === AttackVals.MAGIC ||
+        params.hasNoMelee ||
+        !params.hasEnemyTarget ||
+        params.targetIsHidden ||
+        !params.isForcedTargetAllowed ||
+        params.isCowardiceBlocked ||
+        !params.isEngineMeleeTarget
+    ) {
+        return undefined;
+    }
+    if (params.attackTypeSelection === AttackVals.RANGE && params.isRangeAttackPreferred()) {
+        return undefined;
+    }
+    return params.resolveAttackFrom();
+};
+
 export type SceneActionEngine = Pick<GameActionEngine, "apply">;
 
 export interface SandboxSceneUnitState {
@@ -5524,50 +5560,12 @@ export class Sandbox extends PixiScene {
 
             const gs = this.sc_sceneSettings.getGridSettings();
 
-            // The melee click below relies on hover() having precomputed hoverAttackFromCell on a
-            // prior frame. But MouseDown updates the cursor position synchronously, so a quick
-            // move-then-click on an enemy (or the first click right after a turn becomes active)
-            // fires before the next hover tick — leaving hoverAttackFromCell undefined and making
-            // the unit just MOVE and skip its turn instead of attacking. Recompute the melee
-            // attack-from cell here for the click position so the first click still attacks.
-            if (
-                !this.hoverManager.hoverAttackFromCell &&
-                this.currentActiveUnit &&
-                this.currentActiveUnit.getAttackTypeSelection() !== AttackVals.RANGE &&
-                this.canAttackByMeleeTargets &&
-                this.canAttackByMeleeTargets.attackCells.length > 0
-            ) {
-                const clickedCell = GridMath.getCellForPosition(gs, p);
-                const occupantId = clickedCell ? this.grid.getOccupantUnitId(clickedCell) : undefined;
-                const targetUnit = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
-                if (
-                    targetUnit &&
-                    targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
-                    !targetUnit.hasBuffActive("Hidden") &&
-                    // Cowardice bars striking a stronger (more cumulative HP) stack — don't arm the click-to-attack
-                    // for it either, so the click falls through to a move instead of a strike the engine rejects.
-                    !this.isCowardiceBlockedTarget(targetUnit) &&
-                    // Only targets the engine deems melee-attackable — mirrors the hover gate. Without it,
-                    // calculateClosestAttackFrom can return the unit's own standing cell for a far-away
-                    // enemy (valid "in place" spot vs some OTHER adjacent enemy) and the click arms a
-                    // melee strike the engine would reject (the Arachna Queen phantom-range bug).
-                    this.canAttackByMeleeTargets.unitIds.has(targetUnit.getId())
-                ) {
-                    const attackFrom = this.pathHelper.calculateClosestAttackFrom(
-                        p,
-                        this.canAttackByMeleeTargets.attackCells,
-                        this.currentActiveUnit.getCells(),
-                        targetUnit.isSmallSize() ? [targetUnit.getBaseCell()] : targetUnit.getCells(),
-                        this.currentActiveUnit.isSmallSize(),
-                        this.currentActiveUnit.getAttackRange(),
-                        targetUnit.isSmallSize(),
-                        TeamVals.NO_TEAM,
-                        this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
-                    );
-                    if (attackFrom) {
-                        this.hoverManager.hoverAttackFromCell = attackFrom;
-                    }
-                }
+            // Resolve this directly from the click position instead of waiting for hover()'s next
+            // frame. A quick move-then-click therefore uses the same pointer-selected attack side
+            // as the sword cursor and cannot degrade into a plain move.
+            const pointerMeleeAttack = this.resolveUnitMeleeAttack(p);
+            if (pointerMeleeAttack) {
+                this.hoverManager.hoverAttackFromCell = pointerMeleeAttack.attackFrom;
             }
 
             // Melee Attack Interaction
@@ -6425,6 +6423,83 @@ export class Sandbox extends PixiScene {
             return undefined;
         }
         return { unit, attackType: AttackVals.MELEE, attackFrom };
+    }
+    /**
+     * Pointer-driven unit melee target resolution. The same result feeds the cursor, hover preview,
+     * and click path, so sliding across different cells of a large target chooses the matching side
+     * without ever advertising an attack that the engine's precomputed target set rejects.
+     */
+    private resolveUnitMeleeAttack(
+        worldPos: HoCMath.XY,
+    ): { unit: RenderableUnit; target: Unit; attackFrom: HoCMath.XY } | undefined {
+        const unit = this.currentActiveUnit;
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        const targets = this.canAttackByMeleeTargets;
+        if (
+            !unit ||
+            !targets?.attackCells.length ||
+            !fightProps.hasFightStarted() ||
+            fightProps.hasFightFinished() ||
+            this.isBoardInputLockedByAI() ||
+            !this.canShowHoverForActiveUnit() ||
+            this.currentActiveSpell
+        ) {
+            return undefined;
+        }
+        const target = this.getUnitAtPosition(worldPos);
+        const targetCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), worldPos);
+        if (!target || !targetCell) {
+            return undefined;
+        }
+        const attackFrom = resolveMeleeAttackFromPointer({
+            attackTypeSelection: unit.getAttackTypeSelection(),
+            hasNoMelee: unit.hasAbilityActive("No Melee"),
+            hasEnemyTarget:
+                !target.isDead() &&
+                target.getTeam() !== unit.getTeam() &&
+                target.getCells().some((cell) => cell.x === targetCell.x && cell.y === targetCell.y),
+            targetIsHidden: target.hasBuffActive("Hidden"),
+            isForcedTargetAllowed: this.isAttackableUnderForcedTarget(target),
+            isCowardiceBlocked: this.isCowardiceBlockedTarget(target),
+            isEngineMeleeTarget: targets.unitIds.has(target.getId()),
+            isRangeAttackPreferred: () => this.isStaticRangeAttackPreferred(unit, target),
+            resolveAttackFrom: () =>
+                this.pathHelper.calculateClosestAttackFrom(
+                    worldPos,
+                    targets.attackCells,
+                    unit.getCells(),
+                    [targetCell],
+                    unit.isSmallSize(),
+                    unit.getAttackRange(),
+                    true,
+                    TeamVals.NO_TEAM,
+                    targets.attackCellHashesToLargeCells,
+                ) ??
+                this.pathHelper.calculateClosestAttackFrom(
+                    worldPos,
+                    targets.attackCells,
+                    unit.getCells(),
+                    target.isSmallSize() ? [target.getBaseCell()] : target.getCells(),
+                    unit.isSmallSize(),
+                    unit.getAttackRange(),
+                    target.isSmallSize(),
+                    TeamVals.NO_TEAM,
+                    targets.attackCellHashesToLargeCells,
+                ),
+        });
+        return attackFrom ? { unit, target, attackFrom } : undefined;
+    }
+    /** Whether a selected ranged unit should keep its static shot instead of offering a melee cursor. */
+    private isStaticRangeAttackPreferred(unit: RenderableUnit, target: Unit): boolean {
+        return (
+            unit.getAttackTypeSelection() === AttackVals.RANGE &&
+            unit.getRangeShots() > 0 &&
+            !unit.hasDebuffActive("Range Null Field Aura") &&
+            !unit.hasStatusApplied("Rangebane") &&
+            this.canAttackByRangeTargets?.has(target.getId()) === true &&
+            this.attackHandler.canLandRangeAttack(unit, this.grid.getEnemyAggrMatrixByUnitId(unit.getId())) &&
+            HoCMath.getDistance(unit.getPosition(), target.getPosition()) > GridConstants.STEP * 1.5
+        );
     }
     /**
      * Whether the cursor at `worldPos` is aiming at a mountain the active unit can actually hit — the
@@ -9499,16 +9574,11 @@ export class Sandbox extends PixiScene {
                 ) {
                     let attackFrom: HoCMath.XY | undefined;
 
-                    // Check if mouse cell is actually part of the target unit (for precise targeting)
-                    const isMouseInsideUnit = targetUnit.getCells().some((c) => c.x === cell.x && c.y === cell.y);
-
-                    // The engine only allows a melee strike on targets in canAttackByMeleeTargets.unitIds
-                    // (computed in updateCurrentMovePath). Without this gate, calculateClosestAttackFrom
-                    // could still return the active unit's own standing cell for a FAR-AWAY hovered enemy
-                    // (its own cell qualifies as an "attack in place" spot while it stands adjacent to some
-                    // OTHER enemy), painting a full attack preview — arrow from the unit + damage — that
-                    // reads as a ranged shot (the melee Arachna Queen phantom-range bug).
-                    const isMeleeAttackableTarget = this.canAttackByMeleeTargets.unitIds.has(targetUnit.getId());
+                    // Resolve the attack side from the exact pointer cell once, then share it with
+                    // the cursor and click path. This lets a player sweep across a 2x2 target to
+                    // choose its near edge, just like sweeping across a mountain.
+                    const pointerMeleeAttack = this.resolveUnitMeleeAttack(this.sc_mouseWorld);
+                    const isMeleeAttackableTarget = pointerMeleeAttack?.target.getId() === targetUnit.getId();
 
                     const isRangedUnit = this.currentActiveUnit.getAttackTypeSelection() === AttackVals.RANGE;
                     const canStaticRangeAttack = this.canAttackByRangeTargets?.has(targetUnit.getId());
@@ -9598,33 +9668,8 @@ export class Sandbox extends PixiScene {
                         }
                     }
 
-                    if (!skipMeleeCheck && isMouseInsideUnit && isMeleeAttackableTarget) {
-                        attackFrom = this.pathHelper.calculateClosestAttackFrom(
-                            this.sc_mouseWorld,
-                            this.canAttackByMeleeTargets.attackCells,
-                            this.currentActiveUnit.getCells(),
-                            [cell], // Priority 1: Specific hovered cell
-                            this.currentActiveUnit.isSmallSize(),
-                            this.currentActiveUnit.getAttackRange(),
-                            true, // Treat single cell as small target
-                            TeamVals.NO_TEAM,
-                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
-                        );
-                    }
-
-                    // Fallback: Melee if not found
-                    if (!attackFrom && !skipMeleeCheck && isMeleeAttackableTarget) {
-                        attackFrom = this.pathHelper.calculateClosestAttackFrom(
-                            this.sc_mouseWorld,
-                            this.canAttackByMeleeTargets.attackCells,
-                            this.currentActiveUnit.getCells(),
-                            targetUnit.getCells(),
-                            this.currentActiveUnit.isSmallSize(),
-                            this.currentActiveUnit.getAttackRange(),
-                            targetUnit.isSmallSize(),
-                            TeamVals.NO_TEAM,
-                            this.canAttackByMeleeTargets.attackCellHashesToLargeCells,
-                        );
+                    if (!skipMeleeCheck && isMeleeAttackableTarget) {
+                        attackFrom = pointerMeleeAttack.attackFrom;
                     }
 
                     if (attackFrom || isRangeAttackContext) {
@@ -10446,8 +10491,10 @@ export class Sandbox extends PixiScene {
         // them: aiming at a destructible centre showed the plain cursor even though the very next click
         // would chip it. hoverRangeAttackObstacle is the blocked-shot case -- the mountain intercepting a
         // shot aimed at someone behind it -- which is just as much an attack as aiming at the rock itself.
+        const pointerMeleeAttack = this.resolveUnitMeleeAttack(p);
         this.sc_isHoveringAttackTarget =
             !!this.hoverManager.hoverAttackTargetUnit ||
+            !!pointerMeleeAttack ||
             !!this.hoverRangeAttackObstacle ||
             this.isHoveringAttackableObstacle(p);
         if (wasHoveringTarget !== this.sc_isHoveringAttackTarget) {
