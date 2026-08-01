@@ -185,6 +185,23 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(alongBlow[0] + alongBlow[1]).toBeGreaterThan(0);
     });
 
+    test("a late directionless re-note cannot downgrade the recorded blow angle", () => {
+        Math.random = () => 0.25;
+        const { visuals } = makeVisuals();
+        visuals.noteDeathBlow("u1", "melee", { x: 1, y: 0 }); // impact-time attribution, angle known
+        // The live path attributes the same kill again in the turn-event sweep AFTER teardown, when no
+        // positions remain — so the re-note arrives directionless. It must keep the impact-time angle:
+        // this exact clobber is why real melee cleaves used to render on the random near-vertical
+        // fallback instead of following the strike line.
+        visuals.noteDeathBlow("u1", "melee");
+        visuals.spawnDeathVfx(makeInfo(), "u1");
+        type Cleave = { cutU: { x: number; y: number } };
+        const cleave = (internals(visuals).cleaveDeaths as Cleave[])[0];
+        expect(cleave).toBeDefined();
+        // Still near-perpendicular to the (1,0) blow — the no-direction fallback would lean well past this.
+        expect(Math.abs(cleave.cutU.x)).toBeLessThan(0.25);
+    });
+
     test("all death animations run to completion and tear their containers down", () => {
         Math.random = () => 0.25;
         const { visuals, attached } = makeVisuals();

@@ -526,6 +526,8 @@ export class Sandbox extends PixiScene {
     private readonly replayRecorder = new SandboxReplayRecorder(() => this.captureSceneState());
     private replayRecordingSuspended = false;
     private replayPlaybackActive = false;
+    // Attack events whose kills were already attributed to CombatVisuals (see noteDeathBlowsFromAttackEvent).
+    private readonly notedDeathBlowEvents = new WeakSet<object>();
     // The unit whose turn header is currently open in the scene log (sandbox text channel only;
     // ranked builds its headers from the journal). Cleared by that unit's turn_completed.
     private sandboxTurnLogHeaderUnitId?: string;
@@ -4576,6 +4578,14 @@ export class Sandbox extends PixiScene {
         if (!event.unitIdsDied?.length) {
             return;
         }
+        // The live path sees the same engine event twice (applyAttackActionResult at impact, then the
+        // applyTurnEngineEvents sweep). Attribute each event object once: the sweep's re-note would both
+        // recompute the blow angle AFTER teardown (no positions left) and resurrect a consumed entry,
+        // which could color a later unrelated death.
+        if (this.notedDeathBlowEvents.has(event)) {
+            return;
+        }
+        this.notedDeathBlowEvents.add(event);
         const kind = event.type === "unit_attacked" ? event.attackType : "range";
         const units = this.unitsHolder.getAllUnits();
         // Strike line from VISUAL centers: getPosition() on a 2x2 unit is its base cell, which would
@@ -4585,8 +4595,33 @@ export class Sandbox extends PixiScene {
             const unit = units.get(unitId) as RenderableUnit | undefined;
             return unit ? unit.getVisualCenter(gs) : undefined;
         };
-        const attackerPos = centerOf(event.attackerId);
-        const primaryPos = event.type === "unit_attacked" ? centerOf(event.targetId) : event.targetPosition;
+        // Event-carried fallback geometry. In the live path this attribution can run AFTER the engine's
+        // teardown removed the corpse, so a dead unit's live center is often gone — which silently dropped
+        // the blow direction and left every real melee cleave on its random near-vertical fallback. The
+        // event itself preserves the impact-time positions: the attacker's own animation entry (a melee
+        // strike records `toPosition` = where it struck from) and the damage payload's per-unit positions.
+        const attackerAnimPos =
+            event.type === "unit_attacked"
+                ? event.animations.find((animation) => animation.affectedUnitId === event.attackerId)?.toPosition
+                : undefined;
+        const damagePositionOf = (unitId: string): HoCMath.XY | undefined => {
+            if (event.type !== "unit_attacked") {
+                return undefined;
+            }
+            const damage = event.damage;
+            if (damage.unitId === unitId && damage.unitPosition) {
+                return damage.unitPosition;
+            }
+            return (
+                damage.splash?.find((entry) => entry.unitId === unitId)?.position ??
+                damage.secondary?.find((entry) => entry.unitId === unitId)?.position
+            );
+        };
+        const attackerPos = centerOf(event.attackerId) ?? attackerAnimPos;
+        const primaryPos =
+            event.type === "unit_attacked"
+                ? (centerOf(event.targetId) ?? damagePositionOf(event.targetId))
+                : event.targetPosition;
         // A ranged death "dissolve" should punch through along the projectile's ACTUAL travel angle, not the
         // attacker-center -> victim-center line. The shot flies from the attacker's visual center (the muzzle,
         // == attackerPos, matching RangedProjectiles.fire) to its aimed edge (unit_attacked
@@ -4613,7 +4648,7 @@ export class Sandbox extends PixiScene {
                 // Ranged response → aim at the return projectile's edge; melee/Fire-Shield → the attacker's center.
                 to = kind === "range" ? (responseAim ?? attackerPos) : attackerPos;
             } else {
-                to = kind === "range" ? rangeAim : (centerOf(unitId) ?? primaryPos);
+                to = kind === "range" ? rangeAim : (centerOf(unitId) ?? damagePositionOf(unitId) ?? primaryPos);
             }
             let dir: HoCMath.XY | undefined;
             if (from && to) {

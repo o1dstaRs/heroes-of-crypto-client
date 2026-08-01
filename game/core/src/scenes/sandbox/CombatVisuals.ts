@@ -1822,6 +1822,14 @@ export class CombatVisuals {
      * a later death by spell to the earlier attack.
      */
     public noteDeathBlow(unitId: string, kind: DeathBlowKind, dir?: HoCMath.XY): void {
+        // Never let a re-note DOWNGRADE the record: the live path can attribute the same kill twice
+        // (once at impact, once in the turn-event sweep after teardown), and the later pass — computed
+        // when the corpse's position is gone — used to clobber a good angle with undefined, which is
+        // why melee cleaves always fell back to the random near-vertical cut.
+        const existing = this.deathBlowByUnitId.get(unitId);
+        if (existing && existing.kind === kind && existing.dir && !dir) {
+            return;
+        }
         this.deathBlowByUnitId.set(unitId, { kind, dir });
     }
     /**
@@ -1834,6 +1842,14 @@ export class CombatVisuals {
         const blow = unitId ? this.deathBlowByUnitId.get(unitId) : undefined;
         if (unitId) {
             this.deathBlowByUnitId.delete(unitId);
+        }
+        // Dev/e2e diagnostic: record what every real death actually received, so an automated fight can
+        // measure how often the melee cleave gets a usable blow direction vs. its vertical fallback.
+        if (import.meta.env.DEV && typeof window !== "undefined") {
+            const w = window as unknown as {
+                __hocDeathVfxLog?: { kind?: DeathBlowKind; dir?: HoCMath.XY; frozen: boolean }[];
+            };
+            (w.__hocDeathVfxLog ??= []).push({ kind: blow?.kind, dir: blow?.dir, frozen });
         }
         // A frozen stack always cracks into mixed-size crystals, however the killing blow was delivered.
         if (frozen && this.spawnIceBreak(info)) {
