@@ -1742,6 +1742,7 @@ export class RankedPlayScene extends Sandbox {
             this.placementManager.rebuildFromFightProps();
         }
         this.refreshUnits();
+        this.publishSelectedUnitProperties();
         transport({
             type: "augment",
             team: teamType,
@@ -1773,8 +1774,23 @@ export class RankedPlayScene extends Sandbox {
         if (!applied) {
             return false;
         }
+        this.publishSelectedUnitProperties();
         transport({ type: "synergy", team: teamType, faction, synergyName, level: synergyLevel });
         return true;
+    }
+    private publishSelectedUnitProperties(): void {
+        if (!this.sc_selectedUnitProperties) {
+            return;
+        }
+        const unitId = this.sc_selectedUnitProperties.id;
+        if (unitId) {
+            const unit = this.unitsHolder.getAllUnits().get(unitId);
+            if (unit) {
+                this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
+            }
+        }
+        this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+        this.sc_unitPropertiesUpdateNeeded = true;
     }
     /**
      * Ranked routes "Use additional time" through the authoritative server: send a
