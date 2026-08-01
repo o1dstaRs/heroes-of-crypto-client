@@ -4739,6 +4739,59 @@ export class Sandbox extends PixiScene {
         }
         this.unitsHolder.refreshStackPowerForAllUnits();
     }
+    /**
+     * Re-derive everything a LOADOUT change (augment, artifact, synergy) can move, and push it at the UI.
+     *
+     * Picking one of these does not just store a number in FightProperties: refreshUnits re-rolls every
+     * stat off it, which can change the selected unit's whole stat block, the active unit's steps
+     * (Movement), and its shot distance (Sniper). None of that reaches the screen by itself — the left
+     * sidebar is fed by sc_unitPropertiesUpdateNeeded, and the reachable-cell highlight is only recomputed
+     * when the cursor moves — so the board kept showing the pre-augment reach until the player happened to
+     * jiggle the mouse.
+     *
+     * Extracted and shared because ranked overrides propagateAugmentation to route through the
+     * authoritative server and so never runs the sandbox body. Inlining this recipe (it was inlined three
+     * times) is exactly how "it refreshes in sandbox but not in ranked" keeps happening.
+     */
+    protected refreshAfterLoadoutChange(): void {
+        this.refreshUnits();
+        if (this.sc_selectedUnitProperties) {
+            const unitId = this.sc_selectedUnitProperties.id;
+            if (unitId) {
+                const unit = this.unitsHolder.getAllUnits().get(unitId);
+                if (unit) {
+                    this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
+                }
+            }
+            this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
+        }
+        this.sc_unitPropertiesUpdateNeeded = true;
+        this.refreshActiveUnitReach();
+    }
+    /**
+     * Recompute the active unit's reachable cells and shot ring from its CURRENT stats — the same pair
+     * selectNextUnit computes on a handoff, just re-run in place because the stats moved under a unit that
+     * is already active. No active unit (the usual case while augments are still being picked at
+     * placement) means there is no reach to redraw, so this is a no-op.
+     */
+    private refreshActiveUnitReach(): void {
+        const activeUnit = this.currentActiveUnit;
+        if (!activeUnit) {
+            return;
+        }
+        const currentCell = GridMath.getCellForPosition(
+            this.sc_sceneSettings.getGridSettings(),
+            activeUnit.getPosition(),
+        );
+        if (currentCell) {
+            this.updateCurrentMovePath(currentCell);
+        }
+        const rangeShotCells = activeUnit.getRangeShotDistance();
+        this.sc_currentActiveShotRange =
+            rangeShotCells > 0
+                ? { xy: activeUnit.getPosition(), distance: rangeShotCells * GridConstants.STEP }
+                : undefined;
+    }
     protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted()) return;
@@ -4805,18 +4858,7 @@ export class Sandbox extends PixiScene {
             }
         }
         if (augmented) {
-            this.refreshUnits();
-            if (this.sc_selectedUnitProperties) {
-                const unitId = this.sc_selectedUnitProperties.id;
-                if (unitId) {
-                    const unit = this.unitsHolder.getAllUnits().get(unitId);
-                    if (unit) {
-                        this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
-                    }
-                }
-                this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
-            }
-            this.sc_unitPropertiesUpdateNeeded = true;
+            this.refreshAfterLoadoutChange();
         }
         return augmented;
     }
@@ -4824,18 +4866,7 @@ export class Sandbox extends PixiScene {
         const fp = FightStateManager.getInstance().getFightProperties();
         const applied = fp.setArtifactPerTeam(teamType, tier, artifactId);
         if (applied) {
-            this.refreshUnits();
-            if (this.sc_selectedUnitProperties) {
-                const unitId = this.sc_selectedUnitProperties.id;
-                if (unitId) {
-                    const unit = this.unitsHolder.getAllUnits().get(unitId);
-                    if (unit) {
-                        this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
-                    }
-                }
-                this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
-            }
-            this.sc_unitPropertiesUpdateNeeded = true;
+            this.refreshAfterLoadoutChange();
         }
         return applied;
     }
@@ -4863,18 +4894,7 @@ export class Sandbox extends PixiScene {
                 .updateSynergyPerTeam(teamType, faction, specificSynergy, synergyLevel);
 
             if (hasUpdated) {
-                this.refreshUnits();
-                if (this.sc_selectedUnitProperties) {
-                    const unitId = this.sc_selectedUnitProperties.id;
-                    if (unitId) {
-                        const unit = this.unitsHolder.getAllUnits().get(unitId);
-                        if (unit) {
-                            this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
-                        }
-                    }
-                    this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
-                }
-                this.sc_unitPropertiesUpdateNeeded = true;
+                this.refreshAfterLoadoutChange();
             }
 
             // some synergies may affect the board state

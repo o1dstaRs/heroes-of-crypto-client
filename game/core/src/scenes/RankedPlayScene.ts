@@ -1741,8 +1741,13 @@ export class RankedPlayScene extends Sandbox {
         if (augmentType.type === "Placement") {
             this.placementManager.rebuildFromFightProps();
         }
-        this.refreshUnits();
-        this.publishSelectedUnitProperties();
+        // The SAME recipe the sandbox override runs, not refreshUnits alone: an augment moves the selected
+        // unit's whole stat block AND — for Movement/Sniper — the active unit's reach. refreshUnits
+        // recomputes the numbers but tells nothing on screen to redraw, so the left sidebar kept printing
+        // pre-augment values and the reachable-cell highlight kept its pre-augment shape until the cursor
+        // moved. The server stays authoritative and reconciles on its next snapshot; this only makes the
+        // pick land immediately, exactly like sandbox.
+        this.refreshAfterLoadoutChange();
         transport({
             type: "augment",
             team: teamType,
@@ -1774,23 +1779,10 @@ export class RankedPlayScene extends Sandbox {
         if (!applied) {
             return false;
         }
-        this.publishSelectedUnitProperties();
+        // No explicit refresh here: super.propagateSynergy already ran refreshAfterLoadoutChange, which
+        // covers the stat block, the sidebar push and the active unit's reach.
         transport({ type: "synergy", team: teamType, faction, synergyName, level: synergyLevel });
         return true;
-    }
-    private publishSelectedUnitProperties(): void {
-        if (!this.sc_selectedUnitProperties) {
-            return;
-        }
-        const unitId = this.sc_selectedUnitProperties.id;
-        if (unitId) {
-            const unit = this.unitsHolder.getAllUnits().get(unitId);
-            if (unit) {
-                this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
-            }
-        }
-        this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
-        this.sc_unitPropertiesUpdateNeeded = true;
     }
     /**
      * Ranked routes "Use additional time" through the authoritative server: send a
