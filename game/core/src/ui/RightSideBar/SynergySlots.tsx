@@ -83,7 +83,12 @@ export const SynergySlots: React.FC<{ teamType: TeamType; size?: number }> = ({ 
                 const src = (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
                     `${key}:${variant}:${isActive ? level : 1}`
                 ];
-                const description = (SYNERGY_NAME_TO_DESCRIPTION as Record<string, string>)[`${key}:${variant}`];
+                // Keyed `Faction:variant:level` like the image lookup above — the two-part key this used to
+                // build matched no entry at all, so every tooltip body came out blank. An unlit slot previews
+                // level 1's text, same as it borrows level 1's art.
+                const description = (SYNERGY_NAME_TO_DESCRIPTION as Record<string, string>)[
+                    `${key}:${variant}:${isActive ? level : 1}`
+                ];
                 return (
                     <Tooltip
                         key={key}
