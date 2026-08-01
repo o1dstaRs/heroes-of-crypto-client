@@ -12,8 +12,10 @@ import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
-// Sandbox keeps its own panel: SideToggleContainer is now the ranked draft's expanded-card layout.
-import SandboxToggleContainer from "./SandboxToggleContainer";
+// The sandbox mounts the SAME expanded-card picker as ranked (SideToggleContainer): the owner asked
+// for the pre-redesign sidebar back, and that component is it — cards stack one per row in the narrow
+// panel via its container query.
+import SideToggleContainer from "./SideToggleContainer";
 import { SynergySlots } from "./SynergySlots";
 import UnitSplitter from "./UnitSplitter";
 
@@ -262,7 +264,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
+                    <SideToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
 
@@ -331,11 +333,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SandboxToggleContainer
-                        side="green"
-                        teamType={TeamVals.LOWER}
-                        unitFaction={unitProperties.faction}
-                    />
+                    <SideToggleContainer side="green" teamType={TeamVals.LOWER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
         </ListItem>

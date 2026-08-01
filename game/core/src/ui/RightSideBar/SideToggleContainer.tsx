@@ -501,6 +501,11 @@ const SideToggleContainer = ({
                 height: "100%",
                 minHeight: 0,
                 mx: "auto",
+                // The card grid below queries "@container augframe" to fall to one card per row in a
+                // narrow host (the sandbox/ranked sidebar). The declaration lives here on the root —
+                // without it the query never matches and six cards squeeze into three columns.
+                containerType: "inline-size",
+                containerName: "augframe",
             }}
         >
             {/* Every category on screen at once: 4 columns, one card per augment, levels priced inline. */}
