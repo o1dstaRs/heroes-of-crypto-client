@@ -7,6 +7,7 @@ import Slider from "@mui/joy/Slider";
 import Button from "@mui/joy/Button";
 import Tooltip from "@mui/joy/Tooltip";
 import { images } from "../../generated/image_imports";
+import { hocActionDangerButtonSx, hocActionSoftButtonSx } from "../hocTheme";
 
 interface IUnitSplitterProps {
     totalUnits: number;
@@ -147,47 +148,23 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                 <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
+                        size="sm"
                         onClick={handleAcceptSplit}
-                        sx={{
-                            flex: 1,
-                            minWidth: 0,
-                            aspectRatio: "3.5 / 1",
-                            backgroundImage: `url(${images.button})`,
-                            backgroundSize: "100% 100%",
-                            backgroundRepeat: "no-repeat",
-                            color: "white",
-                            height: "auto",
-                            "&:hover": {
-                                filter: "brightness(1.5) saturate(1.2)",
-                                backgroundColor: "transparent",
-                            },
-                        }}
+                        sx={{ ...hocActionSoftButtonSx, flex: 1, minWidth: 0 }}
                     >
-                        <img src={images.split_text} alt="Split" style={{ height: "40%" }} />
+                        Split
                     </Button>
                 </Tooltip>
                 <Tooltip title="Delete (D)" placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
+                        size="sm"
                         onClick={() => {
                             manager.Delete();
                         }}
-                        sx={{
-                            flex: 1,
-                            minWidth: 0,
-                            aspectRatio: "3.5 / 1",
-                            backgroundImage: `url(${images.button_red})`,
-                            backgroundSize: "100% 100%",
-                            backgroundRepeat: "no-repeat",
-                            color: "white",
-                            height: "auto",
-                            "&:hover": {
-                                filter: "brightness(1.2) saturate(1.2)",
-                                backgroundColor: "transparent",
-                            },
-                        }}
+                        sx={{ ...hocActionDangerButtonSx, flex: 1, minWidth: 0 }}
                     >
-                        <img src={images.delete_text} alt="Delete" style={{ height: "40%" }} />
+                        Delete
                     </Button>
                 </Tooltip>
             </Stack>

@@ -10,6 +10,7 @@ import "typeface-open-sans";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { WalletProvider } from "../wallet/WalletProvider";
+import { BoardEdgeTrim } from "./boardEdgeTrim";
 import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
 import RightSideBar from "./RightSideBar";
@@ -175,6 +176,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider>
                     <CssBaseline />
+                    {!isLoading && <BoardEdgeTrim windowSize={windowSize} />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                     <UpNextOverlay />
@@ -258,6 +260,7 @@ const PickAndBanView: React.FC<{
             >
                 <CssVarsProvider>
                     <CssBaseline />
+                    {!isLoading && <BoardEdgeTrim windowSize={windowSize} />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>

@@ -121,7 +121,20 @@ export const FightLog = ({ text }: { text: string }) => {
     const hasEntries = entries.length > 0;
 
     return (
-        <Box sx={{ position: "relative", width: "100%" }}>
+        // Grows upward into the bar's spare height, stopping under the button column. The 168px floor lives
+        // here rather than on the well inside: put it on the well and a short sidebar hands this box less
+        // than that, the well overruns it, and the log spills over the controls below. On the box, the
+        // whole block simply stops shrinking and the sidebar scrolls.
+        <Box
+            sx={{
+                position: "relative",
+                width: "100%",
+                flex: "1 1 auto",
+                minHeight: "168px",
+                display: "flex",
+                flexDirection: "column",
+            }}
+        >
             {hasEntries && (
                 <Box
                     component="button"
@@ -183,10 +196,12 @@ export const FightLog = ({ text }: { text: string }) => {
             <Box
                 sx={{
                     width: "100%",
-                    // Fixed, not elastic: the well used to start at 56px and grow to 168px as entries
-                    // arrived, which nudged everything around it for the first few turns of every fight.
-                    // It now opens at its final height and simply fills up.
-                    height: "168px",
+                    // Sized by the bar, never by its contents: the well used to start at 56px and grow to
+                    // 168px as entries arrived, which nudged everything around it for the first few turns
+                    // of every fight. It now opens at whatever height the block above hands it and simply
+                    // fills up. The floor lives on that block, so here it must be free to shrink to it.
+                    flex: "1 1 auto",
+                    minHeight: 0,
                     overflowY: "auto",
                     overflowX: "hidden",
                     // Contain wheel scrolling here so it doesn't bubble to the sidebar when over the log.

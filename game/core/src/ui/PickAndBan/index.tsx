@@ -1,12 +1,17 @@
 import {
     Artifact,
+    ChaosSynergy,
     CREATURES_JSON,
     CreatureVals,
     getCreatureLevel,
     getCreaturesByLevel,
     HoCConfig,
+    LifeSynergy,
+    MightSynergy,
+    NatureSynergy,
     Perk,
     PickPhaseVals,
+    SynergyKeysToPower,
     TeamVals,
     type TeamType,
 } from "@heroesofcrypto/common";
@@ -14,9 +19,11 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Sheet,
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
+import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
+import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { PERK_COPY } from "../perkCopy";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -133,12 +140,12 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
             variant="soft"
             sx={{
                 position: "absolute",
-                top: "clamp(6px, 1.5vh, 30px)",
+                top: 0,
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 6,
                 width: "min(1340px, 97vw)",
-                height: "clamp(132px, 16vh, 178px)",
+                height: 158,
                 overflow: "hidden",
                 p: "12px 20px",
                 borderRadius: "20px",
@@ -146,7 +153,6 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                 border: "2px solid rgba(159,182,212,0.55)",
                 boxShadow: "0 18px 44px rgba(0,0,0,0.6)",
                 color: "#e9e6df",
-                pointerEvents: "none",
                 display: { xs: "none", md: "flex" },
                 alignItems: "center",
                 gap: "18px",
@@ -159,8 +165,8 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                     src={img}
                     alt={c.name}
                     sx={{
-                        width: "clamp(72px, 7vw, 104px)",
-                        height: "clamp(72px, 7vw, 104px)",
+                        width: "92px",
+                        height: "92px",
                         borderRadius: "50%",
                         objectFit: "cover",
                         border: "3px solid rgba(220,177,88,0.75)",
@@ -218,15 +224,15 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                         >
                             <Box
                                 sx={{
-                                    width: "clamp(58px, 5.4vw, 84px)",
-                                    height: "clamp(58px, 5.4vw, 84px)",
+                                    width: "72px",
+                                    height: "72px",
                                     borderRadius: "14px",
                                     bgcolor: ability ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)",
                                     border: `1px solid ${ability ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)"}`,
                                     display: "flex",
                                     flexDirection: "column",
                                     alignItems: "center",
-                                    justifyContent: "center",
+                                    justifyContent: "flex-start",
                                     gap: 0.5,
                                     p: 1,
                                 }}
@@ -269,21 +275,79 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
 
 export const DRAFT_COLUMN = "min(1340px, 97vw)";
 
+// The draft is laid out once, at this exact size, and then scaled as a whole to fit the window. Nothing
+// re-flows: a bigger window (or fullscreen) only paints more background around the same board, a smaller
+// one shrinks the board uniformly instead of growing scrollbars.
+export const DRAFT_BOARD_WIDTH = 1340;
+export const DRAFT_BOARD_HEIGHT = 800;
+const DRAFT_MAX_SCALE = 1.05;
+
 export const draftShellSx = {
     width: "100%",
     height: "100vh",
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
-    gap: "clamp(10px, 1.6vh, 30px)",
-    p: "clamp(10px, 2vh, 36px) 40px clamp(10px, 1.6vh, 36px)",
+    justifyContent: "center",
+    p: 0,
     background: "radial-gradient(120% 80% at 50% 0%, #171a23 0%, #0b0d12 60%)",
     color: "#e9e6df",
     overflow: "hidden",
     position: "relative",
-    maxWidth: 1720,
-    mx: "auto",
 } as const;
+
+/** True while the page is in fullscreen — the toggle button reads this to expand or collapse. */
+export const useIsFullscreen = (): boolean => {
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    useEffect(() => {
+        const sync = () => setIsFullscreen(isFullscreenActive());
+        sync();
+        return onFullscreenChange(sync);
+    }, []);
+    return isFullscreen;
+};
+
+/** The factor the fixed board is drawn at: 1.05 whenever it fits, less on windows too small to hold it. */
+export const useDraftScale = (): number => {
+    const [scale, setScale] = useState(DRAFT_MAX_SCALE);
+    useEffect(() => {
+        const fit = () =>
+            setScale(
+                Math.min(
+                    DRAFT_MAX_SCALE,
+                    (window.innerWidth - 48) / DRAFT_BOARD_WIDTH,
+                    (window.innerHeight - 40) / DRAFT_BOARD_HEIGHT,
+                ),
+            );
+        fit();
+        // resize alone is not enough: entering fullscreen resizes the viewport without always firing it, so
+        // observe the document element too and re-fit on the fullscreen transition itself.
+        window.addEventListener("resize", fit);
+        document.addEventListener("fullscreenchange", fit);
+        const observer = new ResizeObserver(fit);
+        observer.observe(document.documentElement);
+        return () => {
+            window.removeEventListener("resize", fit);
+            document.removeEventListener("fullscreenchange", fit);
+            observer.disconnect();
+        };
+    }, []);
+    return scale;
+};
+
+/** The board itself: always 1340x800 internally, only its scale reacts to the window. */
+export const draftBoardSx = (scale: number) =>
+    ({
+        position: "relative",
+        width: DRAFT_BOARD_WIDTH,
+        height: DRAFT_BOARD_HEIGHT,
+        flex: "0 0 auto",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "18px",
+        transform: `scale(${scale})`,
+        transformOrigin: "center center",
+    }) as const;
 
 // The title always occupies the same band, so the block under it starts on the same line on every phase.
 export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.ReactNode }> = ({
@@ -297,14 +361,14 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
             alignItems: "center",
             justifyContent: "center",
             gap: 0.5,
-            minHeight: "clamp(44px, 7vh, 96px)",
+            minHeight: "78px",
             flex: "0 1 auto",
-            py: "clamp(4px, 1.4vh, 26px)",
+            py: "10px",
         }}
     >
         <Typography
             sx={{
-                fontSize: "clamp(30px, 3.4vw, 62px)",
+                fontSize: "46px",
                 fontWeight: 600,
                 lineHeight: 1.1,
                 color: "#efe4cc",
@@ -397,7 +461,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
             gap: 0,
             flexWrap: "nowrap",
             justifyContent: "space-between",
-            width: "min(1340px, 97vw)",
+            width: "min(1040px, 88vw)",
         }}
     >
         {STEP_LABELS.map((label, i) => {
@@ -456,7 +520,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                             </Box>
                             <Typography
                                 level="body-xs"
-                                sx={{ fontSize: 12.5, color: active ? "#efe4cc" : done ? "#8fcd7d" : "#7c8290" }}
+                                sx={{ fontSize: 11.5, color: active ? "#efe4cc" : done ? "#8fcd7d" : "#7c8290" }}
                             >
                                 {label}
                             </Typography>
@@ -563,8 +627,12 @@ const CreaturePortrait: React.FC<{
                 onMouseLeave={() => onInspectEnd?.()}
                 sx={{
                     position: "relative",
-                    width: fill ? "100%" : size,
+                    width: fill ? "auto" : size,
                     height: fill ? "auto" : size,
+                    flex: fill ? "1 1 0" : undefined,
+                    minHeight: fill ? 0 : undefined,
+                    maxWidth: fill ? "100%" : undefined,
+                    alignSelf: fill ? "center" : undefined,
                     aspectRatio: fill ? "1" : undefined,
                     borderRadius: fill ? "20px" : "10px",
                     overflow: "hidden",
@@ -659,10 +727,13 @@ const CreaturePortrait: React.FC<{
             sx={{
                 display: "flex",
                 flexDirection: "column",
+                alignItems: "center",
                 gap: 0.75,
                 minWidth: 0,
+                minHeight: 0,
                 width: "100%",
-                maxWidth: "clamp(92px, 9.5vw, 138px)",
+                height: "100%",
+                maxWidth: "124px",
             }}
         >
             {portrait}
@@ -670,7 +741,7 @@ const CreaturePortrait: React.FC<{
                 <Typography
                     level="body-sm"
                     sx={{
-                        fontSize: 17,
+                        fontSize: 15,
                         color: state === "available" ? "#e9e6df" : "#7c8290",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -707,9 +778,9 @@ export const PickCommitButton: React.FC<{
             disabled={!armed}
             onClick={armed ? onCommit : undefined}
             sx={{
-                minHeight: "clamp(56px, 8vh, 96px)",
-                minWidth: "min(620px, 88%)",
-                mt: "calc(clamp(10px, 1.6vh, 30px) * -0.7)",
+                minHeight: 68,
+                minWidth: "min(520px, 80%)",
+                mt: "calc(18px * -0.7)",
                 borderRadius: "16px",
                 border: `2px solid ${isYourTurn ? "rgba(214,240,200,0.55)" : "rgba(255,205,195,0.5)"}`,
                 background: !isYourTurn
@@ -720,7 +791,7 @@ export const PickCommitButton: React.FC<{
                 boxShadow:
                     "inset 0 0 0 3px rgba(214,240,200,0.55), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -12px 26px rgba(0,0,0,0.28)",
                 color: "#f2fbee",
-                fontSize: "clamp(20px, 1.9vw, 34px)",
+                fontSize: "24px",
                 fontWeight: 700,
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
@@ -771,7 +842,7 @@ export const PickCommitButton: React.FC<{
                         animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
                     }}
                 >
-                    {`0:${String(Math.max(0, seconds)).padStart(2, "0")}`}
+                    {`${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`}
                 </Box>
             )}
         </Box>
@@ -832,134 +903,145 @@ const BundlePanel: React.FC<{
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
 }> = ({ bundles, disabled, selected, onSelect, onInspect, onInspectEnd }) => (
-    <Box
-        sx={{
-            width: "min(1340px, 97vw)",
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: "26px",
-            height: "clamp(340px, 54vh, 700px)",
-            overflow: "hidden",
-            alignItems: "stretch",
-        }}
-    >
-        {bundles.map((bundle, index) => {
-            const [l1, l2, artifactId] = bundle;
-            const artifact = Artifact.getTier1ArtifactProperties(artifactId as Artifact.Tier1Artifact);
-            const artifactImg = images[artifact.imageKey];
-            const isSelected = selected === index;
-            return (
-                <Card
-                    key={index}
-                    variant="outlined"
-                    color="neutral"
-                    onClick={disabled ? undefined : () => onSelect(index)}
-                    sx={{
-                        width: "100%",
-                        height: "100%",
-                        overflow: "hidden",
-                        cursor: disabled ? "default" : "pointer",
-                        bgcolor: "rgba(0,0,0,0.35)",
-                        border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.12)"}`,
-                        boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
-                    }}
-                >
-                    <CardContent sx={{ alignItems: "center", gap: 2 }}>
-                        <Box sx={{ display: "flex", gap: 3, justifyContent: "center" }}>
-                            {[
-                                { id: l1, level: 1 },
-                                { id: l2, level: 2 },
-                            ].map(({ id, level }) => (
-                                <Box
-                                    key={level}
-                                    sx={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        gap: 0.5,
-                                    }}
-                                    onMouseEnter={() => onInspect?.(id)}
-                                    onMouseLeave={() => onInspectEnd?.()}
-                                >
-                                    <Box
-                                        component="img"
-                                        src={creatureImage(id)}
-                                        alt={creatureName(id)}
-                                        sx={{
-                                            width: "clamp(84px, 9.5vw, 156px)",
-                                            height: "clamp(84px, 9.5vw, 156px)",
-                                            borderRadius: "50%",
-                                            objectFit: "cover",
-                                        }}
-                                    />
-                                    <Typography
-                                        sx={{ fontSize: "clamp(14px, 1.2vw, 18px)", fontWeight: 700, color: "#e9e6df" }}
-                                    >
-                                        {creatureName(id)}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: "clamp(11px, 0.9vw, 14px)", color: "#7c8290" }}>
-                                        Level {level}
-                                    </Typography>
-                                </Box>
-                            ))}
-                        </Box>
-                        <Box
+    <PhasePanel>
+        <Box
+            sx={{
+                width: "100%",
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: "26px",
+                height: "100%",
+                overflow: "hidden",
+                alignItems: "stretch",
+            }}
+        >
+            {bundles.map((bundle, index) => {
+                const [l1, l2, artifactId] = bundle;
+                const artifact = Artifact.getTier1ArtifactProperties(artifactId as Artifact.Tier1Artifact);
+                const artifactImg = images[artifact.imageKey];
+                const isSelected = selected === index;
+                return (
+                    <Card
+                        key={index}
+                        variant="outlined"
+                        color="neutral"
+                        onClick={disabled ? undefined : () => onSelect(index)}
+                        sx={{
+                            width: "100%",
+                            height: "100%",
+                            overflow: "hidden",
+                            cursor: disabled ? "default" : "pointer",
+                            bgcolor: "rgba(0,0,0,0.35)",
+                            border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.12)"}`,
+                            boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                        }}
+                    >
+                        <CardContent
                             sx={{
-                                display: "flex",
                                 alignItems: "center",
-                                gap: 1.5,
-                                width: "100%",
-                                p: 1.5,
-                                borderRadius: "14px",
-                                bgcolor: "rgba(255,255,255,0.04)",
-                                border: "1px solid rgba(220,177,88,0.28)",
+                                justifyContent: "center",
+                                gap: 2,
+                                flex: "1 1 auto",
+                                minHeight: 0,
                             }}
                         >
-                            {artifactImg && (
-                                <img
-                                    src={artifactImg}
-                                    alt={artifact.name}
-                                    style={{
-                                        width: "clamp(52px, 5vw, 88px)",
-                                        height: "clamp(52px, 5vw, 88px)",
-                                        objectFit: "contain",
-                                        flex: "0 0 auto",
-                                    }}
-                                />
-                            )}
-                            <Box sx={{ minWidth: 0 }}>
-                                <Typography sx={{ fontSize: 17, fontWeight: 700, color: "#dcb158" }}>
-                                    {artifact.name}
-                                </Typography>
-                                <Typography
-                                    sx={{
-                                        fontSize: 12,
-                                        letterSpacing: "0.1em",
-                                        textTransform: "uppercase",
-                                        color: "#7c8290",
-                                    }}
-                                >
-                                    Tier-1 artifact
-                                </Typography>
-                                <Typography sx={{ fontSize: "clamp(11px, 0.95vw, 13.5px)", color: "#9aa0ab" }}>
-                                    ({Artifact.formatArtifactDescription(artifact)})
-                                </Typography>
+                            <Box sx={{ display: "flex", gap: 3, justifyContent: "center" }}>
+                                {[
+                                    { id: l1, level: 1 },
+                                    { id: l2, level: 2 },
+                                ].map(({ id, level }) => (
+                                    <Box
+                                        key={level}
+                                        sx={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "center",
+                                            gap: 0.5,
+                                        }}
+                                        onMouseEnter={() => onInspect?.(id)}
+                                        onMouseLeave={() => onInspectEnd?.()}
+                                    >
+                                        <Box
+                                            component="img"
+                                            src={creatureImage(id)}
+                                            alt={creatureName(id)}
+                                            sx={{
+                                                width: "128px",
+                                                height: "128px",
+                                                borderRadius: "50%",
+                                                objectFit: "cover",
+                                            }}
+                                        />
+                                        <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#e9e6df" }}>
+                                            {creatureName(id)}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "13px", color: "#7c8290" }}>
+                                            Level {level}
+                                        </Typography>
+                                    </Box>
+                                ))}
                             </Box>
-                        </Box>
-                    </CardContent>
-                </Card>
-            );
-        })}
-    </Box>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.5,
+                                    width: "100%",
+                                    p: 1.5,
+                                    borderRadius: "14px",
+                                    bgcolor: "rgba(255,255,255,0.04)",
+                                    border: "1px solid rgba(220,177,88,0.28)",
+                                }}
+                            >
+                                {artifactImg && (
+                                    <img
+                                        src={artifactImg}
+                                        alt={artifact.name}
+                                        style={{
+                                            width: "72px",
+                                            height: "72px",
+                                            objectFit: "contain",
+                                            flex: "0 0 auto",
+                                        }}
+                                    />
+                                )}
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography sx={{ fontSize: 17, fontWeight: 700, color: "#dcb158" }}>
+                                        {artifact.name}
+                                    </Typography>
+                                    <Typography
+                                        sx={{
+                                            fontSize: 12,
+                                            letterSpacing: "0.1em",
+                                            textTransform: "uppercase",
+                                            color: "#7c8290",
+                                        }}
+                                    >
+                                        Tier-1 artifact
+                                    </Typography>
+                                    <Typography sx={{ fontSize: "13px", color: "#9aa0ab" }}>
+                                        ({Artifact.formatArtifactDescription(artifact)})
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
+                );
+            })}
+        </Box>
+    </PhasePanel>
 );
 
 // The frame every phase's choices sit in: same width, padding and border, so switching phases only swaps
 // the contents and nothing on screen jumps.
-const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+export const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Box
         sx={{
-            width: "min(1340px, 97vw)",
-            height: "clamp(340px, 54vh, 700px)",
+            width: "100%",
+            // Exactly the height left over inside the fixed board, so every phase's frame is the same box and
+            // its contents shrink to fit instead of scrolling.
+            height: "100%",
+            minHeight: 0,
             overflow: "hidden",
             p: "22px",
             borderRadius: "30px",
@@ -999,67 +1081,95 @@ const PickPanel: React.FC<{
     const creatures = (level >= 1 ? getCreaturesByLevel(level) : []).filter(
         (creatureId) => creatureFullConfig(creatureId)?.faction !== "Death",
     );
-    const columns = level >= 3 ? 3 : 4;
     const byFaction = FACTION_ORDER.map((faction) => ({
         faction,
         ids: creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
     })).filter((group) => group.ids.length > 0);
+    // Two lines, two factions each — every creature of a line sits in ONE evenly spaced row.
+    const rows = [byFaction.slice(0, 2), byFaction.slice(2)].filter((groups) => groups.length > 0);
 
     return (
         <PhasePanel>
             <Box
                 sx={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                    gridAutoRows: "minmax(0, 1fr)",
-                    gap: "26px",
+                    gridTemplateRows: "repeat(2, minmax(0, 1fr))",
+                    gap: "18px",
                     height: "100%",
                 }}
             >
-                {byFaction.map(({ faction, ids }) => (
-                    <Box key={faction} sx={{ display: "flex", flexDirection: "column", gap: 1.5, minWidth: 0 }}>
-                        <Typography
-                            level="body-sm"
-                            sx={{
-                                fontSize: 16,
-                                letterSpacing: "0.14em",
-                                textTransform: "uppercase",
-                                textAlign: "center",
-                                color: FACTION_COLOR[faction] ?? "#e9e6df",
-                            }}
-                        >
-                            {faction}
-                        </Typography>
+                {rows.map((groups, rowIndex) => {
+                    const rowIds = groups.flatMap((group) => group.ids);
+                    return (
                         <Box
+                            key={rowIndex}
                             sx={{
-                                display: "grid",
-                                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-                                gap: "14px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 1.25,
+                                minWidth: 0,
+                                minHeight: 0,
+                                height: "100%",
                             }}
                         >
-                            {ids.map((creatureId) => {
-                                let state: PortraitState = "available";
-                                if (pickedSet.has(creatureId)) state = "picked";
-                                else if (bannedSet.has(creatureId)) state = "banned";
-                                else if (takenSet.has(creatureId)) state = "taken";
-                                return (
-                                    <CreaturePortrait
-                                        key={creatureId}
-                                        creatureId={creatureId}
-                                        state={state}
-                                        disabled={disabled}
-                                        fill
-                                        caption
-                                        pending={pendingId === creatureId}
-                                        onClick={() => onSelect(creatureId)}
-                                        onInspect={onInspect}
-                                        onInspectEnd={onInspectEnd}
-                                    />
-                                );
-                            })}
+                            {/* Faction captions sit over their own span of the single creature line. */}
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: groups.map((group) => `${group.ids.length}fr`).join(" "),
+                                    flex: "0 0 auto",
+                                }}
+                            >
+                                {groups.map(({ faction }) => (
+                                    <Typography
+                                        key={faction}
+                                        level="body-sm"
+                                        sx={{
+                                            fontSize: 16,
+                                            letterSpacing: "0.14em",
+                                            textTransform: "uppercase",
+                                            textAlign: "center",
+                                            color: FACTION_COLOR[faction] ?? "#e9e6df",
+                                        }}
+                                    >
+                                        {faction}
+                                    </Typography>
+                                ))}
+                            </Box>
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: `repeat(${rowIds.length}, minmax(0, 1fr))`,
+                                    gridAutoRows: "minmax(0, 1fr)",
+                                    gap: "14px",
+                                    flex: "1 1 auto",
+                                    minHeight: 0,
+                                }}
+                            >
+                                {rowIds.map((creatureId) => {
+                                    let state: PortraitState = "available";
+                                    if (pickedSet.has(creatureId)) state = "picked";
+                                    else if (bannedSet.has(creatureId)) state = "banned";
+                                    else if (takenSet.has(creatureId)) state = "taken";
+                                    return (
+                                        <CreaturePortrait
+                                            key={creatureId}
+                                            creatureId={creatureId}
+                                            state={state}
+                                            disabled={disabled}
+                                            fill
+                                            caption
+                                            pending={pendingId === creatureId}
+                                            onClick={() => onSelect(creatureId)}
+                                            onInspect={onInspect}
+                                            onInspectEnd={onInspectEnd}
+                                        />
+                                    );
+                                })}
+                            </Box>
                         </Box>
-                    </Box>
-                ))}
+                    );
+                })}
             </Box>
         </PhasePanel>
     );
@@ -1075,106 +1185,128 @@ const ArtifactPanel: React.FC<{
     // arrived yet (e.g. a server that predates the offer field), so the picker is never empty.
     const offeredIds = offered.length ? offered : Artifact.TIER2_ARTIFACT_LIST.map((a) => a.id);
     return (
-        <Box
-            sx={{
-                width: "min(1340px, 97vw)",
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: "20px",
-                height: "clamp(340px, 54vh, 700px)",
-                overflow: "hidden",
-                alignItems: "stretch",
-            }}
-        >
-            {offeredIds.map((id) => {
-                const a = Artifact.getTier2ArtifactProperties(id as Artifact.Tier2Artifact);
-                const isSelected = selected === a.id;
-                return (
-                    <Tooltip key={a.id} title={Artifact.formatArtifactDescription(a)} variant="soft" placement="top">
-                        <Card
-                            key={id}
-                            variant="outlined"
-                            color="neutral"
-                            onClick={disabled ? undefined : () => onSelect(id)}
-                            sx={{
-                                height: "100%",
-                                cursor: disabled ? "default" : "pointer",
-                                bgcolor: "#12151d",
-                                border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
-                                borderRadius: "22px",
-                                boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
-                            }}
+        <PhasePanel>
+            <Box
+                sx={{
+                    width: "100%",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 340px))",
+                    justifyContent: "center",
+                    gap: "20px",
+                    height: "100%",
+                    overflow: "hidden",
+                    alignItems: "stretch",
+                }}
+            >
+                {offeredIds.map((id) => {
+                    const a = Artifact.getTier2ArtifactProperties(id as Artifact.Tier2Artifact);
+                    const isSelected = selected === a.id;
+                    return (
+                        <Tooltip
+                            key={a.id}
+                            title={Artifact.formatArtifactDescription(a)}
+                            variant="soft"
+                            placement="top"
                         >
-                            <CardContent sx={{ alignItems: "center", gap: 1.25, p: 2 }}>
-                                {images[a.imageKey] && (
-                                    <Box
-                                        component="img"
-                                        src={images[a.imageKey]}
-                                        alt={a.name}
-                                        sx={{
-                                            width: "clamp(110px, 11vw, 186px)",
-                                            height: "clamp(110px, 11vw, 186px)",
-                                            objectFit: "contain",
-                                            borderRadius: "12px",
-                                        }}
-                                    />
-                                )}
-                                <Typography
-                                    sx={{ fontSize: "clamp(18px, 1.7vw, 32px)", fontWeight: 700, color: "#dcb158" }}
-                                >
-                                    {a.name}
-                                </Typography>
-                                <Typography
+                            <Card
+                                key={id}
+                                variant="outlined"
+                                color="neutral"
+                                onClick={disabled ? undefined : () => onSelect(id)}
+                                sx={{
+                                    height: "100%",
+                                    cursor: disabled ? "default" : "pointer",
+                                    bgcolor: "#12151d",
+                                    border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
+                                    borderRadius: "22px",
+                                    boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                                }}
+                            >
+                                <CardContent
                                     sx={{
-                                        fontSize: 16,
-                                        letterSpacing: "0.12em",
-                                        textTransform: "uppercase",
-                                        color: "#9aa0ab",
-                                    }}
-                                >
-                                    Tier-2 artifact
-                                </Typography>
-                                <Box
-                                    sx={{
-                                        display: "flex",
-                                        flexDirection: "column",
+                                        alignItems: "center",
                                         gap: 1,
-                                        width: "100%",
-                                        mt: 0.5,
+                                        p: 1.5,
+                                        flex: "1 1 auto",
+                                        minHeight: 0,
+                                        height: "100%",
                                     }}
                                 >
-                                    {(() => {
-                                        // One box for every artifact, same height on all three cards: the
-                                        // caveat sentence rides in parentheses instead of a second panel.
-                                        const [head, ...rest] = Artifact.formatArtifactDescription(a)
-                                            .split(/(?<=\.)\s+/)
-                                            .filter(Boolean);
-                                        const text = rest.length ? `${head} (${rest.join(" ")})` : head;
-                                        return (
-                                            <Box
-                                                sx={{
-                                                    p: "12px 16px",
-                                                    borderRadius: "18px",
-                                                    bgcolor: "rgba(255,255,255,0.05)",
-                                                    fontSize: "clamp(13px, 1vw, 17px)",
-                                                    color: "#e9e6df",
-                                                    minHeight: "clamp(84px, 9vh, 132px)",
-                                                    maxHeight: "clamp(84px, 12vh, 168px)",
-                                                    overflow: "hidden",
-                                                    width: "100%",
-                                                }}
-                                            >
-                                                {text}
-                                            </Box>
-                                        );
-                                    })()}
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Tooltip>
-                );
-            })}
-        </Box>
+                                    {images[a.imageKey] && (
+                                        <Box
+                                            component="img"
+                                            src={images[a.imageKey]}
+                                            alt={a.name}
+                                            sx={{
+                                                width: "118px",
+                                                height: "118px",
+                                                flex: "0 0 auto",
+                                                objectFit: "contain",
+                                                borderRadius: "12px",
+                                            }}
+                                        />
+                                    )}
+                                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: "#dcb158" }}>
+                                        {a.name}
+                                    </Typography>
+                                    <Typography
+                                        sx={{
+                                            fontSize: 16,
+                                            letterSpacing: "0.12em",
+                                            textTransform: "uppercase",
+                                            color: "#9aa0ab",
+                                        }}
+                                    >
+                                        Tier-2 artifact
+                                    </Typography>
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 1,
+                                            width: "100%",
+                                            flex: "1 1 auto",
+                                            minHeight: 0,
+                                        }}
+                                    >
+                                        {(() => {
+                                            // One box for every artifact, same height on all three cards: the
+                                            // caveat sentence rides in parentheses instead of a second panel.
+                                            const [head, ...rest] = Artifact.formatArtifactDescription(a)
+                                                .split(/(?<=\.)\s+/)
+                                                .filter(Boolean);
+                                            const text = rest.length ? `${head} (${rest.join(" ")})` : head;
+                                            return (
+                                                <Box
+                                                    sx={{
+                                                        p: "10px 14px",
+                                                        borderRadius: "16px",
+                                                        bgcolor: "rgba(255,255,255,0.05)",
+                                                        fontSize: "14px",
+                                                        lineHeight: 1.45,
+                                                        color: "#e9e6df",
+                                                        // No fixed height: the box takes what the card has
+                                                        // left, so the longest artifact still fits and every
+                                                        // card ends with the same padding it starts with.
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        flex: "1 1 auto",
+                                                        minHeight: 0,
+                                                        width: "100%",
+                                                    }}
+                                                >
+                                                    {text}
+                                                </Box>
+                                            );
+                                        })()}
+                                    </Box>
+                                </CardContent>
+                            </Card>
+                        </Tooltip>
+                    );
+                })}
+            </Box>
+        </PhasePanel>
     );
 };
 
@@ -1184,6 +1316,92 @@ const perkName = (perkId: number): string => Perk.getPerkProperties(perkId as Pe
 
 const BarDivider: React.FC = () => (
     <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "rgba(255,255,255,0.14)", mx: 0.25 }} />
+);
+
+// ---- Automatic synergies --------------------------------------------------
+//
+// Synergies are no longer drafted: every faction has exactly ONE synergy, and it switches itself on as soon
+// as the army holds 2 units of that faction (level 1/2/3 at 2/4/6 units — the same UNITS_TO_SYNERGY_LEVEL
+// ladder the engine applies). These four dots ride in the army rails so a player watches their synergies
+// light up while picking, instead of choosing them on a separate board.
+const FIXED_SYNERGY: Record<string, { index: number; label: string }> = {
+    Life: { index: LifeSynergy.PLUS_SUPPLY_PERCENTAGE, label: "Supply" },
+    Nature: { index: NatureSynergy.PLUS_FLY_ARMOR, label: "Flying armor" },
+    Chaos: { index: ChaosSynergy.MOVEMENT, label: "Movement" },
+    Might: { index: MightSynergy.PLUS_AURAS_RANGE, label: "Aura range" },
+};
+
+export const synergyLevelForFaction = (picked: number[], faction: string): number => {
+    const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
+    return Math.min(Math.floor(units / 2), 3);
+};
+
+// "Improves movement steps by {} cells" + [2] -> "Improves movement steps by 2 cells".
+const describeSynergy = (key: string): string => {
+    const template = SYNERGY_NAME_TO_DESCRIPTION[key as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] ?? "";
+    const powers = SynergyKeysToPower[key] ?? [];
+    let i = 0;
+    return template.replace(/\{\}/g, () => String(powers[i++] ?? ""));
+};
+
+export const SynergyDots: React.FC<{ picked: number[]; tone: "own" | "opponent" }> = ({ picked, tone }) => (
+    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "nowrap" }}>
+        {FACTION_ORDER.map((faction) => {
+            const { index, label } = FIXED_SYNERGY[faction];
+            const level = synergyLevelForFaction(picked, faction);
+            const key = `${faction}:${index}:${level || 1}`;
+            const img = SYNERGY_KEY_TO_IMAGE[key as keyof typeof SYNERGY_KEY_TO_IMAGE];
+            const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
+            const tip = level
+                ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${index}:${level}`)}`
+                : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+            return (
+                <Tooltip key={faction} title={tip} variant="soft" placement="top">
+                    <Box
+                        sx={{
+                            position: "relative",
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            display: "grid",
+                            placeItems: "center",
+                            flex: "0 0 auto",
+                            border: `1px solid ${level ? (FACTION_COLOR[faction] ?? "#e9e6df") : "rgba(255,255,255,0.16)"}`,
+                            bgcolor: level ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
+                            opacity: level ? 1 : 0.4,
+                            filter: level ? "none" : "grayscale(1)",
+                            boxShadow: level
+                                ? `0 0 8px ${tone === "own" ? "rgba(120,220,150,0.35)" : "rgba(226,120,150,0.3)"}`
+                                : "none",
+                            transition: "opacity 160ms ease, box-shadow 160ms ease",
+                        }}
+                    >
+                        {img && <img src={img} alt={label} style={{ width: 16, height: 16, objectFit: "contain" }} />}
+                        {level > 0 && (
+                            <Typography
+                                sx={{
+                                    position: "absolute",
+                                    right: -3,
+                                    bottom: -3,
+                                    minWidth: 12,
+                                    px: "2px",
+                                    borderRadius: "6px",
+                                    fontSize: 9,
+                                    fontWeight: 700,
+                                    lineHeight: "12px",
+                                    textAlign: "center",
+                                    color: "#0b0d12",
+                                    bgcolor: FACTION_COLOR[faction] ?? "#e9e6df",
+                                }}
+                            >
+                                {level}
+                            </Typography>
+                        )}
+                    </Box>
+                </Tooltip>
+            );
+        })}
+    </Box>
 );
 
 // Fixed slot layout shown for BOTH armies: [L1, L1, L2, L2, L3, L4]. Mirrors CreaturePoolByLevel = [2,2,1,1]
@@ -1224,8 +1442,8 @@ export const MyDraftBar: React.FC<{
     return (
         <Box
             sx={{
-                flex: "1 1 560px",
-                maxWidth: 720,
+                flex: "0 0 auto",
+                width: 624,
                 display: "flex",
                 justifyContent: "center",
             }}
@@ -1239,7 +1457,8 @@ export const MyDraftBar: React.FC<{
                     gap: 1,
                     px: 1.75,
                     py: 0.25,
-                    maxWidth: "94%",
+                    minHeight: 62,
+                    maxWidth: "100%",
                     flexWrap: "nowrap",
                     overflow: "hidden",
                     justifyContent: "center",
@@ -1250,24 +1469,33 @@ export const MyDraftBar: React.FC<{
                     width: "100%",
                 }}
             >
-                <Typography sx={{ color: "#dcb158", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
-                    Your army
-                </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                    <Typography sx={{ color: "#dcb158", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
+                        Your army
+                    </Typography>
+                    <SynergyDots picked={picked} tone="own" />
+                </Box>
                 {perk > 0 && (
-                    <>
-                        <BarDivider />
-                        <Tooltip title="Your doctrine (perk)" variant="soft">
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                <Typography level="body-sm">{PERK_ICON[perk] ?? "•"}</Typography>
-                                <Typography level="body-sm" sx={{ fontWeight: 600 }}>
-                                    {perkName(perk)}
-                                </Typography>
-                            </Box>
-                        </Tooltip>
-                    </>
+                    <Tooltip title={`Doctrine: ${perkName(perk)}`} variant="soft">
+                        <Box
+                            sx={{
+                                width: 30,
+                                height: 30,
+                                flex: "0 0 auto",
+                                borderRadius: "50%",
+                                display: "grid",
+                                placeItems: "center",
+                                fontSize: 16,
+                                bgcolor: "rgba(255,255,255,0.06)",
+                                border: "1px solid rgba(220,177,88,0.45)",
+                            }}
+                        >
+                            {PERK_ICON[perk] ?? "•"}
+                        </Box>
+                    </Tooltip>
                 )}
                 <BarDivider />
-                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "nowrap", flex: "0 0 auto" }}>
                     {slots.map((slot, i) => {
                         const id = slot.id;
                         if (id) {
@@ -1278,8 +1506,9 @@ export const MyDraftBar: React.FC<{
                                         onMouseEnter={() => onInspect?.(id)}
                                         onMouseLeave={() => onInspectEnd?.()}
                                         sx={{
-                                            width: 50,
-                                            height: 50,
+                                            width: 46,
+                                            height: 46,
+                                            flex: "0 0 auto",
                                             borderRadius: "9px",
                                             overflow: "hidden",
                                             border: "1px solid rgba(120,220,150,0.5)",
@@ -1305,8 +1534,9 @@ export const MyDraftBar: React.FC<{
                             <Tooltip key={`empty-${i}`} title={`Level ${slot.level} slot`} variant="soft">
                                 <Box
                                     sx={{
-                                        width: 50,
-                                        height: 50,
+                                        width: 46,
+                                        height: 46,
+                                        flex: "0 0 auto",
                                         borderRadius: "9px",
                                         display: "grid",
                                         placeItems: "center",
@@ -1337,8 +1567,9 @@ export const MyDraftBar: React.FC<{
                                     >
                                         <Box
                                             sx={{
-                                                width: 34,
-                                                height: 34,
+                                                width: 32,
+                                                height: 32,
+                                                flex: "0 0 auto",
                                                 borderRadius: "7px",
                                                 display: "grid",
                                                 placeItems: "center",
@@ -1400,8 +1631,8 @@ export const OpponentDraftBar: React.FC<{
     return (
         <Box
             sx={{
-                flex: "1 1 420px",
-                maxWidth: 560,
+                flex: "0 0 auto",
+                width: 496,
                 display: "flex",
                 justifyContent: "center",
             }}
@@ -1415,7 +1646,8 @@ export const OpponentDraftBar: React.FC<{
                     gap: 1,
                     px: 1.75,
                     py: 0.25,
-                    maxWidth: "94%",
+                    minHeight: 62,
+                    maxWidth: "100%",
                     flexWrap: "nowrap",
                     overflow: "hidden",
                     justifyContent: "center",
@@ -1426,11 +1658,15 @@ export const OpponentDraftBar: React.FC<{
                     color: "#f0e7e9",
                 }}
             >
-                <Typography sx={{ color: "#ff9d9d", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
-                    Opponent
-                </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                    <Typography sx={{ color: "#ff9d9d", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
+                        Opponent
+                    </Typography>
+                    {/* Only the picks your doctrine reveals count — a hidden slot cannot light a synergy. */}
+                    <SynergyDots picked={opponentPicked} tone="opponent" />
+                </Box>
                 <BarDivider />
-                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "nowrap", flex: "0 0 auto" }}>
                     {slots.map((slot, i) => {
                         const id = slot.id;
                         const isWatched = watched.has(i);
@@ -1445,6 +1681,7 @@ export const OpponentDraftBar: React.FC<{
                                         sx={{
                                             width: 44,
                                             height: 44,
+                                            flex: "0 0 auto",
                                             borderRadius: "9px",
                                             overflow: "hidden",
                                             border: "1px solid rgba(240,120,120,0.6)",
@@ -1477,6 +1714,7 @@ export const OpponentDraftBar: React.FC<{
                                         sx={{
                                             width: 44,
                                             height: 44,
+                                            flex: "0 0 auto",
                                             borderRadius: "9px",
                                             display: "grid",
                                             placeItems: "center",
@@ -1498,6 +1736,7 @@ export const OpponentDraftBar: React.FC<{
                                     sx={{
                                         width: 44,
                                         height: 44,
+                                        flex: "0 0 auto",
                                         borderRadius: "9px",
                                         display: "grid",
                                         placeItems: "center",
@@ -1560,8 +1799,34 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     }, [pickPhase, perk, busy, sendPerk]);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
-    // Creature currently hovered anywhere in the draft — its stats + abilities show in the left detail panel.
+    // The board is drawn at a fixed 1340x800 and only scaled to fit the window — never re-flowed.
+    const draftScale = useDraftScale();
+    const isFullscreen = useIsFullscreen();
+    // Creature currently hovered anywhere in the draft — its stats + abilities show in the detail panel.
+    // The panel floats OVER the army rails and takes the pointer, so hovering a rail slot immediately fires
+    // that slot's mouseleave. Clearing on a short delay (and cancelling it the moment the cursor lands on
+    // the panel, or on another tile) keeps the read-out steady instead of flickering, while still letting it
+    // close for real once the cursor is somewhere else.
     const [inspectedId, setInspectedId] = useState<number>(0);
+    const inspectTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelInspectEnd = React.useCallback(() => {
+        if (inspectTimer.current) {
+            clearTimeout(inspectTimer.current);
+            inspectTimer.current = null;
+        }
+    }, []);
+    const beginInspect = React.useCallback(
+        (creatureId: number) => {
+            cancelInspectEnd();
+            setInspectedId(creatureId);
+        },
+        [cancelInspectEnd],
+    );
+    const endInspect = React.useCallback(() => {
+        cancelInspectEnd();
+        inspectTimer.current = setTimeout(() => setInspectedId(0), 90);
+    }, [cancelInspectEnd]);
+    useEffect(() => cancelInspectEnd, [cancelInspectEnd]);
     // Opponent picks are fully hidden by the server. The ONLY way we learn a unit is taken is by picking it
     // and getting a 409 collision back — we remember those locally so they grey out and we don't re-try them.
     const [collided, setCollided] = useState<number[]>([]);
@@ -1578,6 +1843,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
         setPickError("");
         setPendingPick(0);
         setPendingArtifact(0);
+        // The hovered creature goes with it: the tile under the cursor is gone, so its mouseleave never
+        // fires and the stat panel would otherwise hang around for the whole next phase.
+        setInspectedId(0);
     }, [pickPhase]);
 
     const send = async (value: number, fn: () => Promise<void>): Promise<void> => {
@@ -1707,15 +1975,20 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 disabled={disabled || bundleLocked}
                 selected={bundleLocked ? bundleChosenIndex : pendingBundle}
                 onSelect={(i) => setPendingBundle(i)}
-                onInspect={setInspectedId}
-                onInspectEnd={() => setInspectedId(0)}
+                onInspect={beginInspect}
+                onInspectEnd={endInspect}
             />
         );
     } else if (pickPhase === PickPhaseVals.PICK) {
         panel = (
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+            <Box sx={{ position: "relative", width: "100%", height: "100%", minHeight: 0 }}>
                 {pickError && (
-                    <Chip size="sm" color="danger" variant="soft">
+                    <Chip
+                        size="sm"
+                        color="danger"
+                        variant="soft"
+                        sx={{ position: "absolute", top: -26, left: "50%", transform: "translateX(-50%)" }}
+                    >
                         {pickError}
                     </Chip>
                 )}
@@ -1727,8 +2000,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                     disabled={disabled}
                     pendingId={pendingPick}
                     onSelect={(id) => setPendingPick(id)}
-                    onInspect={setInspectedId}
-                    onInspectEnd={() => setInspectedId(0)}
+                    onInspect={beginInspect}
+                    onInspectEnd={endInspect}
                 />
             </Box>
         );
@@ -1752,194 +2025,255 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
 
     return (
         <Sheet variant="solid" sx={draftShellSx}>
-            <Tooltip title="Open the full How-to-Play guide in a new tab" variant="soft" placement="left">
-                <Typography
-                    component="a"
-                    href={RULES_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    level="body-sm"
-                    sx={{
-                        position: "absolute",
-                        top: 12,
-                        right: 16,
-                        zIndex: 5,
-                        color: "#9fd0ff",
-                        textDecoration: "none",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        fontWeight: 600,
-                        "&:hover": { textDecoration: "underline" },
-                    }}
-                >
-                    📖 Rules
-                </Typography>
-            </Tooltip>
-
-            <DraftTitle
-                subtitle={
-                    hint && !isCommitPhase ? (
-                        <Typography level="body-sm" sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}>
-                            {hint}
-                        </Typography>
-                    ) : undefined
-                }
-            >
-                {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
-            </DraftTitle>
-
-            <Box
-                sx={{
-                    display: isCommitPhase ? "none" : "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                }}
-            >
-                <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                    {isYourTurn ? "Your turn" : `${opponentLabel}'s turn`}
-                </Chip>
-                {upgradePoints > 0 && (
-                    <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
-                        <Chip color="primary" variant="soft">
-                            {upgradePoints} upgrade pts
-                        </Chip>
-                    </Tooltip>
-                )}
-                {secondsRemaining >= 0 && !isHandoff && !isCommitPhase && (
-                    <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
-                )}
-                {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then the name. */}
-                <MapBadge mapType={mapType} />
-            </Box>
-
-            {/* Imperative "what to do now" so first-time players always know the expected action. */}
-            {isYourTurn && !isHandoff && !isCommitPhase && phaseAction(pickPhase, requiredLevel) && (
-                <Typography level="title-sm" sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}>
-                    👉 {phaseAction(pickPhase, requiredLevel)}
-                </Typography>
-            )}
-
-            {/* Purely a hover read-out: it floats over the title, takes no layout space and clears the moment
-                the cursor leaves a portrait. */}
-            <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
-
-            {pickPhase !== PickPhaseVals.INITIAL_PICK && pickPhase !== PickPhaseVals.PERK && (
-                <>
-                    {/* Both armies sit ABOVE the grid, side by side: yours (doctrine, six level slots, artifacts) and
-                the opponent's (hidden / watched / revealed), so the draft state reads before the choices. */}
-                    <Box
+            {/* One fixed-size board. The shell around it only paints background, so enlarging the window
+                (or going fullscreen) adds empty background around this box and never reflows it. */}
+            <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>
+                <Tooltip title="Open the full How-to-Play guide in a new tab" variant="soft" placement="left">
+                    <Typography
+                        component="a"
+                        href={RULES_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        level="body-sm"
                         sx={{
+                            position: "absolute",
+                            top: 12,
+                            right: 16,
+                            zIndex: 5,
+                            color: "#9fd0ff",
+                            textDecoration: "none",
                             display: "flex",
-                            gap: 2,
-                            width: "100%",
-                            justifyContent: "center",
-                            alignItems: "stretch",
-                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: 0.5,
+                            fontWeight: 600,
+                            "&:hover": { textDecoration: "underline" },
                         }}
                     >
-                        <MyDraftBar
-                            perk={perk}
-                            picked={picked}
-                            artifactTier1={artifactTier1}
-                            artifactTier2={artifactTier2}
-                            onInspect={setInspectedId}
-                        />
-                        <OpponentDraftBar
-                            opponentPicked={opponentPicked}
-                            opponentLabel={opponentLabel}
-                            watchedSlots={watchedSlots}
-                            onInspect={setInspectedId}
-                        />
-                    </Box>
-                </>
-            )}
-
-            {/* The hover stat bar is absolutely positioned against this wrapper, so it floats just above the
-                pick grid instead of pinning itself to the viewport's left edge. */}
-            <Box
-                sx={{
-                    position: "relative",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "flex-start",
-                    width: "100%",
-                    flex: "1 1 auto",
-                    minHeight: 0,
-                    overflowY: "auto",
-                }}
-            >
-                {userTeam ? panel : null}
-            </Box>
-
-            {userTeam && isCommitPhase && pickPhase >= 0 && (
-                <PickCommitButton
-                    label={
-                        !isYourTurn
-                            ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
-                                ? `Opponent's turn — Lvl ${requiredLevel}`
-                                : "Opponent's turn"
-                            : pickPhase === PickPhaseVals.ARTIFACT_2
-                              ? pendingArtifact > 0
-                                  ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
-                                  : "Pick an artifact"
-                              : pickPhase === PickPhaseVals.INITIAL_PICK
-                                ? pendingBundle >= 0
-                                    ? "Confirm bundle"
-                                    : "Pick a bundle"
-                                : pendingPick > 0
-                                  ? `Confirm ${creatureName(pendingPick)}`
-                                  : "Pick a creature"
-                    }
-                    armed={
-                        !!isYourTurn &&
-                        !busy &&
-                        (pickPhase === PickPhaseVals.ARTIFACT_2
-                            ? pendingArtifact > 0
-                            : pickPhase === PickPhaseVals.INITIAL_PICK
-                              ? pendingBundle >= 0 && !bundleLocked
-                              : pendingPick > 0)
-                    }
-                    isYourTurn={!!isYourTurn}
-                    seconds={secondsRemaining}
-                    onCommit={() => {
-                        if (pickPhase === PickPhaseVals.ARTIFACT_2) {
-                            const artifactId = pendingArtifact;
-                            setPendingArtifact(0);
-                            void send(artifactId, () => artifact(artifactId, 2));
-                            return;
-                        }
-                        if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-                            const index = pendingBundle;
-                            setPendingBundle(-1);
-                            void send(index, () => pickPair(index));
-                            return;
-                        }
-                        const id = pendingPick;
-                        setPendingPick(0);
-                        void pickCreature(id);
-                    }}
-                />
-            )}
-
-            {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
-            {!isYourTurn && !isHandoff && !isCommitPhase && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
-                    <CircularProgress size="sm" />
-                    <Typography level="body-sm">
-                        {selectedValue >= 0 ? "Locked in — waiting for your opponent…" : "Waiting for your opponent…"}
+                        📖 Rules
                     </Typography>
+                </Tooltip>
+
+                <Box sx={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
+                    <Box onMouseEnter={cancelInspectEnd} onMouseLeave={endInspect}>
+                        <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
+                    </Box>
+                    <DraftTitle
+                        subtitle={
+                            hint && !isCommitPhase ? (
+                                <Typography level="body-sm" sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}>
+                                    {hint}
+                                </Typography>
+                            ) : undefined
+                        }
+                    >
+                        {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
+                    </DraftTitle>
                 </Box>
-            )}
 
-            {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
-            <MapRevealModal mapType={mapType} />
+                <Box
+                    sx={{
+                        display: isCommitPhase ? "none" : "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                    }}
+                >
+                    <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
+                        {isYourTurn ? "Your turn" : `${opponentLabel}'s turn`}
+                    </Chip>
+                    {upgradePoints > 0 && (
+                        <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
+                            <Chip color="primary" variant="soft">
+                                {upgradePoints} upgrade pts
+                            </Chip>
+                        </Tooltip>
+                    )}
+                    {secondsRemaining >= 0 && !isHandoff && !isCommitPhase && (
+                        <Timer localSeconds={secondsRemaining} isYourTurn={!!isYourTurn} />
+                    )}
+                </Box>
 
-            {/* The rail sits at the bottom of the screen: the step you are on is the screen itself, the rail
+                {/* Imperative "what to do now" so first-time players always know the expected action. */}
+                {isYourTurn && !isHandoff && !isCommitPhase && phaseAction(pickPhase, requiredLevel) && (
+                    <Typography
+                        level="title-sm"
+                        sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}
+                    >
+                        👉 {phaseAction(pickPhase, requiredLevel)}
+                    </Typography>
+                )}
+
+                {/* Purely a hover read-out: anchored to the title band it covers, takes no layout space and
+                clears the moment the cursor leaves a portrait. */}
+
+                {pickPhase !== PickPhaseVals.PERK && (
+                    <>
+                        {/* Both armies sit ABOVE the grid, side by side: yours (doctrine, six level slots, artifacts) and
+                the opponent's (hidden / watched / revealed), so the draft state reads before the choices. */}
+                        <Box
+                            sx={{
+                                display: "flex",
+                                gap: 1.5,
+                                width: "100%",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                flexWrap: "nowrap",
+                                flex: "0 0 auto",
+                            }}
+                        >
+                            <MyDraftBar
+                                perk={perk}
+                                picked={picked}
+                                artifactTier1={artifactTier1}
+                                artifactTier2={artifactTier2}
+                                onInspect={beginInspect}
+                                onInspectEnd={endInspect}
+                            />
+                            {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then
+                                the name — dead centre between the two armies. */}
+                            <Box sx={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
+                                <MapBadge mapType={mapType} />
+                            </Box>
+                            <OpponentDraftBar
+                                opponentPicked={opponentPicked}
+                                opponentLabel={opponentLabel}
+                                watchedSlots={watchedSlots}
+                                onInspect={beginInspect}
+                                onInspectEnd={endInspect}
+                            />
+                        </Box>
+                    </>
+                )}
+
+                {/* The hover stat bar is absolutely positioned against this wrapper, so it floats just above the
+                pick grid instead of pinning itself to the viewport's left edge. */}
+                <Box
+                    sx={{
+                        position: "relative",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "stretch",
+                        width: "100%",
+                        flex: "1 1 auto",
+                        minHeight: 0,
+                        overflowY: "hidden",
+                    }}
+                >
+                    {userTeam ? panel : null}
+                </Box>
+
+                {userTeam && isCommitPhase && pickPhase >= 0 && (
+                    <PickCommitButton
+                        label={
+                            !isYourTurn
+                                ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
+                                    ? `Opponent's turn — Lvl ${requiredLevel}`
+                                    : "Opponent's turn"
+                                : pickPhase === PickPhaseVals.ARTIFACT_2
+                                  ? pendingArtifact > 0
+                                      ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
+                                      : "Pick an artifact"
+                                  : pickPhase === PickPhaseVals.INITIAL_PICK
+                                    ? pendingBundle >= 0
+                                        ? "Confirm bundle"
+                                        : "Pick a bundle"
+                                    : pendingPick > 0
+                                      ? `Confirm ${creatureName(pendingPick)}`
+                                      : "Pick a creature"
+                        }
+                        armed={
+                            !!isYourTurn &&
+                            !busy &&
+                            (pickPhase === PickPhaseVals.ARTIFACT_2
+                                ? pendingArtifact > 0
+                                : pickPhase === PickPhaseVals.INITIAL_PICK
+                                  ? pendingBundle >= 0 && !bundleLocked
+                                  : pendingPick > 0)
+                        }
+                        isYourTurn={!!isYourTurn}
+                        seconds={secondsRemaining}
+                        onCommit={() => {
+                            if (pickPhase === PickPhaseVals.ARTIFACT_2) {
+                                const artifactId = pendingArtifact;
+                                setPendingArtifact(0);
+                                void send(artifactId, () => artifact(artifactId, 2));
+                                return;
+                            }
+                            if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+                                const index = pendingBundle;
+                                setPendingBundle(-1);
+                                void send(index, () => pickPair(index));
+                                return;
+                            }
+                            const id = pendingPick;
+                            setPendingPick(0);
+                            void pickCreature(id);
+                        }}
+                    />
+                )}
+
+                {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
+                {!isYourTurn && !isHandoff && !isCommitPhase && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
+                        <CircularProgress size="sm" />
+                        <Typography level="body-sm">
+                            {selectedValue >= 0
+                                ? "Locked in — waiting for your opponent…"
+                                : "Waiting for your opponent…"}
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
+                <MapRevealModal mapType={mapType} />
+
+                {/* The rail sits at the bottom of the screen: the step you are on is the screen itself, the rail
                 is only there to show how far the draft has come. */}
-            <Box sx={{ mt: "auto", pt: 3, width: "100%", display: "flex", justifyContent: "center" }}>
-                <DraftStepper step={currentStep(pickPhase, requiredLevel)} userTeam={userTeam} />
+                <Box sx={{ mt: "auto", pt: 3, width: "100%", display: "flex", justifyContent: "center" }}>
+                    <DraftStepper step={currentStep(pickPhase, requiredLevel)} userTeam={userTeam} />
+                </Box>
             </Box>
+            <Tooltip title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} variant="soft" placement="top">
+                <Box
+                    component="button"
+                    type="button"
+                    onClick={toggleFullscreen}
+                    sx={{
+                        position: "fixed",
+                        left: "1rem",
+                        bottom: "1rem",
+                        zIndex: 60,
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        display: "grid",
+                        placeItems: "center",
+                        cursor: "pointer",
+                        color: "#9aa0ab",
+                        bgcolor: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        "&:hover": { color: "#efe4cc", bgcolor: "rgba(255,255,255,0.08)" },
+                    }}
+                >
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                    >
+                        {isFullscreen ? (
+                            // Inward arrows: pressing it shrinks the page back to the window it came from.
+                            <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3" />
+                        ) : (
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+                        )}
+                    </svg>
+                </Box>
+            </Tooltip>
         </Sheet>
     );
 };

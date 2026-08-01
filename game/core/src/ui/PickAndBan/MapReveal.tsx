@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Modal, ModalDialog, Typography } from "@mui/joy";
+import { Box, Button, Modal, ModalDialog, Sheet, Tooltip, Typography } from "@mui/joy";
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
@@ -18,40 +18,54 @@ const REVEAL_KEYFRAMES = `
     100% { transform: scale(1); opacity: 1; }
 }`;
 
-// Persistent "Map: ?" -> "Map: <Name>" indicator shown in the pick status row. Reads as "?" until the
-// server reveals the map (right before the L3 picks), then shows the name + a small thumbnail.
+// Persistent map indicator between the two armies: the word MAP plus the map's own thumbnail — the name
+// itself only on hover, so the badge stays narrow and the armies sit close to it. Shows "?" until the
+// server reveals the map (right before the L3 picks).
 export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
     const display = getMapDisplay(mapType);
-    const accent = display?.accent ?? "rgba(255,255,255,0.5)";
+    const accent = display?.accent ?? "rgba(255,255,255,0.7)";
     return (
-        <Chip
-            variant="soft"
-            size="sm"
-            startDecorator={
-                display ? (
+        <Tooltip title={`Map type — ${display ? display.name : "?"}`} variant="soft">
+            <Sheet
+                variant="soft"
+                sx={{
+                    display: "grid",
+                    placeItems: "center",
+                    p: "6px",
+                    minHeight: 62,
+                    width: 62,
+                    flex: "0 0 auto",
+                    borderRadius: "14px",
+                    bgcolor: "#171a23",
+                    border: `1px solid ${display ? accent : "rgba(255,255,255,0.12)"}`,
+                }}
+            >
+                {display ? (
                     <Box
                         component="img"
                         src={images[display.imageKey]}
                         alt={display.name}
-                        sx={{ width: 18, height: 18, borderRadius: "4px", objectFit: "cover" }}
+                        sx={{ width: 48, height: 48, borderRadius: "8px", objectFit: "cover" }}
                     />
                 ) : (
-                    <Box component="span" sx={{ fontSize: "0.9rem", lineHeight: 1 }}>
-                        🗺️
+                    <Box
+                        sx={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: "8px",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: 26,
+                            fontWeight: 700,
+                            color: "rgba(255,255,255,0.7)",
+                            bgcolor: "rgba(255,255,255,0.05)",
+                        }}
+                    >
+                        ?
                     </Box>
-                )
-            }
-            sx={{
-                "--Chip-radius": "8px",
-                bgcolor: "rgba(255,255,255,0.06)",
-                color: display ? accent : "rgba(255,255,255,0.7)",
-                border: `1px solid ${display ? accent : "rgba(255,255,255,0.18)"}`,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-            }}
-        >
-            Map: {display ? display.name : "?"}
-        </Chip>
+                )}
+            </Sheet>
+        </Tooltip>
     );
 };
 

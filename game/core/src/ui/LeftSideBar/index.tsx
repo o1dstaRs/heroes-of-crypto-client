@@ -1,4 +1,4 @@
-import { TeamVals, UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
+import { UnitProperties, FactionType, FactionVals } from "@heroesofcrypto/common";
 import DiceIcon from "@mui/icons-material/Casino";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import FactoryRoundedIcon from "@mui/icons-material/FactoryRounded";
@@ -12,37 +12,54 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from "react";
 
+import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-// Near-black ground with a warm undertone, per the fight-sidebar handoff. No texture and no gold wash —
-// the board art has to stay the brightest thing on screen.
-export const SIDEBAR_BG = "#0b0806";
-const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString();
-const greenOverlayImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
-const redOverlayImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
+// Black under everything. The hide is laid over it at partial opacity, so this is what mutes it — and what
+// shows on its own for the moment before the texture arrives.
+export const SIDEBAR_BG = "#000000";
 
-// The team colour, swept diagonally off the bar's right edge — the placement this artwork was drawn for.
-// Rotated about its top-left so the band runs corner to corner behind the panel's content, and wider than
-// the bar so the rotation never exposes an edge. Fades rather than pops when the selection changes.
-const teamOverlaySx = {
-    position: "absolute",
-    width: "350px",
-    height: "100%",
-    top: 0,
-    right: -350,
-    transform: "translateZ(0) rotate(65deg)",
-    transformOrigin: "top left",
-    zIndex: 0,
-    pointerEvents: "none",
-    transition: "opacity 220ms ease-out",
-    willChange: "opacity",
-} as const;
+/**
+ * Tanned leather on both bars, taken down towards the stat plate's own darkness.
+ *
+ * CSS cannot fade one background layer on its own, so the veil is a flat black laid over the hide; against
+ * Matching the stat plate exactly put the veil at 0.74 — the texture then averaged rgb(94, 47, 34) against
+ * the plate's rgb(21, 14, 9) — and it has been tuned by eye since, to 0.767 over a hide brightened 15% in
+ * the asset itself (it now averages rgb(109, 60, 45)). The bar lands at rgb(25, 14, 10): a shade above the
+ * plate rather than level with it, so the plate reads as a recess in the hide and the grain stays visible
+ * around it instead of being crushed to black.
+ *
+ * Why that dark at all — a mid-brown bar would have the cards, plates and button frames, all near-black,
+ * reading as cut-outs punched out of it, and would cost the gold captions most of their contrast. At this
+ * depth the hide is grain and creases under everything rather than a surface competing with them.
+ *
+ * `cover` rather than `repeat`: the hide has real creases and stamped devices on it, and tiling turns both
+ * into a visible grid. One copy stretched over the bar keeps them as marks in a single piece of leather.
+ */
+/**
+ * How much black sits over the hide, which averages rgb(108, 54, 39): the bars land at rgb(25, 13, 9).
+ * Swap in a lighter texture and this stops meaning what it means — a parchment tried here at the same
+ * value came out twice as light — so the number belongs with the file it was measured against.
+ */
+/**
+ * Both bars share this wash. It was the midpoint of a pair the bars briefly held (~11.8 and ~15.7 of
+ * 255) at ~13.7/255, then lifted 5% to ~14.4/255 — the 0.7860 below.
+ *
+ * If the two bars are ever to differ again: the veil is a black wash over the hide, so what reaches the
+ * screen is texture x (1 - veil), and the hide averages 67/255. Work in those rendered LEVELS, never in
+ * percentages of the veil — the wash is heavy enough that the two diverge wildly. "20% lighter" as a
+ * percentage of the veil is two thirds brighter on screen; as a percentage of the rendered level it is
+ * 3 levels out of 255, which is invisible. Both were tried here.
+ */
+const LEATHER_VEIL = 0.786;
 
-// The panel's carved-stone texture with the rebuild's subtle gradient layered ON TOP of it, rather than
-// instead of it. The rebuild dropped the texture for the gradient alone, which left the left bar flat
-// while the right bar (RightSideBar/index.tsx) still carried the same artwork -- the two stopped looking
-// like the same panel.
-export const SIDEBAR_BG_IMAGE = `linear-gradient(180deg, rgba(255,224,180,.02), rgba(0,0,0,.24)), url(${sidebarOverlayImage})`;
+/** One hide, both bars. They differ only in which end of it they show — see the backgroundPosition on
+ *  either Sheet — so the same crease never appears twice on screen. */
+export const SIDEBAR_BG_IMAGE =
+    `linear-gradient(rgba(0,0,0,${LEATHER_VEIL}), rgba(0,0,0,${LEATHER_VEIL})),` +
+    " url('/textures/sidebar_leather_plain.webp')";
+export const SIDEBAR_BG_SIZE = "auto, cover";
+export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
@@ -194,8 +211,13 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                     display: "flex",
                     flexDirection: "column",
                     gap: `${metrics.gapPx}px`,
-                    // Board-facing edge from the handoff: a dark rule with a warm hairline, not a gold line.
-                    borderRight: "3px solid #0a0705",
+                    // The board-facing edge is left to the gold trim, which is painted over exactly this
+                    // strip from a layer above (see boardEdgeTrim). The border is widened to the trim's own
+                    // width and the background is clipped to the padding box, so the leather stops before
+                    // the trim rather than running under it and on into the board's edge column of cells.
+                    // Should the trim ever not be drawn, what shows here is a dark rule, not hide.
+                    borderRight: `${BOARD_EDGE_TRIM_WIDTH_PX}px solid #0a0705`,
+                    backgroundClip: "padding-box",
                     boxShadow: "inset -1px 0 0 rgba(120,104,80,.22), 6px 0 18px rgba(0,0,0,.7)",
                     // Everything below sizes itself to the bar, and the card scales down when its content
                     // cannot fit, so a scrollbar only ever appears on a screen too short for the pinned
@@ -206,27 +228,12 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                     willChange: "width",
                     backgroundColor: SIDEBAR_BG,
                     backgroundImage: SIDEBAR_BG_IMAGE,
-                    backgroundSize: "auto, cover",
-                    backgroundPosition: "center, center",
-                    backgroundRepeat: "no-repeat, no-repeat",
+                    backgroundSize: SIDEBAR_BG_SIZE,
+                    backgroundRepeat: SIDEBAR_BG_REPEAT,
+                    // The two bars take opposite ends of the same hide, so they are never a mirrored pair.
+                    backgroundPosition: "left center",
                 }}
             >
-                {/* Neutral (teamless) creatures get NEITHER band: the old code gated red on `team !== 2`,
-                    so a roster unit with no side was painted as an enemy. */}
-                <Box
-                    component="img"
-                    src={greenOverlayImage}
-                    alt=""
-                    aria-hidden
-                    sx={{ ...teamOverlaySx, opacity: unitProperties.team === TeamVals.LOWER ? 1 : 0 }}
-                />
-                <Box
-                    component="img"
-                    src={redOverlayImage}
-                    alt=""
-                    aria-hidden
-                    sx={{ ...teamOverlaySx, opacity: unitProperties.team === TeamVals.UPPER ? 1 : 0 }}
-                />
                 {/* The team colour is no longer a cloth banner across the bar — it is a fire-like aura
                     behind the portrait (see UnitStatsListItem). Synergies likewise moved into the unit's
                     Buffs block, which already scopes them to the right side. */}

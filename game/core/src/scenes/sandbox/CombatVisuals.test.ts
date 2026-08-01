@@ -4,6 +4,12 @@ import { Container, Texture, TextureSource } from "pixi.js";
 import type { GridSettings, UnitsHolder } from "@heroesofcrypto/common";
 
 import { CombatVisuals } from "./CombatVisuals";
+import { createArcaneDeathBurst } from "./ArcaneDeathBurst";
+
+// Pixi reaches for `document` while building the FIRST filter of a process; headless that throws, and the
+// death path then falls back to the shatter. Burn that attempt here so these cases see the real default
+// (the arcane burst) no matter which test file happens to run first.
+createArcaneDeathBurst(1, 0);
 
 // spawnDeathVfx / the death animations only touch attachToWorldRoot; the rest of the context is
 // never reached by these paths.
@@ -33,6 +39,7 @@ const makeInfo = () => ({
 
 type VisualsInternals = {
     shatterGroups: unknown[];
+    arcaneDeaths: { container: Container; age: number }[];
     iceBreaks: {
         container: Container;
         body: Container;
@@ -75,11 +82,12 @@ afterEach(() => {
 });
 
 describe("spawnDeathVfx kill-specific death animations", () => {
-    test("no recorded blow -> always the mirror shatter, even when the roll favors the new animations", () => {
-        Math.random = () => 0.25; // < 0.5 would pick a new animation IF a blow were recorded
+    test("no recorded blow -> the default arcane burst, even when the roll favors the new animations", () => {
+        Math.random = () => 0.25; // < 0.5 would pick a blow-specific animation IF a blow were recorded
         const { visuals } = makeVisuals();
         visuals.spawnDeathVfx(makeInfo(), "u1");
-        expect(internals(visuals).shatterGroups.length).toBe(1);
+        expect(internals(visuals).arcaneDeaths.length).toBe(1);
+        expect(internals(visuals).shatterGroups.length).toBe(0);
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
     });
@@ -104,13 +112,15 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
     });
 
-    test("losing roll -> the recorded blow still gives the classic mirror shatter (the 50/50)", () => {
+    test("losing roll -> the recorded blow still gives the default arcane burst (the 50/50)", () => {
         Math.random = () => 0.75;
         const { visuals } = makeVisuals();
         visuals.noteDeathBlow("u1", "melee", { x: 0, y: 1 });
         visuals.spawnDeathVfx(makeInfo(), "u1");
-        expect(internals(visuals).shatterGroups.length).toBe(1);
+        expect(internals(visuals).arcaneDeaths.length).toBe(1);
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
+        // The shatter is now only the no-shader fallback, so it must NOT fire when the burst was built.
+        expect(internals(visuals).shatterGroups.length).toBe(0);
     });
 
     test("a frozen death bypasses the normal variants and breaks into large crystals plus small splinters", () => {
@@ -142,14 +152,14 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(firstCrystal.node.position).not.toMatchObject(start);
     });
 
-    test("a blow is consumed by the death it colors — a second death of the same id falls back to the mirror", () => {
+    test("a blow is consumed by the death it colors — a second death of the same id gets the default burst", () => {
         Math.random = () => 0.25;
         const { visuals } = makeVisuals();
         visuals.noteDeathBlow("u1", "range", { x: -1, y: 0 });
         visuals.spawnDeathVfx(makeInfo(), "u1");
         visuals.spawnDeathVfx(makeInfo(), "u1");
         expect(internals(visuals).dissolveDeaths.length).toBe(1);
-        expect(internals(visuals).shatterGroups.length).toBe(1);
+        expect(internals(visuals).arcaneDeaths.length).toBe(1);
     });
 
     test("dissolve is angle-aware: shards are carried along the shot and erode entry-side first", () => {
@@ -219,9 +229,9 @@ describe("spawnDeathVfx kill-specific death animations", () => {
         expect(internals(visuals).cleaveDeaths.length).toBe(0);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
         expect(internals(visuals).iceBreaks.length).toBe(0);
-        // u2's blow was consumed and the registry cleared: a re-death of either id is a mirror shatter.
+        // u2's blow was consumed and the registry cleared: a re-death of either id is the default burst.
         visuals.spawnDeathVfx(makeInfo(), "u2");
-        expect(internals(visuals).shatterGroups.length).toBe(1);
+        expect(internals(visuals).arcaneDeaths.length).toBe(1);
         expect(internals(visuals).dissolveDeaths.length).toBe(0);
     });
 });

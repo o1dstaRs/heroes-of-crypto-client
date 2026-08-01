@@ -3,13 +3,14 @@ import { Sheet, Box, Tooltip } from "@mui/joy";
 import { styled } from "@mui/system";
 
 import { images } from "../../generated/image_imports";
+import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
+
 const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
 const hourglassIconImage = new URL("../../../images/icon_hourglass_black.webp", import.meta.url).toString();
 const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.meta.url).toString();
 const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
 const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
 const aiIconImage = new URL("../../../images/icon_ai_black.webp", import.meta.url).toString();
-const aiOnIconImage = new URL("../../../images/icon_ai_on_black.webp", import.meta.url).toString();
 const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
@@ -26,8 +27,10 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
     [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
     [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
+    // Both AI states share one medallion: switching it on adds an "ON" badge over the art (see
+    // ButtonComponent) instead of swapping in a second picture, so the button never changes identity.
     [`AI${VisibleButtonState.FIRST}`]: aiIconImage,
-    [`AI${VisibleButtonState.SECOND}`]: aiOnIconImage,
+    [`AI${VisibleButtonState.SECOND}`]: aiIconImage,
     [`Next${VisibleButtonState.FIRST}`]: skipIconImage,
     [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
 };
@@ -36,19 +39,34 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
  * How each glyph is fitted into its button. `zoom` scales the art inside the button; `inset` pulls the whole
  * layer in from the rim so nothing touches the border.
  *
- * The whole set is now round medallions — the glyph sits on its own disc that already fills the source
- * canvas edge to edge (verified: the opaque area is π/4 of the square, i.e. an inscribed circle). So the art
- * needs showing very nearly whole, and the button's own rim becomes its frame.
+ * The atlas art is a gold medallion: an ornate bezel ring around a dark field with the glyph in the middle.
+ * Only the GLYPH is wanted — the button draws the frame, so showing the medallion whole put a gold ring
+ * inside the button's own rim and every icon read as two concentric frames.
  *
- * It used to be square plates with ornamental corners, which had to be zoomed to 168% so the plate fell
- * outside the circular clip. Feeding a medallion through that crop threw away roughly 40% of it — the disc
- * was blown up until its edge, and part of the glyph, was clipped away. Hence the far gentler default.
- * Per-icon entries stay available for art that does not follow the medallion layout.
+ * The crop is measured, not guessed. A radial luminance profile over all six icons puts the bezel's bright
+ * ring at r ≈ 0.72–1.0 of the source radius, peaking at 0.80, with the glyph field inside r ≈ 0.70. Blowing
+ * the art up to 160% pushes everything past r ≈ 0.62 outside the layer's circular clip, so the bezel is gone
+ * with margin to spare while the glyph still sits comfortably inside.
+ *
+ * `inset` is a PERCENTAGE, so it scales the rendered glyph without touching the crop: the window stays the
+ * same fraction of the source whatever the box size. 8.6% leaves the layer at 82.8% of the button — the
+ * glyph a tenth smaller than a flush 4% inset, with a ring of bare disc around it.
  */
-const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {};
-// The medallion is cut to its own circle and already includes the bezel, so it maps 1:1 onto the button:
-// no zoom to push a plate out of frame, no inset to hold a glyph off a rim that no longer exists.
-const GLYPH_CROP_DEFAULT = { zoom: 100, inset: 0 };
+const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {
+    // The AI medallion carries far more dead field than the others: its brain ends at r ≈ 0.58 of the
+    // source while the bezel does not begin until r ≈ 0.70, so the default crop framed the glyph in a wide
+    // ring of bare medallion, and the default inset added its own margin on top of that — together they
+    // left the brain filling barely three quarters of the button.
+    //
+    // 172% puts the visible disc at r ≈ 0.58, right on the brain's own edge. Nothing of the glyph is lost:
+    // the crown sparkles sit inside 0.58 too. This is well clear of the bezel, so raising the zoom here
+    // costs nothing — the earlier 190/15 override went the other way and cropped INTO the brain.
+    //
+    // A flush inset 0 then let the brain run right out to the rim and bury the button's frame; 5% holds it
+    // a tenth off the edge, which is where the frame reads again.
+    [aiIconImage]: { zoom: 172, inset: 5 },
+};
+const GLYPH_CROP_DEFAULT = { zoom: 160, inset: 8.6 };
 
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
@@ -56,7 +74,6 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [swordIconImage]: false,
     [scepterIconImage]: false,
     [aiIconImage]: false,
-    [aiOnIconImage]: false,
     [skipIconImage]: false,
     [luckShieldIconImage]: false,
 };
@@ -65,6 +82,27 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 // left in its own colour rather than warmed to ember — the old sepia/saturate pass existed to push pale
 // glyphs into gold on the obsidian disc, and running already-gold art through it just oversaturated the
 // bezel. Only the shadow is kept, to hold the medallion off the panel behind it.
+/**
+ * The height the sidebar reserves for the button column.
+ *
+ * Six slots — the whole roster is Spellbook, Hourglass, AttackType, AI, Next and LuckShield — plus the
+ * frame's padding and rim. It is a RESERVATION, not a measurement: buttons come and go as the turn changes
+ * (none of them apply on the opponent's turn, and the frame hides itself entirely), and a row sized to
+ * whatever happens to be visible would drag the damage table and the fight log up and down all fight. The
+ * frame itself still hugs its buttons inside this box; what is fixed is the space the box occupies.
+ */
+export const toolbarColumnHeightPx = (): number => {
+    const screenRatio = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+    const slots = 6;
+    const gap = 12; // the column's `gap: 1.5`
+    const framePadding = 24; // 12px above the first button, 12px below the last
+    const frameRim = 2 * 2.34;
+    return Math.round(45 * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
+};
+
+// How far the option markers under a multi-state button sit from the centre of their row.
+const OPTION_ARC_RADIUS = 7.6;
+
 const GLYPH_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,.85))";
 const GLYPH_FILTER_BRIGHT = "brightness(1.12) drop-shadow(0 2px 5px rgba(243,212,136,.45))";
 
@@ -74,7 +112,10 @@ const StyledSheet = styled(Sheet)(() => ({
     backgroundImage: "linear-gradient(180deg, rgba(28,20,12,.96), rgba(8,6,4,.96))",
     padding: "12px 8px",
     borderRadius: "14px",
-    border: "3px solid #0a0705",
+    // Only the outline is lifted: a touch wider and in bronze rather than near-black, so the column reads
+    // as a framed panel against the sidebar instead of dissolving into it. Everything inside — the obsidian
+    // fill, the faint inner rim, the drop shadow — is left alone.
+    border: "2.34px solid #473b25",
     boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
 }));
 
@@ -90,17 +131,22 @@ const StyledIconButton = styled("button", {
     overflow: "hidden",
     cursor: "pointer",
     transform: `rotate(${rotationDegrees}deg)`,
-    // No shell of our own: the medallion art carries its own bezel, so an obsidian disc and a rim behind it
-    // only produced a second ring around the first. The button is a bare, transparent circle and the glyph
-    // layer is the whole of it.
-    background: "transparent",
-    border: "none",
-    boxShadow: "none",
+    // The button draws the frame, not the art: an obsidian disc with a black rim, matching the panel it sits
+    // on. The medallion's own gold bezel is cropped away (see GLYPH_CROP_DEFAULT) precisely so this one rim
+    // is the only ring on screen. The glyph rides on the ::before layer, which keeps the filter off the disc.
+    background: "radial-gradient(circle at 42% 32%, #2b2118, #120c07 70%)",
+    border: "2px solid #241a10",
+    // Only the outer shadow lives here now; the inset ring moved to ::after so the glyph cannot bury it.
+    boxShadow: "0 0 12px rgba(0,0,0,.5)",
     "&::before": {
         content: '""',
         position: "absolute",
         // Both values come from GLYPH_CROP, set per icon on the element (see ButtonComponent).
         inset: "var(--hoc-glyph-inset)",
+        // The layer clips itself, rather than relying on the button's overflow. Once `inset` shrinks it, the
+        // button's circle no longer sits at the layer's edge, so the crop that hides the bezel would stop at
+        // a smaller radius than the art needs and the ring would creep back in around the glyph.
+        borderRadius: "50%",
         backgroundImage: "var(--hoc-glyph)",
         backgroundSize: "var(--hoc-glyph-zoom)",
         backgroundRepeat: "no-repeat",
@@ -109,11 +155,29 @@ const StyledIconButton = styled("button", {
         transition: "filter 0.3s ease",
         pointerEvents: "none",
     },
+    // The frame, kept as its own layer ON TOP of the glyph. As part of the button's own background it was
+    // painted before the ::before disc, so any icon cropped flush to the rim — the brain most of all — drew
+    // straight over the bezel and that button lost the ring the others have. Up here it cannot be covered,
+    // whatever a glyph's crop does.
+    "&::after": {
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        borderRadius: "50%",
+        boxShadow: "inset 0 2px 6px rgba(0,0,0,.9), inset 0 0 0 1px rgba(150,130,98,.22)",
+        pointerEvents: "none",
+    },
     "&:hover:not(:disabled)": {
         transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
+        background: "radial-gradient(circle at 42% 32%, #3a2c1c, #1a1109 70%)",
+        borderColor: "#8a7136",
+        boxShadow: "0 0 18px rgba(243,212,136,.4)",
         "&::before": { filter: GLYPH_FILTER_BRIGHT },
     },
     "&:disabled": {
+        background: "radial-gradient(circle at 42% 32%, #201811, #0d0905 70%)",
+        borderColor: "rgba(202,162,79,.35)",
+        boxShadow: "none",
         opacity: 0.5,
         cursor: "not-allowed",
     },
@@ -137,6 +201,8 @@ interface ButtonComponentProps {
     customSpriteName?: string;
     numberOfOptions?: number;
     selectedOption?: number;
+    /** Draws the "ON" badge over the artwork; the artwork itself stays put. */
+    showOnBadge?: boolean;
 }
 
 const ButtonComponent: React.FC<ButtonComponentProps> = ({
@@ -149,6 +215,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     customSpriteName,
     numberOfOptions = 1,
     selectedOption = 1,
+    showOnBadge = false,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
     const [transfusionEffect, setTransfusionEffect] = useState(false);
@@ -183,7 +250,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO }}>
+            <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO, position: "relative" }}>
                 <Tooltip title={text} placement="top">
                     <StyledIconButton
                         onClick={handleClick}
@@ -210,6 +277,37 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                     />
                 </Tooltip>
+                {showOnBadge && (
+                    // Sits over the medallion rather than replacing it, so the AI button keeps one face and
+                    // only gains a state. Outside the button element on purpose: the button clips to its
+                    // circle, which would cut a badge riding on the rim in half.
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            top: -2 * SCREEN_RATIO,
+                            right: -3 * SCREEN_RATIO,
+                            minWidth: 20 * SCREEN_RATIO,
+                            height: 20 * SCREEN_RATIO,
+                            paddingX: `${2 * SCREEN_RATIO}px`,
+                            borderRadius: "999px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: "#1f7a34",
+                            border: `${1.5 * SCREEN_RATIO}px solid #7ce08f`,
+                            color: "#eafbec",
+                            fontSize: 10 * SCREEN_RATIO,
+                            fontWeight: 800,
+                            lineHeight: 1,
+                            letterSpacing: "0.03em",
+                            boxShadow: "0 0 8px rgba(124,224,143,.55), 0 1px 3px rgba(0,0,0,.8)",
+                            pointerEvents: "none",
+                            opacity: isDisabled ? 0.5 : 1,
+                        }}
+                    >
+                        ON
+                    </Box>
+                )}
             </Box>
             {numberOfOptions > 1 && (
                 <Box
@@ -224,7 +322,11 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                 >
                     {Array.from({ length: numberOfOptions }, (_, index) => {
                         const angle = (index / (numberOfOptions - 1)) * Math.PI;
-                        const x = (12.6 + 12.6 * Math.cos(angle) - 4.55) * SCREEN_RATIO;
+                        // The arc's radius, not its centre — the row of dots stays centred under the button
+                        // and only draws itself in. At the old 12.6 the two attack-type markers sat almost
+                        // at the medallion's edges and read as two unrelated lights rather than as one
+                        // two-state control.
+                        const x = (12.6 + OPTION_ARC_RADIUS * Math.cos(angle) - 4.55) * SCREEN_RATIO;
                         const y = (5.6 * Math.sin(angle) - 4.55) * SCREEN_RATIO;
                         return (
                             <img
@@ -251,7 +353,38 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     );
 };
 
-const DraggableToolbar: React.FC = () => {
+/**
+ * How far the right sidebar insets its content from its own left edge: a 3px border plus 16px of padding.
+ * The board-edge trim is painted over the first BOARD_EDGE_TRIM_WIDTH_PX of that, so the strip of bare panel
+ * between the trim and the button column is the difference.
+ */
+const SIDEBAR_CONTENT_INSET_PX = 19;
+/**
+ * How far the button column reaches back past the sidebar's own left padding to meet the board trim.
+ * Exported so the blocks under it — the log, the exit control, the footer — can start on the same edge
+ * rather than on the padding's, which left them visibly narrower than the panels above.
+ */
+export const TRIM_OVERHANG_PX = SIDEBAR_CONTENT_INSET_PX - BOARD_EDGE_TRIM_WIDTH_PX;
+
+/** The same sidebar's `p: 2`, vertically — what sits between the screen edge and the top of the column. */
+const SIDEBAR_TOP_PAD_PX = 16;
+/** Left of that padding, so the panel reads as reaching the top rather than being clipped by it. */
+const TOP_CLEARANCE_PX = 4;
+
+/**
+ * How far `flushToTrim` lifts the button column above the row it sits in. Exported so whatever shares that
+ * row can start on the same line: without it the panel beside the column began at the row's own top, a dozen
+ * pixels below the column's rim, and the two read as stacked rather than side by side.
+ */
+export const TOOLBAR_TOP_LIFT_PX = SIDEBAR_TOP_PAD_PX - TOP_CLEARANCE_PX;
+
+/**
+ * `flushToTrim` slides the panel leftwards until it meets the board-edge trim, closing that strip. Its width
+ * is unchanged — so the far edge comes with it, and the damage table beside it (flex: 1 1 auto) takes up the
+ * width that frees. Opt-in because the toolbar is also mounted OUTSIDE the sidebar (RankedGameView), where a
+ * negative margin would shift it against nothing.
+ */
+const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = false }) => {
     // Kept only so the styled components re-render at the right scale after a resize/zoom — SCREEN_RATIO
     // is module-level and read at render time.
     const [, bumpScaleTick] = useState(0);
@@ -304,6 +437,7 @@ const DraggableToolbar: React.FC = () => {
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
+                        showOnBadge={button.name === "AI" && button.state === VisibleButtonState.SECOND}
                     />
                 ))}
             </Box>
@@ -332,6 +466,24 @@ const DraggableToolbar: React.FC = () => {
                 alignItems: "center",
                 gap: 1.5,
                 userSelect: "none",
+                // A pure shift: no compensating padding, so the panel keeps its own width and simply moves
+                // over. The damage table next to it is the flexible item in the row, so the width freed at
+                // this panel's far edge goes to the table rather than to empty space.
+                ...(flushToTrim
+                    ? {
+                          marginLeft: `-${TRIM_OVERHANG_PX}px`,
+                          // Up past the sidebar's own padding to sit just under the screen edge, and down
+                          // over the full height of the row (which claims the bar's slack), so the column
+                          // runs from the top of the screen to the top of the log.
+                          marginTop: `-${TOOLBAR_TOP_LIFT_PX}px`,
+                          // Height comes from the buttons and nothing else. Stretching the frame over the
+                          // row's full height left a long dead tail under the last medallion — the panel
+                          // reached the fight log while the buttons stopped a third of the way down. The
+                          // frame's own 12px padding now closes it off under the last button exactly as it
+                          // opens above the first.
+                          alignSelf: "flex-start",
+                      }
+                    : {}),
             }}
         >
             {buttonsContent}

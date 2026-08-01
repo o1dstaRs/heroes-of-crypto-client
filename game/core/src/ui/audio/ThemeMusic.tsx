@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
@@ -43,8 +44,15 @@ const PLAYLIST = [
  */
 const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_and_silk.mp3" } as const;
 
-/** Route prefixes that carry the theme. Everything else — the fight, the sandbox — stays quiet. */
+/** Route prefixes that carry the theme. Everything else — the fight, the sandbox — stays quiet.
+ *
+ * Note this governs what PLAYS, not where the speaker is offered: the control sits in the bottom-right
+ * corner on every screen, the silent ones included. It is a setting, not a now-playing indicator — muting
+ * or setting the level mid-fight is exactly when a player reaches for it, and the choice is stored, so it
+ * is already in force by the time the music comes back. */
 const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
+
+import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
@@ -87,10 +95,14 @@ export const ThemeMusic: React.FC = () => {
     const fadeRef = useRef<number | null>(null);
     const startedRef = useRef(false);
     const initial = useRef(readInitialSettings());
+    const [volumeExpanded, setVolumeExpanded] = useState(false);
     const [volume, setVolume] = useState(initial.current.volume);
     const [muted, setMuted] = useState(initial.current.muted);
     const [trackIndex, setTrackIndex] = useState(0);
     const [prefight, setPrefight] = useState(false);
+    // Rendered into the sidebar's footer when there is one, beside the fullscreen toggle; otherwise it
+    // floats in the bottom-right corner as before.
+    const dockSlot = useSyncExternalStore(subscribeVolumeSlot, getVolumeSlot, getVolumeSlotServerSnapshot);
 
     useEffect(() => subscribePrefightMusic(setPrefight), []);
 
@@ -222,40 +234,43 @@ export const ThemeMusic: React.FC = () => {
         }
     }, [volume, muted]);
 
-    if (!singing) {
-        // The element itself stays mounted (so the track keeps its position); only the control is hidden.
-        return (
-            <audio ref={audioRef} preload="none" hidden>
-                <source src={source.webm} type="audio/webm; codecs=opus" />
-                <source src={source.mp3} type="audio/mpeg" />
-            </audio>
-        );
-    }
-
     const silent = muted || volume === 0;
 
-    return (
+    // Docked, the control is nothing but the speaker and whatever slider it opens: no disc, no rim, no
+    // backdrop, matching the fullscreen toggle it sits opposite. The pill only exists in the floating
+    // fallback, where the control has bare screen under it and needs something to read against.
+    const containerStyle: React.CSSProperties = dockSlot
+        ? {
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: volumeExpanded ? "0.5rem" : 0,
+              color: silent ? "rgba(255, 143, 0, 0.45)" : "rgba(255, 143, 0, 0.8)",
+          }
+        : {
+              position: "fixed",
+              right: "1rem",
+              bottom: "1rem",
+              zIndex: 60,
+              display: "flex",
+              alignItems: "center",
+              gap: volumeExpanded ? "0.5rem" : 0,
+              padding: volumeExpanded ? "0.25rem 0.6rem 0.25rem 0.25rem" : 0,
+              borderRadius: "999px",
+              background: volumeExpanded ? "rgba(12, 14, 20, 0.72)" : "transparent",
+              border: volumeExpanded ? "1px solid rgba(255, 255, 255, 0.12)" : "none",
+              backdropFilter: volumeExpanded ? "blur(6px)" : "none",
+              transition: "padding 140ms ease, background 140ms ease",
+              color: silent ? "#8d8778" : "#e8e2d4",
+          };
+
+    const control = (
         <div
-            style={{
-                position: "fixed",
-                right: "1rem",
-                bottom: "1rem",
-                zIndex: 60,
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.4rem 0.6rem",
-                borderRadius: "999px",
-                background: "rgba(12, 14, 20, 0.72)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                backdropFilter: "blur(6px)",
-                color: silent ? "#8d8778" : "#e8e2d4",
-            }}
+            onMouseEnter={() => setVolumeExpanded(true)}
+            onMouseLeave={() => setVolumeExpanded(false)}
+            onFocus={() => setVolumeExpanded(true)}
+            style={containerStyle}
         >
-            <audio ref={audioRef} preload="none">
-                <source src={source.webm} type="audio/webm; codecs=opus" />
-                <source src={source.mp3} type="audio/mpeg" />
-            </audio>
             <button
                 type="button"
                 aria-pressed={silent}
@@ -282,12 +297,15 @@ export const ThemeMusic: React.FC = () => {
                 style={{
                     display: "grid",
                     placeItems: "center",
-                    width: "2rem",
-                    height: "2rem",
+                    width: 32,
+                    height: 32,
+                    flex: "0 0 auto",
                     padding: 0,
-                    border: 0,
+                    // Docked it is just the glyph, like the fullscreen toggle beside it. The disc is for
+                    // the floating fallback only, where there is bare screen behind the icon.
                     borderRadius: "50%",
-                    background: "transparent",
+                    border: dockSlot ? "none" : "1px solid rgba(255, 255, 255, 0.12)",
+                    background: dockSlot ? "transparent" : "rgba(255, 255, 255, 0.04)",
                     color: "inherit",
                     cursor: "pointer",
                 }}
@@ -342,8 +360,30 @@ export const ThemeMusic: React.FC = () => {
                         start();
                     }
                 }}
-                style={{ width: "5.5rem", accentColor: "#ffd88a", cursor: "pointer" }}
+                style={{
+                    width: volumeExpanded ? "5.5rem" : 0,
+                    opacity: volumeExpanded ? 1 : 0,
+                    // Collapsed it must take NO room at all, so the control is exactly the 32px speaker.
+                    margin: 0,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    transition: "width 140ms ease, opacity 140ms ease",
+                    accentColor: "#ffd88a",
+                    cursor: "pointer",
+                }}
             />
         </div>
+    );
+
+    return (
+        <>
+            {/* Never inside the portal: re-parenting the element would remount it and drop the track's
+                position the moment a sidebar appeared or went away. */}
+            <audio ref={audioRef} preload="none">
+                <source src={source.webm} type="audio/webm; codecs=opus" />
+                <source src={source.mp3} type="audio/mpeg" />
+            </audio>
+            {dockSlot ? createPortal(control, dockSlot) : control}
+        </>
     );
 };

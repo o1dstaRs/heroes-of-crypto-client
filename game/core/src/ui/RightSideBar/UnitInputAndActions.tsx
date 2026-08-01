@@ -8,7 +8,7 @@ import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { images } from "../../generated/image_imports";
+import { hocActionPrimaryButtonSx, hocActionSoftButtonSx } from "../hocTheme";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
@@ -262,53 +262,29 @@ const UnitInputAndActions = ({
                         },
                     }}
                 />
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={1.5}>
                     <Tooltip title="Accept (A)" placement="top" sx={shortcutTooltipSx}>
                         <Button
                             variant="plain"
+                            size="sm"
                             onClick={() => {
                                 handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
                             }}
-                            sx={{
-                                flex: 1,
-                                minWidth: 0,
-                                aspectRatio: "3.5 / 1",
-                                backgroundImage: `url(${images.button})`,
-                                backgroundSize: "100% 100%",
-                                backgroundRepeat: "no-repeat",
-                                color: "white",
-                                height: "auto",
-                                "&:hover": {
-                                    filter: "brightness(1.5) saturate(1.2)",
-                                    backgroundColor: "transparent",
-                                },
-                            }}
+                            sx={{ ...hocActionPrimaryButtonSx, flex: 1, minWidth: 0 }}
                         >
-                            <img src={images.accept_text} alt="Accept" style={{ height: "40%" }} />
+                            Accept
                         </Button>
                     </Tooltip>
                     <Tooltip title="Clone (C)" placement="top" sx={shortcutTooltipSx}>
                         <Button
                             variant="plain"
+                            size="sm"
                             onClick={() => {
                                 manager.Clone();
                             }}
-                            sx={{
-                                flex: 1,
-                                minWidth: 0,
-                                aspectRatio: "3.5 / 1",
-                                backgroundImage: `url(${images.button})`,
-                                backgroundSize: "100% 100%",
-                                backgroundRepeat: "no-repeat",
-                                color: "white",
-                                height: "auto",
-                                "&:hover": {
-                                    filter: "brightness(1.5) saturate(1.2)",
-                                    backgroundColor: "transparent",
-                                },
-                            }}
+                            sx={{ ...hocActionSoftButtonSx, flex: 1, minWidth: 0 }}
                         >
-                            <img src={images.clone_text} alt="Clone" style={{ height: "40%" }} />
+                            Clone
                         </Button>
                     </Tooltip>
                 </Stack>

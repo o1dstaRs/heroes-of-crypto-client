@@ -15,7 +15,7 @@ interface TurnTimerBarProps {
     lapNumber: number;
     secondsRemaining: number;
     secondsMax: number;
-    // Ranked only: tint the fill red while the opponent is the one on the clock.
+    // Ranked only: whose clock is running. Your own gets the red fill; theirs gets the calm amber one.
     enemyTurn?: boolean;
 }
 
@@ -35,12 +35,12 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
     const medallion = Math.round(Math.max(26, Math.min(40, metrics.contentWidth * 0.22)));
     const grooveHeight = Math.round(Math.max(12, medallion * 0.45));
 
-    // The fill carries the state rather than just filling space: warm amber while there is time, deepening
-    // to red under CRITICAL_SECONDS, and red throughout on the opponent's clock. The old fill was a
-    // grey-white gradient, which sat oddly inside a gold frame and — being the same colour whether you had
-    // fifty seconds or four — left the number doing all the work. Amber is deliberately not the team green,
-    // so a full bar never reads as "your team owns this".
-    const palette = enemyTurn
+    // The fill carries the state rather than just filling space. The two sides are the other way round from
+    // how this started: RED is now your own clock — the one you have to act on, and the one worth making
+    // urgent — while the opponent's runs warm amber, deepening under CRITICAL_SECONDS, because nothing is
+    // being asked of you while it drains. The old fill was a grey-white gradient, the same colour whether
+    // you had fifty seconds or four, which left the number doing all the work.
+    const palette = !enemyTurn
         ? { light: "#ff8a73", base: "#f4593f", dark: "#c2351f", glow: "rgba(255,90,63,0.34)" }
         : critical
           ? { light: "#ffb36b", base: "#ef6c3a", dark: "#b83a17", glow: "rgba(239,108,58,0.38)" }
