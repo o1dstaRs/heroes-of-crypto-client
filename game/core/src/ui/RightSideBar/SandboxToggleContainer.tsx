@@ -8,6 +8,7 @@
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
 import {
+    Artifact,
     Augment,
     HoCConstants,
     SynergyWithLevel,
@@ -619,10 +620,11 @@ const SandboxToggleContainer = ({
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("None");
 
-    // Which artifact tier is expanded, if any. It lives here rather than inside ArtifactToggler because the
-    // augment panel and the two tiers are one accordion: opening any of the three closes the other two, so a
-    // single owner has to see all three states.
-    const [openTier, setOpenTier] = useState<number | null>(null);
+    // Which artifact tiers are expanded. Owner call (2026-08-01): BOTH start open in the sandbox bar — the
+    // bar scrolls, so height is no constraint here — and each tier collapses independently (no accordion).
+    const [openTiers, setOpenTiers] = useState<ReadonlySet<number>>(
+        () => new Set<number>([Artifact.ArtifactTier.TIER_1, Artifact.ArtifactTier.TIER_2]),
+    );
     const [selectedSynergy, setSelectedSynergy] = useState<SelectedSynergy | null>(null);
     const [synergyPairLife, setSynergyPairTypeLife] = useState<SelectedSynergy | null>(null);
     const [synergyPairChaos, setSynergyPairTypeChaos] = useState<SelectedSynergy | null>(null);
@@ -645,8 +647,15 @@ const SandboxToggleContainer = ({
         };
 
     const handleTierToggle = (tier: number) => {
-        setOpenTier((current) => (current === tier ? null : tier));
-        setTogglerType("None");
+        setOpenTiers((current) => {
+            const next = new Set(current);
+            if (next.has(tier)) {
+                next.delete(tier);
+            } else {
+                next.add(tier);
+            }
+            return next;
+        });
     };
 
     const possibleSynergiesObj: Record<string, VisibleSynergyLevel> = {};
@@ -992,7 +1001,7 @@ const SandboxToggleContainer = ({
             )}
 
             {showArtifactPicker && (
-                <ArtifactToggler teamType={teamType} openTier={openTier} onToggleTier={handleTierToggle} />
+                <ArtifactToggler teamType={teamType} openTiers={openTiers} onToggleTier={handleTierToggle} />
             )}
         </Box>
     );

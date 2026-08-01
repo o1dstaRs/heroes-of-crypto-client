@@ -19,8 +19,8 @@ interface ArtifactRowProps {
 
 const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId, onSelect, isOpen, onToggle }) => (
     <Box sx={{ width: "100%" }}>
-        {/* Same affordance as the Reds/Greens sections above: a title that opens its own drawer. Two full
-            grids of thirteen icons each is most of the bar's height, so they start closed. */}
+        {/* Same affordance as the Reds/Greens sections above: a title that opens its own drawer. The
+            sandbox bar starts both drawers open (it scrolls); the ranked sheet starts them closed. */}
         <Box
             component="button"
             type="button"
@@ -104,20 +104,32 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
 
 export const ArtifactToggler: React.FC<{
     teamType: TeamType;
-    // Owned by SandboxToggleContainer: the augment panel and the two tiers are one accordion, so the state
-    // has to sit where all three are visible. Left optional so the component still stands alone.
-    openTier?: number | null;
+    // Owned by SandboxToggleContainer: the sandbox bar keeps BOTH tiers expanded by default (that bar
+    // scrolls, so height is not a constraint there), with each tier collapsible on its own. Left optional
+    // so the component still stands alone.
+    openTiers?: ReadonlySet<number>;
     onToggleTier?: (tier: number) => void;
-}> = ({ teamType, openTier: openTierProp, onToggleTier }) => {
+}> = ({ teamType, openTiers: openTiersProp, onToggleTier }) => {
     const manager = usePixiManager();
     const [tier1Selected, setTier1Selected] = useState<number>(Artifact.Tier1Artifact.NO_ARTIFACT);
     const [tier2Selected, setTier2Selected] = useState<number>(Artifact.Tier2Artifact.NO_ARTIFACT);
-    // One tier open at a time, and neither to begin with. Both grids together are taller than the sidebar,
-    // so showing them side by side pushed the second one off the bottom; opening one closes the other.
-    const [openTierLocal, setOpenTierLocal] = useState<number | null>(null);
-    const openTier = openTierProp !== undefined ? openTierProp : openTierLocal;
+    // Standalone (the sandbox army drawer — ranked hides this picker and shows RankedArtifactsPanel
+    // instead): BOTH tiers start open, per owner call (2026-08-01), and each collapses independently.
+    // The drawer scrolls, so two full grids are fine here.
+    const [closedTiersLocal, setClosedTiersLocal] = useState<ReadonlySet<number>>(() => new Set());
+    const isTierOpen = (tier: number) => (openTiersProp ? openTiersProp.has(tier) : !closedTiersLocal.has(tier));
     const toggleTier = (tier: number) =>
-        onToggleTier ? onToggleTier(tier) : setOpenTierLocal((current) => (current === tier ? null : tier));
+        onToggleTier
+            ? onToggleTier(tier)
+            : setClosedTiersLocal((current) => {
+                  const next = new Set(current);
+                  if (next.has(tier)) {
+                      next.delete(tier);
+                  } else {
+                      next.add(tier);
+                  }
+                  return next;
+              });
 
     const selectTier1 = (artifactId: number) => {
         if (manager.PropagateArtifact(teamType, Artifact.ArtifactTier.TIER_1, artifactId)) {
@@ -140,7 +152,7 @@ export const ArtifactToggler: React.FC<{
                 artifacts={Artifact.TIER1_ARTIFACT_LIST}
                 selectedId={tier1Selected}
                 onSelect={selectTier1}
-                isOpen={openTier === Artifact.ArtifactTier.TIER_1}
+                isOpen={isTierOpen(Artifact.ArtifactTier.TIER_1)}
                 onToggle={() => toggleTier(Artifact.ArtifactTier.TIER_1)}
             />
             <ArtifactRow
@@ -149,7 +161,7 @@ export const ArtifactToggler: React.FC<{
                 artifacts={Artifact.TIER2_ARTIFACT_LIST}
                 selectedId={tier2Selected}
                 onSelect={selectTier2}
-                isOpen={openTier === Artifact.ArtifactTier.TIER_2}
+                isOpen={isTierOpen(Artifact.ArtifactTier.TIER_2)}
                 onToggle={() => toggleTier(Artifact.ArtifactTier.TIER_2)}
             />
             {/* Closes the artifacts block off from whatever follows it — with the tiers collapsed, Tier 2's
