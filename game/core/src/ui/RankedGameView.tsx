@@ -2088,8 +2088,8 @@ const RankedAugmentSummary: React.FC<{
                     })
                 )}
             </Stack>
-            {/* Synergies are automatic (they follow the drafted factions), so they read as their own block
-                under the augments rather than as a choice — same tile size as the augments and artifacts. */}
+            {/* Selected synergies read as their own block under augments, at the same tile size as augments
+                and artifacts. */}
             <Typography level="body-sm" textColor={hocColors.parchment} sx={{ mt: 0.75 }}>
                 Synergies
             </Typography>
@@ -2097,7 +2097,7 @@ const RankedAugmentSummary: React.FC<{
                 <SynergiesRow synergies={synergies} size={36} />
             ) : (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    None yet — two units of one faction activate both bonuses
+                    None yet — field two units of a faction, then choose one bonus
                 </Typography>
             )}
         </Stack>
@@ -2308,9 +2308,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // Remaining-points / synergy-completion state, reported up by SideToggleContainer via onReadyChange
     // (setAugmentReady is stable, no render loop). Gates the "Lock in augments" button: it stays disabled
     // until every upgrade point is spent, so nobody advances with an unfinished build by accident.
-    // Synergies no longer figure in it — they follow the drafted factions automatically. This can never hold the fight
-    // hostage — the Setup timer advances the stage regardless and the AI auto-spends for anyone not
-    // locked in (and any leftover point is always spendable: every augment step-up costs exactly 1).
+    // Each eligible faction needs one of its two synergy choices before setup can be locked. The Setup timer
+    // still advances and autofill chooses any missing entries for a player who runs out of time.
     const [augmentReady, setAugmentReady] = useState<{ pointsRemaining: number; allSynergiesSelected: boolean }>({
         pointsRemaining: 1,
         allSynergiesSelected: false,

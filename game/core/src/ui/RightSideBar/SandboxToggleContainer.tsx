@@ -35,6 +35,22 @@ import { ArtifactToggler } from "./ArtifactToggler";
 // Above the board's gold edge trim (zIndex 2) and the sidebars (zIndex 1). At the old zIndex 1 the label
 // rendered underneath the frame and was sliced off at the panel's edge.
 const AUGMENT_TOOLTIP_Z = 10000;
+const synergySupplyImg = new URL("../../../images/synergy_supply_256.webp", import.meta.url).toString();
+const synergyMoraleImg = new URL("../../../images/synergy_morale_256.webp", import.meta.url).toString();
+const synergyMovementImg = new URL("../../../images/synergy_movement_256.webp", import.meta.url).toString();
+const synergyBreakOnAttackImg = new URL("../../../images/synergy_break_on_attack_256.webp", import.meta.url).toString();
+const synergyAurasRangeImg = new URL("../../../images/synergy_auras_range_256.webp", import.meta.url).toString();
+const synergyAbilitiesPowerImg = new URL(
+    "../../../images/synergy_abilities_power_256.webp",
+    import.meta.url,
+).toString();
+const synergyIncreaseBoardUnitsImg = new URL(
+    "../../../images/synergy_increase_board_units_256.webp",
+    import.meta.url,
+).toString();
+const synergyPlusFlyArmorImg = new URL("../../../images/synergy_plus_fly_armor_256.webp", import.meta.url).toString();
+/** Vite may hand the URL back wrapped; unwrap so the <img src> is always a plain string. */
+const synergyIcon = (img: string): string => (img as unknown as { default?: string }).default ?? img;
 
 const SYNERGY_NAME_TO_FACTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: FactionVals.LIFE,
@@ -88,7 +104,14 @@ const SandboxSynergyFactionPanel = ({
 }: {
     faction: string;
     color: string;
-    options: Array<{ label: string; level: number; synergyName: string; synergyValue: number; onSelect: () => void }>;
+    options: Array<{
+        label: string;
+        icon: string;
+        level: number;
+        synergyName: string;
+        synergyValue: number;
+        onSelect: () => void;
+    }>;
     selectedLabel?: string;
 }) => {
     const level = Math.max(0, ...options.map((o) => o.level));
@@ -152,9 +175,20 @@ const SandboxSynergyFactionPanel = ({
                                 color: isSelected ? "#8ff0b4" : "#e9e6df",
                                 fontSize: 12.5,
                                 textAlign: "left",
+                                gap: 1,
                             }}
                         >
-                            {option.label}
+                            <img src={option.icon} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
+                            <span
+                                style={{
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    minWidth: 0,
+                                }}
+                            >
+                                {option.label}
+                            </span>
                         </Box>
                     </Tooltip>
                 );
@@ -856,6 +890,7 @@ const SandboxToggleContainer = ({
                             options={[
                                 {
                                     label: "Supply",
+                                    icon: synergyIcon(synergySupplyImg),
                                     level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
                                     synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
                                     synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
@@ -870,6 +905,7 @@ const SandboxToggleContainer = ({
                                 },
                                 {
                                     label: "Morale & luck",
+                                    icon: synergyIcon(synergyMoraleImg),
                                     level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
                                     synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
                                     synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
@@ -893,6 +929,7 @@ const SandboxToggleContainer = ({
                             options={[
                                 {
                                     label: "Movement",
+                                    icon: synergyIcon(synergyMovementImg),
                                     level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
                                     synergyName: ChaosSynergyNames.MOVEMENT,
                                     synergyValue: ChaosSynergy.MOVEMENT,
@@ -907,6 +944,7 @@ const SandboxToggleContainer = ({
                                 },
                                 {
                                     label: "Break on attack",
+                                    icon: synergyIcon(synergyBreakOnAttackImg),
                                     level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
                                     synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
                                     synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
@@ -930,6 +968,7 @@ const SandboxToggleContainer = ({
                             options={[
                                 {
                                     label: "Auras range",
+                                    icon: synergyIcon(synergyAurasRangeImg),
                                     level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
                                     synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
                                     synergyValue: MightSynergy.PLUS_AURAS_RANGE,
@@ -944,6 +983,7 @@ const SandboxToggleContainer = ({
                                 },
                                 {
                                     label: "Abilities power",
+                                    icon: synergyIcon(synergyAbilitiesPowerImg),
                                     level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
                                     synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
                                     synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
@@ -968,6 +1008,7 @@ const SandboxToggleContainer = ({
                             options={[
                                 {
                                     label: "Board units",
+                                    icon: synergyIcon(synergyIncreaseBoardUnitsImg),
                                     level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
                                     synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
                                     synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
@@ -982,6 +1023,7 @@ const SandboxToggleContainer = ({
                                 },
                                 {
                                     label: "Fly armor",
+                                    icon: synergyIcon(synergyPlusFlyArmorImg),
                                     level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
                                     synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
                                     synergyValue: NatureSynergy.PLUS_FLY_ARMOR,

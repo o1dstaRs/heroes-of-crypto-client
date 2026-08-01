@@ -282,7 +282,9 @@ export const DRAFT_COLUMN = "min(1340px, 97vw)";
 // re-flows: a bigger window (or fullscreen) only paints more background around the same board, a smaller
 // one shrinks the board uniformly instead of growing scrollbars.
 export const DRAFT_BOARD_WIDTH = 1340;
-export const DRAFT_BOARD_HEIGHT = 800;
+// The draft needs enough breathing room for the choice frame, confirmation button and step rail to read as
+// separate beats instead of one vertically crowded stack.
+export const DRAFT_BOARD_HEIGHT = 880;
 const DRAFT_MAX_SCALE = 1.05;
 
 export const draftShellSx = {
@@ -337,7 +339,7 @@ export const useDraftScale = (): number => {
     return scale;
 };
 
-/** The board itself: always 1340x800 internally, only its scale reacts to the window. */
+/** The board itself: always 1340x880 internally, only its scale reacts to the window. */
 export const draftBoardSx = (scale: number) =>
     ({
         position: "relative",
@@ -347,7 +349,7 @@ export const draftBoardSx = (scale: number) =>
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "18px",
+        gap: "26px",
         transform: `scale(${scale})`,
         transformOrigin: "center center",
     }) as const;
@@ -783,7 +785,9 @@ export const PickCommitButton: React.FC<{
             sx={{
                 minHeight: 68,
                 minWidth: "min(520px, 80%)",
-                mt: "calc(18px * -0.7)",
+                // Keep the confirmation action clearly separate from the choice frame above it. The board
+                // owns the vertical rhythm, so this must not pull the button back into the preceding gap.
+                mt: 0,
                 borderRadius: "16px",
                 border: `2px solid ${isYourTurn ? "rgba(214,240,200,0.55)" : "rgba(255,205,195,0.5)"}`,
                 background: !isYourTurn
@@ -943,7 +947,7 @@ const BundlePanel: React.FC<{
                             sx={{
                                 alignItems: "center",
                                 justifyContent: "center",
-                                gap: 2,
+                                gap: 3,
                                 flex: "1 1 auto",
                                 minHeight: 0,
                             }}
@@ -1046,7 +1050,7 @@ export const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }
             height: "100%",
             minHeight: 0,
             overflow: "hidden",
-            p: "22px",
+            p: "26px 22px",
             borderRadius: "30px",
             bgcolor: "rgba(255,255,255,0.025)",
             border: "2px solid rgba(255,255,255,0.1)",
@@ -2231,7 +2235,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
 
                 {/* The rail sits at the bottom of the screen: the step you are on is the screen itself, the rail
                 is only there to show how far the draft has come. */}
-                <Box sx={{ mt: "auto", pt: 3, width: "100%", display: "flex", justifyContent: "center" }}>
+                <Box sx={{ mt: "auto", pt: 4, width: "100%", display: "flex", justifyContent: "center" }}>
                     <DraftStepper step={currentStep(pickPhase, requiredLevel)} userTeam={userTeam} />
                 </Box>
             </Box>
