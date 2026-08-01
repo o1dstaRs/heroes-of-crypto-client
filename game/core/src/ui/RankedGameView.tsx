@@ -56,7 +56,6 @@ import {
 import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/LocalModelOpponent";
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
-import DraggableToolbar from "./DraggableToolbar";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { BoardEdgeTrim } from "./boardEdgeTrim";
 import LeftSideBar from "./LeftSideBar";
@@ -1718,7 +1717,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                                 onHome={() => navigate("/play")}
                             />
                         )}
-                    {gameStarted && !isObserver && <DraggableToolbar />}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
@@ -2273,7 +2271,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // locked in (and any leftover point is always spendable: every augment step-up costs exactly 1).
     const [augmentReady, setAugmentReady] = useState<{ pointsRemaining: number; allSynergiesSelected: boolean }>({
         pointsRemaining: 1,
-        allSynergiesSelected: true,
+        allSynergiesSelected: false,
     });
     // Same fit-to-window scale the pick/ban board uses, so the augment step never re-flows either.
     const draftScale = useDraftScale();

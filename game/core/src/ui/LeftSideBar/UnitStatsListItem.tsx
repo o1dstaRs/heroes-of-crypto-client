@@ -10,6 +10,7 @@ import {
     TeamType,
     ToFactionName,
     SynergyKeysToPower,
+    HoCConfig,
 } from "@heroesofcrypto/common";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { Box } from "@mui/joy";
@@ -29,6 +30,7 @@ import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../scenes/VisibleState";
 import SynergiesRow from "./SynergiesRow";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
+import { ScrollIcon } from "../svg/scroll";
 import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";
 import { FistIcon } from "../svg/fist";
@@ -804,6 +806,18 @@ const EffectTiles: React.FC<{
 // Gold-friendly green/red for a modified stat: bright enough to read against the dark plate without
 // fighting the parchment numbers around them.
 
+const MOD_UP_COLOR = "#7ee787";
+const MOD_DOWN_COLOR = "#ff8a7a";
+
+/**
+ * The signed delta a buff/debuff applied, as the text shown beside the stat -- "+2", "-1".
+ *
+ * The AMOUNT is the point: the number displayed is already the modified one, so a tint alone tells you
+ * something changed but not what it cost. Empty when the stat is at its base, so unmodified stats stay
+ * plain parchment.
+ */
+const modLabel = (delta: number): string => (delta ? `${delta > 0 ? "+" : ""}${Number(delta.toFixed(2))}` : "");
+
 const StatValue = React.forwardRef<
     HTMLDivElement,
     {
@@ -811,11 +825,12 @@ const StatValue = React.forwardRef<
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
+        /** Signed delta text ("+2", "-1"); empty when the stat is at its base value. */
+        modifier?: string;
     } & React.HTMLAttributes<HTMLDivElement>
->(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
-    // One number per stat, and it is the effective one: base, buffs, debuffs and multipliers already
-    // folded in. The old treatment printed the delta beside it ("3 +0.1", "0 -1"), which put two figures
-    // in a cell the width of one and left the reader doing the arithmetic the game had already done.
+>(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
+    // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
+    // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
     <Box
         ref={ref}
         {...tooltipProps}
@@ -824,8 +839,32 @@ const StatValue = React.forwardRef<
         {React.cloneElement(icon, {
             sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
         })}
-        <Typography fontSize={`${metrics.statFontRem}rem`} component="span" sx={{ whiteSpace: "nowrap" }}>
+        <Typography
+            fontSize={`${metrics.statFontRem}rem`}
+            component="span"
+            sx={{
+                whiteSpace: "nowrap",
+                // A buffed or debuffed stat is TINTED, and carries a small caret. The rebuild dropped the
+                // old treatment -- a pulsing green/red ring around the whole cell -- because on a creature
+                // with a permanent modifier it sat on screen all fight and read as clutter. The
+                // information still matters, so it moves onto the number itself: no animation, no extra
+                // chrome, and the caret keeps it readable without relying on colour alone.
+            }}
+        >
             {value}
+            {modifier && (
+                <Box
+                    component="span"
+                    sx={{
+                        fontSize: "0.78em",
+                        ml: "2px",
+                        fontWeight: 700,
+                        color: modifier.startsWith("-") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
+                    }}
+                >
+                    {modifier}
+                </Box>
+            )}
         </Typography>
     </Box>
 ));
@@ -952,8 +991,22 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
+    modifier?: string;
+    secondModifier?: string;
+}> = ({
+    icon,
+    value,
+    tooltip,
+    color,
+    metrics,
+    secondIcon,
+    secondValue,
+    secondColor,
+    secondTooltip,
+    modifier,
+    secondModifier,
+}) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
 
     return (
         <Box
@@ -978,7 +1031,13 @@ const StatItem: React.FC<{
             </Tooltip>
             {secondIcon && secondValue !== undefined && (
                 <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
-                    <StatValue icon={secondIcon} value={secondValue} color={secondColor ?? color} metrics={metrics} />
+                    <StatValue
+                        icon={secondIcon}
+                        value={secondValue}
+                        color={secondColor ?? color}
+                        metrics={metrics}
+                        modifier={secondModifier}
+                    />
                 </Tooltip>
             )}
         </Box>
@@ -1024,6 +1083,40 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
+    // magic_resist_mod and range_shots_mod REPLACE their base rather than adding to it (Enchanted Skin
+    // sets the resist outright), so the delta has to be computed against the base instead of printed
+    // straight -- "+40" would be wrong for a mod that means "40 total".
+    const magicResistDelta = unitProperties.magic_resist_mod
+        ? Math.round(unitProperties.magic_resist_mod) - Math.round(unitProperties.magic_resist)
+        : 0;
+    const rangeShotsDelta = unitProperties.range_shots_mod
+        ? Math.round(unitProperties.range_shots_mod) - Math.round(unitProperties.range_shots)
+        : 0;
+
+    // Additive first, then the multiplier — the same order and shape mainline used.
+    const attackModifierLabel = [
+        modLabel(unitProperties.attack_mod),
+        unitProperties.attack_multiplier !== 1 ? `x${Number(unitProperties.attack_multiplier.toFixed(2))}` : "",
+    ]
+        .filter(Boolean)
+        .join(" ");
+
+    // Luck's display delta has to be DERIVED, not read from luck_mod.
+    //
+    // In the sandbox luck_mod carries the buff and the delta is just that. In ranked it is hardcoded to 0:
+    // the server ships luck already rolled (auras + the per-turn spread) with luck_authoritative set, so
+    // adjustBaseStats keeps it verbatim. Writing the delta into luck_mod to make the HUD work would be a
+    // gameplay bug, because getLuck() sums luck + luck_mod -- it would inflate real damage rolls and
+    // ability chances, not just this label. So the effective total is diffed against the creature's
+    // configured base instead, which is display-only and correct on both paths.
+    const configuredLuck = HoCConfig.getCreatureConfig(
+        unitProperties.team,
+        ToFactionName[unitProperties.faction],
+        unitProperties.name,
+        unitProperties.large_texture_name,
+        0,
+    ).luck;
+    const luckDelta = Math.round(unitProperties.luck + unitProperties.luck_mod) - Math.round(configuredLuck);
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -1057,6 +1150,7 @@ const UnitStatsLayout: React.FC<{
                 // Fireforged Sword, Warlord's Edge...) move attack_mod, which is ADDITIVE and already folded
                 // into the number above -- so without printing it the buff simply disappeared into the stat.
                 // attack_multiplier is separate and multiplicative. Mainline printed both, e.g. "+5 x1.5".
+                modifier={attackModifierLabel}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
@@ -1067,6 +1161,8 @@ const UnitStatsLayout: React.FC<{
                 tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
+                modifier={modLabel(unitProperties.armor_mod)}
+                secondModifier={modLabel(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
@@ -1079,6 +1175,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MagicShieldIcon />}
                 value={`${Math.round(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
+                modifier={modLabel(magicResistDelta)}
                 tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
@@ -1088,6 +1185,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                 value={Math.floor(unitProperties.steps + stepsMod)}
+                modifier={modLabel(stepsMod)}
                 tooltip="Movement type and number of steps in cells"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
@@ -1102,6 +1200,7 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
+                secondModifier={modLabel(luckDelta)}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
@@ -1110,6 +1209,17 @@ const UnitStatsLayout: React.FC<{
                 secondColor="#ff4040"
                 secondTooltip="Luck raises damage rolls and the power of abilities"
             />
+            {/* Spellbook scroll count: the only readout of how many casts a spellcaster has left —
+                without it, answering that question means opening the spellbook. */}
+            {unitProperties.can_cast_spells && (
+                <StatItem
+                    icon={<ScrollIcon />}
+                    value={unitProperties.spells.length}
+                    tooltip="Magic scrolls left to cast"
+                    color="#add8e6"
+                    metrics={metrics}
+                />
+            )}
             {showRangedStats && (
                 <StatItem
                     icon={<ShotRangeIcon />}
@@ -1123,6 +1233,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<QuiverIcon />}
                     value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                    modifier={modLabel(rangeShotsDelta)}
                     tooltip="Number of ranged shots"
                     color="#cd5c5c"
                     metrics={metrics}
