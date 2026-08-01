@@ -437,11 +437,13 @@ const currentStep = (phase: number, level: number): number => {
 // Who acts on each step, straight from the server's PickPhaseActors: the bundle, the tier-2 artifact and
 // the augments are simultaneous; every creature level alternates, and the side that opens each level flips
 // (L1 and L3 open on the lower/green side, L2 and L4 on the upper/red one).
-const STEP_ORDER: Array<"both" | "lowerFirst" | "upperFirst"> = [
+type DraftStepOrder = "both" | "lowerFirst" | "upperFirst" | "automatic";
+
+const STEP_ORDER: DraftStepOrder[] = [
     "both", // Bundle
     "lowerFirst", // Lvl 1
     "upperFirst", // Lvl 2
-    "both", // Map reveal
+    "automatic", // Map reveal
     "lowerFirst", // Lvl 3
     "both", // Artifact 2
     "upperFirst", // Lvl 4
@@ -449,10 +451,11 @@ const STEP_ORDER: Array<"both" | "lowerFirst" | "upperFirst"> = [
     "both", // Place
 ];
 
-const STEP_ORDER_HINT: Record<"both" | "lowerFirst" | "upperFirst", string> = {
+const STEP_ORDER_HINT: Record<DraftStepOrder, string> = {
     both: "Both players choose at the same time",
     lowerFirst: "Green (lower) picks first, then red (upper)",
     upperFirst: "Red (upper) picks first, then green (lower)",
+    automatic: "Revealed automatically before Level 3",
 };
 
 export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ step, userTeam }) => (
@@ -472,13 +475,22 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
             const order = STEP_ORDER[i];
             // "You" / "Opp" is only meaningful once the server has told us which side we are.
             const youFirst =
-                userTeam === undefined || order === "both"
+                userTeam === undefined || order === "both" || order === "automatic"
                     ? undefined
                     : (order === "lowerFirst") === (userTeam === TeamVals.LOWER);
-            const marker = order === "both" ? "⇄" : youFirst === undefined ? "1·2" : youFirst ? "You" : "Opp";
+            const marker =
+                order === "automatic"
+                    ? "✦"
+                    : order === "both"
+                      ? "⇄"
+                      : youFirst === undefined
+                        ? "1·2"
+                        : youFirst
+                          ? "You"
+                          : "Opp";
             const markerColor = active
                 ? "#241a06"
-                : order === "both"
+                : order === "automatic" || order === "both"
                   ? done
                       ? "#8fcd7d"
                       : "#9aa0ab"
@@ -511,7 +523,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    fontSize: order === "both" ? 17 : 13,
+                                    fontSize: order === "both" || order === "automatic" ? 17 : 13,
                                     fontWeight: 700,
                                     bgcolor: active ? "#dcb158" : done ? "rgba(78,148,80,0.18)" : "#12151d",
                                     border: `2px solid ${active ? "#dcb158" : done ? "#4e9450" : "rgba(255,255,255,0.12)"}`,
