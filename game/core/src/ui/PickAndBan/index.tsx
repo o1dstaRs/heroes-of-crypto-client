@@ -124,8 +124,9 @@ const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label:
     </Tooltip>
 );
 
-// Fixed left-side panel showing the currently inspected (hovered) creature's stats + abilities, so players
-// can read what a unit does before picking it. Renders nothing until a creature is hovered.
+// Top readout showing the currently inspected (hovered) creature's stats + abilities, so players can read
+// what a unit does before picking it. The header always reserves its space; revealing it must not shove the
+// hovered portrait away from the cursor.
 const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = ({ creatureId, armyHp = 0 }) => {
     if (!creatureId) {
         return null;
@@ -142,12 +143,7 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
         <Sheet
             variant="soft"
             sx={{
-                position: "absolute",
-                top: 0,
-                left: "50%",
-                transform: "translateX(-50%)",
-                zIndex: 6,
-                width: "min(1340px, 97vw)",
+                width: "100%",
                 height: 158,
                 overflow: "hidden",
                 p: "12px 20px",
@@ -419,7 +415,7 @@ const phaseAction = (phase: number, level: number): string => {
 };
 
 // The doctrine no longer owns a step of its own — it is answered on the Bundle screen.
-const STEP_LABELS = ["Bundle", "Lvl 1", "Lvl 2", "Lvl 3", "Artifact 2", "Lvl 4", "Augments", "Place"];
+const STEP_LABELS = ["Bundle", "Lvl 1", "Lvl 2", "Map reveal", "Lvl 3", "Artifact 2", "Lvl 4", "Augments", "Place"];
 
 const currentStep = (phase: number, level: number): number => {
     switch (phase) {
@@ -427,12 +423,12 @@ const currentStep = (phase: number, level: number): number => {
         case PickPhaseVals.INITIAL_PICK:
             return 0;
         case PickPhaseVals.ARTIFACT_2:
-            return 4;
+            return 5;
         case PickPhaseVals.AUGMENTS:
         case PickPhaseVals.AUGMENTS_SCOUT:
-            return 6;
+            return 7;
         case PickPhaseVals.PICK:
-            return level === 4 ? 5 : level;
+            return level === 4 ? 6 : level === 3 ? 4 : level;
         default:
             return -1;
     }
@@ -445,6 +441,7 @@ const STEP_ORDER: Array<"both" | "lowerFirst" | "upperFirst"> = [
     "both", // Bundle
     "lowerFirst", // Lvl 1
     "upperFirst", // Lvl 2
+    "both", // Map reveal
     "lowerFirst", // Lvl 3
     "both", // Artifact 2
     "upperFirst", // Lvl 4
@@ -1806,14 +1803,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     }, [pickPhase, perk, busy, sendPerk]);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
-    // The board is drawn at a fixed 1340x800 and only scaled to fit the window — never re-flowed.
+    // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
     const isFullscreen = useIsFullscreen();
-    // Creature currently hovered anywhere in the draft — its stats + abilities show in the detail panel.
-    // The panel floats OVER the army rails and takes the pointer, so hovering a rail slot immediately fires
-    // that slot's mouseleave. Clearing on a short delay (and cancelling it the moment the cursor lands on
-    // the panel, or on another tile) keeps the read-out steady instead of flickering, while still letting it
-    // close for real once the cursor is somewhere else.
+    // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
+    // the reserved header. Clearing on a short delay lets the cursor pass between nearby draft elements
+    // without flashing the readout, while still closing it once the cursor is elsewhere.
     const [inspectedId, setInspectedId] = useState<number>(0);
     const inspectTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const cancelInspectEnd = React.useCallback(() => {
@@ -2060,21 +2055,55 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                     </Typography>
                 </Tooltip>
 
-                <Box sx={{ position: "relative", width: "100%", display: "flex", justifyContent: "center" }}>
-                    <Box onMouseEnter={cancelInspectEnd} onMouseLeave={endInspect}>
-                        <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
-                    </Box>
-                    <DraftTitle
-                        subtitle={
-                            hint && !isCommitPhase ? (
-                                <Typography level="body-sm" sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}>
-                                    {hint}
-                                </Typography>
-                            ) : undefined
-                        }
-                    >
-                        {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
-                    </DraftTitle>
+                {/* The header reserves the inspector's height even when no unit is hovered. That keeps the
+                cards stable under the cursor, and the readout replaces the draft title instead of covering it. */}
+                <Box
+                    sx={{
+                        width: "100%",
+                        minHeight: { xs: "78px", md: "158px" },
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                    onMouseEnter={cancelInspectEnd}
+                    onMouseLeave={endInspect}
+                >
+                    {inspectedId ? (
+                        <>
+                            <Box sx={{ display: { xs: "flex", md: "none" }, justifyContent: "center" }}>
+                                <DraftTitle
+                                    subtitle={
+                                        hint && !isCommitPhase ? (
+                                            <Typography
+                                                level="body-sm"
+                                                sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
+                                            >
+                                                {hint}
+                                            </Typography>
+                                        ) : undefined
+                                    }
+                                >
+                                    {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
+                                </DraftTitle>
+                            </Box>
+                            <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
+                        </>
+                    ) : (
+                        <DraftTitle
+                            subtitle={
+                                hint && !isCommitPhase ? (
+                                    <Typography
+                                        level="body-sm"
+                                        sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
+                                    >
+                                        {hint}
+                                    </Typography>
+                                ) : undefined
+                            }
+                        >
+                            {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
+                        </DraftTitle>
+                    )}
                 </Box>
 
                 <Box
@@ -2108,9 +2137,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                         👉 {phaseAction(pickPhase, requiredLevel)}
                     </Typography>
                 )}
-
-                {/* Purely a hover read-out: anchored to the title band it covers, takes no layout space and
-                clears the moment the cursor leaves a portrait. */}
 
                 {pickPhase !== PickPhaseVals.PERK && (
                     <>
@@ -2151,8 +2177,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                     </>
                 )}
 
-                {/* The hover stat bar is absolutely positioned against this wrapper, so it floats just above the
-                pick grid instead of pinning itself to the viewport's left edge. */}
+                {/* Flexible slot for the phase's choice frame. It consumes the remaining board height without
+                affecting the reserved header, confirmation action or draft rail. */}
                 <Box
                     sx={{
                         position: "relative",
