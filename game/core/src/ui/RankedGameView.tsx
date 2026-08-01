@@ -1665,7 +1665,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         they are used. */}
                     <BoardEdgeTrim windowSize={windowSize} />
                     <ViewerTeamContext.Provider value={viewerTeam}>
-                        <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                        <LeftSideBar
+                            gameStarted={gameStarted}
+                            windowSize={windowSize}
+                            showSelectedUnitSynergies={false}
+                        />
                     </ViewerTeamContext.Provider>
                     <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
                     {gameStarted && <RankedSynergiesPanel snapshot={snapshot} userTeam={userTeam} />}

@@ -81,7 +81,14 @@ const emptyImpact = {} as IVisibleOverallImpact;
 // card into nothing — the point where the screen is simply too short for the panel.
 const MIN_CARD_HEIGHT = 140;
 
-export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: boolean; windowSize: IWindowSize }) {
+type LeftSideBarProps = {
+    gameStarted: boolean;
+    windowSize: IWindowSize;
+    /** Ranked has its own top-left panel with both players' active synergies. */
+    showSelectedUnitSynergies?: boolean;
+};
+
+export default function LeftSideBar({ gameStarted, windowSize, showSelectedUnitSynergies = true }: LeftSideBarProps) {
     const [barSize, setBarSize] = useState(280);
     // Height actually left for the unit card once the synergy strip, the turn panel and the up-next queue
     // have taken theirs. Measured rather than derived, because those blocks resize with the content.
@@ -246,13 +253,15 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                         display: "flex",
                         alignItems: "center",
                         flexShrink: 0,
-                        height: stripSynergies.length ? "auto" : 0,
-                        opacity: stripSynergies.length ? 1 : 0,
+                        height: showSelectedUnitSynergies && stripSynergies.length ? "auto" : 0,
+                        opacity: showSelectedUnitSynergies && stripSynergies.length ? 1 : 0,
                         overflow: "hidden",
                         transition: "opacity 160ms ease-out",
                     }}
                 >
-                    {stripSynergies.length > 0 && <SynergiesRow synergies={stripSynergies} wrap />}
+                    {showSelectedUnitSynergies && stripSynergies.length > 0 && (
+                        <SynergiesRow synergies={stripSynergies} wrap />
+                    )}
                 </Box>
                 <Box
                     ref={attachViewport}
