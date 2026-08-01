@@ -295,6 +295,28 @@ export class UnitsOverlay {
 
         return false;
     }
+    /**
+     * DEV automation/QA: canvas-space centers of everything currently clickable — the level tabs and the
+     * expanded band's chips (each with the unit it must select). Lets a browser rig click every chip and
+     * assert the selection matches instead of guessing coordinates.
+     */
+    public getDebugClickMap(): {
+        tabs: { level: number; x: number; y: number }[];
+        chips: { name: string; x: number; y: number }[];
+        selectedLevel: number;
+    } {
+        const center = (b: { x: number; y: number; width: number; height: number }) => ({
+            x: b.x + b.width / 2,
+            y: b.y + b.height / 2,
+        });
+        const tabs = this.levelTabs.map((tab) => ({ level: tab.level, ...center(tab.cont.getBounds()) }));
+        const chips: { name: string; x: number; y: number }[] = [];
+        for (const chip of this.allChips) {
+            if (!isVisibleThroughAncestor(chip, this.rowsContainer)) continue;
+            chips.push({ name: (chip as UnitChip).nameKey as string, ...center(chip.getBounds()) });
+        }
+        return { tabs, chips, selectedLevel: this.selectedLevel };
+    }
     public getUnitProperties(unitName: string): UnitProperties {
         let faction: FactionType = FactionVals.NO_FACTION;
         const target = unitName;
@@ -398,7 +420,9 @@ export class UnitsOverlay {
 
                 for (const unitName of namesForLevel) {
                     const unitProperties = this.getUnitProperties(unitName);
-                    const tex = this.getTex(unitToTextureName(unitName, TextureType.SMALL, sizeFlag));
+                    // 512 art: the chips render at ~90css px (180 device px on retina), where the small
+                    // 128/256 textures visibly blur. The 512s are already loaded for the board units.
+                    const tex = this.getTex(unitToTextureName(unitName, TextureType.LARGE, sizeFlag));
 
                     const chip = new UnitChip({
                         unitName,
