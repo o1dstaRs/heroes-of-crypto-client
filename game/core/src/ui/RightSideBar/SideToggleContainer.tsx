@@ -157,8 +157,9 @@ const SynergyFactionPanel = ({
                     gap: 1,
                     flex: "1 1 auto",
                     minWidth: 0,
-                    // Narrow host: the two variant pills stack instead of sharing one cramped row.
-                    "@container augframe (max-width: 520px)": { flexDirection: "column" },
+                    // Narrow host: the two variants stay side by side as compact tiles (see the pill's own
+                    // narrow rules) — stacked full-width bars read twice too wide for an icon and a word.
+                    "@container augframe (max-width: 520px)": { gap: 0.75 },
                 }}
             >
                 {options.map((option) => {
@@ -192,22 +193,52 @@ const SynergyFactionPanel = ({
                                     color: isSelected ? "#8ff0b4" : "#e9e6df",
                                     fontSize: 13,
                                     textAlign: "left",
+                                    minWidth: 0,
+                                    "@container augframe (max-width: 520px)": {
+                                        flexDirection: "column",
+                                        gap: 0.5,
+                                        p: "6px 4px",
+                                        fontSize: 11,
+                                        textAlign: "center",
+                                    },
                                 }}
                             >
-                                <img src={option.icon} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
-                                <span
-                                    style={{
+                                <Box
+                                    component="img"
+                                    src={option.icon}
+                                    alt=""
+                                    sx={{
+                                        width: 22,
+                                        height: 22,
+                                        objectFit: "contain",
+                                        "@container augframe (max-width: 520px)": { width: 26, height: 26 },
+                                    }}
+                                />
+                                <Box
+                                    component="span"
+                                    sx={{
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                         whiteSpace: "nowrap",
                                         minWidth: 0,
+                                        maxWidth: "100%",
                                     }}
                                 >
                                     {option.label}
-                                </span>
-                                <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
+                                </Box>
+                                {/* The header already reads "level N" — in the compact tiles the per-pill
+                                    tag is dropped rather than squeezed. */}
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        marginLeft: "auto",
+                                        opacity: 0.7,
+                                        fontSize: 12,
+                                        "@container augframe (max-width: 520px)": { display: "none" },
+                                    }}
+                                >
                                     {option.level > 0 ? `lvl ${option.level}` : ""}
-                                </span>
+                                </Box>
                             </Box>
                         </Tooltip>
                     );
