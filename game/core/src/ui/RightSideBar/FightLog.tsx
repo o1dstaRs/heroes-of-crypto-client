@@ -36,8 +36,10 @@ interface ILogEntry {
     text: string;
 }
 
-// Cap the rendered rows: a long fight produces a lot of lines and we only ever see the newest.
-const MAX_ENTRIES = 60;
+// Render the WHOLE fight (owner call 2026-08-01: the log must scroll back to the first event —
+// the old 60-row cap silently discarded everything older). The bound is a runaway backstop only:
+// real fights produce a few hundred lines, far below it.
+const MAX_ENTRIES = 5000;
 
 const splitLines = (text: string): string[] => (text ? text.split("\n").filter((l) => l.length > 0) : []);
 
