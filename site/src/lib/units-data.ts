@@ -196,8 +196,8 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
         "Каждая попавшая прямая атака имеет шанс навсегда отключить и украсть одну случайную активную способность цели.",
     ],
     Chakram: [
-        "Дальние атаки рикошетят по полукругу в следующего врага, до {} раз.",
-        "Каждый отскок наносит ~100% урона (90–110% в зависимости от удачи) и никогда не задевает союзников.",
+        "Максимум целей: {}. Дальняя атака поражает выбранного врага, затем рикошетит к ближайшим подходящим врагам.",
+        "Зазор в 1 клетку сохраняет полный урон; зазор в 2 клетки снижает его вдвое. Каждый враг получает удар один раз, союзники не задеваются.",
     ],
     "Rallying Volley Aura": ["Союзные стрелки в радиусе получают +{} выстрела."],
     "Guiding Winds Aura": ["Союзные стрелки в радиусе ауры стреляют на {}% дальше."],
@@ -247,9 +247,8 @@ function abilityDescription(name: string, language: "en" | "ru" = "en"): string 
         const p = ability.power;
         return joined.replace("{}", String(Math.round(p * 2))).replace("{}", String(Math.round(p)));
     }
-    // Chakram's "{}" is the bounce budget, which is the caster's stack power (chakramBounceBudget clamps
-    // it to 1..MAX_UNIT_STACK_POWER) — NOT `power`, which is the ~100% per-bounce damage. Substituting
-    // power here printed "up to 100 times".
+    // Chakram's "{}" is the maximum TOTAL target count, including the chosen target. It follows the
+    // caster's stack power (1..MAX_UNIT_STACK_POWER), not `power`, which is its damage percentage.
     if (name === "Chakram") {
         return joined.replace("{}", String(MAX_UNIT_STACK_POWER));
     }

@@ -572,6 +572,31 @@ describe("ranked placement scene state", () => {
         expect(descriptionFor(2, 5)).toContain("35% of the time");
     });
 
+    test("prints Chakram's live total-target limit for native and stolen cards", () => {
+        const descriptionFor = (stackPower: number, native: boolean): string => {
+            const state = authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: native ? "zena" : "assimilator",
+                        name: native ? "Zena" : "Peasant",
+                        creatureId: native ? CreatureVals.ZENA : CreatureVals.PEASANT,
+                        abilities: ["Chakram"],
+                        stackPower,
+                    }),
+                ]),
+            );
+            const properties = state.units[0]?.properties;
+            const index = properties?.abilities.indexOf("Chakram") ?? -1;
+            expect(index).toBeGreaterThanOrEqual(0);
+            return properties?.abilities_descriptions[index] ?? "";
+        };
+
+        for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
+            expect(descriptionFor(stackPower, true)).toContain(`Maximum targets: ${stackPower}.`);
+            expect(descriptionFor(stackPower, false)).toContain(`Maximum targets: ${stackPower}.`);
+        }
+    });
+
     test("reconstructs runtime-granted aura mechanics and removes stolen native aura mechanics", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
@@ -971,11 +996,11 @@ describe("revealed opponent roster row", () => {
         expect(Number.isFinite(revealedOpponentRowX(0, 0, MIN_X, MAX_X))).toBe(true);
     });
 
-    test("centers the row in the strip between their zone and their own edge", () => {
-        // UPPER opponent: a 3-row zone ending at y=1920 leaves exactly the top cell row free.
-        expect(revealedOpponentRowY(2048, 1920, STEP, true)).toBe(1984);
+    test("stands the row on the zone's outermost cell row (inside the placement area)", () => {
+        // UPPER opponent: zone boundary at y=1920 -> half a step inside, the center of cell row 14.
+        expect(revealedOpponentRowY(2048, 1920, STEP, true)).toBe(1856);
         // LOWER opponent mirrors it.
-        expect(revealedOpponentRowY(0, 128, STEP, false)).toBe(64);
+        expect(revealedOpponentRowY(0, 128, STEP, false)).toBe(192);
     });
 
     test("sits on the opponent's half once their zone cells are converted to world coordinates", () => {
@@ -987,15 +1012,15 @@ describe("revealed opponent roster row", () => {
         expect(zoneOuterEdgeY).toBe(GridConstants.MAX_Y - STEP);
 
         const rowY = revealedOpponentRowY(GridConstants.MAX_Y, zoneOuterEdgeY, STEP, true);
-        expect(rowY).toBe(1984);
+        expect(rowY).toBe(1856);
         expect(rowY).toBeGreaterThan(GridConstants.MAX_Y / 2);
     });
 
     test("stays on the board when the zone reaches the edge", () => {
         expect(revealedOpponentRowY(2048, 2048, STEP, true)).toBe(2048 - STEP * 0.5);
         expect(revealedOpponentRowY(0, 0, STEP, false)).toBe(STEP * 0.5);
-        // A sliver of a strip is not enough to sit in either.
-        expect(revealedOpponentRowY(2048, 2000, STEP, true)).toBe(2048 - STEP * 0.5);
+        // An edge-adjacent zone boundary still lands the row inside the zone, on a real cell row.
+        expect(revealedOpponentRowY(2048, 2000, STEP, true)).toBe(2000 - STEP * 0.5);
     });
 
     test("shrinks the silhouettes only once the slots get tighter than a large unit", () => {

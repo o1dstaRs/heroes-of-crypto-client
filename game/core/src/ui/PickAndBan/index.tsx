@@ -1,4 +1,5 @@
 import {
+    AllAbilities,
     Artifact,
     ChaosSynergy,
     CREATURES_JSON,
@@ -6,6 +7,7 @@ import {
     getCreatureLevel,
     getCreaturesByLevel,
     HoCConfig,
+    HoCConstants,
     LifeSynergy,
     MightSynergy,
     NatureSynergy,
@@ -85,10 +87,11 @@ const creatureFullConfig = (creatureId: number) => creatureConfigByName.get(crea
 const abilityDescription = (abilityName: string): string => {
     try {
         const cfg = HoCConfig.getAbilityConfig(abilityName);
-        return (cfg.desc ?? [])
-            .join(" ")
-            .replace(/\{\}/g, String(cfg.power ?? ""))
-            .trim();
+        const template = (cfg.desc ?? []).join(" ");
+        if (abilityName === AllAbilities.CHAKRAM_ABILITY_NAME) {
+            return AllAbilities.chakramDescription(template, HoCConstants.MAX_UNIT_STACK_POWER).trim();
+        }
+        return template.replace(/\{\}/g, String(cfg.power ?? "")).trim();
     } catch {
         return "";
     }

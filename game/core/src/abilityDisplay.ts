@@ -1,4 +1,4 @@
-import { HoCConfig } from "@heroesofcrypto/common";
+import { AllAbilities, HoCConfig, HoCConstants } from "@heroesofcrypto/common";
 
 export interface AbilityDisplayMetadata {
     description: string;
@@ -15,13 +15,18 @@ export interface AbilityDisplayMetadata {
  * configuration. Ranked snapshots only carry ability names, so stolen abilities must be reconstructed from
  * the shared ability catalogue before the unit is handed to the regular UI.
  */
-export const getAbilityDisplayMetadata = (abilityName: string): AbilityDisplayMetadata | undefined => {
+export const getAbilityDisplayMetadata = (
+    abilityName: string,
+    stackPower = HoCConstants.MAX_UNIT_STACK_POWER,
+): AbilityDisplayMetadata | undefined => {
     try {
         const ability = HoCConfig.getAbilityConfig(abilityName);
         const descriptionTemplate = ability.desc.join("\n");
         let description: string;
 
-        if (abilityName === "Chain Lightning") {
+        if (abilityName === AllAbilities.CHAKRAM_ABILITY_NAME) {
+            description = AllAbilities.chakramDescription(descriptionTemplate, stackPower);
+        } else if (abilityName === "Chain Lightning") {
             const power = ability.power;
             description = descriptionTemplate
                 .replace("{}", Number(power.toFixed()).toString())

@@ -10155,9 +10155,10 @@ export class Sandbox extends PixiScene {
                         }
 
                         // Chakram (Zena): the disc's separation chain is deterministic, so the hover shows
-                        // the EXACT victims the engine will strike — same resolver, zero drift. Each joins
-                        // the red-highlight set; 2-cell bounces carry their half-damage factor into the
-                        // prediction number.
+                        // the EXACT stack-power-capped victims the engine will strike — same resolver, zero
+                        // drift. The primary is already red; only the remaining 0..4 victims join this
+                        // secondary red-highlight set. Two-cell bounces carry their half-damage factor into
+                        // the prediction number.
                         if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Chakram")) {
                             const chakramPreview = AllAbilities.resolveChakramTrajectory(
                                 this.currentActiveUnit,

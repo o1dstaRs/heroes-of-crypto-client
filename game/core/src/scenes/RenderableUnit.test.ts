@@ -160,6 +160,28 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
             "creature 85% of the time",
         );
     });
+
+    test("replaces Chakram's total-target limit at every stack tier", () => {
+        for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
+            const effectFactory = new EffectFactory();
+            const base = Unit.createUnit(
+                HoCConfig.getCreatureConfig(TeamVals.LOWER, "Might", "Zena", "zena_512", 1),
+                gridSettings,
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            );
+            const unit = RenderableUnit.fromBase(base, () => undefined);
+            unit.setStackPower(stackPower);
+            unit.adjustBaseStats(false, 0, 0, 0, 0, 0, 0);
+
+            const properties = unit.getUnitProperties();
+            const index = properties.abilities.indexOf("Chakram");
+            expect(properties.abilities_descriptions[index]).toContain(`Maximum targets: ${stackPower}.`);
+        }
+    });
 });
 
 describe("RenderableUnit revealed roster card", () => {

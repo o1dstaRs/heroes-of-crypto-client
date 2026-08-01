@@ -1,4 +1,5 @@
 import {
+    AllAbilities,
     allFactions,
     AttackVals,
     Augment,
@@ -115,22 +116,17 @@ export const revealedOpponentRowX = (index: number, total: number, minX: number,
     minX + ((maxX - minX) * (index + 0.5)) / Math.max(1, total);
 
 /**
- * The row's Y: centered in the strip between the opponent's placement zone and THEIR board edge, so the
- * roster reads as standing off-board behind their zone instead of sitting inside it. When that strip is
- * too thin to hold a unit (a zone that reaches the edge), fall back to half a step inside the edge.
+ * The row's Y: half a step INSIDE the opponent's placement zone — the roster stands on their zone's
+ * outermost cell row (owner call 2026-08-01: show the army in its placement area, not hugging the board
+ * edge). One formula covers every zone shape, including zones that reach the edge: half a step inside
+ * the zone boundary is always a real cell row.
  */
 export const revealedOpponentRowY = (
-    edgeY: number,
+    _edgeY: number,
     zoneOuterEdgeY: number,
     step: number,
     isUpperEdge: boolean,
-): number => {
-    if (Math.abs(edgeY - zoneOuterEdgeY) < step * 0.5) {
-        // "Inside" cannot be inferred when the two coincide, hence the explicit edge side.
-        return edgeY + (isUpperEdge ? -step * 0.5 : step * 0.5);
-    }
-    return (edgeY + zoneOuterEdgeY) / 2;
-};
+): number => zoneOuterEdgeY + (isUpperEdge ? -step * 0.5 : step * 0.5);
 
 /**
  * Sprite scale for the roster row. 0.85 keeps a large (2x2) silhouette inside the one-cell strip; past
@@ -363,9 +359,10 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                     return {};
                 }
 
+                const liveStackPower = unitState.stackPower || baseProperties.stack_power;
                 const abilities = unitState.abilities
                     .flatMap((name) => {
-                        const configured = getAbilityDisplayMetadata(name);
+                        const configured = getAbilityDisplayMetadata(name, liveStackPower);
                         if (!configured) {
                             return [];
                         }
@@ -396,7 +393,8 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                         // the unit was in fact swinging at +40%. The snapshot has the live counts; use them.
                         if (
                             ability.name !== BLIND_FURY_ABILITY_NAME &&
-                            ability.name !== MAGIC_REFLECTION_ABILITY_NAME
+                            ability.name !== MAGIC_REFLECTION_ABILITY_NAME &&
+                            ability.name !== AllAbilities.CHAKRAM_ABILITY_NAME
                         ) {
                             return ability;
                         }
@@ -412,6 +410,12 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                                     ),
                                 };
                             }
+                            if (ability.name === AllAbilities.CHAKRAM_ABILITY_NAME) {
+                                return {
+                                    ...ability,
+                                    description: AllAbilities.chakramDescription(template, liveStackPower),
+                                };
+                            }
                             // Magic Reflection scales with the stack and the holder's luck, but the config
                             // carries only the full-stack figure, so the card advertised a flat 75% while a
                             // depleted dragon actually rebounded at 30%.
@@ -420,7 +424,7 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                                 description: magicReflectionDescription(
                                     template,
                                     HoCConfig.getAbilityConfig(ability.name).power,
-                                    unitState.stackPower || baseProperties.stack_power,
+                                    liveStackPower,
                                     unitState.luck,
                                 ),
                             };

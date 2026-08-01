@@ -538,7 +538,7 @@ export abstract class PixiScene {
 
         for (const abilityName of displayedAbilityNames) {
             const activeIndex = unitProperties.abilities.indexOf(abilityName);
-            const configured = getAbilityDisplayMetadata(abilityName);
+            const configured = getAbilityDisplayMetadata(abilityName, unitProperties.stack_power);
             const abilityDescription =
                 (activeIndex >= 0 ? unitProperties.abilities_descriptions[activeIndex] : undefined) ??
                 configured?.description;
