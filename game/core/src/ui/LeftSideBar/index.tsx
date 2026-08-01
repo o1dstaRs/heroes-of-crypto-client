@@ -60,6 +60,7 @@ export const SIDEBAR_BG_IMAGE =
     " url('/textures/sidebar_leather_plain.webp')";
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
+import SynergiesRow from "./SynergiesRow";
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
@@ -171,6 +172,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
     );
 
     const unitProperties = selection.unit || ({} as UnitProperties);
+    const stripSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
 
     // The card is the only elastic block: everything else is pinned, so it both reports its own height
     // (feeding the metrics above) and scales itself down if its content still cannot fit.
@@ -235,8 +237,23 @@ export default function LeftSideBar({ gameStarted, windowSize }: { gameStarted: 
                 }}
             >
                 {/* The team colour is no longer a cloth banner across the bar — it is a fire-like aura
-                    behind the portrait (see UnitStatsListItem). Synergies likewise moved into the unit's
-                    Buffs block, which already scopes them to the right side. */}
+                    behind the portrait (see UnitStatsListItem). */}
+                {/* The selected unit's synergies, back in their old top-of-the-bar strip (the Buffs well
+                    shows only real buffs). Collapses completely when there is nothing to show — reserving
+                    a fixed band cost the card a whole ability row on a 768px-tall screen. */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexShrink: 0,
+                        height: stripSynergies.length ? "auto" : 0,
+                        opacity: stripSynergies.length ? 1 : 0,
+                        overflow: "hidden",
+                        transition: "opacity 160ms ease-out",
+                    }}
+                >
+                    {stripSynergies.length > 0 && <SynergiesRow synergies={stripSynergies} wrap />}
+                </Box>
                 <Box
                     ref={attachViewport}
                     sx={{

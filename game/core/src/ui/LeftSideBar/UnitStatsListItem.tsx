@@ -28,7 +28,6 @@ import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../g
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact, IVisibleOverallImpact } from "../../scenes/VisibleState";
-import SynergiesRow from "./SynergiesRow";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { ScrollIcon } from "../svg/scroll";
 import { BootIcon } from "../svg/boot";
@@ -48,8 +47,6 @@ import Toggler from "../Toggler";
 import {
     SYNERGY_KEY_TO_IMAGE,
     SYNERGY_NAME_TO_DESCRIPTION,
-    isAuraRangeSynergy,
-    isFlyArmorSynergy,
 } from "./SynergiesConstants";
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
@@ -1241,16 +1238,11 @@ const UnitStatsLayout: React.FC<{
             )}
         </>
     );
-    const unitSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
-    // The Buffs well is now the only place synergies appear — the badge column that used to sit against the
-    // portrait's left edge is gone — so everything the army carries shows up there, the supply and
-    // board-slot ones included. Two are still asked about per creature rather than per army, because for
-    // most creatures they are simply untrue: Might's aura range only pays off for a stack that emits an
-    // aura itself, and Nature's armour bonus is handed to flyers only.
-    // Fixed reading order down the Buffs well: the army-wide, whole-fight things first — synergies (drawn
-    // ahead of these), then augments, then artifacts — and the per-turn traffic after them. Ranked rather
-    // than sorted by arrival, so a buff never jumps groups the moment something else expires; the sort is
-    // stable, so inside a group the engine's own order survives.
+    // Fixed reading order down the Buffs well: the army-wide, whole-fight things first — augments, then
+    // artifacts — and the per-turn traffic after them. Ranked rather than sorted by arrival, so a buff
+    // never jumps groups the moment something else expires; the sort is stable, so inside a group the
+    // engine's own order survives. Synergies are NOT buffs: they show in the sidebar's own strip (and
+    // ranked's top-left panel), not in this well.
     const buffRank = (buff: IVisibleImpact): number => {
         if (buff.name.endsWith(" Augment")) return 0;
         if (buff.description.startsWith("Artifact.")) return 1;
@@ -1260,22 +1252,14 @@ const UnitStatsLayout: React.FC<{
         .map((buff, index) => ({ buff, index }))
         .sort((a, b) => buffRank(a.buff) - buffRank(b.buff) || a.index - b.index)
         .map((entry) => entry.buff);
-    const emitsAura = abilities.some((ability) => ability.isAura);
-    const isFlying = unitProperties.movement_type === MovementVals.FLY;
-    const turnSynergies = unitSynergies.filter(
-        (synergyKey) => (emitsAura || !isAuraRangeSynergy(synergyKey)) && (isFlying || !isFlyArmorSynergy(synergyKey)),
-    );
     // Changes only when the well's contents do, so the pin-to-end does not fire on every timer tick.
-    const buffsPinKey = `${turnSynergies.join("|")}#${orderedBuffs.map((buff) => buff.name).join("|")}`;
+    const buffsPinKey = orderedBuffs.map((buff) => buff.name).join("|");
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
     // One row of tiles each; anything beyond that scrolls inside the well rather than growing the card.
     const abilityWellHeight = metrics.abilityCell + 6;
-    // The Buffs well carries synergy badges too, and a badge stands a little taller than a buff tile — it
-    // sits above its level dots. Both wells are sized for the taller of the two on every creature, not
-    // only the ones that happen to have synergies, so the card keeps the same height either way.
-    const effectWellHeight = Math.max(metrics.effectIcon, metrics.synergyIcon + 9) + 6;
+    const effectWellHeight = metrics.effectIcon + 6;
     const layout = bannerLayout(metrics);
     const portraitBox = layout.portrait;
     // What the art actually measures across, which is only the same as the slot for a square frame: an atlas
@@ -1436,11 +1420,8 @@ const UnitStatsLayout: React.FC<{
 
             <PanelSection title="Buffs" metrics={metrics}>
                 <ScrollWell height={effectWellHeight} pinToEnd pinKey={buffsPinKey}>
-                    {/* ONE wrapping row for everything. Synergies and buff tiles used to be two nested flex
-                        containers side by side, which made each of them a single unbreakable item: a couple
-                        of synergy badges claimed a whole line and shoved every buff onto the next one, below
-                        the fold. Both now render `display: contents`, so every badge and tile wraps as its
-                        own item and each line fills the bar's full width. */}
+                    {/* ONE wrapping row: every tile renders `display: contents`, so each wraps as its own
+                        item and each line fills the bar's full width. */}
                     <Box
                         sx={{
                             display: "flex",
@@ -1450,7 +1431,6 @@ const UnitStatsLayout: React.FC<{
                             gap: `${metrics.gapPx * 0.6}px`,
                         }}
                     >
-                        {turnSynergies.length > 0 && <SynergiesRow synergies={turnSynergies} inline />}
                         {orderedBuffs.length > 0 && (
                             <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
                         )}
