@@ -15,10 +15,7 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     return null;
 }
 
-function atlasImageKeyFromUnitAndState(
-    unitName: string,
-    state: string,
-): { key: ImageKey; divider: number } | null {
+function atlasImageKeyFromUnitAndState(unitName: string, state: string): { key: ImageKey; divider: number } | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLower = state.toLowerCase();
 
