@@ -37,8 +37,8 @@ const PRIMARY_SYNERGY_INDEX = 1;
 type GetTexture = (key: string) => Texture | undefined;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
 /**
- * A faction crest. The source art is a square plate with the emblem inside it, so it is masked down to the
- * inscribed circle rather than re-cut on disk — one mask covers all four and the textures stay untouched.
+ * A faction crest. The source art is a square plate with the emblem inside it, shown whole — the mask only
+ * rounds the corners slightly so the plate sits comfortably next to the round collapse toggle.
  */
 type FactionIcon = Readonly<{ type: FactionType; cont: Container; sprite: Sprite; mask: Graphics; ring: Graphics }>;
 type LevelTab = Readonly<{ level: number; cont: Container; plate: Graphics; label: Text }>;
@@ -257,8 +257,22 @@ export class UnitsOverlay {
             }
         }
 
-        // Crests are hover-only now — they describe a race rather than filtering by it, so a click there
-        // falls through to the "clicked empty panel" branch below like any other dead space.
+        // Crest click: select the faction (toggle off on a second click). Any unit selection clears —
+        // the left sidebar switches to the race's synergies, same as it always used to.
+        for (const icon of this.factionIcons) {
+            const b = icon.cont.getBounds();
+            if (!b) continue;
+            if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
+                const next = this.selectedFaction === icon.type ? null : icon.type;
+                this.selectedFaction = next;
+                this.selectedName = null;
+                for (const c of this.allChips) c.setSelected(false);
+                this.updateFactionIconSelection();
+                if (this.onUnitSelected) this.onUnitSelected(null);
+                if (this.onFactionSelected) this.onFactionSelected(next);
+                return true;
+            }
+        }
 
         for (const chip of this.allChips) {
             // Chips of the three collapsed levels are still in this flat list. Their direct bucket remains
@@ -369,10 +383,10 @@ export class UnitsOverlay {
             const ring = new Graphics();
             sprite.mask = mask;
             cont.addChild(sprite, mask, ring);
-            // Hover only: the crests explain what a race brings, they are not a filter you click. Selecting
-            // is reserved for the creatures themselves.
+            // Hover shows the synergy card; a CLICK selects the faction (see handlePointerDown), which
+            // dims the other columns and puts the race's synergies up in the left sidebar.
             cont.eventMode = "static";
-            cont.cursor = "default";
+            cont.cursor = "pointer";
             cont.on("pointerenter", () => this.showCrestTooltip(faction.type));
             cont.on("pointerleave", () => this.hideCrestTooltip());
             this.headerContainer.addChild(cont);
@@ -593,13 +607,18 @@ export class UnitsOverlay {
             const i = this.factions.findIndex((f) => f.type === icon.type);
             icon.cont.position.set(colX(i) + colW * 0.5, headerH * 0.5);
             icon.sprite.width = icon.sprite.height = crestSide;
-            // The emblem is inscribed in the square plate, so the plate's corners are the only thing lost.
-            icon.mask.clear().circle(0, 0, crestR).fill({ color: 0xffffff });
+            // Square plates, whole: only the corners round slightly so the crest doesn't read as a raw
+            // image drop next to the round collapse toggle.
+            const crestCorner = crestSide * 0.12;
+            icon.mask
+                .clear()
+                .roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner)
+                .fill({ color: 0xffffff });
             icon.ring
                 .clear()
-                .circle(0, 0, crestR)
+                .roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner)
                 .stroke({ color: 0xdcb158, width: Math.max(1, crestSide * 0.045), alpha: 0.5 });
-            icon.cont.hitArea = new Circle(0, 0, crestR);
+            icon.cont.hitArea = new Rectangle(-crestR, -crestR, crestSide, crestSide);
         }
 
         // --- Level tabs down the left rail ---
