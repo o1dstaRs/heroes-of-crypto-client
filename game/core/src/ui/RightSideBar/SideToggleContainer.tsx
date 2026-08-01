@@ -94,7 +94,13 @@ const SynergyFactionPanel = ({
                 overflow: "hidden",
                 // Fielded factions sort to the front; "needs 2 units" ones drop to the end.
                 order: locked ? 2 : 1,
-                // the side-by-side layout needs ~500px and pushed the pills clean out of the panel.
+                // The side-by-side layout needs ~500px; in a narrow host (the sandbox/ranked sidebar,
+                // via the augframe container on the component root) everything stacks vertically instead.
+                "@container augframe (max-width: 520px)": {
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    gap: 0.75,
+                },
             }}
         >
             <Box
@@ -104,6 +110,13 @@ const SynergyFactionPanel = ({
                     justifyContent: "center",
                     flex: "0 0 auto",
                     minWidth: 96,
+                    // Narrow host: the label becomes a one-line header — faction left, level right.
+                    "@container augframe (max-width: 520px)": {
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        minWidth: 0,
+                    },
                 }}
             >
                 <Typography
@@ -127,6 +140,8 @@ const SynergyFactionPanel = ({
                     gap: 1,
                     flex: "1 1 auto",
                     minWidth: 0,
+                    // Narrow host: the two variant pills stack instead of sharing one cramped row.
+                    "@container augframe (max-width: 520px)": { flexDirection: "column" },
                 }}
             >
                 {options.map((option) => {
@@ -550,6 +565,13 @@ const SideToggleContainer = ({
                     borderRadius: "30px",
                     bgcolor: "rgba(255,255,255,0.025)",
                     border: "2px solid rgba(255,255,255,0.1)",
+                    // Narrow host (sandbox/ranked sidebar): one faction panel per row, full width —
+                    // two-across left each panel ~90px and clipped the labels.
+                    "@container augframe (max-width: 520px)": {
+                        gridTemplateColumns: "minmax(0, 1fr)",
+                        width: "100%",
+                        borderRadius: "18px",
+                    },
                 }}
             >
                 {lifeAvailable && (
