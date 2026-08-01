@@ -26,18 +26,7 @@ import {
     FactionVals,
 } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
-import {
-    Radio,
-    RadioGroup,
-    FormControl,
-    FormLabel,
-    Sheet,
-    Box,
-    Typography,
-    IconButton,
-    Tooltip,
-    Divider,
-} from "@mui/joy";
+import { Radio, RadioGroup, FormControl, FormLabel, Sheet, Box, Typography, Tooltip } from "@mui/joy";
 import { VisibleSynergyLevel } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { ArtifactToggler } from "./ArtifactToggler";
@@ -45,12 +34,6 @@ import { ArtifactToggler } from "./ArtifactToggler";
 // Above the board's gold edge trim (zIndex 2) and the sidebars (zIndex 1). At the old zIndex 1 the label
 // rendered underneath the frame and was sliced off at the panel's edge.
 const AUGMENT_TOOLTIP_Z = 10000;
-const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
-const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
-const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
-const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", import.meta.url).toString();
-const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
-const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
 
 const SYNERGY_NAME_TO_FACTION = {
     [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: FactionVals.LIFE,
@@ -203,10 +186,6 @@ const PlacementToggler = ({
 
     return (
         <Box sx={{ marginBottom: 0.5 }}>
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
             <Sheet
                 variant="outlined"
                 sx={{
@@ -239,7 +218,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_3}
-                            label="Height 5 full"
+                            label="Height 6 full + edge line"
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_3 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_3
@@ -277,10 +256,6 @@ const ArmorToggler = ({
     return (
         <Box sx={{ marginBottom: 0.5 }}>
             {/* Remaining Points Text (Orange and Bold) */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
             {/* The Toggler Sheet */}
             <Sheet
                 variant="outlined"
@@ -353,10 +328,6 @@ const MightToggler = ({
     return (
         <Box sx={{ marginBottom: 0.5 }}>
             {/* Remaining Points Text (Orange and Bold) */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
             {/* The Toggler Sheet */}
             <Sheet
                 variant="outlined"
@@ -429,10 +400,6 @@ const EmpowerToggler = ({
     return (
         <Box sx={{ marginBottom: 0.5 }}>
             {/* Remaining Points Text (Orange and Bold) */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
             {/* The Toggler Sheet */}
             <Sheet
                 variant="outlined"
@@ -504,10 +471,6 @@ const SniperToggler = ({
 
     return (
         <Box sx={{ marginBottom: 0.5 }}>
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
             <Sheet
                 variant="outlined"
                 sx={{
@@ -584,10 +547,6 @@ const MovementToggler = ({
 
     return (
         <Box sx={{ marginBottom: 0.5 }}>
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1, paddingBottom: 2 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-
             <Sheet
                 variant="outlined"
                 sx={{
@@ -670,35 +629,24 @@ const SandboxToggleContainer = ({
     const [synergyPairMight, setSynergyPairTypeMight] = useState<SelectedSynergy | null>(null);
     const [synergyPairNature, setSynergyPairTypeNature] = useState<SelectedSynergy | null>(null);
 
-    // Function to handle augment button clicks
-    const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement") => {
-        // Second click on the open augment closes it, so the panel is never stuck open.
-        setTogglerType((current) => (current === type ? "None" : type));
-        setOpenTier(null);
-        setSelectedSynergy(null); // Clear selected synergy when switching to augment
-    };
+    // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
+    // change handler carries its category explicitly instead of reading a single-open togglerType.
+    const handleLevelChangeFor =
+        (kind: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement") =>
+        (pointsUsed: number, previousPointsUsed: number) => {
+            if (kind === "Placement") setPlacementSelection(pointsUsed);
+            else if (kind === "Armor") setArmorSelection(pointsUsed);
+            else if (kind === "Might") setMightSelection(pointsUsed);
+            else if (kind === "Empower") setEmpowerSelection(pointsUsed);
+            else if (kind === "Sniper") setSniperSelection(pointsUsed);
+            else setMovementSelection(pointsUsed);
+            // Functional update: two picks landing in one render batch must not read the same stale total.
+            setTotalPoints((previousTotal) => previousTotal + previousPointsUsed - pointsUsed);
+        };
 
     const handleTierToggle = (tier: number) => {
         setOpenTier((current) => (current === tier ? null : tier));
         setTogglerType("None");
-    };
-
-    const handleLevelChange = (pointsUsed: number, previousPointsUsed: number) => {
-        if (togglerType === "Placement") {
-            setPlacementSelection(pointsUsed);
-        } else if (togglerType === "Armor") {
-            setArmorSelection(pointsUsed);
-        } else if (togglerType === "Might") {
-            setMightSelection(pointsUsed);
-        } else if (togglerType === "Empower") {
-            setEmpowerSelection(pointsUsed);
-        } else if (togglerType === "Sniper") {
-            setSniperSelection(pointsUsed);
-        } else {
-            setMovementSelection(pointsUsed);
-        }
-        const remainingPoints = totalPoints + previousPointsUsed - pointsUsed;
-        setTotalPoints(remainingPoints);
     };
 
     const possibleSynergiesObj: Record<string, VisibleSynergyLevel> = {};
@@ -821,179 +769,59 @@ const SandboxToggleContainer = ({
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
-            {/* One row, always. Six 48px icons with gap 2 wrapped onto a second line in a narrow sidebar once
-                Empower made it six, so they now share the row with no gap and shrink to fit. */}
-            <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}>
-                <Tooltip title="Augment board placements" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Placement")}
-                        title="Augment board placements"
-                    >
-                        <img
-                            src={(augmentBoardImg as unknown as { default?: string }).default ?? augmentBoardImg}
-                            alt="Placement Icon"
-                            style={{
-                                filter: togglerType === "Placement" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment armor" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Armor")}
-                        title="Augment armor"
-                    >
-                        <img
-                            src={(augmentArmorImg as unknown as { default?: string }).default ?? augmentArmorImg}
-                            alt="Armor Icon"
-                            style={{
-                                filter: togglerType === "Armor" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment melee attack" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Might")}
-                        title="Augment melee attack"
-                    >
-                        <img
-                            src={(augmentMightImg as unknown as { default?: string }).default ?? augmentMightImg}
-                            alt="Might Icon"
-                            style={{
-                                filter: togglerType === "Might" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment magic damage" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Empower")}
-                        title="Augment magic damage"
-                    >
-                        <img
-                            src={(augmentEmpowerImg as unknown as { default?: string }).default ?? augmentEmpowerImg}
-                            alt="Empower Icon"
-                            style={{
-                                filter: togglerType === "Empower" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment ranged attack" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Sniper")}
-                        title="Augment ranged attack"
-                    >
-                        <img
-                            src={(augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg}
-                            alt="Sniper Icon"
-                            style={{
-                                filter: togglerType === "Sniper" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Augment movement" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
-                    <IconButton
-                        sx={{ p: 0.25, minWidth: 0, flex: "1 1 0" }}
-                        onClick={() => handleAugmentClick("Movement")}
-                        title="Augment movement"
-                    >
-                        <img
-                            src={(augmentMovementImg as unknown as { default?: string }).default ?? augmentMovementImg}
-                            alt="Movement Icon"
-                            style={{
-                                filter: togglerType === "Movement" ? "brightness(1.2)" : "brightness(0.6)",
-                                width: "100%",
-                                height: "auto",
-                                maxWidth: 48,
-                            }}
-                        />
-                    </IconButton>
-                </Tooltip>
-            </Box>
-            <Divider />
-
-            {togglerType !== "None" && (
-                <>
-                    {togglerType === "Placement" ? (
-                        <PlacementToggler
-                            key={teamType}
-                            teamType={teamType}
-                            title={side}
-                            totalPoints={totalPoints}
-                            onLevelChange={handleLevelChange}
-                            currentSelection={placementSelection}
-                        />
-                    ) : togglerType === "Armor" ? (
-                        <ArmorToggler
-                            key={teamType}
-                            teamType={teamType}
-                            title={side}
-                            totalPoints={totalPoints}
-                            onLevelChange={handleLevelChange}
-                            currentSelection={armorSelection}
-                        />
-                    ) : togglerType === "Might" ? (
-                        <MightToggler
-                            key={teamType}
-                            teamType={teamType}
-                            title={side}
-                            totalPoints={totalPoints}
-                            onLevelChange={handleLevelChange}
-                            currentSelection={mightSelection}
-                        />
-                    ) : togglerType === "Empower" ? (
-                        <EmpowerToggler
-                            key={teamType}
-                            teamType={teamType}
-                            title={side}
-                            totalPoints={totalPoints}
-                            onLevelChange={handleLevelChange}
-                            currentSelection={empowerSelection}
-                        />
-                    ) : togglerType === "Sniper" ? (
-                        <SniperToggler
-                            key={teamType}
-                            teamType={teamType}
-                            title={side}
-                            totalPoints={totalPoints}
-                            onLevelChange={handleLevelChange}
-                            currentSelection={sniperSelection}
-                        />
-                    ) : (
-                        <MovementToggler
-                            key={teamType}
-                            teamType={teamType}
-                            title={side}
-                            totalPoints={totalPoints}
-                            onLevelChange={handleLevelChange}
-                            currentSelection={movementSelection}
-                        />
-                    )}
-                </>
-            )}
+            {/* Every augment category on screen at once — the pre-#129 sidebar layout, restored by
+                owner request: no icon row hiding five of the six behind a toggler. */}
+            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1 }}>
+                Remaining Points: {totalPoints}
+            </Typography>
+            <PlacementToggler
+                key={`placement-${teamType}`}
+                teamType={teamType}
+                title={side}
+                totalPoints={totalPoints}
+                onLevelChange={handleLevelChangeFor("Placement")}
+                currentSelection={placementSelection}
+            />
+            <ArmorToggler
+                key={`armor-${teamType}`}
+                teamType={teamType}
+                title={side}
+                totalPoints={totalPoints}
+                onLevelChange={handleLevelChangeFor("Armor")}
+                currentSelection={armorSelection}
+            />
+            <MightToggler
+                key={`might-${teamType}`}
+                teamType={teamType}
+                title={side}
+                totalPoints={totalPoints}
+                onLevelChange={handleLevelChangeFor("Might")}
+                currentSelection={mightSelection}
+            />
+            <EmpowerToggler
+                key={`empower-${teamType}`}
+                teamType={teamType}
+                title={side}
+                totalPoints={totalPoints}
+                onLevelChange={handleLevelChangeFor("Empower")}
+                currentSelection={empowerSelection}
+            />
+            <SniperToggler
+                key={`sniper-${teamType}`}
+                teamType={teamType}
+                title={side}
+                totalPoints={totalPoints}
+                onLevelChange={handleLevelChangeFor("Sniper")}
+                currentSelection={sniperSelection}
+            />
+            <MovementToggler
+                key={`movement-${teamType}`}
+                teamType={teamType}
+                title={side}
+                totalPoints={totalPoints}
+                onLevelChange={handleLevelChangeFor("Movement")}
+                currentSelection={movementSelection}
+            />
 
             {/* Synergies: pick exactly ONE of each drafted faction's two variants — same rule as ranked,
                 stacked vertically for the narrow sidebar. */}
