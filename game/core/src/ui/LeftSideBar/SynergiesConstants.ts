@@ -69,3 +69,11 @@ export const SYNERGY_KEY_TO_IMAGE = {
     "Nature:1:3": synergyIncreaseBoardUnitsImg,
     "Nature:2:3": synergyPlusFlyArmorImg,
 };
+
+// Might's first synergy widens the radius of an aura. That is worth something only to a stack that
+// projects one of its own — standing inside somebody else's wider aura changes nothing about your turn.
+export const isAuraRangeSynergy = (synergyKey: string): boolean => synergyKey.startsWith("Might:1:");
+
+// Nature's second synergy hands its armour bonus to flyers only, so a walker listing it would be reading
+// a promise that never applies to it.
+export const isFlyArmorSynergy = (synergyKey: string): boolean => synergyKey.startsWith("Nature:2:");

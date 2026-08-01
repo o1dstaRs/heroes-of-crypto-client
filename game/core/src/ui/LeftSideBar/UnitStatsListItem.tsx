@@ -1,5 +1,4 @@
 import {
-    HoCConfig,
     HoCConstants,
     UnitProperties,
     AttackVals,
@@ -39,13 +38,17 @@ import { MagicShieldIcon } from "../svg/magic_shield";
 import { MoraleIcon } from "../svg/morale";
 import { QuiverIcon } from "../svg/quiver";
 import { ShieldIcon } from "../svg/shield";
-import { ScrollIcon } from "../svg/scroll";
 import { ShotRangeIcon } from "../svg/shot_range";
 import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
-import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "./SynergiesConstants";
+import {
+    SYNERGY_KEY_TO_IMAGE,
+    SYNERGY_NAME_TO_DESCRIPTION,
+    isAuraRangeSynergy,
+    isFlyArmorSynergy,
+} from "./SynergiesConstants";
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
@@ -618,6 +621,10 @@ const teamAuraKeyframes = {
     },
 } as const;
 
+// The Disguise aura reaches the card under the effect's own name from the local engine and under the
+// ability's name from a ranked snapshot, so both spellings have to be recognised.
+const isDisguise = (name: string): boolean => name === "Disguise" || name === "Disguise Aura";
+
 const STAT_ROW_GAP = 8;
 
 // Slim bronze scrollbar, shared with the Up-next strip.
@@ -635,11 +642,35 @@ export const hocScrollSx = {
 
 // A constant-height well. Whatever the unit carries — one ability or nine buffs — the block occupies the
 // same space and the overflow scrolls, so the card's geometry never depends on the creature.
-const ScrollWell: React.FC<{ height: number; children: React.ReactNode }> = ({ height, children }) => (
-    <Box sx={{ height: `${height}px`, overflowY: "auto", overflowX: "hidden", pr: "2px", ...hocScrollSx }}>
-        {children}
-    </Box>
-);
+const ScrollWell: React.FC<{
+    height: number;
+    children: React.ReactNode;
+    /**
+     * Open on the LAST row instead of the first. What arrives late is what changed — the buff that just
+     * landed — while the head of the list is the same army-wide badges every turn. `pinKey` says when to
+     * re-pin: it changes only when the contents do, so scrolling up to read something stays put until the
+     * next real change rather than being yanked back on every timer tick.
+     */
+    pinToEnd?: boolean;
+    pinKey?: string;
+}> = ({ height, children, pinToEnd = false, pinKey }) => {
+    const wellRef = React.useRef<HTMLDivElement | null>(null);
+    React.useLayoutEffect(() => {
+        if (!pinToEnd || !wellRef.current) {
+            return;
+        }
+        wellRef.current.scrollTop = wellRef.current.scrollHeight;
+    }, [pinToEnd, pinKey]);
+
+    return (
+        <Box
+            ref={wellRef}
+            sx={{ height: `${height}px`, overflowY: "auto", overflowX: "hidden", pr: "2px", ...hocScrollSx }}
+        >
+            {children}
+        </Box>
+    );
+};
 
 // Section caption + the 2px rule under it. Used for Abilities / Buffs / Debuffs here and for Up next in
 // the sidebar itself, so all four headings read as one family.
@@ -693,12 +724,21 @@ const EffectTiles: React.FC<{
     effects: IVisibleImpact[];
     title: string;
     metrics: ISidebarMetrics;
-}> = ({ effects, title, metrics }) => {
+    /** See SynergiesRow's `inline`: hand the tiles to the parent's wrap rather than opening a row of our own. */
+    inline?: boolean;
+}> = ({ effects, title, metrics, inline = false }) => {
     if (!effects.length) return null;
 
     return (
         <>
-            <Box sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: `${metrics.gapPx * 0.6}px` }}>
+            <Box
+                sx={{
+                    display: inline ? "contents" : "flex",
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: `${metrics.gapPx * 0.6}px`,
+                }}
+            >
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
@@ -763,17 +803,6 @@ const EffectTiles: React.FC<{
  */
 // Gold-friendly green/red for a modified stat: bright enough to read against the dark plate without
 // fighting the parchment numbers around them.
-const MOD_UP_COLOR = "#7ee787";
-const MOD_DOWN_COLOR = "#ff8a7a";
-
-/**
- * The signed delta a buff/debuff applied, as the text shown beside the stat -- "+2", "-1".
- *
- * The AMOUNT is the point: the number displayed is already the modified one, so a tint alone tells you
- * something changed but not what it cost. Empty when the stat is at its base, so unmodified stats stay
- * plain parchment.
- */
-const modLabel = (delta: number): string => (delta ? `${delta > 0 ? "+" : ""}${Number(delta.toFixed(2))}` : "");
 
 const StatValue = React.forwardRef<
     HTMLDivElement,
@@ -782,12 +811,11 @@ const StatValue = React.forwardRef<
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
-        /** Signed delta text ("+2", "-1"); empty when the stat is at its base value. */
-        modifier?: string;
     } & React.HTMLAttributes<HTMLDivElement>
->(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
-    // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
-    // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
+>(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
+    // One number per stat, and it is the effective one: base, buffs, debuffs and multipliers already
+    // folded in. The old treatment printed the delta beside it ("3 +0.1", "0 -1"), which put two figures
+    // in a cell the width of one and left the reader doing the arithmetic the game had already done.
     <Box
         ref={ref}
         {...tooltipProps}
@@ -796,36 +824,123 @@ const StatValue = React.forwardRef<
         {React.cloneElement(icon, {
             sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
         })}
-        <Typography
-            fontSize={`${metrics.statFontRem}rem`}
-            component="span"
-            sx={{
-                whiteSpace: "nowrap",
-                // A buffed or debuffed stat is TINTED, and carries a small caret. The rebuild dropped the
-                // old treatment -- a pulsing green/red ring around the whole cell -- because on a creature
-                // with a permanent modifier it sat on screen all fight and read as clutter. The
-                // information still matters, so it moves onto the number itself: no animation, no extra
-                // chrome, and the caret keeps it readable without relying on colour alone.
-            }}
-        >
+        <Typography fontSize={`${metrics.statFontRem}rem`} component="span" sx={{ whiteSpace: "nowrap" }}>
             {value}
-            {modifier && (
-                <Box
-                    component="span"
-                    sx={{
-                        fontSize: "0.78em",
-                        ml: "2px",
-                        fontWeight: 700,
-                        color: modifier.startsWith("-") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
-                    }}
-                >
-                    {modifier}
-                </Box>
-            )}
         </Typography>
     </Box>
 ));
 StatValue.displayName = "StatValue";
+
+const greenBannerImage = new URL("../../../images/overlay_green.webp", import.meta.url).toString();
+const redBannerImage = new URL("../../../images/overlay_red.webp", import.meta.url).toString();
+
+/** Share of the banner image its CLOTH occupies. The rest is the pole overhang and the two finials, which
+ *  stick out past the fabric — measured off the art after the gold side trim was painted out, the swallowtail
+ *  cut away, and the crossbar's arms squeezed in toward the cloth twice (0.673 -> 0.634 -> 0.735 -> 0.801).
+ *
+ *  The arms keep being shortened for the same reason: the banner is sized so its cloth matches the portrait,
+ *  which leaves each arm only the (bar - portrait) / 2 of room the sidebar has spare, and the panel's
+ *  `overflow: hidden` takes off whatever does not fit. */
+const BANNER_CLOTH_FRACTION = 0.801;
+
+/** Where the crenellated gold line ends, as a share of the art's height. This is the banner's anchor: the
+ *  crest comes down to meet the top of the portrait and stops there, and everything else — how tall the
+ *  banner draws, how far it reaches above the card, where the name sits — follows from it.
+ *
+ *  It has to be an anchor rather than a consequence. Solving the height off the name instead left the lift
+ *  tending to a fixed share of the height while the crest stayed at this one, so the two crossed and the
+ *  crest cut further into the portrait the larger the card got. */
+const BANNER_CREST_BOTTOM = 0.1971;
+
+/** Middle of the plain cloth between the foot of the crossbar and the head of the crest — the strip the name
+ *  is printed on, and what it is centred against. The strip was widened in the art to take a larger name:
+ *  at its old height the line of text was taller than the cloth it sat on. */
+const BANNER_NAME_BAND_MID = 0.1204;
+
+/** The name's font, in rem before the sidebar's own scale. */
+const NAME_FONT_REM = 1.22;
+
+/** The stat plate's own 2px rim. The banner's hem runs down behind it, so no strip of bare card shows between
+ *  bright cloth and the plate — that gap plus the near-black rim read as a black rule under the banner. */
+const STAT_PLATE_RIM_PX = 2;
+
+/** The portrait's side, which is also the banner's cloth width.
+ *
+ *  A blurred layer paints roughly one blur radius outside its own box in every direction, and that overspill
+ *  is what the bar's `overflowX: hidden` used to slice into a visible edge — so the flame layers are sized as
+ *  (bar width - 2x their own blur). The portrait matches the innermost of them, 12px of blur inset by 26 a
+ *  side, which is what leaves the glow reading as a ring around the art rather than a rectangle behind it. */
+const portraitBoxPx = (metrics: ISidebarMetrics): number =>
+    Math.round(Math.min(metrics.portraitMax, Math.max(60, metrics.contentWidth - 12 * 2 - 52)));
+
+/** The name line's own height: its font at 1.2 line-height plus its 2px top padding. */
+const nameTextHeightPx = (metrics: ISidebarMetrics): number =>
+    Math.round(NAME_FONT_REM * metrics.fontScale * 16 * 1.2) + 2;
+
+/**
+ * Everything the banner and the name row are laid out from, solved in one place so the pieces cannot drift.
+ *
+ * The crest lands on the top of the portrait; the hem runs down behind the stat plate's rim; and the name is
+ * centred on the strip of plain cloth between the crossbar and the crest. The banner's top edge is already at
+ * the panel's top — which is the screen's top, where nothing clips, it simply is not there — so the name's
+ * room has to come out of the card, not out of a further lift.
+ */
+const bannerLayout = (metrics: ISidebarMetrics) => {
+    const portrait = portraitBoxPx(metrics);
+    const columnGap = Math.round(metrics.gapPx * 0.5);
+    const overhang = columnGap + STAT_PLATE_RIM_PX;
+    // What the height would be if the crest sat exactly on the portrait's top; the lift it implies is then
+    // rounded to whole pixels and the height rebuilt from it, so the hem stays exact either way.
+    const crest = Math.round(BANNER_CREST_BOTTOM * ((portrait + overhang) / (1 - BANNER_CREST_BOTTOM)));
+    const text = nameTextHeightPx(metrics);
+    // Centred on the cloth strip, not on the whole run down to the portrait: the crest is thick enough that
+    // splitting the run in half sat the name high, with the strip's spare cloth all below it.
+    //
+    // These margins are the entire distance from the banner's top to the portrait — the card's column gap
+    // sits lower down, between the portrait and the plate, not under this line. Counting it here pushed the
+    // banner's top up past the panel's own edge.
+    const above = Math.max(0, Math.round(BANNER_NAME_BAND_MID * (crest / BANNER_CREST_BOTTOM) - text / 2));
+    const below = Math.max(0, crest - above - text);
+    const lift = above + text + below;
+    return { portrait, above, below, lift, height: lift + portrait + overhang };
+};
+
+/**
+ * The team's heraldic banner, hung behind the portrait and the stat plate.
+ *
+ * It lives in the card rather than in the sidebar so that it is measured against the portrait it hangs
+ * behind. Positioned in the sidebar instead, both ends had to be guessed, and every change to the card's
+ * metrics broke it.
+ *
+ * Width is set by the CLOTH, not by the image: sized so the fabric matches the ART's own rendered width —
+ * which is not the portrait slot, since an atlas frame taller than it is wide is centred narrower than its
+ * box. Sizing off the slot left the cloth hanging wider than the creature it framed.
+ *
+ * Vertically it is hung from the crest (see bannerLayout): the gold line comes down onto the portrait's top
+ * edge, the name reads as printed on the cloth above it, and the hem runs on past the portrait's foot to
+ * finish behind the stat plate's rim.
+ */
+const teamBannerSx = (layout: ReturnType<typeof bannerLayout>, artWidth: number) =>
+    ({
+        position: "absolute",
+        top: `${-layout.lift}px`,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: `${Math.round(artWidth / BANNER_CLOTH_FRACTION)}px`,
+        // Backstop for the widest bars, where the portrait stops growing but the card does not: the arms are
+        // cut to fit the room a normal bar leaves, and past that the whole banner steps down a little rather
+        // than having its finials sliced off by the panel's `overflow: hidden`.
+        maxWidth: "100%",
+        height: `${layout.height}px`,
+        objectFit: "fill",
+        // Behind the portrait (zIndex 1) and the stat plate, which is given its own zIndex for the purpose:
+        // a positioned element at 0 still paints over a static sibling, which is why the swallowtail was
+        // crossing the stat rows.
+        zIndex: 0,
+        pointerEvents: "none",
+        transition: "opacity 220ms ease-out",
+        willChange: "opacity",
+    }) as const;
 
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
@@ -837,22 +952,8 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-    modifier?: string;
-    secondModifier?: string;
-}> = ({
-    icon,
-    value,
-    tooltip,
-    color,
-    metrics,
-    secondIcon,
-    secondValue,
-    secondColor,
-    secondTooltip,
-    modifier,
-    secondModifier,
-}) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
+}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
 
     return (
         <Box
@@ -877,13 +978,7 @@ const StatItem: React.FC<{
             </Tooltip>
             {secondIcon && secondValue !== undefined && (
                 <Tooltip title={secondTooltip ?? ""} sx={commonTooltipSx}>
-                    <StatValue
-                        icon={secondIcon}
-                        value={secondValue}
-                        color={secondColor ?? color}
-                        metrics={metrics}
-                        modifier={secondModifier}
-                    />
+                    <StatValue icon={secondIcon} value={secondValue} color={secondColor ?? color} metrics={metrics} />
                 </Tooltip>
             )}
         </Box>
@@ -929,40 +1024,6 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
-    // magic_resist_mod and range_shots_mod REPLACE their base rather than adding to it (Enchanted Skin
-    // sets the resist outright), so the delta has to be computed against the base instead of printed
-    // straight -- "+40" would be wrong for a mod that means "40 total".
-    const magicResistDelta = unitProperties.magic_resist_mod
-        ? Math.round(unitProperties.magic_resist_mod) - Math.round(unitProperties.magic_resist)
-        : 0;
-    const rangeShotsDelta = unitProperties.range_shots_mod
-        ? Math.round(unitProperties.range_shots_mod) - Math.round(unitProperties.range_shots)
-        : 0;
-
-    // Additive first, then the multiplier — the same order and shape mainline used.
-    const attackModifierLabel = [
-        modLabel(unitProperties.attack_mod),
-        unitProperties.attack_multiplier !== 1 ? `x${Number(unitProperties.attack_multiplier.toFixed(2))}` : "",
-    ]
-        .filter(Boolean)
-        .join(" ");
-
-    // Luck's display delta has to be DERIVED, not read from luck_mod.
-    //
-    // In the sandbox luck_mod carries the buff and the delta is just that. In ranked it is hardcoded to 0:
-    // the server ships luck already rolled (auras + the per-turn spread) with luck_authoritative set, so
-    // adjustBaseStats keeps it verbatim. Writing the delta into luck_mod to make the HUD work would be a
-    // gameplay bug, because getLuck() sums luck + luck_mod -- it would inflate real damage rolls and
-    // ability chances, not just this label. So the effective total is diffed against the creature's
-    // configured base instead, which is display-only and correct on both paths.
-    const configuredLuck = HoCConfig.getCreatureConfig(
-        unitProperties.team,
-        ToFactionName[unitProperties.faction],
-        unitProperties.name,
-        unitProperties.large_texture_name,
-        0,
-    ).luck;
-    const luckDelta = Math.round(unitProperties.luck + unitProperties.luck_mod) - Math.round(configuredLuck);
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -996,7 +1057,6 @@ const UnitStatsLayout: React.FC<{
                 // Fireforged Sword, Warlord's Edge...) move attack_mod, which is ADDITIVE and already folded
                 // into the number above -- so without printing it the buff simply disappeared into the stat.
                 // attack_multiplier is separate and multiplicative. Mainline printed both, e.g. "+5 x1.5".
-                modifier={attackModifierLabel}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
@@ -1007,8 +1067,6 @@ const UnitStatsLayout: React.FC<{
                 tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
-                modifier={modLabel(unitProperties.armor_mod)}
-                secondModifier={modLabel(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
@@ -1021,7 +1079,6 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MagicShieldIcon />}
                 value={`${Math.round(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
-                modifier={modLabel(magicResistDelta)}
                 tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
@@ -1031,7 +1088,6 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                 value={Math.floor(unitProperties.steps + stepsMod)}
-                modifier={modLabel(stepsMod)}
                 tooltip="Movement type and number of steps in cells"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
@@ -1046,7 +1102,6 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={Math.round(unitProperties.morale)}
-                secondModifier={modLabel(luckDelta)}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
@@ -1055,18 +1110,6 @@ const UnitStatsLayout: React.FC<{
                 secondColor="#ff4040"
                 secondTooltip="Luck raises damage rolls and the power of abilities"
             />
-            {/* Spellbook scroll count. Dropped in the sidebar rebuild -- it is the only readout of how many
-                casts a spellcaster has left, so losing it meant checking the spellbook to answer a question
-                the stat block used to answer at a glance. */}
-            {unitProperties.can_cast_spells && (
-                <StatItem
-                    icon={<ScrollIcon />}
-                    value={unitProperties.spells.length}
-                    tooltip="Magic scrolls left to cast"
-                    color="#add8e6"
-                    metrics={metrics}
-                />
-            )}
             {showRangedStats && (
                 <StatItem
                     icon={<ShotRangeIcon />}
@@ -1080,7 +1123,6 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<QuiverIcon />}
                     value={unitProperties.range_shots_mod || unitProperties.range_shots}
-                    modifier={modLabel(rangeShotsDelta)}
                     tooltip="Number of ranged shots"
                     color="#cd5c5c"
                     metrics={metrics}
@@ -1089,23 +1131,53 @@ const UnitStatsLayout: React.FC<{
         </>
     );
     const unitSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
+    // The Buffs well is now the only place synergies appear — the badge column that used to sit against the
+    // portrait's left edge is gone — so everything the army carries shows up there, the supply and
+    // board-slot ones included. Two are still asked about per creature rather than per army, because for
+    // most creatures they are simply untrue: Might's aura range only pays off for a stack that emits an
+    // aura itself, and Nature's armour bonus is handed to flyers only.
+    // Fixed reading order down the Buffs well: the army-wide, whole-fight things first — synergies (drawn
+    // ahead of these), then augments, then artifacts — and the per-turn traffic after them. Ranked rather
+    // than sorted by arrival, so a buff never jumps groups the moment something else expires; the sort is
+    // stable, so inside a group the engine's own order survives.
+    const buffRank = (buff: IVisibleImpact): number => {
+        if (buff.name.endsWith(" Augment")) return 0;
+        if (buff.description.startsWith("Artifact.")) return 1;
+        return 2;
+    };
+    const orderedBuffs = buffs
+        .map((buff, index) => ({ buff, index }))
+        .sort((a, b) => buffRank(a.buff) - buffRank(b.buff) || a.index - b.index)
+        .map((entry) => entry.buff);
+    const emitsAura = abilities.some((ability) => ability.isAura);
+    const isFlying = unitProperties.movement_type === MovementVals.FLY;
+    const turnSynergies = unitSynergies.filter(
+        (synergyKey) => (emitsAura || !isAuraRangeSynergy(synergyKey)) && (isFlying || !isFlyArmorSynergy(synergyKey)),
+    );
+    // Changes only when the well's contents do, so the pin-to-end does not fire on every timer tick.
+    const buffsPinKey = `${turnSynergies.join("|")}#${orderedBuffs.map((buff) => buff.name).join("|")}`;
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
     // One row of tiles each; anything beyond that scrolls inside the well rather than growing the card.
     const abilityWellHeight = metrics.abilityCell + 6;
-    const effectWellHeight = metrics.effectIcon + 6;
-    // A blurred layer paints well outside its own box — roughly one blur radius in every direction — and
-    // that overspill is what the bar's `overflowX: hidden` was slicing into a visible edge. So each layer
-    // is sized as (bar width - 2x its own blur), which makes it fade to nothing before it ever reaches the
-    // panel edge. The portrait then matches the innermost layer, so the glow reads as a ring around it.
-    const flameBlur = { outer: 26, mid: 18, inner: 12 };
-    const flameWidth = {
-        outer: Math.max(80, metrics.contentWidth - flameBlur.outer * 2),
-        mid: Math.max(70, metrics.contentWidth - flameBlur.mid * 2 - 26),
-        inner: Math.max(60, metrics.contentWidth - flameBlur.inner * 2 - 52),
-    };
-    const portraitBox = Math.round(Math.min(metrics.portraitMax, flameWidth.inner));
+    // The Buffs well carries synergy badges too, and a badge stands a little taller than a buff tile — it
+    // sits above its level dots. Both wells are sized for the taller of the two on every creature, not
+    // only the ones that happen to have synergies, so the card keeps the same height either way.
+    const effectWellHeight = Math.max(metrics.effectIcon, metrics.synergyIcon + 9) + 6;
+    const layout = bannerLayout(metrics);
+    const portraitBox = layout.portrait;
+    // What the art actually measures across, which is only the same as the slot for a square frame: an atlas
+    // frame is capped on HEIGHT and keeps its aspect, so a tall one draws narrower and centres. The banner's
+    // cloth is matched to this, not to the slot.
+    const portraitArtWidth = animationConfig?.meta
+        ? Math.min(
+              portraitBox,
+              Math.round(
+                  portraitBox * ((animationConfig.meta.frameWidth ?? 512) / (animationConfig.meta.frameHeight ?? 512)),
+              ),
+          )
+        : portraitBox;
 
     return (
         <Box
@@ -1131,8 +1203,25 @@ const UnitStatsLayout: React.FC<{
                     width: "100%",
                     flex: "0 1 auto",
                     minHeight: 0,
+                    // Anchors the team banner below. It hangs behind exactly this block — portrait plus stat
+                    // plate — so it spans the plate's width and ends where the plate ends, without either
+                    // measurement being written down anywhere: the box already knows both.
+                    position: "relative",
                 }}
             >
+                {[
+                    { image: greenBannerImage, shown: team === TeamVals.LOWER },
+                    { image: redBannerImage, shown: team === TeamVals.UPPER },
+                ].map(({ image, shown }) => (
+                    <Box
+                        key={image}
+                        component="img"
+                        src={image}
+                        alt=""
+                        aria-hidden
+                        sx={{ ...teamBannerSx(layout, portraitArtWidth), opacity: shown ? 1 : 0 }}
+                    />
+                ))}
                 <Box
                     sx={{
                         width: "100%",
@@ -1154,28 +1243,6 @@ const UnitStatsLayout: React.FC<{
                         ...teamAuraKeyframes,
                     }}
                 >
-                    {/* Synergies sit in the portrait block's top-left corner as a column, not as a section
-                        of their own. They are a standing property of the army rather than an effect on this
-                        stack, so they read better as a quiet marker beside the art than as a titled band
-                        competing with Buffs and Debuffs for the card's vertical space. */}
-                    {unitSynergies.length > 0 && (
-                        <Box
-                            sx={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                zIndex: 2,
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "flex-start",
-                                gap: `${Math.round(metrics.gapPx * 0.4)}px`,
-                                pointerEvents: "auto",
-                            }}
-                        >
-                            <SynergiesRow synergies={unitSynergies} column />
-                        </Box>
-                    )}
-
                     <Box
                         sx={{
                             // No circular clip and no frame: the art keeps its own silhouette, so wings,
@@ -1220,7 +1287,7 @@ const UnitStatsLayout: React.FC<{
                         )}
                     </Box>
                 </Box>
-                <Box sx={{ flex: "none", minWidth: 0, ...stonePlateSx }}>
+                <Box sx={{ flex: "none", minWidth: 0, position: "relative", zIndex: 1, ...stonePlateSx }}>
                     {/* Exactly three columns by three rows, always. A creature with extra stats (scrolls,
                         shot distance, shot count, separate range armour) scrolls inside this well instead
                         of adding a fourth row and pushing everything below the plate down. */}
@@ -1257,8 +1324,26 @@ const UnitStatsLayout: React.FC<{
             </PanelSection>
 
             <PanelSection title="Buffs" metrics={metrics}>
-                <ScrollWell height={effectWellHeight}>
-                    {buffs.length > 0 && <EffectTiles effects={buffs} title="Buffs" metrics={metrics} />}
+                <ScrollWell height={effectWellHeight} pinToEnd pinKey={buffsPinKey}>
+                    {/* ONE wrapping row for everything. Synergies and buff tiles used to be two nested flex
+                        containers side by side, which made each of them a single unbreakable item: a couple
+                        of synergy badges claimed a whole line and shoved every buff onto the next one, below
+                        the fold. Both now render `display: contents`, so every badge and tile wraps as its
+                        own item and each line fills the bar's full width. */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                            alignItems: "flex-start",
+                            gap: `${metrics.gapPx * 0.6}px`,
+                        }}
+                    >
+                        {turnSynergies.length > 0 && <SynergiesRow synergies={turnSynergies} inline />}
+                        {orderedBuffs.length > 0 && (
+                            <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                        )}
+                    </Box>
                 </ScrollWell>
             </PanelSection>
 
@@ -1319,8 +1404,18 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
     // The game renders dark-only; the light palette is gone, so this is a constant.
     const isDarkMode = true;
     const abilities: IVisibleImpact[] = overallImpact.abilities || [];
-    const buffs: IVisibleImpact[] = overallImpact.buffs || [];
-    const debuffs: IVisibleImpact[] = overallImpact.debuffs || [];
+    const rawBuffs: IVisibleImpact[] = overallImpact.buffs || [];
+    const rawDebuffs: IVisibleImpact[] = overallImpact.debuffs || [];
+    // White Tiger's Disguise Aura is modelled as a pair the engine flips as enemies come and go: the
+    // "Hidden" buff while nothing stands inside the aura's range, the "Visible" debuff the moment
+    // something does. "Visible" is not a debuff — every stack on the board is visible to begin with, so
+    // listing it reads as a penalty the tiger is under rather than as the plain default it is. It never
+    // shows. The aura itself only means anything while it is actually hiding the stack, so it joins the
+    // Buffs only then: a tiger standing in the open carries neither icon, and the card says what is true
+    // right now instead of what the creature could do from somewhere else.
+    const isHidden = rawBuffs.some((buff) => buff.name === "Hidden");
+    const buffs: IVisibleImpact[] = isHidden ? rawBuffs : rawBuffs.filter((buff) => !isDisguise(buff.name));
+    const debuffs: IVisibleImpact[] = rawDebuffs.filter((debuff) => debuff.name !== "Visible");
     const hasHandymanAbility = abilities.some((ability) => ability.name === "Handyman");
     const hasBreakApplied = debuffs.some((d) => d.name === "Break" && d.laps > 0);
     const onImageLoaded = useCallback(() => {}, []);
@@ -1502,7 +1597,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                 <Typography
                     level="title-sm"
                     sx={{
-                        fontSize: `${1.02 * metrics.fontScale}rem`,
+                        fontSize: `${NAME_FONT_REM * metrics.fontScale}rem`,
                         fontWeight: 800,
                         letterSpacing: "0.03em",
                         lineHeight: 1.2,
@@ -1511,6 +1606,16 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                         textAlign: "center",
                         px: 0,
                         pt: "2px",
+                        // Centred in the cloth between the crossbar and the crest — the run down from the
+                        // pole and the run on to the portrait match. The banner is already flush with the top
+                        // of the screen, so this room comes out of the card, not out of a further lift.
+                        mt: `${bannerLayout(metrics).above}px`,
+                        mb: `${bannerLayout(metrics).below}px`,
+                        // Over the banner, which reaches up past the card to sit behind this line. Without
+                        // its own stacking position the name loses: the banner is positioned and comes
+                        // later in the document, and that beats a static element every time.
+                        position: "relative",
+                        zIndex: 2,
                     }}
                 >
                     {stackName}

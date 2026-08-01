@@ -1,4 +1,6 @@
 import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Graphics, Matrix } from "pixi.js";
+
+import { advanceArcaneDeathBurst, createArcaneDeathBurst, type IArcaneDeathBurst } from "./ArcaneDeathBurst";
 import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
@@ -614,6 +616,8 @@ export class CombatVisuals {
     private context: ICombatVisualsContext;
     private floatingTexts: IFloatingText[] = [];
     private shatterGroups: IShatterGroup[] = [];
+    /** Live arcane death bursts (the violet shockwave that replaced the shatter). */
+    private arcaneDeaths: IArcaneDeathBurst[] = [];
     private iceBreaks: IIceBreak[] = [];
     private cleaveDeaths: ICleaveDeath[] = [];
     private dissolveDeaths: IDissolveDeath[] = [];
@@ -1355,6 +1359,10 @@ export class CombatVisuals {
             group.container.destroy({ children: true });
         }
         this.shatterGroups.length = 0;
+        for (const burst of this.arcaneDeaths) {
+            burst.container.destroy({ children: true });
+        }
+        this.arcaneDeaths.length = 0;
         for (const iceBreak of this.iceBreaks) {
             iceBreak.container.destroy({ children: true });
         }
@@ -1418,6 +1426,13 @@ export class CombatVisuals {
         this.enchants.length = 0;
     }
     public update(dt: number) {
+        for (let i = this.arcaneDeaths.length - 1; i >= 0; i--) {
+            const burst = this.arcaneDeaths[i];
+            if (!advanceArcaneDeathBurst(burst, dt)) {
+                burst.container.destroy({ children: true });
+                this.arcaneDeaths.splice(i, 1);
+            }
+        }
         for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
             const ft = this.floatingTexts[i];
             ft.age += dt;
@@ -1844,9 +1859,36 @@ export class CombatVisuals {
             } else {
                 this.spawnDissolveDeath(info, blow.dir);
             }
-        } else {
+        } else if (!this.spawnArcaneDeath(info)) {
+            // No shader (headless runner / no WebGL) — the old shatter still gives the death a visual.
             this.spawnShatter(info);
         }
+    }
+    /**
+     * The violet arcane shockwave a dying stack leaves behind (see ArcaneDeathBurst). Sized off the unit's
+     * own footprint so a Peasant pops and a Behemoth erupts, and seeded per death so two stacks dying
+     * together do not draw the same crack pattern.
+     *
+     * Returns false when the shader could not be built, so the caller can fall back.
+     */
+    private spawnArcaneDeath(info: IDeathVfxInfo): boolean {
+        const frame = info.texture?.frame;
+        if (!frame || frame.width <= 1 || frame.height <= 1) {
+            return false;
+        }
+        const worldW = Math.abs(info.scaleX) * frame.width;
+        const worldH = Math.abs(info.scaleY) * frame.height;
+        // The wave reaches well past the body it came from; 2.6x the larger side matches the reference's
+        // ring-to-subject proportion without the quad costing more fill than it needs.
+        const size = Math.max(worldW, worldH) * 2.6;
+        const burst = createArcaneDeathBurst(size, Math.random());
+        if (!burst) {
+            return false;
+        }
+        burst.container.position.set(info.x, info.y);
+        this.context.attachToWorldRoot(burst.container, CLEAVE_Z); // the death layer (4500)
+        this.arcaneDeaths.push(burst);
+        return true;
     }
     /**
      * Melee death "cleave": a slash flash sweeps a jagged cut through the unit PERPENDICULAR to the

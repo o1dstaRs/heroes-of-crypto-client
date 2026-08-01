@@ -11,12 +11,24 @@ const SynergiesRow = ({
     synergies,
     wrap = false,
     column = false,
+    size,
+    inline = false,
 }: {
     synergies: string[];
     wrap?: boolean;
     // Stack the badges vertically. Used where the strip is pinned into a corner beside the portrait rather
     // than laid across the bar, where a horizontal run would cover the art.
     column?: boolean;
+    // Badge edge in px. The placement roster packs four of these beside six creature slots, so it asks for
+    // half-size icons to keep the strip on one line; everything else keeps the metrics-driven default.
+    size?: number;
+    /**
+     * Drop this component's own box out of the layout so the badges become direct children of whatever is
+     * laying them out. In the Buffs well they share one wrapping row with the buff tiles; as a nested flex
+     * container this row counted as a SINGLE item, so a couple of badges took a whole line to themselves
+     * and pushed every buff onto the next one, out of sight behind a scrollbar.
+     */
+    inline?: boolean;
 }) => {
     const metrics = useSidebarMetrics();
     const sortedSynergies = useMemo(
@@ -36,7 +48,7 @@ const SynergiesRow = ({
     return (
         <Box
             sx={{
-                display: "flex",
+                display: inline ? "contents" : "flex",
                 // The strip wraps instead of overflowing: four synergy badges do not fit a 128px bar on
                 // one line, and the row is a fixed part of the sidebar's height budget.
                 flexDirection: column ? "column" : "row",
@@ -82,8 +94,8 @@ const SynergiesRow = ({
                                 component="img"
                                 src={SYNERGY_KEY_TO_IMAGE[synergyKey as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                 sx={{
-                                    width: `${wrap ? 36 : metrics.synergyIcon}px`,
-                                    height: `${wrap ? 36 : metrics.synergyIcon}px`,
+                                    width: `${size ?? (wrap ? 36 : metrics.synergyIcon)}px`,
+                                    height: `${size ?? (wrap ? 36 : metrics.synergyIcon)}px`,
                                     display: "block", // Prevents any extra space from inline display
                                     imageRendering: "auto",
                                     transform: "translateZ(0)",
@@ -92,7 +104,7 @@ const SynergiesRow = ({
                                 }}
                             />
                         </Tooltip>
-                        <Box sx={{ display: "flex", justifyContent: "center", mt: 0.5 }}>
+                        <Box sx={{ display: "flex", justifyContent: "center", mt: size ? 0.25 : 0.5 }}>
                             {Array.from({ length: level }, (_, dotIndex) => (
                                 <Box
                                     key={dotIndex}

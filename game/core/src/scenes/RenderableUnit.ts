@@ -1512,7 +1512,9 @@ export class RenderableUnit extends Unit {
                 stroke: { color: 0x000000, width: 3, join: "round" },
             });
             label.text = props.name;
-            label.position.set(pos.x, bottom + fontSize * 0.62);
+            // Dead centre of the caption strip: the gap between the stack bars (which sit at the sprite's
+            // lower edge) and the plate's bottom rim. It used to hug the rim, leaving all the slack above.
+            label.position.set(pos.x, bottom + (captionGap + fontSize) * 0.5);
             this.rosterCardDrawState = {
                 x: pos.x,
                 y: pos.y,

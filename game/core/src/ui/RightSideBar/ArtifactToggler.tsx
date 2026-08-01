@@ -13,14 +13,52 @@ interface ArtifactRowProps {
     artifacts: Artifact.ArtifactProperties[];
     selectedId: number;
     onSelect: (artifactId: number) => void;
+    isOpen: boolean;
+    onToggle: () => void;
 }
 
-const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId, onSelect }) => (
+const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId, onSelect, isOpen, onToggle }) => (
     <Box sx={{ width: "100%" }}>
-        <Typography level="body-xs" sx={{ mb: 0.5 }}>
-            {title}
-        </Typography>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+        {/* Same affordance as the Reds/Greens sections above: a title that opens its own drawer. Two full
+            grids of thirteen icons each is most of the bar's height, so they start closed. */}
+        <Box
+            component="button"
+            type="button"
+            onClick={onToggle}
+            sx={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 1,
+                mb: isOpen ? 0.5 : 0,
+                px: 0.5,
+                py: 0.5,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: isOpen ? "#FF8F00" : "inherit",
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
+            }}
+        >
+            <Typography level="body-xs" sx={{ color: "inherit", fontWeight: isOpen ? "xl" : "md" }}>
+                {title}
+            </Typography>
+            <Box
+                component="img"
+                src={images.tr_up}
+                alt=""
+                sx={{
+                    width: "12px",
+                    transform: isOpen ? "none" : "rotate(180deg)",
+                    transition: "transform 0.2s",
+                    filter: isOpen
+                        ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                        : "none",
+                }}
+            />
+        </Box>
+        <Box sx={{ display: isOpen ? "flex" : "none", flexWrap: "wrap", gap: 0.5 }}>
             {artifacts.map((artifact) => {
                 const src = imageFor(artifact.imageKey);
                 const isSelected = selectedId === artifact.id;
@@ -64,10 +102,22 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
     </Box>
 );
 
-export const ArtifactToggler: React.FC<{ teamType: TeamType }> = ({ teamType }) => {
+export const ArtifactToggler: React.FC<{
+    teamType: TeamType;
+    // Owned by SandboxToggleContainer: the augment panel and the two tiers are one accordion, so the state
+    // has to sit where all three are visible. Left optional so the component still stands alone.
+    openTier?: number | null;
+    onToggleTier?: (tier: number) => void;
+}> = ({ teamType, openTier: openTierProp, onToggleTier }) => {
     const manager = usePixiManager();
     const [tier1Selected, setTier1Selected] = useState<number>(Artifact.Tier1Artifact.NO_ARTIFACT);
     const [tier2Selected, setTier2Selected] = useState<number>(Artifact.Tier2Artifact.NO_ARTIFACT);
+    // One tier open at a time, and neither to begin with. Both grids together are taller than the sidebar,
+    // so showing them side by side pushed the second one off the bottom; opening one closes the other.
+    const [openTierLocal, setOpenTierLocal] = useState<number | null>(null);
+    const openTier = openTierProp !== undefined ? openTierProp : openTierLocal;
+    const toggleTier = (tier: number) =>
+        onToggleTier ? onToggleTier(tier) : setOpenTierLocal((current) => (current === tier ? null : tier));
 
     const selectTier1 = (artifactId: number) => {
         if (manager.PropagateArtifact(teamType, Artifact.ArtifactTier.TIER_1, artifactId)) {
@@ -81,7 +131,7 @@ export const ArtifactToggler: React.FC<{ teamType: TeamType }> = ({ teamType }) 
     };
 
     return (
-        <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
+        <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 0.5, mt: 0 }}>
             <Divider />
             <Typography level="title-sm">Artifacts</Typography>
             <ArtifactRow
@@ -90,6 +140,8 @@ export const ArtifactToggler: React.FC<{ teamType: TeamType }> = ({ teamType }) 
                 artifacts={Artifact.TIER1_ARTIFACT_LIST}
                 selectedId={tier1Selected}
                 onSelect={selectTier1}
+                isOpen={openTier === Artifact.ArtifactTier.TIER_1}
+                onToggle={() => toggleTier(Artifact.ArtifactTier.TIER_1)}
             />
             <ArtifactRow
                 title="Tier 2"
@@ -97,7 +149,13 @@ export const ArtifactToggler: React.FC<{ teamType: TeamType }> = ({ teamType }) 
                 artifacts={Artifact.TIER2_ARTIFACT_LIST}
                 selectedId={tier2Selected}
                 onSelect={selectTier2}
+                isOpen={openTier === Artifact.ArtifactTier.TIER_2}
+                onToggle={() => toggleTier(Artifact.ArtifactTier.TIER_2)}
             />
+            {/* Closes the artifacts block off from whatever follows it — with the tiers collapsed, Tier 2's
+                row ran straight into the next team's flag header with nothing between them. Dimmer and
+                thinner than the divider that opens the section, so it reads as an end mark, not a new one. */}
+            <Divider sx={{ mt: 0.5, opacity: 0.45 }} />
         </Box>
     );
 };

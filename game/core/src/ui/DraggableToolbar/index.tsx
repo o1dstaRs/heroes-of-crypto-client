@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Sheet, Box, Divider, Tooltip } from "@mui/joy";
-import { useTheme } from "@mui/joy/styles";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Sheet, Box, Tooltip } from "@mui/joy";
 import { styled } from "@mui/system";
-import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import RotateRightIcon from "@mui/icons-material/RotateRight";
 
 import { images } from "../../generated/image_imports";
+import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
+
 const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
 const hourglassIconImage = new URL("../../../images/icon_hourglass_black.webp", import.meta.url).toString();
 const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.meta.url).toString();
@@ -16,7 +15,6 @@ const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.met
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
-const sidebarOverlayImage = new URL("../../../images/sidebar_overlay.webp", import.meta.url).toString();
 
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
@@ -29,12 +27,46 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
     [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
     [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
+    // Both AI states share one medallion: switching it on adds an "ON" badge over the art (see
+    // ButtonComponent) instead of swapping in a second picture, so the button never changes identity.
     [`AI${VisibleButtonState.FIRST}`]: aiIconImage,
-    // AI active keeps the SAME art — the on-state is an "ON" badge overlay, not a different image.
     [`AI${VisibleButtonState.SECOND}`]: aiIconImage,
     [`Next${VisibleButtonState.FIRST}`]: skipIconImage,
     [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
 };
+
+/**
+ * How each glyph is fitted into its button. `zoom` scales the art inside the button; `inset` pulls the whole
+ * layer in from the rim so nothing touches the border.
+ *
+ * The atlas art is a gold medallion: an ornate bezel ring around a dark field with the glyph in the middle.
+ * Only the GLYPH is wanted — the button draws the frame, so showing the medallion whole put a gold ring
+ * inside the button's own rim and every icon read as two concentric frames.
+ *
+ * The crop is measured, not guessed. A radial luminance profile over all six icons puts the bezel's bright
+ * ring at r ≈ 0.72–1.0 of the source radius, peaking at 0.80, with the glyph field inside r ≈ 0.70. Blowing
+ * the art up to 160% pushes everything past r ≈ 0.62 outside the layer's circular clip, so the bezel is gone
+ * with margin to spare while the glyph still sits comfortably inside.
+ *
+ * `inset` is a PERCENTAGE, so it scales the rendered glyph without touching the crop: the window stays the
+ * same fraction of the source whatever the box size. 8.6% leaves the layer at 82.8% of the button — the
+ * glyph a tenth smaller than a flush 4% inset, with a ring of bare disc around it.
+ */
+const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {
+    // The AI medallion carries far more dead field than the others: its brain ends at r ≈ 0.58 of the
+    // source while the bezel does not begin until r ≈ 0.70, so the default crop framed the glyph in a wide
+    // ring of bare medallion, and the default inset added its own margin on top of that — together they
+    // left the brain filling barely three quarters of the button.
+    //
+    // 172% puts the visible disc at r ≈ 0.58, right on the brain's own edge. Nothing of the glyph is lost:
+    // the crown sparkles sit inside 0.58 too. This is well clear of the bezel, so raising the zoom here
+    // costs nothing — the earlier 190/15 override went the other way and cropped INTO the brain.
+    //
+    // A flush inset 0 then let the brain run right out to the rim and bury the button's frame; 5% holds it
+    // a tenth off the edge, which is where the frame reads again.
+    [aiIconImage]: { zoom: 172, inset: 5 },
+};
+const GLYPH_CROP_DEFAULT = { zoom: 160, inset: 8.6 };
 
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
@@ -46,92 +78,131 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [luckShieldIconImage]: false,
 };
 
-const StyledSheet = styled(Sheet, {
-    shouldForwardProp: (prop) => prop !== "isDragging",
-})<{ isDragging?: boolean }>(({ isDragging }) => ({
-    // The same dark brick overlay the left and right sidebars wear, on black. The bar is one of the game's
-    // panels, so it is made of the same material; it also no longer picks its plate by theme, since the
-    // game renders dark-only and the light branch put a pale panel under gold-on-dark icons.
-    backgroundColor: "#000",
-    backgroundImage: `url(${sidebarOverlayImage})`,
-    backgroundSize: "cover",
-    // Bronze/gold dungeon trim to match the tooltips + fire-lit board.
-    border: `${Math.max(1, Math.round(2 * SCREEN_RATIO))}px solid`,
-    borderColor: "#caa24f",
-    borderRadius: `${10 * SCREEN_RATIO}px`,
-    padding: `${0.7 * SCREEN_RATIO}rem`,
-    // Depth shadow + a faint warm glow so it reads as a lit dungeon panel, plus an inner darkening
-    // so the trim frames a recessed stone face.
-    boxShadow: `0 ${3 * SCREEN_RATIO}px ${10 * SCREEN_RATIO}px rgba(0,0,0,0.6), 0 0 ${
-        12 * SCREEN_RATIO
-    }px rgba(220,177,88,0.18), inset 0 0 ${10 * SCREEN_RATIO}px rgba(0,0,0,0.45)`,
-    // No position easing while dragging — the old left/top transition made the bar float behind the
-    // cursor. Re-enabled on release so the snap-to-edge glides into place.
-    transition: isDragging
-        ? "none"
-        : "left 0.4s cubic-bezier(0.22, 1, 0.36, 1), top 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
+// The art now arrives already finished: a gold medallion, its own bezel included, on transparency. So it is
+// left in its own colour rather than warmed to ember — the old sepia/saturate pass existed to push pale
+// glyphs into gold on the obsidian disc, and running already-gold art through it just oversaturated the
+// bezel. Only the shadow is kept, to hold the medallion off the panel behind it.
+/**
+ * The height the sidebar reserves for the button column.
+ *
+ * Six slots — the whole roster is Spellbook, Hourglass, AttackType, AI, Next and LuckShield — plus the
+ * frame's padding and rim. It is a RESERVATION, not a measurement: buttons come and go as the turn changes
+ * (none of them apply on the opponent's turn, and the frame hides itself entirely), and a row sized to
+ * whatever happens to be visible would drag the damage table and the fight log up and down all fight. The
+ * frame itself still hugs its buttons inside this box; what is fixed is the space the box occupies.
+ */
+export const toolbarColumnHeightPx = (): number => {
+    const screenRatio = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+    const slots = 6;
+    const gap = 12; // the column's `gap: 1.5`
+    const framePadding = 24; // 12px above the first button, 12px below the last
+    const frameRim = 2 * 2.34;
+    return Math.round(45 * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
+};
+
+// How far the option markers under a multi-state button sit from the centre of their row.
+const OPTION_ARC_RADIUS = 7.6;
+
+const GLYPH_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,.85))";
+const GLYPH_FILTER_BRIGHT = "brightness(1.12) drop-shadow(0 2px 5px rgba(243,212,136,.45))";
+
+// Obsidian shell from the fight-sidebar handoff. The old bronze-trimmed stone panel read as another gold
+// frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
+const StyledSheet = styled(Sheet)(() => ({
+    backgroundImage: "linear-gradient(180deg, rgba(28,20,12,.96), rgba(8,6,4,.96))",
+    padding: "12px 8px",
+    borderRadius: "14px",
+    // Only the outline is lifted: a touch wider and in bronze rather than near-black, so the column reads
+    // as a framed panel against the sidebar instead of dissolving into it. Everything inside — the obsidian
+    // fill, the faint inner rim, the drop shadow — is left alone.
+    border: "2.34px solid #473b25",
+    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
 }));
 
 const StyledIconButton = styled("button", {
-    shouldForwardProp: (prop) =>
-        typeof prop === "string" && !["rotationDegrees", "isDark", "clickEffectNeeded"].includes(prop),
-})<{ rotationDegrees: number; isDark: boolean; clickEffectNeeded?: boolean }>(
-    ({ rotationDegrees, isDark, clickEffectNeeded }) => ({
-        width: 45 * SCREEN_RATIO,
-        height: 45 * SCREEN_RATIO,
-        padding: 0,
-        border: "none",
+    shouldForwardProp: (prop) => typeof prop === "string" && !["rotationDegrees", "clickEffectNeeded"].includes(prop),
+})<{ rotationDegrees: number; clickEffectNeeded?: boolean }>(({ rotationDegrees, clickEffectNeeded }) => ({
+    width: 45 * SCREEN_RATIO,
+    height: 45 * SCREEN_RATIO,
+    padding: 0,
+    borderRadius: "50%",
+    transition: "all 0.3s ease",
+    position: "relative",
+    overflow: "hidden",
+    cursor: "pointer",
+    transform: `rotate(${rotationDegrees}deg)`,
+    // The button draws the frame, not the art: an obsidian disc with a black rim, matching the panel it sits
+    // on. The medallion's own gold bezel is cropped away (see GLYPH_CROP_DEFAULT) precisely so this one rim
+    // is the only ring on screen. The glyph rides on the ::before layer, which keeps the filter off the disc.
+    background: "radial-gradient(circle at 42% 32%, #2b2118, #120c07 70%)",
+    border: "2px solid #241a10",
+    // Only the outer shadow lives here now; the inset ring moved to ::after so the glyph cannot bury it.
+    boxShadow: "0 0 12px rgba(0,0,0,.5)",
+    "&::before": {
+        content: '""',
+        position: "absolute",
+        // Both values come from GLYPH_CROP, set per icon on the element (see ButtonComponent).
+        inset: "var(--hoc-glyph-inset)",
+        // The layer clips itself, rather than relying on the button's overflow. Once `inset` shrinks it, the
+        // button's circle no longer sits at the layer's edge, so the crop that hides the bezel would stop at
+        // a smaller radius than the art needs and the ring would creep back in around the glyph.
         borderRadius: "50%",
-        backgroundSize: "contain",
+        backgroundImage: "var(--hoc-glyph)",
+        backgroundSize: "var(--hoc-glyph-zoom)",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
-        transition: "all 0.3s ease",
-        position: "relative",
-        cursor: "pointer",
-        transform: `rotate(${rotationDegrees}deg)`,
-        backgroundColor: "transparent",
-        "&:hover:not(:disabled)": {
-            transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
-            ...(isDark
-                ? {
-                      boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(255, 255, 255, 0.5)`,
-                      filter: "brightness(1.1) drop-shadow(0 0 3.5px rgba(255, 255, 255, 0.5))",
-                      backgroundColor: "rgba(255, 255, 255, 0.14)",
-                  }
-                : {
-                      boxShadow: `0 0 ${7 * SCREEN_RATIO}px rgba(255, 0, 0, 0.5)`,
-                      filter: "brightness(1.1) drop-shadow(0 0 3.5px rgba(255, 0, 0, 0.5))",
-                      backgroundColor: "rgba(255, 0, 0, 0.14)",
-                  }),
-        },
-        "&:disabled": {
-            opacity: 0.5,
-            cursor: "not-allowed",
-        },
-        "&:active:not(:disabled)": {
-            ...(clickEffectNeeded
-                ? {
-                      transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
-                      boxShadow: `0 0 ${10.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.2)`,
-                  }
-                : {}),
-        },
-    }),
-);
+        filter: GLYPH_FILTER,
+        transition: "filter 0.3s ease",
+        pointerEvents: "none",
+    },
+    // The frame, kept as its own layer ON TOP of the glyph. As part of the button's own background it was
+    // painted before the ::before disc, so any icon cropped flush to the rim — the brain most of all — drew
+    // straight over the bezel and that button lost the ring the others have. Up here it cannot be covered,
+    // whatever a glyph's crop does.
+    "&::after": {
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        borderRadius: "50%",
+        boxShadow: "inset 0 2px 6px rgba(0,0,0,.9), inset 0 0 0 1px rgba(150,130,98,.22)",
+        pointerEvents: "none",
+    },
+    "&:hover:not(:disabled)": {
+        transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
+        background: "radial-gradient(circle at 42% 32%, #3a2c1c, #1a1109 70%)",
+        borderColor: "#8a7136",
+        boxShadow: "0 0 18px rgba(243,212,136,.4)",
+        "&::before": { filter: GLYPH_FILTER_BRIGHT },
+    },
+    "&:disabled": {
+        background: "radial-gradient(circle at 42% 32%, #201811, #0d0905 70%)",
+        borderColor: "rgba(202,162,79,.35)",
+        boxShadow: "none",
+        opacity: 0.5,
+        cursor: "not-allowed",
+    },
+    "&:active:not(:disabled)": {
+        ...(clickEffectNeeded
+            ? {
+                  transform: `scale(0.95) rotate(${rotationDegrees}deg)`,
+                  boxShadow: `0 0 ${10.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.2)`,
+              }
+            : {}),
+    },
+}));
 
 interface ButtonComponentProps {
     iconImage: string;
     text: string;
     isVisible: boolean;
     isDisabled: boolean;
-    isDark: boolean;
     onClick?: () => void;
     isHourglass?: boolean;
     customSpriteName?: string;
     numberOfOptions?: number;
     selectedOption?: number;
-    /** Small pill rendered over the icon's corner (e.g. "ON" while the AI drives) — same art, badged. */
-    badge?: string;
+    /** Draws the "ON" badge over the artwork; the artwork itself stays put. */
+    showOnBadge?: boolean;
 }
 
 const ButtonComponent: React.FC<ButtonComponentProps> = ({
@@ -139,13 +210,12 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     text,
     isVisible,
     isDisabled,
-    isDark,
     onClick,
     isHourglass = false,
     customSpriteName,
     numberOfOptions = 1,
     selectedOption = 1,
-    badge,
+    showOnBadge = false,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
     const [transfusionEffect, setTransfusionEffect] = useState(false);
@@ -174,6 +244,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
         return null;
     }
 
+    const glyphCrop = GLYPH_CROP[iconImage] ?? GLYPH_CROP_DEFAULT;
     const needRotate = ICON_IMAGE_NEED_ROTATE[iconImage];
     const initialRotation = needRotate ? 180 : 0;
 
@@ -185,42 +256,56 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         onClick={handleClick}
                         disabled={isDisabled}
                         rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
-                        isDark={isDark}
                         clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
-                        style={{
-                            backgroundImage: `url(${iconImage})`,
-                            width: 45 * SCREEN_RATIO,
-                            height: 45 * SCREEN_RATIO,
-                            filter: transfusionEffect ? "brightness(1.2)" : "none",
-                            animation: transfusionEffect ? "transfusion 1.5s linear" : "none",
-                            boxShadow: transfusionEffect
-                                ? `0 0 ${14 * SCREEN_RATIO}px rgba(255, 255, 255, 0.7)`
-                                : "none",
-                        }}
+                        style={
+                            {
+                                // The glyph URL reaches the ::before layer through a custom property, so the
+                                // ember filter tints the artwork without touching the disc underneath.
+                                "--hoc-glyph": `url(${iconImage})`,
+                                "--hoc-glyph-zoom": `${glyphCrop.zoom}%`,
+                                "--hoc-glyph-inset": `${glyphCrop.inset}%`,
+                                width: 45 * SCREEN_RATIO,
+                                height: 45 * SCREEN_RATIO,
+                                ...(transfusionEffect
+                                    ? {
+                                          animation: "transfusion 1.5s linear",
+                                          boxShadow: `0 0 ${14 * SCREEN_RATIO}px rgba(243, 212, 136, 0.7)`,
+                                      }
+                                    : {}),
+                            } as React.CSSProperties
+                        }
                         data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                     />
                 </Tooltip>
-                {badge && (
+                {showOnBadge && (
+                    // Sits over the medallion rather than replacing it, so the AI button keeps one face and
+                    // only gains a state. Outside the button element on purpose: the button clips to its
+                    // circle, which would cut a badge riding on the rim in half.
                     <Box
-                        component="span"
                         sx={{
                             position: "absolute",
-                            right: -5 * SCREEN_RATIO,
-                            bottom: -3 * SCREEN_RATIO,
-                            px: `${4 * SCREEN_RATIO}px`,
-                            borderRadius: `${7 * SCREEN_RATIO}px`,
+                            top: -2 * SCREEN_RATIO,
+                            right: -3 * SCREEN_RATIO,
+                            minWidth: 20 * SCREEN_RATIO,
+                            height: 20 * SCREEN_RATIO,
+                            paddingX: `${2 * SCREEN_RATIO}px`,
+                            borderRadius: "999px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: "#1f7a34",
+                            border: `${1.5 * SCREEN_RATIO}px solid #7ce08f`,
+                            color: "#eafbec",
                             fontSize: 10 * SCREEN_RATIO,
-                            lineHeight: `${14 * SCREEN_RATIO}px`,
-                            fontWeight: 900,
-                            letterSpacing: "0.5px",
-                            color: "#0b2e12",
-                            backgroundColor: "#46d160",
-                            border: "1px solid rgba(6, 46, 16, 0.9)",
-                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.55)",
+                            fontWeight: 800,
+                            lineHeight: 1,
+                            letterSpacing: "0.03em",
+                            boxShadow: "0 0 8px rgba(124,224,143,.55), 0 1px 3px rgba(0,0,0,.8)",
                             pointerEvents: "none",
+                            opacity: isDisabled ? 0.5 : 1,
                         }}
                     >
-                        {badge}
+                        ON
                     </Box>
                 )}
             </Box>
@@ -237,7 +322,11 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                 >
                     {Array.from({ length: numberOfOptions }, (_, index) => {
                         const angle = (index / (numberOfOptions - 1)) * Math.PI;
-                        const x = (12.6 + 12.6 * Math.cos(angle) - 4.55) * SCREEN_RATIO;
+                        // The arc's radius, not its centre — the row of dots stays centred under the button
+                        // and only draws itself in. At the old 12.6 the two attack-type markers sat almost
+                        // at the medallion's edges and read as two unrelated lights rather than as one
+                        // two-state control.
+                        const x = (12.6 + OPTION_ARC_RADIUS * Math.cos(angle) - 4.55) * SCREEN_RATIO;
                         const y = (5.6 * Math.sin(angle) - 4.55) * SCREEN_RATIO;
                         return (
                             <img
@@ -264,226 +353,59 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     );
 };
 
-const getBarSize = (width: number, height: number) => {
-    const widthRatio = width / 2048;
-    const heightRatio = height / 2048;
-    const scaleRatio = Math.min(widthRatio, heightRatio);
-    const scaledBoardSize = 2048 * scaleRatio;
-    const rightBarEndAtBoard = (width - scaledBoardSize) / 2;
-    return rightBarEndAtBoard > 0 ? rightBarEndAtBoard : 0;
-};
+/**
+ * How far the right sidebar insets its content from its own left edge: a 3px border plus 16px of padding.
+ * The board-edge trim is painted over the first BOARD_EDGE_TRIM_WIDTH_PX of that, so the strip of bare panel
+ * between the trim and the button column is the difference.
+ */
+const SIDEBAR_CONTENT_INSET_PX = 19;
+/**
+ * How far the button column reaches back past the sidebar's own left padding to meet the board trim.
+ * Exported so the blocks under it — the log, the exit control, the footer — can start on the same edge
+ * rather than on the padding's, which left them visibly narrower than the panels above.
+ */
+export const TRIM_OVERHANG_PX = SIDEBAR_CONTENT_INSET_PX - BOARD_EDGE_TRIM_WIDTH_PX;
 
-// Analytic fallback for the toolbar's own rendered width, used only before toolbarRef has mounted (the
-// very first default-position computation happens in a useState initializer, ahead of the DOM existing
-// to measure). In its default single-column layout the widest child is always a 45px-diameter button —
-// the drag-indicator/divider/rotate icons are all narrower — so width = button + StyledSheet's own
-// padding/border on both sides. Mirrors those CSS values exactly (1rem = 16px) so this estimate lines
-// up with the real rendered box once toolbarRef.current.offsetWidth takes over on the next resize/reset.
-const estimateToolbarWidth = (): number => {
-    const buttonWidthPx = 45 * SCREEN_RATIO;
-    const paddingPx = 0.7 * SCREEN_RATIO * 16 * 2;
-    const borderPx = Math.max(1, Math.round(2 * SCREEN_RATIO)) * 2;
-    return buttonWidthPx + paddingPx + borderPx;
-};
+/** The same sidebar's `p: 2`, vertically — what sits between the screen edge and the top of the column. */
+const SIDEBAR_TOP_PAD_PX = 16;
+/** Left of that padding, so the panel reads as reaching the top rather than being clipped by it. */
+const TOP_CLEARANCE_PX = 4;
 
-const DraggableToolbar: React.FC = () => {
-    // Declared before getDefaultSettings below (which reads toolbarRef.current) so there's no temporal
-    // deadzone: getDefaultSettings is CALLED from the position/isVertical useState initializers further
-    // down, i.e. before a `const toolbarRef` declared after them would be initialized.
-    const toolbarRef = React.useRef<HTMLDivElement>(null);
+/**
+ * How far `flushToTrim` lifts the button column above the row it sits in. Exported so whatever shares that
+ * row can start on the same line: without it the panel beside the column began at the row's own top, a dozen
+ * pixels below the column's rim, and the two read as stacked rather than side by side.
+ */
+export const TOOLBAR_TOP_LIFT_PX = SIDEBAR_TOP_PAD_PX - TOP_CLEARANCE_PX;
+
+/**
+ * `flushToTrim` slides the panel leftwards until it meets the board-edge trim, closing that strip. Its width
+ * is unchanged — so the far edge comes with it, and the damage table beside it (flex: 1 1 auto) takes up the
+ * width that frees. Opt-in because the toolbar is also mounted OUTSIDE the sidebar (RankedGameView), where a
+ * negative margin would shift it against nothing.
+ */
+const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = false }) => {
+    // Kept only so the styled components re-render at the right scale after a resize/zoom — SCREEN_RATIO
+    // is module-level and read at render time.
+    const [, bumpScaleTick] = useState(0);
 
     const updateScreenRatios = useCallback(() => {
         SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
+        bumpScaleTick((tick) => tick + 1);
     }, []);
-
-    const getDefaultSettings = useCallback((): { x: number; y: number; isVertical: boolean } => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        const isLandscape = width / height >= 16 / 9;
-        const barSize = getBarSize(width, height);
-
-        // Landscape: Left side (right edge of Left Sidebar)
-        // Vertical: Right side, docked just OUTSIDE the Right Sidebar's left edge — offset left by the
-        // toolbar's own rendered width (measured once mounted, else estimated) so the bar never sits on
-        // top of the sidebar's list/wallet/version controls. Audit found it fully overlapping the Right
-        // Sidebar at narrower-than-16:9 resolutions (e.g. 1680x1000), which take this vertical branch;
-        // the old formula placed the toolbar's LEFT edge flush with the sidebar's left edge, so the whole
-        // bar rendered on top of the sidebar instead of beside it.
-        // Update: Landscape should stick to inside edge of sidebar (move left by button width)
-        const toolbarWidth = toolbarRef.current?.offsetWidth ?? estimateToolbarWidth();
-        const x = isLandscape ? barSize - 48 * SCREEN_RATIO : Math.max(0, width - barSize - toolbarWidth);
-
-        return {
-            x,
-            y: height / 3.2,
-            isVertical: true,
-        };
-    }, []);
-
-    const [position, setPosition] = useState<{ x: number; y: number }>(() => {
-        const ds = getDefaultSettings();
-        return { x: ds.x, y: ds.y };
-    });
-
-    const [isDragging, setIsDragging] = useState<boolean>(false);
-    const [isVertical, setIsVertical] = useState<boolean>(() => getDefaultSettings().isVertical);
-    const theme = useTheme();
-
     const { buttons: buttonGroup, propagateClick } = useButtonContext();
-    // Live drag state kept in refs so dragging doesn't re-render the bar on every mousemove.
-    const positionRef = useRef(position);
-    const draggingRef = useRef(false);
-    const movedRef = useRef(false);
-    const dragStartRef = useRef({ x: 0, y: 0 });
-    const dragOffsetRef = useRef({ x: 0, y: 0 });
-    const pendingRef = useRef<{ x: number; y: number } | null>(null);
-    const rafRef = useRef<number | null>(null);
-    useEffect(() => {
-        positionRef.current = position;
-    }, [position]);
-
-    const resetToDefaultPosition = useCallback(() => {
-        const ds = getDefaultSettings();
-        setPosition({ x: ds.x, y: ds.y });
-        setIsVertical(ds.isVertical);
-    }, [getDefaultSettings]);
 
     useEffect(() => {
-        const resetPositionIfNeeded = () => {
-            const ds = getDefaultSettings();
-            setPosition((prevPosition) => {
-                const dragIndicatorPosition = {
-                    x: prevPosition.x,
-                    y: prevPosition.y,
-                };
-
-                // If currently off-screen (or uninitialized), reset to default
-                if (
-                    dragIndicatorPosition.x < -50 ||
-                    dragIndicatorPosition.y < -50 ||
-                    dragIndicatorPosition.x > window.innerWidth ||
-                    dragIndicatorPosition.y > window.innerHeight
-                ) {
-                    return { x: ds.x, y: ds.y };
-                }
-
-                // If the screen resized significantly, we might want to snap back or clamp?
-                // For now, let's keep the user's manual position UNLESS it's lost.
-                // But the user constraint implies "appear at..." which is initial.
-
-                return prevPosition;
-            });
-            setIsVertical(ds.isVertical);
-        };
-
-        // Run once on mount to set initial correct position
-        // This is now handled by the functional useState initializer for position and isVertical.
-        // const ds = getDefaultSettings();
-        // setPosition({ x: ds.x, y: ds.y });
-
-        const handleResizeOrZoom = () => {
-            updateScreenRatios();
-            resetPositionIfNeeded();
-        };
-
-        window.addEventListener("resize", handleResizeOrZoom);
-        window.addEventListener("zoom", handleResizeOrZoom as EventListener);
-        document.addEventListener("fullscreenchange", resetToDefaultPosition);
+        window.addEventListener("resize", updateScreenRatios);
+        window.addEventListener("zoom", updateScreenRatios as EventListener);
+        document.addEventListener("fullscreenchange", updateScreenRatios);
 
         return () => {
-            window.removeEventListener("resize", handleResizeOrZoom);
-            window.removeEventListener("zoom", handleResizeOrZoom as EventListener);
-            document.removeEventListener("fullscreenchange", resetToDefaultPosition);
+            window.removeEventListener("resize", updateScreenRatios);
+            window.removeEventListener("zoom", updateScreenRatios as EventListener);
+            document.removeEventListener("fullscreenchange", updateScreenRatios);
         };
-    }, [updateScreenRatios, buttonGroup.length, isVertical, resetToDefaultPosition, getDefaultSettings]);
-
-    // Distinguish a real drag from a plain click so clicking a button doesn't fling the bar to an edge.
-    const DRAG_THRESHOLD = 4;
-
-    // On release, dock to whichever screen edge is closest (with a small margin).
-    const snapToNearestEdge = useCallback((x: number, y: number): { x: number; y: number } => {
-        const el = toolbarRef.current;
-        const w = el?.offsetWidth ?? 0;
-        const h = el?.offsetHeight ?? 0;
-        const margin = Math.round(8 * SCREEN_RATIO);
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-        const distLeft = x;
-        const distRight = winW - (x + w);
-        const distTop = y;
-        const distBottom = winH - (y + h);
-        const nearest = Math.min(distLeft, distRight, distTop, distBottom);
-        let nx = x;
-        let ny = y;
-        if (nearest === distLeft) nx = margin;
-        else if (nearest === distRight) nx = winW - w - margin;
-        else if (nearest === distTop) ny = margin;
-        else ny = winH - h - margin;
-        nx = Math.max(margin, Math.min(nx, winW - w - margin));
-        ny = Math.max(margin, Math.min(ny, winH - h - margin));
-        return { x: nx, y: ny };
-    }, []);
-
-    const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-        if (e.button !== 0) return;
-        draggingRef.current = true;
-        movedRef.current = false;
-        dragStartRef.current = { x: e.clientX, y: e.clientY };
-        dragOffsetRef.current = { x: e.clientX - positionRef.current.x, y: e.clientY - positionRef.current.y };
-    }, []);
-
-    useEffect(() => {
-        const handleMove = (e: MouseEvent) => {
-            if (!draggingRef.current || !toolbarRef.current) return;
-            if (!movedRef.current) {
-                const dx = e.clientX - dragStartRef.current.x;
-                const dy = e.clientY - dragStartRef.current.y;
-                if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
-                movedRef.current = true;
-                setIsDragging(true); // kills the position transition so the bar tracks the cursor 1:1
-            }
-            const w = toolbarRef.current.offsetWidth;
-            const h = toolbarRef.current.offsetHeight;
-            let newX = e.clientX - dragOffsetRef.current.x;
-            let newY = e.clientY - dragOffsetRef.current.y;
-            newX = Math.max(0, Math.min(newX, window.innerWidth - w));
-            newY = Math.max(0, Math.min(newY, window.innerHeight - h));
-            pendingRef.current = { x: newX, y: newY };
-            positionRef.current = { x: newX, y: newY };
-            // Coalesce bursts of mousemove into a single state write per frame.
-            if (rafRef.current == null) {
-                rafRef.current = window.requestAnimationFrame(() => {
-                    rafRef.current = null;
-                    if (pendingRef.current) setPosition(pendingRef.current);
-                });
-            }
-        };
-        const handleUp = () => {
-            if (!draggingRef.current) return;
-            draggingRef.current = false;
-            if (rafRef.current != null) {
-                window.cancelAnimationFrame(rafRef.current);
-                rafRef.current = null;
-            }
-            if (!movedRef.current) return; // was a click, not a drag — leave the bar where it is
-            setIsDragging(false); // re-enables the transition so the snap glides
-            const snapped = snapToNearestEdge(positionRef.current.x, positionRef.current.y);
-            positionRef.current = snapped;
-            setPosition(snapped);
-        };
-        document.addEventListener("mousemove", handleMove);
-        document.addEventListener("mouseup", handleUp);
-        return () => {
-            document.removeEventListener("mousemove", handleMove);
-            document.removeEventListener("mouseup", handleUp);
-        };
-    }, [snapToNearestEdge]);
-
-    const handleRotate = () => {
-        setIsVertical(!isVertical);
-    };
-
-    const isDark = theme.palette.mode === "dark";
+    }, [updateScreenRatios]);
 
     const getButtonIcon = (button: IVisibleButton) => {
         if (button.customSpriteName) {
@@ -493,13 +415,13 @@ const DraggableToolbar: React.FC = () => {
         return BUTTON_NAME_TO_ICON_IMAGE[`${button.name}${button.state}`];
     };
 
-    // Memoized so the per-frame position updates during a drag don't re-render every button.
     const buttonsContent = useMemo(
         () => (
             <Box
                 sx={{
                     display: "flex",
-                    flexDirection: isVertical ? "column" : "row",
+                    flexDirection: "column",
+                    alignItems: "center",
                     gap: 1.5,
                 }}
             >
@@ -510,90 +432,61 @@ const DraggableToolbar: React.FC = () => {
                         text={button.name}
                         isVisible={button.isVisible}
                         isDisabled={button.isDisabled}
-                        isDark={isDark}
                         onClick={() => propagateClick(button.name, button.state)}
                         isHourglass={button.name === "Hourglass"}
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
-                        badge={button.name === "AI" && button.state === VisibleButtonState.SECOND ? "ON" : undefined}
+                        showOnBadge={button.name === "AI" && button.state === VisibleButtonState.SECOND}
                     />
                 ))}
             </Box>
         ),
 
-        [buttonGroup, isVertical, isDark, propagateClick],
+        [buttonGroup, propagateClick],
     );
 
-    return buttonGroup.length > 0 ? (
+    // Every button hides itself when it is not applicable (ButtonComponent returns null), so on the
+    // opponent's turn the group is non-empty but renders nothing — which used to leave an empty framed
+    // column sitting in the sidebar. Drop the frame too when there is nothing inside it.
+    const hasVisibleButton = buttonGroup.some((button) => button.isVisible);
+
+    return hasVisibleButton ? (
         <StyledSheet
-            ref={toolbarRef}
-            isDragging={isDragging}
             sx={{
-                // FIXED, not absolute. The drag maths clamps against window.innerWidth/Height, but an
-                // absolutely positioned sheet resolves left/top against its nearest positioned ancestor --
-                // so the coordinates the drag computed and the coordinates the browser applied were two
-                // different spaces, and the bar could not be moved out from over the sidebar. Fixed makes
-                // left/top viewport-relative, which is what the rest of this component already assumes,
-                // and the bar belongs to the whole game window.
-                position: "fixed",
-                left: `${position.x}px`,
-                top: `${position.y}px`,
+                // In-flow inside the right sidebar. It used to float over the board — first wherever the
+                // player had dragged it, then pinned to the board's right edge — and either way it sat on
+                // cells that have to be clickable to move and attack. Sized to the button column so the
+                // damage table sits beside it rather than under it.
+                position: "relative",
+                width: "fit-content",
+                flex: "none",
                 display: "flex",
-                flexDirection: isVertical ? "column" : "row",
+                flexDirection: "column",
                 alignItems: "center",
                 gap: 1.5,
-                // Above both sidebars (they sit at zIndex 1) so the bar can be parked anywhere.
-                zIndex: 1200,
-                cursor: isDragging ? "grabbing" : "default",
                 userSelect: "none",
+                // A pure shift: no compensating padding, so the panel keeps its own width and simply moves
+                // over. The damage table next to it is the flexible item in the row, so the width freed at
+                // this panel's far edge goes to the table rather than to empty space.
+                ...(flushToTrim
+                    ? {
+                          marginLeft: `-${TRIM_OVERHANG_PX}px`,
+                          // Up past the sidebar's own padding to sit just under the screen edge, and down
+                          // over the full height of the row (which claims the bar's slack), so the column
+                          // runs from the top of the screen to the top of the log.
+                          marginTop: `-${TOOLBAR_TOP_LIFT_PX}px`,
+                          // Height comes from the buttons and nothing else. Stretching the frame over the
+                          // row's full height left a long dead tail under the last medallion — the panel
+                          // reached the fight log while the buttons stopped a third of the way down. The
+                          // frame's own 12px padding now closes it off under the last button exactly as it
+                          // opens above the first.
+                          alignSelf: "flex-start",
+                      }
+                    : {}),
             }}
-            onMouseDown={handleMouseDown}
         >
-            <Box
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0,
-                    marginBottom: isVertical ? 0 : 0,
-                    marginRight: isVertical ? 0 : 0,
-                    cursor: "grab",
-                    color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
-                    "&:hover": {
-                        color: isDark ? "white" : "black",
-                    },
-                }}
-            >
-                <DragIndicatorIcon />
-            </Box>
-
-            <Divider orientation={isVertical ? "horizontal" : "vertical"} />
-
             {buttonsContent}
-
-            <Divider orientation={isVertical ? "horizontal" : "vertical"} />
-
-            <Tooltip title="Rotate Toolbar" variant="soft">
-                <StyledIconButton
-                    rotationDegrees={0} // No rotation for the icon itself
-                    isDark={isDark}
-                    onClick={handleRotate}
-                    sx={{
-                        width: "auto",
-                        height: "auto",
-                        padding: "4px",
-                        borderRadius: "50%",
-                        color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
-                        "&:hover": {
-                            backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-                            color: isDark ? "white" : "black",
-                            transform: "scale(1.1)",
-                        },
-                    }}
-                >
-                    <RotateRightIcon />
-                </StyledIconButton>
-            </Tooltip>
         </StyledSheet>
     ) : null;
 };

@@ -12,7 +12,9 @@ import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
-import SideToggleContainer from "./SideToggleContainer";
+// Sandbox keeps its own panel: SideToggleContainer is now the ranked draft's expanded-card layout.
+import SandboxToggleContainer from "./SandboxToggleContainer";
+import { SynergySlots } from "./SynergySlots";
 import UnitSplitter from "./UnitSplitter";
 
 const FightControlToggler: React.FC = () => {
@@ -222,8 +224,11 @@ const FightControlToggler: React.FC = () => {
                                 sx={{
                                     width: "36px",
                                     height: "36px",
-                                    filter: open ? "none" : "grayscale(100%)",
-                                    opacity: open ? 1 : 0.7,
+                                    // The flag IS the team colour — it is what tells Reds from Greens at a
+                                    // glance. Graying it while the section is closed (which the Army and
+                                    // Board icons do, where colour carries nothing) left both sections
+                                    // reading as the same slate flag. Only the dimming is kept.
+                                    opacity: open ? 1 : 0.85,
                                 }}
                             />
                             <ListItemContent>
@@ -237,6 +242,9 @@ const FightControlToggler: React.FC = () => {
                                     Reds
                                 </Typography>
                             </ListItemContent>
+                            {/* The four racial synergies, right of the flag: visible whether the section is open
+                                or shut, because they are army state rather than a setting inside it. */}
+                            <SynergySlots teamType={TeamVals.UPPER} />
                             <Box
                                 component="img"
                                 src={images.tr_up}
@@ -254,7 +262,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
+                    <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
                 </List>
             </Toggler>
 
@@ -285,8 +293,11 @@ const FightControlToggler: React.FC = () => {
                                 sx={{
                                     width: "36px",
                                     height: "36px",
-                                    filter: open ? "none" : "grayscale(100%)",
-                                    opacity: open ? 1 : 0.7,
+                                    // The flag IS the team colour — it is what tells Reds from Greens at a
+                                    // glance. Graying it while the section is closed (which the Army and
+                                    // Board icons do, where colour carries nothing) left both sections
+                                    // reading as the same slate flag. Only the dimming is kept.
+                                    opacity: open ? 1 : 0.85,
                                 }}
                             />
                             <ListItemContent>
@@ -300,6 +311,9 @@ const FightControlToggler: React.FC = () => {
                                     Greens
                                 </Typography>
                             </ListItemContent>
+                            {/* The four racial synergies, right of the flag: visible whether the section is open
+                                or shut, because they are army state rather than a setting inside it. */}
+                            <SynergySlots teamType={TeamVals.LOWER} />
                             <Box
                                 component="img"
                                 src={images.tr_up}
@@ -317,7 +331,11 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="green" teamType={TeamVals.LOWER} unitFaction={unitProperties.faction} />
+                    <SandboxToggleContainer
+                        side="green"
+                        teamType={TeamVals.LOWER}
+                        unitFaction={unitProperties.faction}
+                    />
                 </List>
             </Toggler>
         </ListItem>

@@ -96,6 +96,10 @@ export type UnitChipOptions = {
     banned?: boolean;
 };
 
+// The roster's neutral team colour — the same grey RenderableUnit falls back to for a unit that has no side
+// yet, so an unplaced stack and a placed one differ only in colour, not in kind.
+const ROSTER_FLAG_COLOR = 0xd0d0d0;
+
 export class UnitChip extends Container {
     public readonly nameKey: string;
     private content: Container;
@@ -103,7 +107,7 @@ export class UnitChip extends Container {
     private aroundGlow: Graphics;
     private sprite: Sprite;
     private badgeCont: Container;
-    private badgeCircle: Graphics;
+    private badgeFlag: Graphics;
     private badgeText: Text;
     private hovered = false;
     private selected = false;
@@ -151,13 +155,17 @@ export class UnitChip extends Container {
         this.sprite.anchor.set(0.5);
 
         this.badgeCont = new Container();
-        this.badgeCircle = new Graphics().circle(0, 0, 10).fill({ color: 0xffffff, alpha: 1 });
+        // Drawn as the SAME banner a placed stack wears, only colourless: a creature picked from the roster
+        // is already "a stack of N", it just has no team yet. A plain white disc made the roster read as a
+        // different kind of object from the board, and the moment of placing it looked like a substitution
+        // rather than the same thing gaining a side.
+        this.badgeFlag = new Graphics();
         this.badgeText = new Text({
             text: "0",
             style: new TextStyle({ fill: 0x000000, fontSize: 14, fontWeight: "700" }),
         });
         this.badgeText.anchor.set(0.5);
-        this.badgeCont.addChild(this.badgeCircle, this.badgeText);
+        this.badgeCont.addChild(this.badgeFlag, this.badgeText);
         this.badgeCont.visible = false;
 
         this.content.addChild(this.aroundGlow, this.glow, this.sprite, this.badgeCont);
@@ -179,12 +187,13 @@ export class UnitChip extends Container {
 
         this.sprite.width = this.sprite.height = iconSide;
 
-        const br = Math.max(10, Math.floor(iconSide * 0.18));
-        this.badgeCircle.clear().circle(0, 0, br).fill({ color: 0xffffff, alpha: 1 });
-
-        const fs = Math.max(12, Math.floor(iconSide * 0.22));
+        // 0.18, not the chip's old 0.22: the banner's width is derived from the label, so a larger glyph
+        // stretched it and left the notch and the pole too small to read — it came out looking like a plain
+        // rectangle. This is the board's ratio, so the roster flag now has the board flag's proportions.
+        const fs = Math.max(10, Math.floor(iconSide * 0.18));
         this.badgeText.style = new TextStyle({ fill: 0x000000, fontSize: fs, fontWeight: "700" });
         this.badgeCont.position.set(iconSide * 0.35, -iconSide * 0.35);
+        this.drawBadgeFlag(iconSide, fs);
 
         this.drawGlows(iconSide);
 
@@ -353,6 +362,55 @@ export class UnitChip extends Container {
 
         this.startTween();
     }
+    /**
+     * The roster banner: the placed-stack flag, drawn in the neutral roster grey.
+     *
+     * Geometry is copied from RenderableUnit.updateBadge deliberately — same notch, same proportions, same
+     * anchor — so a creature does not change shape when it lands on the board; it only gains its team colour.
+     */
+    private drawBadgeFlag(iconSide: number, fontSize: number) {
+        const label = this.badgeText.text || "0";
+        const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
+        const flagWidth = Math.max(
+            26,
+            Math.floor(iconSide * 0.44),
+            Math.ceil(label.length * fontSize * 0.62 + fontSize * 0.9),
+        );
+        const notchDepth = Math.max(4, Math.floor(flagWidth * 0.15));
+        const left = -flagWidth * 0.82;
+        const right = flagWidth * 0.18;
+        const top = -flagHeight * 0.5;
+        const bottom = flagHeight * 0.5;
+
+        this.badgeFlag.clear();
+        this.badgeFlag
+            .moveTo(left, top)
+            .lineTo(right, top)
+            .lineTo(right - notchDepth, 0)
+            .lineTo(right, bottom)
+            .lineTo(left, bottom)
+            .closePath()
+            .fill({ color: ROSTER_FLAG_COLOR, alpha: 0.96 });
+        this.badgeFlag
+            .moveTo(left, top)
+            .lineTo(right, top)
+            .lineTo(right - notchDepth, 0)
+            .lineTo(right, bottom)
+            .lineTo(left, bottom)
+            .closePath()
+            .stroke({ width: 1.25, color: 0x000000, alpha: 0.58, join: "round" });
+        // The pole, same as on the board.
+        this.badgeFlag
+            .moveTo(left, top - 2)
+            .lineTo(left, bottom + 3)
+            .stroke({ width: Math.max(1.5, iconSide * 0.024), color: 0x1b140f, alpha: 0.88, cap: "round" });
+
+        // Centre the count on the CLOTH, not on the container's origin. The banner hangs almost entirely to
+        // the left of that origin (left = -0.82w, right = +0.18w), so a text anchored at 0,0 sat out by the
+        // notch instead of in the middle of the flag. Same expression the board badge uses, so a stack reads
+        // identically in the roster and once it is placed.
+        this.badgeText.position.set(left + (flagWidth - notchDepth) * 0.5, 0);
+    }
     private updateHighlight() {
         const anyActive = this.hovered || this.selected;
 
@@ -360,7 +418,12 @@ export class UnitChip extends Container {
         this.aroundGlow.visible = anyActive;
 
         const amount = this.amountProvider?.(this.nameKey) ?? 0;
-        this.badgeText.text = String(amount);
+        if (this.badgeText.text !== String(amount)) {
+            this.badgeText.text = String(amount);
+            // The banner is sized to its label, so it has to be redrawn whenever the count changes.
+            const fs = Math.max(10, Math.floor(this.lastIconSide * 0.18));
+            this.drawBadgeFlag(this.lastIconSide, fs);
+        }
 
         // Show badge if:
         // 1. Active (Hover/Select) AND amount > 0 (Standard behavior)
