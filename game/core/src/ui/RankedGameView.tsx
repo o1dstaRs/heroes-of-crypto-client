@@ -1995,8 +1995,8 @@ const augmentEffectText = (label: string, level: number): string => {
 
 // Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
 // while the player positions units. Augment levels come straight from the authoritative snapshot;
-// selected synergies come from the local FightProperties (kept in sync by the picker). Read-only on
-// purpose: augments are committed in the Setup stage, so there is no edit affordance here.
+// faction synergies come from the local FightProperties. Read-only on purpose: augments are committed
+// in the Setup stage, so there is no edit affordance here.
 const RankedAugmentSummary: React.FC<{
     snapshot: PlaySnapshot;
     userTeam: TeamType;
@@ -2108,7 +2108,7 @@ const RankedAugmentSummary: React.FC<{
                 <SynergiesRow synergies={synergies} size={36} />
             ) : (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    None yet — two units of one faction light its synergy
+                    None yet — two units of one faction activate both bonuses
                 </Typography>
             )}
         </Stack>

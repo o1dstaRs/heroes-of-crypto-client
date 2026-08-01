@@ -11,7 +11,7 @@ type RankedSynergySnapshot = Pick<PlaySnapshot, "gameId" | "fightStarted" | "low
 /**
  * Keeps the process-global fight model scoped to one ranked game. Placement snapshots intentionally hide
  * synergies, so only the first snapshot for a game clears stale state; later placement snapshots preserve
- * the viewer's optimistic choices. Once the fight starts, both teams are replaced from authoritative data.
+ * the locally-derived faction bonuses. Once the fight starts, both teams are replaced from authoritative data.
  */
 export const syncRankedSnapshotSynergies = (
     store: RankedSynergyStore,
