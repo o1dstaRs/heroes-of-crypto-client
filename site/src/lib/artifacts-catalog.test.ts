@@ -22,6 +22,13 @@ describe("artifact codex", () => {
         expect(missing).toEqual([]);
     });
 
+    test("omits retired artifacts", () => {
+        const codexSlugs = artifacts.map((artifact) => artifact.slug);
+
+        expect(codexSlugs).not.toContain("broken_aegis");
+        expect(codexSlugs).not.toContain("holy_cross");
+    });
+
     // The spell codex hides artifacts by comparing normalized names, so a codex name that drifts from the
     // game's would list the artifact twice — once here and once as a bogus "System spell".
     test("names each one the way the game does, apostrophes aside", () => {

@@ -52,17 +52,10 @@ export const artifacts: Artifact[] = [
     t1("cursed_ward", "Cursed Ward", "Cursed: +3 luck but -6 morale for the whole army.", true),
     t1("hunters_longbow", "Hunter's Longbow", "Ranged units gain +1 attack for each ranged unit in the army."),
     t1("helm_of_focus", "Helm of Focus", "Increases the army's mind resistance by 25%."),
-    t1(
-        "broken_aegis",
-        "Broken Aegis",
-        "Cursed: the wielder's attacks have a 20% chance to Break the enemy they hit (muting its abilities), at the cost of a 4% chance to miss.",
-        true,
-    ),
     t1("mages_ring", "Mage's Ring", "Increases all magic damage the army deals by 10%."),
     // Tier 2
     t2("warlords_edge", "Warlord's Edge", "Grants the whole army an additional 12% attack."),
     t2("titan_plate", "Titan Plate", "Grants the whole army an additional 12% defense (melee and ranged)."),
-    t2("holy_cross", "Holy Cross", "+50% healing and resurrection; the Troll's ability is not consumed on cast."),
     t2("clover_of_fortune", "Clover of Fortune", "Increases the army's luck by 10."),
     t2("crown_of_command", "Crown of Command", "Grants +1 movement, +8 morale, and +1 armor to the whole army."),
     t2(
