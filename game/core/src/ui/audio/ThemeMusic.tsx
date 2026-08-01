@@ -141,10 +141,19 @@ export const ThemeMusic: React.FC = () => {
 
     const start = useCallback(() => {
         const audio = audioRef.current;
-        if (!audio || startedRef.current || !shouldSing(window.location.pathname)) {
+        // The pre-fight flag must be honored here too: a player who ARRIVES on /game/<id> (a vs-AI link, a
+        // mid-draft reload) is on a non-singing route, and gating start() on the route alone kept the
+        // pre-fight track silent for them — the only flows that heard it were the ones that had already
+        // started the audio back on /play.
+        if (!audio || startedRef.current || (!shouldSing(window.location.pathname) && !isPrefightMusicActive())) {
             return;
         }
         startedRef.current = true;
+        // Re-resolve the <source> children before playing: the element picked its source at mount, and if
+        // the pre-fight flag flipped since (it usually has, on a direct /game entry), playing without a
+        // load() starts the stale menu track instead of the pre-fight one. Nothing is buffered yet
+        // (preload="none"), so this costs nothing.
+        audio.load();
         audio.volume = 0;
         audio
             .play()
@@ -157,8 +166,13 @@ export const ThemeMusic: React.FC = () => {
     }, [fadeTo, muted, volume]);
 
     // Autoplay is blocked until the page has been interacted with, so the theme waits for the first gesture
-    // of any kind and slips in behind it.
+    // of any kind and slips in behind it. Re-armed whenever `singing` changes: the listeners are one-shot,
+    // and a gesture made on a silent screen consumes them while start() declines — without re-arming, music
+    // never began for a player who landed straight on /game and only later entered a singing stretch.
     useEffect(() => {
+        if (startedRef.current || !singing) {
+            return undefined;
+        }
         const onGesture = (): void => start();
         const events = ["pointerdown", "keydown", "touchstart"] as const;
         for (const event of events) {
@@ -169,7 +183,7 @@ export const ThemeMusic: React.FC = () => {
                 window.removeEventListener(event, onGesture);
             }
         };
-    }, [start]);
+    }, [start, singing]);
 
     // Leaving for the fight silences it; coming back picks it up again.
     useEffect(() => {
@@ -209,8 +223,11 @@ export const ThemeMusic: React.FC = () => {
         return () => audio.removeEventListener("ended", onEnded);
     }, []);
 
-    // Load and play whatever track the list has moved to. Skipped on the very first render so it does not
-    // fight the autoplay gate — `started` only becomes true once a gesture has let us in.
+    // Load and play whatever track the playlist — or the pre-fight flag — has moved to. Skipped on the very
+    // first render so it does not fight the autoplay gate — `started` only becomes true once a gesture has
+    // let us in. `prefight` is a dep because the <source> swap alone changes nothing: an <audio> element
+    // keeps playing what it loaded until load() is called, so without this the hand-over to "Iron and Silk"
+    // (and back) never actually happened for a player whose music began on the menu playlist.
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio || !startedRef.current) {
@@ -220,10 +237,12 @@ export const ThemeMusic: React.FC = () => {
         audio.volume = 0;
         audio
             .play()
-            .then(() => fadeTo(shouldSing(window.location.pathname) ? (muted ? 0 : volume) : 0))
+            .then(() =>
+                fadeTo(shouldSing(window.location.pathname) || isPrefightMusicActive() ? (muted ? 0 : volume) : 0),
+            )
             .catch(() => undefined);
         // volume/muted are read at fade time on purpose: a mid-track volume change must not reload the track.
-    }, [trackIndex]);
+    }, [trackIndex, prefight]);
 
     useEffect(() => {
         try {
