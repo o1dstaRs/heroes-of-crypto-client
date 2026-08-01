@@ -610,10 +610,7 @@ export class UnitsOverlay {
             // Square plates, whole: only the corners round slightly so the crest doesn't read as a raw
             // image drop next to the round collapse toggle.
             const crestCorner = crestSide * 0.12;
-            icon.mask
-                .clear()
-                .roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner)
-                .fill({ color: 0xffffff });
+            icon.mask.clear().roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner).fill({ color: 0xffffff });
             icon.ring
                 .clear()
                 .roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner)
