@@ -15,22 +15,29 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     return null;
 }
 
-function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
+function atlasImageKeyFromUnitAndState(
+    unitName: string,
+    state: string,
+): { key: ImageKey; divider: number } | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLower = state.toLowerCase();
 
-    const key = `${base}_${stateLower}_atlas_quarter` as ImageKey;
-
-    if (key in images) return key;
+    // Full-resolution atlas first: the chips sit at ~90css px (180 device px on retina) and scale up
+    // further on hover, where the quarter frames read visibly mushy. The full atlas only decodes when a
+    // chip is actually hovered, and only for that unit, so the cost stays proportional to curiosity.
+    const fullKey = `${base}_${stateLower}_atlas` as ImageKey;
+    if (fullKey in images) return { key: fullKey, divider: 1 };
+    const quarterKey = `${base}_${stateLower}_atlas_quarter` as ImageKey;
+    if (quarterKey in images) return { key: quarterKey, divider: 4 };
     if (process.env.NODE_ENV === "development") {
-        console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${key}`);
+        console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${fullKey}`);
     }
     return null;
 }
 
 function getDefaultAnimationConfig(
     unitName?: string | null,
-): { meta: AtlasMeta; imageSrc: string; cacheKey: string } | null {
+): { meta: AtlasMeta; imageSrc: string; cacheKey: string; divider: number } | null {
     const normalized = normalizeUnitNameForAtlas(unitName);
     if (!normalized) return null;
 
@@ -43,26 +50,28 @@ function getDefaultAnimationConfig(
         : stateNames[0];
 
     const meta = unitStates[preferredState];
-    const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState);
-    if (!imageKey) return null;
+    const resolved = atlasImageKeyFromUnitAndState(normalized, preferredState);
+    if (!resolved) return null;
 
-    const imageSrc = images[imageKey];
+    const imageSrc = images[resolved.key];
     if (!imageSrc) return null;
 
-    const cacheKey = `${normalized}::${preferredState}`;
-    return { meta, imageSrc, cacheKey };
+    // The variant is part of the cache key so a full-atlas frame set never collides with a quarter one.
+    const cacheKey = `${normalized}::${preferredState}::${resolved.divider}`;
+    return { meta, imageSrc, cacheKey, divider: resolved.divider };
 }
 
 // Cache textures per atlas to avoid rebuilding frames
 const atlasFramesCache = new Map<string, Texture[]>();
 
-function buildAtlasFrames(meta: AtlasMeta, imageSrc: string): Texture[] {
+function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, divider: number): Texture[] {
     // Parent texture for the whole atlas image (cached by Pixi for a given id/url)
     const parentTexture = Texture.from(imageSrc);
     const source = parentTexture.source; // ✅ v8 way, replaces deprecated baseTexture
 
-    const frameWidth = meta.frameWidth / 4;
-    const frameHeight = meta.frameHeight / 4;
+    // meta.frameWidth/Height describe the FULL-res frame; the divider matches the atlas variant loaded.
+    const frameWidth = meta.frameWidth / divider;
+    const frameHeight = meta.frameHeight / divider;
     const cols = meta.layout?.cols ?? 1;
     const rows = meta.layout?.rows ?? 1;
     const frameCount = meta.frameCount ?? cols * rows;
@@ -234,11 +243,11 @@ export class UnitChip extends Container {
             return;
         }
 
-        const { meta, imageSrc, cacheKey } = config;
+        const { meta, imageSrc, cacheKey, divider } = config;
 
         let frames = atlasFramesCache.get(cacheKey);
         if (!frames) {
-            frames = buildAtlasFrames(meta, imageSrc);
+            frames = buildAtlasFrames(meta, imageSrc, divider);
             atlasFramesCache.set(cacheKey, frames);
         }
 
