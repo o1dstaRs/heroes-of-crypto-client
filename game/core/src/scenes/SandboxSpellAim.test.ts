@@ -53,6 +53,17 @@ describe("spell damage preview parity", () => {
         expect(stackPoweredSpellPreviewDamage(30, 2, 5, 0, 20)).toBe(240);
     });
 
+    test("prices the target's element before its resistance, and leaves elementless spells alone", () => {
+        // Ring of Fire at 24: 24 * 1 creature * 5 stack = 120 against an elementless target.
+        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0)).toBe(120);
+        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0, 1)).toBe(120);
+        // A Fire Element previews as nothing at all rather than as a number the cast will never deal.
+        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0, 0)).toBe(0);
+        // A Water Element takes fire half again as hard, and only then resists it: 120 * 1.5 = 180, less 20%.
+        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0, 1.5)).toBe(180);
+        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 20, 1.5)).toBe(144);
+    });
+
     test("reads spell Flesh Shield transfers even when no primary damage remains", () => {
         const event = {
             type: "spell_cast",

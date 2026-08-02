@@ -76,12 +76,15 @@ const hocActionButtonBaseSx = {
 /** Primary action (Start, Accept): filled ember, the loudest thing in the bar. */
 export const hocActionPrimaryButtonSx = {
     ...hocActionButtonBaseSx,
-    color: hocColors.black,
-    bgcolor: hocColors.orange,
+    // Deep amber instead of the old flat #ff8f00 slab: about a third of its brightness, so it sits in the
+    // darkened sidebar instead of glaring out of it. It is still plainly the brightest control on the bar —
+    // the primary/secondary hierarchy survives on the fill AND on the gold rim, which the soft buttons lack.
+    color: hocColors.parchment,
+    bgcolor: "#7a4405",
     border: `1px solid ${hocColors.gold}`,
     "&:hover": {
-        bgcolor: hocColors.gold,
-        color: hocColors.black,
+        bgcolor: "#9c5806",
+        color: hocColors.parchment,
     },
     "&.Mui-disabled": {
         bgcolor: "rgba(255, 143, 0, 0.2)",
@@ -94,10 +97,11 @@ export const hocActionPrimaryButtonSx = {
 export const hocActionSoftButtonSx = {
     ...hocActionButtonBaseSx,
     color: hocColors.parchment,
-    bgcolor: hocColors.orangeSoft,
+    // Roughly half the former wash, so Clone / Split read as raised panel rather than as amber tiles.
+    bgcolor: "rgba(255, 143, 0, 0.09)",
     border: `1px solid ${hocColors.orangeBorder}`,
     "&:hover": {
-        bgcolor: "rgba(255, 143, 0, 0.26)",
+        bgcolor: "rgba(255, 143, 0, 0.18)",
         borderColor: hocColors.orange,
         color: hocColors.orange,
     },
@@ -139,14 +143,28 @@ export const hocStartButtonSx = {
     },
 };
 
+/**
+ * The obsidian shell the floating toolbar column wears: a dark vertical gradient inside a bronze outline,
+ * with an inner rim and a drop shadow so it reads as a raised, framed control rather than a flat strip of
+ * sidebar. Shared here so collapsible headers can be built to look like that toolbar instead of like plain
+ * list rows. (DraggableToolbar still carries its own copy of these numbers; it can adopt this later.)
+ */
+export const hocObsidianPanelSx = {
+    // Neutral fill to match the board-tinted sidebars; the bronze rim stays as the accent.
+    backgroundImage: "linear-gradient(180deg, rgba(21,21,19,.96), rgba(6,6,6,.96))",
+    borderRadius: "14px",
+    border: "2.34px solid #3a382f",
+    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
+};
+
 /** Destructive action (Delete): the same frame in the palette's ember red. */
 export const hocActionDangerButtonSx = {
     ...hocActionButtonBaseSx,
     color: hocColors.parchment,
-    bgcolor: "rgba(255, 90, 63, 0.16)",
+    bgcolor: "rgba(255, 90, 63, 0.10)",
     border: `1px solid rgba(255, 90, 63, 0.5)`,
     "&:hover": {
-        bgcolor: "rgba(255, 90, 63, 0.3)",
+        bgcolor: "rgba(255, 90, 63, 0.22)",
         borderColor: hocColors.danger,
         color: hocColors.danger,
     },

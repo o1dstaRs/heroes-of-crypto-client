@@ -282,7 +282,11 @@ describe("RenderableUnit steady-state overlays", () => {
         expect(internals.respondContainer).toBeUndefined();
 
         type ClearableGraphics = { clear: () => void };
-        const trackedGraphics = [internals.badgeFlag!, ...internals.stackPowerPips];
+        // Only the PIPS are counted. The badge banner is cloth now — it ripples off wall-clock time, so it
+        // redraws on every frame by design and can no longer stand for "static geometry is reused". What
+        // this test guards is that the stack pips are not needlessly re-tessellated, and that an inactive
+        // status icon is never allocated at all; both still hold.
+        const trackedGraphics = [...internals.stackPowerPips];
         const restores: Array<() => void> = [];
         let clearCalls = 0;
         for (const graphic of trackedGraphics) {
@@ -305,9 +309,10 @@ describe("RenderableUnit steady-state overlays", () => {
             unit.ensureVisual(worldRoot, gridSettings);
             expect(clearCalls).toBe(5);
 
+            // Taking the turn re-renders the banner, not the pips — their count must not move.
             unit.setActiveTurn(true);
             unit.ensureVisual(worldRoot, gridSettings);
-            expect(clearCalls).toBe(6);
+            expect(clearCalls).toBe(5);
         } finally {
             restores.forEach((restore) => restore());
         }

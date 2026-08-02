@@ -236,6 +236,15 @@ export abstract class PixiScene {
     public isTeamAiControlled(_team: TeamType): boolean {
         return false;
     }
+    /**
+     * TEMPORARY, sandbox-only: paint the board with the PREVIOUS floor texture instead of the current one,
+     * so the two can be compared live. Only the floor painting changes — lighting and atmosphere are
+     * untouched. Overridden in Sandbox; no-op elsewhere. Remove with the toggle that drives it.
+     */
+    public setLegacyBoardBackground(_enabled: boolean): void {}
+    public isLegacyBoardBackground(): boolean {
+        return false;
+    }
     public applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.applyAuthoritativeSnapshot(snapshot);
     }

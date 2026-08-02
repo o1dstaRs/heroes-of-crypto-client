@@ -17,6 +17,13 @@ interface TurnTimerBarProps {
     secondsMax: number;
     // Ranked only: whose clock is running. Your own gets the red fill; theirs gets the calm amber one.
     enemyTurn?: boolean;
+    /**
+     * Rendered directly under the groove, in the groove's own column — clear of the lap medallion on one
+     * side and the seconds on the other. The additional-time control goes here rather than across the card:
+     * it does one thing, to this clock, and at full card width it read as a separate action rather than as
+     * the second half of the timer.
+     */
+    footer?: React.ReactNode;
 }
 
 export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
@@ -24,6 +31,7 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
     secondsRemaining,
     secondsMax,
     enemyTurn = false,
+    footer,
 }) => {
     const metrics = useSidebarMetrics();
     const hasTimer = Number.isFinite(secondsMax) && secondsMax > 0 && secondsRemaining >= 0;
@@ -47,128 +55,159 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
           : { light: "#ffe6ab", base: "#e8b558", dark: "#a87526", glow: "rgba(232,181,88,0.28)" };
     const { light: fillLight, base: fillBase, dark: fillDark, glow: fillGlow } = palette;
 
-    return (
-        <Box
-            sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: `${Math.round(metrics.gapPx * 0.7)}px`,
-                width: "100%",
-                my: "2px",
-            }}
-        >
-            {/* Lap medallion — a gold coin so the lap number reads as part of the timer. */}
-            <Box
-                sx={{
-                    flexShrink: 0,
-                    width: medallion,
-                    height: medallion,
-                    borderRadius: "50%",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "radial-gradient(circle at 50% 32%, rgba(74, 50, 20, 0.96), rgba(18, 11, 4, 0.98))",
-                    border: `2px solid ${hocColors.gold}`,
-                    boxShadow:
-                        "0 0 0 1px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255, 220, 150, 0.3), 0 2px 5px rgba(0,0,0,0.6), 0 0 4px rgba(220, 177, 88, 0.25)",
-                }}
-            >
-                <Typography
-                    sx={{
-                        fontSize: `${medallion * 0.0125}rem`,
-                        lineHeight: 1,
-                        letterSpacing: "0.1em",
-                        fontWeight: "xl",
-                        textTransform: "uppercase",
-                        color: hocColors.gold,
-                    }}
-                >
-                    Lap
-                </Typography>
-                <Typography
-                    sx={{
-                        fontSize: `${medallion * 0.0263}rem`,
-                        lineHeight: 1.15,
-                        fontWeight: "xl",
-                        color: hocColors.parchment,
-                        fontVariantNumeric: "tabular-nums",
-                    }}
-                >
-                    {lapNumber || 1}
-                </Typography>
-            </Box>
+    const gapPx = Math.round(metrics.gapPx * 0.7);
+    const secondsWidth = Math.round(24 * metrics.fontScale);
+    // The row's height comes from the lap medallion, which is a good deal taller than the groove and is
+    // centred against it — so the row's bottom edge sits this far below the groove's. The footer is a
+    // sibling of that row, so without pulling it back up by the same amount it would open a gap the size of
+    // the medallion's overhang, whatever margin it was given.
+    const medallionOverhangPx = Math.round((medallion - grooveHeight) / 2);
+    // Drawn a touch narrower than the groove on each side rather than flush with it: matching the groove
+    // exactly made the two edges fight, the pill's round end against the bar's square one.
+    const footerInsetPx = 8;
+    // A seam between the groove and the control under it, about a third of that control's own height. It is
+    // expressed off the groove rather than measured off the button: the button's height comes from its font
+    // and padding, both of which already scale with the sidebar, and so does the groove — so one third of
+    // the groove tracks one third of the button at every size, without having to read the DOM for it.
+    const footerGapPx = Math.round(grooveHeight / 3);
 
-            {/* Gold-framed groove holding the gradient fill. */}
-            <Box
-                sx={{
-                    position: "relative",
-                    flex: 1,
-                    minWidth: 0,
-                    height: grooveHeight,
-                    borderRadius: `${grooveHeight / 2}px`,
-                    padding: "2px",
-                    boxSizing: "border-box",
-                    background: "linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.32))",
-                    border: `1.5px solid ${hocColors.gold}`,
-                    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.45)",
-                    overflow: "hidden",
-                    ...(critical
-                        ? {
-                              animation: "hocTimerCritical 0.9s ease-in-out infinite",
-                              "@keyframes hocTimerCritical": {
-                                  "0%, 100%": {
-                                      borderColor: hocColors.gold,
-                                      boxShadow: "inset 0 2px 4px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.45)",
-                                  },
-                                  "50%": {
-                                      borderColor: hocColors.danger,
-                                      boxShadow: `inset 0 2px 4px rgba(0,0,0,0.65), 0 0 9px 1px ${hocColors.danger}`,
-                                  },
-                              },
-                              "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                          }
-                        : {}),
-                }}
-            >
+    return (
+        <Box sx={{ width: "100%", my: "2px" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: `${gapPx}px`, width: "100%" }}>
+                {/* Lap medallion — a gold coin so the lap number reads as part of the timer. */}
+                <Box
+                    sx={{
+                        flexShrink: 0,
+                        width: medallion,
+                        height: medallion,
+                        borderRadius: "50%",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "radial-gradient(circle at 50% 32%, rgba(74, 50, 20, 0.96), rgba(18, 11, 4, 0.98))",
+                        border: `2px solid ${hocColors.gold}`,
+                        boxShadow:
+                            "0 0 0 1px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255, 220, 150, 0.3), 0 2px 5px rgba(0,0,0,0.6), 0 0 4px rgba(220, 177, 88, 0.25)",
+                    }}
+                >
+                    <Typography
+                        sx={{
+                            fontSize: `${medallion * 0.0125}rem`,
+                            lineHeight: 1,
+                            letterSpacing: "0.1em",
+                            fontWeight: "xl",
+                            textTransform: "uppercase",
+                            color: hocColors.gold,
+                        }}
+                    >
+                        Lap
+                    </Typography>
+                    <Typography
+                        sx={{
+                            fontSize: `${medallion * 0.0263}rem`,
+                            lineHeight: 1.15,
+                            fontWeight: "xl",
+                            color: hocColors.parchment,
+                            fontVariantNumeric: "tabular-nums",
+                        }}
+                    >
+                        {lapNumber || 1}
+                    </Typography>
+                </Box>
+
+                {/* Gold-framed groove holding the gradient fill. */}
                 <Box
                     sx={{
                         position: "relative",
-                        height: "100%",
-                        width: `${remainingPct}%`,
-                        borderRadius: "7px",
-                        transition: TICK_TRANSITION,
-                        background: `linear-gradient(180deg, ${fillLight} 0%, ${fillBase} 52%, ${fillDark} 100%)`,
-                        boxShadow: `0 0 5px ${fillGlow}`,
-                        // Glossy top sheen so the fill looks like a polished gauge, not a flat block.
-                        "&::after": {
-                            content: '""',
-                            position: "absolute",
-                            inset: 0,
-                            borderRadius: "7px",
-                            background:
-                                "linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.04) 46%, rgba(255,255,255,0) 62%)",
-                            pointerEvents: "none",
-                        },
+                        flex: 1,
+                        minWidth: 0,
+                        height: grooveHeight,
+                        borderRadius: `${grooveHeight / 2}px`,
+                        padding: "2px",
+                        boxSizing: "border-box",
+                        background: "linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.32))",
+                        border: `1.5px solid ${hocColors.gold}`,
+                        boxShadow: "inset 0 2px 4px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.45)",
+                        overflow: "hidden",
+                        ...(critical
+                            ? {
+                                  animation: "hocTimerCritical 0.9s ease-in-out infinite",
+                                  "@keyframes hocTimerCritical": {
+                                      "0%, 100%": {
+                                          borderColor: hocColors.gold,
+                                          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.45)",
+                                      },
+                                      "50%": {
+                                          borderColor: hocColors.danger,
+                                          boxShadow: `inset 0 2px 4px rgba(0,0,0,0.65), 0 0 9px 1px ${hocColors.danger}`,
+                                      },
+                                  },
+                                  "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                              }
+                            : {}),
                     }}
-                />
+                >
+                    <Box
+                        sx={{
+                            position: "relative",
+                            height: "100%",
+                            width: `${remainingPct}%`,
+                            borderRadius: "7px",
+                            transition: TICK_TRANSITION,
+                            background: `linear-gradient(180deg, ${fillLight} 0%, ${fillBase} 52%, ${fillDark} 100%)`,
+                            boxShadow: `0 0 5px ${fillGlow}`,
+                            // Glossy top sheen so the fill looks like a polished gauge, not a flat block.
+                            "&::after": {
+                                content: '""',
+                                position: "absolute",
+                                inset: 0,
+                                borderRadius: "7px",
+                                background:
+                                    "linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.04) 46%, rgba(255,255,255,0) 62%)",
+                                pointerEvents: "none",
+                            },
+                        }}
+                    />
+                </Box>
+
+                {/* Seconds remaining. */}
+                <Typography
+                    sx={{
+                        flexShrink: 0,
+                        minWidth: `${secondsWidth}px`,
+                        textAlign: "right",
+                        fontWeight: "xl",
+                        fontSize: `${0.85 * metrics.fontScale}rem`,
+                        fontVariantNumeric: "tabular-nums",
+                        color: critical ? hocColors.danger : hocColors.parchment,
+                        textShadow: "0 1px 2px rgba(0,0,0,0.7)",
+                    }}
+                >
+                    {secondsLeft}s
+                </Typography>
             </Box>
 
-            {/* Seconds remaining. */}
-            <Typography
-                sx={{
-                    flexShrink: 0,
-                    minWidth: `${Math.round(24 * metrics.fontScale)}px`,
-                    textAlign: "right",
-                    fontWeight: "xl",
-                    fontSize: `${0.85 * metrics.fontScale}rem`,
-                    fontVariantNumeric: "tabular-nums",
-                    color: critical ? hocColors.danger : hocColors.parchment,
-                    textShadow: "0 1px 2px rgba(0,0,0,0.7)",
-                }}
-            >
-                {secondsLeft}s
-            </Typography>
+            {/* The timer's second line, hard against the groove and inset to exactly its span — past the lap
+                medallion on one side, past the seconds on the other. The 1px is the seam, not a gap: any
+                more and the two stop reading as one gauge. It sits OUTSIDE the row above rather than inside the
+                groove's column, so the medallion and the seconds stay centred on the groove itself instead
+                of drifting down to the middle of groove-plus-footer. */}
+            {footer && (
+                <Box
+                    sx={{
+                        // `flex`, not the default block: an inline child leaves a few pixels of line-height
+                        // under it, which is exactly the seam this is trying to close.
+                        display: "flex",
+                        pl: `${medallion + gapPx + footerInsetPx}px`,
+                        pr: `${secondsWidth + gapPx + footerInsetPx}px`,
+                        "& > *": { flex: 1 },
+                        mt: `${footerGapPx - medallionOverhangPx}px`,
+                    }}
+                >
+                    {footer}
+                </Box>
+            )}
         </Box>
     );
 };

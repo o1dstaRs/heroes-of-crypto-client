@@ -81,12 +81,26 @@ export interface IFightDeathEntry {
     team: TeamType;
 }
 
+/**
+ * Damage dealt by a single creature type over the whole fight. Every creature that was
+ * fielded gets an entry, including the ones that never landed a hit (damage === 0), so the
+ * results overlay can show the full roster rather than only the ones that scored.
+ */
+export interface IFightDamageEntry {
+    name: string;
+    smallTextureName: string;
+    damage: number;
+    team: TeamType;
+}
+
 /** End-of-fight summary rendered by the Fight Finished overlay. */
 export interface IFightStatsReport {
     winner: TeamType;
     series: IFightStatsSample[];
     lowerDeaths: IFightDeathEntry[];
     upperDeaths: IFightDeathEntry[];
+    /** Per-creature damage breakdown, sorted by damage descending. */
+    damageByUnit?: IFightDamageEntry[];
     lowerStartTotal: number;
     upperStartTotal: number;
     lowerKilledTotal: number;

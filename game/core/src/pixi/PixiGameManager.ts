@@ -27,6 +27,7 @@ import {
     VisibleButtonState,
 } from "../scenes/VisibleState";
 import { MAX_FPS } from "../statics";
+import { boardFitPadding } from "./boardFit";
 import { FpsCalculator } from "./FpsCalculator";
 import { HotKey, hotKeyPress } from "../utils/hotkeys";
 import type { UnitsOverlay } from "../scenes/UnitsOverlay";
@@ -450,7 +451,12 @@ export class PixiGameManager {
         const gs = this.m_scene?.sc_sceneSettings?.getGridSettings?.();
         if (!gs) return;
 
-        this.m_scene.fitWorldToViewport(gs.getMinX(), gs.getMinY(), gs.getMaxX(), gs.getMaxY(), 0);
+        // Breathing room around the grid — see boardFit. The stone backdrop reads the same padding, so the
+        // painted squares and the logical grid stay the same size; they must, or units drift off their cells.
+        const { width, height } = this.m_scene.getViewportSize();
+        const padding = boardFitPadding(width, height);
+
+        this.m_scene.fitWorldToViewport(gs.getMinX(), gs.getMinY(), gs.getMaxX(), gs.getMaxY(), padding);
 
         this.m_scene?.CameraChanged?.();
     }
@@ -577,6 +583,13 @@ export class PixiGameManager {
     /** Sandbox: whether a team is currently fully AI-controlled. */
     public IsTeamAiControlled(team: TeamType): boolean {
         return this.m_scene?.isTeamAiControlled(team) ?? false;
+    }
+    /** TEMPORARY sandbox comparison toggle: paint the board with the previous floor texture. */
+    public SetLegacyBoardBackground(enabled: boolean): void {
+        this.m_scene?.setLegacyBoardBackground(enabled);
+    }
+    public IsLegacyBoardBackground(): boolean {
+        return this.m_scene?.isLegacyBoardBackground() ?? false;
     }
     /** Replay the previous fight with the exact same units, positions and map. */
     public Rematch(): void {

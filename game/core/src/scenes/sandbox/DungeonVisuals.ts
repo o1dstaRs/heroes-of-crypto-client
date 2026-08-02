@@ -1,7 +1,16 @@
 import { Container, Filter, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
-import { GridSettings, GridVals, FightStateManager, GridMath, HoCConstants } from "@heroesofcrypto/common";
+import {
+    GridSettings,
+    GridVals,
+    FightStateManager,
+    GridConstants,
+    GridMath,
+    HoCConstants,
+} from "@heroesofcrypto/common";
 
+import { boardFitSize, boardFitVerticalShift } from "../../pixi/boardFit";
 import { createDungeonLightFilter, updateDungeonLightUniforms } from "./DungeonLightFilter";
+import { createFireLightFilter, updateFireLightUniforms } from "./FireLightFilter";
 
 export interface IDungeonVisualsContext {
     getStage(): Container;
@@ -10,6 +19,13 @@ export interface IDungeonVisualsContext {
     getGridSettings(): GridSettings;
     texAny(name: string): Texture | undefined;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
+}
+
+/** A single-cell mountain: where it stands and which of the pool's variants it is drawn with. */
+export interface IScatteredMountain {
+    x: number;
+    y: number;
+    variant: number;
 }
 
 /** One flying quarter of a collapsing mountain. */
@@ -125,6 +141,53 @@ export class DungeonVisuals {
     private activeCollapses: IMountainCollapse[] = [];
     /** Cached 2x2 quarter textures of the mountain sprite, built once per source texture. */
     private mountainQuarterTextures?: { source: Texture; quarters: Texture[] };
+    /**
+     * The scattered-mountain art: 6 rocks in a 3x2 atlas of 64x83 tiles, cut out of their painted ground
+     * so only the rock itself is drawn — the board's own floor shows through around it, which is what makes
+     * a mountain read as an object standing on a cell rather than a square of scenery pasted over it.
+     *
+     * The cut is a filled SILHOUETTE, not a colour key: the rock's dark faces are as dark as the shadowed
+     * ground and its lit tops are as warm as the lit ground, so no threshold separates them. Detecting the
+     * outline and flooding the outside does, and then everything the outline encloses is rock.
+     */
+    private static readonly MOUNTAIN_TILES_KEY = "mountain_tiles_64_atlas";
+    /** One cell wide; taller than it is wide, and the surplus is the part that overhangs (see below). */
+    private static readonly MOUNTAIN_TILE_W = 64;
+    private static readonly MOUNTAIN_TILE_H = 83;
+    private static readonly MOUNTAIN_TILE_COLS = 3;
+    private static readonly MOUNTAIN_TILE_COUNT = 6;
+    private mountainTileTextures?: Texture[];
+    /**
+     * How tall the rock is drawn, in cells — and it must match the atlas tile's own aspect (64x83), which is
+     * where the overhang is baked. Width stays exactly one cell: this is a stretch upward, not a uniform
+     * blow-up, because growing both axes fattens the boulder into its neighbours sideways.
+     *
+     * The surplus is alpha-cut in the artwork so only the ROCK crosses the grid line. Drawn opaque, the
+     * tile's square backing went up with it and every mountain read as a tall block sitting in two cells
+     * instead of a peak leaning into the one above.
+     */
+    private static readonly MOUNTAIN_HEIGHT_CELLS = 83 / 64;
+    /** One entry per standing mountain: which cell it occupies and which variant it wears. */
+    private scatteredMountains: IScatteredMountain[] = [];
+    private scatteredMountainSprites: Sprite[] = [];
+    /**
+     * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 5s loop at 12fps.
+     *
+     * The artwork is one 4x4 block of cells, and its own tile lattice was resampled cell-by-cell onto exact
+     * 64px quarters when the atlas was built — so the animation's grout lines sit on the board's cell edges
+     * rather than merely near them. It replaces the still lava_256 on exactly the same sprite, which means
+     * the existing placement (dead centre, scaled to four cells) already puts it on the right squares.
+     *
+     * The loop is closed with a cross-dissolve rather than a hard cut: measured, the wrap now differs by
+     * 0.83/255 against 1.63 for an ordinary frame step, so the repeat is less of a change than the
+     * animation's own motion and cannot be spotted.
+     */
+    private static readonly LAVA_ANIM_KEY = "lava_center_anim_atlas";
+    private static readonly LAVA_ANIM_FRAME_PX = 256;
+    private static readonly LAVA_ANIM_COLS = 8;
+    private static readonly LAVA_ANIM_FRAMES = 60;
+    private static readonly LAVA_ANIM_FPS = 12;
+    private lavaAnimFrames?: Texture[];
     public constructor(context: IDungeonVisualsContext) {
         this.context = context;
         this.holeContainer = new Container();
@@ -251,7 +314,126 @@ export class DungeonVisuals {
         this.centerDried = dried;
         this.ensureCenterTerrainSprite();
     }
+    /**
+     * The frame of the molten-centre loop that is due right now, or undefined if the atlas is absent —
+     * in which case the caller falls back to the still lava, so a missing asset costs the motion and
+     * nothing else.
+     *
+     * Driven off wall-clock, not the simulation step: the sim advances at a quarter of real time (see
+     * PixiGameManager.SIM_STEP), which would run the lava at 3fps.
+     */
+    private lavaAnimTexture(): Texture | undefined {
+        if (!this.lavaAnimFrames) {
+            const atlas = this.context.texAny(DungeonVisuals.LAVA_ANIM_KEY);
+            if (!atlas) {
+                return undefined;
+            }
+            const side = DungeonVisuals.LAVA_ANIM_FRAME_PX;
+            const frames: Texture[] = [];
+            for (let i = 0; i < DungeonVisuals.LAVA_ANIM_FRAMES; i++) {
+                const col = i % DungeonVisuals.LAVA_ANIM_COLS;
+                const row = Math.floor(i / DungeonVisuals.LAVA_ANIM_COLS);
+                frames.push(
+                    new Texture({
+                        source: atlas.source,
+                        frame: new Rectangle(col * side, row * side, side, side),
+                    }),
+                );
+            }
+            this.lavaAnimFrames = frames;
+        }
+        const frames = this.lavaAnimFrames;
+        const idx = Math.floor((performance.now() / 1000) * DungeonVisuals.LAVA_ANIM_FPS) % frames.length;
+        return frames[idx];
+    }
+    /** Slice the mountain atlas once; undefined until the texture has loaded. */
+    private mountainTiles(): Texture[] | undefined {
+        if (!this.mountainTileTextures) {
+            const atlas = this.context.texAny(DungeonVisuals.MOUNTAIN_TILES_KEY);
+            if (!atlas) {
+                return undefined;
+            }
+            const tileW = DungeonVisuals.MOUNTAIN_TILE_W;
+            const tileH = DungeonVisuals.MOUNTAIN_TILE_H;
+            const frames: Texture[] = [];
+            for (let i = 0; i < DungeonVisuals.MOUNTAIN_TILE_COUNT; i++) {
+                const col = i % DungeonVisuals.MOUNTAIN_TILE_COLS;
+                const row = Math.floor(i / DungeonVisuals.MOUNTAIN_TILE_COLS);
+                frames.push(
+                    new Texture({
+                        source: atlas.source,
+                        frame: new Rectangle(col * tileW, row * tileH, tileW, tileH),
+                    }),
+                );
+            }
+            this.mountainTileTextures = frames;
+        }
+        return this.mountainTileTextures;
+    }
+    /**
+     * Install the scattered-mountain layout to draw. Pass an empty array to go back to the classic pair.
+     *
+     * Sprites are rebuilt from scratch rather than diffed: this runs when the board type is picked or a
+     * mountain is destroyed, never per frame, and nine sprites are far cheaper to recreate than to reconcile.
+     */
+    public setScatteredMountains(mountains: IScatteredMountain[]): void {
+        this.scatteredMountains = mountains.map((m) => ({ ...m }));
+        this.rebuildScatteredMountainSprites();
+    }
+    /**
+     * (Re)create one sprite per scattered mountain from the current layout.
+     *
+     * Separate from setScatteredMountains because the atlas may not have loaded when the layout arrives —
+     * the scene rolls the rock in its constructor, well before the texture bundles are in. That used to
+     * leave the layout stored but zero sprites drawn, and since a non-empty layout also suppresses the
+     * classic mountain pair (see ensureCenterTerrainSprite), the board came up completely bare. So the
+     * per-frame terrain update retries this until the atlas answers.
+     */
+    private rebuildScatteredMountainSprites(): void {
+        for (const sprite of this.scatteredMountainSprites) {
+            sprite.destroy();
+        }
+        this.scatteredMountainSprites = [];
+        const tiles = this.mountainTiles();
+        if (!tiles?.length || !this.scatteredMountains.length) {
+            return;
+        }
+        const gs = this.context.getGridSettings();
+        const cellSize = gs.getCellSize();
+        const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
+        // Stand the rock on the cell's floor: the sprite is anchored at its middle, so lifting it by half
+        // the surplus puts its base exactly on the cell's bottom edge and every extra pixel above it.
+        const riseUp = (drawnHeight - cellSize) * 0.5;
+        for (const mountain of this.scatteredMountains) {
+            const tex = tiles[((mountain.variant % tiles.length) + tiles.length) % tiles.length];
+            const at = GridMath.getPositionForCell(
+                { x: mountain.x, y: mountain.y },
+                gs.getMinX(),
+                gs.getStep(),
+                gs.getHalfStep(),
+            );
+            const sprite = new Sprite(tex);
+            sprite.anchor.set(0.5);
+            sprite.x = at.x;
+            // World Y grows upward (the world root carries the flip), so adding lifts the rock on screen.
+            sprite.y = at.y + riseUp;
+            // Width stays one cell; only the height is stretched. scale.y is negative because the world
+            // root is y-flipped, exactly as the other terrain does.
+            sprite.scale.set(cellSize / tex.width, -(drawnHeight / tex.height));
+            this.context.attachToWorldRoot(sprite, 50);
+            this.scatteredMountainSprites.push(sprite);
+        }
+    }
+    public hasScatteredMountains(): boolean {
+        return this.scatteredMountains.length > 0;
+    }
     public ensureCenterTerrainSprite(): void {
+        // A layout that arrived before its atlas did has no sprites yet — build them the first frame the
+        // texture is available. Once they exist this costs one length comparison; mountainTiles() returns
+        // undefined and this returns straight back out while the atlas is still loading.
+        if (this.scatteredMountains.length && !this.scatteredMountainSprites.length) {
+            this.rebuildScatteredMountainSprites();
+        }
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         // Runs BEFORE the both-mountains-destroyed early return below — the collapse of the final
         // mountain must still be detected and stepped after its sprite is hidden.
@@ -268,10 +450,15 @@ export class DungeonVisuals {
                 texKey = this.centerDried ? "water_dry_256" : "water_256";
                 break;
             case GridVals.LAVA_CENTER:
+                // Still art is the fallback only; the live pool is the animated atlas resolved below. It is
+                // drawn even on the floor that already has lava painted into it, because it covers exactly
+                // the same four-by-four block — so it replaces that paint rather than stacking on it.
                 texKey = this.centerDried ? "lava_frozen_256" : "lava_256";
                 break;
             case GridVals.BLOCK_CENTER:
-                texKey = "mountain_432_412";
+                // A scattered layout owns the rock entirely — its own per-cell sprites are already on the
+                // board, so the classic pair (and its HP bars) must stay off.
+                texKey = this.hasScatteredMountains() ? undefined : "mountain_432_412";
                 break;
             default:
                 texKey = undefined;
@@ -295,7 +482,8 @@ export class DungeonVisuals {
             return;
         }
 
-        const tex = this.context.texAny(texKey);
+        const animated = gridType === GridVals.LAVA_CENTER && !this.centerDried ? this.lavaAnimTexture() : undefined;
+        const tex = animated ?? this.context.texAny(texKey);
         if (!tex) {
             if (this.centerTerrainSprite) this.centerTerrainSprite.visible = false;
             return;
@@ -637,9 +825,73 @@ export class DungeonVisuals {
             return true;
         });
     }
+    /**
+     * The board's floor texture. Only the base painting is swappable — the dungeon lighting overlay, the
+     * atmosphere alpha and every other effect layered on top read nothing from this key and are unaffected.
+     *
+     * TEMPORARY: `background_new` is the previous floor, kept reachable so the sandbox toggle can put the
+     * two side by side (see Sandbox.setLegacyBoardBackground). Drop the pair and inline the winner once the
+     * comparison is settled.
+     */
+    private static readonly BG_KEY_CURRENT = "background_stone_tiles";
+    private static readonly BG_KEY_LEGACY = "background_new";
+    /**
+     * The lava board gets its OWN painting rather than the plain floor plus a lava sprite: the artwork
+     * carries different lighting for it — the room reads darker and colder away from the pool, which a
+     * decal pasted onto the neutral floor cannot reproduce. The molten centre is painted into it, so the
+     * separate hot-lava sprite is suppressed while this floor is up (see ensureCenterTerrainSprite).
+     */
+    private static readonly BG_KEY_LAVA = "background_stone_tiles_lava";
+    /**
+     * Squares painted across the current floor texture — exactly the board's own GRID_SIZE, so the map
+     * shows 16x16 and nothing else. Keep this in step with the artwork: the sprite is sized from it, so one
+     * painted square stays exactly one cell.
+     */
+    private static readonly FLOOR_TILES_ACROSS = GridConstants.GRID_SIZE;
+    private useLegacyBackground = false;
+    /**
+     * Brings the floor's PAINTED lighting to life (see FireLightFilter). Only the current texture carries
+     * its own light, so the legacy floor never gets this pass — there would be nothing lit for it to work
+     * on, and the shader would find no warm texels to modulate anyway.
+     */
+    private fireLightFilter?: Filter;
+    private fireLightTimeSec = 0;
+    /** performance.now() at the previous tick; 0 until the first one. See updateFireLight for why. */
+    private fireLightLastMs = 0;
+    /** Switch the floor painting. The next layoutBackgroundSquare re-reads the key and swaps the texture. */
+    public setLegacyBackground(enabled: boolean): void {
+        this.useLegacyBackground = enabled;
+        this.syncFireLightFilter();
+    }
+    public isLegacyBackground(): boolean {
+        return this.useLegacyBackground;
+    }
+    private backgroundKey(): string {
+        if (this.useLegacyBackground) {
+            return DungeonVisuals.BG_KEY_LEGACY;
+        }
+        return this.hasBakedLavaFloor() ? DungeonVisuals.BG_KEY_LAVA : DungeonVisuals.BG_KEY_CURRENT;
+    }
+    /**
+     * True only when the lava board is being played AND its painting is actually present.
+     *
+     * The texture check is the whole point of asking rather than assuming: if the art is missing the board
+     * falls back to the plain floor with its lava sprite — the pre-existing look — instead of failing to
+     * draw a floor at all. layoutBackgroundSquare likewise only swaps when the texture resolves.
+     */
+    private hasBakedLavaFloor(): boolean {
+        if (this.useLegacyBackground) {
+            return false;
+        }
+        const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
+        if (gridType !== GridVals.LAVA_CENTER) {
+            return false;
+        }
+        return !!this.context.texAny(DungeonVisuals.BG_KEY_LAVA);
+    }
     public ensureBackgroundSprite(): void {
         if (this.bgSprite) return;
-        const tex = this.context.texAny("background_new");
+        const tex = this.context.texAny(this.backgroundKey());
         if (!tex) return;
 
         const bg = new Sprite(tex);
@@ -650,14 +902,109 @@ export class DungeonVisuals {
         bg.zIndex = -20;
         stage.addChild(bg);
         this.bgSprite = bg;
+        this.syncFireLightFilter();
         // We can call layout here if we want/can
+    }
+    /**
+     * Attach the fire-light pass to the floor sprite, or take it off for the unlit legacy texture.
+     *
+     * Built once and kept, so flipping the floor back and forth doesn't recompile the shader; if the
+     * shader failed to build at all the floor simply renders as painted, which is a perfectly good board.
+     */
+    private syncFireLightFilter(): void {
+        const bg = this.bgSprite;
+        if (!bg) {
+            return;
+        }
+        const wanted = !this.useLegacyBackground;
+        if (wanted && !this.fireLightFilter) {
+            this.fireLightFilter = createFireLightFilter();
+        }
+        const filter = this.fireLightFilter;
+        if (!filter) {
+            return;
+        }
+        const attached = Array.isArray(bg.filters) && bg.filters.includes(filter);
+        if (wanted && !attached) {
+            bg.filters = [filter];
+        } else if (!wanted && attached) {
+            bg.filters = [];
+        }
+    }
+    /**
+     * Advance the fire-light clock. Called every frame from the scene's render loop; nothing else in this
+     * layer is time-driven, so this is a no-op whenever the floor has no painted light to animate.
+     */
+    /**
+     * Live state of the floor's fire-light pass, for the dev console (window.__hocFloorLight).
+     *
+     * Exists because this effect is invisible when it fails: the floor still renders, just frozen, so
+     * there is nothing on screen to tell "the shader never built" apart from "the clock never ticks" or
+     * "the filter is not on the sprite". Each of those is a different bug and this names which one.
+     */
+    public getFireLightDiagnostics(): Record<string, unknown> {
+        const sprite = this.bgSprite;
+        return {
+            spriteExists: !!sprite,
+            shaderBuilt: !!this.fireLightFilter,
+            filtersOnSprite: Array.isArray(sprite?.filters) ? sprite.filters.length : 0,
+            filterAttached:
+                !!this.fireLightFilter && Array.isArray(sprite?.filters)
+                    ? sprite.filters.includes(this.fireLightFilter)
+                    : false,
+            legacyFloor: this.useLegacyBackground,
+            clockSeconds: Number(this.fireLightTimeSec.toFixed(2)),
+        };
+    }
+    /**
+     * Advances the flame clock in REAL seconds, deliberately ignoring the simulation's step.
+     *
+     * The sim runs at 60 Hz but is handed a 1/240 step (see PixiGameManager.SIM_STEP), so game time passes
+     * at a QUARTER of wall-clock — a deliberate choice there, to keep the legacy animation constants. Fed
+     * that clock, this effect ran 4x slow: the fire's breath stretched from ~7s to nearly half a minute and
+     * the fine flicker crawled, which on screen is indistinguishable from a static board. That was the whole
+     * reason the floor looked frozen. The atmosphere flicker next door already sidesteps this the same way,
+     * off HoCLib.getTimeMillis().
+     *
+     * Called once per SIM step, so several times per rendered frame — taking real deltas (rather than one
+     * stamp per frame) keeps that from multiplying the speed by the number of substeps.
+     */
+    public updateFireLight(): void {
+        if (!this.fireLightFilter || this.useLegacyBackground) {
+            return;
+        }
+        const nowMs = performance.now();
+        if (this.fireLightLastMs === 0) {
+            this.fireLightLastMs = nowMs;
+        }
+        // Clamped exactly like the sim loop clamps its own dt: a backgrounded tab resumes with a huge gap,
+        // and letting that through would jump the flame instead of continuing it.
+        const dt = Math.min(Math.max((nowMs - this.fireLightLastMs) / 1000, 0), 0.1);
+        this.fireLightLastMs = nowMs;
+        this.fireLightTimeSec += dt;
+        // Keep the value small enough that a 32-bit float still resolves the fast octaves. Wrapping costs
+        // one imperceptible reseed of the noise per ~3h session; drifting into float mush costs the flicker.
+        if (this.fireLightTimeSec > 10000) {
+            this.fireLightTimeSec -= 10000;
+        }
+        updateFireLightUniforms(this.fireLightFilter, this.fireLightTimeSec, 1);
     }
     public layoutBackgroundSquare(alpha: number): void {
         if (!this.bgSprite) return;
         const { width: vw, height: vh } = this.context.getViewportSize();
-        const size = Math.min(vw, vh);
+        // The legacy floor is painted at exactly 16 squares, so it must match the camera's fit (see boardFit):
+        // this sprite is screen-space, not under the camera, so it does not inherit the padding the world is
+        // fitted with — take it from the same place instead, or the painted squares end up larger than the
+        // grid drawn on them and units drift off centre.
+        //
+        // The current floor is painted at exactly those 16 squares, so it is drawn at exactly the fitted
+        // board size too: all 16 columns and rows are whole and fully on screen, none sliced by the window
+        // or hidden under a side panel, and the fit padding around it stays bare by design.
+        const size = (boardFitSize(vw, vh) * DungeonVisuals.FLOOR_TILES_ACROSS) / GridConstants.GRID_SIZE;
         const x = vw * 0.5;
-        const y = vh * 0.5;
+        // The same nudge the camera applies, taken from the same helper — the floor must not drift off the
+        // grid, so both read the offset from one place.
+        const y = vh * 0.5 - boardFitVerticalShift(vw, vh);
         if (this.bgSprite.x !== x || this.bgSprite.y !== y) {
             this.bgSprite.position.set(x, y);
         }
@@ -665,7 +1012,7 @@ export class DungeonVisuals {
             this.bgSprite.width = size;
             this.bgSprite.height = size;
         }
-        const wantKey = "background_new";
+        const wantKey = this.backgroundKey();
         const wantTex = this.context.texAny(wantKey);
 
         if (wantTex && this.bgSprite.texture !== wantTex) {

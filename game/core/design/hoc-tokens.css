@@ -1,0 +1,129 @@
+/* Heroes of Crypto — draft UI tokens, lifted from the running client.
+   Colours come from game/core/src/ui/PickAndBan/index.tsx and game/core/src/ui/hocTheme.ts.
+   Redesign starts here: every draft page in this folder is styled from these variables. */
+:root {
+  /* surface */
+  --hoc-bg: #0b0d12;
+  --hoc-bg-panel: #12151d;
+  --hoc-bg-strip: #171a23;
+  --hoc-bg-enemy-strip: #241416;
+  --hoc-border: rgba(255, 255, 255, 0.12);
+
+  /* text */
+  --hoc-text: #e9e6df;
+  --hoc-text-dim: #9aa0ab;
+  --hoc-text-hint: #7cfc9b;
+
+  /* tile state rings (CreatureTile) */
+  --hoc-ring-available: rgba(255, 255, 255, 0.18);
+  --hoc-ring-yours: #3b9b5c;
+  --hoc-ring-banned: #8a2b2b;
+  --hoc-glow-hover: rgba(120, 220, 150, 0.6);
+  --hoc-check: #7cfc9b;
+
+  /* brand accents (hocTheme.ts) */
+  --hoc-gold: #dcb158;
+  --hoc-orange: #ff8f00;
+  --hoc-parchment: #efe4cc;
+  --hoc-danger: #ff5a3f;
+  --hoc-black: #070504;
+
+  /* geometry */
+  --hoc-tile-radius: 10px;
+  --hoc-tile-border: 2px;
+  --hoc-gap: 12px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 28px 24px 36px;
+  background: var(--hoc-bg);
+  color: var(--hoc-text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px; text-align: center; }
+h2 { font-size: 15px; font-weight: 650; margin: 28px 0 10px; letter-spacing: 0.02em; }
+.sub { color: var(--hoc-text-dim); text-align: center; margin: 0 auto 14px; max-width: 62ch; }
+.hint { color: var(--hoc-text-hint); text-align: center; font-weight: 600; margin: 0 0 18px; }
+
+/* phase rail */
+.rail { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.rail-step { font-size: 12px; padding: 4px 10px; border-radius: 999px; }
+.rail-done { color: #7fd6a0; background: rgba(59, 155, 92, 0.16); }
+.rail-active { color: #dce9ff; background: #2b6cb8; font-weight: 650; }
+.rail-next { color: var(--hoc-text-dim); background: rgba(255, 255, 255, 0.04); }
+.rail-sep { color: rgba(255, 255, 255, 0.18); }
+
+/* status chips */
+.status { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.chip { font-size: 12px; padding: 5px 11px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); }
+.chip-turn { color: #8ff0b4; background: rgba(59, 155, 92, 0.18); }
+.chip-points { color: #a8c8ff; background: rgba(43, 108, 184, 0.2); }
+.chip-timer { font-variant-numeric: tabular-nums; }
+.chip-map { color: var(--hoc-gold); }
+
+/* legend */
+.legend { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; }
+.legend span { font-size: 11px; padding: 4px 10px; border-radius: 999px; }
+.legend .l-av { background: rgba(255, 255, 255, 0.06); color: var(--hoc-text-dim); }
+.legend .l-yours { background: rgba(59, 155, 92, 0.18); color: #8ff0b4; }
+.legend .l-ban { background: rgba(138, 43, 43, 0.25); color: #ff9d9d; }
+
+/* creature tile */
+.grid { display: grid; grid-template-columns: repeat(8, max-content); gap: var(--hoc-gap); justify-content: center; }
+.tile {
+  position: relative; width: var(--tile, 72px); height: var(--tile, 72px);
+  border-radius: var(--hoc-tile-radius); overflow: hidden;
+  border: var(--hoc-tile-border) solid var(--hoc-ring-available);
+}
+.tile-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile-fallback { display: grid; place-items: center; height: 100%; font-size: 10px; color: var(--hoc-text-dim); padding: 4px; text-align: center; }
+.tile-available:hover { transform: translateY(-3px); box-shadow: 0 0 14px var(--hoc-glow-hover); }
+.tile-yours { border-color: var(--hoc-ring-yours); }
+.tile-banned, .tile-taken { border-color: var(--hoc-ring-banned); opacity: 0.5; }
+.tile-banned .tile-art, .tile-taken .tile-art { filter: grayscale(1); }
+/* the painted ban stroke — game/core/images/x_mark_2_512.webp */
+.tile-ban { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.tile-check { position: absolute; right: 4px; bottom: 2px; color: var(--hoc-check); font-size: 20px; text-shadow: 0 0 4px #000; }
+
+/* army strips */
+.strip { display: flex; align-items: center; gap: 14px; margin: 14px auto 0; padding: 10px 16px; border-radius: 14px; width: max-content; }
+.strip-enemy { background: var(--hoc-bg-enemy-strip); }
+.strip-own { background: var(--hoc-bg-strip); }
+.strip-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--hoc-text-dim); }
+.strip-slots { display: flex; gap: 8px; }
+.slot {
+  width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center;
+  font-size: 12px; color: var(--hoc-text-dim); border: 1px dashed var(--hoc-border);
+}
+.slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 9px; }
+.slot-filled, .slot-known { border-style: solid; border-color: var(--hoc-gold); padding: 0; overflow: hidden; }
+.slot-eye { border-style: solid; border-color: rgba(220, 177, 88, 0.7); font-size: 16px; }
+.slot-scout { width: auto; padding: 0 12px; border-style: solid; color: var(--hoc-text); }
+
+/* panels (doctrine / bundle cards) */
+.cards { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+.card {
+  width: 260px; padding: 18px; border-radius: 14px;
+  background: var(--hoc-bg-panel); border: 1px solid var(--hoc-border);
+}
+.card h3 { margin: 0 0 4px; font-size: 16px; }
+.card .meta { color: var(--hoc-gold); font-size: 12px; margin-bottom: 10px; }
+.card p { color: var(--hoc-text-dim); font-size: 13px; margin: 0 0 14px; }
+.card .pair { display: flex; gap: 10px; margin-bottom: 12px; }
+.card .pair figure { margin: 0; text-align: center; font-size: 11px; color: var(--hoc-text-dim); }
+.card .pair img { width: 78px; height: 78px; border-radius: 50%; display: block; margin-bottom: 4px; }
+.card .art { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 12px; }
+.card .art img { width: 30px; height: 30px; }
+.btn { display: block; width: 100%; padding: 10px; border-radius: 8px; border: 0; background: #2b6cb8; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+/* spec tables */
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); vertical-align: top; }
+th { color: var(--hoc-text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.92em; color: var(--hoc-gold); }
+.wrap { max-width: 1180px; margin: 0 auto; }
+.note { color: var(--hoc-text-dim); font-size: 12.5px; max-width: 80ch; }
