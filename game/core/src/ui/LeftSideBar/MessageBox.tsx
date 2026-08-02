@@ -15,120 +15,54 @@ import React, { useEffect, useState, useRef } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { nextLapHazard } from "../nextLapHazard";
 import { IVisibleState } from "../../scenes/VisibleState";
-import { hocColors } from "../hocTheme";
+import { hocColors, hocStartButtonSx } from "../hocTheme";
 import { useViewerTeam } from "../context/ViewerTeamContext";
-import { images } from "../../generated/image_imports";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { TurnTimerBar } from "./TurnTimerBar";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-// --- Configuration for the Start Button Atlas ---
-const START_BUTTON_META = {
-    frameWidth: 344,
-    frameHeight: 128,
-    cols: 5,
-    rows: 15,
-    frameCount: 73,
-    fps: 12,
-};
 
-// --- Custom Style for "Heroes" Aesthetic Tooltips ---
+// The start button used to be a 73-frame sprite atlas ping-ponging at 12fps, with the word START painted
+// into the artwork. It is now drawn in CSS and labelled in the app's own typeface, like every other action
+// button in the bar. The frame size the atlas used is kept as the button's footprint so sidebarMetrics'
+// startButtonScale (which divides the available width by exactly this) still lands on the same size.
+const START_BUTTON_FRAME = { width: 344, height: 128 };
 
-// 1. Animated Button Component (Ping-Pong Loop)
-const AnimatedStartButton = ({ onClick, scale }: { onClick: () => void; scale: number }) => {
-    const [frameIndex, setFrameIndex] = useState(0);
-    const requestRef = useRef<number | undefined>(undefined);
-    const previousTimeRef = useRef<number | undefined>(undefined);
-    // Track direction: 1 for forward, -1 for backward
-    const directionRef = useRef<number>(1);
-
-    const frameInterval = 1000 / START_BUTTON_META.fps;
-
-    const animate = (time: number) => {
-        if (previousTimeRef.current !== undefined) {
-            const deltaTime = time - previousTimeRef.current;
-
-            if (deltaTime >= frameInterval) {
-                setFrameIndex((prev) => {
-                    let next = prev + directionRef.current;
-
-                    // Ping-pong logic: Reverse direction at ends
-                    if (next >= START_BUTTON_META.frameCount - 1) {
-                        next = START_BUTTON_META.frameCount - 1;
-                        directionRef.current = -1;
-                    } else if (next <= 0) {
-                        next = 0;
-                        directionRef.current = 1;
-                    }
-                    return next;
-                });
-                // Adjust for drift
-                previousTimeRef.current = time - (deltaTime % frameInterval);
-            }
-        } else {
-            previousTimeRef.current = time;
-        }
-        requestRef.current = requestAnimationFrame(animate);
-    };
-
-    useEffect(() => {
-        requestRef.current = requestAnimationFrame(animate);
-        return () => {
-            if (requestRef.current) cancelAnimationFrame(requestRef.current);
-        };
-    }, []);
-
-    const col = frameIndex % START_BUTTON_META.cols;
-    const row = Math.floor(frameIndex / START_BUTTON_META.cols);
-
-    const bgPosX = -(col * START_BUTTON_META.frameWidth);
-    const bgPosY = -(row * START_BUTTON_META.frameHeight);
-
-    return (
-        <Box
-            onClick={onClick}
+const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale: number; disabled?: boolean }) => {
+    const button = (
+        <Button
+            variant="plain"
+            onClick={disabled ? undefined : onClick}
+            disabled={disabled}
             sx={{
-                width: `${START_BUTTON_META.frameWidth * scale}px`,
-                height: `${START_BUTTON_META.frameHeight * scale}px`,
-                cursor: "pointer",
-                overflow: "hidden",
+                ...hocStartButtonSx,
+                // The old art could overhang the bar unnoticed — its frame was mostly transparent glow, and
+                // startButtonScale bottoms out at 0.3 regardless of how narrow the bar gets. A solid button
+                // would show that overhang, so the bar's width wins and the art's size is only a ceiling.
+                width: "100%",
+                maxWidth: `${START_BUTTON_FRAME.width * scale}px`,
+                // Two thirds of the old art's height: the atlas frame was mostly glow around the word.
+                height: `${START_BUTTON_FRAME.height * scale * 0.66}px`,
+                minHeight: 0,
                 margin: "0 auto",
-                transition: "transform 0.1s",
-                "&:active": {
-                    transform: "scale(0.95)",
-                },
-                backgroundImage: `url(${images["button_start_atlas"]})`,
-                backgroundRepeat: "no-repeat",
-                backgroundSize: `${START_BUTTON_META.frameWidth * START_BUTTON_META.cols * scale}px ${
-                    START_BUTTON_META.frameHeight * START_BUTTON_META.rows * scale
-                }px`,
-                backgroundPosition: `${bgPosX * scale}px ${bgPosY * scale}px`,
+                fontSize: `${Math.max(0.72, 1.5 * scale)}rem`,
+                letterSpacing: "0.16em",
+                ...(disabled ? { cursor: "not-allowed" } : {}),
             }}
-        />
+        >
+            Start
+        </Button>
     );
-};
 
-// 2. Disabled Button Component (Static)
-const DisabledStartButton = ({ scale }: { scale: number }) => {
+    if (!disabled) {
+        return button;
+    }
+
     return (
         <Tooltip title="Place units for both teams to start" placement="top" variant="solid" sx={commonTooltipSx}>
-            <Box
-                sx={{
-                    width: `${START_BUTTON_META.frameWidth * scale}px`,
-                    height: `${START_BUTTON_META.frameHeight * scale}px`,
-                    overflow: "hidden",
-                    margin: "0 auto",
-                    filter: "grayscale(100%) brightness(0.7) opacity(0.6)",
-                    cursor: "not-allowed",
-                    backgroundImage: `url(${images["button_start_atlas"]})`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundSize: `${START_BUTTON_META.frameWidth * START_BUTTON_META.cols * scale}px ${
-                        START_BUTTON_META.frameHeight * START_BUTTON_META.rows * scale
-                    }px`,
-                    backgroundPosition: `0px 0px`,
-                }}
-            />
+            {/* Joy disables pointer events on a disabled Button, which would swallow the tooltip's hover. */}
+            <Box sx={{ display: "flex", width: "100%", justifyContent: "center" }}>{button}</Box>
         </Tooltip>
     );
 };
@@ -252,9 +186,9 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 }}
             >
                 {visibleState.canBeStarted ? (
-                    <AnimatedStartButton onClick={() => manager.StartGame()} scale={metrics.startButtonScale} />
+                    <StartButton onClick={() => manager.StartGame()} scale={metrics.startButtonScale} />
                 ) : (
-                    <DisabledStartButton scale={metrics.startButtonScale} />
+                    <StartButton scale={metrics.startButtonScale} disabled />
                 )}
                 {/* Sandbox only: hand a side to the AI. That team auto-plays and the human can't act for
                     it (its toolbar/board are locked on its turn). Check both to watch two AIs clash.
@@ -265,26 +199,68 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         useFlexGap
                         flexWrap="wrap"
                         justifyContent="center"
-                        sx={{ gap: `${metrics.gapPx}px`, width: "100%" }}
+                        sx={{
+                            gap: `${metrics.gapPx}px`,
+                            width: "100%",
+                            // Bounded by the Start button above and centred on it. Spanning the whole bar
+                            // instead put the pair WIDER than the button, and on a bar narrower than its
+                            // own content the row overflowed symmetrically — the green box ran off the
+                            // panel's left edge. Same expression the button caps itself with, so the two
+                            // stay aligned at every bar width.
+                            maxWidth: `${START_BUTTON_FRAME.width * metrics.startButtonScale}px`,
+                            mx: "auto",
+                        }}
                     >
-                        <Checkbox
-                            size="sm"
-                            color="success"
-                            variant="outlined"
-                            label="Green AI"
-                            checked={greenAi}
-                            onChange={(e) => toggleTeamAi(TeamVals.LOWER, e.target.checked)}
-                            sx={{ fontSize: `${0.75 * metrics.fontScale}rem` }}
-                        />
-                        <Checkbox
-                            size="sm"
-                            color="danger"
-                            variant="outlined"
-                            label="Red AI"
-                            checked={redAi}
-                            onChange={(e) => toggleTeamAi(TeamVals.UPPER, e.target.checked)}
-                            sx={{ fontSize: `${0.75 * metrics.fontScale}rem` }}
-                        />
+                        {[
+                            {
+                                key: "green",
+                                color: "success" as const,
+                                label: "Green AI",
+                                checked: greenAi,
+                                team: TeamVals.LOWER,
+                            },
+                            {
+                                key: "red",
+                                color: "danger" as const,
+                                label: "Red AI",
+                                checked: redAi,
+                                team: TeamVals.UPPER,
+                            },
+                        ].map(({ key, color, label, checked, team }) => (
+                            <Checkbox
+                                key={key}
+                                size="md"
+                                color={color}
+                                variant="outlined"
+                                label={label}
+                                checked={checked}
+                                onChange={(e) => toggleTeamAi(team, e.target.checked)}
+                                sx={{
+                                    // They used to sit as two small labels huddled in the middle of the bar
+                                    // with the width around them unused. Each now claims half the button's
+                                    // width above, so the whole half is a click target rather than just the
+                                    // box and its word. The 45% basis (not 50%) leaves the gap its room
+                                    // before flex-wrap would kick in; minWidth lets a very narrow bar shrink
+                                    // them past their label instead of bursting the row.
+                                    flex: "1 1 45%",
+                                    minWidth: 0,
+                                    justifyContent: "center",
+                                    // Joy gives the label `flex: 1 1 0%`, so it stretched to fill the
+                                    // control: the box sat hard against the left of its half and the text
+                                    // ran left-aligned inside a much wider label, leaving dead space to its
+                                    // right. The pair read as shoved left under a centred button even
+                                    // though the row itself was exactly the button's width.
+                                    //
+                                    // `0 1 auto` sizes the label to its text so justifyContent can centre
+                                    // box and text together. All three parts matter: flex-grow 0 is the fix
+                                    // itself, the `auto` basis is what makes the label its text's width
+                                    // (leaving Joy's 0% basis collapses it to nothing), and flex-shrink 1
+                                    // keeps the text wrapping instead of overflowing on a very narrow bar.
+                                    "& .MuiCheckbox-label": { flex: "0 1 auto" },
+                                    fontSize: `${0.85 * metrics.fontScale}rem`,
+                                }}
+                            />
+                        ))}
                     </Stack>
                 )}
             </Box>
@@ -326,6 +302,30 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         );
     }
 
+    // Which side the person watching owns. Ranked hands it over directly; the sandbox has no viewer team,
+    // but the moment exactly one side is given to the AI the human owns the other, and the panel can talk
+    // in the same terms ranked does — "Your turn", and nothing at all while the machine plays.
+    //
+    // Deliberately left undefined when NOBODY is AI-controlled (one person playing both sides) and when
+    // BOTH are (two AIs clashing): in neither case is there a "you", so the heading goes back to naming
+    // the team outright. Read off the manager rather than the checkbox state above, because the toolbar's
+    // own AI button flips it without this panel hearing about it.
+    const aiTeams = [TeamVals.LOWER, TeamVals.UPPER].filter((team) => manager.IsTeamAiControlled(team));
+    const sandboxHumanTeam =
+        isSandbox && aiTeams.length === 1
+            ? aiTeams[0] === TeamVals.LOWER
+                ? TeamVals.UPPER
+                : TeamVals.LOWER
+            : undefined;
+    const perspectiveTeam = viewerTeam ?? sandboxHumanTeam;
+
+    const turnTeam = visibleState.teamTypeTurn;
+    const isEnemyTurn = perspectiveTeam !== undefined && turnTeam !== undefined && turnTeam !== perspectiveTeam;
+    // Whether the human can do anything at all with the clock that is running: the opponent's turn, or any
+    // turn an AI is playing for itself. Both mean the additional-time button has nothing to act on.
+    const isAiTurn = !!turnTeam && manager.IsTeamAiControlled(turnTeam);
+    const cannotAct = isEnemyTurn || isAiTurn;
+
     // --- CASE 2: Game Started ---
     let messageBoxVariant: "plain" | "outlined" | "soft" | "solid" | undefined = "soft";
     let messageBoxColor: "primary" | "neutral" | "danger" | "success" | "warning" | undefined = "neutral";
@@ -352,9 +352,13 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         // The lap now lives in the timer medallion, so the heading carries whose turn it is.
         if (!visibleState.teamTypeTurn) {
             messageBoxTitle = "Calculating next turn";
-        } else if (viewerTeam !== undefined) {
-            // Ranked: frame the turn from the viewer's perspective instead of absolute colors.
-            messageBoxTitle = visibleState.teamTypeTurn === viewerTeam ? "Your turn" : "Enemy turn";
+        } else if (perspectiveTeam !== undefined) {
+            // Frame the turn from the watcher's side instead of by absolute team colours. On the other
+            // side's turn the heading is left EMPTY on purpose — the button below says "Enemy turn" for
+            // the whole of it, and printing it twice was the only thing in this card saying the same word
+            // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
+            // fixed slot.
+            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
         } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
             messageBoxTitle = "Green team's turn";
         } else {
@@ -397,8 +401,6 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     }
 
     // Ranked: it's the opponent's turn when the active team is set and isn't ours.
-    const isEnemyTurn =
-        viewerTeam !== undefined && visibleState.teamTypeTurn !== undefined && visibleState.teamTypeTurn !== viewerTeam;
 
     return (
         <>
@@ -414,6 +416,13 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     boxShadow: "none",
                     p: `${Math.round(metrics.gapPx * 0.6)}px`,
                     gap: `${Math.round(metrics.gapPx * 0.35)}px`,
+                    // Joy's soft variant paints a flat neutral grey — rgb(23, 23, 23), opaque, and cold
+                    // against the hide behind it. A dark BROWN wash instead, mostly opaque so the card still
+                    // reads as a panel rather than a stain: over the bar's rgb(25, 13, 9) this lands on
+                    // about rgb(15, 10, 6) — a clear step below the hide around it, so the card sits IN the
+                    // bar rather than floating on it. The pigment keeps the hide's hue: dropping to neutral
+                    // black at this depth reads as a hole cut in the leather.
+                    backgroundColor: "rgba(11, 9, 5, 0.7)",
                 }}
             >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
@@ -422,7 +431,9 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         sx={{
                             fontSize: `${0.72 * metrics.fontScale}rem`,
                             lineHeight: 1.15,
-                            ...(isEnemyTurn ? { color: hocColors.danger } : {}),
+                            // Red marks a turn YOU can act on, matching the timer fill under it — the side
+                            // that has something to do is the side that gets the loud colour.
+                            ...(cannotAct ? {} : { color: hocColors.danger }),
                         }}
                     >
                         {messageBoxTitle}
@@ -452,23 +463,47 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         lapNumber={visibleState.lapNumber}
                         secondsRemaining={visibleState.secondsRemaining}
                         secondsMax={visibleState.secondsMax}
-                        enemyTurn={isEnemyTurn}
+                        enemyTurn={cannotAct}
+                        // The slot is always filled, so the card never changes height: the control greys out
+                        // when the reserve is unavailable instead of vanishing and reflowing everything below
+                        // it. It rides under the groove rather than across the card — it does one thing, to
+                        // this clock, and at full width it read as a separate action rather than as the rest
+                        // of the timer.
+                        footer={
+                            <Button
+                                onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
+                                onMouseDown={() => manager.RequestTime(visibleState.teamTypeTurn)}
+                                size="sm"
+                                variant="solid"
+                                disabled={cannotAct || !visibleState.canRequestAdditionalTime}
+                                sx={{
+                                    width: "100%",
+                                    minHeight: 0,
+                                    py: "1px",
+                                    // A hairline in the timer's own gold, dimmer than the groove's 1.5px
+                                    // frame so it reads as belonging to the gauge without competing with
+                                    // it — the two are the same object, one above the other.
+                                    border: `1px solid ${hocColors.gold}80`,
+                                    fontSize: `${0.62 * metrics.fontScale}rem`,
+                                    transition: "border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease",
+                                    // Lights up under the cursor: the hairline goes to full gold and a soft
+                                    // glow comes up around it, so the control announces itself as pressable
+                                    // on a card where everything else is a readout. Gated on :not(:disabled)
+                                    // — on the opponent's clock, or with the reserve spent, it stays inert
+                                    // rather than inviting a click that does nothing.
+                                    "&:hover:not(:disabled)": {
+                                        borderColor: hocColors.gold,
+                                        boxShadow: `0 0 10px 1px ${hocColors.gold}59, inset 0 0 9px ${hocColors.gold}33`,
+                                        filter: "brightness(1.14)",
+                                    },
+                                }}
+                            >
+                                {/* On the other side's clock this stops being an action and becomes the
+                                    label for the wait. */}
+                                {cannotAct ? "Enemy turn" : "Use additional time"}
+                            </Button>
+                        }
                     />
-                )}
-
-                {/* The slot is always rendered, so the card never changes height: the button greys out when
-                    the reserve is unavailable instead of vanishing and reflowing everything below it. */}
-                {!visibleState.hasFinished && (
-                    <Button
-                        onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
-                        onMouseDown={() => manager.RequestTime(visibleState.teamTypeTurn)}
-                        size="sm"
-                        variant="solid"
-                        disabled={!visibleState.canRequestAdditionalTime}
-                        sx={{ minHeight: 0, py: "2px", fontSize: `${0.68 * metrics.fontScale}rem` }}
-                    >
-                        Use additional time
-                    </Button>
                 )}
             </Card>
         </>

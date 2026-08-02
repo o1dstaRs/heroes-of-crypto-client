@@ -4,6 +4,7 @@
 import "pixi.js/unsafe-eval";
 import { Application, Container, Ticker } from "pixi.js";
 
+import { boardFitVerticalShift } from "./boardFit";
 import { ensureCanvasContextUsable, recordContextAboutToBeLost } from "./webglContextGuard";
 
 export class PixiApp {
@@ -169,7 +170,9 @@ export class PixiApp {
         }
         const z = this.camera.scale.x || 1;
         const { width: W, height: H } = this.app.renderer;
-        this.camera.position.set(W / 2 - z * cx, H / 2 + z * cy);
+        // The board sits slightly above dead centre (see boardFitVerticalShift). The stone backdrop applies
+        // the SAME offset from the SAME helper, so grid and floor move together and stay cell-aligned.
+        this.camera.position.set(W / 2 - z * cx, H / 2 + z * cy - boardFitVerticalShift(W, H));
     }
     public setCameraZoom(zoom: number): void {
         if (!this.app?.renderer || !this.camera) {

@@ -617,7 +617,9 @@ describe("ranked placement scene state", () => {
 
         const assimilator = state.units.find((unit) => unit.properties.id === "assimilator")?.properties;
         expect(assimilator?.aura_effects).toEqual(["Web"]);
-        // Web Aura reaches 2 cells since the Arachna Queen rebalance (common 3148737).
+        // Range comes straight from common's aura_effects.json — 1 -> 2 with the Arachna balance pass
+        // ("Web aura reaches 2 cells"). What this test guards is that the runtime-granted aura is
+        // reconstructed at all, not the particular number, so it follows the config.
         expect(assimilator?.aura_ranges).toEqual([2]);
         expect(assimilator?.aura_is_buff).toEqual([false]);
 

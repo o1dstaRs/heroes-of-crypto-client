@@ -109,7 +109,6 @@ const ROSTER_FLAG_COLOR = 0xd0d0d0;
 export class UnitChip extends Container {
     public readonly nameKey: string;
     private content: Container;
-    private glow: Graphics;
     private aroundGlow: Graphics;
     private sprite: Sprite;
     private badgeCont: Container;
@@ -146,10 +145,6 @@ export class UnitChip extends Container {
 
         this.content = new Container();
 
-        this.glow = new Graphics();
-        this.glow.visible = false;
-        this.glow.blendMode = "add";
-
         this.aroundGlow = new Graphics();
         this.aroundGlow.visible = false;
         this.aroundGlow.blendMode = "add";
@@ -174,7 +169,7 @@ export class UnitChip extends Container {
         this.badgeCont.addChild(this.badgeFlag, this.badgeText);
         this.badgeCont.visible = false;
 
-        this.content.addChild(this.aroundGlow, this.glow, this.sprite, this.badgeCont);
+        this.content.addChild(this.aroundGlow, this.sprite, this.badgeCont);
         this.addChild(this.content);
 
         // Pointer interactions
@@ -420,7 +415,6 @@ export class UnitChip extends Container {
     private updateHighlight() {
         const anyActive = this.hovered || this.selected;
 
-        this.glow.visible = anyActive;
         this.aroundGlow.visible = anyActive;
 
         const amount = this.amountProvider?.(this.nameKey) ?? 0;
@@ -491,31 +485,28 @@ export class UnitChip extends Container {
     private easeInOutCubic(t: number): number {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
+    /**
+     * The white bloom behind an active chip: one even halo, concentric with the round icon, built from
+     * widening circles at falling alpha — Pixi Graphics has no cheap blur — drawn additively, so alpha is
+     * what governs how brightly it burns.
+     *
+     * Two things used to be drawn here. The halo ran from 1.2x the icon's own edge out to 1.68x (a band
+     * 0.34 * iconSide wide) at 0.15 alpha, wide and bright enough to wash over the chips either side; it is
+     * now half that band at a little over half the alpha. Under it sat a second, elliptical pool at the
+     * chip's feet — a ground shadow borrowed from the board, where units stand on a floor. In the roster
+     * they do not: it read as a stray smear hanging off the bottom of an otherwise perfectly round frame,
+     * so it is gone and the ring alone marks the chip, the same all the way round.
+     */
     private drawGlows(iconSide: number) {
-        const baseW = iconSide * 0.95;
-        const baseH = iconSide * 0.28;
-        const yOffset = iconSide * 0.48;
-
-        this.glow.clear();
-        this.glow.position.set(0, yOffset);
-
-        const underLayers = 4;
-        for (let i = 0; i < underLayers; i++) {
-            const t = (i + 1) / underLayers;
-            const w = baseW * (1 + 0.25 * t);
-            const h = baseH * (1 + 0.35 * t);
-            const alpha = 0.22 * (1 - t * 0.85);
-            this.glow.ellipse(0, 0, w * 0.5, h * 0.5).fill({ color: 0xffffff, alpha });
-        }
-
         this.aroundGlow.clear();
         this.aroundGlow.position.set(0, 0);
-        const baseR = iconSide * 0.6;
+        // Starts just past the icon's edge (0.5) and reaches 0.67 — half the old 0.34 band.
+        const baseR = iconSide * 0.53;
         const aroundLayers = 5;
         for (let i = 0; i < aroundLayers; i++) {
             const t = (i + 1) / aroundLayers;
-            const r = baseR * (1 + 0.4 * t);
-            const alpha = 0.15 * (1 - t * 0.85);
+            const r = baseR * (1 + 0.26 * t);
+            const alpha = 0.085 * (1 - t * 0.85);
             this.aroundGlow.circle(0, 0, r).fill({ color: 0xffffff, alpha });
         }
     }

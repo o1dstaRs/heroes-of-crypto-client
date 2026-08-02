@@ -133,7 +133,11 @@ export function computeSidebarMetrics(
     // a heavily buffed unit render a visibly smaller portrait than a plain one.
     const portraitMax = clamp(contentWidth, 72, portraitCap);
 
-    const startButtonScale = clamp(contentWidth / START_BUTTON_FRAME_WIDTH, 0.3, 0.62);
+    // 15% over the bar-derived fit: Start is the one call to action on the placement screen and was reading
+    // as just another control. The factor is applied AFTER the clamp so it lifts the 0.62 ceiling too — that
+    // ceiling is what the button actually hits on a roomy bar. The button's own `width: 100%` still stops it
+    // overhanging a narrow one, where the extra size lands on its height and label instead.
+    const startButtonScale = clamp(contentWidth / START_BUTTON_FRAME_WIDTH, 0.3, 0.62) * 1.15;
 
     return {
         barSize,

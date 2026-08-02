@@ -18,15 +18,12 @@ export const imgSrc = (name: string): string | undefined => (images as Record<st
 export const teamColor = (team: TeamType): string => (team === TeamVals.LOWER ? GREEN : RED);
 export const teamName = (team: TeamType): string => (team === TeamVals.LOWER ? "Green" : "Red");
 
-const ChartW = 600;
-const ChartH = 264;
+const DEFAULT_CHART_W = 600;
+const DEFAULT_CHART_H = 264;
 const ML = 46;
 const MR = 20;
 const MT = 18;
 const MB = 36;
-const PLOT_W = ChartW - ML - MR;
-const PLOT_H = ChartH - MT - MB;
-const BASE_Y = MT + PLOT_H;
 
 /**
  * Hand-rolled SVG chart of "% of each army killed over time". Used both in the
@@ -38,7 +35,27 @@ export const CasualtyChart: React.FC<{
     series: IFightStatsSample[];
     drawDurationSec?: number;
     metric?: FightStatsChartMetric;
-}> = ({ series, drawDurationSec = 1.1, metric = "casualties" }) => {
+    /**
+     * viewBox size. Defaults keep every existing caller pixel-identical; a caller that owns a box of
+     * its own passes ITS pixel size, so the viewBox matches the box 1:1 — the plot then fills the box
+     * exactly with no letterboxing, and the axis labels stay at their intended size instead of being
+     * scaled up or down with the drawing.
+     */
+    viewWidth?: number;
+    viewHeight?: number;
+}> = ({
+    series,
+    drawDurationSec = 1.1,
+    metric = "casualties",
+    viewWidth = DEFAULT_CHART_W,
+    viewHeight = DEFAULT_CHART_H,
+}) => {
+    const ChartW = Math.max(ML + MR + 40, viewWidth);
+    const ChartH = Math.max(MT + MB + 30, viewHeight);
+    const PLOT_W = ChartW - ML - MR;
+    const PLOT_H = ChartH - MT - MB;
+    const BASE_Y = MT + PLOT_H;
+
     const pts = series.length >= 2 ? series : series.length === 1 ? [series[0], series[0]] : [];
     const n = pts.length;
     if (!n) return null;

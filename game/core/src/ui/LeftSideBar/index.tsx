@@ -42,25 +42,29 @@ export const SIDEBAR_BG = "#000000";
  * value came out twice as light — so the number belongs with the file it was measured against.
  */
 /**
- * Both bars share this wash. It was the midpoint of a pair the bars briefly held (~11.8 and ~15.7 of
- * 255) at ~13.7/255, then lifted 5% to ~14.4/255 — the 0.7860 below.
+ * Both bars are tinted to the MAP's palette, not to their own.
  *
- * If the two bars are ever to differ again: the veil is a black wash over the hide, so what reaches the
- * screen is texture x (1 - veil), and the hide averages 67/255. Work in those rendered LEVELS, never in
- * percentages of the veil — the wash is heavy enough that the two diverge wildly. "20% lighter" as a
- * percentage of the veil is two thirds brighter on screen; as a percentage of the rendered level it is
- * 3 levels out of 255, which is invisible. Both were tried here.
+ * The hide is warm — rgb(108, 54, 39) — and a black veil cannot fix that: it scales every channel by the
+ * same factor, so the brown survives at any opacity, only darker. The board's plain stone reads
+ * rgb(18, 18, 17) (sampled from background_stone_tiles, in the field away from its lit border), which is
+ * all but neutral. So the wash is not black: it is a cool, near-black tint chosen so that
+ *
+ *     leather x LEATHER_SHARE + wash x (1 - LEATHER_SHARE) = the map's rgb(18, 18, 17)
+ *
+ * LEATHER_SHARE is what keeps any grain at all — a quantity in that derivation rather than a value the
+ * wash below reads, which is why it lives here and is not declared. Its ceiling is 0.168: above that the
+ * red channel would need a negative wash to cancel, since red is where the hide is warmest. 0.15 sits just
+ * under it and leaves about +/-1.7 levels of texture, which is faint but not flat.
  */
-const LEATHER_VEIL = 0.786;
+const NEUTRALISING_WASH = "rgba(2, 12, 13, 0.85)";
 
-/** One hide, both bars. They differ only in which end of it they show — see the backgroundPosition on
- *  either Sheet — so the same crease never appears twice on screen. */
+/** One hide, both bars, tinted to the map. They differ only in which end of it they show — see the
+ *  backgroundPosition on either Sheet — so the same crease never appears twice on screen. */
 export const SIDEBAR_BG_IMAGE =
-    `linear-gradient(rgba(0,0,0,${LEATHER_VEIL}), rgba(0,0,0,${LEATHER_VEIL})),` +
-    " url('/textures/sidebar_leather_plain.webp')";
+    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url('/textures/sidebar_leather_plain.webp')";
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
-import SynergiesRow from "./SynergiesRow";
+
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
 import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
@@ -84,14 +88,12 @@ const MIN_CARD_HEIGHT = 140;
 type LeftSideBarProps = {
     gameStarted: boolean;
     windowSize: IWindowSize;
-    /** Ranked has its own top-left panel with both players' active synergies. */
-    showSelectedUnitSynergies?: boolean;
 };
 
-export default function LeftSideBar({ gameStarted, windowSize, showSelectedUnitSynergies = true }: LeftSideBarProps) {
+export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProps) {
     const [barSize, setBarSize] = useState(280);
-    // Height actually left for the unit card once the synergy strip, the turn panel and the up-next queue
-    // have taken theirs. Measured rather than derived, because those blocks resize with the content.
+    // Height actually left for the unit card once the turn panel and the up-next queue have taken theirs.
+    // Measured rather than derived, because those blocks resize with the content.
     const [cardHeight, setCardHeight] = useState(0);
 
     const [buttonsVisible] = useState({
@@ -179,7 +181,6 @@ export default function LeftSideBar({ gameStarted, windowSize, showSelectedUnitS
     );
 
     const unitProperties = selection.unit || ({} as UnitProperties);
-    const stripSynergies = ((unitProperties as UnitProperties).synergies as string[]) ?? [];
 
     // The card is the only elastic block: everything else is pinned, so it both reports its own height
     // (feeding the metrics above) and scales itself down if its content still cannot fit.
@@ -245,24 +246,6 @@ export default function LeftSideBar({ gameStarted, windowSize, showSelectedUnitS
             >
                 {/* The team colour is no longer a cloth banner across the bar — it is a fire-like aura
                     behind the portrait (see UnitStatsListItem). */}
-                {/* The selected unit's synergies, back in their old top-of-the-bar strip (the Buffs well
-                    shows only real buffs). Collapses completely when there is nothing to show — reserving
-                    a fixed band cost the card a whole ability row on a 768px-tall screen. */}
-                <Box
-                    sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        flexShrink: 0,
-                        height: showSelectedUnitSynergies && stripSynergies.length ? "auto" : 0,
-                        opacity: showSelectedUnitSynergies && stripSynergies.length ? 1 : 0,
-                        overflow: "hidden",
-                        transition: "opacity 160ms ease-out",
-                    }}
-                >
-                    {showSelectedUnitSynergies && stripSynergies.length > 0 && (
-                        <SynergiesRow synergies={stripSynergies} wrap />
-                    )}
-                </Box>
                 <Box
                     ref={attachViewport}
                     sx={{

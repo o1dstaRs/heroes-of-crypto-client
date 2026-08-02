@@ -1,19 +1,16 @@
 import {
     AllAbilities,
     Artifact,
-    ChaosSynergy,
     CREATURES_JSON,
     CreatureVals,
     getCreatureLevel,
     getCreaturesByLevel,
     HoCConfig,
     HoCConstants,
-    LifeSynergy,
-    MightSynergy,
-    NatureSynergy,
     Perk,
     PickPhaseVals,
     SynergyKeysToPower,
+    synergyVariantsForSeed,
     TeamVals,
     type TeamType,
 } from "@heroesofcrypto/common";
@@ -25,7 +22,7 @@ import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../ful
 import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
-import { SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { PERK_COPY } from "../perkCopy";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -747,7 +744,7 @@ const CreaturePortrait: React.FC<{
                 minHeight: 0,
                 width: "100%",
                 height: "100%",
-                maxWidth: "124px",
+                maxWidth: "168px",
             }}
         >
             {portrait}
@@ -782,86 +779,194 @@ export const PickCommitButton: React.FC<{
     extra?: React.ReactNode;
     /** Gold while a choice is still owed, green once it is complete. */
     tone?: "green" | "gold";
+    /**
+     * Why the button cannot be pressed yet. A disabled button that simply ignores the click leaves the
+     * player guessing, so the press itself answers: the reason pops above the button for a few seconds
+     * (and on hover).
+     */
+    blockedHint?: string;
     onCommit: () => void;
-}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", onCommit }) => {
+}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, onCommit }) => {
     const urgent = seconds >= 0 && seconds <= 15;
+    const blocked = !armed && !!blockedHint;
+    const [hintOpen, setHintOpen] = useState(false);
+    useEffect(() => {
+        if (!hintOpen) {
+            return undefined;
+        }
+        const timer = setTimeout(() => setHintOpen(false), 2600);
+        return () => clearTimeout(timer);
+    }, [hintOpen]);
     return (
-        <Box
-            component="button"
-            type="button"
-            disabled={!armed}
-            onClick={armed ? onCommit : undefined}
-            sx={{
-                minHeight: 68,
-                minWidth: "min(520px, 80%)",
-                // Keep the confirmation action clearly separate from the choice frame above it. The board
-                // owns the vertical rhythm, so this must not pull the button back into the preceding gap.
-                mt: 0,
-                borderRadius: "16px",
-                border: `2px solid ${isYourTurn ? "rgba(214,240,200,0.55)" : "rgba(255,205,195,0.5)"}`,
-                background: !isYourTurn
-                    ? "linear-gradient(180deg, #d1554a 0%, #a3322b 46%, #6e1f1a 100%)"
-                    : tone === "gold"
-                      ? "linear-gradient(180deg, #d9a94f 0%, #b2823a 46%, #7d5a24 100%)"
-                      : "linear-gradient(180deg, #7ab86a 0%, #4e9450 46%, #2f6b3c 100%)",
-                boxShadow:
-                    "inset 0 0 0 3px rgba(214,240,200,0.55), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -12px 26px rgba(0,0,0,0.28)",
-                color: "#f2fbee",
-                fontSize: "24px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 3,
-                cursor: armed ? "pointer" : "default",
-                px: 3,
-                // Blinks while it is waiting for you to commit; hovering stops it so the label stays readable.
-                animation: armed ? "hocCommitBlink 1.4s ease-in-out infinite" : "none",
-                "&:hover": { animation: "none" },
-                "@keyframes hocCommitBlink": {
-                    "0%, 100%": { opacity: 1 },
-                    "50%": { opacity: 0.62 },
-                },
-                "@keyframes hocTimerBlink": {
-                    "0%, 100%": { opacity: 1 },
-                    "50%": { opacity: 0.25 },
-                },
-            }}
+        <Tooltip
+            title={blockedHint ?? ""}
+            open={blocked && hintOpen}
+            variant="soft"
+            color="warning"
+            placement="top"
+            sx={{ fontSize: 15, fontWeight: 600 }}
         >
-            <Box component="span" sx={{ flex: "1 1 auto", textAlign: "center" }}>
-                {label}
+            <Box
+                component="button"
+                type="button"
+                // A blocked button stays clickable ON PURPOSE: the click is what surfaces the reason.
+                disabled={!armed && !blocked}
+                onClick={armed ? onCommit : blocked ? () => setHintOpen(true) : undefined}
+                onMouseEnter={blocked ? () => setHintOpen(true) : undefined}
+                sx={{
+                    // A forged plate rather than a glossy pill: flat slate body, a hairline bevel, and the
+                    // tone carried by a lit edge + a soft under-glow instead of a full-bleed gradient. Reads
+                    // calmer beside the choice frame and lets the label do the talking.
+                    minHeight: 60,
+                    minWidth: "min(520px, 80%)",
+                    mt: 0,
+                    position: "relative",
+                    borderRadius: "12px",
+                    border: `1px solid ${
+                        !isYourTurn
+                            ? "rgba(224,120,110,0.75)"
+                            : tone === "gold"
+                              ? "rgba(226,186,110,0.8)"
+                              : "rgba(150,222,150,0.8)"
+                    }`,
+                    background: "linear-gradient(180deg, #1b2029 0%, #12161d 100%)",
+                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 22px ${
+                        !isYourTurn
+                            ? "rgba(190,70,60,0.28)"
+                            : tone === "gold"
+                              ? "rgba(214,164,74,0.3)"
+                              : "rgba(90,190,110,0.3)"
+                    }`,
+                    color: !isYourTurn ? "#ffd9d4" : tone === "gold" ? "#f4dfae" : "#dff5dc",
+                    fontSize: "22px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    display: "flex",
+                    alignItems: "stretch",
+                    justifyContent: "center",
+                    gap: 0,
+                    cursor: armed ? "pointer" : "default",
+                    px: 0,
+                    overflow: "hidden",
+                    transition: "border-color 140ms ease, box-shadow 140ms ease, transform 120ms ease",
+                    // Armed = a choice is staged and this press commits it. The whole plate breathes so the
+                    // second press is obviously still owed; hovering settles it.
+                    animation: armed
+                        ? `${tone === "gold" ? "hocCommitPlateGold" : "hocCommitPlate"} 1.5s ease-in-out infinite`
+                        : "none",
+                    // A thin lit bar along the top edge rides the same beat.
+                    "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        left: 14,
+                        right: 14,
+                        top: 0,
+                        height: "2px",
+                        borderRadius: "2px",
+                        background: !isYourTurn
+                            ? "linear-gradient(90deg, transparent, #e0786e, transparent)"
+                            : tone === "gold"
+                              ? "linear-gradient(90deg, transparent, #e2ba6e, transparent)"
+                              : "linear-gradient(90deg, transparent, #96de96, transparent)",
+                        animation: armed ? "hocCommitBlink 1.6s ease-in-out infinite" : "none",
+                    },
+                    "&:hover": armed
+                        ? {
+                              background: "linear-gradient(180deg, #222836 0%, #161b24 100%)",
+                              transform: "translateY(-1px)",
+                              animation: "none",
+                              "&::before": { animation: "none" },
+                          }
+                        : undefined,
+                    "@keyframes hocCommitBlink": {
+                        "0%, 100%": { opacity: 1 },
+                        "50%": { opacity: 0.3 },
+                    },
+                    "@keyframes hocCommitPlate": {
+                        "0%, 100%": {
+                            borderColor: "rgba(150,222,150,0.8)",
+                            boxShadow:
+                                "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 22px rgba(90,190,110,0.3)",
+                        },
+                        "50%": {
+                            borderColor: "rgba(178,240,178,0.94)",
+                            boxShadow:
+                                "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 30px rgba(120,225,140,0.62)",
+                        },
+                    },
+                    "@keyframes hocCommitPlateGold": {
+                        "0%, 100%": {
+                            borderColor: "rgba(226,186,110,0.8)",
+                            boxShadow:
+                                "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 22px rgba(214,164,74,0.3)",
+                        },
+                        "50%": {
+                            borderColor: "rgba(246,215,150,0.94)",
+                            boxShadow:
+                                "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 30px rgba(236,190,100,0.62)",
+                        },
+                    },
+                    "@keyframes hocCommitLabel": {
+                        "0%, 100%": { textShadow: "none", letterSpacing: "0.12em" },
+                        "50%": { textShadow: "0 0 10px rgba(190,255,190,0.6)", letterSpacing: "0.148em" },
+                    },
+                    "@keyframes hocTimerBlink": {
+                        "0%, 100%": { opacity: 1 },
+                        "50%": { opacity: 0.25 },
+                    },
+                }}
+            >
+                <Box
+                    component="span"
+                    sx={{
+                        flex: "1 1 auto",
+                        display: "grid",
+                        placeItems: "center",
+                        px: 2.5,
+                        textAlign: "center",
+                        // The label breathes with the plate — the press it is waiting for is the confirming one.
+                        animation: armed ? "hocCommitLabel 1.5s ease-in-out infinite" : "none",
+                    }}
+                >
+                    {label}
+                </Box>
+                {extra !== undefined && (
+                    <Box
+                        component="span"
+                        sx={{
+                            display: "grid",
+                            placeItems: "center",
+                            px: 2.5,
+                            borderLeft: "1px solid rgba(255,255,255,0.14)",
+                            bgcolor: "rgba(255,255,255,0.03)",
+                            fontVariantNumeric: "tabular-nums",
+                        }}
+                    >
+                        {extra}
+                    </Box>
+                )}
+                {seconds >= 0 && (
+                    <Box
+                        component="span"
+                        sx={{
+                            display: "grid",
+                            placeItems: "center",
+                            px: 2.5,
+                            borderLeft: "1px solid rgba(255,255,255,0.14)",
+                            bgcolor: "rgba(255,255,255,0.03)",
+                            fontVariantNumeric: "tabular-nums",
+                            // White while there is time, blinking red for the last 15 seconds.
+                            color: urgent ? "#ff3b2f" : "#fff",
+                            textShadow: urgent ? "0 0 18px rgba(255,59,47,0.75)" : "none",
+                            animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
+                        }}
+                    >
+                        {`${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`}
+                    </Box>
+                )}
             </Box>
-            {extra !== undefined && (
-                <Box
-                    component="span"
-                    sx={{
-                        px: 3,
-                        borderLeft: "2px solid rgba(255,255,255,0.35)",
-                        fontVariantNumeric: "tabular-nums",
-                    }}
-                >
-                    {extra}
-                </Box>
-            )}
-            {seconds >= 0 && (
-                <Box
-                    component="span"
-                    sx={{
-                        pl: 3,
-                        borderLeft: "2px solid rgba(255,255,255,0.35)",
-                        fontVariantNumeric: "tabular-nums",
-                        // White while there is time, blinking red for the last 15 seconds.
-                        color: urgent ? "#ff3b2f" : "#fff",
-                        textShadow: urgent ? "0 0 18px rgba(255,59,47,0.75)" : "none",
-                        animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
-                    }}
-                >
-                    {`${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, "0")}`}
-                </Box>
-            )}
-        </Box>
+        </Tooltip>
     );
 };
 
@@ -1101,91 +1206,54 @@ const PickPanel: React.FC<{
         faction,
         ids: creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
     })).filter((group) => group.ids.length > 0);
-    // Two lines, two factions each — every creature of a line sits in ONE evenly spaced row.
-    const rows = [byFaction.slice(0, 2), byFaction.slice(2)].filter((groups) => groups.length > 0);
 
     return (
         <PhasePanel>
+            {/* Four equal quadrants, one faction each. The captions are gone — the pool is faction-balanced
+                and every player knows the crests — so the portraits take that room instead. */}
             <Box
                 sx={{
                     display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                     gridTemplateRows: "repeat(2, minmax(0, 1fr))",
                     gap: "18px",
                     height: "100%",
                 }}
             >
-                {rows.map((groups, rowIndex) => {
-                    const rowIds = groups.flatMap((group) => group.ids);
-                    return (
-                        <Box
-                            key={rowIndex}
-                            sx={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 1.25,
-                                minWidth: 0,
-                                minHeight: 0,
-                                height: "100%",
-                            }}
-                        >
-                            {/* Faction captions sit over their own span of the single creature line. */}
-                            <Box
-                                sx={{
-                                    display: "grid",
-                                    gridTemplateColumns: groups.map((group) => `${group.ids.length}fr`).join(" "),
-                                    flex: "0 0 auto",
-                                }}
-                            >
-                                {groups.map(({ faction }) => (
-                                    <Typography
-                                        key={faction}
-                                        level="body-sm"
-                                        sx={{
-                                            fontSize: 16,
-                                            letterSpacing: "0.14em",
-                                            textTransform: "uppercase",
-                                            textAlign: "center",
-                                            color: FACTION_COLOR[faction] ?? "#e9e6df",
-                                        }}
-                                    >
-                                        {faction}
-                                    </Typography>
-                                ))}
-                            </Box>
-                            <Box
-                                sx={{
-                                    display: "grid",
-                                    gridTemplateColumns: `repeat(${rowIds.length}, minmax(0, 1fr))`,
-                                    gridAutoRows: "minmax(0, 1fr)",
-                                    gap: "14px",
-                                    flex: "1 1 auto",
-                                    minHeight: 0,
-                                }}
-                            >
-                                {rowIds.map((creatureId) => {
-                                    let state: PortraitState = "available";
-                                    if (pickedSet.has(creatureId)) state = "picked";
-                                    else if (bannedSet.has(creatureId)) state = "banned";
-                                    else if (takenSet.has(creatureId)) state = "taken";
-                                    return (
-                                        <CreaturePortrait
-                                            key={creatureId}
-                                            creatureId={creatureId}
-                                            state={state}
-                                            disabled={disabled}
-                                            fill
-                                            caption
-                                            pending={pendingId === creatureId}
-                                            onClick={() => onSelect(creatureId)}
-                                            onInspect={onInspect}
-                                            onInspectEnd={onInspectEnd}
-                                        />
-                                    );
-                                })}
-                            </Box>
-                        </Box>
-                    );
-                })}
+                {byFaction.map(({ faction, ids }) => (
+                    <Box
+                        key={faction}
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: `repeat(${ids.length}, minmax(0, 1fr))`,
+                            gridAutoRows: "minmax(0, 1fr)",
+                            gap: "14px",
+                            minWidth: 0,
+                            minHeight: 0,
+                        }}
+                    >
+                        {ids.map((creatureId) => {
+                            let state: PortraitState = "available";
+                            if (pickedSet.has(creatureId)) state = "picked";
+                            else if (bannedSet.has(creatureId)) state = "banned";
+                            else if (takenSet.has(creatureId)) state = "taken";
+                            return (
+                                <CreaturePortrait
+                                    key={creatureId}
+                                    creatureId={creatureId}
+                                    state={state}
+                                    disabled={disabled}
+                                    fill
+                                    caption
+                                    pending={pendingId === creatureId}
+                                    onClick={() => onSelect(creatureId)}
+                                    onInspect={onInspect}
+                                    onInspectEnd={onInspectEnd}
+                                />
+                            );
+                        })}
+                    </Box>
+                ))}
             </Box>
         </PhasePanel>
     );
@@ -1207,9 +1275,11 @@ const ArtifactPanel: React.FC<{
                     width: "100%",
                     display: "grid",
                     gridTemplateColumns: "repeat(3, minmax(0, 340px))",
+                    gridTemplateRows: "minmax(0, 1fr)",
                     justifyContent: "center",
                     gap: "20px",
                     height: "100%",
+                    minHeight: 0,
                     overflow: "hidden",
                     alignItems: "stretch",
                 }}
@@ -1217,13 +1287,19 @@ const ArtifactPanel: React.FC<{
                 {offeredIds.map((id) => {
                     const a = Artifact.getTier2ArtifactProperties(id as Artifact.Tier2Artifact);
                     const isSelected = selected === a.id;
+                    // Descriptions differ by a factor of three in length (compare "Increases the army's luck
+                    // by 10." with the Lava Striders paragraph). Rather than let the long one push its card's
+                    // bottom border out of the frame, the art and the type shrink a notch for it.
+                    const descriptionLength = Artifact.formatArtifactDescription(a).length;
+                    const wordy = descriptionLength > 96;
+                    // The very longest entries (Lava Striders) need one more notch or their last line would
+                    // be the thing that gets clipped inside the card.
+                    const veryWordy = descriptionLength > 130;
                     return (
-                        <Tooltip
-                            key={a.id}
-                            title={Artifact.formatArtifactDescription(a)}
-                            variant="soft"
-                            placement="top"
-                        >
+                        // No hover affordance here on purpose: the full effect text is already printed on
+                        // the card, so a tooltip only repeated it over the artifact art, and the card's own
+                        // hover tint fought the gold "selected" border.
+                        <React.Fragment key={a.id}>
                             <Card
                                 key={id}
                                 variant="outlined"
@@ -1231,11 +1307,20 @@ const ArtifactPanel: React.FC<{
                                 onClick={disabled ? undefined : () => onSelect(id)}
                                 sx={{
                                     height: "100%",
+                                    minHeight: 0,
+                                    overflow: "hidden",
                                     cursor: disabled ? "default" : "pointer",
                                     bgcolor: "#12151d",
                                     border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
                                     borderRadius: "22px",
                                     boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                                    transition: "none",
+                                    "&:hover": {
+                                        bgcolor: "#12151d",
+                                        borderColor: isSelected ? "#dcb158" : "rgba(255,255,255,0.08)",
+                                        boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                                        transform: "none",
+                                    },
                                 }}
                             >
                                 <CardContent
@@ -1254,20 +1339,22 @@ const ArtifactPanel: React.FC<{
                                             src={images[a.imageKey]}
                                             alt={a.name}
                                             sx={{
-                                                width: "118px",
-                                                height: "118px",
+                                                width: veryWordy ? "82px" : wordy ? "96px" : "118px",
+                                                height: veryWordy ? "82px" : wordy ? "96px" : "118px",
                                                 flex: "0 0 auto",
                                                 objectFit: "contain",
                                                 borderRadius: "12px",
                                             }}
                                         />
                                     )}
-                                    <Typography sx={{ fontSize: "22px", fontWeight: 700, color: "#dcb158" }}>
+                                    <Typography
+                                        sx={{ fontSize: wordy ? "20px" : "22px", fontWeight: 700, color: "#dcb158" }}
+                                    >
                                         {a.name}
                                     </Typography>
                                     <Typography
                                         sx={{
-                                            fontSize: 16,
+                                            fontSize: wordy ? 13 : 15,
                                             letterSpacing: "0.12em",
                                             textTransform: "uppercase",
                                             color: "#9aa0ab",
@@ -1298,8 +1385,9 @@ const ArtifactPanel: React.FC<{
                                                         p: "10px 14px",
                                                         borderRadius: "16px",
                                                         bgcolor: "rgba(255,255,255,0.05)",
-                                                        fontSize: "14px",
-                                                        lineHeight: 1.45,
+                                                        fontSize: veryWordy ? "12.5px" : wordy ? "13px" : "14px",
+                                                        lineHeight: wordy ? 1.35 : 1.45,
+                                                        overflow: "hidden",
                                                         color: "#e9e6df",
                                                         // No fixed height: the box takes what the card has
                                                         // left, so the longest artifact still fits and every
@@ -1318,7 +1406,7 @@ const ArtifactPanel: React.FC<{
                                     </Box>
                                 </CardContent>
                             </Card>
-                        </Tooltip>
+                        </React.Fragment>
                     );
                 })}
             </Box>
@@ -1330,8 +1418,19 @@ const ArtifactPanel: React.FC<{
 
 const perkName = (perkId: number): string => Perk.getPerkProperties(perkId as Perk.Perk)?.name ?? "";
 
-const BarDivider: React.FC = () => (
-    <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "rgba(255,255,255,0.14)", mx: 0.25 }} />
+// A hairline between the groups a rail carries: doctrine | synergies | the army | artifacts.
+const BarDivider: React.FC<{ strong?: boolean }> = ({ strong }) => (
+    <Box
+        sx={{
+            width: "1px",
+            alignSelf: "center",
+            height: strong ? 30 : 26,
+            borderRadius: "1px",
+            flex: "0 0 auto",
+            bgcolor: strong ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)",
+            mx: 0.35,
+        }}
+    />
 );
 
 // ---- Synergy progress -----------------------------------------------------
@@ -1340,31 +1439,6 @@ const BarDivider: React.FC = () => (
 // same UNITS_TO_SYNERGY_LEVEL ladder the engine applies), but WHICH of the faction's two synergies
 // applies is picked later, at the setup stage. So these rail dots track the level under the FACTION
 // crest and name both candidates — presuming neither, since the choice hasn't happened yet.
-const FACTION_SYNERGY_OPTIONS: Record<string, { index: number; label: string }[]> = {
-    Life: [
-        { index: LifeSynergy.PLUS_SUPPLY_PERCENTAGE, label: "Supply" },
-        { index: LifeSynergy.PLUS_MORALE_AND_LUCK, label: "Morale & luck" },
-    ],
-    Nature: [
-        { index: NatureSynergy.INCREASE_BOARD_UNITS, label: "Board units" },
-        { index: NatureSynergy.PLUS_FLY_ARMOR, label: "Flying armor" },
-    ],
-    Chaos: [
-        { index: ChaosSynergy.MOVEMENT, label: "Movement" },
-        { index: ChaosSynergy.BREAK_ON_ATTACK, label: "Break on attack" },
-    ],
-    Might: [
-        { index: MightSynergy.PLUS_AURAS_RANGE, label: "Aura range" },
-        { index: MightSynergy.PLUS_STACK_ABILITIES_POWER, label: "Abilities power" },
-    ],
-};
-const FACTION_CREST_IMAGE: Record<string, string> = {
-    Life: rawImages.life_128,
-    Nature: rawImages.nature_128,
-    Chaos: rawImages.chaos_128,
-    Might: rawImages.might_128,
-};
-
 export const synergyLevelForFaction = (picked: number[], faction: string): number => {
     const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
     return Math.min(Math.floor(units / 2), 3);
@@ -1378,67 +1452,133 @@ const describeSynergy = (key: string): string => {
     return template.replace(/\{\}/g, () => String(powers[i++] ?? ""));
 };
 
-export const SynergyDots: React.FC<{ picked: number[]; tone: "own" | "opponent" }> = ({ picked, tone }) => (
-    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "nowrap" }}>
-        {FACTION_ORDER.map((faction) => {
-            const options = FACTION_SYNERGY_OPTIONS[faction];
-            const level = synergyLevelForFaction(picked, faction);
-            const img = FACTION_CREST_IMAGE[faction];
-            const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
-            const pair = options.map((o) => o.label).join(" or ");
-            const tip = level
-                ? `${faction} lvl ${level} — pick one at setup: ${options
-                      .map((o) => `${o.label} (${describeSynergy(`${faction}:${o.index}:${level}`)})`)
-                      .join(" or ")}`
-                : `${faction} — locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1; at setup you'll pick ${pair}`;
-            return (
-                <Tooltip key={faction} title={tip} variant="soft" placement="top">
-                    <Box
-                        sx={{
-                            position: "relative",
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            display: "grid",
-                            placeItems: "center",
-                            flex: "0 0 auto",
-                            border: `1px solid ${level ? (FACTION_COLOR[faction] ?? "#e9e6df") : "rgba(255,255,255,0.16)"}`,
-                            bgcolor: level ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
-                            opacity: level ? 1 : 0.4,
-                            filter: level ? "none" : "grayscale(1)",
-                            boxShadow: level
-                                ? `0 0 8px ${tone === "own" ? "rgba(120,220,150,0.35)" : "rgba(226,120,150,0.3)"}`
-                                : "none",
-                            transition: "opacity 160ms ease, box-shadow 160ms ease",
-                        }}
-                    >
-                        {img && <img src={img} alt={faction} style={{ width: 16, height: 16, objectFit: "contain" }} />}
-                        {level > 0 && (
-                            <Typography
-                                sx={{
-                                    position: "absolute",
-                                    right: -3,
-                                    bottom: -3,
-                                    minWidth: 12,
-                                    px: "2px",
-                                    borderRadius: "6px",
-                                    fontSize: 9,
-                                    fontWeight: 700,
-                                    lineHeight: "12px",
-                                    textAlign: "center",
-                                    color: "#0b0d12",
-                                    bgcolor: FACTION_COLOR[faction] ?? "#e9e6df",
-                                }}
-                            >
-                                {level}
-                            </Typography>
-                        )}
-                    </Box>
-                </Tooltip>
-            );
-        })}
-    </Box>
-);
+// Human-readable name of a synergy variant, for the badge tooltip.
+const SYNERGY_VARIANT_LABEL: Record<string, string> = {
+    "Life:1": "Supply",
+    "Life:2": "Morale & luck",
+    "Nature:1": "Board units",
+    "Nature:2": "Flying armor",
+    "Chaos:1": "Movement",
+    "Chaos:2": "Break on attack",
+    "Might:1": "Aura range",
+    "Might:2": "Abilities power",
+};
+
+/**
+ * The four synergies THIS match fields, one per faction.
+ *
+ * There is nothing to pick: the variant of each pair is drawn from the game id (the server draws the same
+ * one for the fight), so the rails show the actual synergy — its own icon, its own description — from the
+ * first screen of the draft, and it levels itself at 2 / 4 / 6 units of that faction.
+ */
+export const SynergyDots: React.FC<{
+    picked: number[];
+    tone: "own" | "opponent";
+    gameId?: string;
+    /** Creature clicked but not yet confirmed — its faction's badge previews the level it would light. */
+    pendingId?: number;
+}> = ({ picked, tone, gameId, pendingId }) => {
+    const variants = synergyVariantsForSeed(gameId ?? "");
+    const pendingFaction = pendingId ? creatureFullConfig(pendingId)?.faction : undefined;
+    return (
+        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "nowrap" }}>
+            {FACTION_ORDER.map((faction) => {
+                const variant = variants[faction];
+                const level = synergyLevelForFaction(picked, faction);
+                // The staged creature is counted separately: if confirming it would raise this faction's
+                // level, the badge lights up and blinks the level it is ABOUT to reach.
+                const previewLevel =
+                    pendingFaction === faction && pendingId
+                        ? synergyLevelForFaction([...picked, pendingId], faction)
+                        : level;
+                const previewing = previewLevel > level;
+                const shownLevel = previewing ? previewLevel : level;
+                const key = `${faction}:${variant}:${shownLevel || 1}`;
+                const img = SYNERGY_KEY_TO_IMAGE[key as keyof typeof SYNERGY_KEY_TO_IMAGE];
+                const label = SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction;
+                const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
+                const tip = previewing
+                    ? `Confirming this pick lights ${faction} — ${label} lvl ${previewLevel}: ${describeSynergy(
+                          `${faction}:${variant}:${previewLevel}`,
+                      )}`
+                    : level
+                      ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${variant}:${level}`)}`
+                      : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+                return (
+                    <Tooltip key={faction} title={tip} variant="soft" placement="top">
+                        <Box
+                            sx={{
+                                position: "relative",
+                                width: 37,
+                                height: 37,
+                                borderRadius: "50%",
+                                display: "grid",
+                                placeItems: "center",
+                                flex: "0 0 auto",
+                                border: `1px solid ${
+                                    shownLevel ? (FACTION_COLOR[faction] ?? "#e9e6df") : "rgba(255,255,255,0.16)"
+                                }`,
+                                bgcolor: shownLevel ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)",
+                                opacity: shownLevel ? 1 : 0.4,
+                                filter: shownLevel ? "none" : "grayscale(1)",
+                                boxShadow: shownLevel
+                                    ? `0 0 8px ${tone === "own" ? "rgba(120,220,150,0.35)" : "rgba(226,120,150,0.3)"}`
+                                    : "none",
+                                transition: "opacity 160ms ease, box-shadow 160ms ease",
+                                animation: previewing ? "hocSynergyPreview 1s ease-in-out infinite" : "none",
+                                "@keyframes hocSynergyPreview": {
+                                    "0%, 100%": {
+                                        boxShadow: `0 0 8px ${FACTION_COLOR[faction] ?? "#e9e6df"}55`,
+                                        transform: "scale(1)",
+                                    },
+                                    "50%": {
+                                        boxShadow: `0 0 18px ${FACTION_COLOR[faction] ?? "#e9e6df"}cc`,
+                                        transform: "scale(1.08)",
+                                    },
+                                },
+                            }}
+                        >
+                            {img && (
+                                <img
+                                    src={img}
+                                    alt={label}
+                                    // Fills the badge right up to its ring: the frame keeps its 1px edge
+                                    // and the art takes everything inside it.
+                                    style={{
+                                        width: "calc(100% - 2px)",
+                                        height: "calc(100% - 2px)",
+                                        borderRadius: "50%",
+                                        objectFit: "cover",
+                                    }}
+                                />
+                            )}
+                            {shownLevel > 0 && (
+                                <Typography
+                                    sx={{
+                                        position: "absolute",
+                                        right: -3,
+                                        bottom: -3,
+                                        minWidth: 12,
+                                        px: "2px",
+                                        borderRadius: "6px",
+                                        fontSize: 9,
+                                        fontWeight: 700,
+                                        lineHeight: "12px",
+                                        textAlign: "center",
+                                        color: "#0b0d12",
+                                        bgcolor: FACTION_COLOR[faction] ?? "#e9e6df",
+                                    }}
+                                >
+                                    {shownLevel}
+                                </Typography>
+                            )}
+                        </Box>
+                    </Tooltip>
+                );
+            })}
+        </Box>
+    );
+};
 
 // Fixed slot layout shown for BOTH armies: [L1, L1, L2, L2, L3, L4]. Mirrors CreaturePoolByLevel = [2,2,1,1]
 // and the level-sorted creaturesPicked order the server now maintains, so a slot index maps 1:1 to a level.
@@ -1469,10 +1609,13 @@ export const MyDraftBar: React.FC<{
     artifactTier2: number;
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
-}> = ({ perk, picked, artifactTier1, artifactTier2, onInspect, onInspectEnd }) => {
+    /** Seeds this match's synergy draw — the rails show the four synergies actually in play. */
+    gameId?: string;
+    /** Creature staged for confirmation, so its synergy can be previewed. */
+    pendingId?: number;
+}> = ({ perk, picked, artifactTier1, artifactTier2, onInspect, onInspectEnd, gameId, pendingId }) => {
     const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
-    const artifacts = [t1, t2].filter((a): a is Artifact.ArtifactProperties => !!a);
     // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
     const slots = placeIntoLevelSlots(picked);
     return (
@@ -1490,8 +1633,8 @@ export const MyDraftBar: React.FC<{
                     pointerEvents: "auto",
                     display: "flex",
                     alignItems: "center",
-                    gap: 1,
-                    px: 1.75,
+                    gap: 0.6,
+                    px: 0.9,
                     py: 0.25,
                     minHeight: 62,
                     maxWidth: "100%",
@@ -1499,18 +1642,12 @@ export const MyDraftBar: React.FC<{
                     overflow: "hidden",
                     justifyContent: "center",
                     borderRadius: "14px",
-                    bgcolor: "#171a23",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "#e9e6df",
+                    bgcolor: "#0f2216",
+                    border: "1px solid rgba(60,190,110,0.55)",
+                    color: "#e6f5e9",
                     width: "100%",
                 }}
             >
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-                    <Typography sx={{ color: "#dcb158", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
-                        Your army
-                    </Typography>
-                    <SynergyDots picked={picked} tone="own" />
-                </Box>
                 {perk > 0 && (
                     <Tooltip title={`Doctrine: ${perkName(perk)}`} variant="soft">
                         <Box
@@ -1521,7 +1658,9 @@ export const MyDraftBar: React.FC<{
                                 borderRadius: "50%",
                                 display: "grid",
                                 placeItems: "center",
-                                fontSize: 16,
+                                fontSize: 22,
+                                lineHeight: 1,
+                                overflow: "hidden",
                                 bgcolor: "rgba(255,255,255,0.06)",
                                 border: "1px solid rgba(220,177,88,0.45)",
                             }}
@@ -1530,6 +1669,8 @@ export const MyDraftBar: React.FC<{
                         </Box>
                     </Tooltip>
                 )}
+                <BarDivider strong />
+                <SynergyDots picked={picked} tone="own" gameId={gameId} pendingId={pendingId} />
                 <BarDivider />
                 <Box sx={{ display: "flex", gap: 0.75, flexWrap: "nowrap", flex: "0 0 auto" }}>
                     {slots.map((slot, i) => {
@@ -1589,44 +1730,48 @@ export const MyDraftBar: React.FC<{
                         );
                     })}
                 </Box>
-                {artifacts.length > 0 && (
-                    <>
-                        <BarDivider />
-                        <Box sx={{ display: "flex", gap: 0.5 }}>
-                            {artifacts.map((a) => {
-                                const img = images[a.imageKey];
-                                return (
-                                    <Tooltip
-                                        key={a.id}
-                                        title={`${a.name} — ${Artifact.formatArtifactDescription(a)}`}
-                                        variant="soft"
-                                    >
-                                        <Box
-                                            sx={{
-                                                width: 32,
-                                                height: 32,
-                                                flex: "0 0 auto",
-                                                borderRadius: "7px",
-                                                display: "grid",
-                                                placeItems: "center",
-                                                border: "1px solid rgba(245,158,11,0.45)",
-                                                bgcolor: "rgba(245,158,11,0.08)",
-                                            }}
-                                        >
-                                            {img && (
-                                                <img
-                                                    src={img}
-                                                    alt={a.name}
-                                                    style={{ width: 28, height: 28, objectFit: "contain" }}
-                                                />
-                                            )}
-                                        </Box>
-                                    </Tooltip>
-                                );
-                            })}
-                        </Box>
-                    </>
-                )}
+                <BarDivider />
+                {/* BOTH artifact slots are always here — the tier-2 one as an empty frame until it is
+                    drafted. Rendering it only once picked shifted everything left of it mid-draft. */}
+                <Box sx={{ display: "flex", gap: 0.5 }}>
+                    {[t1, t2].map((a, tier) => {
+                        const img = a ? images[a.imageKey] : undefined;
+                        return (
+                            <Tooltip
+                                key={`artifact-tier-${tier + 1}`}
+                                title={
+                                    a
+                                        ? `${a.name} — ${Artifact.formatArtifactDescription(a)}`
+                                        : `Tier-${tier + 1} artifact — not drafted yet`
+                                }
+                                variant="soft"
+                            >
+                                <Box
+                                    sx={{
+                                        width: 32,
+                                        height: 32,
+                                        flex: "0 0 auto",
+                                        borderRadius: "7px",
+                                        display: "grid",
+                                        placeItems: "center",
+                                        border: a
+                                            ? "1px solid rgba(245,158,11,0.45)"
+                                            : "1px dashed rgba(245,158,11,0.28)",
+                                        bgcolor: a ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.03)",
+                                    }}
+                                >
+                                    {img && (
+                                        <img
+                                            src={img}
+                                            alt={a?.name ?? ""}
+                                            style={{ width: 28, height: 28, objectFit: "contain" }}
+                                        />
+                                    )}
+                                </Box>
+                            </Tooltip>
+                        );
+                    })}
+                </Box>
             </Sheet>
         </Box>
     );
@@ -1636,6 +1781,8 @@ export const MyDraftBar: React.FC<{
 
 interface StainedGlassProps {
     userTeam: TeamType;
+    /** This match's id — seeds the per-game synergy draw shown in the rails. */
+    gameId?: string;
     opponentLabel?: string;
     height?: number;
 }
@@ -1656,7 +1803,9 @@ export const OpponentDraftBar: React.FC<{
     watchedSlots: number[];
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
-}> = ({ opponentPicked, watchedSlots, onInspect, onInspectEnd }) => {
+    /** Seeds this match's synergy draw — the rails show the four synergies actually in play. */
+    gameId?: string;
+}> = ({ opponentPicked, watchedSlots, onInspect, onInspectEnd, gameId }) => {
     // Build the 6 fixed level-ordered slots directly from the slot-aligned reveal array (no bucketing), so each
     // creature lands at its real slot index — preserving bundle-vs-picked ordering within a level.
     const slots = ARMY_LAYOUT.map((level, i) => ({ id: opponentPicked[i] ?? 0, level }));
@@ -1679,8 +1828,8 @@ export const OpponentDraftBar: React.FC<{
                     pointerEvents: "auto",
                     display: "flex",
                     alignItems: "center",
-                    gap: 1,
-                    px: 1.75,
+                    gap: 0.6,
+                    px: 0.9,
                     py: 0.25,
                     minHeight: 62,
                     maxWidth: "100%",
@@ -1694,14 +1843,9 @@ export const OpponentDraftBar: React.FC<{
                     color: "#f0e7e9",
                 }}
             >
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-                    <Typography sx={{ color: "#ff9d9d", fontWeight: 700, fontSize: 17, whiteSpace: "nowrap" }}>
-                        Opponent
-                    </Typography>
-                    {/* Only the picks your doctrine reveals count — a hidden slot cannot light a synergy. */}
-                    <SynergyDots picked={opponentPicked} tone="opponent" />
-                </Box>
-                <BarDivider />
+                {/* Only the picks your doctrine reveals count — a hidden slot cannot light a synergy. */}
+                <SynergyDots picked={opponentPicked} tone="opponent" gameId={gameId} />
+                <BarDivider strong />
                 <Box sx={{ display: "flex", gap: 0.75, flexWrap: "nowrap", flex: "0 0 auto" }}>
                     {slots.map((slot, i) => {
                         const id = slot.id;
@@ -1794,7 +1938,7 @@ export const OpponentDraftBar: React.FC<{
     );
 };
 
-const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLabel = "Opponent" }) => {
+const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, gameId, opponentLabel = "Opponent" }) => {
     const {
         pickPhase,
         isYourTurn,
@@ -1965,6 +2109,10 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
     const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
     const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
     const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
+    // The doctrine step is a pass-through whenever a pre-game perk is stored (the usual case): the client
+    // auto-commits it and the server advances. Until that lands there is nothing to choose, so the screen
+    // says so instead of flashing the chooser's title, hint and turn chips.
+    const isPreparing = pickPhase < 0 || (pickPhase === PickPhaseVals.PERK && getPreGamePerk() !== Perk.Perk.NO_PERK);
     // Phases whose confirm lives in the wide button at the bottom — they drop the header chips, the
     // sub-line and the imperative hint, exactly like the redesign.
     const isCommitPhase =
@@ -2105,7 +2253,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                             <Box sx={{ display: { xs: "flex", md: "none" }, justifyContent: "center" }}>
                                 <DraftTitle
                                     subtitle={
-                                        hint && !isCommitPhase ? (
+                                        hint && !isCommitPhase && !isPreparing ? (
                                             <Typography
                                                 level="body-sm"
                                                 sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
@@ -2115,7 +2263,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                                         ) : undefined
                                     }
                                 >
-                                    {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
+                                    {isPreparing ? "Preparing the draft…" : title(pickPhase, requiredLevel)}
                                 </DraftTitle>
                             </Box>
                             <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
@@ -2123,7 +2271,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                     ) : (
                         <DraftTitle
                             subtitle={
-                                hint && !isCommitPhase ? (
+                                hint && !isCommitPhase && !isPreparing ? (
                                     <Typography
                                         level="body-sm"
                                         sx={{ opacity: 0.7, textAlign: "center", maxWidth: 560 }}
@@ -2133,14 +2281,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                                 ) : undefined
                             }
                         >
-                            {pickPhase < 0 ? "" : title(pickPhase, requiredLevel)}
+                            {isPreparing ? "Preparing the draft…" : title(pickPhase, requiredLevel)}
                         </DraftTitle>
                     )}
                 </Box>
 
                 <Box
                     sx={{
-                        display: isCommitPhase ? "none" : "flex",
+                        display: isCommitPhase || isPreparing ? "none" : "flex",
                         alignItems: "center",
                         gap: 1.5,
                     }}
@@ -2161,14 +2309,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                 </Box>
 
                 {/* Imperative "what to do now" so first-time players always know the expected action. */}
-                {isYourTurn && !isHandoff && !isCommitPhase && phaseAction(pickPhase, requiredLevel) && (
-                    <Typography
-                        level="title-sm"
-                        sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}
-                    >
-                        👉 {phaseAction(pickPhase, requiredLevel)}
-                    </Typography>
-                )}
+                {isYourTurn &&
+                    !isHandoff &&
+                    !isCommitPhase &&
+                    !isPreparing &&
+                    phaseAction(pickPhase, requiredLevel) && (
+                        <Typography
+                            level="title-sm"
+                            sx={{ color: "#7CFC9B", fontWeight: 700, textAlign: "center", mt: -0.5 }}
+                        >
+                            👉 {phaseAction(pickPhase, requiredLevel)}
+                        </Typography>
+                    )}
 
                 {pickPhase !== PickPhaseVals.PERK && (
                     <>
@@ -2192,6 +2344,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                                 artifactTier2={artifactTier2}
                                 onInspect={beginInspect}
                                 onInspectEnd={endInspect}
+                                gameId={gameId}
+                                pendingId={pendingPick}
                             />
                             {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then
                                 the name — dead centre between the two armies. */}
@@ -2204,6 +2358,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                                 watchedSlots={watchedSlots}
                                 onInspect={beginInspect}
                                 onInspectEnd={endInspect}
+                                gameId={gameId}
                             />
                         </Box>
                     </>
@@ -2255,6 +2410,15 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, opponentLab
                                   : pendingPick > 0)
                         }
                         isYourTurn={!!isYourTurn}
+                        blockedHint={
+                            !isYourTurn
+                                ? undefined
+                                : pickPhase === PickPhaseVals.ARTIFACT_2
+                                  ? "Choose one of the three artifacts first."
+                                  : pickPhase === PickPhaseVals.INITIAL_PICK
+                                    ? "Choose one of the two bundles first."
+                                    : "Choose a creature first — click a portrait, then confirm."
+                        }
                         seconds={secondsRemaining}
                         onCommit={() => {
                             if (pickPhase === PickPhaseVals.ARTIFACT_2) {

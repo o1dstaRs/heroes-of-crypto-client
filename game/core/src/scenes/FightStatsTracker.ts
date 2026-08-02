@@ -9,9 +9,56 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, TeamVals } from "@heroesofcrypto/common";
+import { IDamageStatistic, TeamType, TeamVals } from "@heroesofcrypto/common";
 
-import { IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
+import { IFightDamageEntry, IFightDeathEntry, IFightStatsReport, IFightStatsSample } from "./VisibleState";
+
+/** The only thing the damage breakdown needs from a roster entry. */
+export interface IRosterTexture {
+    smallTextureName: string;
+}
+
+/**
+ * Join the fight's starting rosters with the damage statistics into one per-creature
+ * breakdown, sorted by damage descending.
+ *
+ * Shared by the sandbox tracker and the ranked scene: both keep a `name -> { smallTextureName }`
+ * roster, and both receive damage as a flat `IDamageStatistic[]` (already aggregated per
+ * creature by the client holder, split per lap when it arrives from an authoritative snapshot —
+ * summing handles both shapes).
+ *
+ * Roster-seeded on purpose: a creature that was fielded but never landed a hit still gets a
+ * zero row, and a damage entry with no roster match (roster snapshot missed it) is still kept
+ * so damage is never silently dropped.
+ */
+export const buildFightDamageEntries = (
+    lowerRoster: ReadonlyMap<string, IRosterTexture>,
+    upperRoster: ReadonlyMap<string, IRosterTexture>,
+    damageStats: readonly IDamageStatistic[],
+): IFightDamageEntry[] => {
+    const byKey = new Map<string, IFightDamageEntry>();
+    const key = (name: string, team: TeamType): string => `${team}|${name}`;
+
+    const seed = (roster: ReadonlyMap<string, IRosterTexture>, team: TeamType): void => {
+        for (const [name, entry] of roster) {
+            byKey.set(key(name, team), { name, smallTextureName: entry.smallTextureName, damage: 0, team });
+        }
+    };
+    seed(lowerRoster, TeamVals.LOWER as TeamType);
+    seed(upperRoster, TeamVals.UPPER as TeamType);
+
+    for (const stat of damageStats) {
+        const k = key(stat.unitName, stat.team);
+        const existing = byKey.get(k);
+        if (existing) {
+            existing.damage += stat.damage;
+        } else {
+            byKey.set(k, { name: stat.unitName, smallTextureName: "", damage: stat.damage, team: stat.team });
+        }
+    }
+
+    return Array.from(byKey.values()).sort((a, b) => b.damage - a.damage || a.name.localeCompare(b.name));
+};
 
 /**
  * Minimal structural view of a unit needed for casualty tracking. RenderableUnit
@@ -113,7 +160,12 @@ export class FightStatsTracker {
         return true;
     }
     /** Build the end-of-fight report consumed by the overlay. */
-    public buildReport(winner: TeamType, units: Iterable<IStatUnit>, lap: number): IFightStatsReport {
+    public buildReport(
+        winner: TeamType,
+        units: Iterable<IStatUnit>,
+        lap: number,
+        damageStats: readonly IDamageStatistic[] = [],
+    ): IFightStatsReport {
         const unitArray = Array.from(units);
         // Capture the final state in the time series.
         this.sample(unitArray, lap);
@@ -134,6 +186,7 @@ export class FightStatsTracker {
             series: this.series.slice(),
             lowerDeaths: FightStatsTracker.buildDeaths(this.lowerRoster, aliveByNameLower, TeamVals.LOWER),
             upperDeaths: FightStatsTracker.buildDeaths(this.upperRoster, aliveByNameUpper, TeamVals.UPPER),
+            damageByUnit: buildFightDamageEntries(this.lowerRoster, this.upperRoster, damageStats),
             lowerStartTotal: this.lowerStartTotal,
             upperStartTotal: this.upperStartTotal,
             lowerKilledTotal: this.lastLowerKilled,

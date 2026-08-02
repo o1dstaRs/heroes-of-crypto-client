@@ -28,19 +28,24 @@ import { IWindowSize } from "../scenes/VisibleState";
 export const TRIM_WIDTH_PX = 8;
 
 // Reads from the BOARD outwards. Mirrored per side so the bright arris always faces the board.
-const TRIM_BANDS = [
-    "#080604 0%",
-    "#080604 10%",
-    "#3d2e1a 10%",
-    "#5c4622 22%",
-    "#caa866 34%", // bright arris
-    "#a07e3c 44%",
-    "#120c07 52%", // groove
-    "#120c07 60%",
-    "#8f7132 70%", // second, dimmer gold line
-    "#5b4622 82%",
-    "#080604 92%",
-    "#080604 100%",
+//
+// Both sides run the same blackened metal, at roughly a third of the original gold's luminance, to match the
+// bars behind them. The band STRUCTURE is the gold trim's unchanged — shoulder, arris, groove, second line —
+// so the rule still reads as turned metal rather than a painted stripe, and the arris is still the brightest
+// band, because without some highlight it stops reading as an edge at all.
+const TRIM_BANDS_DARK = [
+    "#020202 0%",
+    "#020202 10%",
+    "#0e0e0d 10%",
+    "#141413 22%",
+    "#31302d 34%", // arris — the brightest band, and the only reason the edge reads
+    "#242321 44%",
+    "#040403 52%", // groove
+    "#040403 60%",
+    "#201f1d 70%", // second, dimmer line
+    "#141412 82%",
+    "#020202 92%",
+    "#020202 100%",
 ].join(", ");
 
 /**
@@ -85,7 +90,7 @@ export const BoardEdgeTrim: React.FC<{ windowSize: IWindowSize }> = ({ windowSiz
                     // Butts against the board from OUTSIDE, in the black margin. Overlapping the board even
                     // by these few pixels clipped the edge column of cells and the unit icons standing on it.
                     left: `${Math.max(0, edges.left - TRIM_WIDTH_PX)}px`,
-                    backgroundImage: `linear-gradient(to left, ${TRIM_BANDS})`,
+                    backgroundImage: `linear-gradient(to left, ${TRIM_BANDS_DARK})`,
                     boxShadow: "-2px 0 10px rgba(0,0,0,.75)",
                 }}
             />
@@ -93,7 +98,7 @@ export const BoardEdgeTrim: React.FC<{ windowSize: IWindowSize }> = ({ windowSiz
                 style={{
                     ...common,
                     left: `${edges.right}px`,
-                    backgroundImage: `linear-gradient(to right, ${TRIM_BANDS})`,
+                    backgroundImage: `linear-gradient(to right, ${TRIM_BANDS_DARK})`,
                     boxShadow: "2px 0 10px rgba(0,0,0,.75)",
                 }}
             />

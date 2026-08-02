@@ -1,6 +1,5 @@
 import { Graphics } from "pixi.js";
 import {
-    HoCMath,
     GridSettings,
     SquarePlacement,
     RectanglePlacement,
@@ -17,183 +16,121 @@ export function setSpawnFlowPhase(phase: number): void {
     gSpawnFlowPhase = phase;
 }
 
-function rgb255(r: number, g: number, b: number): number {
-    return ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-}
+/**
+ * The caller advances the phase by `timeStep * 1.85`, and the simulation runs on a FIXED 1/240 step
+ * (PixiGameManager.SIM_STEP) at roughly one slice per rendered frame — so the phase only gains about
+ * 0.46 rad per second. Multiplied by a small factor the tiles took ~12s to complete a cycle, which reads
+ * as a still image. These bring the ripple to ~2s and the flicker to ~0.8s.
+ */
+const SPAWN_WAVE_RATE = 7;
+const SPAWN_TWINKLE_RATE = 16;
 
-function buildInsetRectVerts(xLeft: number, yUpper: number, xRight: number, yLower: number, inset = 1): HoCMath.XY[] {
-    return [
-        { x: xLeft + inset, y: yUpper - inset },
-        { x: xRight - inset, y: yUpper - inset },
-        { x: xRight - inset, y: yLower + inset },
-        { x: xLeft + inset, y: yLower + inset },
-    ];
-}
+import { TeamVals } from "@heroesofcrypto/common";
 
-function lighten(color: number, factor: number): number {
-    const r = (color >> 16) & 0xff;
-    const g = (color >> 8) & 0xff;
-    const b = color & 0xff;
-    const mix = (c: number) => Math.round(c + (255 - c) * factor);
-    return rgb255(mix(r), mix(g), mix(b));
-}
+// The zone is painted in the same colour as the banners of the army that deploys into it — teamColors is
+// the one source both this and RenderableUnit's badges read. Before that these were hand-picked tints and
+// they had drifted: the lower zone was a yellow-green (#a0c85f) on rectangle placements but a different
+// green (#6ed25f) on square ones, and the upper zone a salmon (#ff5f3c) rather than the flag's red.
+import { teamColor } from "../scenes/teamColors";
 
-/* -------------------- tiny 2D value-noise + fBm -------------------- */
+/**
+ * A tile is a STATIC body with an ANIMATED rim: the pulse used to breathe across the whole square, which
+ * made the entire zone throb, and the movement is easier to read when it is confined to the edges and the
+ * colour under the units stays put. The rim is 5% of the lit body's width and sits just OUTSIDE it, so the
+ * highlight as a whole claims more of the cell than the body on its own.
+ */
+const SPAWN_RIM_WIDTH_FRACTION = 0.05;
+/**
+ * How far the rim also reaches INWARD, over the body, as a share of its outward width. The band keeps the
+ * outer edge it already had and thickens on the inside only, so widening it does not push the highlight
+ * any closer to the neighbouring cell.
+ */
+const SPAWN_RIM_INWARD_FRACTION = 0.6;
+/** Body opacity. The rim's alpha adds on top of this wherever the two overlap. */
+const SPAWN_BODY_ALPHA = 0.14;
+const SPAWN_RIM_ALPHA_MIN = 0.06;
+const SPAWN_RIM_ALPHA_MAX = 0.34;
+
 function hash2(x: number, y: number): number {
     // deterministic hash in [0,1)
     const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
     return s - Math.floor(s);
 }
-function smoothstep(t: number): number {
-    return t * t * (3 - 2 * t);
-}
-function lerp(a: number, b: number, t: number): number {
-    return a + (b - a) * t;
-}
-function noise2D(x: number, y: number): number {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    const xf = x - xi;
-    const yf = y - yi;
-    const a = hash2(xi, yi);
-    const b = hash2(xi + 1, yi);
-    const c = hash2(xi, yi + 1);
-    const d = hash2(xi + 1, yi + 1);
-    const u = smoothstep(xf);
-    const v = smoothstep(yf);
-    const nx0 = lerp(a, b, u);
-    const nx1 = lerp(c, d, u);
-    return lerp(nx0, nx1, v); // [0,1]
-}
-function fbm2(x: number, y: number, octaves = 4): number {
-    let f = 0.0;
-    let amp = 0.5;
-    let freq = 1.0;
-    for (let i = 0; i < octaves; i++) {
-        f += amp * noise2D(x * freq, y * freq);
-        amp *= 0.5;
-        freq *= 2.0;
-    }
-    return f; // ~[0,1]
-}
 
-/* -------------------- water-like spawn light -------------------- */
-function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: number, isLower: boolean): void {
-    const xs = verts.map((v) => v.x);
-    const ys = verts.map((v) => v.y);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-    const width = maxX - minX;
-    const height = maxY - minY;
-
-    // unique seed per placement so upper/lower don’t sync perfectly
-    const seed = (minX * 0.017 + minY * 0.013) * 0.5;
-
-    const layers = 100; // Increased layers for smoother vertical transitions
-    const layerH_avg = height / layers;
-
-    // Precompute y positions with controlled vertical jitter for up/down wobble, fixed at ends
-    const y_positions: number[] = new Array(layers + 1);
-    y_positions[0] = minY; // Fixed top edge
-    y_positions[layers] = maxY; // Fixed bottom edge
-
-    // flow across time – animate noise sampling coords, not just a band
-    const t = gSpawnFlowPhase; // radians
-    const flowX = Math.cos(t) * 0.35;
-    const flowY = Math.sin(t * 0.7) * 0.25;
-
-    for (let i = 1; i < layers; i++) {
-        const hNorm = i / layers;
-        const nv = fbm2(seed + hNorm * 1.5 + flowY, seed + flowX * 0.85, 4);
-
-        let v_jitter = (nv - 0.5) * layerH_avg * 0.5;
-
-        // CRITICAL FIX: Ensure vertical jitter is completely zero at the adjacent inner layer points
-        // TAPER_LAYERS = 2 means:
-        // i=1: factor = 0.0 (Perfectly straight line at y_positions[1])
-        // i=2: factor = 0.5 (Starts gentle wobble)
-        // i=3: factor = 1.0 (Full wobble)
-        const TAPER_LAYERS = 2;
-        let taperFactor = 1.0;
-
-        if (i < TAPER_LAYERS + 1) {
-            // Taper near the top (minY)
-            taperFactor = (i - 1) / TAPER_LAYERS;
-        } else if (i > layers - TAPER_LAYERS - 1) {
-            // Taper near the bottom (maxY)
-            taperFactor = (layers - i - 1) / TAPER_LAYERS;
-        }
-
-        // Ensure factor is non-negative and apply
-        v_jitter *= Math.max(0, taperFactor);
-
-        y_positions[i] = minY + hNorm * height + v_jitter;
+/* -------------------- per-cell spawn highlight -------------------- */
+/**
+ * Lights the deployment zone CELL BY CELL instead of washing one tinted sheet over the whole rectangle.
+ *
+ * The old version stacked 100 horizontal strips and jittered each strip's left and right edge along a noise
+ * field, which is what produced the ragged tongues hanging off the sides of the zone — they reached well
+ * past the squares a unit could actually occupy, so the highlight lied about where you could deploy. Here
+ * every square the placement allows gets its own tile, inset so the board's own gutters stay unpainted, and
+ * nothing is drawn outside the zone at all.
+ */
+function drawSpawnCells(
+    gfx: Graphics,
+    step: number,
+    xLeft: number,
+    yLower: number,
+    xRight: number,
+    yUpper: number,
+    baseColor: number,
+): void {
+    if (step <= 0) {
+        return;
     }
 
-    // add glow with additive blending while we draw; restore after
+    const gap = Math.max(1, step * 0.08);
+    const side = step - gap * 2;
+    if (side <= 0) {
+        return;
+    }
+
+    const radius = Math.min(6, side * 0.14);
+    // The animated band, as a share of the lit tile's own width.
+    const rimWidth = Math.max(1, side * SPAWN_RIM_WIDTH_FRACTION);
+
     const prevBlend = gfx.blendMode;
     gfx.blendMode = "add";
 
-    const highlight = lighten(baseColor, 0.45);
+    // Half a step of slack on the loop bound: the placement rectangle is built from whole steps, so this
+    // only guards against float drift rather than admitting a partial column.
+    for (let y = yLower, row = 0; y < yUpper - step * 0.5; y += step, row++) {
+        for (let x = xLeft, col = 0; x < xRight - step * 0.5; x += step, col++) {
+            // Two beats layered so the field never looks like one metronome:
+            //   wave    — a slow ripple travelling diagonally across the zone (its phase shifts with col+row)
+            //   twinkle — a faster flicker on each tile's own random offset
+            const wave = Math.sin(gSpawnFlowPhase * SPAWN_WAVE_RATE - (col + row) * 0.55);
+            const twinkle = Math.sin(gSpawnFlowPhase * SPAWN_TWINKLE_RATE + hash2(col, row) * Math.PI * 2);
+            const pulse = 0.5 + 0.3 * wave + 0.2 * twinkle; // ~0..1
 
-    for (let i = 0; i < layers; i++) {
-        // normalized height (0 at top .. 1 at bottom in world coords)
-        const hNorm = (i + 0.5) / layers;
+            // The BODY of the tile is dead flat — one constant tone, no movement at all.
+            gfx.roundRect(x + gap, y + gap, side, side, radius).fill({
+                color: baseColor,
+                alpha: SPAWN_BODY_ALPHA,
+            });
 
-        let y0 = y_positions[i];
-        let y1 = y_positions[i + 1];
-        if (y0 > y1) {
-            const temp = y0;
-            y0 = y1;
-            y1 = temp;
+            // ...and all the life moves into a band straddling the body's edge: it reaches rimWidth OUTWARD
+            // into the margin and 60% of that INWARD over the body, so the two together cover more of the
+            // cell than the body alone. A stroke is centred on its path, so the path is pushed out by half
+            // the difference between the two reaches — that is what pins the outer edge in place while the
+            // band thickens inward. The outward reach still clears the gutter: the margin is 8% of a step
+            // and the band about 4% of it, so neighbouring cells never meet.
+            const rimInner = rimWidth * SPAWN_RIM_INWARD_FRACTION;
+            const rimTotal = rimWidth + rimInner;
+            const offset = (rimWidth - rimInner) * 0.5;
+            gfx.roundRect(
+                x + gap - offset,
+                y + gap - offset,
+                side + offset * 2,
+                side + offset * 2,
+                radius + offset,
+            ).stroke({
+                color: baseColor,
+                width: rimTotal,
+                alpha: SPAWN_RIM_ALPHA_MIN + (SPAWN_RIM_ALPHA_MAX - SPAWN_RIM_ALPHA_MIN) * pulse,
+            });
         }
-        const layerH = y1 - y0;
-        if (layerH <= 0) continue; // Ensure positive height
-
-        // falloff stronger near board side, softer away
-        const toBoard = isLower ? 1 - hNorm : hNorm;
-        const edgeFalloff = 0.35 + 0.65 * (1 - toBoard * toBoard); // 0.35..1
-
-        // sample a small flow field to jitter the strip edges horizontally
-        // scale: bigger values => broader, slow waves
-        const nx = fbm2(seed + hNorm * 1.5 + flowX, seed + flowY, 4); // [0,1]
-        // Reduced horizontal jitter factor from 0.12 to 0.10 for smoother edges
-        const jitter = (nx - 0.5) * 0.1 * width; // pixels
-
-        // second noise to modulate alpha (shimmering brightness)
-        const ny = fbm2(seed + hNorm * 2.1 + flowY * 0.75, seed + flowX * 0.5, 5);
-        const sparkle = ny; // [0,1]
-
-        // third noise to occasionally tint with highlight (like caustics)
-        const nz = fbm2(seed + hNorm * 1.3 + flowX * 0.4, seed - flowY * 0.6, 3);
-
-        // slight curved feather toward edges using cosine to avoid banding
-        const feather = 0.65 + 0.35 * Math.cos((hNorm - 0.5) * Math.PI);
-
-        // Slightly increased intensity (from 0.35 to 0.40)
-        const alphaBase = 0.4 * edgeFalloff * feather;
-        const alphaSpark = 0.4 * sparkle;
-        const orig_alpha = alphaBase + alphaSpark;
-
-        const alpha = Math.min(1, orig_alpha * (layerH_avg / layerH));
-
-        if (alpha < 0.01) continue;
-
-        const color = nz > 0.66 ? highlight : baseColor;
-
-        // wobble both left and right edges a little differently
-        const wobbleL = jitter * 0.8;
-        const wobbleR = jitter * -0.8;
-
-        // draw thin wavy strip
-        gfx.moveTo(minX + wobbleL, y0)
-            .lineTo(maxX + wobbleR, y0)
-            .lineTo(maxX + wobbleR, y1)
-            .lineTo(minX + wobbleL, y1)
-            .closePath()
-            .fill({ color, alpha });
     }
 
     gfx.blendMode = prevBlend;
@@ -201,33 +138,32 @@ function drawSpawnWaterLight(gfx: Graphics, verts: HoCMath.XY[], baseColor: numb
 
 /* -------------------- placements -------------------- */
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
-    private readonly vertices: HoCMath.XY[];
+    /** The grid's own cell pitch — the tiles are laid out on it, so no separate geometry is cached. */
+    private readonly step: number;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
-        this.vertices = buildInsetRectVerts(this.xLeft, this.yUpper, this.xRight, this.yLower, 1);
+        this.step = gs.getStep();
     }
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
-        const fillColor = isLower
-            ? rgb255(110, 210, 95) // greener, brighter
-            : rgb255(255, 95, 60); // warm orange-red
-        drawSpawnWaterLight(gfx, this.vertices, fillColor, isLower);
+        const fillColor = teamColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
+        drawSpawnCells(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
     }
 }
 
 export class DrawableRectanglePlacement extends RectanglePlacement implements IDrawablePlacement {
-    private readonly vertices: HoCMath.XY[];
+    private readonly step: number;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
-        this.vertices = buildInsetRectVerts(this.xLeft, this.yUpper, this.xRight, this.yLower, 1);
+        this.step = gs.getStep();
     }
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
-        const fillColor = isLower ? rgb255(160, 200, 95) : rgb255(255, 95, 60);
-        drawSpawnWaterLight(gfx, this.vertices, fillColor, isLower);
+        const fillColor = teamColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
+        drawSpawnCells(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
     }
 }

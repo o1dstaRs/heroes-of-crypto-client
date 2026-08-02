@@ -2,7 +2,7 @@ import { Box, Button, Modal, ModalDialog, Sheet, Tooltip, Typography } from "@mu
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
-import { getMapDisplay } from "./mapDisplay";
+import { getMapDisplay, type IMapDisplay } from "./mapDisplay";
 
 const images = rawImages as Record<string, string>;
 
@@ -18,6 +18,62 @@ const REVEAL_KEYFRAMES = `
     100% { transform: scale(1); opacity: 1; }
 }`;
 
+/**
+ * A 4x4-cell crop of the map's own centre — the same floor art the sandbox and the fight draw, not a
+ * stylised icon. Standard and Mountains sit on the stone floor (Mountains gets its two blocks on top),
+ * Lava uses the baked lava floor, Water lays its pool over the stone.
+ *
+ * The board is ~13 cells across, so showing the texture at 320% frames roughly four cells around dead
+ * centre.
+ */
+const MAP_FLOOR_KEY: Record<string, string> = {
+    Standard: "background_stone_tiles",
+    Lava: "background_stone_tiles_lava",
+    Mountains: "background_stone_tiles",
+    Water: "background_stone_tiles",
+};
+
+const MAP_CENTER_OVERLAY: Record<string, string | undefined> = {
+    Mountains: "mountain_432_412",
+    Water: "water_256",
+};
+
+const MapThumb: React.FC<{ display: IMapDisplay; size: number; radius: number }> = ({ display, size, radius }) => {
+    const floor = images[MAP_FLOOR_KEY[display.name] ?? "background_stone_tiles"];
+    const overlayKey = MAP_CENTER_OVERLAY[display.name];
+    const overlay = overlayKey ? images[overlayKey] : undefined;
+    return (
+        <Box
+            sx={{
+                position: "relative",
+                width: size,
+                height: size,
+                borderRadius: `${radius}px`,
+                overflow: "hidden",
+                backgroundImage: `url(${floor})`,
+                backgroundSize: "320%",
+                backgroundPosition: "center",
+            }}
+        >
+            {overlay && (
+                <Box
+                    component="img"
+                    src={overlay}
+                    alt=""
+                    sx={{
+                        position: "absolute",
+                        inset: "18%",
+                        width: "64%",
+                        height: "64%",
+                        objectFit: "contain",
+                        opacity: display.name === "Water" ? 0.85 : 1,
+                    }}
+                />
+            )}
+        </Box>
+    );
+};
+
 // Persistent map indicator between the two armies: the word MAP plus the map's own thumbnail — the name
 // itself only on hover, so the badge stays narrow and the armies sit close to it. Shows "?" until the
 // server reveals the map (right before the L3 picks).
@@ -31,7 +87,7 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
                 sx={{
                     display: "grid",
                     placeItems: "center",
-                    p: "6px",
+                    p: "2px",
                     minHeight: 62,
                     width: 62,
                     flex: "0 0 auto",
@@ -41,18 +97,13 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
                 }}
             >
                 {display ? (
-                    <Box
-                        component="img"
-                        src={images[display.imageKey]}
-                        alt={display.name}
-                        sx={{ width: 48, height: 48, borderRadius: "8px", objectFit: "cover" }}
-                    />
+                    <MapThumb display={display} size={56} radius={10} />
                 ) : (
                     <Box
                         sx={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: "8px",
+                            width: 56,
+                            height: 56,
+                            borderRadius: "10px",
                             display: "grid",
                             placeItems: "center",
                             fontSize: 26,
@@ -116,19 +167,16 @@ export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
                     Map type
                 </Typography>
                 <Box
-                    component="img"
-                    src={images[display.imageKey]}
-                    alt={display.name}
                     sx={{
-                        width: 176,
-                        height: 176,
-                        objectFit: "cover",
                         borderRadius: "14px",
                         border: `2px solid ${display.accent}`,
                         boxShadow: `0 0 30px ${display.accent}66`,
                         animation: "hocMapRevealPop 0.55s ease-out",
+                        lineHeight: 0,
                     }}
-                />
+                >
+                    <MapThumb display={display} size={176} radius={12} />
+                </Box>
                 <Typography
                     sx={{
                         mt: 2,

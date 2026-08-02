@@ -68,6 +68,9 @@ interface Brazier {
     core: Sprite;
     haloBaseScale: number;
     coreBaseScale: number;
+    /** Resting alpha this light flickers around — corners burn brighter than the wall torches. */
+    haloAlpha: number;
+    coreAlpha: number;
     x: number;
     y: number;
     danceAmp: number; // px of core jitter, scaled to the brazier size
@@ -78,6 +81,57 @@ export class LightingLayer {
     private readonly container = new Container();
     private readonly braziers: Brazier[] = [];
     private time = 0;
+    /**
+     * Build one additive light source: a soft warm pool with a hotter core on top. Shared by the corner
+     * braziers and the wall torches so the two can never drift apart in look, only in size and strength.
+     */
+    private addLight(
+        haloTex: Texture,
+        coreTex: Texture,
+        p: HoCMath.XY,
+        radius: number,
+        haloAlpha: number,
+        coreAlpha: number,
+        phase: number,
+        into: Brazier[],
+    ): void {
+        const haloTexW = haloTex.width || 512;
+        const coreTexW = coreTex.width || 512;
+
+        const halo = new Sprite(haloTex);
+        halo.anchor.set(0.5);
+        halo.blendMode = "add";
+        halo.tint = HALO_TINT;
+        halo.position.set(p.x, p.y);
+        const haloBaseScale = (radius * 2) / haloTexW;
+        halo.scale.set(haloBaseScale);
+        halo.alpha = haloAlpha;
+
+        const core = new Sprite(coreTex);
+        core.anchor.set(0.5);
+        core.blendMode = "add";
+        core.tint = CORE_TINT;
+        core.position.set(p.x, p.y);
+        const coreBaseScale = ((radius * 2) / coreTexW) * CORE_SCALE_FACTOR;
+        core.scale.set(coreBaseScale);
+        core.alpha = coreAlpha;
+
+        // Halo behind the core so the hot centre reads on top of the warm pool.
+        this.container.addChild(halo);
+        this.container.addChild(core);
+        into.push({
+            halo,
+            core,
+            haloBaseScale,
+            coreBaseScale,
+            haloAlpha,
+            coreAlpha,
+            x: p.x,
+            y: p.y,
+            danceAmp: radius * 0.02,
+            phase,
+        });
+    }
     public constructor(gs: GridSettings) {
         const minX = gs.getMinX();
         const maxX = gs.getMaxX();
@@ -98,8 +152,6 @@ export class LightingLayer {
         //    corners that used to sit pitch-dark now carry the fire.
         const haloTex = makeRadialTexture(false);
         const coreTex = makeRadialTexture(true);
-        const haloTexW = haloTex.width || 512;
-        const coreTexW = coreTex.width || 512;
         const radius = Math.max(w, h) * BRAZIER_RADIUS_FACTOR;
         const corners: HoCMath.XY[] = [
             { x: minX, y: minY },
@@ -108,55 +160,38 @@ export class LightingLayer {
             { x: maxX, y: maxY },
         ];
         corners.forEach((p, i) => {
-            const halo = new Sprite(haloTex);
-            halo.anchor.set(0.5);
-            halo.blendMode = "add";
-            halo.tint = HALO_TINT;
-            halo.position.set(p.x, p.y);
-            const haloBaseScale = (radius * 2) / haloTexW;
-            halo.scale.set(haloBaseScale);
-            halo.alpha = HALO_ALPHA;
-
-            const core = new Sprite(coreTex);
-            core.anchor.set(0.5);
-            core.blendMode = "add";
-            core.tint = CORE_TINT;
-            core.position.set(p.x, p.y);
-            const coreBaseScale = ((radius * 2) / coreTexW) * CORE_SCALE_FACTOR;
-            core.scale.set(coreBaseScale);
-            core.alpha = CORE_ALPHA;
-
-            // Halo behind the core so the hot centre reads on top of the warm pool.
-            this.container.addChild(halo);
-            this.container.addChild(core);
-            this.braziers.push({
-                halo,
-                core,
-                haloBaseScale,
-                coreBaseScale,
-                x: p.x,
-                y: p.y,
-                danceAmp: radius * 0.02,
-                phase: i * 1.7,
-            });
+            this.addLight(haloTex, coreTex, p, radius, HALO_ALPHA, CORE_ALPHA, i * 1.7, this.braziers);
         });
+    }
+    /**
+     * Show or hide the whole dungeon lighting pass — the darkening and every brazier with it.
+     *
+     * Switched off for a floor texture that carries its own painted lighting: laying this on top of one
+     * would double the light at the edges and wash the artwork out, so the map is shown exactly as painted
+     * instead. Nothing here is destroyed, so the look comes straight back when it is switched on again.
+     */
+    public setEnabled(enabled: boolean): void {
+        this.container.visible = enabled;
     }
     public getContainer(): Container {
         return this.container;
     }
     /** Flicker + dance the braziers so they read as living fire. */
     public update(dt: number): void {
+        if (!this.container.visible) {
+            return;
+        }
         this.time += dt;
         for (const b of this.braziers) {
             const t = this.time + b.phase;
             const halo = flameFlicker(t);
             const core = coreFlicker(t);
-            b.halo.alpha = HALO_ALPHA * halo;
-            b.core.alpha = CORE_ALPHA * core;
+            b.halo.alpha = b.haloAlpha * halo;
+            b.core.alpha = b.coreAlpha * core;
             // Breathe the pool slowly; the core pulses a touch faster.
             b.halo.scale.set(b.haloBaseScale * (1 + 0.03 * Math.sin(t * 1.6)));
             b.core.scale.set(b.coreBaseScale * (1 + 0.07 * Math.sin(t * 2.3 + 1)));
-            // Let the core flame dance a few px so the light isn't perfectly pinned to the corner.
+            // Let the core flame dance a few px so the light isn't perfectly pinned to its spot.
             b.core.x = b.x + b.danceAmp * (Math.sin(t * 6.3) * 0.7 + Math.sin(t * 11.0 + 1.1) * 0.3);
             b.core.y = b.y + b.danceAmp * (Math.cos(t * 5.1) * 0.7 + Math.sin(t * 9.2 + 2.0) * 0.3);
         }

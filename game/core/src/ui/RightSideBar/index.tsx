@@ -19,6 +19,7 @@ import { useNavigate } from "react-router";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import Toggler from "../Toggler";
+import { hocColors, hocFontFamily, hocObsidianPanelSx } from "../hocTheme";
 import FightControlToggler from "./FightControlToggler";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
@@ -66,11 +67,23 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
                 <ListItemButton
                     onClick={() => setOpen(!open)}
                     sx={{
-                        py: 2, // Consistent styling
-                        backgroundColor: open ? "rgba(255, 143, 0, 0.1)" : "inherit",
-                        transition: "background-color 0.3s",
+                        // Built as a CONTROL, not a list row, and specifically to match the button column
+                        // beside it: the SAME obsidian fill the toolbar shell uses, so the two surfaces are
+                        // literally the same colour rather than merely similar.
+                        ...hocObsidianPanelSx,
+                        // No outline of any kind. The toolbar column is a floating object over the board and
+                        // earns a bronze edge; this header sits ON the sidebar, where any edge — the outer
+                        // border or the shell's inset rim, which reads as a second hairline — turned into a
+                        // frame competing with everything around it. Only the drop shadow is kept, so the
+                        // panel still lifts off the leather, and the ember is left to the glyph and label.
+                        border: "none",
+                        boxShadow: "0 4px 14px rgba(0,0,0,.7)",
+                        py: 1.5,
+                        px: 1.5,
+                        my: 0.5,
+                        transition: "background-image 0.25s",
                         "&:hover": {
-                            backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                            backgroundImage: "linear-gradient(180deg, rgba(28,28,26,.96), rgba(9,9,9,.96))",
                         },
                     }}
                 >
@@ -86,7 +99,18 @@ const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
                         }}
                     />
                     <ListItemContent>
-                        <Typography level="title-sm">Damage</Typography>
+                        <Typography
+                            level="title-sm"
+                            sx={{
+                                fontFamily: hocFontFamily,
+                                fontWeight: 700,
+                                letterSpacing: "0.09em",
+                                textTransform: "uppercase",
+                                color: open ? hocColors.orange : hocColors.parchment,
+                            }}
+                        >
+                            Damage
+                        </Typography>
                     </ListItemContent>
                     <Box
                         component="img"
