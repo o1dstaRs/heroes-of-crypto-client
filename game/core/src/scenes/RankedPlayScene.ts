@@ -11,6 +11,7 @@ import {
     Spell,
     getFactionOf,
     GridMath,
+    synergyVariantsForSeed,
     HoCConfig,
     HoCConstants,
     HoCLib,
@@ -288,6 +289,48 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         changed = true;
     }
 
+    // Deliberate in-place write into the live properties: this is an authoritative-reconciliation site,
+    // so the Readonly guard on getUnitProperties is intentionally bypassed here and nowhere casually.
+    const liveProperties = unit.getUnitProperties() as UnitProperties;
+    // A same-board snapshot preserves the RenderableUnit so an effect-only action does not restart every
+    // animation. That means the full hydrate which normally installs the server's final combat modifiers
+    // does not run. Copy them in place before refreshUnits(): otherwise a Weapon/Armor Rune updates its
+    // visible "+N" row while the selected unit keeps the modifier from the previous snapshot. The replay for
+    // c18a1085 exposed the exact drift: Weapon Rune reached +3 server-side (attack_mod 0.92 -> 3.92), while
+    // the persistent ranked unit stayed on 0.92 until some later board movement forced a rebuild.
+    if (
+        properties.attack_mod_authoritative &&
+        (!liveProperties.attack_mod_authoritative || liveProperties.attack_mod !== properties.attack_mod)
+    ) {
+        liveProperties.attack_mod = properties.attack_mod;
+        liveProperties.attack_mod_authoritative = true;
+        changed = true;
+    }
+    if (
+        properties.armor_mod_authoritative &&
+        (!liveProperties.armor_mod_authoritative || liveProperties.armor_mod !== properties.armor_mod)
+    ) {
+        liveProperties.armor_mod = properties.armor_mod;
+        liveProperties.armor_mod_authoritative = true;
+        changed = true;
+    }
+    // Movement too — the exact same drift class as the rune modifiers above, exposed live by a
+    // Quagmire'd Wolf (game 7a2b509d): the debuff cut its steps server-side (3.7 -> 2.8) but the
+    // animation-preserving paths never copied steps, so the client previewed a 3.41-step attack the
+    // server rejected as attack_not_available. adjustBaseStats' authoritative-steps restore keeps
+    // these values through the refresh that follows.
+    if (
+        properties.steps_authoritative &&
+        (!liveProperties.steps_authoritative ||
+            liveProperties.steps !== properties.steps ||
+            liveProperties.steps_mod !== properties.steps_mod)
+    ) {
+        liveProperties.steps = properties.steps;
+        liveProperties.steps_mod = properties.steps_mod;
+        liveProperties.steps_authoritative = true;
+        changed = true;
+    }
+
     // Mirror buffs the authoritative snapshot no longer lists — e.g. a spent Water Shield, which the
     // engine deletes server-side in applyDamage. This animation-preserving reconcile skips the board
     // rebuild that would otherwise resync buffs, so without this a consumed buff lingers on the live unit:
@@ -320,7 +363,6 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     // section stayed unchanged. Mirror all parallel display metadata in place without creating AppliedSpell
     // objects — ranked stats already arrive computed by the server, so reconstructing objects would apply the
     // penalties a second time.
-    const liveProperties = unit.getUnitProperties();
     const replaceIfDifferent = <T>(target: T[], source: readonly T[]): boolean => {
         if (target.length === source.length && target.every((value, index) => value === source[index])) {
             return false;
@@ -568,6 +610,11 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // seeded (which already contains those deltas) and subtracted Cursed Ward again on every
                 // refreshUnits(), so one artifact read as -12/-18. Mirrors luck_authoritative below.
                 morale_authoritative: true,
+                // The snapshot's max_hp is likewise FINAL (Pendant of Vitality / Boost Health already folded
+                // in), and applyArtifacts() re-applies the pendant buff object on every refresh — without
+                // this flag adjustBaseStats boosted the already-boosted cap again (200-base Arachna Queen
+                // read 250/313: "army never at full HP").
+                max_hp_authoritative: true,
                 speed: unitState.speed || baseProperties.speed,
                 // Luck is the server's already-rolled effective value (incl. the per-turn spread and
                 // auras like Leprechaun's Luck Aura). luck_authoritative tells adjustBaseStats to keep
@@ -753,6 +800,53 @@ export const spellCastNarratedPairs = (events: readonly GameEvent[]): Set<string
         }
     }
     return pairs;
+};
+
+/**
+ * Scene-log lines for a cast's ROLLED outcomes (spell_cast.outcomes): the Blacksmith's Craft and the
+ * Armor/Weapon Runes resolve by dice, so their results — including the two that change no state at all
+ * (a failed rune, Craft finding nothing) — only reach a ranked client through the server's stated roll.
+ * Wording mirrors the engine's own sandbox text so both modes read identically.
+ */
+export const spellOutcomeSceneLogLines = (
+    event: GameEvent,
+    unitNames: ReadonlyMap<string, string>,
+    flagForUnit: (unitId: string) => string = () => "",
+): string[] => {
+    if (event.type !== "spell_cast" || !event.outcomes?.length) {
+        return [];
+    }
+    const isArmor = event.spellName === "Armor Rune";
+    const lines: string[] = [];
+    for (const entry of event.outcomes) {
+        const name = unitNames.get(entry.unitId) ?? "Unit";
+        let text: string | undefined;
+        switch (entry.outcome) {
+            case "enchanted":
+                text = `${name} enchanted: +${entry.amount ?? 1} ${isArmor ? "armor" : "attack"}`;
+                break;
+            case "failed":
+                text = `${name}'s ${isArmor ? "armor" : "weapon"} enchant failed`;
+                break;
+            case "double":
+            case "frozen":
+                text = entry.grantedAbility ? `${name} was crafted with ${entry.grantedAbility}` : undefined;
+                break;
+            case "stun":
+                text = `${name}'s craft backfired — stunned`;
+                break;
+            case "nothing":
+                text = `${name}'s craft found nothing to improve`;
+                break;
+            default:
+                break;
+        }
+        if (text) {
+            const flag = flagForUnit(entry.unitId);
+            lines.push(flag ? `${flag} ${text}` : text);
+        }
+    }
+    return lines;
 };
 
 /** Primary spell damage only; Magic Mirror rebounds are reported as their own follow-up lines. */
@@ -1312,6 +1406,15 @@ export class RankedPlayScene extends Sandbox {
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
     ): void {
+        // Seed THIS game's synergy variants into the local engine on every apply (idempotent, four keys).
+        // The server draws one synergy of each faction's pair from the game id; without this the client's
+        // own synergy re-runs (refreshStackPowerForAllUnits etc.) computed against the DEFAULT variants,
+        // so unit badges and the sidebar showed a different synergy than the one the fight actually
+        // priced. Unconditional so a mid-apply hydration reset can't leave defaults behind either.
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setSynergyVariants(synergyVariantsForSeed(snapshot.gameId));
+
         // Effect pops (debuff/buff icons) are independent of the board rebuild and use world-attached
         // visuals, so diff them FIRST — before the animation/board-skip guards below can early-return.
         // Otherwise a debuff applied during an opponent's attack (which the receiver is mid-animating)
@@ -2195,6 +2298,13 @@ export class RankedPlayScene extends Sandbox {
                     narratedPairs,
                 )) {
                     lines.push(effectLine);
+                }
+                // Rolled cast outcomes (Craft / the Runes): the result line the sandbox engine writes
+                // directly, rebuilt here from the authoritative roll on the event.
+                for (const outcomeLine of spellOutcomeSceneLogLines(event, unitNames, (unitId) =>
+                    this.logTeamFlag(unitId),
+                )) {
+                    lines.push(outcomeLine);
                 }
                 // Lucky Strike procs never reach ranked as text (the engine's sceneLog is sandbox-only);
                 // rebuild the "activates Lucky Strike" line from the damage payload, BEFORE the strike's

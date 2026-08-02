@@ -204,6 +204,60 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[2]?.spellEntriesAuthoritative).toBe(false);
     });
 
+    test("decodes authoritative combat stat modifiers from their float wire fields", () => {
+        const unit = [
+            ...stringField(1, "unit-1"),
+            ...floatField(37, -2.5),
+            ...floatField(38, 3.25),
+            ...intField(39, 1),
+            ...floatField(40, 5.5),
+            ...floatField(41, -1.25),
+        ];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]).toMatchObject({
+            armorMod: -2.5,
+            attackMod: 3.25,
+            statModsAuthoritative: true,
+            steps: 5.5,
+            stepsMod: -1.25,
+        });
+    });
+
+    test("preserves explicit zero stat modifiers and leaves legacy fields absent", () => {
+        const current = [
+            ...stringField(1, "current-unit"),
+            ...floatField(37, 0),
+            ...floatField(38, 0),
+            ...intField(39, 1),
+            ...floatField(40, 0),
+            ...floatField(41, 0),
+        ];
+        const legacy = [...stringField(1, "legacy-unit")];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, current),
+            ...messageField(12, legacy),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]).toMatchObject({
+            armorMod: 0,
+            attackMod: 0,
+            statModsAuthoritative: true,
+            steps: 0,
+            stepsMod: 0,
+        });
+        expect(decoded.units[1]?.armorMod).toBeUndefined();
+        expect(decoded.units[1]?.attackMod).toBeUndefined();
+        expect(decoded.units[1]?.statModsAuthoritative).toBeUndefined();
+        expect(decoded.units[1]?.steps).toBeUndefined();
+        expect(decoded.units[1]?.stepsMod).toBeUndefined();
+    });
+
     test("decodes the fight-start army totals (proto fields 24-27)", () => {
         const snapshot = new Uint8Array([
             ...stringField(1, "game-1"),

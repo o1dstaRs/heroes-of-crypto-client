@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
+import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
+import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
 
 /**
  * The menu theme ("The Last Stand") and the volume control that governs it.
@@ -52,8 +54,6 @@ const PREFIGHT_TRACK = { webm: "/audio/iron_and_silk.webm", mp3: "/audio/iron_an
  * is already in force by the time the music comes back. */
 const SINGING_ROUTES = ["/play", "/lobbies", "/lobby/", "/portal"] as const;
 
-import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
-
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
 const shouldSing = (pathname: string): boolean =>
@@ -92,14 +92,17 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
 export const ThemeMusic: React.FC = () => {
     const { pathname } = useLocation();
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const webmSourceRef = useRef<HTMLSourceElement | null>(null);
+    const mp3SourceRef = useRef<HTMLSourceElement | null>(null);
+    const playerRef = useRef<ThemeMusicPlayer | null>(null);
     const fadeRef = useRef<number | null>(null);
-    const startedRef = useRef(false);
+    const effectiveVolumeRef = useRef(0);
     const initial = useRef(readInitialSettings());
     const [volumeExpanded, setVolumeExpanded] = useState(false);
     const [volume, setVolume] = useState(initial.current.volume);
     const [muted, setMuted] = useState(initial.current.muted);
-    const [trackIndex, setTrackIndex] = useState(0);
     const [prefight, setPrefight] = useState(false);
+    const [needsUnlock, setNeedsUnlock] = useState(true);
     // Rendered into the sidebar's footer when there is one, beside the fullscreen toggle; otherwise it
     // floats in the bottom-right corner as before.
     const dockSlot = useSyncExternalStore(subscribeVolumeSlot, getVolumeSlot, getVolumeSlotServerSnapshot);
@@ -108,141 +111,149 @@ export const ThemeMusic: React.FC = () => {
 
     // The pre-fight stretch sings wherever it happens — it lives under /game, which is otherwise silent.
     const singing = prefight || shouldSing(pathname);
-    const source = prefight ? PREFIGHT_TRACK : PLAYLIST[trackIndex];
     const effectiveVolume = muted ? 0 : volume;
+    effectiveVolumeRef.current = effectiveVolume;
+
+    const getTargetVolume = useCallback(
+        () => (shouldSing(window.location.pathname) || isPrefightMusicActive() ? effectiveVolumeRef.current : 0),
+        [],
+    );
+
+    const stopFade = useCallback(() => {
+        if (fadeRef.current !== null) {
+            cancelAnimationFrame(fadeRef.current);
+            fadeRef.current = null;
+        }
+    }, []);
 
     // Fade rather than snap: the theme arriving at full volume the instant someone clicks is startling, and
     // that first click is usually aimed at something else entirely.
-    const fadeTo = useCallback((target: number) => {
-        const audio = audioRef.current;
-        if (!audio) {
-            return;
-        }
-        if (fadeRef.current !== null) {
-            cancelAnimationFrame(fadeRef.current);
-        }
-        const from = audio.volume;
-        const startedAt = performance.now();
-        const step = (now: number): void => {
-            const t = Math.min(1, (now - startedAt) / FADE_MS);
-            audio.volume = clamp01(from + (target - from) * t);
-            if (t < 1) {
-                fadeRef.current = requestAnimationFrame(step);
-            } else {
-                fadeRef.current = null;
-                // Pause once silent so a muted tab is not decoding audio for nothing.
-                if (target === 0) {
-                    audio.pause();
+    const fadeTo = useCallback(
+        (target: number) => {
+            const audio = audioRef.current;
+            if (!audio) {
+                return;
+            }
+            stopFade();
+            const clampedTarget = clamp01(target);
+            if (audio.paused && clampedTarget === 0) {
+                audio.volume = 0;
+                return;
+            }
+            const from = audio.volume;
+            const startedAt = performance.now();
+            const step = (now: number): void => {
+                const t = Math.min(1, (now - startedAt) / FADE_MS);
+                audio.volume = clamp01(from + (clampedTarget - from) * t);
+                if (t < 1) {
+                    fadeRef.current = requestAnimationFrame(step);
+                } else {
+                    fadeRef.current = null;
+                    // Pause once silent so a muted tab is not decoding audio for nothing.
+                    if (clampedTarget === 0) {
+                        audio.pause();
+                    }
                 }
+            };
+            fadeRef.current = requestAnimationFrame(step);
+        },
+        [stopFade],
+    );
+
+    // Keep media state outside React's source-render cycle. load() aborts the old play promise, so the
+    // player generation-checks every attempt before it is allowed to affect the currently playing track.
+    useEffect(() => {
+        const audio = audioRef.current;
+        const webmSource = webmSourceRef.current;
+        const mp3Source = mp3SourceRef.current;
+        if (!audio || !webmSource || !mp3Source) {
+            return undefined;
+        }
+        const player = createThemeMusicPlayer({
+            audio,
+            webmSource,
+            mp3Source,
+            playlist: PLAYLIST,
+            getTargetVolume,
+            fadeTo,
+            onPlaybackStarted: () => {
+                stopFade();
+                setNeedsUnlock(false);
+            },
+            onPlaybackBlocked: () => setNeedsUnlock(true),
+        });
+        playerRef.current = player;
+        return () => {
+            player.destroy();
+            if (playerRef.current === player) {
+                playerRef.current = null;
             }
         };
-        fadeRef.current = requestAnimationFrame(step);
-    }, []);
+    }, [fadeTo, getTargetVolume, stopFade]);
 
-    const start = useCallback(() => {
-        const audio = audioRef.current;
-        // The pre-fight flag must be honored here too: a player who ARRIVES on /game/<id> (a vs-AI link, a
-        // mid-draft reload) is on a non-singing route, and gating start() on the route alone kept the
-        // pre-fight track silent for them — the only flows that heard it were the ones that had already
-        // started the audio back on /play.
-        if (!audio || startedRef.current || (!shouldSing(window.location.pathname) && !isPrefightMusicActive())) {
+    // Switching into the ranked preparation sequence selects its one-track loop; leaving restores the menu
+    // playlist at the same index it had before. If playback was already unlocked, the hand-off starts now.
+    useEffect(() => {
+        const player = playerRef.current;
+        if (!player) {
             return;
         }
-        startedRef.current = true;
-        // Re-resolve the <source> children before playing: the element picked its source at mount, and if
-        // the pre-fight flag flipped since (it usually has, on a direct /game entry), playing without a
-        // load() starts the stale menu track instead of the pre-fight one. Nothing is buffered yet
-        // (preload="none"), so this costs nothing.
-        audio.load();
-        audio.volume = 0;
-        audio
-            .play()
-            .then(() => fadeTo(muted ? 0 : volume))
-            .catch(() => {
-                // Autoplay still refused (some mobile power-saving modes). The toggle stays, so the player
-                // can ask for it explicitly.
-                startedRef.current = false;
-            });
-    }, [fadeTo, muted, volume]);
+        if (prefight) {
+            void player.playSingle(PREFIGHT_TRACK);
+        } else {
+            void player.resumePlaylist();
+        }
+    }, [prefight]);
 
-    // Autoplay is blocked until the page has been interacted with, so the theme waits for the first gesture
-    // of any kind and slips in behind it. Re-armed whenever `singing` changes: the listeners are one-shot,
-    // and a gesture made on a silent screen consumes them while start() declines — without re-arming, music
-    // never began for a player who landed straight on /game and only later entered a singing stretch.
+    const start = useCallback(() => {
+        const target = getTargetVolume();
+        if (target > 0) {
+            void playerRef.current?.start(target, true);
+        }
+    }, [getTargetVolume]);
+
+    // Keep the unlock listeners until play ACTUALLY succeeds. A source swap can reject an older play()
+    // promise after a newer one has started, and a blocked mobile attempt must remain retryable from the
+    // next ordinary click/touch without requiring the player to jiggle the volume toggle.
     useEffect(() => {
-        if (startedRef.current || !singing) {
+        if (!needsUnlock || !singing || effectiveVolume === 0) {
             return undefined;
         }
         const onGesture = (): void => start();
-        const events = ["pointerdown", "keydown", "touchstart"] as const;
+        const events = ["click", "keydown", "touchend"] as const;
         for (const event of events) {
-            window.addEventListener(event, onGesture, { once: true, passive: true });
+            window.addEventListener(event, onGesture, { capture: true, passive: true });
         }
         return () => {
             for (const event of events) {
-                window.removeEventListener(event, onGesture);
+                window.removeEventListener(event, onGesture, true);
             }
         };
-    }, [start, singing]);
+    }, [effectiveVolume, needsUnlock, singing, start]);
 
     // Leaving for the fight silences it; coming back picks it up again.
     useEffect(() => {
         const audio = audioRef.current;
-        if (!audio) {
+        const player = playerRef.current;
+        if (!audio || !player) {
             return;
         }
-        if (!singing) {
+        const target = singing ? effectiveVolume : 0;
+        player.setTargetVolume(target);
+        if (target === 0) {
             fadeTo(0);
             return;
         }
-        if (startedRef.current) {
+        if (player.hasStarted()) {
             if (audio.paused) {
-                audio.play().catch(() => undefined);
+                void player.start(target, true);
+            } else {
+                fadeTo(target);
             }
-            fadeTo(effectiveVolume);
+        } else {
+            setNeedsUnlock(true);
         }
     }, [singing, effectiveVolume, fadeTo]);
-
-    // One track ending hands over to the next, wrapping at the end of the list. `loop` is deliberately NOT
-    // set on the element: it would pin playback to a single track and this handler would never fire.
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) {
-            return undefined;
-        }
-        // The pre-fight track loops on itself; only the menu playlist advances.
-        const onEnded = (): void => {
-            if (isPrefightMusicActive()) {
-                audio.currentTime = 0;
-                audio.play().catch(() => undefined);
-                return;
-            }
-            setTrackIndex((current) => (current + 1) % PLAYLIST.length);
-        };
-        audio.addEventListener("ended", onEnded);
-        return () => audio.removeEventListener("ended", onEnded);
-    }, []);
-
-    // Load and play whatever track the playlist — or the pre-fight flag — has moved to. Skipped on the very
-    // first render so it does not fight the autoplay gate — `started` only becomes true once a gesture has
-    // let us in. `prefight` is a dep because the <source> swap alone changes nothing: an <audio> element
-    // keeps playing what it loaded until load() is called, so without this the hand-over to "Iron and Silk"
-    // (and back) never actually happened for a player whose music began on the menu playlist.
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio || !startedRef.current) {
-            return;
-        }
-        audio.load();
-        audio.volume = 0;
-        audio
-            .play()
-            .then(() =>
-                fadeTo(shouldSing(window.location.pathname) || isPrefightMusicActive() ? (muted ? 0 : volume) : 0),
-            )
-            .catch(() => undefined);
-        // volume/muted are read at fade time on purpose: a mid-track volume change must not reload the track.
-    }, [trackIndex, prefight]);
 
     useEffect(() => {
         try {
@@ -303,15 +314,17 @@ export const ThemeMusic: React.FC = () => {
                     if (nextVolume !== volume) {
                         setVolume(nextVolume);
                     }
-                    if (!startedRef.current) {
-                        start();
-                        return;
-                    }
+                    const nextTarget = singing && !nextMuted ? nextVolume : 0;
                     const audio = audioRef.current;
-                    if (audio?.paused && !nextMuted) {
-                        audio.play().catch(() => undefined);
+                    const player = playerRef.current;
+                    player?.setTargetVolume(nextTarget);
+                    if (nextTarget === 0) {
+                        fadeTo(0);
+                    } else if (player && (audio?.paused || !player.hasStarted())) {
+                        void player.start(nextTarget, true);
+                    } else {
+                        fadeTo(nextTarget);
                     }
-                    fadeTo(nextMuted ? 0 : nextVolume);
                 }}
                 style={{
                     display: "grid",
@@ -364,19 +377,20 @@ export const ThemeMusic: React.FC = () => {
                         setMuted(false);
                     }
                     const audio = audioRef.current;
+                    const player = playerRef.current;
+                    const nextTarget = singing ? next : 0;
+                    player?.setTargetVolume(nextTarget);
                     if (audio) {
                         // Dragging is continuous, so track it directly rather than fading to each step.
-                        if (fadeRef.current !== null) {
-                            cancelAnimationFrame(fadeRef.current);
-                            fadeRef.current = null;
+                        stopFade();
+                        if (nextTarget === 0) {
+                            audio.volume = 0;
+                            audio.pause();
+                        } else if (player && (audio.paused || !player.hasStarted())) {
+                            void player.start(nextTarget, true);
+                        } else {
+                            audio.volume = nextTarget;
                         }
-                        if (audio.paused && next > 0 && startedRef.current) {
-                            audio.play().catch(() => undefined);
-                        }
-                        audio.volume = next;
-                    }
-                    if (!startedRef.current) {
-                        start();
                     }
                 }}
                 style={{
@@ -399,8 +413,8 @@ export const ThemeMusic: React.FC = () => {
             {/* Never inside the portal: re-parenting the element would remount it and drop the track's
                 position the moment a sidebar appeared or went away. */}
             <audio ref={audioRef} preload="none">
-                <source src={source.webm} type="audio/webm; codecs=opus" />
-                <source src={source.mp3} type="audio/mpeg" />
+                <source ref={webmSourceRef} src={PLAYLIST[0].webm} type="audio/webm; codecs=opus" />
+                <source ref={mp3SourceRef} src={PLAYLIST[0].mp3} type="audio/mpeg" />
             </audio>
             {dockSlot ? createPortal(control, dockSlot) : control}
         </>

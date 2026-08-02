@@ -36,6 +36,7 @@ import {
     revealedOpponentRowY,
     shouldPublishRankedFinish,
     spellCastNarratedPairs,
+    spellOutcomeSceneLogLines,
 } from "./RankedPlayScene";
 import { RenderableUnit } from "./RenderableUnit";
 import { shouldDisplayAppliedBuff } from "../pixi/PixiScene";
@@ -760,6 +761,47 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.canMove()).toBe(true);
     });
 
+    test("syncs authoritative movement (Quagmire-class steps changes) without rebuilding the unit", () => {
+        const snapshotProperties = (steps: number) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "quagmired-wolf",
+                        name: "Wolf",
+                        creatureId: CreatureVals.WOLF,
+                        statModsAuthoritative: true,
+                        steps,
+                        stepsMod: 0,
+                        armorMod: 0,
+                        attackMod: 0,
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(3.7),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        expect(liveUnit.getSteps()).toBe(4);
+
+        // The live case (game 7a2b509d): Quagmire cut the Wolf's steps server-side (3.7 -> 2.8) but the
+        // animation-preserving snapshot paths never carried movement, so the client kept previewing
+        // 4-step attacks the server rejected. The reconcile must land the authoritative steps in place.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(true);
+        expect(liveUnit.getSteps()).toBe(3);
+
+        // Idempotent: an unchanged snapshot must not report churn.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(false);
+    });
+
     test("syncs Dulling Defense into the ranked debuff display without rebuilding the unit", () => {
         const snapshotProperties = (totalReduced?: number) =>
             authoritativeSnapshotToSandboxSceneState(
@@ -810,6 +852,56 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.getUnitProperties().applied_debuffs_laps).toEqual([]);
         expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([]);
         expect(liveUnit.getUnitProperties().applied_debuffs_powers).toEqual([]);
+    });
+
+    test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
+        const snapshotProperties = (attackMod: number, armorMod: number, runeStacks = 0) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "enchanted-arbalester",
+                        name: "Arbalester",
+                        creatureId: CreatureVals.ARBALESTER,
+                        attackMod,
+                        armorMod,
+                        statModsAuthoritative: true,
+                        buffs: runeStacks ? ["Weapon Rune", "Armor Rune"] : [],
+                        buffLaps: runeStacks ? [15, 15] : [],
+                        buffDescriptions: runeStacks ? [`+{} attack;${runeStacks};`, `+{} armor;${runeStacks};`] : [],
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(0.92, 0),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        const attackBefore = liveUnit.getAttack();
+        const armorBefore = liveUnit.getArmor();
+
+        // Exact shape of the reported ranked match after its third successful rune: the server's modifier
+        // advanced by three and the display description independently carries the same running total.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(3.92, 3, 3))).toBe(true);
+        expect(liveUnit.getUnitProperties()).toMatchObject({
+            attack_mod: 3.92,
+            attack_mod_authoritative: true,
+            armor_mod: 3,
+            armor_mod_authoritative: true,
+            applied_buffs: ["Weapon Rune", "Armor Rune"],
+        });
+        expect(liveUnit.getAttack()).toBeCloseTo(attackBefore + 3);
+        expect(liveUnit.getArmor()).toBeCloseTo(armorBefore + 3);
+
+        // Re-applying the same authoritative snapshot is a no-op, preserving the persistent sprite.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(3.92, 3, 3))).toBe(false);
     });
 
     test("detects authoritative ability and remaining-spell changes before a skip-rebuild is cached", () => {
@@ -1204,5 +1296,51 @@ describe("ranked effects_applied scene log", () => {
             typeof effectsAppliedSceneLogLines
         >[0];
         expect(effectsAppliedSceneLogLines(other, names, flags)).toEqual([]);
+    });
+});
+
+describe("ranked rolled-cast outcome lines", () => {
+    const names = new Map([
+        ["smith", "Blacksmith"],
+        ["arb", "Arbalester"],
+    ]);
+    const event = (spellName: string, outcomes: object[]): Parameters<typeof spellOutcomeSceneLogLines>[0] =>
+        ({ type: "spell_cast", casterId: "smith", spellName, targetId: "arb", outcomes }) as unknown as Parameters<
+            typeof spellOutcomeSceneLogLines
+        >[0];
+
+    test("weapon rune: enchant success carries the running total, failure says which enchant", () => {
+        expect(
+            spellOutcomeSceneLogLines(
+                event("Weapon Rune", [{ unitId: "arb", outcome: "enchanted", amount: 2 }]),
+                names,
+                () => "🟢",
+            ),
+        ).toEqual(["🟢 Arbalester enchanted: +2 attack"]);
+        expect(spellOutcomeSceneLogLines(event("Weapon Rune", [{ unitId: "arb", outcome: "failed" }]), names)).toEqual([
+            "Arbalester's weapon enchant failed",
+        ]);
+        expect(spellOutcomeSceneLogLines(event("Armor Rune", [{ unitId: "arb", outcome: "failed" }]), names)).toEqual([
+            "Arbalester's armor enchant failed",
+        ]);
+    });
+
+    test("craft: grants, backfire and no-op all read like the engine's own lines", () => {
+        expect(
+            spellOutcomeSceneLogLines(
+                event("Craft", [
+                    { unitId: "arb", outcome: "double", grantedAbility: "Crafted Double Shot" },
+                    { unitId: "smith", outcome: "nothing" },
+                ]),
+                names,
+            ),
+        ).toEqual(["Arbalester was crafted with Crafted Double Shot", "Blacksmith's craft found nothing to improve"]);
+        expect(spellOutcomeSceneLogLines(event("Craft", [{ unitId: "arb", outcome: "stun" }]), names)).toEqual([
+            "Arbalester's craft backfired — stunned",
+        ]);
+    });
+
+    test("non-outcome casts contribute nothing", () => {
+        expect(spellOutcomeSceneLogLines(event("Heal", []), names)).toEqual([]);
     });
 });
