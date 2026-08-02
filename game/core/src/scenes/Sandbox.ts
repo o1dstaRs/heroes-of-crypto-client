@@ -333,6 +333,45 @@ export interface SandboxSceneState {
     units: SandboxSceneUnitState[];
 }
 
+export interface ReplaySummonMaterialization {
+    event: Extract<GameEvent, { type: "unit_summoned" }>;
+    unitState: SandboxSceneUnitState;
+}
+
+/**
+ * Resolve summoned units that an authoritative replay event refers to but the local board does not yet own.
+ *
+ * Ranked plays the journal BEFORE applying its post-action snapshot. A summon therefore has to be seeded from
+ * that snapshot here so `unit_summoned` can animate the exact server-owned id. Re-running the summon locally is
+ * not equivalent: both factories use secure random UUIDs, so the local body is absent from the next snapshot and
+ * is incorrectly torn down with the generic broken-mirror death effect.
+ */
+export const getMissingReplaySummons = (
+    events: readonly GameEvent[],
+    stateAfter: Pick<SandboxSceneState, "units">,
+    presentUnitIds: ReadonlySet<string>,
+): ReplaySummonMaterialization[] => {
+    const stateById = new Map(stateAfter.units.map((unitState) => [unitState.properties.id, unitState]));
+    const resolvedIds = new Set(presentUnitIds);
+    const missing: ReplaySummonMaterialization[] = [];
+
+    for (const event of events) {
+        if (event.type !== "unit_summoned" || resolvedIds.has(event.unitId)) {
+            continue;
+        }
+        const unitState = stateById.get(event.unitId);
+        // A malformed/older record is allowed to fall through to the normal snapshot hydrate. A summon that
+        // was also killed in this action should likewise not be brought back just to play a spawn animation.
+        if (!unitState || unitState.dead) {
+            continue;
+        }
+        resolvedIds.add(event.unitId);
+        missing.push({ event, unitState });
+    }
+
+    return missing;
+};
+
 interface PlacementBenchHitBox {
     center: HoCMath.XY;
     radius: number;
@@ -2450,7 +2489,7 @@ export class Sandbox extends PixiScene {
             this.sc_visibleStateUpdateNeeded = true;
         }
     }
-    private createRenderableUnitFromSceneState(unitState: SandboxSceneUnitState): RenderableUnit {
+    private createRenderableUnitFromSceneState(unitState: SandboxSceneUnitState, summoned = false): RenderableUnit {
         const base = Unit.createUnit(
             // Deep-clone so each restored unit owns its arrays (see createUnitForTeam/split).
             structuredClone(unitState.properties),
@@ -2459,7 +2498,7 @@ export class Sandbox extends PixiScene {
             UnitVals.CREATURE,
             this.abilityFactory,
             this.abilityFactory.getEffectsFactory(),
-            false,
+            summoned,
         );
         const renderableUnit = RenderableUnit.fromBase(base, this.texAny);
         if (renderableUnit.getSpellsCount() > 0) {
@@ -2632,7 +2671,7 @@ export class Sandbox extends PixiScene {
         try {
             const played = await Promise.race([this.playSandboxReplayRecord(record), timeout]);
             if (!timedOut && !played) {
-                this.applyReplayEvents(record.events);
+                this.applyReplayEvents(record.events, record.stateAfter);
             }
             return played;
         } finally {
@@ -3440,6 +3479,7 @@ export class Sandbox extends PixiScene {
         // cleanup, and re-noting would leave a stale blow that could color a resurrected unit's next death.
         this.applyReplayEvents(
             destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events,
+            record.stateAfter,
         );
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
@@ -4093,10 +4133,26 @@ export class Sandbox extends PixiScene {
 
         await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
     }
-    protected applyReplayEvents(events: GameEvent[]): void {
+    private materializeReplaySummons(events: readonly GameEvent[], stateAfter: SandboxSceneState): void {
+        const presentUnitIds = new Set(this.unitsHolder.getAllUnits().keys());
+        for (const { event, unitState } of getMissingReplaySummons(events, stateAfter, presentUnitIds)) {
+            // Build from post-action truth so the id, creature properties, stolen abilities and remaining spells
+            // all match the server. Mark it summoned just like the live common-engine factory does.
+            const unit = this.createRenderableUnitFromSceneState(unitState, true);
+            unit.setPosition(event.position.x, event.position.y);
+            this.unitsHolder.addUnit(unit);
+            // Grid occupancy belongs in syncSummonedUnit, when the event is reached in journal order. Infest
+            // emits unit_destroyed immediately before unit_summoned; occupying here would race that cleanup and
+            // fail because the corpse still owns the cell during this pre-seeding pass.
+        }
+    }
+    protected applyReplayEvents(events: GameEvent[], stateAfter?: SandboxSceneState): void {
         const visibleEvents = events.filter((event) => event.type !== "fight_finished");
         if (!visibleEvents.length) {
             return;
+        }
+        if (stateAfter) {
+            this.materializeReplaySummons(visibleEvents, stateAfter);
         }
         this.applyTurnEngineEvents(visibleEvents, this.snapshotRenderableUnits());
     }
@@ -4289,6 +4345,26 @@ export class Sandbox extends PixiScene {
                     },
                 );
             });
+            await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
+            return true;
+        }
+
+        const authoritativeSummons = record.events.filter(
+            (event): event is Extract<GameEvent, { type: "unit_summoned" }> => event.type === "unit_summoned",
+        );
+        if (authoritativeSummons.length) {
+            // A new summon cannot be replayed through the local engine: its secure-random client UUID would
+            // differ from the server UUID in this record/snapshot. Seed the authoritative body first, then let
+            // the ordinary event path reveal it and run the spawn animation. This also handles merged summons
+            // (the existing server-id stack is already present, so syncSummonedUnit only refreshes its visual).
+            this.renderHealVfx(record.events);
+            this.renderSpellDamageVfx(record.events, craftCasterPos);
+            this.renderCastOutcomes(record.events);
+            for (const summon of authoritativeSummons) {
+                this.sc_sceneLog.updateLog(`${caster.getName()} summoned ${summon.amount} x ${summon.unitName}`);
+            }
+            this.materializeReplaySummons(record.events, record.stateAfter);
+            this.cleanupAfterSpell(record.events, this.snapshotRenderableUnits());
             await this.delayReplay(Sandbox.REPLAY_SPELL_HOLD_MS);
             return true;
         }
@@ -12292,10 +12368,17 @@ export class Sandbox extends PixiScene {
             return;
         }
 
+        unit.setPosition(event.position.x, event.position.y);
+        // Commit occupancy when this event is reached, after any preceding unit_destroyed event has freed the
+        // corpse cells (Infest). A live sandbox summon is already registered; cleanup + authoritative re-stamp
+        // is idempotent and also repairs a ranked replay that arrived on a stale local grid.
+        if (event.cells.length) {
+            this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
+            this.grid.occupyCells(event.cells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
+        }
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
-        unit.setPosition(event.position.x, event.position.y);
         if (unit.getSpellsCount() > 0) {
             this.ensureDigitTextures();
             if (this.digitTextures) {

@@ -81,7 +81,11 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "the shard back into the caster, with a cyan damage number so it never reads as the caster's own hit",
     },
     unit_moved: { rendered: true, ranked: "replay", note: "move slide; playReplayMoveRecord" },
-    unit_summoned: { rendered: true, ranked: "replay", note: "summon; playReplayCastSpellAction" },
+    unit_summoned: {
+        rendered: true,
+        ranked: "replay",
+        note: "authoritative summon spawn; cast replay + Infest attack replay",
+    },
     unit_resurrected: { rendered: true, ranked: "replay", note: "resurrect; playReplayCastSpellAction" },
     unit_destroyed: {
         rendered: true,
