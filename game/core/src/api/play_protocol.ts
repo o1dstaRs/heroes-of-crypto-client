@@ -133,6 +133,16 @@ export interface PlayUnitState {
     spellEntries?: string[];
     /** Distinguishes an authoritative empty spellbook from a legacy server that omitted field 35. */
     spellEntriesAuthoritative: boolean;
+    /** Server-computed final armor modifier (proto field 37). */
+    armorMod?: number;
+    /** Server-computed final attack modifier (proto field 38). */
+    attackMod?: number;
+    /** Presence marker for the authoritative stat fields (proto field 39). */
+    statModsAuthoritative?: boolean;
+    /** Server-computed base movement steps (proto field 40). */
+    steps?: number;
+    /** Server-computed movement-step modifier (proto field 41). */
+    stepsMod?: number;
 }
 
 export interface PlayJournalEntry {
@@ -939,6 +949,16 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 36) {
             // Presence marker so an empty authoritative spellbook differs from an older server.
             unit.spellEntriesAuthoritative = reader.bool();
+        } else if (field === 37) {
+            unit.armorMod = reader.float32();
+        } else if (field === 38) {
+            unit.attackMod = reader.float32();
+        } else if (field === 39) {
+            unit.statModsAuthoritative = reader.bool();
+        } else if (field === 40) {
+            unit.steps = reader.float32();
+        } else if (field === 41) {
+            unit.stepsMod = reader.float32();
         } else {
             reader.skip(wireType);
         }
