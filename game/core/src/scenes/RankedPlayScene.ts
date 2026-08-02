@@ -314,6 +314,22 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         liveProperties.armor_mod_authoritative = true;
         changed = true;
     }
+    // Movement too — the exact same drift class as the rune modifiers above, exposed live by a
+    // Quagmire'd Wolf (game 7a2b509d): the debuff cut its steps server-side (3.7 -> 2.8) but the
+    // animation-preserving paths never copied steps, so the client previewed a 3.41-step attack the
+    // server rejected as attack_not_available. adjustBaseStats' authoritative-steps restore keeps
+    // these values through the refresh that follows.
+    if (
+        properties.steps_authoritative &&
+        (!liveProperties.steps_authoritative ||
+            liveProperties.steps !== properties.steps ||
+            liveProperties.steps_mod !== properties.steps_mod)
+    ) {
+        liveProperties.steps = properties.steps;
+        liveProperties.steps_mod = properties.steps_mod;
+        liveProperties.steps_authoritative = true;
+        changed = true;
+    }
 
     // Mirror buffs the authoritative snapshot no longer lists — e.g. a spent Water Shield, which the
     // engine deletes server-side in applyDamage. This animation-preserving reconcile skips the board

@@ -761,6 +761,47 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.canMove()).toBe(true);
     });
 
+    test("syncs authoritative movement (Quagmire-class steps changes) without rebuilding the unit", () => {
+        const snapshotProperties = (steps: number) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "quagmired-wolf",
+                        name: "Wolf",
+                        creatureId: CreatureVals.WOLF,
+                        statModsAuthoritative: true,
+                        steps,
+                        stepsMod: 0,
+                        armorMod: 0,
+                        attackMod: 0,
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(3.7),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        expect(liveUnit.getSteps()).toBe(4);
+
+        // The live case (game 7a2b509d): Quagmire cut the Wolf's steps server-side (3.7 -> 2.8) but the
+        // animation-preserving snapshot paths never carried movement, so the client kept previewing
+        // 4-step attacks the server rejected. The reconcile must land the authoritative steps in place.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(true);
+        expect(liveUnit.getSteps()).toBe(3);
+
+        // Idempotent: an unchanged snapshot must not report churn.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(false);
+    });
+
     test("syncs Dulling Defense into the ranked debuff display without rebuilding the unit", () => {
         const snapshotProperties = (totalReduced?: number) =>
             authoritativeSnapshotToSandboxSceneState(
