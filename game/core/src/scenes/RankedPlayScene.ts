@@ -135,6 +135,63 @@ export const revealedOpponentRowY = (
 export const revealedOpponentRowScale = (total: number): number =>
     total <= 6 ? 0.85 : Math.max(0.55, (0.85 * 6) / total);
 
+/** Minimal grid surface the occupancy audit needs (see reconcileRankedGridOccupancy). */
+export interface IOccupancyAuditGrid {
+    getRegisteredCells(unitId: string): HoCMath.XY[];
+    getOccupantUnitId(cell: HoCMath.XY): string | undefined;
+    cleanupAll(unitId: string, attackRange: number, isSmallUnit: boolean): void;
+    occupyCells(
+        cells: HoCMath.XY[],
+        unitId: string,
+        team: TeamType,
+        attackRange: number,
+        canOccupyLava: boolean,
+        canOccupyWater: boolean,
+    ): boolean;
+}
+
+/**
+ * Audit the client grid's occupancy against the authoritative snapshot and re-register any unit whose
+ * cells diverged. The skip-rebuild and same-signature snapshot paths assume every replayed move already
+ * updated occupancy — one missed update (live case: a Fairy whose move never landed in the grid) and the
+ * board diverges silently FOREVER, because the board-signature short-circuit then skips every later
+ * rebuild. The client keeps previewing moves/attacks on the stale board (an Angel offered a corridor the
+ * real board had blocked) and the server rejects them as invalid_move / attack_not_available.
+ * Returns the ids that had to be fixed.
+ */
+export const reconcileRankedGridOccupancy = (
+    grid: IOccupancyAuditGrid,
+    units: ReadonlyArray<{ properties: UnitProperties; team: TeamType; dead: boolean; cells: HoCMath.XY[] }>,
+): string[] => {
+    const fixed: string[] = [];
+    for (const unitState of units) {
+        if (unitState.dead || !unitState.cells.length) {
+            continue;
+        }
+        const id = unitState.properties.id;
+        const registered = grid.getRegisteredCells(id);
+        const inSync =
+            registered.length === unitState.cells.length &&
+            unitState.cells.every((cell) => registered.some((r) => r.x === cell.x && r.y === cell.y)) &&
+            unitState.cells.every((cell) => grid.getOccupantUnitId(cell) === id);
+        if (inSync) {
+            continue;
+        }
+        grid.cleanupAll(id, unitState.properties.attack_range, unitState.properties.size === 1);
+        // Trust the authoritative cells incl. lava/water standing — same reasoning as hydrateSceneState.
+        grid.occupyCells(
+            unitState.cells.map((cell) => ({ ...cell })),
+            id,
+            unitState.team,
+            unitState.properties.attack_range,
+            true,
+            true,
+        );
+        fixed.push(id);
+    }
+    return fixed;
+};
+
 const shouldHidePreFightOpponentUnit = (
     snapshot: AuthoritativeGameSnapshot,
     unitState: AuthoritativeUnitState,
@@ -1365,6 +1422,10 @@ export class RankedPlayScene extends Sandbox {
             if (this.syncRankedUnitMechanicalEffects(state.units)) {
                 this.unitsHolder.refreshStackPowerForAllUnits();
             }
+            // Occupancy audit BEFORE turn activation: activation regenerates movement paths, and a stale
+            // grid registration (a missed move) otherwise survives here forever — the signature matches
+            // precisely because the SERVER board didn't change, saying nothing about ours being right.
+            this.healRankedGridOccupancy(state.units);
             // Break must be mechanical before activating the authoritative unit: activation refreshes stats,
             // movement paths and buttons synchronously, so syncing it afterward leaves a stale Host preview.
             this.syncRankedVisibleTurnState(snapshot);
@@ -1395,6 +1456,9 @@ export class RankedPlayScene extends Sandbox {
             // (a kill conveyed by snapshot rather than a replayed event), so they linger as "ghosts" the
             // AI then targets — which the server rejects as unit_not_found. Remove them here.
             this.reconcileGhostUnits(new Set(state.units.map((u) => u.properties.id)));
+            // ...and units whose occupancy a replayed move failed to land (the Angel/Fairy phantom-path
+            // case): audit every live unit's registration against the authoritative cells.
+            this.healRankedGridOccupancy(state.units);
             // A replayed action animates the hit but its EVENTS don't mutate the stack counts — apply
             // the authoritative remaining amounts/hp here so attack and retaliation damage actually
             // updates each unit's stack on the board (otherwise it stays frozen at the pre-hit count).
@@ -1465,6 +1529,32 @@ export class RankedPlayScene extends Sandbox {
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
         }
+    }
+    /**
+     * Self-heal grid occupancy from the authoritative snapshot (see reconcileRankedGridOccupancy). On a
+     * fix, also snap the unit's logical position to its authoritative cells (idempotent for units that
+     * merely missed their grid registration) and re-derive the cached path matrices so the next movement
+     * preview paths the REAL board instead of the stale one.
+     */
+    private healRankedGridOccupancy(units: SandboxSceneUnitState[]): void {
+        const fixed = reconcileRankedGridOccupancy(this.grid, units);
+        if (!fixed.length) {
+            return;
+        }
+        for (const id of fixed) {
+            const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
+            const unitState = units.find((u) => u.properties.id === id);
+            if (!unit || !unitState) {
+                continue;
+            }
+            const position = GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), unitState.cells);
+            if (position) {
+                unit.setPosition(position.x, position.y);
+                unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            }
+        }
+        this.refreshGridMatrices();
+        this.unitsHolder.refreshStackPowerForAllUnits();
     }
     private syncRankedUnitMechanicalEffects(units: SandboxSceneUnitState[]): boolean {
         let changed = false;

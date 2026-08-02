@@ -617,7 +617,8 @@ describe("ranked placement scene state", () => {
 
         const assimilator = state.units.find((unit) => unit.properties.id === "assimilator")?.properties;
         expect(assimilator?.aura_effects).toEqual(["Web"]);
-        expect(assimilator?.aura_ranges).toEqual([1]);
+        // Web Aura reaches 2 cells since the Arachna Queen rebalance (common 3148737).
+        expect(assimilator?.aura_ranges).toEqual([2]);
         expect(assimilator?.aura_is_buff).toEqual([false]);
 
         const victim = state.units.find((unit) => unit.properties.id === "aura-victim")?.properties;

@@ -4509,6 +4509,14 @@ export class Sandbox extends PixiScene {
         const fightProperties = FightStateManager.getInstance().getFightProperties();
         return `${fightProperties.getCurrentLap()}:${this.currentActiveUnit?.getId() ?? ""}:${fightProperties.getCurrentTurnStart()}`;
     }
+    /**
+     * Re-derive the cached path matrices from live grid occupancy. Subclasses that repair occupancy
+     * (ranked's snapshot audit) must call this or movement previews keep pathing on the stale board.
+     */
+    protected refreshGridMatrices(): void {
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+    }
     public refreshUnits(): void {
         // those need to be applied first
         this.unitsHolder.applyAugments();
