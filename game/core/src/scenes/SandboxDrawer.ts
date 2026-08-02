@@ -1,5 +1,22 @@
 import { Graphics } from "pixi.js";
-import { FightProperties, GridMath, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
+import { FightProperties, FightStateManager, GridMath, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
+
+/**
+ * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
+ * synergy. aura_ranges is ABILITY-aligned — non-aura abilities carry 0 — so the zero entries must be
+ * dropped BEFORE the bonus is added. Adding first turned every 0 into the bonus and painted a phantom
+ * aura ring on every ability of every unit the moment the Might aura-range synergy was picked (live
+ * report 2026-08-02); the mirror mistake — never adding the bonus — drew real auras one cell too small.
+ */
+export const visibleAuraRanges = (
+    ranges: readonly number[] | undefined,
+    isBuff: readonly boolean[] | undefined,
+    bonus: number,
+): { range: number; isBuff: boolean }[] =>
+    (ranges ?? [])
+        .map((range, i) => ({ range, isBuff: isBuff && i < isBuff.length ? isBuff[i] : true }))
+        .filter((aura) => aura.range > 0)
+        .map((aura) => ({ range: aura.range + bonus, isBuff: aura.isBuff }));
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
@@ -157,10 +174,14 @@ export class SandboxDrawer {
 
         // 0.6 Active Unit Aura Range (Requested Feature)
         if (currentActiveUnit && !isActiveUnitMoving) {
-            const ar = currentActiveUnit.getAuraRanges();
-            const ab = currentActiveUnit.getAuraIsBuff();
-            if (ar && ar.length > 0) {
-                const auraRanges = ar.map((range, i) => ({ range, isBuff: ab[i] })).filter((a) => a.range > 0);
+            const auraRanges = visibleAuraRanges(
+                currentActiveUnit.getAuraRanges(),
+                currentActiveUnit.getAuraIsBuff(),
+                FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
+            );
+            if (auraRanges.length > 0) {
                 const xy = currentActiveUnit.getVisualCenter(gs);
                 const isSmall = currentActiveUnit.isSmallSize();
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)

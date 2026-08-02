@@ -1,6 +1,6 @@
 import { Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
-import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR } from "./SandboxDrawer";
+import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR, visibleAuraRanges } from "./SandboxDrawer";
 import {
     AttackHandler,
     Augment,
@@ -9328,18 +9328,13 @@ export class Sandbox extends PixiScene {
                     hoverTargetUnit === this.currentActiveUnit || hoverTargetUnit === this.selectedBoardUnit;
                 const auraRanges = hoverTargetUnit.getAuraRanges();
                 if (!auraAlreadyVisualized && auraRanges && auraRanges.length > 0) {
-                    const bonus = FightStateManager.getInstance()
-                        .getFightProperties()
-                        .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam());
-                    const ab = hoverTargetUnit.getAuraIsBuff();
-                    const finalAuras: { range: number; isBuff: boolean }[] = [];
-                    for (let i = 0; i < auraRanges.length; i++) {
-                        if (auraRanges[i] <= 0) continue;
-                        finalAuras.push({
-                            range: auraRanges[i] + bonus,
-                            isBuff: ab && i < ab.length ? ab[i] : true,
-                        });
-                    }
+                    const finalAuras = visibleAuraRanges(
+                        auraRanges,
+                        hoverTargetUnit.getAuraIsBuff(),
+                        FightStateManager.getInstance()
+                            .getFightProperties()
+                            .getAdditionalAuraRangePerTeam(hoverTargetUnit.getTeam()),
+                    );
                     if (finalAuras.length > 0) {
                         this.sc_hoveredAuraRanges = {
                             xy: (hoverTargetUnit as RenderableUnit).getVisualCenter(
@@ -11397,19 +11392,14 @@ export class Sandbox extends PixiScene {
                 // So we suppress the "Sidebar/Blue" ring by setting attackRange to 0 here.
                 const isHovered = this.hoverManager.hoveredUnitId === u.getId();
                 const isShifted = this.currentShiftedUnit?.getId() === u.getId();
-                // Restore Aura Range logic
-                const ar = u.getAuraRanges();
-                const ab = u.getAuraIsBuff();
-                const fightProps = FightStateManager.getInstance().getFightProperties();
-                const auraRanges =
-                    ar && ar.length > 0
-                        ? ar
-                              .map((range, i) => ({
-                                  range: range + fightProps.getAdditionalAuraRangePerTeam(u.getTeam()),
-                                  isBuff: ab && i < ab.length ? ab[i] : true,
-                              }))
-                              .filter((a) => a.range > 0)
-                        : [];
+                // Real auras only, widened by the team synergy — visibleAuraRanges drops the
+                // ability-aligned zero entries BEFORE adding the bonus (adding first painted a phantom
+                // aura on every unit whenever the "+N aura range" synergy was active).
+                const auraRanges = visibleAuraRanges(
+                    u.getAuraRanges(),
+                    u.getAuraIsBuff(),
+                    FightStateManager.getInstance().getFightProperties().getAdditionalAuraRangePerTeam(u.getTeam()),
+                );
 
                 sidebarUnitRanges = {
                     xy: u.getPosition(),
