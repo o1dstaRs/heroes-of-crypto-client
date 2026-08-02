@@ -11,6 +11,7 @@ import {
     Spell,
     getFactionOf,
     GridMath,
+    synergyVariantsForSeed,
     HoCConfig,
     HoCConstants,
     HoCLib,
@@ -1389,6 +1390,15 @@ export class RankedPlayScene extends Sandbox {
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
     ): void {
+        // Seed THIS game's synergy variants into the local engine on every apply (idempotent, four keys).
+        // The server draws one synergy of each faction's pair from the game id; without this the client's
+        // own synergy re-runs (refreshStackPowerForAllUnits etc.) computed against the DEFAULT variants,
+        // so unit badges and the sidebar showed a different synergy than the one the fight actually
+        // priced. Unconditional so a mid-apply hydration reset can't leave defaults behind either.
+        FightStateManager.getInstance()
+            .getFightProperties()
+            .setSynergyVariants(synergyVariantsForSeed(snapshot.gameId));
+
         // Effect pops (debuff/buff icons) are independent of the board rebuild and use world-attached
         // visuals, so diff them FIRST — before the animation/board-skip guards below can early-return.
         // Otherwise a debuff applied during an opponent's attack (which the receiver is mid-animating)

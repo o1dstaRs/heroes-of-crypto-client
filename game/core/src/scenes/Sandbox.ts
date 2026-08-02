@@ -168,6 +168,10 @@ export const captureFightSetupForHydration = (fightProps: FightProperties) =>
         artifactTier1: fightProps.getArtifactTier1(team),
         artifactTier2: fightProps.getArtifactTier2(team),
         synergies: fightProps.getSynergiesPerTeam(team),
+        // Team-independent, but carried per entry to keep the array shape: the per-game synergy-variant
+        // draw must survive a hydration reset or the fresh FightProperties falls back to the defaults
+        // and every post-reset synergy re-run computes the wrong half of each pair.
+        synergyVariants: fightProps.getSynergyVariants(),
     }));
 
 export const restoreFightSetupAfterHydrationReset = (
@@ -175,6 +179,7 @@ export const restoreFightSetupAfterHydrationReset = (
     priorSetup: ReturnType<typeof captureFightSetupForHydration>,
 ): void => {
     for (const setup of priorSetup) {
+        fightProps.setSynergyVariants(setup.synergyVariants);
         fightProps.setPerkPerTeam(setup.team, setup.perk);
         fightProps.setAugmentPerTeam(setup.team, { type: "Placement", value: setup.placement });
         fightProps.setAugmentPerTeam(setup.team, { type: "Armor", value: setup.armor });
