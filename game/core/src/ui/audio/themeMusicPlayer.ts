@@ -31,36 +31,20 @@ export interface ThemeMusicPlayer {
     start(targetVolume?: number, forceRetry?: boolean): Promise<boolean>;
     setTargetVolume(targetVolume: number): void;
     advance(): Promise<boolean>;
+    playSingle(track: ThemeTrack, autoplay?: boolean): Promise<boolean>;
+    resumePlaylist(autoplay?: boolean): Promise<boolean>;
+    hasStarted(): boolean;
     destroy(): void;
-}
-
-export interface ThemeMusicSettings {
-    volume: number;
-    muted: boolean;
 }
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
 /**
- * Clicking the speaker while it is silent always means "make it audible". This also covers the subtle
- * volume-zero case where `muted` may still be false: toggling that raw boolean would otherwise require two
- * clicks before any sound could be heard.
- */
-export const toggleThemeMusicSettings = (settings: ThemeMusicSettings, defaultVolume: number): ThemeMusicSettings => {
-    const silent = settings.muted || settings.volume === 0;
-    if (silent) {
-        return {
-            volume: settings.volume === 0 ? clamp01(defaultVolume) : settings.volume,
-            muted: false,
-        };
-    }
-    return { ...settings, muted: true };
-};
-
-/**
- * Owns the native media playback lifecycle while the Astro component owns UI and persistence. In
- * particular, a rejected autoplay attempt stays retryable and an `ended` event reloads and starts the next
- * source instead of silently leaving the player paused.
+ * Owns the long-lived native media lifecycle for menu and pre-fight music.
+ *
+ * Source changes invalidate older play attempts. That matters because load() rejects the promise belonging
+ * to the previous source with AbortError; without the generation check, that stale rejection can mark a
+ * newer successful track as stopped and prevent the following playlist hand-off.
  */
 export const createThemeMusicPlayer = ({
     audio,
@@ -77,19 +61,33 @@ export const createThemeMusicPlayer = ({
     }
 
     let trackIndex = 0;
+    let currentTrack: ThemeTrack = playlist[0];
+    let playlistMode = true;
+    let playbackHasStarted = false;
     let desiredTargetVolume = clamp01(getTargetVolume());
     let attemptGeneration = 0;
     let currentAttempt: Promise<boolean> | null = null;
+    let destroyed = false;
 
     const setTargetVolume = (targetVolume: number): void => {
         desiredTargetVolume = clamp01(targetVolume);
     };
 
+    const applyStartedVolume = (fadeIn: boolean): void => {
+        if (fadeIn) {
+            fadeTo(desiredTargetVolume);
+        } else {
+            // Track-to-track hand-offs should be immediate and must not depend on requestAnimationFrame,
+            // which mobile browsers can throttle after a page has been open for several minutes.
+            audio.volume = desiredTargetVolume;
+        }
+    };
+
     const startPlayback = (targetVolume = getTargetVolume(), forceRetry = false, fadeIn = true): Promise<boolean> => {
         setTargetVolume(targetVolume);
 
-        if (desiredTargetVolume === 0) {
-            fadeTo(0);
+        if (desiredTargetVolume === 0 || destroyed) {
+            audio.volume = 0;
             return Promise.resolve(false);
         }
 
@@ -97,16 +95,12 @@ export const createThemeMusicPlayer = ({
             return currentAttempt;
         }
 
-        // Some browsers flip `paused` to false as soon as play() is requested, even while that promise is
-        // still pending and no audio is audible. A user gesture must be allowed to retry that pending
-        // attempt; treating `paused === false` as success here would consume the unlock gesture.
+        // Some browsers flip paused=false while play() is still pending. A genuine user gesture must be
+        // able to supersede that attempt instead of being mistaken for proof that playback already began.
         if (!currentAttempt && !audio.paused) {
+            playbackHasStarted = true;
             onPlaybackStarted();
-            if (fadeIn) {
-                fadeTo(desiredTargetVolume);
-            } else {
-                audio.volume = desiredTargetVolume;
-            }
+            applyStartedVolume(fadeIn);
             return Promise.resolve(true);
         }
 
@@ -117,7 +111,7 @@ export const createThemeMusicPlayer = ({
         try {
             nativeAttempt = audio.play();
         } catch {
-            if (generation === attemptGeneration) {
+            if (generation === attemptGeneration && !destroyed) {
                 currentAttempt = null;
                 onPlaybackBlocked();
             }
@@ -126,22 +120,17 @@ export const createThemeMusicPlayer = ({
 
         const attempt = nativeAttempt.then(
             () => {
-                if (generation !== attemptGeneration) {
+                if (generation !== attemptGeneration || destroyed) {
                     return !audio.paused;
                 }
                 currentAttempt = null;
+                playbackHasStarted = true;
                 onPlaybackStarted();
-                if (fadeIn) {
-                    fadeTo(desiredTargetVolume);
-                } else {
-                    // Playlist hand-offs are immediate. This also avoids leaving a new track silent when
-                    // mobile browsers throttle requestAnimationFrame after the page has sat open awhile.
-                    audio.volume = desiredTargetVolume;
-                }
+                applyStartedVolume(fadeIn);
                 return true;
             },
             () => {
-                if (generation === attemptGeneration) {
+                if (generation === attemptGeneration && !destroyed) {
                     currentAttempt = null;
                     onPlaybackBlocked();
                 }
@@ -152,19 +141,45 @@ export const createThemeMusicPlayer = ({
         return attempt;
     };
 
-    const advance = (): Promise<boolean> => {
-        trackIndex = (trackIndex + 1) % playlist.length;
-        webmSource.src = playlist[trackIndex].webm;
-        mp3Source.src = playlist[trackIndex].mp3;
+    const loadTrack = (
+        track: ThemeTrack,
+        nextPlaylistMode: boolean,
+        autoplay = playbackHasStarted || currentAttempt !== null,
+    ): Promise<boolean> => {
+        const shouldAutoplay = autoplay;
+        currentTrack = track;
+        playlistMode = nextPlaylistMode;
+        webmSource.src = track.webm;
+        mp3Source.src = track.mp3;
 
+        // load() aborts any pending promise for the old source. Invalidate it before that rejection arrives.
         ++attemptGeneration;
         currentAttempt = null;
         audio.load();
+
+        if (!shouldAutoplay) {
+            audio.volume = 0;
+            return Promise.resolve(false);
+        }
         return startPlayback(getTargetVolume(), true, false);
     };
 
+    const advance = (): Promise<boolean> => {
+        trackIndex = (trackIndex + 1) % playlist.length;
+        return loadTrack(playlist[trackIndex], true, true);
+    };
+
+    const playSingle = (track: ThemeTrack, autoplay?: boolean): Promise<boolean> => loadTrack(track, false, autoplay);
+
+    const resumePlaylist = (autoplay?: boolean): Promise<boolean> => loadTrack(playlist[trackIndex], true, autoplay);
+
     const onEnded: EventListener = () => {
-        void advance();
+        if (playlistMode) {
+            void advance();
+        } else {
+            // The pre-fight selection is a one-track mode, so its natural end loops that same source.
+            void loadTrack(currentTrack, false, true);
+        }
     };
     audio.addEventListener("ended", onEnded);
 
@@ -172,6 +187,14 @@ export const createThemeMusicPlayer = ({
         start: (targetVolume, forceRetry) => startPlayback(targetVolume, forceRetry, true),
         setTargetVolume,
         advance,
-        destroy: () => audio.removeEventListener("ended", onEnded),
+        playSingle,
+        resumePlaylist,
+        hasStarted: () => playbackHasStarted,
+        destroy: () => {
+            destroyed = true;
+            ++attemptGeneration;
+            currentAttempt = null;
+            audio.removeEventListener("ended", onEnded);
+        },
     };
 };

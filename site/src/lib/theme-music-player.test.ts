@@ -92,17 +92,18 @@ describe("theme music player", () => {
         expect(fades).toEqual([0.5]);
     });
 
-    test("loads and starts the next song when the current song ends", async () => {
+    test("starts each hand-off and wraps immediately from the last song to the first", async () => {
         const audio = new FakeAudio();
-        const webmSource = { src: playlist[0].webm };
-        const mp3Source = { src: playlist[0].mp3 };
+        const webmSource: { src: string } = { src: playlist[0].webm };
+        const mp3Source: { src: string } = { src: playlist[0].mp3 };
+        const fades: number[] = [];
         const player = createThemeMusicPlayer({
             audio,
             webmSource,
             mp3Source,
             playlist,
             getTargetVolume: () => 0.5,
-            fadeTo: () => undefined,
+            fadeTo: (target) => fades.push(target),
             onPlaybackBlocked: () => undefined,
             onPlaybackStarted: () => undefined,
         });
@@ -117,6 +118,18 @@ describe("theme music player", () => {
         expect(audio.loadCalls).toBe(1);
         expect(audio.playCalls).toBe(2);
         expect(audio.paused).toBe(false);
+
+        audio.dispatchEvent(new Event("ended"));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(webmSource.src).toBe("/first.webm");
+        expect(mp3Source.src).toBe("/first.mp3");
+        expect(audio.loadCalls).toBe(2);
+        expect(audio.playCalls).toBe(3);
+        expect(audio.paused).toBe(false);
+        expect(audio.volume).toBe(0.5);
+        expect(fades).toEqual([0.5]);
     });
 
     test("restores an audible default with one speaker click from volume zero", () => {
