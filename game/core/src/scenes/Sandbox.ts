@@ -60,6 +60,7 @@ import {
     isOffensiveSpellMultiplier,
     applyMagicResistToSpellDamage,
     calculateStackPoweredSpellDamage,
+    elementalSpellMultiplier,
     type IGameActionResult,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -113,16 +114,31 @@ export const stackPoweredSpellPreviewDamage = (
     casterStackPower: number,
     casterMagicDamageBonusPercentage: number,
     targetMagicResist: number,
+    // The target's own element answers the spell's before resistance does, exactly as the engine resolves it
+    // (see elementalDamageAgainst): a Fire Element previews a Ring of Fire as 0, a Water Element as half again
+    // as much. Defaulted so every non-elemental caller reads the same number it always did.
+    elementMultiplier = 1,
 ): number =>
-    applyMagicResistToSpellDamage(
-        calculateStackPoweredSpellDamage(
-            spellPower,
-            casterAmountAlive,
-            casterStackPower,
-            casterMagicDamageBonusPercentage,
-        ),
-        targetMagicResist,
-    );
+    elementMultiplier <= 0
+        ? 0
+        : applyMagicResistToSpellDamage(
+              elementMultiplier === 1
+                  ? calculateStackPoweredSpellDamage(
+                        spellPower,
+                        casterAmountAlive,
+                        casterStackPower,
+                        casterMagicDamageBonusPercentage,
+                    )
+                  : Math.floor(
+                        calculateStackPoweredSpellDamage(
+                            spellPower,
+                            casterAmountAlive,
+                            casterStackPower,
+                            casterMagicDamageBonusPercentage,
+                        ) * elementMultiplier,
+                    ),
+              targetMagicResist,
+          );
 
 /**
  * Spell Flesh Shield damage was added to GameEvent after the original client event union. The structural
@@ -6986,6 +7002,12 @@ export class Sandbox extends PixiScene {
             caster.getStackPower(),
             caster.getMagicDamageBonusPercentage(),
             target.getMagicResist(),
+            elementalSpellMultiplier({
+                element: spell.getElement(),
+                targetIsFireElement: target.hasAbilityActive("Fire Element"),
+                targetIsWaterElement: target.hasAbilityActive("Water Element"),
+                targetIsWindElement: target.hasAbilityActive("Wind Element"),
+            }),
         );
     }
     /**
