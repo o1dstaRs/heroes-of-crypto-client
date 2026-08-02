@@ -51,18 +51,17 @@ export const SIDEBAR_BG = "#000000";
  *
  *     leather x LEATHER_SHARE + wash x (1 - LEATHER_SHARE) = the map's rgb(18, 18, 17)
  *
- * LEATHER_SHARE is what keeps any grain at all. Its ceiling is 0.168 — above that the red channel would
- * need a negative wash to cancel, since red is where the hide is warmest. 0.15 sits just under it and
- * leaves about +/-1.7 levels of texture, which is faint but not flat.
+ * LEATHER_SHARE is what keeps any grain at all — a quantity in that derivation rather than a value the
+ * wash below reads, which is why it lives here and is not declared. Its ceiling is 0.168: above that the
+ * red channel would need a negative wash to cancel, since red is where the hide is warmest. 0.15 sits just
+ * under it and leaves about +/-1.7 levels of texture, which is faint but not flat.
  */
-const LEATHER_SHARE = 0.15;
 const NEUTRALISING_WASH = "rgba(2, 12, 13, 0.85)";
 
 /** One hide, both bars, tinted to the map. They differ only in which end of it they show — see the
  *  backgroundPosition on either Sheet — so the same crease never appears twice on screen. */
 export const SIDEBAR_BG_IMAGE =
-    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` +
-    " url('/textures/sidebar_leather_plain.webp')";
+    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url('/textures/sidebar_leather_plain.webp')";
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
 

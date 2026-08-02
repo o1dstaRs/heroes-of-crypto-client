@@ -26,7 +26,6 @@ const BRAZIER_RADIUS_FACTOR = 0.46;
 // The hot core is a fraction of the halo's size.
 const CORE_SCALE_FACTOR = 0.42;
 
-
 /** White radial-falloff texture; `hot` packs the energy nearer the centre for the core flame. */
 function makeRadialTexture(hot: boolean): Texture {
     const size = 512;
@@ -163,7 +162,6 @@ export class LightingLayer {
         corners.forEach((p, i) => {
             this.addLight(haloTex, coreTex, p, radius, HALO_ALPHA, CORE_ALPHA, i * 1.7, this.braziers);
         });
-
     }
     /**
      * Show or hide the whole dungeon lighting pass — the darkening and every brazier with it.
