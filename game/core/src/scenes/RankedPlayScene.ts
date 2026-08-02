@@ -288,6 +288,32 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         changed = true;
     }
 
+    // Deliberate in-place write into the live properties: this is an authoritative-reconciliation site,
+    // so the Readonly guard on getUnitProperties is intentionally bypassed here and nowhere casually.
+    const liveProperties = unit.getUnitProperties() as UnitProperties;
+    // A same-board snapshot preserves the RenderableUnit so an effect-only action does not restart every
+    // animation. That means the full hydrate which normally installs the server's final combat modifiers
+    // does not run. Copy them in place before refreshUnits(): otherwise a Weapon/Armor Rune updates its
+    // visible "+N" row while the selected unit keeps the modifier from the previous snapshot. The replay for
+    // c18a1085 exposed the exact drift: Weapon Rune reached +3 server-side (attack_mod 0.92 -> 3.92), while
+    // the persistent ranked unit stayed on 0.92 until some later board movement forced a rebuild.
+    if (
+        properties.attack_mod_authoritative &&
+        (!liveProperties.attack_mod_authoritative || liveProperties.attack_mod !== properties.attack_mod)
+    ) {
+        liveProperties.attack_mod = properties.attack_mod;
+        liveProperties.attack_mod_authoritative = true;
+        changed = true;
+    }
+    if (
+        properties.armor_mod_authoritative &&
+        (!liveProperties.armor_mod_authoritative || liveProperties.armor_mod !== properties.armor_mod)
+    ) {
+        liveProperties.armor_mod = properties.armor_mod;
+        liveProperties.armor_mod_authoritative = true;
+        changed = true;
+    }
+
     // Mirror buffs the authoritative snapshot no longer lists — e.g. a spent Water Shield, which the
     // engine deletes server-side in applyDamage. This animation-preserving reconcile skips the board
     // rebuild that would otherwise resync buffs, so without this a consumed buff lingers on the live unit:
@@ -320,7 +346,6 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     // section stayed unchanged. Mirror all parallel display metadata in place without creating AppliedSpell
     // objects — ranked stats already arrive computed by the server, so reconstructing objects would apply the
     // penalties a second time.
-    const liveProperties = unit.getUnitProperties();
     const replaceIfDifferent = <T>(target: T[], source: readonly T[]): boolean => {
         if (target.length === source.length && target.every((value, index) => value === source[index])) {
             return false;

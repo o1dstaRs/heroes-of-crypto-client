@@ -813,6 +813,56 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.getUnitProperties().applied_debuffs_powers).toEqual([]);
     });
 
+    test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
+        const snapshotProperties = (attackMod: number, armorMod: number, runeStacks = 0) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "enchanted-arbalester",
+                        name: "Arbalester",
+                        creatureId: CreatureVals.ARBALESTER,
+                        attackMod,
+                        armorMod,
+                        statModsAuthoritative: true,
+                        buffs: runeStacks ? ["Weapon Rune", "Armor Rune"] : [],
+                        buffLaps: runeStacks ? [15, 15] : [],
+                        buffDescriptions: runeStacks ? [`+{} attack;${runeStacks};`, `+{} armor;${runeStacks};`] : [],
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(0.92, 0),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        const attackBefore = liveUnit.getAttack();
+        const armorBefore = liveUnit.getArmor();
+
+        // Exact shape of the reported ranked match after its third successful rune: the server's modifier
+        // advanced by three and the display description independently carries the same running total.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(3.92, 3, 3))).toBe(true);
+        expect(liveUnit.getUnitProperties()).toMatchObject({
+            attack_mod: 3.92,
+            attack_mod_authoritative: true,
+            armor_mod: 3,
+            armor_mod_authoritative: true,
+            applied_buffs: ["Weapon Rune", "Armor Rune"],
+        });
+        expect(liveUnit.getAttack()).toBeCloseTo(attackBefore + 3);
+        expect(liveUnit.getArmor()).toBeCloseTo(armorBefore + 3);
+
+        // Re-applying the same authoritative snapshot is a no-op, preserving the persistent sprite.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(3.92, 3, 3))).toBe(false);
+    });
+
     test("detects authoritative ability and remaining-spell changes before a skip-rebuild is cached", () => {
         const initialProperties = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
