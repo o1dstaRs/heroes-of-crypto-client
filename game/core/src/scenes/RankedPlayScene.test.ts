@@ -36,6 +36,7 @@ import {
     revealedOpponentRowY,
     shouldPublishRankedFinish,
     spellCastNarratedPairs,
+    spellOutcomeSceneLogLines,
 } from "./RankedPlayScene";
 import { RenderableUnit } from "./RenderableUnit";
 import { shouldDisplayAppliedBuff } from "../pixi/PixiScene";
@@ -1204,5 +1205,51 @@ describe("ranked effects_applied scene log", () => {
             typeof effectsAppliedSceneLogLines
         >[0];
         expect(effectsAppliedSceneLogLines(other, names, flags)).toEqual([]);
+    });
+});
+
+describe("ranked rolled-cast outcome lines", () => {
+    const names = new Map([
+        ["smith", "Blacksmith"],
+        ["arb", "Arbalester"],
+    ]);
+    const event = (spellName: string, outcomes: object[]): Parameters<typeof spellOutcomeSceneLogLines>[0] =>
+        ({ type: "spell_cast", casterId: "smith", spellName, targetId: "arb", outcomes }) as unknown as Parameters<
+            typeof spellOutcomeSceneLogLines
+        >[0];
+
+    test("weapon rune: enchant success carries the running total, failure says which enchant", () => {
+        expect(
+            spellOutcomeSceneLogLines(
+                event("Weapon Rune", [{ unitId: "arb", outcome: "enchanted", amount: 2 }]),
+                names,
+                () => "🟢",
+            ),
+        ).toEqual(["🟢 Arbalester enchanted: +2 attack"]);
+        expect(spellOutcomeSceneLogLines(event("Weapon Rune", [{ unitId: "arb", outcome: "failed" }]), names)).toEqual([
+            "Arbalester's weapon enchant failed",
+        ]);
+        expect(spellOutcomeSceneLogLines(event("Armor Rune", [{ unitId: "arb", outcome: "failed" }]), names)).toEqual([
+            "Arbalester's armor enchant failed",
+        ]);
+    });
+
+    test("craft: grants, backfire and no-op all read like the engine's own lines", () => {
+        expect(
+            spellOutcomeSceneLogLines(
+                event("Craft", [
+                    { unitId: "arb", outcome: "double", grantedAbility: "Crafted Double Shot" },
+                    { unitId: "smith", outcome: "nothing" },
+                ]),
+                names,
+            ),
+        ).toEqual(["Arbalester was crafted with Crafted Double Shot", "Blacksmith's craft found nothing to improve"]);
+        expect(spellOutcomeSceneLogLines(event("Craft", [{ unitId: "arb", outcome: "stun" }]), names)).toEqual([
+            "Arbalester's craft backfired — stunned",
+        ]);
+    });
+
+    test("non-outcome casts contribute nothing", () => {
+        expect(spellOutcomeSceneLogLines(event("Heal", []), names)).toEqual([]);
     });
 });

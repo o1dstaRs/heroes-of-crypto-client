@@ -755,6 +755,53 @@ export const spellCastNarratedPairs = (events: readonly GameEvent[]): Set<string
     return pairs;
 };
 
+/**
+ * Scene-log lines for a cast's ROLLED outcomes (spell_cast.outcomes): the Blacksmith's Craft and the
+ * Armor/Weapon Runes resolve by dice, so their results — including the two that change no state at all
+ * (a failed rune, Craft finding nothing) — only reach a ranked client through the server's stated roll.
+ * Wording mirrors the engine's own sandbox text so both modes read identically.
+ */
+export const spellOutcomeSceneLogLines = (
+    event: GameEvent,
+    unitNames: ReadonlyMap<string, string>,
+    flagForUnit: (unitId: string) => string = () => "",
+): string[] => {
+    if (event.type !== "spell_cast" || !event.outcomes?.length) {
+        return [];
+    }
+    const isArmor = event.spellName === "Armor Rune";
+    const lines: string[] = [];
+    for (const entry of event.outcomes) {
+        const name = unitNames.get(entry.unitId) ?? "Unit";
+        let text: string | undefined;
+        switch (entry.outcome) {
+            case "enchanted":
+                text = `${name} enchanted: +${entry.amount ?? 1} ${isArmor ? "armor" : "attack"}`;
+                break;
+            case "failed":
+                text = `${name}'s ${isArmor ? "armor" : "weapon"} enchant failed`;
+                break;
+            case "double":
+            case "frozen":
+                text = entry.grantedAbility ? `${name} was crafted with ${entry.grantedAbility}` : undefined;
+                break;
+            case "stun":
+                text = `${name}'s craft backfired — stunned`;
+                break;
+            case "nothing":
+                text = `${name}'s craft found nothing to improve`;
+                break;
+            default:
+                break;
+        }
+        if (text) {
+            const flag = flagForUnit(entry.unitId);
+            lines.push(flag ? `${flag} ${text}` : text);
+        }
+    }
+    return lines;
+};
+
 /** Primary spell damage only; Magic Mirror rebounds are reported as their own follow-up lines. */
 export const rankedSpellPrimaryDamageSummary = (
     event: GameEvent,
@@ -2195,6 +2242,13 @@ export class RankedPlayScene extends Sandbox {
                     narratedPairs,
                 )) {
                     lines.push(effectLine);
+                }
+                // Rolled cast outcomes (Craft / the Runes): the result line the sandbox engine writes
+                // directly, rebuilt here from the authoritative roll on the event.
+                for (const outcomeLine of spellOutcomeSceneLogLines(event, unitNames, (unitId) =>
+                    this.logTeamFlag(unitId),
+                )) {
+                    lines.push(outcomeLine);
                 }
                 // Lucky Strike procs never reach ranked as text (the engine's sceneLog is sandbox-only);
                 // rebuild the "activates Lucky Strike" line from the damage payload, BEFORE the strike's
