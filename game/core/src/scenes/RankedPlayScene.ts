@@ -23,6 +23,7 @@ import {
     type GameEvent,
     type GridType,
     type HoCMath,
+    type IDamageStatistic,
     type IVisibleDamage,
     type TeamType,
     type Unit,
@@ -36,6 +37,7 @@ import type {
     SceneGameActionTransport,
 } from "../game_action_transport";
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
+import { buildFightDamageEntries } from "./FightStatsTracker";
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
 import {
@@ -52,6 +54,7 @@ import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
+import { setViewerTeamForColors } from "./teamColors";
 
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
@@ -1161,6 +1164,9 @@ export class RankedPlayScene extends Sandbox {
             this.refreshUnits();
         }
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
+        // Board colours are relative to whoever is watching: their own side is green, the opponent red,
+        // on both screens. The renderer is not React, so the seat is handed to the colour resolver here.
+        setViewerTeamForColors(this.viewerTeam);
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );
@@ -2736,7 +2742,7 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         const fightOver = winner !== TeamVals.NO_TEAM || finishedByEngine;
-        const fightStats = this.buildRankedFightStats(winner, units, lap);
+        const fightStats = this.buildRankedFightStats(winner, units, lap, snapshot.damageStats ?? []);
         // Mid-fight (no winner yet) we wait until the roster is captured before publishing stats. But
         // once the fight is OVER we must always publish the finished state — gating it on the start
         // totals could silently swallow the fight-results overlay if the roster snapshot was imperfect.
@@ -2995,12 +3001,22 @@ export class RankedPlayScene extends Sandbox {
         });
         return true;
     }
-    private buildRankedFightStats(winner: TeamType, units: SandboxSceneUnitState[], lap: number): IFightStatsReport {
+    private buildRankedFightStats(
+        winner: TeamType,
+        units: SandboxSceneUnitState[],
+        lap: number,
+        damageStats: readonly IDamageStatistic[] = [],
+    ): IFightStatsReport {
         return {
             winner,
             series: this.rankedStatsSeries.slice(),
             lowerDeaths: this.buildRankedDeathEntries(this.rankedStatsLowerRoster, units, TeamVals.LOWER as TeamType),
             upperDeaths: this.buildRankedDeathEntries(this.rankedStatsUpperRoster, units, TeamVals.UPPER as TeamType),
+            damageByUnit: buildFightDamageEntries(
+                this.rankedStatsLowerRoster,
+                this.rankedStatsUpperRoster,
+                damageStats,
+            ),
             lowerStartTotal: this.rankedStatsLowerStartTotal,
             upperStartTotal: this.rankedStatsUpperStartTotal,
             lowerKilledTotal: this.rankedStatsLastLowerKilled,

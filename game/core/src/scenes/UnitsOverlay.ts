@@ -1,11 +1,10 @@
 // game/core/src/overlays/UnitsOverlay.ts
-import { Application, Circle, Container, Rectangle, Sprite, Text, TextStyle, Texture, Graphics, Ticker } from "pixi.js";
+import { Application, Circle, Container, Rectangle, Text, TextStyle, Texture, Graphics, Ticker } from "pixi.js";
 
 import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
 import { UnitChip } from "./UnitChip";
 
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
-import { SYNERGY_NAME_TO_DESCRIPTION } from "../ui/LeftSideBar/SynergiesConstants";
 
 import {
     LevelBuckets as CommonLevelBuckets,
@@ -17,7 +16,6 @@ import {
     UnitProperties,
     TeamVals,
     HoCConfig,
-    SynergyKeysToPower,
 } from "@heroesofcrypto/common";
 import type { UnitLevelId } from "@heroesofcrypto/common";
 import { BASE_UNIT_STACK_TO_SPAWN_EXP } from "@/statics";
@@ -27,20 +25,54 @@ const OVERLAY_FONT_FAMILY = '"Open Sans", Verdana, sans-serif';
 /** Placeholder size only; layout() sets the real one from the row height on every resize. */
 const OVERLAY_LEVEL_LABEL_BASE_SIZE = 24;
 
-/** Collapse-toggle diameter, as a fraction of a board cell. The faction crests are sized off it. */
+/** Collapse-toggle diameter, as a fraction of a board cell. */
 const TOGGLE_BUTTON_CELL_FRACTION = 0.64;
-/** Faction crest diameter, relative to the toggle. */
-const CREST_TOGGLE_SIZE_RATIO = 0.8;
-/** Which of a faction's two synergies the crest's hover card describes. */
-const PRIMARY_SYNERGY_INDEX = 1;
+/**
+ * The toggle states its own effect by colour: green while the panel is open, red once it is collapsed — the
+ * same green and ember red the sidebar's Start and Delete buttons use, so the palette stays one palette. The
+ * chevron already turns 180 degrees between the two, but on a small disc against a dark board that read as
+ * ambiguous on its own.
+ */
+const TOGGLE_OPEN_COLOR = 0x46d160;
+const TOGGLE_OPEN_COLOR_HOVER = 0x7ce894;
+const TOGGLE_CLOSED_COLOR = 0xff5a3f;
+const TOGGLE_CLOSED_COLOR_HOVER = 0xff8a72;
+
+/** No faction line runs longer than this; past three the chips shrink faster than the line buys room. */
+const MAX_CHIPS_PER_ROW = 3;
+/** Share of its block a faction's chips may fill, leaving the frame and the dividers clear. */
+const BLOCK_FILL = 0.94;
+/**
+ * The two ways the four faction blocks tile the grid. Which one is used is decided per level by whichever
+ * gives the bigger chips (see onResize) rather than being fixed: with four creatures a faction, four blocks
+ * across and a 2x2 of chips in each is best; at levels 3 and 4 every faction fields three, and four-across
+ * leaves each block twice as tall as it needs, so a 2x2 of BLOCKS with the three creatures on one line wins.
+ */
+const BLOCK_LAYOUTS: ReadonlyArray<{ cols: number; rows: number }> = [
+    { cols: 4, rows: 1 },
+    { cols: 2, rows: 2 },
+];
+
+/**
+ * The widest chip that fits `n` of them in a `boxW` x `boxH` box, wrapping at most MAX_CHIPS_PER_ROW to a
+ * line, and the line length that achieves it.
+ */
+function bestChipFit(n: number, boxW: number, boxH: number): { side: number; cols: number } {
+    const maxCols = Math.min(n, MAX_CHIPS_PER_ROW);
+    let bestSide = 0;
+    let bestCols = maxCols;
+    for (let cols = 1; cols <= maxCols; cols++) {
+        const side = Math.min(boxW / cols, boxH / Math.ceil(n / cols));
+        if (side > bestSide) {
+            bestSide = side;
+            bestCols = cols;
+        }
+    }
+    return { side: bestSide, cols: bestCols };
+}
 
 type GetTexture = (key: string) => Texture | undefined;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
-/**
- * A faction crest. The source art is a square plate with the emblem inside it, shown whole — the mask only
- * rounds the corners slightly so the plate sits comfortably next to the round collapse toggle.
- */
-type FactionIcon = Readonly<{ type: FactionType; cont: Container; sprite: Sprite; mask: Graphics; ring: Graphics }>;
 type LevelTab = Readonly<{ level: number; cont: Container; plate: Graphics; label: Text }>;
 
 /**
@@ -66,8 +98,6 @@ export class UnitsOverlay {
     /** Holds backdrop + headers + rows */
     private content = new Container();
     private backdrop = new Graphics();
-    /** Faction crests, one per column, along the top band. */
-    private headerContainer = new Container();
     /** The L1..L4 tabs down the left rail. */
     private levelRail = new Container();
     /** One row per level; only the selected one is expanded. */
@@ -82,18 +112,12 @@ export class UnitsOverlay {
     private toggleFrame = new Graphics();
     /** The chevron inside that frame. */
     private toggleArrow = new Graphics();
-    /** Hover card for a faction crest: the race and what its synergies give at each level. */
-    private crestTooltip = new Container();
-    private crestTooltipPlate = new Graphics();
-    private crestTooltipText = new Text({
-        text: "",
-        style: new TextStyle({
-            fontFamily: OVERLAY_FONT_FAMILY,
-            fill: 0xefe4cc,
-            fontSize: 12,
-            fontWeight: "600",
-        }),
-    });
+    /**
+     * Where the panel is HEADING, as opposed to `isOpen`, which only flips once the slide finishes because
+     * hit-testing keys off it. The button's colour and its chevron's beat follow the target, so both change
+     * the instant the click lands rather than 350ms later.
+     */
+    private openTarget = true;
     /** Layout state */
     private overlayW = 0;
     private overlayH = 0;
@@ -101,22 +125,18 @@ export class UnitsOverlay {
     private isOpen = true;
     private tweenCancel?: () => void;
     private allChips: UnitChip[] = [];
-    private chipFactions = new Map<UnitChip, FactionType>();
-    private factionIcons: FactionIcon[] = [];
     private levelTabs: LevelTab[] = [];
-    /** Which crest the pointer is over, so a resize can re-place the open card. */
-    private hoveredCrest: FactionType | null = null;
-    /** Last board cell size, kept for the tooltip which is laid out outside onResize. */
+    /** Last board cell size. */
     private cellSize = 0;
     /** The one expanded level. Starts on L1 so the overlay opens showing something rather than a bare ladder. */
     private selectedLevel = 1;
     private selectedName: string | null = null;
-    private selectedFaction: FactionType | null = null;
-    private readonly factions: { type: FactionType; iconName: string }[] = [
-        { type: FactionVals.LIFE, iconName: "life_128" },
-        { type: FactionVals.NATURE, iconName: "nature_128" },
-        { type: FactionVals.CHAOS, iconName: "chaos_128" },
-        { type: FactionVals.MIGHT, iconName: "might_128" },
+    /** Column order. One column per faction, all four the same width. */
+    private readonly factions: { type: FactionType }[] = [
+        { type: FactionVals.LIFE },
+        { type: FactionVals.NATURE },
+        { type: FactionVals.CHAOS },
+        { type: FactionVals.MIGHT },
     ];
     private btnRadius = 0;
     private levelBuckets: LevelBucket[] = [];
@@ -126,7 +146,6 @@ export class UnitsOverlay {
         getTexture: GetTexture,
         onUnitSelected?: (unitProperties: UnitProperties | null) => void,
         private getAmount?: (unitName: string) => number,
-        private onFactionSelected?: (faction: FactionType | null) => void,
     ) {
         this.app = app;
         this.getTex = getTexture;
@@ -142,15 +161,9 @@ export class UnitsOverlay {
         this.container.zIndex = 100;
         this.container.sortableChildren = true;
 
-        this.content.addChild(this.backdrop, this.headerContainer, this.levelRail, this.rowsContainer);
+        this.content.addChild(this.backdrop, this.levelRail, this.rowsContainer);
         this.container.addChild(this.content);
         this.container.addChild(this.toggleBtn);
-
-        this.crestTooltip.zIndex = 10000;
-        this.crestTooltip.visible = false;
-        this.crestTooltip.eventMode = "none";
-        this.crestTooltip.addChild(this.crestTooltipPlate, this.crestTooltipText);
-        this.container.addChild(this.crestTooltip);
 
         this.app.stage.eventMode = "static";
         this.backdrop.eventMode = "none";
@@ -169,6 +182,12 @@ export class UnitsOverlay {
             // Swings nearly the full range: the halo's own ring alphas are already fractional, so a timid
             // envelope on top of them left the pulse invisible.
             this.toggleGlow.alpha = 0.62 + 0.38 * Math.sin(this.toggleGlowPhase * 1.9);
+            // Collapsed, the panel is gone and this disc is the only way back to it, so the chevron beats as
+            // well as the halo. Open it holds still — a twitching arrow next to a full grid of chips is just
+            // one more thing moving. Faster than the halo so the two read as separate, and scale only: the
+            // rotation on this same object is the open/closed flip and must not be fought over.
+            const beat = this.openTarget ? 1 : 1 + 0.14 * Math.sin(this.toggleGlowPhase * 3.6);
+            this.toggleArrow.scale.set(beat);
         };
         this.app.ticker.add(this.toggleGlowStep);
 
@@ -194,7 +213,13 @@ export class UnitsOverlay {
             return;
         }
         const size = r * 2;
-        const accent = isHovered ? 0xff8f00 : 0xdcb158;
+        const accent = this.openTarget
+            ? isHovered
+                ? TOGGLE_OPEN_COLOR_HOVER
+                : TOGGLE_OPEN_COLOR
+            : isHovered
+              ? TOGGLE_CLOSED_COLOR_HOVER
+              : TOGGLE_CLOSED_COLOR;
 
         // Halo: a few widening rings at falling alpha stand in for a blur, which Pixi Graphics has no cheap
         // equivalent of. The ticker fades the whole thing in and out.
@@ -206,10 +231,10 @@ export class UnitsOverlay {
                 .stroke({ color: accent, width: size * 0.13, alpha: (1 - t) * (isHovered ? 0.95 : 0.7) });
         }
 
-        // A medallion rather than a plate: the overlay it belongs to is a grid of round creature chips and
-        // round faction crests, so a disc reads as part of that furniture instead of as a stray tile. Double
-        // ring — a bright inner edge over a dimmer outer one — is the same trick the chip frames use to lift
-        // off a dark panel without needing an ornate border texture.
+        // A medallion rather than a plate: the overlay it belongs to is a grid of round creature chips, so a
+        // disc reads as part of that furniture instead of as a stray tile. Double ring — a bright inner edge
+        // over a dimmer outer one — is the same trick the chip frames use to lift off a dark panel without
+        // needing an ornate border texture.
         this.toggleFrame
             .clear()
             .circle(0, 0, r * 0.96)
@@ -243,8 +268,8 @@ export class UnitsOverlay {
 
         if (!this.isOpen) return false;
 
-        // Level tabs come first: they sit in the left rail, clear of both the crests and the chips, and a
-        // hit there swaps which band is expanded rather than selecting anything.
+        // Level tabs come first: they sit in the left rail, clear of the chips, and a hit there swaps which
+        // band is expanded rather than selecting anything.
         for (const tab of this.levelTabs) {
             const b = tab.cont.getBounds();
             if (!b) continue;
@@ -253,23 +278,6 @@ export class UnitsOverlay {
                 if (tab.level !== this.selectedLevel) {
                     this.setSelectedLevel(tab.level);
                 }
-                return true;
-            }
-        }
-
-        // Crest click: select the faction (toggle off on a second click). Any unit selection clears —
-        // the left sidebar switches to the race's synergies, same as it always used to.
-        for (const icon of this.factionIcons) {
-            const b = icon.cont.getBounds();
-            if (!b) continue;
-            if (globalX >= b.x && globalX <= b.x + b.width && globalY >= b.y && globalY <= b.y + b.height) {
-                const next = this.selectedFaction === icon.type ? null : icon.type;
-                this.selectedFaction = next;
-                this.selectedName = null;
-                for (const c of this.allChips) c.setSelected(false);
-                this.updateFactionIconSelection();
-                if (this.onUnitSelected) this.onUnitSelected(null);
-                if (this.onFactionSelected) this.onFactionSelected(next);
                 return true;
             }
         }
@@ -288,12 +296,10 @@ export class UnitsOverlay {
                 const unitName = (chip as UnitChip).nameKey as string;
                 const next = this.selectedName === unitName ? null : unitName;
                 this.selectedName = next;
-                this.selectedFaction = null;
 
                 for (const c of this.allChips) {
                     c.setSelected((c as UnitChip).nameKey === next);
                 }
-                this.updateFactionIconSelection();
 
                 if (this.onUnitSelected) {
                     this.onUnitSelected(next ? this.getUnitProperties(unitName) : null);
@@ -362,36 +368,11 @@ export class UnitsOverlay {
         );
     }
     public build(): void {
-        this.headerContainer.removeChildren();
         this.levelRail.removeChildren();
         this.rowsContainer.removeChildren();
         this.allChips = [];
-        this.chipFactions.clear();
-        this.factionIcons = [];
         this.levelTabs = [];
         this.selectedName = null;
-        this.selectedFaction = null;
-
-        // Faction crests are the COLUMN headings now — the grid was transposed so that the thing you scan
-        // across (which race) sits along the top, and the thing you step through (which level) runs down the
-        // side as an accordion.
-        for (const faction of this.factions) {
-            const cont = new Container();
-            const sprite = new Sprite(this.getTex(faction.iconName) ?? Texture.EMPTY);
-            sprite.anchor.set(0.5);
-            const mask = new Graphics();
-            const ring = new Graphics();
-            sprite.mask = mask;
-            cont.addChild(sprite, mask, ring);
-            // Hover shows the synergy card; a CLICK selects the faction (see handlePointerDown), which
-            // dims the other columns and puts the race's synergies up in the left sidebar.
-            cont.eventMode = "static";
-            cont.cursor = "pointer";
-            cont.on("pointerenter", () => this.showCrestTooltip(faction.type));
-            cont.on("pointerleave", () => this.hideCrestTooltip());
-            this.headerContainer.addChild(cont);
-            this.factionIcons.push({ type: faction.type, cont, sprite, mask, ring });
-        }
 
         // Level tabs down the left rail, abbreviated to L1..L4 — the rail is only ~1.5 cells wide, and the
         // full "LEVEL 1" wording only fitted when it was a banner spanning a whole column.
@@ -446,85 +427,14 @@ export class UnitsOverlay {
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);
                     this.allChips.push(chip);
-                    this.chipFactions.set(chip, faction.type);
                 }
             }
         }
 
         this.updateButtonVisuals(false);
-        this.updateFactionIconSelection();
 
         this.onResize(this.app.renderer.width, this.app.renderer.height);
         this.container.sortChildren();
-    }
-    /**
-     * The race, then what its PRIMARY synergy grants at levels 1/2/3 — Life's supply, Chaos's movement, and
-     * so on. Each faction also has a second synergy, but listing both made the card twice as tall and buried
-     * the one thing the crest is there to answer. The wording and the numbers come from the same pair the
-     * sidebar's synergy badges use, so the two never drift: descriptions carry `{}` slots that
-     * SynergyKeysToPower fills.
-     */
-    private buildCrestTooltipText(factionType: FactionType): string {
-        const factionName = ToFactionName[factionType];
-        const levels = [1, 2, 3];
-        const key = (level: number) => `${factionName}:${PRIMARY_SYNERGY_INDEX}:${level}`;
-
-        // The three levels share one sentence and differ only in their numbers, so it is written ONCE with
-        // each figure spelled out as "6/12/19" instead of repeating the sentence per level. A template may
-        // carry more than one slot (Life's second synergy pairs morale with luck); each slot gets its own
-        // run of level values, taken column-wise out of SynergyKeysToPower.
-        const template = SYNERGY_NAME_TO_DESCRIPTION[key(1) as keyof typeof SYNERGY_NAME_TO_DESCRIPTION];
-        const lines: string[] = [factionName.toUpperCase()];
-
-        if (template) {
-            const powersByLevel = levels.map((level) => SynergyKeysToPower[key(level)] ?? []);
-            const slotCount = (template.match(/\{\}/g) ?? []).length;
-            let filled = template;
-            for (let slot = 0; slot < slotCount; slot++) {
-                const perLevel = powersByLevel.map((powers) => powers[slot]).filter((p) => p !== undefined);
-                filled = filled.replace("{}", perLevel.join("/"));
-            }
-            lines.push("", filled);
-        }
-
-        return lines.join("\n");
-    }
-    private showCrestTooltip(factionType: FactionType): void {
-        this.hoveredCrest = factionType;
-        this.crestTooltipText.text = this.buildCrestTooltipText(factionType);
-        this.crestTooltip.visible = true;
-        this.layoutCrestTooltip();
-    }
-    private hideCrestTooltip(): void {
-        this.hoveredCrest = null;
-        this.crestTooltip.visible = false;
-    }
-    private layoutCrestTooltip(): void {
-        const icon = this.factionIcons.find((f) => f.type === this.hoveredCrest);
-        if (!icon || this.cellSize <= 0) {
-            return;
-        }
-
-        const pad = Math.max(5, this.cellSize * 0.12);
-        const fontSize = Math.max(9, Math.round(this.cellSize * 0.2));
-        this.crestTooltipText.style.fontSize = fontSize;
-        this.crestTooltipText.style.lineHeight = Math.round(fontSize * 1.4);
-        this.crestTooltipText.position.set(pad, pad);
-
-        const w = this.crestTooltipText.width + pad * 2;
-        const h = this.crestTooltipText.height + pad * 2;
-
-        this.crestTooltipPlate
-            .clear()
-            .roundRect(0, 0, w, h, Math.min(7, pad))
-            .fill({ color: 0x0b0704, alpha: 1 })
-            .stroke({ color: 0xdcb158, width: Math.max(1, pad * 0.16), alpha: 0.75 });
-
-        // The crest lives inside `content`, which slides left when the overlay collapses; the card lives on
-        // the root container, so the slide has to be added back in by hand.
-        const centreX = this.content.x + icon.cont.x;
-        const x = Math.max(4, Math.min(centreX - w * 0.5, this.overlayW - w - 4));
-        this.crestTooltip.position.set(x, icon.cont.y + this.cellSize * 0.5);
     }
     /** Expand one level and collapse the rest. Chips of a collapsed level are hidden, so they also stop
      *  answering hit-tests — the pointer code walks `allChips` flat and cannot otherwise tell them apart. */
@@ -558,85 +468,106 @@ export class UnitsOverlay {
 
         this.leftColW = 1.5 * cell;
         const levelCols = this.levelBuckets.length;
-        // EVERYTHING lives inside the panel's own 4 cells. The header used to be drawn above y=0, which made
-        // the overlay taller than the strip the board gives it — the crests spilled into the red deployment
-        // zone and the chips into the green one. So the top strip is carved OUT of overlayH instead of added
-        // on top of it, and the backdrop is exactly the 4-cell band.
+        // EVERYTHING lives inside the panel's own 4 cells; nothing is drawn above y=0, or it would spill into
+        // the red deployment zone. There used to be a header band across the top carrying a faction crest per
+        // column, which spent a quarter of the panel's height on four small labels — the columns are already
+        // in a fixed order and the creatures in them say which race they are. With it gone the creature grid
+        // runs the full four cells and the chips grow by about a third.
         const toggleSize = cell * TOGGLE_BUTTON_CELL_FRACTION;
-        const headerH = Math.min(this.overlayH * 0.24, toggleSize * 1.45);
-        const bodyY = headerH;
-        const bodyH = this.overlayH - headerH;
         this.backdrop.clear();
         this.backdrop.rect(0, 0, this.overlayW, this.overlayH).fill({ color: 0x000000, alpha: 0.8 });
 
-        // Columns are FACTIONS now, and every faction fields the same number of creatures per level, so the
-        // per-level width weighting the old level-columns needed is gone: equal columns throughout.
-        const availW = this.overlayW - this.leftColW;
-        const colW = availW / this.factions.length;
-        const colX = (index: number) => this.leftColW + index * colW;
-
-        // A frame around the whole creature grid, with hairlines dividing the faction columns inside it.
-        // Without the dividers a 1-over-2 bucket beside a 2-over-2 one reads as one ragged clump; without
-        // the frame the grid has no edge and drifts into the rail and the crest band. Both are appended to
-        // the backdrop (already cleared and filled above) so they cost no extra display objects, and both
-        // span exactly the same band so the lines meet the frame instead of stopping short of it.
+        // A frame around the whole creature grid, with hairlines dividing the faction blocks inside it.
+        // Without the dividers one faction's clump runs into the next; without the frame the grid has no
+        // edge and drifts into the rail. Both are appended to the backdrop (already cleared and filled
+        // above) so they cost no extra display objects, and both span exactly the same band so the lines
+        // meet the frame instead of stopping short of it.
         const gridInset = cell * 0.07;
         const gridX = this.leftColW + gridInset;
-        const gridY = headerH;
+        const gridY = gridInset;
         const gridW = this.overlayW - gridX - gridInset;
         const gridH = this.overlayH - gridY - gridInset;
         const hairline = Math.max(1, cell * 0.014);
+
+        // How the four faction blocks tile that grid. Decided per level rather than fixed: score each
+        // candidate by the SMALLEST chip any faction would end up with and take the best. Four blocks in a
+        // row wins while a faction fields four creatures; at levels 3 and 4 they field three, and a 2x2 of
+        // blocks with the three on one line gives noticeably larger art than a tall, narrow quarter-column.
+        const selectedRow = this.rowsContainer.children[this.selectedLevel - 1] as Container | undefined;
+        const bucketCounts = this.factions.map(
+            (_, f) => (selectedRow?.children[f] as Container | undefined)?.children.length ?? 0,
+        );
+
+        let blockCols = this.factions.length;
+        let blockRows = 1;
+        let bestBlockScore = -1;
+        for (const candidate of BLOCK_LAYOUTS) {
+            const boxW = (gridW / candidate.cols) * BLOCK_FILL;
+            const boxH = (gridH / candidate.rows) * BLOCK_FILL;
+            let smallest = Number.POSITIVE_INFINITY;
+            for (const n of bucketCounts) {
+                if (n > 0) smallest = Math.min(smallest, bestChipFit(n, boxW, boxH).side);
+            }
+            if (smallest !== Number.POSITIVE_INFINITY && smallest > bestBlockScore) {
+                bestBlockScore = smallest;
+                blockCols = candidate.cols;
+                blockRows = candidate.rows;
+            }
+        }
+
+        const blockW = gridW / blockCols;
+        const blockH = gridH / blockRows;
+        const blockX = (index: number) => gridX + (index % blockCols) * blockW;
+        const blockY = (index: number) => gridY + Math.floor(index / blockCols) * blockH;
 
         this.backdrop
             .roundRect(gridX, gridY, gridW, gridH, Math.min(9, cell * 0.14))
             .stroke({ color: 0xdcb158, width: hairline, alpha: 0.34 });
 
-        for (let i = 1; i < this.factions.length; i++) {
+        for (let i = 1; i < blockCols; i++) {
             this.backdrop
-                .moveTo(colX(i), gridY)
-                .lineTo(colX(i), gridY + gridH)
+                .moveTo(gridX + i * blockW, gridY)
+                .lineTo(gridX + i * blockW, gridY + gridH)
+                .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
+        }
+        for (let i = 1; i < blockRows; i++) {
+            this.backdrop
+                .moveTo(gridX, gridY + i * blockH)
+                .lineTo(gridX + gridW, gridY + i * blockH)
                 .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
         }
 
-        // --- Faction crests along the top band ---
-        // Sized off the collapse toggle so the two round controls on this band stay related, but a step
-        // smaller than it — the crests are labels for the columns, not a control competing with the chips.
-        const crestSide = toggleSize * CREST_TOGGLE_SIZE_RATIO;
-        const crestR = crestSide * 0.5;
-        for (const icon of this.factionIcons) {
-            const i = this.factions.findIndex((f) => f.type === icon.type);
-            icon.cont.position.set(colX(i) + colW * 0.5, headerH * 0.5);
-            icon.sprite.width = icon.sprite.height = crestSide;
-            // Square plates, whole: only the corners round slightly so the crest doesn't read as a raw
-            // image drop next to the round collapse toggle.
-            const crestCorner = crestSide * 0.12;
-            icon.mask.clear().roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner).fill({ color: 0xffffff });
-            icon.ring
-                .clear()
-                .roundRect(-crestR, -crestR, crestSide, crestSide, crestCorner)
-                .stroke({ color: 0xdcb158, width: Math.max(1, crestSide * 0.045), alpha: 0.5 });
-            icon.cont.hitArea = new Rectangle(-crestR, -crestR, crestSide, crestSide);
-        }
+        // --- Left rail: the collapse toggle at its head, the level tabs under it ---
+        // The panel's top-left corner lands exactly on a board cell corner, so the centre of the cell the
+        // toggle covers is simply half a cell in and half a cell down. Everything in the rail is centred on
+        // that same column. The rail is 1.5 cells wide and the toggle used to sit at its own midpoint,
+        // 0.75 of a cell in, which put it a quarter cell right of the cell it looked like it occupied.
+        const railPad = cell * 0.06;
+        const railCentreX = cell * 0.5;
+        const btnY = cell * 0.5;
+        const railTop = btnY + toggleSize * 0.5 + railPad;
+        const railH = this.overlayH - railTop;
 
-        // --- Level tabs down the left rail ---
         // The tabs are the ONLY thing the unselected levels occupy. Laid out as a STACK with one fixed gap
         // between neighbours, then centred: giving each tab an equal slot instead made the gaps depend on
         // how much smaller its plate was than the slot, so the selected (taller) tab appeared to push its
         // neighbours away while L1/L2 sat tight against each other.
-        const selectedTabH = Math.min(bodyH * 0.26, cell * 0.9);
-        const plainTabH = Math.min(bodyH * 0.15, cell * 0.5);
-        const tabGap = Math.min(bodyH * 0.05, cell * 0.18);
+        const selectedTabH = Math.min(railH * 0.3, cell * 0.9);
+        const plainTabH = Math.min(railH * 0.17, cell * 0.5);
+        const tabGap = Math.min(railH * 0.055, cell * 0.18);
         const tabsTotalH =
             selectedTabH + plainTabH * (this.levelBuckets.length - 1) + tabGap * (this.levelBuckets.length - 1);
-        let tabCursorY = bodyY + (bodyH - tabsTotalH) * 0.5;
+        let tabCursorY = railTop + (railH - tabsTotalH) * 0.5;
 
         for (const tab of this.levelTabs) {
             const isSelected = tab.level === this.selectedLevel;
             const plateH = isSelected ? selectedTabH : plainTabH;
-            const plateW = this.leftColW * (isSelected ? 0.78 : 0.6);
+            // Capped against the CELL, not the rail: centred on railCentreX a rail-width plate would hang
+            // off the panel's left edge.
+            const plateW = Math.min(this.leftColW * (isSelected ? 0.78 : 0.6), cell * (isSelected ? 0.92 : 0.72));
             const accent = isSelected ? 0xff8f00 : 0xdcb158;
 
-            tab.cont.position.set(this.leftColW * 0.5, tabCursorY + plateH * 0.5);
+            tab.cont.position.set(railCentreX, tabCursorY + plateH * 0.5);
             tabCursorY += plateH + tabGap;
             tab.plate
                 .clear()
@@ -648,21 +579,21 @@ export class UnitsOverlay {
             tab.cont.hitArea = new Rectangle(-plateW * 0.5, -plateH * 0.5, plateW, plateH);
         }
 
-        // --- Creature buckets: the open level fills the whole body, full height ---
+        // --- Creature buckets: the open level fills the grid, full height ---
         for (let b = 0; b < levelCols; b++) {
             const rowCont = this.rowsContainer.children[b] as Container;
             const isSelected = b + 1 === this.selectedLevel;
-            rowCont.position.set(0, bodyY);
+            // Buckets carry their own absolute block origin, so the row itself sits at the panel origin.
+            rowCont.position.set(0, 0);
             rowCont.visible = isSelected;
 
             if (!isSelected) {
                 continue;
             }
 
-            const bandH = bodyH;
             for (let f = 0; f < this.factions.length; f++) {
                 const bucketCont = rowCont.children[f] as Container;
-                bucketCont.position.set(colX(f), 0);
+                bucketCont.position.set(blockX(f), blockY(f));
 
                 const chips = bucketCont.children as unknown as UnitChip[];
                 const n = chips.length;
@@ -670,24 +601,11 @@ export class UnitsOverlay {
                     continue;
                 }
 
-                // Wrap the faction's creatures into whichever grid makes the chips largest inside the
-                // column box. With the full panel height to play with, two shorter lines beat one long one
-                // by a wide margin — which is where the extra size comes from.
-                const boxW = colW * 0.94;
-                const boxH = bandH * 0.94;
-                let bestCols = n;
-                let bestSide = 0;
-                for (let cols = 1; cols <= n; cols++) {
-                    const rows = Math.ceil(n / cols);
-                    const side = Math.min(boxW / cols, boxH / rows);
-                    if (side > bestSide) {
-                        bestSide = side;
-                        bestCols = cols;
-                    }
-                }
+                // Wrap the faction's creatures into whichever line length makes the chips largest inside
+                // its block — the same measure that chose the block tiling above, so the two agree.
+                const { side: spacing, cols: bestCols } = bestChipFit(n, blockW * BLOCK_FILL, blockH * BLOCK_FILL);
                 const rows = Math.ceil(n / bestCols);
-                const spacing = bestSide;
-                const iconSide = bestSide * 0.9;
+                const iconSide = spacing * 0.9;
 
                 // The SHORT line goes on top. An odd count (3 of 2) reads better as a single crowning icon
                 // over a full pair than as a full pair with an orphan hanging underneath it.
@@ -697,12 +615,12 @@ export class UnitsOverlay {
                     perRow.push(r === 0 ? remainder : bestCols);
                 }
 
-                const startY = bandH * 0.5 - ((rows - 1) * spacing) / 2;
+                const startY = blockH * 0.5 - ((rows - 1) * spacing) / 2;
                 let placed = 0;
                 for (let r = 0; r < rows; r++) {
                     const inThisRow = perRow[r];
                     // Every line is centred on its own count, so a short one sits over the middle.
-                    const startX = colW * 0.5 - ((inThisRow - 1) * spacing) / 2;
+                    const startX = blockW * 0.5 - ((inThisRow - 1) * spacing) / 2;
                     for (let c = 0; c < inThisRow; c++) {
                         const chip = chips[placed++];
                         chip.layout(iconSide);
@@ -713,16 +631,10 @@ export class UnitsOverlay {
         }
 
         // --- Toggle Button ---
-        // 1. Size reduced to 80% of cell
-        const btnSize = cell * TOGGLE_BUTTON_CELL_FRACTION;
-
-        // 2. Inside the panel's own top-left, above the level rail — the overlay may not spill past the
-        // 4-cell strip the board allots it, so nothing sits above y=0 any more.
-        const btnX = this.leftColW * 0.5;
-        const btnY = headerH * 0.5;
-
-        this.toggleBtn.position.set(btnX, btnY);
-        this.btnRadius = btnSize * 0.5;
+        // Head of the left rail (btnY was computed with the rail above); the overlay may not spill past the
+        // 4-cell strip the board allots it, so nothing sits above y=0.
+        this.toggleBtn.position.set(railCentreX, btnY);
+        this.btnRadius = toggleSize * 0.5;
 
         this.updateButtonVisuals(false);
 
@@ -738,8 +650,6 @@ export class UnitsOverlay {
         // re-rasterised the rings.
         const rot = this.isOpen ? 0 : Math.PI;
         this.toggleArrow.rotation = rot;
-
-        this.layoutCrestTooltip();
     }
     public toggle(): void {
         this.animateTo(!this.isOpen, 350);
@@ -753,6 +663,11 @@ export class UnitsOverlay {
             this.tweenCancel();
             this.tweenCancel = undefined;
         }
+
+        // Repaint the medallion straight away: green->red (or back) should land with the click, not 350ms
+        // later when the slide finishes and `isOpen` finally catches up.
+        this.openTarget = open;
+        this.updateButtonVisuals(false);
 
         const startX = this.content.x;
         const startA = this.content.alpha;
@@ -799,35 +714,15 @@ export class UnitsOverlay {
         }
         this.container.destroy({ children: true });
         this.allChips.length = 0;
-        this.chipFactions.clear();
     }
     public hasSelection(): boolean {
-        return this.selectedName !== null || this.selectedFaction !== null;
+        return this.selectedName !== null;
     }
     public clearSelection(notify: boolean = true): void {
         if (!this.hasSelection()) return;
-        const hadUnitSelection = this.selectedName !== null;
-        const hadFactionSelection = this.selectedFaction !== null;
         this.selectedName = null;
-        this.selectedFaction = null;
         for (const c of this.allChips) c.setSelected(false);
-        this.updateFactionIconSelection();
-        if (notify && hadUnitSelection && this.onUnitSelected) this.onUnitSelected(null);
-        if (notify && hadFactionSelection && this.onFactionSelected) this.onFactionSelected(null);
-    }
-    private updateFactionIconSelection(): void {
-        for (const factionIcon of this.factionIcons) {
-            const selected = this.selectedFaction === factionIcon.type;
-            factionIcon.sprite.alpha = !this.selectedFaction || selected ? 1 : 0.55;
-            factionIcon.sprite.tint = selected ? 0xffffff : 0xd0d0d0;
-            // The ring is the only frame a masked crest has left, so it carries the selected state too.
-            factionIcon.ring.tint = selected ? 0xff8f00 : 0xffffff;
-            factionIcon.ring.alpha = selected ? 1 : !this.selectedFaction ? 1 : 0.5;
-        }
-        for (const chip of this.allChips) {
-            const chipFaction = this.chipFactions.get(chip);
-            chip.alpha = !this.selectedFaction || chipFaction === this.selectedFaction ? 1 : 0.38;
-        }
+        if (notify && this.onUnitSelected) this.onUnitSelected(null);
     }
     public setShowAllAmounts(show: boolean): void {
         for (const c of this.allChips) {

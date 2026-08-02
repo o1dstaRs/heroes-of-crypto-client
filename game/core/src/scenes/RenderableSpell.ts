@@ -28,14 +28,15 @@ export enum BookPosition {
     SIX = 6,
 }
 
-// Coordinates are local to the centered 1024x1024 book texture (origin = book centre / spine).
-// Each parchment page's writable frame is centred at local x ≈ ±206 (cell centre = X + CELL/2),
-// and both pages share a vertical writable centre at y ≈ -35. The cell column on each page and the
-// 3-row stack are centred against those so the spells sit squarely on the parchment, not drifting
-// left or hanging past the bottom border.
-const BOOK_POSITION_LEFT_X = -316; // centre -206 — mirrors the right page (was -380 → drifted left)
-const BOOK_POSITION_RIGHT_X = 96; // centre +206
-const BOOK_POSITION_TOP_Y = -375; // top row so the 3-row stack is vertically centred on the page
+// Coordinates are local to the centered 1536x1024 book texture (origin = book centre / spine).
+// Measured off that art, each parchment page spans local x -451..-16 and +15..+453, and both pages
+// run y -392..+355. Page centres are therefore ±234 (cell centre = X + CELL/2) with a shared
+// vertical centre of -18. The cell column on each page and the 3-row stack are centred against
+// those so the spells sit squarely on the parchment, not drifting left or hanging past the border.
+// The wider book replaced the old square 1024x1024 one, which had its pages at ±206 / y -35.
+const BOOK_POSITION_LEFT_X = -344; // centre -234 — mirrors the right page
+const BOOK_POSITION_RIGHT_X = 124; // centre +234
+const BOOK_POSITION_TOP_Y = -359; // top row so the 3-row stack is vertically centred on the page
 const BOOK_POSITION_ROW_STEP = 230;
 const BOOK_CELL_SIZE = 220;
 const BOOK_CELL_OFFSET_X = 8; // nudge the scroll-like spell cell (drawn under each spell) right...

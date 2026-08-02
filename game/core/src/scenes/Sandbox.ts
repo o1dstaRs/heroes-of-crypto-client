@@ -320,6 +320,18 @@ interface PlacementBenchHitBox {
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
 
+/** How many single-cell mountains the Mountains board scatters over the neutral band. */
+const SCATTERED_MOUNTAIN_COUNT = 9;
+/** Height of that band, in rows, centred on the board: a 16-wide by 4-tall strip down the middle. */
+const SCATTERED_MOUNTAIN_BAND_ROWS = 4;
+/**
+ * Which of mountain_tiles_64_atlas's 32 variants every mountain wears.
+ *
+ * All nine deliberately share one for now. The atlas still carries the whole pool, so going back to a
+ * random draw is a one-line change (`variant: Math.floor(Math.random() * 6)` below).
+ */
+const SCATTERED_MOUNTAIN_FIXED_VARIANT = 2;
+
 /**
  * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
  * landing its hit, so consecutive victims always bleed one after another — never in the same frame.
@@ -703,6 +715,13 @@ export class Sandbox extends PixiScene {
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
         });
 
+        // The grid type is already decided by now (the scene may open ON the mountain board without anyone
+        // touching the map picker), and setGridType — the only other place that rolls — is not called for
+        // that opening choice. Without this the board came up with no scattered rock at all, which
+        // DungeonVisuals reads as "draw the old two-block mountain" instead, so the default map looked
+        // nothing like the same map picked by hand a moment later.
+        this.rollScatteredMountains();
+
         this.moveAnimManager = new MoveAnimationManager({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             updateSceneLog: (msg) => this.sc_sceneLog.updateLog(msg),
@@ -752,6 +771,9 @@ export class Sandbox extends PixiScene {
         // above terrain/placement graphics so the floor still gets the dungeon lighting pass.
         this.lightingLayer = new LightingLayer(this.sc_sceneSettings.getGridSettings());
         this.attachToWorldRoot(this.lightingLayer.getContainer(), 950);
+        // Starts off with the current floor, whose lighting is painted into the texture (see
+        // setLegacyBoardBackground); it comes back the moment the legacy, unlit floor is selected.
+        this.lightingLayer.setEnabled(this.isLegacyBoardBackground());
 
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -787,9 +809,6 @@ export class Sandbox extends PixiScene {
         this.spellBookContainer.visible = false;
         this.spellBookContainer.sortableChildren = true;
         this.spellBookContainer.zIndex = 7000;
-        const { width, height } = context.pixiApp.getApplication().screen;
-        this.spellBookContainer.position.set(width / 2, height / 2);
-
         // Add Book Background Graphic
         const bookTex = this.texAny("book_1024");
         if (bookTex) {
@@ -799,6 +818,8 @@ export class Sandbox extends PixiScene {
             bookSprite.zIndex = 0;
             this.spellBookContainer.addChild(bookSprite);
         }
+        const { width, height } = context.pixiApp.getApplication().screen;
+        this.layoutSpellBook(width, height);
 
         context.pixiApp.getUIContainer().sortableChildren = true;
         context.pixiApp.getUIContainer().addChild(this.spellBookContainer);
@@ -849,7 +870,6 @@ export class Sandbox extends PixiScene {
                 const p = this.unitsOverlay?.getUnitProperties(name);
                 return p ? p.amount_alive : 99;
             },
-            (faction) => this.selectFactionFromOverlay(faction),
         );
         this.unitsOverlay.build();
         if (this.sc_gameActionTransport) {
@@ -987,7 +1007,10 @@ export class Sandbox extends PixiScene {
                 __hocAiState?: () => Record<string, unknown>;
                 __hocGetLog?: () => string;
                 __hocVisibleState?: () => Record<string, unknown>;
+                __hocFloorLight?: () => Record<string, unknown>;
             };
+            // Why the floor's firelight is not moving: see getFireLightDiagnostics.
+            w.__hocFloorLight = () => this.dungeonVisuals.getFireLightDiagnostics();
             w.__hocSetAI = (active: boolean) => {
                 this.sc_isAIActive = active;
                 this.aiController.isAIActive = active;
@@ -1185,27 +1208,6 @@ export class Sandbox extends PixiScene {
     }
     public override getUnitsOverlay(): UnitsOverlay | undefined {
         return this.sc_gameActionTransport ? undefined : this.unitsOverlay;
-    }
-    private selectFactionFromOverlay(faction: FactionType | null): void {
-        if (this.selectedBoardUnit) {
-            this.selectedBoardUnit.setBoardSelected(false);
-            this.selectedBoardUnit = undefined;
-        }
-        this.currentShiftedUnit = undefined;
-        this.hasActiveSelection = false;
-        this.selectionFromOverlay = false;
-        this.draggingUnitId = undefined;
-        this.draggingUnitTeam = undefined;
-        this.sc_selectedUnitProperties = undefined;
-        this.sc_visibleOverallImpact = undefined;
-        this.sc_selectedFactionType = (faction ?? FactionVals.NO_FACTION) as FactionType;
-        this.sc_unitPropertiesUpdateNeeded = true;
-        this.sc_factionNameUpdateNeeded = true;
-        this.hoverManager.resetHover(true);
-        this.hoverManager.resetBoardHoverState();
-        this.hoverManager.hoverPlacementCell = undefined;
-        this.hoverManager.hoverPlacementCellTeam = undefined;
-        this.hoverManager.hoverSelectedCells = undefined;
     }
     public override setGameActionTransport(transport?: Parameters<PixiScene["setGameActionTransport"]>[0]): void {
         super.setGameActionTransport(transport);
@@ -4447,6 +4449,25 @@ export class Sandbox extends PixiScene {
         const minusOne = this.texAny("digit_-1");
         if (minusOne) this.digitTextures.set(-1, minusOne);
     }
+    /**
+     * Fit the spellbook to the viewport — scale AND centre, always together.
+     *
+     * The constructor used to set only the position and leave scale at 1, so until the first Resize
+     * happened to fire, the very first open drew the book at full texture size, off-centre and clipped
+     * by the board area. Toggling fullscreen "fixed" it only because that fires a resize. Both paths
+     * (and the open below) now go through this, so the two can't drift apart again.
+     *
+     * The design box is the book texture (1536x1024) plus the same margins the old square 1024x1024
+     * art was fitted with — widened from 1120 so the wider book still clears the sides.
+     */
+    private layoutSpellBook(width: number, height: number): void {
+        if (!this.spellBookContainer) {
+            return;
+        }
+        const scale = Math.min(width / 1680, height / 980) * 0.88;
+        this.spellBookContainer.scale.set(scale);
+        this.spellBookContainer.position.set(width / 2, height / 2);
+    }
     public override Resize(w: number, h: number): void {
         // 1) Let the base scene update camera, worldRoot, etc.
         super.Resize(w, h);
@@ -4454,11 +4475,7 @@ export class Sandbox extends PixiScene {
         this.layoutBackgroundSquare();
 
         // Update SpellBook Container Position on Resize to keep it centered
-        if (this.spellBookContainer) {
-            const scale = Math.min(w / 1120, h / 980) * 0.88;
-            this.spellBookContainer.scale.set(scale);
-            this.spellBookContainer.position.set(w / 2, h / 2);
-        }
+        this.layoutSpellBook(w, h);
         if (this.spellBookOverlay) {
             this.spellBookOverlay.resize(w, h);
         }
@@ -5176,6 +5193,56 @@ export class Sandbox extends PixiScene {
             this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
         }
     }
+    /**
+     * Drop SCATTERED_MOUNTAIN_COUNT single-cell mountains at random over the neutral band, each wearing a
+     * random variant from the art pool. A no-op (and a full clear) on any board that is not Mountains.
+     *
+     * The band is derived from the placement zones rather than written down as row numbers: their height is
+     * a setting (3..6 rows) and an augment can raise it, so a hardcoded range would start dropping rock into
+     * someone's back line the moment either changed. Whatever neither team may stand on is fair game.
+     */
+    private rollScatteredMountains(): void {
+        const isMountains =
+            FightStateManager.getInstance().getFightProperties().getGridType() === GridVals.BLOCK_CENTER;
+        if (!isMountains) {
+            this.grid.setScatteredMountains([]);
+            this.dungeonVisuals?.setScatteredMountains([]);
+            return;
+        }
+        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width — a fixed strip rather than
+        // "wherever nobody may stand". Those are not the same: a height-3 placement zone is inset a column
+        // at each side and a row at the board edge, so the looser rule scattered rock down the flanks and
+        // along the very bottom, beside and behind the armies instead of in the empty middle.
+        //
+        // Fixed is also safe against the placement setting: the tallest zone is 6 rows, so twelve of the
+        // sixteen rows can belong to the armies at most and these four are neutral for every height.
+        const free: HoCMath.XY[] = [];
+        const size = GridConstants.GRID_SIZE;
+        const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
+        for (let x = 0; x < size; x++) {
+            for (let y = bandStart; y < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; y++) {
+                free.push({ x, y });
+            }
+        }
+        // Partial Fisher-Yates: the first N of a shuffled list are distinct by construction and uniformly
+        // drawn, which a "pick at random and retry on collision" loop is not once the band gets crowded.
+        const wanted = Math.min(SCATTERED_MOUNTAIN_COUNT, free.length);
+        for (let i = 0; i < wanted; i++) {
+            const j = i + Math.floor(Math.random() * (free.length - i));
+            const swap = free[i];
+            free[i] = free[j];
+            free[j] = swap;
+        }
+        const chosen = free.slice(0, wanted);
+        this.grid.setScatteredMountains(chosen);
+        this.dungeonVisuals?.setScatteredMountains(
+            chosen.map((cell) => ({
+                x: cell.x,
+                y: cell.y,
+                variant: SCATTERED_MOUNTAIN_FIXED_VARIANT,
+            })),
+        );
+    }
     public override setGridType(gridType: GridType): void {
         super.setGridType(gridType);
         if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
@@ -5183,6 +5250,9 @@ export class Sandbox extends PixiScene {
         }
         FightStateManager.getInstance().getFightProperties().setGridType(gridType);
         this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
+        // Re-roll the rock every time the mountain board is picked — including picking it again after a
+        // detour through another map, which is the whole point of rolling here rather than once at startup.
+        this.rollScatteredMountains();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         // Fresh terrain starts wet (un-dried) — reset the dried sprite state.
@@ -9142,6 +9212,27 @@ export class Sandbox extends PixiScene {
         return this.aiControlledTeams.has(team);
     }
     /**
+     * TEMPORARY: swap the board's floor between the current texture and the previous one, for a live
+     * side-by-side. Everything layered on the floor — the dungeon lighting overlay, the atmosphere alpha,
+     * terrain, holes — is driven by its own state and is deliberately left alone, so the only thing that
+     * changes on screen is the painting itself.
+     *
+     * Re-lays the sprite immediately rather than waiting for the next frame, so the flip is instant even
+     * while the board is idle.
+     */
+    public override setLegacyBoardBackground(enabled: boolean): void {
+        this.dungeonVisuals.setLegacyBackground(enabled);
+        this.ensureBackgroundSprite();
+        this.layoutBackgroundSquare();
+        // The current floor carries its own painted lighting, so the dungeon lighting pass is switched OFF
+        // over it — the map is meant to be seen exactly as painted, and adding braziers and a darkening
+        // layer on top only doubles the light at its edges. The legacy texture is unlit, so it keeps them.
+        this.lightingLayer?.setEnabled(enabled);
+    }
+    public override isLegacyBoardBackground(): boolean {
+        return this.dungeonVisuals.isLegacyBackground();
+    }
+    /**
      * Toggle full AI control of a team (sandbox feature). When enabled the AIController auto-plays every
      * one of that team's turns and the human cannot act for it. Clearing the board hover previews on
      * enable avoids a stale silhouette/aura lingering from the moment control is handed over.
@@ -11118,6 +11209,12 @@ export class Sandbox extends PixiScene {
         // ==========================================================================================
         // CORE GAME LOGIC
         // ==========================================================================================
+        // Brings the floor's own painted firelight to life (see FireLightFilter). Nothing moves — only how
+        // brightly the already-lit parts of the artwork burn. Deliberately OUTSIDE the fightStarted gate
+        // below: the board is on screen during placement too, and a floor that only starts breathing once
+        // the fight begins reads as broken for the whole time the player is arranging their army.
+        this.dungeonVisuals.updateFireLight();
+
         if (fightStarted) {
             // Atmosphere Transition & Animation
             if (this.atmosphereAlpha < 1 || this.dungeonVisuals.hasAtmosphereLights()) {
@@ -11290,7 +11387,14 @@ export class Sandbox extends PixiScene {
 
         // Update SpellBook
         if (this.spellBookContainer) {
-            this.spellBookContainer.visible = !!this.sc_renderSpellBookOverlay;
+            const showSpellBook = !!this.sc_renderSpellBookOverlay;
+            // Re-fit on the closed -> open transition: the canvas can still be settling into its final
+            // size when the scene is constructed, and no resize necessarily fires before the first open.
+            if (showSpellBook && !this.spellBookContainer.visible) {
+                const screen = this.pixiApp.getApplication().screen;
+                this.layoutSpellBook(screen.width, screen.height);
+            }
+            this.spellBookContainer.visible = showSpellBook;
         }
         if (this.sc_renderSpellBookOverlay && this.spellBookOverlay && this.currentActiveUnit) {
             for (const unit of this.unitsHolder.getAllUnits().values()) {
@@ -12842,6 +12946,7 @@ export class Sandbox extends PixiScene {
             TeamVals.NO_TEAM,
             this.unitsHolder.getAllUnits().values(),
             fightProps.getCurrentLap(),
+            this.attackHandler?.getDamageStatisticHolder().get() ?? [],
         );
         this.sc_visibleStateUpdateNeeded = true;
     }
@@ -12886,6 +12991,7 @@ export class Sandbox extends PixiScene {
                 teamWin,
                 this.unitsHolder.getAllUnits().values(),
                 fightProps.getCurrentLap(),
+                this.attackHandler?.getDamageStatisticHolder().get() ?? [],
             );
             // Only adopt the local tracker's report when it carries real roster data. Ranked never
             // starts the sandbox tracker (it tracks stats from authoritative snapshots instead), so

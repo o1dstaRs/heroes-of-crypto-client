@@ -7,195 +7,42 @@
  * though nothing in Sandbox asked for it - the two screens shared one component and only ranked wanted the
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
-import {
-    Artifact,
-    Augment,
-    HoCConstants,
-    SynergyWithLevel,
-    LifeSynergy,
-    LifeSynergyNames,
-    ChaosSynergy,
-    ChaosSynergyNames,
-    MightSynergy,
-    MightSynergyNames,
-    NatureSynergy,
-    NatureSynergyNames,
-    SpecificSynergy,
-    SynergyKeysToPower,
-    TeamType,
-    FactionType,
-    FactionVals,
-} from "@heroesofcrypto/common";
-import React, { useEffect, useState } from "react";
-import { Radio, RadioGroup, FormControl, FormLabel, Sheet, Box, Typography, Tooltip } from "@mui/joy";
-import { VisibleSynergyLevel } from "../../scenes/VisibleState";
+import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
+import React, { useState } from "react";
+import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { images } from "../../generated/image_imports";
+import { hocColors } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
+
+const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
+const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
+const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
+const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", import.meta.url).toString();
+const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
+const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
+
+/** Vite may hand an image URL back wrapped in a module object; unwrap so <img src> is always a string. */
+const augmentIcon = (img: string): string => (img as unknown as { default?: string }).default ?? img;
+
+/** The augment icon row, in display order. `kind` is both the tooltip's subject and the open-panel key. */
+const AUGMENT_BUTTONS: ReadonlyArray<{
+    kind: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement";
+    title: string;
+    alt: string;
+    img: string;
+}> = [
+    { kind: "Placement", title: "Augment board placements", alt: "Placement Icon", img: augmentIcon(augmentBoardImg) },
+    { kind: "Armor", title: "Augment armor", alt: "Armor Icon", img: augmentIcon(augmentArmorImg) },
+    { kind: "Might", title: "Augment melee attack", alt: "Might Icon", img: augmentIcon(augmentMightImg) },
+    { kind: "Empower", title: "Augment magic damage", alt: "Empower Icon", img: augmentIcon(augmentEmpowerImg) },
+    { kind: "Sniper", title: "Augment ranged attack", alt: "Sniper Icon", img: augmentIcon(augmentSniperImg) },
+    { kind: "Movement", title: "Augment movement", alt: "Movement Icon", img: augmentIcon(augmentMovementImg) },
+];
 
 // Above the board's gold edge trim (zIndex 2) and the sidebars (zIndex 1). At the old zIndex 1 the label
 // rendered underneath the frame and was sliced off at the panel's edge.
 const AUGMENT_TOOLTIP_Z = 10000;
-const synergySupplyImg = new URL("../../../images/synergy_supply_256.webp", import.meta.url).toString();
-const synergyMoraleImg = new URL("../../../images/synergy_morale_256.webp", import.meta.url).toString();
-const synergyMovementImg = new URL("../../../images/synergy_movement_256.webp", import.meta.url).toString();
-const synergyBreakOnAttackImg = new URL("../../../images/synergy_break_on_attack_256.webp", import.meta.url).toString();
-const synergyAurasRangeImg = new URL("../../../images/synergy_auras_range_256.webp", import.meta.url).toString();
-const synergyAbilitiesPowerImg = new URL(
-    "../../../images/synergy_abilities_power_256.webp",
-    import.meta.url,
-).toString();
-const synergyIncreaseBoardUnitsImg = new URL(
-    "../../../images/synergy_increase_board_units_256.webp",
-    import.meta.url,
-).toString();
-const synergyPlusFlyArmorImg = new URL("../../../images/synergy_plus_fly_armor_256.webp", import.meta.url).toString();
-/** Vite may hand the URL back wrapped; unwrap so the <img src> is always a plain string. */
-const synergyIcon = (img: string): string => (img as unknown as { default?: string }).default ?? img;
-
-const SYNERGY_NAME_TO_FACTION = {
-    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: FactionVals.LIFE,
-    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: FactionVals.LIFE,
-    [ChaosSynergyNames.MOVEMENT]: FactionVals.CHAOS,
-    [ChaosSynergyNames.BREAK_ON_ATTACK]: FactionVals.CHAOS,
-    [MightSynergyNames.PLUS_AURAS_RANGE]: FactionVals.MIGHT,
-    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: FactionVals.MIGHT,
-    [NatureSynergyNames.INCREASE_BOARD_UNITS]: FactionVals.NATURE,
-    [NatureSynergyNames.PLUS_FLY_ARMOR]: FactionVals.NATURE,
-};
-
-type SelectedSynergy = {
-    faction: FactionType;
-    synergyName: keyof typeof SYNERGY_NAME_TO_FACTION;
-    synergyValue: SpecificSynergy;
-    level: VisibleSynergyLevel;
-    name: string;
-};
-
-const SYNERGY_NAME_TO_DESCRIPTION: Record<string, string> = {
-    [LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE]: "Increase each unit's supply by {}%",
-    [LifeSynergyNames.PLUS_MORALE_AND_LUCK]: "The entire army gets +{} morale and +{} luck",
-    [ChaosSynergyNames.MOVEMENT]: "Improve movement steps by {} cells",
-    [ChaosSynergyNames.BREAK_ON_ATTACK]: "{}% chance to apply Break on attack",
-    [MightSynergyNames.PLUS_AURAS_RANGE]: "Increase auras range by {} cells",
-    [MightSynergyNames.PLUS_STACK_ABILITIES_POWER]: "Increase stack abilities power by {}%",
-    [NatureSynergyNames.INCREASE_BOARD_UNITS]: "Place {} more units on the board",
-    [NatureSynergyNames.PLUS_FLY_ARMOR]: "Flying units get +{}% armor",
-};
-
-/** Fill a synergy description's {} placeholders with the powers for this faction/variant/level. */
-const synergyDescription = (faction: string, synergyValue: number, synergyName: string, level: number): string => {
-    const template = SYNERGY_NAME_TO_DESCRIPTION[synergyName] ?? synergyName;
-    const powers = SynergyKeysToPower[`${faction}:${synergyValue}:${Math.max(level, 1)}`] ?? [];
-    let index = 0;
-    return template.replace(/\{\}/g, () => String(powers[index++] ?? "?"));
-};
-
-/**
- * One faction's synergy pair for the NARROW sandbox sidebar: pick 1 of 2, free, unlocked at 2/4/6
- * units of the faction. The two variants stack vertically (the ranked screen's side-by-side panel
- * needs ~500px). The engine enforces the one-of-two rule — updateSynergyPerTeam strips the faction's
- * previous entry before writing the new pick — so re-picking the other variant SWITCHES, never stacks.
- */
-const SandboxSynergyFactionPanel = ({
-    faction,
-    color,
-    options,
-    selectedLabel,
-}: {
-    faction: string;
-    color: string;
-    options: Array<{
-        label: string;
-        icon: string;
-        level: number;
-        synergyName: string;
-        synergyValue: number;
-        onSelect: () => void;
-    }>;
-    selectedLabel?: string;
-}) => {
-    const level = Math.max(0, ...options.map((o) => o.level));
-    const locked = level < 1;
-    return (
-        <Box
-            sx={{
-                p: "8px 10px",
-                borderRadius: "12px",
-                bgcolor: "#12151d",
-                border: "1px solid rgba(255,255,255,0.1)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 0.5,
-                order: locked ? 2 : 1,
-            }}
-        >
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <Typography
-                    sx={{
-                        fontSize: 12,
-                        letterSpacing: "0.1em",
-                        textTransform: "uppercase",
-                        color: locked ? "#5d636e" : color,
-                        fontWeight: 700,
-                    }}
-                >
-                    {faction}
-                </Typography>
-                <Typography sx={{ fontSize: 11, color: locked ? "#5d636e" : "#9aa0ab" }}>
-                    {locked ? "needs 2 units" : `level ${level}`}
-                </Typography>
-            </Box>
-            {options.map((option) => {
-                const isSelected = selectedLabel === option.label;
-                return (
-                    <Tooltip
-                        key={option.label}
-                        title={synergyDescription(faction, option.synergyValue, option.synergyName, option.level)}
-                        variant="soft"
-                        placement="top"
-                        sx={{ zIndex: AUGMENT_TOOLTIP_Z }}
-                    >
-                        <Box
-                            component={locked ? "div" : "button"}
-                            type={locked ? undefined : "button"}
-                            onClick={locked ? undefined : option.onSelect}
-                            sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                p: "6px 9px",
-                                borderRadius: "10px",
-                                cursor: locked ? "default" : "pointer",
-                                opacity: locked ? 0.45 : 1,
-                                border: locked
-                                    ? "2px dashed rgba(255,255,255,0.14)"
-                                    : isSelected
-                                      ? "2px solid #3b9b5c"
-                                      : "2px solid rgba(255,255,255,0.12)",
-                                bgcolor: isSelected ? "rgba(59,155,92,0.16)" : "rgba(255,255,255,0.03)",
-                                color: isSelected ? "#8ff0b4" : "#e9e6df",
-                                fontSize: 12.5,
-                                textAlign: "left",
-                                gap: 1,
-                            }}
-                        >
-                            <img src={option.icon} alt="" style={{ width: 22, height: 22, objectFit: "contain" }} />
-                            <span
-                                style={{
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                    minWidth: 0,
-                                }}
-                            >
-                                {option.label}
-                            </span>
-                        </Box>
-                    </Tooltip>
-                );
-            })}
-        </Box>
-    );
-};
 
 const PlacementToggler = ({
     title,
@@ -211,7 +58,6 @@ const PlacementToggler = ({
     currentSelection: number | null;
 }) => {
     const manager = usePixiManager();
-
     const handleSelectionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const augmentType = Augment.ToPlacementAugment[event.target.value.toString()];
         if (manager.PropagateAugmentation(teamType, { type: "Placement", value: augmentType })) {
@@ -623,7 +469,6 @@ const MovementToggler = ({
 const SandboxToggleContainer = ({
     side,
     teamType,
-    unitFaction,
     // Free army-wide artifact picking (one per tier) is a SANDBOX-only tool. In ranked the artifacts are
     // drafted during the pick/ban phase and shown read-only (RankedArtifactsPanel), so the ranked view
     // passes false to hide the picker while keeping the augment/synergy togglers.
@@ -631,16 +476,11 @@ const SandboxToggleContainer = ({
     // Upgrade-point budget for augments. In ranked this is the perk's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
-    // Ranked reads this to gate its "Continue to placement" button: fires whenever the remaining augment
-    // points or the "every available synergy is picked" status changes. Sandbox omits it.
-    onReadyChange,
 }: {
     side: string;
     teamType: TeamType;
-    unitFaction?: FactionType;
     showArtifactPicker?: boolean;
     budgetPoints?: number;
-    onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
 }) => {
     const [totalPoints, setTotalPoints] = useState(budgetPoints);
     const [placementSelection, setPlacementSelection] = useState<number | null>(null);
@@ -649,22 +489,21 @@ const SandboxToggleContainer = ({
     const [empowerSelection, setEmpowerSelection] = useState<number | null>(null);
     const [sniperSelection, setSniperSelection] = useState<number | null>(null);
     const [movementSelection, setMovementSelection] = useState<number | null>(null);
-    const [possibleSynergies, setPossibleSynergies] = useState<Map<TeamType, SynergyWithLevel[]>>(new Map());
+    // Opening a team lands on Augments with Board Placement already showing — the first thing you set for a
+    // side — instead of a bar of shut headers you have to click twice to get anywhere.
     const [togglerType, setTogglerType] = useState<
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
-    >("None");
+    >("Placement");
 
-    // Which artifact tiers are expanded. Owner call (2026-08-01): BOTH start open in the sandbox bar — the
-    // bar scrolls, so height is no constraint here — and each tier collapses independently (no accordion).
-    const [openTiers, setOpenTiers] = useState<ReadonlySet<number>>(
-        () => new Set<number>([Artifact.ArtifactTier.TIER_1, Artifact.ArtifactTier.TIER_2]),
-    );
-    const [selectedSynergy, setSelectedSynergy] = useState<SelectedSynergy | null>(null);
-    const [synergyPairLife, setSynergyPairTypeLife] = useState<SelectedSynergy | null>(null);
-    const [synergyPairChaos, setSynergyPairTypeChaos] = useState<SelectedSynergy | null>(null);
-    const [synergyPairMight, setSynergyPairTypeMight] = useState<SelectedSynergy | null>(null);
-    const [synergyPairNature, setSynergyPairTypeNature] = useState<SelectedSynergy | null>(null);
+    // Two states in this bar and no more: the augment panel, or the artifacts block (both tiers at once).
+    // Opening either closes the other, and at rest neither is open.
+    const [artifactsOpen, setArtifactsOpen] = useState(false);
+    const [augmentsOpen, setAugmentsOpen] = useState(true);
 
+    const handleAugmentsToggle = () => {
+        setAugmentsOpen((current) => !current);
+        setArtifactsOpen(false);
+    };
     // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
     // change handler carries its category explicitly instead of reading a single-open togglerType.
     const handleLevelChangeFor =
@@ -680,370 +519,185 @@ const SandboxToggleContainer = ({
             setTotalPoints((previousTotal) => previousTotal + previousPointsUsed - pointsUsed);
         };
 
-    const handleTierToggle = (tier: number) => {
-        setOpenTiers((current) => {
-            const next = new Set(current);
-            if (next.has(tier)) {
-                next.delete(tier);
-            } else {
-                next.add(tier);
-            }
-            return next;
-        });
+    const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement") => {
+        // Second click on the open augment closes it, so the panel is never stuck open.
+        setTogglerType((current) => (current === type ? "None" : type));
+        setArtifactsOpen(false);
     };
 
-    const possibleSynergiesObj: Record<string, VisibleSynergyLevel> = {};
-    const possibleSynergiesPerTeam = possibleSynergies.get(teamType);
-    if (possibleSynergiesPerTeam) {
-        for (const ps of possibleSynergiesPerTeam) {
-            if (ps.synergy in possibleSynergiesObj) {
-                const elem = possibleSynergiesObj[ps.synergy];
-                possibleSynergiesObj[ps.synergy] = Math.max(ps.level, elem) as VisibleSynergyLevel;
-            } else {
-                possibleSynergiesObj[ps.synergy] = ps.level as VisibleSynergyLevel;
-            }
-        }
-    }
-
-    for (const [synergyName, synergyLevel] of Object.entries(possibleSynergiesObj)) {
-        if (synergyLevel <= 0) {
-            if (SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.LIFE) {
-                if (synergyPairLife !== null) {
-                    setSynergyPairTypeLife(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.LIFE)) {
-                        setTogglerType("None");
-                    }
-                }
-            } else if (
-                SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.CHAOS
-            ) {
-                if (synergyPairChaos !== null) {
-                    setSynergyPairTypeChaos(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.CHAOS)) {
-                        setTogglerType("None");
-                    }
-                }
-            } else if (
-                SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.MIGHT
-            ) {
-                if (synergyPairMight !== null) {
-                    setSynergyPairTypeMight(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.MIGHT)) {
-                        setTogglerType("None");
-                    }
-                }
-            } else if (
-                SYNERGY_NAME_TO_FACTION[synergyName as keyof typeof SYNERGY_NAME_TO_FACTION] === FactionVals.NATURE
-            ) {
-                if (synergyPairNature !== null) {
-                    setSynergyPairTypeNature(null);
-                    if (togglerType === "Synergy" && (!unitFaction || unitFaction === FactionVals.NATURE)) {
-                        setTogglerType("None");
-                    }
-                }
-            }
-        } else if (
-            togglerType === "Synergy" &&
-            selectedSynergy &&
-            synergyName === selectedSynergy.synergyName &&
-            selectedSynergy.level &&
-            selectedSynergy.level !== synergyLevel
-        ) {
-            setSelectedSynergy({
-                faction: selectedSynergy.faction,
-                synergyName: selectedSynergy.synergyName,
-                synergyValue: selectedSynergy.synergyValue,
-                level: synergyLevel,
-                name: selectedSynergy.name,
-            });
-        }
-    }
-
-    const manager = usePixiManager();
-
-    useEffect(() => {
-        const connection = manager.onPossibleSynergiesUpdated.connect((sMap: Map<TeamType, SynergyWithLevel[]>) => {
-            setPossibleSynergies(sMap);
-        });
-
-        return () => {
-            connection.disconnect();
-        };
-    }, [manager]);
-
-    const handleSynergySelect = (
-        setSynergy: React.Dispatch<React.SetStateAction<SelectedSynergy | null>>,
-        synergy: SelectedSynergy,
-    ) => {
-        if (
-            synergy.level >= 1 &&
-            manager.PropagateSynergy(teamType, synergy.faction, synergy.synergyName, synergy.level)
-        ) {
-            setSynergy(synergy);
-            setSelectedSynergy(synergy);
-        }
+    const handleArtifactsToggle = () => {
+        setArtifactsOpen((current) => !current);
+        setAugmentsOpen(false);
+        setTogglerType("None");
     };
-
-    // A faction's synergy is "done" when it isn't available for this army, or the player has picked one of
-    // its two variants. All available synergies are selected once every faction is done.
-    const lifeAvailable =
-        possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] > 0 ||
-        possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] > 0;
-    const chaosAvailable =
-        possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] > 0 ||
-        possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] > 0;
-    const mightAvailable =
-        possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] > 0 ||
-        possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] > 0;
-    const natureAvailable =
-        possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] > 0 ||
-        possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] > 0;
-    const allSynergiesSelected =
-        (!lifeAvailable || synergyPairLife !== null) &&
-        (!chaosAvailable || synergyPairChaos !== null) &&
-        (!mightAvailable || synergyPairMight !== null) &&
-        (!natureAvailable || synergyPairNature !== null);
-
-    // Report readiness up to ranked (points + synergies), stably: onReadyChange should be a stable setter
-    // so this only re-fires when the remaining points or synergy-completion actually change.
-    useEffect(() => {
-        onReadyChange?.({ pointsRemaining: totalPoints, allSynergiesSelected });
-    }, [onReadyChange, totalPoints, allSynergiesSelected]);
 
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
-            {/* Every augment category on screen at once — the pre-#129 sidebar layout, restored by
-                owner request: no icon row hiding five of the six behind a toggler. */}
-            <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1 }}>
-                Remaining Points: {totalPoints}
-            </Typography>
-            <PlacementToggler
-                key={`placement-${teamType}`}
-                teamType={teamType}
-                title={side}
-                totalPoints={totalPoints}
-                onLevelChange={handleLevelChangeFor("Placement")}
-                currentSelection={placementSelection}
-            />
-            <ArmorToggler
-                key={`armor-${teamType}`}
-                teamType={teamType}
-                title={side}
-                totalPoints={totalPoints}
-                onLevelChange={handleLevelChangeFor("Armor")}
-                currentSelection={armorSelection}
-            />
-            <MightToggler
-                key={`might-${teamType}`}
-                teamType={teamType}
-                title={side}
-                totalPoints={totalPoints}
-                onLevelChange={handleLevelChangeFor("Might")}
-                currentSelection={mightSelection}
-            />
-            <EmpowerToggler
-                key={`empower-${teamType}`}
-                teamType={teamType}
-                title={side}
-                totalPoints={totalPoints}
-                onLevelChange={handleLevelChangeFor("Empower")}
-                currentSelection={empowerSelection}
-            />
-            <SniperToggler
-                key={`sniper-${teamType}`}
-                teamType={teamType}
-                title={side}
-                totalPoints={totalPoints}
-                onLevelChange={handleLevelChangeFor("Sniper")}
-                currentSelection={sniperSelection}
-            />
-            <MovementToggler
-                key={`movement-${teamType}`}
-                teamType={teamType}
-                title={side}
-                totalPoints={totalPoints}
-                onLevelChange={handleLevelChangeFor("Movement")}
-                currentSelection={movementSelection}
-            />
+            {/* Header in the same shape as Artifacts below: a title and a collapse chevron, so the two
+                blocks in this bar read as a pair rather than one titled section and one loose icon row. */}
+            <Box
+                component="button"
+                type="button"
+                onClick={handleAugmentsToggle}
+                sx={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    px: 0.5,
+                    py: 0.5,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: augmentsOpen ? "#FF8F00" : "inherit",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
+                }}
+            >
+                <Typography level="title-sm" sx={{ color: "inherit" }}>
+                    Augments
+                </Typography>
+                <Box
+                    component="img"
+                    src={images.tr_up}
+                    alt=""
+                    sx={{
+                        width: "12px",
+                        transform: augmentsOpen ? "none" : "rotate(180deg)",
+                        transition: "transform 0.2s",
+                        filter: augmentsOpen
+                            ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
+                            : "none",
+                    }}
+                />
+            </Box>
+            {augmentsOpen && (
+                <>
+                    {/* One row, always. Six 48px icons with gap 2 wrapped onto a second line in a narrow sidebar once
+                    Empower made it six, so they now share the row with no gap and shrink to fit.
 
-            {/* Synergies: pick exactly ONE of each drafted faction's two variants — same rule as ranked,
-                stacked vertically for the narrow sidebar. */}
-            {(lifeAvailable || chaosAvailable || mightAvailable || natureAvailable) && (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <Typography
-                        sx={{
-                            fontSize: 12,
-                            letterSpacing: "0.14em",
-                            textTransform: "uppercase",
-                            color: "#9aa0ab",
-                            fontWeight: 700,
-                            textAlign: "center",
-                        }}
-                    >
-                        Synergies
+                    Written as a map over AUGMENT_BUTTONS rather than six near-identical Tooltip/IconButton
+                    blocks: they differed only in image, label and key, and the selected-state styling had to
+                    be repeated verbatim in each one. */}
+                    <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}>
+                        {AUGMENT_BUTTONS.map(({ kind, title, alt, img }) => {
+                            const selected = togglerType === kind;
+                            return (
+                                <Tooltip key={kind} title={title} placement="right" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
+                                    <IconButton
+                                        sx={{
+                                            p: 0.25,
+                                            minWidth: 0,
+                                            flex: "1 1 0",
+                                            // The open augment used to be marked by brightness alone (1.2 vs
+                                            // 0.6), which on six busy 48px illustrations was easy to miss —
+                                            // several of them are bright to begin with. An amber frame in the
+                                            // panel's own accent says which one is open at a glance. The
+                                            // border is always present and merely transparent when idle, so
+                                            // selecting an icon cannot nudge the row's layout.
+                                            borderRadius: "8px",
+                                            border: "1px solid",
+                                            borderColor: selected ? hocColors.orange : "transparent",
+                                            backgroundColor: selected ? "rgba(255, 143, 0, 0.12)" : "transparent",
+                                            boxShadow: selected ? "0 0 8px rgba(255, 143, 0, 0.45)" : "none",
+                                            transition: "background-color 0.15s, box-shadow 0.15s",
+                                            // Hover deliberately paints NO frame. The frame means "this
+                                            // augment's panel is the open one", and lighting one under the
+                                            // cursor put that mark on two icons at once. Hover grows the art
+                                            // instead — a transform, so the row does not reflow, and the
+                                            // background is pinned to its resting value to stop Joy's own
+                                            // plain-hover tint from standing in for the frame we just removed.
+                                            "&:hover": {
+                                                backgroundColor: selected ? "rgba(255, 143, 0, 0.12)" : "transparent",
+                                            },
+                                            "&:hover img": { transform: "scale(1.15)" },
+                                        }}
+                                        onClick={() => handleAugmentClick(kind)}
+                                        title={title}
+                                    >
+                                        <img
+                                            src={img}
+                                            alt={alt}
+                                            style={{
+                                                filter: selected ? "brightness(1.2)" : "brightness(0.6)",
+                                                width: "100%",
+                                                height: "auto",
+                                                maxWidth: 48,
+                                                transition: "transform 0.15s",
+                                            }}
+                                        />
+                                    </IconButton>
+                                </Tooltip>
+                            );
+                        })}
+                    </Box>
+                    <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1 }}>
+                        Remaining Points: {totalPoints}
                     </Typography>
-                    {lifeAvailable && (
-                        <SandboxSynergyFactionPanel
-                            faction="Life"
-                            color="#e0d3b0"
-                            selectedLabel={synergyPairLife?.name}
-                            options={[
-                                {
-                                    label: "Supply",
-                                    icon: synergyIcon(synergySupplyImg),
-                                    level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
-                                    synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                    synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeLife, {
-                                            faction: FactionVals.LIFE as FactionType,
-                                            synergyName: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE,
-                                            synergyValue: LifeSynergy.PLUS_SUPPLY_PERCENTAGE,
-                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE] ?? 0,
-                                            name: "Supply",
-                                        }),
-                                },
-                                {
-                                    label: "Morale & luck",
-                                    icon: synergyIcon(synergyMoraleImg),
-                                    level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
-                                    synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
-                                    synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeLife, {
-                                            faction: FactionVals.LIFE as FactionType,
-                                            synergyName: LifeSynergyNames.PLUS_MORALE_AND_LUCK,
-                                            synergyValue: LifeSynergy.PLUS_MORALE_AND_LUCK,
-                                            level: possibleSynergiesObj[LifeSynergyNames.PLUS_MORALE_AND_LUCK] ?? 0,
-                                            name: "Morale & luck",
-                                        }),
-                                },
-                            ]}
+                    {togglerType === "Placement" && (
+                        <PlacementToggler
+                            key={`placement-${teamType}`}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChangeFor("Placement")}
+                            currentSelection={placementSelection}
                         />
                     )}
-                    {chaosAvailable && (
-                        <SandboxSynergyFactionPanel
-                            faction="Chaos"
-                            color="#d98b8b"
-                            selectedLabel={synergyPairChaos?.name}
-                            options={[
-                                {
-                                    label: "Movement",
-                                    icon: synergyIcon(synergyMovementImg),
-                                    level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
-                                    synergyName: ChaosSynergyNames.MOVEMENT,
-                                    synergyValue: ChaosSynergy.MOVEMENT,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeChaos, {
-                                            faction: FactionVals.CHAOS as FactionType,
-                                            synergyName: ChaosSynergyNames.MOVEMENT,
-                                            synergyValue: ChaosSynergy.MOVEMENT,
-                                            level: possibleSynergiesObj[ChaosSynergyNames.MOVEMENT] ?? 0,
-                                            name: "Movement",
-                                        }),
-                                },
-                                {
-                                    label: "Break on attack",
-                                    icon: synergyIcon(synergyBreakOnAttackImg),
-                                    level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
-                                    synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                    synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeChaos, {
-                                            faction: FactionVals.CHAOS as FactionType,
-                                            synergyName: ChaosSynergyNames.BREAK_ON_ATTACK,
-                                            synergyValue: ChaosSynergy.BREAK_ON_ATTACK,
-                                            level: possibleSynergiesObj[ChaosSynergyNames.BREAK_ON_ATTACK] ?? 0,
-                                            name: "Break on attack",
-                                        }),
-                                },
-                            ]}
+                    {togglerType === "Armor" && (
+                        <ArmorToggler
+                            key={`armor-${teamType}`}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChangeFor("Armor")}
+                            currentSelection={armorSelection}
                         />
                     )}
-                    {mightAvailable && (
-                        <SandboxSynergyFactionPanel
-                            faction="Might"
-                            color="#c8a96b"
-                            selectedLabel={synergyPairMight?.name}
-                            options={[
-                                {
-                                    label: "Auras range",
-                                    icon: synergyIcon(synergyAurasRangeImg),
-                                    level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
-                                    synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
-                                    synergyValue: MightSynergy.PLUS_AURAS_RANGE,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeMight, {
-                                            faction: FactionVals.MIGHT as FactionType,
-                                            synergyName: MightSynergyNames.PLUS_AURAS_RANGE,
-                                            synergyValue: MightSynergy.PLUS_AURAS_RANGE,
-                                            level: possibleSynergiesObj[MightSynergyNames.PLUS_AURAS_RANGE] ?? 0,
-                                            name: "Auras range",
-                                        }),
-                                },
-                                {
-                                    label: "Abilities power",
-                                    icon: synergyIcon(synergyAbilitiesPowerImg),
-                                    level: possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
-                                    synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                    synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeMight, {
-                                            faction: FactionVals.MIGHT as FactionType,
-                                            synergyName: MightSynergyNames.PLUS_STACK_ABILITIES_POWER,
-                                            synergyValue: MightSynergy.PLUS_STACK_ABILITIES_POWER,
-                                            level:
-                                                possibleSynergiesObj[MightSynergyNames.PLUS_STACK_ABILITIES_POWER] ?? 0,
-                                            name: "Abilities power",
-                                        }),
-                                },
-                            ]}
+                    {togglerType === "Might" && (
+                        <MightToggler
+                            key={`might-${teamType}`}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChangeFor("Might")}
+                            currentSelection={mightSelection}
                         />
                     )}
-                    {natureAvailable && (
-                        <SandboxSynergyFactionPanel
-                            faction="Nature"
-                            color="#aebf92"
-                            selectedLabel={synergyPairNature?.name}
-                            options={[
-                                {
-                                    label: "Board units",
-                                    icon: synergyIcon(synergyIncreaseBoardUnitsImg),
-                                    level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
-                                    synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                    synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeNature, {
-                                            faction: FactionVals.NATURE as FactionType,
-                                            synergyName: NatureSynergyNames.INCREASE_BOARD_UNITS,
-                                            synergyValue: NatureSynergy.INCREASE_BOARD_UNITS,
-                                            level: possibleSynergiesObj[NatureSynergyNames.INCREASE_BOARD_UNITS] ?? 0,
-                                            name: "Board units",
-                                        }),
-                                },
-                                {
-                                    label: "Fly armor",
-                                    icon: synergyIcon(synergyPlusFlyArmorImg),
-                                    level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
-                                    synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                    synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
-                                    onSelect: () =>
-                                        handleSynergySelect(setSynergyPairTypeNature, {
-                                            faction: FactionVals.NATURE as FactionType,
-                                            synergyName: NatureSynergyNames.PLUS_FLY_ARMOR,
-                                            synergyValue: NatureSynergy.PLUS_FLY_ARMOR,
-                                            level: possibleSynergiesObj[NatureSynergyNames.PLUS_FLY_ARMOR] ?? 0,
-                                            name: "Fly armor",
-                                        }),
-                                },
-                            ]}
+                    {togglerType === "Empower" && (
+                        <EmpowerToggler
+                            key={`empower-${teamType}`}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChangeFor("Empower")}
+                            currentSelection={empowerSelection}
                         />
                     )}
-                </Box>
+                    {togglerType === "Sniper" && (
+                        <SniperToggler
+                            key={`sniper-${teamType}`}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChangeFor("Sniper")}
+                            currentSelection={sniperSelection}
+                        />
+                    )}
+                    {togglerType === "Movement" && (
+                        <MovementToggler
+                            key={`movement-${teamType}`}
+                            teamType={teamType}
+                            title={side}
+                            totalPoints={totalPoints}
+                            onLevelChange={handleLevelChangeFor("Movement")}
+                            currentSelection={movementSelection}
+                        />
+                    )}
+                </>
             )}
-
             {showArtifactPicker && (
-                <ArtifactToggler teamType={teamType} openTiers={openTiers} onToggleTier={handleTierToggle} />
+                <ArtifactToggler teamType={teamType} isOpen={artifactsOpen} onToggle={handleArtifactsToggle} />
             )}
         </Box>
     );

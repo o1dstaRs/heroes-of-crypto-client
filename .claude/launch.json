@@ -1,0 +1,39 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "game",
+            "runtimeExecutable": "bun",
+            "runtimeArgs": [
+                "--cwd",
+                "game/core",
+                "start"
+            ],
+            "port": 5173
+        },
+        {
+            "name": "game-5174",
+            "runtimeExecutable": "bun",
+            "runtimeArgs": [
+                "--cwd",
+                "game/core",
+                "start",
+                "--port",
+                "5174",
+                "--strictPort"
+            ],
+            "port": 5174
+        },
+        {
+            "name": "toolbar-check",
+            "runtimeExecutable": "bun",
+            "runtimeArgs": [
+                "--cwd",
+                "game/core",
+                "start"
+            ],
+            "port": 5199,
+            "autoPort": true
+        }
+    ]
+}

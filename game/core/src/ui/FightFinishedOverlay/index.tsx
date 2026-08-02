@@ -6,11 +6,13 @@ import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
 import { motion } from "framer-motion";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
-import { CasualtyChart, GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
+import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
+import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
+import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 
 // =============================================================================
 // Casualty roster column (per team): unit icons + how many fell
@@ -208,13 +210,6 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
     const stats: IFightStatsReport | undefined = visibleState.fightStats;
 
-    const subtitle = useMemo(() => {
-        if (!stats) return "";
-        const laps = stats.totalLaps;
-        const total = stats.lowerKilledTotal + stats.upperKilledTotal;
-        return `${total} units fell over ${laps} ${laps === 1 ? "lap" : "laps"}`;
-    }, [stats]);
-
     // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
     // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
     // NOT "no winner yet" — that in-progress state is represented by teamWin === undefined instead (see
@@ -297,19 +292,30 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 }}
             />
 
-            <motion.div
+            <Box
+                component={motion.div}
                 initial={{ opacity: 0, scale: 0.9, y: 24 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 220, damping: 24 }}
-                style={{
+                sx={{
                     position: "relative",
                     width: "92%",
                     maxWidth: 880,
+                    // Fixed footprint — the card is always the size it used to be when the chart
+                    // filled it (content overflowed, so it sat at maxHeight). Pinning height instead
+                    // of maxHeight keeps it identical from fight to fight: a 2-creature skirmish and
+                    // a 16-creature brawl now open the same box instead of the card jumping in size.
+                    height: "90vh",
                     maxHeight: "90vh",
-                    overflowY: "auto",
-                    borderRadius: 18,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                    borderRadius: "18px",
                     border: `2px solid ${GOLD}`,
-                    background: "linear-gradient(160deg, #3a1d08 0%, #1c0d03 100%)",
+                    // Near-black with a warm cast, matching the game's other panels (the sidebar wells
+                    // sit at rgba(18,11,4) / rgba(11,9,5) / rgba(12,12,12)) instead of the lighter
+                    // brown this card used to be. Still 95% opaque, so the board reads faintly through.
+                    background: "linear-gradient(160deg, rgba(30,18,7,0.95) 0%, rgba(9,6,2,0.95) 100%)",
                     boxShadow: "0 16px 48px rgba(0,0,0,0.85)",
                     padding: "28px 32px",
                 }}
@@ -339,20 +345,24 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 </Box>
 
                 {/* Winner banner (or draw banner — armageddon can wipe both sides on the same lap) */}
-                <Stack sx={{ alignItems: "center", textAlign: "center", mb: 2 }}>
-                    <Typography sx={{ fontSize: "2.2rem", lineHeight: 1, mb: 0.5 }}>{isDraw ? "⚖️" : "🏆"}</Typography>
-                    <Typography
-                        sx={{
-                            color: winnerColor,
-                            fontWeight: 900,
-                            letterSpacing: "0.08em",
-                            fontSize: "2rem",
-                            textShadow: `0 0 18px ${winnerColor}aa`,
-                        }}
-                    >
-                        {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
-                    </Typography>
-                    <Typography sx={{ color: PARCHMENT, opacity: 0.75, fontSize: "0.95rem" }}>{subtitle}</Typography>
+                {/* The cup sits BESIDE the headline, not over it. Stacked, it cost the card a whole line of
+                    height at the top — and this card has a fixed footprint, so that line came straight out
+                    of the roster at the bottom, which ended up under the action buttons. */}
+                <Stack sx={{ alignItems: "center", textAlign: "center", mb: 1.25, flexShrink: 0 }}>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", justifyContent: "center" }}>
+                        <Typography sx={{ fontSize: "2.2rem", lineHeight: 1 }}>{isDraw ? "⚖️" : "🏆"}</Typography>
+                        <Typography
+                            sx={{
+                                color: winnerColor,
+                                fontWeight: 900,
+                                letterSpacing: "0.08em",
+                                fontSize: "2rem",
+                                textShadow: `0 0 18px ${winnerColor}aa`,
+                            }}
+                        >
+                            {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
+                        </Typography>
+                    </Stack>
                     {opponentLabel && (
                         <Typography sx={{ color: GOLD, opacity: 0.9, fontSize: "0.85rem", fontWeight: 700, mt: 0.25 }}>
                             vs {opponentLabel}
@@ -360,53 +370,94 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                 </Stack>
 
-                {/* Legend */}
-                <Stack direction="row" spacing={3} sx={{ justifyContent: "center", mb: 0.5 }}>
-                    {[TeamVals.LOWER, TeamVals.UPPER].map((t) => (
-                        <Stack key={t} direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                            <Box
+                {/* Stats take the slack between the banner and the actions. Only this middle band
+                    scrolls, so a long roster never pushes the buttons out of the fixed-size card —
+                    and the scrollbar itself stays hidden. */}
+                <Box
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: "auto",
+                        // The band clips at its own edge, so without this the last row of portraits ended
+                        // flush against the buttons and read as running under them.
+                        pb: 1.5,
+                        scrollbarWidth: "none",
+                        msOverflowStyle: "none",
+                        "&::-webkit-scrollbar": { width: 0, height: 0, display: "none" },
+                    }}
+                >
+                    {/* Every block lands in the same place from fight to fight: the chart holds a
+                        fixed band under the banner, the damage stats follow it directly, and the
+                        roster is pushed down onto the buttons by `mt: auto`. A 1v1 whose damage list
+                        is one row therefore looks like a full fight with a gap in the middle, rather
+                        than a differently-shaped card.
+
+                        `mt: auto` rather than `justifyContent`: an auto margin only ever eats POSITIVE
+                        free space, so once the content overflows it is simply 0 and the band scrolls
+                        from the top — where `flex-end` would push the overflowing top out of reach. */}
+                    <Box
+                        sx={{
+                            minHeight: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                        }}
+                    >
+                        <CasualtyChartPanel series={stats.series} />
+
+                        {/* Damage stats — pinned directly under the chart. */}
+                        <Box sx={{ flexShrink: 0 }}>
+                            <Typography
                                 sx={{
-                                    width: 22,
-                                    height: 4,
-                                    borderRadius: 2,
-                                    backgroundColor: teamColor(t as TeamType),
+                                    color: GOLD,
+                                    fontWeight: 700,
+                                    fontSize: "0.8rem",
+                                    letterSpacing: "0.06em",
+                                    mb: 1,
                                 }}
-                            />
-                            <Typography sx={{ color: PARCHMENT, fontSize: "0.82rem", opacity: 0.85 }}>
-                                {teamName(t as TeamType)} army losses
+                            >
+                                DAMAGE DEALT
                             </Typography>
-                        </Stack>
-                    ))}
-                </Stack>
+                            <DamageBreakdown entries={stats.damageByUnit ?? []} />
+                        </Box>
 
-                {/* Chart */}
-                <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: "0.8rem", letterSpacing: "0.06em", mb: 0.5 }}>
-                    CASUALTIES OVER TIME
-                </Typography>
-                <CasualtyChart series={stats.series} />
+                        {/* Casualty rosters — pinned to the bottom; the card's spare room opens up
+                            above this block, between it and the damage stats. */}
+                        <Box sx={{ flexShrink: 0, mt: "auto" }}>
+                            {/* "1px", not 1: MUI reads a unitless height <= 1 as a fraction, so
+                                `height: 1` is 100%. Harmless while the parent was auto-height, but the
+                                parent has a definite height now and the rule would blow it up to fill. */}
+                            <Box sx={{ height: "1px", backgroundColor: `${GOLD}44`, my: 2 }} />
 
-                <Box sx={{ height: 1, backgroundColor: `${GOLD}44`, my: 2 }} />
+                            <Typography
+                                sx={{
+                                    color: GOLD,
+                                    fontWeight: 700,
+                                    fontSize: "0.8rem",
+                                    letterSpacing: "0.06em",
+                                    mb: 1,
+                                }}
+                            >
+                                FALLEN
+                            </Typography>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
+                                <CasualtyColumn
+                                    team={TeamVals.LOWER as TeamType}
+                                    deaths={stats.lowerDeaths}
+                                    killedTotal={stats.lowerKilledTotal}
+                                    startTotal={stats.lowerStartTotal}
+                                />
+                                <CasualtyColumn
+                                    team={TeamVals.UPPER as TeamType}
+                                    deaths={stats.upperDeaths}
+                                    killedTotal={stats.upperKilledTotal}
+                                    startTotal={stats.upperStartTotal}
+                                />
+                            </Stack>
+                        </Box>
+                    </Box>
+                </Box>
 
-                {/* Casualty rosters */}
-                <Typography sx={{ color: GOLD, fontWeight: 700, fontSize: "0.8rem", letterSpacing: "0.06em", mb: 1 }}>
-                    FALLEN
-                </Typography>
-                <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
-                    <CasualtyColumn
-                        team={TeamVals.LOWER as TeamType}
-                        deaths={stats.lowerDeaths}
-                        killedTotal={stats.lowerKilledTotal}
-                        startTotal={stats.lowerStartTotal}
-                    />
-                    <CasualtyColumn
-                        team={TeamVals.UPPER as TeamType}
-                        deaths={stats.upperDeaths}
-                        killedTotal={stats.upperKilledTotal}
-                        startTotal={stats.upperStartTotal}
-                    />
-                </Stack>
-
-                <Stack direction="row" spacing={2} sx={{ justifyContent: "center", mt: 3 }}>
+                <Stack direction="row" spacing={2} sx={{ justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}>
                     {canReplay && <ActionButton label="Replay" onClick={replayFight} />}
                     {showRematchAction && (
                         <ActionButton
@@ -475,21 +526,19 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 </Stack>
                 {!showSandboxActions && playAgainError && (
                     <Typography
-                        sx={{ color: "#ff8a8a", opacity: 0.9, fontSize: "0.78rem", textAlign: "center", mt: 1 }}
+                        sx={{
+                            color: "#ff8a8a",
+                            opacity: 0.9,
+                            fontSize: "0.78rem",
+                            textAlign: "center",
+                            mt: 1,
+                            flexShrink: 0,
+                        }}
                     >
                         {playAgainError}
                     </Typography>
                 )}
-                {showSandboxActions && (
-                    <Typography
-                        sx={{ color: PARCHMENT, opacity: 0.45, fontSize: "0.72rem", textAlign: "center", mt: 1.5 }}
-                    >
-                        {showRematchAction
-                            ? "Replay watches the finished fight again · Rematch uses the same army · New Battle clears the board"
-                            : "Replay watches the finished fight again · New Battle clears the board"}
-                    </Typography>
-                )}
-            </motion.div>
+            </Box>
         </Box>
     );
 };

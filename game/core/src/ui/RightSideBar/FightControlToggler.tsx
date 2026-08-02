@@ -12,10 +12,12 @@ import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
-// The sandbox mounts the SAME expanded-card picker as ranked (SideToggleContainer): the owner asked
-// for the pre-redesign sidebar back, and that component is it — cards stack one per row in the narrow
-// panel via its container query.
-import SideToggleContainer from "./SideToggleContainer";
+// Sandbox has its own picker. SideToggleContainer is the ranked draft's layout: every augment card is
+// expanded at once, which in this narrow panel stacks three tall radio groups and pushes the artifacts and
+// the other team's section off the bottom. Sandbox wants the pre-redesign shape instead — one row of augment
+// icons, and only the CHOSEN augment's options underneath — so it mounts SandboxToggleContainer, where that
+// panel and the two artifact tiers form a single accordion (opening one closes the others, all shut at rest).
+import SandboxToggleContainer from "./SandboxToggleContainer";
 import { SynergySlots } from "./SynergySlots";
 import UnitSplitter from "./UnitSplitter";
 
@@ -80,11 +82,11 @@ const FightControlToggler: React.FC = () => {
                             sx={{
                                 py: 2, // 50% bigger Y-wise
                                 backgroundColor: open
-                                    ? "rgba(255, 143, 0, 0.1)" // Gold tint
+                                    ? "rgba(236, 240, 245, 0.05)" // Neutral lift; the ember cue lives in the label + icon
                                     : "inherit",
                                 transition: "background-color 0.3s",
                                 "&:hover": {
-                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                    backgroundColor: open ? "rgba(236, 240, 245, 0.08)" : "rgba(255, 255, 255, 0.05)",
                                 },
                             }}
                         >
@@ -149,11 +151,11 @@ const FightControlToggler: React.FC = () => {
                             sx={{
                                 py: 2, // 50% bigger Y-wise
                                 backgroundColor: open
-                                    ? "rgba(255, 143, 0, 0.1)" // Gold tint
+                                    ? "rgba(236, 240, 245, 0.05)" // Neutral lift; the ember cue lives in the label + icon
                                     : "inherit",
                                 transition: "background-color 0.3s",
                                 "&:hover": {
-                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                    backgroundColor: open ? "rgba(236, 240, 245, 0.08)" : "rgba(255, 255, 255, 0.05)",
                                 },
                             }}
                         >
@@ -213,10 +215,10 @@ const FightControlToggler: React.FC = () => {
                             }}
                             sx={{
                                 py: 2,
-                                backgroundColor: open ? "rgba(255, 143, 0, 0.1)" : "inherit",
+                                backgroundColor: open ? "rgba(236, 240, 245, 0.05)" : "inherit",
                                 transition: "background-color 0.3s",
                                 "&:hover": {
-                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                    backgroundColor: open ? "rgba(236, 240, 245, 0.08)" : "rgba(255, 255, 255, 0.05)",
                                 },
                             }}
                         >
@@ -264,7 +266,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="red" teamType={TeamVals.UPPER} unitFaction={unitProperties.faction} />
+                    <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} />
                 </List>
             </Toggler>
 
@@ -282,10 +284,10 @@ const FightControlToggler: React.FC = () => {
                             }}
                             sx={{
                                 py: 2,
-                                backgroundColor: open ? "rgba(255, 143, 0, 0.1)" : "inherit",
+                                backgroundColor: open ? "rgba(236, 240, 245, 0.05)" : "inherit",
                                 transition: "background-color 0.3s",
                                 "&:hover": {
-                                    backgroundColor: open ? "rgba(255, 143, 0, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                                    backgroundColor: open ? "rgba(236, 240, 245, 0.08)" : "rgba(255, 255, 255, 0.05)",
                                 },
                             }}
                         >
@@ -333,7 +335,7 @@ const FightControlToggler: React.FC = () => {
                 }}
             >
                 <List>
-                    <SideToggleContainer side="green" teamType={TeamVals.LOWER} unitFaction={unitProperties.faction} />
+                    <SandboxToggleContainer side="green" teamType={TeamVals.LOWER} />
                 </List>
             </Toggler>
         </ListItem>

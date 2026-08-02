@@ -29,6 +29,7 @@ import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
+import { teamColor as resolveTeamColor } from "./teamColors";
 export type TexResolver = (name: string) => Texture | undefined;
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
@@ -131,6 +132,54 @@ interface BadgeDrawState {
     label: string;
     teamColor: number;
     isActiveTurn: boolean;
+    /** Banner geometry, kept so the per-frame cloth redraw doesn't recompute it every tick. */
+    geometry: BadgeFlagGeometry;
+}
+
+interface BadgeFlagGeometry {
+    bannerLeft: number;
+    bannerRight: number;
+    bannerTop: number;
+    bannerBottom: number;
+    notchDepth: number;
+    flagHeight: number;
+    poleWidth: number;
+    borderWidth: number;
+    borderColor: number;
+    borderAlpha: number;
+}
+
+/**
+ * The stack banner ripples like cloth on its pole: it hangs rigid where the pole grips it and billows more
+ * the further out you go, with the wave travelling toward the free edge.
+ *
+ * The motion is pure sine of wall-clock time, which is what makes it loop with no seam at all — there is no
+ * clip to wrap around and no keyframe to land back on, so it simply never stops being mid-wave. Baking the
+ * same look as a sprite sheet would put a visible hitch wherever the loop rejoined.
+ */
+/** Points sampled along the banner to draw the wave. Enough to read as cloth, cheap enough for every unit. */
+const FLAG_WAVE_SEGMENTS = 10;
+/** Peak sway at the free edge, as a fraction of the banner's height. */
+const FLAG_WAVE_AMPLITUDE = 0.3;
+/** How many wave crests fit across the banner. Just over one reads as cloth rather than a wobbling plank. */
+const FLAG_WAVE_CYCLES = 1.15;
+/** Radians per second the wave travels — a lazy flag in still dungeon air, not a gale. */
+const FLAG_WAVE_SPEED = 2.6;
+/**
+ * The top edge sways slightly less than the bottom, so the cloth's height breathes instead of the whole
+ * banner sliding up and down as a rigid block.
+ */
+const FLAG_WAVE_TOP_FACTOR = 0.82;
+
+/**
+ * Vertical offset of the cloth at `u` (0 at the pole, 1 at the free edge) for time `t`.
+ *
+ * Amplitude ramps as u^1.6: the pole end is pinned and barely moves, the far end throws the most — the same
+ * distribution a real banner shows, and what the reference footage does.
+ */
+function flagWaveOffset(u: number, t: number, phase: number, height: number): number {
+    const amplitude = height * FLAG_WAVE_AMPLITUDE * Math.pow(u, 1.6);
+    return amplitude * Math.sin(Math.PI * 2 * FLAG_WAVE_CYCLES * u - FLAG_WAVE_SPEED * t + phase);
 }
 interface StackPowerDrawState {
     power: number;
@@ -254,6 +303,8 @@ export class RenderableUnit extends Unit {
     private badgeFlag?: Graphics;
     private badgeText?: Text;
     private badgeDrawState?: BadgeDrawState;
+    /** Cached per-unit wave phase for the banner (see badgeFlagPhase). */
+    private badgeFlagPhaseValue?: number;
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
     private stackPowerDrawState?: StackPowerDrawState;
@@ -1483,8 +1534,7 @@ export class RenderableUnit extends Unit {
         // The plate spans the silhouette and the caption strip beneath it (screen-down = -y here).
         const top = pos.y + visualSide * 0.5 + cell * 0.1;
         const bottom = pos.y - visualSide * 0.5 - captionGap - fontSize;
-        const teamColor =
-            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : NO_TEAM_ROSTER_COLOR;
+        const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
         const previousDrawState = this.rosterCardDrawState;
         const needsRedraw =
             !previousDrawState ||
@@ -1530,6 +1580,82 @@ export class RenderableUnit extends Unit {
         if (this.rosterCard.zIndex !== zIndex) this.rosterCard.zIndex = zIndex;
         if (!this.rosterCard.visible) this.rosterCard.visible = true;
     }
+    /**
+     * A stable per-unit phase, so a board full of stacks doesn't wave as one synchronised wall of cloth.
+     * Hashed off the unit id rather than randomised, so a flag looks the same across a snapshot restore.
+     */
+    private badgeFlagPhase(): number {
+        if (this.badgeFlagPhaseValue === undefined) {
+            const id = this.getId();
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+            }
+            this.badgeFlagPhaseValue = ((hash % 1000) / 1000) * Math.PI * 2;
+        }
+        return this.badgeFlagPhaseValue;
+    }
+    /**
+     * Redraw the stack banner as cloth caught mid-wave.
+     *
+     * Runs every frame (the geometry it works from is cached — see BadgeDrawState.geometry), and the shape
+     * is rebuilt from sines of the clock, so the motion simply continues forever with no loop point to see.
+     *
+     * The pole and the number stay put: the pole is what the cloth is nailed to, and a stack count that
+     * bobbed around would be harder to read for no gain.
+     */
+    private drawBadgeFlag(flag: Graphics, g: BadgeFlagGeometry, teamColor: number): void {
+        const t = performance.now() / 1000;
+        const phase = this.badgeFlagPhase();
+        const span = g.bannerRight - g.bannerLeft;
+
+        const topY: number[] = [];
+        const bottomY: number[] = [];
+        const xs: number[] = [];
+        for (let i = 0; i <= FLAG_WAVE_SEGMENTS; i++) {
+            const u = i / FLAG_WAVE_SEGMENTS;
+            const offset = flagWaveOffset(u, t, phase, g.flagHeight);
+            xs.push(g.bannerLeft + span * u);
+            topY.push(g.bannerTop + offset * FLAG_WAVE_TOP_FACTOR);
+            bottomY.push(g.bannerBottom + offset);
+        }
+        const last = FLAG_WAVE_SEGMENTS;
+        // The swallowtail notch is cut into the free edge, so its tip rides whatever that edge is doing.
+        const notchTipY = (topY[last] + bottomY[last]) * 0.5;
+
+        // Traced twice — once to fill, once to outline — because a Graphics path is consumed by the op
+        // that closes it.
+        const trace = (): void => {
+            flag.moveTo(xs[0], topY[0]);
+            for (let i = 1; i <= last; i++) {
+                flag.lineTo(xs[i], topY[i]);
+            }
+            flag.lineTo(g.bannerRight - g.notchDepth, notchTipY);
+            for (let i = last; i >= 0; i--) {
+                flag.lineTo(xs[i], bottomY[i]);
+            }
+            flag.closePath();
+        };
+
+        flag.clear();
+        trace();
+        flag.fill({ color: teamColor, alpha: 0.96 });
+        trace();
+        flag.stroke({ width: g.borderWidth, color: g.borderColor, alpha: g.borderAlpha, join: "round" });
+
+        // The pole: rigid, and drawn after the cloth so the banner reads as hanging BEHIND it.
+        flag.moveTo(g.bannerLeft, g.bannerTop - 2)
+            .lineTo(g.bannerLeft, g.bannerBottom + 3)
+            .stroke({ width: g.poleWidth, color: 0x1b140f, alpha: 0.88, cap: "round" });
+
+        // Highlight along the top hem — it follows the wave, which is most of what sells the cloth as
+        // curved rather than as a rectangle sliding up and down.
+        flag.moveTo(xs[0] + 2, topY[0] + 2);
+        for (let i = 1; i <= last; i++) {
+            flag.lineTo(xs[i] - (i === last ? 2 : 0), topY[i] + 2);
+        }
+        flag.stroke({ width: 1, color: 0xffffff, alpha: 0.32, cap: "round" });
+    }
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!this.badgeContainer) {
             this.badgeContainer = new Container();
@@ -1563,8 +1689,7 @@ export class RenderableUnit extends Unit {
         // team-colored, with "?" standing in for the hidden stack size.
         const isRevealed = this.visualMode === "revealed";
         const label = isRevealed && amount <= 0 ? "?" : String(amount);
-        const teamColor =
-            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : NO_TEAM_ROSTER_COLOR;
+        const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
         const previousDrawState = this.badgeDrawState;
         const needsRedraw =
             !previousDrawState ||
@@ -1578,35 +1703,6 @@ export class RenderableUnit extends Unit {
             const flagHeight = Math.max(14, Math.floor(iconSide * 0.24));
             const flagWidth = Math.max(26, Math.floor(iconSide * 0.44), Math.ceil(label.length * fs * 0.62 + fs * 0.9));
             const notchDepth = Math.max(4, Math.floor(flagWidth * 0.15));
-            const bannerLeft = -flagWidth * 0.82;
-            const bannerRight = flagWidth * 0.18;
-            const bannerTop = -flagHeight * 0.5;
-            const bannerBottom = flagHeight * 0.5;
-            const borderWidth = this.isActiveTurn ? 1.75 : 1.25;
-            const borderColor = this.isActiveTurn ? 0xffffff : 0x000000;
-            const borderAlpha = this.isActiveTurn ? 1 : 0.58;
-
-            flag.clear();
-            flag.moveTo(bannerLeft, bannerTop)
-                .lineTo(bannerRight, bannerTop)
-                .lineTo(bannerRight - notchDepth, 0)
-                .lineTo(bannerRight, bannerBottom)
-                .lineTo(bannerLeft, bannerBottom)
-                .closePath()
-                .fill({ color: teamColor, alpha: 0.96 });
-            flag.moveTo(bannerLeft, bannerTop)
-                .lineTo(bannerRight, bannerTop)
-                .lineTo(bannerRight - notchDepth, 0)
-                .lineTo(bannerRight, bannerBottom)
-                .lineTo(bannerLeft, bannerBottom)
-                .closePath()
-                .stroke({ width: borderWidth, color: borderColor, alpha: borderAlpha, join: "round" });
-            flag.moveTo(bannerLeft, bannerTop - 2)
-                .lineTo(bannerLeft, bannerBottom + 3)
-                .stroke({ width: Math.max(1.5, iconSide * 0.024), color: 0x1b140f, alpha: 0.88, cap: "round" });
-            flag.moveTo(bannerLeft + 2, bannerTop + 2)
-                .lineTo(bannerRight - 2, bannerTop + 2)
-                .stroke({ width: 1, color: 0xffffff, alpha: 0.32, cap: "round" });
 
             text.style = new TextStyle({
                 fill: 0xffffff,
@@ -1616,9 +1712,30 @@ export class RenderableUnit extends Unit {
                 stroke: { color: 0x000000, width: 2, join: "round" },
             });
             text.text = label;
+            const bannerLeft = -flagWidth * 0.82;
             text.position.set(bannerLeft + (flagWidth - notchDepth) * 0.5, 0);
-            this.badgeDrawState = { iconSide, label, teamColor, isActiveTurn: this.isActiveTurn };
+            this.badgeDrawState = {
+                iconSide,
+                label,
+                teamColor,
+                isActiveTurn: this.isActiveTurn,
+                // Everything the per-frame cloth pass needs, resolved once here: only the wave changes
+                // between frames, so re-deriving the banner's size on every tick would be pure waste.
+                geometry: {
+                    bannerLeft,
+                    bannerRight: flagWidth * 0.18,
+                    bannerTop: -flagHeight * 0.5,
+                    bannerBottom: flagHeight * 0.5,
+                    notchDepth,
+                    flagHeight,
+                    poleWidth: Math.max(1.5, iconSide * 0.024),
+                    borderWidth: this.isActiveTurn ? 1.75 : 1.25,
+                    borderColor: this.isActiveTurn ? 0xffffff : 0x000000,
+                    borderAlpha: this.isActiveTurn ? 1 : 0.58,
+                },
+            };
         }
+        this.drawBadgeFlag(flag, this.badgeDrawState!.geometry, teamColor);
         // position top-right of stack (1×1 or 2×2)
         const w = iconSide * (props.size === 2 ? 2 : 1);
         const h = iconSide * (props.size === 2 ? 2 : 1);
@@ -2215,8 +2332,7 @@ export class RenderableUnit extends Unit {
 
         // Colors. Three-way, not LOWER/else: a teamless creature (the units overlay) has no side to
         // advertise, and falling through to red made every roster entry read as an enemy stack.
-        const teamColor =
-            props.team === TeamVals.LOWER ? 0x00d200 : props.team === TeamVals.UPPER ? 0xff0000 : NO_TEAM_ROSTER_COLOR;
+        const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
         const emptyColor = 0x222222; // Dark grey for empty slots
         const borderColor = 0x000000;
 

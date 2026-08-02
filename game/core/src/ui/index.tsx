@@ -266,6 +266,7 @@ const PickAndBanView: React.FC<{
                 </CssVarsProvider>
                 <StainedGlassWindow
                     userTeam={userTeam}
+                    gameId={gameId}
                     opponentLabel={
                         isMarkedVsAiGame(gameId)
                             ? (() => {

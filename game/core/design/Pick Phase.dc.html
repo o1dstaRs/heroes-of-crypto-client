@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-45d274ec-796b-416e-895a-c3220a8503de/styles.css">
+<script src="_ds/organic-45d274ec-796b-416e-895a-c3220a8503de/_ds_bundle.js"></script>
+<style>
+  html, body { background: #0b0d12; margin: 0; }
+  ::selection { background: rgba(220,177,88,.35); }
+  a { color: #dcb158; }
+  a:hover { color: #efe4cc; }
+  @keyframes hocBlink { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+</style>
+</helmet>
+<div style="zoom:0.9;min-height:100vh;background:radial-gradient(120% 80% at 50% 0%, #171a23 0%, #0b0d12 60%);color:#e9e6df;font-family:var(--font-body);padding:132px 40px 36px;max-width:1720px;margin:0 auto;width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:30px">
+
+  <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:20px;min-height:150px">
+    <h1 style="font-family:var(--font-body);font-size:62px;line-height:1;margin:0;color:#efe4cc;text-align:center">Pick a Level 1 creature</h1>
+    <div id="statpanel" style="display:none;position:absolute;top:-46px;left:50%;transform:translateX(-50%);width:min(1340px, 97vw);padding:40px;border-radius:34px;background:rgba(11,13,18,.98);border:2px solid rgba(159,182,212,.55);box-shadow:0 22px 60px rgba(0,0,0,.75), inset 0 0 0 6px rgba(159,182,212,.08);z-index:8;pointer-events:none;align-items:center;gap:26px;text-align:left;flex-wrap:wrap">
+      <img data-slot="art" src="assets/orc_128.webp" alt="" style="width:112px;height:112px;border-radius:999px;object-fit:cover;border:3px solid rgba(220,177,88,.75);flex:0 0 auto;display:block">
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:170px">
+        <span data-slot="name" style="font-size:30px;font-weight:700;color:#efe4cc">Orc</span>
+        <span data-slot="sub" style="font-size:17px;color:#9aa0ab">Level 1 · Chaos</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(112px, 1fr));gap:10px;flex:1 1 520px;min-width:0">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)"><svg viewBox="0 0 24 24" width="26" height="26" style="flex:0 0 auto" fill="none" stroke="#ff4d4d" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span data-slot="hp" style="font-size:23px;color:#efe4cc;white-space:nowrap">9/9</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)"><svg viewBox="0 0 24 24" width="26" height="26" style="flex:0 0 auto" fill="none" stroke="#c8ccd4" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg><span data-slot="atk" style="font-size:23px;color:#efe4cc;white-space:nowrap">11</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)"><svg viewBox="0 0 24 24" width="26" height="26" style="flex:0 0 auto" fill="none" stroke="#c8ccd4" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.67 8.95a1 1 0 0 1-.66-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg><span data-slot="arm" style="font-size:23px;color:#efe4cc;white-space:nowrap">9</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)"><svg viewBox="0 0 24 24" width="26" height="26" style="flex:0 0 auto" fill="none" stroke="#7fa8e8" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6.36 6.36 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg><span data-slot="spd" style="font-size:23px;color:#efe4cc;white-space:nowrap">4</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)"><svg viewBox="0 0 24 24" width="26" height="26" style="flex:0 0 auto" fill="none" stroke="#c8ccd4" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h4v-5h5v-5h5V6h4"/><path d="M14 3h7v7"/></svg><span data-slot="stp" style="font-size:23px;color:#efe4cc;white-space:nowrap">3</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)"><svg viewBox="0 0 24 24" width="26" height="26" style="flex:0 0 auto" fill="none" stroke="#dcb158" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 12h18"/><path d="M12 3v18"/></svg><span data-slot="siz" style="font-size:23px;color:#efe4cc;white-space:nowrap">1×1</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div onMouseOver="{{ hoverIn }}" onMouseOut="{{ hoverOut }}" style="display:flex;align-items:stretch;gap:22px;flex-wrap:wrap">
+    <div style="flex:1 1 560px;display:flex;align-items:center;gap:22px;padding:14px 22px;border-radius:26px;background:#171a23;border:2px solid rgba(255,255,255,.12)">
+      <span style="font-size:19px;font-weight:700;color:#dcb158;white-space:nowrap">Your army</span>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span style="height:63px;display:flex;align-items:center;padding:0 17px;border-radius:20px;border:2px solid rgba(220,177,88,.5);color:#e9e6df;font-size:18px;white-space:nowrap">Scout</span>
+        <span data-creature="Scavenger" data-locked="1" style="width:63px;height:63px;border-radius:18px;overflow:hidden;border:2px solid #dcb158;display:block"><img src="assets/scavenger_128.webp" alt="Scavenger" style="width:100%;height:100%;object-fit:cover;display:block"></span>
+        <span style="width:63px;height:63px;border-radius:18px;border:2px dashed rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;color:#7c8290">L1</span>
+        <span data-creature="Hyena" data-locked="1" style="width:63px;height:63px;border-radius:18px;overflow:hidden;border:2px solid #dcb158;display:block"><img src="assets/hyena_128.webp" alt="Hyena" style="width:100%;height:100%;object-fit:cover;display:block"></span>
+        <span style="width:63px;height:63px;border-radius:18px;border:2px dashed rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;color:#7c8290">L2</span>
+        <span style="width:63px;height:63px;border-radius:18px;border:2px dashed rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;color:#7c8290">L3</span>
+        <span style="width:63px;height:63px;border-radius:18px;border:2px dashed rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;color:#7c8290">L4</span>
+        <span style="width:2px;height:52px;background:rgba(255,255,255,.12);border-radius:2px"></span>
+        <span data-artifact="T1" style="width:63px;height:63px;border-radius:18px;overflow:hidden;border:2px solid #dcb158;display:block;background:#12151d"><img src="assets/artifact_t1_cursed_ward_256.webp" alt="T1" style="width:100%;height:100%;object-fit:contain;display:block"></span>
+        <span style="width:63px;height:63px;border-radius:18px;border:2px dashed rgba(220,177,88,.45);display:flex;align-items:center;justify-content:center;font-size:13px;letter-spacing:.06em;color:#7c8290">T2</span>
+      </div>
+    </div>
+
+    <div style="flex:1 1 420px;display:flex;align-items:center;gap:20px;padding:14px 22px;border-radius:26px;background:#241416;border:2px solid rgba(138,43,43,.6)">
+      <span style="font-size:19px;font-weight:700;color:#ff9d9d;white-space:nowrap">Opponent</span>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="width:54px;height:54px;border-radius:16px;border:2px dashed rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:20px;color:#7c8290">?</span>
+        <span style="width:54px;height:54px;border-radius:16px;border:2px solid rgba(220,177,88,.7);display:flex;align-items:center;justify-content:center;font-size:22px">👁</span>
+        <span data-creature="Wolf Rider" data-locked="1" style="width:54px;height:54px;border-radius:16px;overflow:hidden;border:2px solid #dcb158;display:block"><img src="assets/wolf_rider_128.webp" alt="Wolf Rider" style="width:100%;height:100%;object-fit:cover;display:block"></span>
+        <span style="width:54px;height:54px;border-radius:16px;border:2px dashed rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:20px;color:#7c8290">?</span>
+        <span style="width:54px;height:54px;border-radius:16px;border:2px dashed rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:20px;color:#7c8290">?</span>
+        <span style="width:54px;height:54px;border-radius:16px;border:2px solid rgba(220,177,88,.7);display:flex;align-items:center;justify-content:center;font-size:22px">👁</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="creature-grid" onClick="{{ pick }}" onMouseOver="{{ hoverIn }}" onMouseOut="{{ hoverOut }}" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:22px;align-items:start;padding:22px;border-radius:30px;background:rgba(255,255,255,.025);border:2px solid rgba(255,255,255,.1)">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+        <span style="font-size:16px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e0d3b0;white-space:nowrap">Life</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px">
+        <div data-creature="Blacksmith" data-locked="1" style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.5">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid #8a2b2b;background:#12151d">
+            <img src="assets/blacksmith_128.webp" alt="Blacksmith" style="width:100%;height:100%;object-fit:cover;display:block;filter:grayscale(1)">
+            <img src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#7c8290">Blacksmith</span><span style="display:flex;gap:5px;color:#7c8290;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </div>
+        <div data-creature="Squire" data-locked="1" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid #3b9b5c;background:#12151d;box-shadow:0 0 22px rgba(59,155,92,.45)">
+            <img src="assets/squire_128.webp" alt="Squire" style="width:100%;height:100%;object-fit:cover;display:block">
+            <span style="position:absolute;right:8px;bottom:6px;width:40px;height:40px;border-radius:999px;background:#3b9b5c;color:#04140a;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800">✓</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:700;color:#8ff0b4">Squire</span><span style="display:flex;gap:5px;color:#8ff0b4;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </div>
+        <div data-creature="Peasant" data-locked="1" style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.5">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid #8a2b2b;background:#12151d">
+            <img src="assets/peasant_128.webp" alt="Peasant" style="width:100%;height:100%;object-fit:cover;display:block;filter:grayscale(1)">
+            <img src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#7c8290">Peasant</span><span style="display:flex;gap:5px;color:#7c8290;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </div>
+        <button data-creature="Arbalester" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/arbalester_128.webp" alt="Arbalester" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Arbalester</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3h4v4"/><path d="M21 3 9 15"/><path d="M6 21a9 9 0 0 0 9-9"/><path d="M3 18a12 12 0 0 0 12-12"/></svg></span></div>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+        <span style="font-size:16px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#aebf92;white-space:nowrap">Nature</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px">
+        <button data-creature="Fairy" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/fairy_128.webp" alt="Fairy" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Fairy</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+        <button data-creature="Dryad" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/dryad_128.webp" alt="Dryad" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Dryad</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3h4v4"/><path d="M21 3 9 15"/><path d="M6 21a9 9 0 0 0 9-9"/><path d="M3 18a12 12 0 0 0 12-12"/></svg></span></div>
+        </button>
+        <div data-creature="Wolf" data-locked="1" style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.5">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid #8a2b2b;background:#12151d">
+            <img src="assets/wolf_128.webp" alt="Wolf" style="width:100%;height:100%;object-fit:cover;display:block;filter:grayscale(1)">
+            <img src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#7c8290">Wolf</span><span style="display:flex;gap:5px;color:#7c8290;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </div>
+        <button data-creature="Leprechaun" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/leprechaun_128.webp" alt="Leprechaun" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Leprechaun</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+        <span style="font-size:16px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e0a06a;white-space:nowrap">Chaos</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px">
+        <div data-creature="Scavenger" data-locked="1" style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.5">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid #8a2b2b;background:#12151d">
+            <img src="assets/scavenger_128.webp" alt="Scavenger" style="width:100%;height:100%;object-fit:cover;display:block;filter:grayscale(1)">
+            <img src="assets/x_mark_2_512.webp" alt="" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#7c8290">Scavenger</span><span style="display:flex;gap:5px;color:#7c8290;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </div>
+        <button data-creature="Orc" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/orc_128.webp" alt="Orc" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Orc</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3h4v4"/><path d="M21 3 9 15"/><path d="M6 21a9 9 0 0 0 9-9"/><path d="M3 18a12 12 0 0 0 12-12"/></svg></span></div>
+        </button>
+        <button data-creature="Troglodyte" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/troglodyte_128.webp" alt="Troglodyte" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Troglodyte</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+        <button data-creature="Ash Moth" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/ash_moth_128.webp" alt="Ash Moth" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Ash Moth</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+        <span style="font-size:16px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#9fb6d4;white-space:nowrap">Might</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px">
+        <button data-creature="Mermaid" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/mermaid_128.webp" alt="Mermaid" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Mermaid</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+        <button data-creature="Berserker" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/berserker_128.webp" alt="Berserker" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Berserker</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+        <button data-creature="Centaur" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/centaur_128.webp" alt="Centaur" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Centaur</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3h4v4"/><path d="M21 3 9 15"/><path d="M6 21a9 9 0 0 0 9-9"/><path d="M3 18a12 12 0 0 0 12-12"/></svg></span></div>
+        </button>
+        <button data-creature="Wolf Rider" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .12s ease" style-hover="transform:translateY(-5px)">
+          <div style="position:relative;width:100%;aspect-ratio:1;border-radius:20px;overflow:hidden;border:3px solid rgba(255,255,255,.18);background:#12151d">
+            <img src="assets/wolf_rider_128.webp" alt="Wolf Rider" style="width:100%;height:100%;object-fit:cover;display:block">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:600;color:#e9e6df">Wolf Rider</span><span style="display:flex;gap:5px;color:#9aa0ab;opacity:.85"><svg viewBox="0 0 24 24" width="18" height="18" style="flex:0 0 auto" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/></svg></span></div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:center">
+    <button onClick="{{ confirm }}" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:36px;padding:0 84px;min-height:132px;min-width:min(760px, 92%);border-radius:16px;background:{{ btnBg }};box-shadow:inset 0 0 0 3px {{ btnEdge }}, inset 0 2px 0 rgba(255,255,255,.35), inset 0 -12px 26px rgba(0,0,0,.28);color:#fff;font-family:var(--font-body);font-size:46px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 2px 0 rgba(0,0,0,.35);animation:hocBlink 1.4s ease-in-out infinite" style-hover="filter:brightness(1.12);animation:none" style-active="filter:brightness(.9)">
+      <span>{{ confirmLabel }}</span>
+      <span style="display:flex;align-items:center;padding-left:36px;border-left:2px solid rgba(255,255,255,.35);font-variant-numeric:tabular-nums;min-width:130px;justify-content:center;color:{{ clockColor }};text-shadow:{{ clockGlow }}">{{ clock }}</span>
+    </button>
+  </div>
+
+  <div style="margin-top:auto;display:flex;align-items:flex-start;gap:6px;padding:14px 22px;border-radius:24px;background:#12151d;border:2px solid rgba(255,255,255,.1)">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:rgba(59,155,92,.18);border:2px solid #3b9b5c;color:#8ff0b4">✓</div>
+      <span style="font-size:14px;font-weight:600;color:#8ff0b4;white-space:nowrap">Bundle</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#dcb158;border:2px solid #dcb158;color:#241a06">2</div>
+      <span style="font-size:14px;font-weight:600;color:#efe4cc;white-space:nowrap">Lvl 1</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#12151d;border:2px solid rgba(255,255,255,.12);color:#7c8290">3</div>
+      <span style="font-size:14px;font-weight:600;color:#7c8290;white-space:nowrap">Lvl 2</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#12151d;border:2px solid rgba(255,255,255,.12);color:#7c8290">4</div>
+      <span style="font-size:14px;font-weight:600;color:#7c8290;white-space:nowrap">Lvl 3</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#12151d;border:2px solid rgba(255,255,255,.12);color:#7c8290">5</div>
+      <span style="font-size:14px;font-weight:600;color:#7c8290;white-space:nowrap">Artifact 2</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#12151d;border:2px solid rgba(255,255,255,.12);color:#7c8290">6</div>
+      <span style="font-size:14px;font-weight:600;color:#7c8290;white-space:nowrap">Lvl 4</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#12151d;border:2px solid rgba(255,255,255,.12);color:#7c8290">7</div>
+      <span style="font-size:14px;font-weight:600;color:#7c8290;white-space:nowrap">Augments</span>
+    </div>
+    <span style="flex:1 1 auto;height:2px;min-width:14px;background:rgba(255,255,255,.14);margin:21px 0 0"></span>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 auto">
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:19px;background:#12151d;border:2px solid rgba(255,255,255,.12);color:#7c8290">8</div>
+      <span style="font-size:14px;font-weight:600;color:#7c8290;white-space:nowrap">Place</span>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;turnSeconds&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:58,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:10,&quot;max&quot;:120,&quot;unit&quot;:&quot;s&quot;,&quot;section&quot;:&quot;Draft&quot;},&quot;opponentTurn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Draft&quot;}}">
+const CREATURES = {
+  'Blacksmith': ['Life', 9, 9, 9, 2.5, 3.6],
+  'Squire': ['Life', 9, 8, 12, 4, 3.1],
+  'Peasant': ['Life', 8, 9, 7, 2, 4],
+  'Arbalester': ['Life', 9, 7, 8, 2, 3],
+  'Fairy': ['Nature', 7, 10, 8, 6.6, 8],
+  'Dryad': ['Nature', 9, 10, 8, 3.8, 4],
+  'Wolf': ['Nature', 10, 9, 8, 5.2, 3.8],
+  'Leprechaun': ['Nature', 8, 10, 9, 4, 3.4],
+  'Scavenger': ['Chaos', 9, 9, 9, 7, 4.3],
+  'Orc': ['Chaos', 9, 11, 9, 4, 3],
+  'Troglodyte': ['Chaos', 11, 12, 9, 5, 3],
+  'Ash Moth': ['Chaos', 6, 8, 7, 5.6, 7.5],
+  'Skeleton': ['Death', 8, 9, 10, 2, 3],
+  'Imp': ['Death', 7, 11, 11, 6, 6],
+  'Zombie': ['Death', 16, 9, 11, 1, 3.5],
+  'Mermaid': ['Might', 12, 11, 9, 5, 4.5],
+  'Berserker': ['Might', 14, 12, 10, 6, 5.1],
+  'Centaur': ['Might', 10, 11, 8, 3, 5.3],
+  'Wolf Rider': ['Might', 13, 12, 10, 7, 3.9],
+  'Hyena': ['Might', 26, 22, 19, 4, 4.3, 2],
+  'Nomad': ['Might', 24, 20, 17, 7.5, 5.2, 2]
+};
+
+class Component extends DCLogic {
+  state = { left: this.props.turnSeconds ?? 58, picked: 'Squire', confirmed: null };
+  componentDidMount() {
+    this.t = setInterval(() => this.setState(s => ({ left: s.left > 0 ? s.left - 1 : 0 })), 1000);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const l = this.state.left;
+    const opp = this.props.opponentTurn ?? false;
+    return {
+      btnBg: opp ? 'linear-gradient(180deg, #d1554a 0%, #a3322b 46%, #6e1f1a 100%)' : 'linear-gradient(180deg, #7ab86a 0%, #4e9450 46%, #2f6b3c 100%)',
+      btnEdge: opp ? 'rgba(255,205,195,.5)' : 'rgba(214,240,200,.55)',
+      clock: Math.floor(l / 60) + ':' + String(l % 60).padStart(2, '0'),
+      clockColor: l < 15 ? '#ff3b2f' : 'inherit',
+      clockGlow: l < 15 ? '0 0 18px rgba(255,59,47,.75)' : 'none',
+      confirmLabel: opp ? "Opponent's turn" : (this.state.confirmed ? this.state.confirmed + ' confirmed' : (this.state.picked ? 'Confirm ' + this.state.picked : 'Pick a creature')),
+      pick: (e) => {
+        if (this.props.opponentTurn) return;
+        const btn = e.target.closest('[data-creature]');
+        if (!btn || btn.dataset.locked) return;
+        const grid = btn.closest('#creature-grid');
+        grid.querySelectorAll('button[data-creature]:not([data-locked]) > div').forEach(f => {
+          f.style.borderColor = 'rgba(255,255,255,.18)';
+          f.style.boxShadow = 'none';
+        });
+        const frame = btn.querySelector('div');
+        frame.style.borderColor = '#dcb158';
+        frame.style.boxShadow = '0 0 22px rgba(220,177,88,.55)';
+        this.setState({ picked: btn.dataset.creature, confirmed: null });
+      },
+      hoverIn: (e) => {
+        const btn = e.target.closest('[data-creature]');
+        if (!btn) return;
+        const name = btn.dataset.creature;
+        const c = CREATURES[name];
+        if (!c) return;
+        const p = document.getElementById('statpanel');
+        const set = (k, v) => { const el = p.querySelector('[data-slot="' + k + '"]'); if (el) el.textContent = v; };
+        p.querySelector('[data-slot="art"]').src = 'assets/' + name.toLowerCase().replace(/ /g, '_') + '_128.webp';
+        set('name', name);
+        set('sub', 'Level ' + (c[6] || 1) + ' · ' + c[0]);
+        set('hp', c[1] + '/' + c[1]);
+        set('atk', c[2]);
+        set('arm', c[3]);
+        set('spd', c[4]);
+        set('stp', c[5]);
+        set('siz', '1×1');
+        p.style.display = 'flex';
+      },
+      hoverOut: (e) => {
+        const btn = e.target.closest('[data-creature]');
+        if (!btn || (e.relatedTarget && btn.contains(e.relatedTarget))) return;
+        document.getElementById('statpanel').style.display = 'none';
+      },
+      confirm: () => { if (this.state.picked) this.setState({ confirmed: this.state.picked }); }
+    };
+  }
+}
+
+</script>
+</body>
+</html>
