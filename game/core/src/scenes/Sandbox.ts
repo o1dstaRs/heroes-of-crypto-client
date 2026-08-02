@@ -336,6 +336,18 @@ interface PlacementBenchHitBox {
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
 
+/** How many single-cell mountains the Mountains board scatters over the neutral band. */
+const SCATTERED_MOUNTAIN_COUNT = 9;
+/** Height of that band, in rows, centred on the board: a 16-wide by 4-tall strip down the middle. */
+const SCATTERED_MOUNTAIN_BAND_ROWS = 4;
+/**
+ * Which of mountain_tiles_64_atlas's 32 variants every mountain wears.
+ *
+ * All nine deliberately share one for now. The atlas still carries the whole pool, so going back to a
+ * random draw is a one-line change (`variant: Math.floor(Math.random() * 6)` below).
+ */
+const SCATTERED_MOUNTAIN_FIXED_VARIANT = 2;
+
 /**
  * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
  * landing its hit, so consecutive victims always bleed one after another — never in the same frame.
@@ -719,6 +731,13 @@ export class Sandbox extends PixiScene {
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
         });
 
+        // The grid type is already decided by now (the scene may open ON the mountain board without anyone
+        // touching the map picker), and setGridType — the only other place that rolls — is not called for
+        // that opening choice. Without this the board came up with no scattered rock at all, which
+        // DungeonVisuals reads as "draw the old two-block mountain" instead, so the default map looked
+        // nothing like the same map picked by hand a moment later.
+        this.rollScatteredMountains();
+
         this.moveAnimManager = new MoveAnimationManager({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             updateSceneLog: (msg) => this.sc_sceneLog.updateLog(msg),
@@ -835,6 +854,9 @@ export class Sandbox extends PixiScene {
         // overrides resolveSceneLogTeamFlag() to "" since it rebuilds + prefixes its own log by unit id.
         this.sc_sceneLog.setTeamFlagResolver((line) => this.resolveSceneLogTeamFlag(line));
         this.refreshVisibleStateIfNeeded();
+        // Re-roll the rock every time the mountain board is picked — including picking it again after a
+        // detour through another map, which is the whole point of rolling here rather than once at startup.
+        this.rollScatteredMountains();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         this.placementManager = new PlacementManager(this.sc_sceneSettings.getGridSettings());
@@ -5197,6 +5219,56 @@ export class Sandbox extends PixiScene {
             this.sc_selectedUnitProperties = { ...unit.getUnitProperties() };
             this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
         }
+    }
+    /**
+     * Drop SCATTERED_MOUNTAIN_COUNT single-cell mountains at random over the neutral band, each wearing a
+     * random variant from the art pool. A no-op (and a full clear) on any board that is not Mountains.
+     *
+     * The band is derived from the placement zones rather than written down as row numbers: their height is
+     * a setting (3..6 rows) and an augment can raise it, so a hardcoded range would start dropping rock into
+     * someone's back line the moment either changed. Whatever neither team may stand on is fair game.
+     */
+    private rollScatteredMountains(): void {
+        const isMountains =
+            FightStateManager.getInstance().getFightProperties().getGridType() === GridVals.BLOCK_CENTER;
+        if (!isMountains) {
+            this.grid.setScatteredMountains([]);
+            this.dungeonVisuals?.setScatteredMountains([]);
+            return;
+        }
+        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width — a fixed strip rather than
+        // "wherever nobody may stand". Those are not the same: a height-3 placement zone is inset a column
+        // at each side and a row at the board edge, so the looser rule scattered rock down the flanks and
+        // along the very bottom, beside and behind the armies instead of in the empty middle.
+        //
+        // Fixed is also safe against the placement setting: the tallest zone is 6 rows, so twelve of the
+        // sixteen rows can belong to the armies at most and these four are neutral for every height.
+        const free: HoCMath.XY[] = [];
+        const size = GridConstants.GRID_SIZE;
+        const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
+        for (let x = 0; x < size; x++) {
+            for (let y = bandStart; y < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; y++) {
+                free.push({ x, y });
+            }
+        }
+        // Partial Fisher-Yates: the first N of a shuffled list are distinct by construction and uniformly
+        // drawn, which a "pick at random and retry on collision" loop is not once the band gets crowded.
+        const wanted = Math.min(SCATTERED_MOUNTAIN_COUNT, free.length);
+        for (let i = 0; i < wanted; i++) {
+            const j = i + Math.floor(Math.random() * (free.length - i));
+            const swap = free[i];
+            free[i] = free[j];
+            free[j] = swap;
+        }
+        const chosen = free.slice(0, wanted);
+        this.grid.setScatteredMountains(chosen);
+        this.dungeonVisuals?.setScatteredMountains(
+            chosen.map((cell) => ({
+                x: cell.x,
+                y: cell.y,
+                variant: SCATTERED_MOUNTAIN_FIXED_VARIANT,
+            })),
+        );
     }
     public override setGridType(gridType: GridType): void {
         super.setGridType(gridType);
