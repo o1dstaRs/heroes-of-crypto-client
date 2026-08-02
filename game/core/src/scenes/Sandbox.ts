@@ -1098,6 +1098,28 @@ export class Sandbox extends PixiScene {
                 this.renderResurrectionVfx(position, amount ?? 3);
                 return true;
             };
+            // Enchant (rune) pop, for label QA: "+N armor/attack" clipping is only visible rendered.
+            (w as { __hocEnchantVfxTest?: (total?: number, armor?: boolean) => boolean }).__hocEnchantVfxTest = (
+                total?: number,
+                armor?: boolean,
+            ) => {
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const iconTexture = this.texAny(armor ? "armor_rune_256" : "weapon_rune_256");
+                if (!iconTexture) {
+                    return false;
+                }
+                const units = [...this.unitsHolder.getAllUnits().values()];
+                const position =
+                    units[0]?.getPosition() ??
+                    GridMath.getPositionForCell({ x: 8, y: 8 }, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                this.combatVisuals?.spawnEnchantResult(position, gs.getCellSize(), {
+                    tint: armor ? 0x59b6ff : 0xff7a3c,
+                    iconTexture,
+                    label: `+${total ?? 2} ${armor ? "armor" : "attack"}`,
+                    success: true,
+                });
+                return true;
+            };
             // And for the melee death "cleave": tear the first placed unit along a CALLER-CHOSEN blow
             // direction (world dx/dy, attacker -> victim). Deterministic — it calls the cleave directly
             // rather than rolling the 50% dispatcher — so an automated run can screenshot the cut at a

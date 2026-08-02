@@ -2960,6 +2960,10 @@ export class CombatVisuals {
                 fill: opts.success ? "#8ef08a" : "#b8b8b8",
                 stroke: { color: opts.success ? "#123d10" : "#2a2a2a", width: 4 },
                 dropShadow: { color: "#000000", blur: 3, angle: Math.PI / 6, distance: 2 },
+                // The 900-weight glyph run + 4px stroke overhangs Pixi's measured text bounds and the
+                // texture crops the final glyph — "+2 attack" rendered as "+2 attac". Padding is Pixi's
+                // documented escape hatch for exactly this.
+                padding: 6,
             }),
         });
         label.anchor.set(0.5);
