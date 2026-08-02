@@ -20,7 +20,13 @@ const SEGMENT_NAME_TO_IMPORT_NAME = {
 };
 // stop.webp is intentionally registered (key "stop") — the on-unit / Alt-view / UpNext "stopped" (skip)
 // badge shown for Stun / Blindness / Freeze, replacing the old stun_256 corner icon.
-const EXCLUDED_IMAGE_FILES = new Set([]);
+const EXCLUDED_IMAGE_FILES = new Set([
+    "dungeon_volumetric_fog_v1.webp",
+    "dungeon_god_rays_v1.webp",
+    "dungeon_god_rays_v2.webp",
+    "background_stone_tiles_sinister_16x16_brown.webp",
+    "background_stone_tiles_lava.webp",
+]);
 
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 

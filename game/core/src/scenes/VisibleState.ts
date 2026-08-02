@@ -166,6 +166,9 @@ export interface IHoverInfo {
     // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
     // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.
     isHoveringAttackTarget?: boolean;
+    // The side the sword blade must point toward for a legal melee landing. The base asset points left;
+    // the cursor hook swaps in its mirrored partner when the target is to the attacker's right.
+    meleeCursorDirection?: "left" | "right";
 }
 
 export interface IWindowSize {

@@ -77,11 +77,12 @@ import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
-import { HoverManager } from "./HoverManager";
+import { HoverManager, meleeSwordTargetPoint } from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
+import { DungeonVfxLayer } from "./sandbox/DungeonVfxLayer";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
 import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
@@ -288,6 +289,10 @@ export const resolveMeleeAttackFromPointer = (params: {
     return params.resolveAttackFrom();
 };
 
+/** Horizontal sword facing for the resolved landing: the blade always points from attacker to target. */
+export const resolveMeleeCursorDirection = (attackFromX: number, targetX: number): "left" | "right" =>
+    targetX >= attackFromX ? "right" : "left";
+
 export type SceneActionEngine = Pick<GameActionEngine, "apply">;
 
 export interface SandboxSceneUnitState {
@@ -341,12 +346,10 @@ const SCATTERED_MOUNTAIN_COUNT = 9;
 /** Height of that band, in rows, centred on the board: a 16-wide by 4-tall strip down the middle. */
 const SCATTERED_MOUNTAIN_BAND_ROWS = 4;
 /**
- * Which of mountain_tiles_64_atlas's 32 variants every mountain wears.
- *
- * All nine deliberately share one for now. The atlas still carries the whole pool, so going back to a
- * random draw is a one-line change (`variant: Math.floor(Math.random() * 6)` below).
+ * How many distinct pieces the scattered-object atlas holds. Nine slots are filled from eight variants,
+ * so exactly one of them repeats each roll.
  */
-const SCATTERED_MOUNTAIN_FIXED_VARIANT = 2;
+const SCATTERED_MOUNTAIN_VARIANTS = 8;
 
 /**
  * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
@@ -688,6 +691,9 @@ export class Sandbox extends PixiScene {
     private fireWallAimOrientation: number = FireWallHelper.FireWallOrientation.HORIZONTAL;
     private windLayer?: WindLayer;
     private lightingLayer?: LightingLayer;
+    private dungeonAmbientLayer?: DungeonVfxLayer;
+    /** Same fog motion, masked to tombstone alpha and raised just above the stones. */
+    private dungeonTombstoneFogLayer?: DungeonVfxLayer;
     protected combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
     // Screen-shake state (e.g. Armageddon wave): offsets the world root with a decaying jitter.
@@ -730,6 +736,11 @@ export class Sandbox extends PixiScene {
             texAny: (n) => this.texAny(n),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
         });
+
+        // Shader-free floor ambience. These are ordinary transparent Pixi objects below terrain and units,
+        // so a WebGL/filter failure can never replace the board with the black stage again.
+        // Installed after the base scene is confirmed ready (see ensureDungeonAmbientLayer). Loading large
+        // VFX textures into the camera during its constructor can invalidate Pixi's first render pass.
 
         // The grid type is already decided by now (the scene may open ON the mountain board without anyone
         // touching the map picker), and setGridType — the only other place that rolls — is not called for
@@ -789,7 +800,8 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.lightingLayer.getContainer(), 950);
         // Starts off with the current floor, whose lighting is painted into the texture (see
         // setLegacyBoardBackground); it comes back the moment the legacy, unlit floor is selected.
-        this.lightingLayer.setEnabled(this.isLegacyBoardBackground());
+        // MoonlightLayer is the sole board light; legacy mode must not revive the orange corner braziers.
+        this.lightingLayer.setEnabled(false);
 
         this.combatVisuals = new CombatVisuals({
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
@@ -816,6 +828,7 @@ export class Sandbox extends PixiScene {
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
             texAny: (n) => this.texAny(n),
+            onProjectileFired: () => this.hoverManager.clearAttackVisuals(),
         });
 
         // Hole container init is now in DungeonVisuals
@@ -1027,9 +1040,11 @@ export class Sandbox extends PixiScene {
                 __hocGetLog?: () => string;
                 __hocVisibleState?: () => Record<string, unknown>;
                 __hocFloorLight?: () => Record<string, unknown>;
+                __hocAtmosphere?: () => Record<string, unknown>;
             };
             // Why the floor's firelight is not moving: see getFireLightDiagnostics.
             w.__hocFloorLight = () => this.dungeonVisuals.getFireLightDiagnostics();
+            w.__hocAtmosphere = () => this.dungeonAmbientLayer?.getDiagnostics() ?? { available: false };
             w.__hocSetAI = (active: boolean) => {
                 this.sc_isAIActive = active;
                 this.aiController.isAIActive = active;
@@ -2015,6 +2030,25 @@ export class Sandbox extends PixiScene {
     }
     private ensureBackgroundSprite(): void {
         this.dungeonVisuals.ensureBackgroundSprite();
+    }
+    /** Install the authored fog only after the camera owns a valid first render target. */
+    private ensureDungeonAmbientLayer(): void {
+        if (this.dungeonAmbientLayer) return;
+        const fog = this.texAny("dungeon_volumetric_fog_v2");
+        if (!fog || fog.width <= 1) return;
+        try {
+            this.dungeonAmbientLayer = new DungeonVfxLayer(this.sc_sceneSettings.getGridSettings(), fog);
+            this.attachToWorldRoot(this.dungeonAmbientLayer.getContainer(), 15);
+            this.dungeonTombstoneFogLayer = new DungeonVfxLayer(this.sc_sceneSettings.getGridSettings(), fog);
+            const tombstoneMask = this.dungeonVisuals.getScatteredMountainFogMask();
+            this.attachToWorldRoot(tombstoneMask, 51.49);
+            this.dungeonTombstoneFogLayer.getContainer().mask = tombstoneMask;
+            // Above every tombstone (50..51), below their HP bars (52+) and all units/gameplay UI.
+            this.attachToWorldRoot(this.dungeonTombstoneFogLayer.getContainer(), 51.5);
+        } catch (error) {
+            console.warn("Failed to install dungeon VFX layer", error);
+            return;
+        }
     }
     private layoutBackgroundSquare(): void {
         this.dungeonVisuals.layoutBackgroundSquare(this.atmosphereAlpha);
@@ -5262,12 +5296,24 @@ export class Sandbox extends PixiScene {
         }
         const chosen = free.slice(0, wanted);
         this.grid.setScatteredMountains(chosen);
+        // Every variant appears once, and the surplus slots are filled by random repeats. Drawing each slot
+        // independently at random would routinely show the same stone three times and leave others unused —
+        // with nine slots for eight variants, dealing the full set first is what guarantees the spread.
+        const deck: number[] = [];
+        for (let v = 0; v < SCATTERED_MOUNTAIN_VARIANTS; v++) {
+            deck.push(v);
+        }
+        while (deck.length < wanted) {
+            deck.push(Math.floor(Math.random() * SCATTERED_MOUNTAIN_VARIANTS));
+        }
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const swap = deck[i];
+            deck[i] = deck[j];
+            deck[j] = swap;
+        }
         this.dungeonVisuals?.setScatteredMountains(
-            chosen.map((cell) => ({
-                x: cell.x,
-                y: cell.y,
-                variant: SCATTERED_MOUNTAIN_FIXED_VARIANT,
-            })),
+            chosen.map((cell, index) => ({ x: cell.x, y: cell.y, variant: deck[index] })),
         );
     }
     public override setGridType(gridType: GridType): void {
@@ -5277,6 +5323,7 @@ export class Sandbox extends PixiScene {
         }
         FightStateManager.getInstance().getFightProperties().setGridType(gridType);
         this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
+        this.rollScatteredMountains();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         // Fresh terrain starts wet (un-dried) — reset the dried sprite state.
@@ -5698,7 +5745,19 @@ export class Sandbox extends PixiScene {
             }
             // A ranged shot whose line of sight is blocked by the mountain hits the mountain
             // instead of the enemy behind it (the hover step armed this).
-            if (this.hoverRangeAttackObstacle && this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)) {
+            const doubleShotContinuesThroughStone =
+                this.grid.hasScatteredMountains() &&
+                !!this.currentActiveUnit &&
+                !!(
+                    this.currentActiveUnit.getAbility("Double Shot") ??
+                    this.currentActiveUnit.getAbility("Crafted Double Shot")
+                ) &&
+                !!this.getUnitAtPosition(p);
+            if (
+                this.hoverRangeAttackObstacle &&
+                !doubleShotContinuesThroughStone &&
+                this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)
+            ) {
                 return;
             }
 
@@ -6544,10 +6603,13 @@ export class Sandbox extends PixiScene {
     ): { unit: RenderableUnit; attackType: AttackType; attackFrom?: HoCMath.XY } | undefined {
         const unit = this.currentActiveUnit;
         const fightProps = FightStateManager.getInstance().getFightProperties();
+        const obstacleHitsLeft = this.grid.hasScatteredMountains()
+            ? this.grid.getScatteredMountainsStanding().length
+            : fightProps.getObstacleHitsLeft();
         const kind = obstacleAttackKind({
             hasActiveUnit: !!unit,
             gridType: fightProps.getGridType(),
-            obstacleHitsLeft: fightProps.getObstacleHitsLeft(),
+            obstacleHitsLeft,
             isCenterCell: () => {
                 const hoveredCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), worldPos);
                 return (
@@ -6707,8 +6769,11 @@ export class Sandbox extends PixiScene {
         if (!hoveredCell) {
             return undefined;
         }
+        const standingCells = this.grid.getCenterCells();
         const mid = gs.getGridSize() >> 1;
-        const mountainCells = this.grid.getCenterCells().filter((c) => c.x >= mid === hoveredCell.x >= mid);
+        const mountainCells = this.grid.hasScatteredMountains()
+            ? standingCells.filter((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)
+            : standingCells.filter((c) => c.x >= mid === hoveredCell.x >= mid);
         if (!mountainCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
             return undefined;
         }
@@ -6720,7 +6785,7 @@ export class Sandbox extends PixiScene {
                 mountainCells,
                 unit.isSmallSize(),
                 unit.getAttackRange(),
-                false,
+                mountainCells.length === 1,
                 TeamVals.NO_TEAM,
                 targets.attackCellHashesToLargeCells,
             ) ?? undefined
@@ -7481,6 +7546,8 @@ export class Sandbox extends PixiScene {
     private updateObstacleHover(): boolean {
         // Clear any stale "Hit the mountain" state and report "not targeting the mountain".
         const notHovering = (): boolean => {
+            this.hoverManager.clearObstacleHighlight();
+            this.dungeonVisuals.clearScatteredMountainHighlight();
             if (this.sc_hoverInfoArr[0] === "Hit the mountain") {
                 this.sc_hoverInfoArr = [];
                 this.sc_hoverTextUpdateNeeded = true;
@@ -7502,7 +7569,10 @@ export class Sandbox extends PixiScene {
             return notHovering();
         }
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || fightProps.getObstacleHitsLeft() <= 0) {
+        const obstacleHitsLeft = this.grid.hasScatteredMountains()
+            ? this.grid.getScatteredMountainsStanding().length
+            : fightProps.getObstacleHitsLeft();
+        if (fightProps.getGridType() !== GridVals.BLOCK_CENTER || obstacleHitsLeft <= 0) {
             return notHovering();
         }
         const gs = this.sc_sceneSettings.getGridSettings();
@@ -7522,7 +7592,32 @@ export class Sandbox extends PixiScene {
         if (unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle) {
             this.hoverManager.hoverAttackFromCell = undefined;
             const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            this.hoverManager.drawAttackArrow(unit.getVisualCenter(gs), cellCenter);
+            const shotStart = unit.getVisualCenter(gs);
+            const intersections = this.grid.hasScatteredMountains()
+                ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
+                : [];
+            const hasDoubleShot = !!(unit.getAbility("Double Shot") ?? unit.getAbility("Crafted Double Shot"));
+            const projectileHits = intersections.slice(0, hasDoubleShot ? 2 : 1);
+            const actualHit = projectileHits.at(-1)?.position ?? cellCenter;
+            const reachesAimedStone = actualHit.x === cellCenter.x && actualHit.y === cellCenter.y;
+            this.hoverRangeAttackObstacle = projectileHits.at(-1);
+            this.hoverManager.drawAttackArrow(shotStart, actualHit, reachesAimedStone ? undefined : cellCenter);
+            this.hoverManager.highlightObstacles(
+                projectileHits.length ? projectileHits.map((obstacle) => obstacle.position) : [cellCenter],
+                gs.getCellSize(),
+                false,
+            );
+            if (this.grid.hasScatteredMountains()) {
+                this.hoverManager.clearObstacleHighlight();
+                this.dungeonVisuals.highlightScatteredMountains(
+                    projectileHits.length ? projectileHits.map((obstacle) => obstacle.position) : [cellCenter],
+                );
+            }
+            if (projectileHits.length > 1) {
+                this.sc_hoverInfoArr = ["Hit 2 tombstones"];
+                this.sc_hoverTextUpdateNeeded = true;
+                return true;
+            }
             showHit();
             return true;
         }
@@ -7538,7 +7633,13 @@ export class Sandbox extends PixiScene {
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
         if (attackFromPos) {
             this.hoverManager.updateHoverSilhouette(attackFromPos);
-            this.hoverManager.drawAttackArrow(attackFromPos, this.sc_mouseWorld);
+            this.hoverManager.drawAttackArrow(attackFromPos, this.sc_mouseWorld, undefined, undefined, "melee");
+        }
+        const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        if (this.grid.hasScatteredMountains()) {
+            this.dungeonVisuals.highlightScatteredMountains([cellCenter]);
+        } else {
+            this.hoverManager.highlightObstacle(cellCenter, gs.getCellSize());
         }
         showHit();
         return true;
@@ -9251,16 +9352,19 @@ export class Sandbox extends PixiScene {
      * while the board is idle.
      */
     public override setLegacyBoardBackground(enabled: boolean): void {
-        this.dungeonVisuals.setLegacyBackground(enabled);
+        // The legacy painting contains baked orange top/bottom light and conflicts with the new night +
+        // horror-moon direction. Keep the API for the toolbar, but always render the current dark floor.
+        void enabled;
+        this.dungeonVisuals.setLegacyBackground(false);
         this.ensureBackgroundSprite();
         this.layoutBackgroundSquare();
         // The current floor carries its own painted lighting, so the dungeon lighting pass is switched OFF
         // over it — the map is meant to be seen exactly as painted, and adding braziers and a darkening
         // layer on top only doubles the light at its edges. The legacy texture is unlit, so it keeps them.
-        this.lightingLayer?.setEnabled(enabled);
+        this.lightingLayer?.setEnabled(false);
     }
     public override isLegacyBoardBackground(): boolean {
-        return this.dungeonVisuals.isLegacyBackground();
+        return false;
     }
     /**
      * Toggle full AI control of a team (sandbox feature). When enabled the AIController auto-plays every
@@ -9326,6 +9430,13 @@ export class Sandbox extends PixiScene {
             this.clearBoardHoverPreviews();
             this.setHoveredSpell(undefined);
             this.emitLocalMoveIntent(undefined);
+            return;
+        }
+
+        // The projectile replaces the aiming preview once fired. Keep it cleared even if the pointer moves
+        // across the target during the short flight; otherwise hover() would draw the dashed line again.
+        if (this.rangedProjectiles.hasActive()) {
+            this.hoverManager.clearAttackVisuals();
             return;
         }
 
@@ -9456,7 +9567,7 @@ export class Sandbox extends PixiScene {
                 // the hover overlay on top would just stack).
                 if (
                     fightProps.hasFightStarted() &&
-                    hoverTargetUnit !== this.currentActiveUnit &&
+                    hoverTargetUnit.getId() !== this.currentActiveUnit?.getId() &&
                     hoverTargetUnit.canMove()
                 ) {
                     const movePath = this.pathHelper.getMovePath(
@@ -9940,17 +10051,25 @@ export class Sandbox extends PixiScene {
 
                         let arrowEndPos: HoCMath.XY | undefined;
 
-                        arrowEndPos = GridMath.getClosestSideCenter(
-                            this.grid.getMatrix(),
-                            gs,
-                            this.sc_mouseWorld,
-                            arrowStartPos,
-                            targetUnit.getPosition(),
-                            this.currentActiveUnit.isSmallSize(),
-                            targetUnit.isSmallSize(),
-                            this.currentActiveUnit.getTeam(),
-                            this.currentActiveUnit.hasAbilityActive("Through Shot"),
-                        );
+                        if (!isRangeAttackContext && attackFromPos) {
+                            arrowEndPos = meleeSwordTargetPoint(
+                                arrowStartPos,
+                                tVis,
+                                gs.getHalfStep() * (targetUnit.isSmallSize() ? 1 : 2),
+                            );
+                        } else {
+                            arrowEndPos = GridMath.getClosestSideCenter(
+                                this.grid.getMatrix(),
+                                gs,
+                                this.sc_mouseWorld,
+                                arrowStartPos,
+                                targetUnit.getPosition(),
+                                this.currentActiveUnit.isSmallSize(),
+                                targetUnit.isSmallSize(),
+                                this.currentActiveUnit.getTeam(),
+                                this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                            );
+                        }
 
                         // Fallback when getClosestSideCenter can't pick a side (e.g. the attacker is
                         // aligned with the target and the near cell reads blocked). Legacy drew no line
@@ -10399,6 +10518,7 @@ export class Sandbox extends PixiScene {
                         // attacker→target segment, isThroughShot=false, so a mountain BEHIND a reachable
                         // target doesn't trigger it).
                         let blockedByObstacle: IAttackObstacle | undefined;
+                        let doubleShotObstacleIntersections: IAttackObstacle[] = [];
                         if (isRangeAttackContext) {
                             const fp = FightStateManager.getInstance().getFightProperties();
                             if (fp.getGridType() === GridVals.BLOCK_CENTER && fp.getObstacleHitsLeft() > 0) {
@@ -10419,6 +10539,23 @@ export class Sandbox extends PixiScene {
                                     this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
                                         this.currentActiveUnit.hasAbilityActive("Area Throw"),
                                 ).attackObstacle;
+                                if (
+                                    blockedByObstacle &&
+                                    this.grid.hasScatteredMountains() &&
+                                    (this.currentActiveUnit.getAbility("Double Shot") ??
+                                        this.currentActiveUnit.getAbility("Crafted Double Shot"))
+                                ) {
+                                    doubleShotObstacleIntersections = this.attackHandler
+                                        .getObstacleIntersections(this.currentActiveUnit.getPosition(), arrowEndPos!)
+                                        .slice(0, 2);
+                                    // With one stone the bonus projectile reaches the creature. With two,
+                                    // the second stone consumes the second projectile and becomes the arrow
+                                    // endpoint; both intersections are highlighted below.
+                                    blockedByObstacle =
+                                        doubleShotObstacleIntersections.length >= 2
+                                            ? doubleShotObstacleIntersections[1]
+                                            : undefined;
+                                }
                             }
                         }
 
@@ -10435,16 +10572,37 @@ export class Sandbox extends PixiScene {
                                     ? this.resolveSmokeEntryPoint(arrowStartPos, blockedByObstacle.position)
                                     : undefined,
                             );
-                            this.hoverManager.highlightObstacle(
-                                blockedByObstacle.position,
-                                this.sc_sceneSettings.getGridSettings().getCellSize(),
-                            );
-                            this.sc_hoverInfoArr = ["Hit the mountain"];
+                            if (this.grid.hasScatteredMountains()) {
+                                this.hoverManager.clearObstacleHighlight();
+                                this.dungeonVisuals.highlightScatteredMountains(
+                                    (doubleShotObstacleIntersections.length
+                                        ? doubleShotObstacleIntersections
+                                        : [blockedByObstacle]
+                                    ).map((obstacle) => obstacle.position),
+                                );
+                            } else {
+                                this.hoverManager.highlightObstacle(
+                                    blockedByObstacle.position,
+                                    this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                );
+                            }
+                            this.sc_hoverInfoArr = [
+                                doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the mountain",
+                            ];
                             this.sc_hoverTextUpdateNeeded = true;
                             isAttacking = true;
                         } else {
                             // Moving onto a reachable (unblocked) target: drop any mountain-hit glow.
-                            this.hoverManager.clearObstacleHighlight();
+                            this.hoverRangeAttackObstacle = undefined;
+                            if (doubleShotObstacleIntersections.length > 0) {
+                                this.hoverManager.clearObstacleHighlight();
+                                this.dungeonVisuals.highlightScatteredMountains(
+                                    doubleShotObstacleIntersections.map((obstacle) => obstacle.position),
+                                );
+                            } else {
+                                this.hoverManager.clearObstacleHighlight();
+                                this.dungeonVisuals.clearScatteredMountainHighlight();
+                            }
                             this.hoverManager.drawDamagePrediction(
                                 dmgStr,
                                 killStr,
@@ -10457,6 +10615,7 @@ export class Sandbox extends PixiScene {
                                 tVis,
                                 undefined,
                                 isRangeAttackContext ? this.resolveSmokeEntryPoint(arrowStartPos, tVis) : undefined,
+                                isRangeAttackContext ? "arrow" : "melee",
                             );
                             isAttacking = true;
 
@@ -10664,17 +10823,33 @@ export class Sandbox extends PixiScene {
         // HoMM-style attack cursor (themed melee/ranged/magic PNG) only renders while actively aiming
         // at a valid target. Flag a hover-text refresh so UpdateHoverInfo re-emits this frame.
         const wasHoveringTarget = this.sc_isHoveringAttackTarget;
+        const previousMeleeCursorDirection = this.sc_meleeCursorDirection;
         // Mountains are attackable too, and they are not units, so hoverAttackTargetUnit never covers
         // them: aiming at a destructible centre showed the plain cursor even though the very next click
         // would chip it. hoverRangeAttackObstacle is the blocked-shot case -- the mountain intercepting a
         // shot aimed at someone behind it -- which is just as much an attack as aiming at the rock itself.
         const pointerMeleeAttack = this.resolveUnitMeleeAttack(p);
+        if (pointerMeleeAttack) {
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const attackFromPosition = GridMath.getPositionForCell(
+                pointerMeleeAttack.attackFrom,
+                gs.getMinX(),
+                gs.getStep(),
+                gs.getHalfStep(),
+            );
+            this.sc_meleeCursorDirection = resolveMeleeCursorDirection(attackFromPosition.x, p.x);
+        } else {
+            this.sc_meleeCursorDirection = undefined;
+        }
         this.sc_isHoveringAttackTarget =
             !!this.hoverManager.hoverAttackTargetUnit ||
             !!pointerMeleeAttack ||
             !!this.hoverRangeAttackObstacle ||
             this.isHoveringAttackableObstacle(p);
-        if (wasHoveringTarget !== this.sc_isHoveringAttackTarget) {
+        if (
+            wasHoveringTarget !== this.sc_isHoveringAttackTarget ||
+            previousMeleeCursorDirection !== this.sc_meleeCursorDirection
+        ) {
             this.sc_hoverTextUpdateNeeded = true;
         }
     }
@@ -11239,11 +11414,17 @@ export class Sandbox extends PixiScene {
         // ==========================================================================================
         // CORE GAME LOGIC
         // ==========================================================================================
-        // Brings the floor's own painted firelight to life (see FireLightFilter). Nothing moves — only how
-        // brightly the already-lit parts of the artwork burn. Deliberately OUTSIDE the fightStarted gate
-        // below: the board is on screen during placement too, and a floor that only starts breathing once
-        // the fight begins reads as broken for the whole time the player is arranging their army.
+        // The localized spill around the lava pool stays alive during placement as well as combat.
         this.dungeonVisuals.updateFireLight();
+        this.ensureDungeonAmbientLayer();
+        const showDungeonFog =
+            FightStateManager.getInstance().getFightProperties().getGridType() !== GridVals.LAVA_CENTER;
+        this.dungeonAmbientLayer?.setVisible(showDungeonFog);
+        this.dungeonTombstoneFogLayer?.setVisible(showDungeonFog);
+        if (showDungeonFog) {
+            this.dungeonAmbientLayer?.update();
+            this.dungeonTombstoneFogLayer?.update();
+        }
 
         if (fightStarted) {
             // Atmosphere Transition & Animation
@@ -11361,6 +11542,10 @@ export class Sandbox extends PixiScene {
                 );
             }
             this.lightingLayer?.update(timeStep);
+            // HoverManager owns animated combat previews (the flowing dashed ranged trajectory and
+            // pulsing hover accents). It previously advanced only in the pre-fight branch below, so once
+            // combat started the arrow was redrawn with a frozen phase and looked completely static.
+            this.hoverManager.update(timeStep);
 
             // --- C. AI LOGIC - delegate to AIController ---
             if (
@@ -12122,6 +12307,20 @@ export class Sandbox extends PixiScene {
                     shouldRefreshVisibleState = true;
                     break;
                 case "obstacle_attacked": {
+                    if (this.grid.hasScatteredMountains()) {
+                        const destroyedCell = GridMath.getCellForPosition(
+                            this.sc_sceneSettings.getGridSettings(),
+                            event.targetPosition,
+                        );
+                        if (destroyedCell) {
+                            this.grid.clearScatteredMountainAt(destroyedCell.x, destroyedCell.y);
+                            this.dungeonVisuals?.removeScatteredMountainAt(destroyedCell.x, destroyedCell.y);
+                            this.gridMatrix = this.grid.getMatrix();
+                            this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+                        }
+                        shouldRefreshVisibleState = true;
+                        break;
+                    }
                     // Reflect the recorded mountain damage authoritatively, so the center hit-bar drops
                     // during replay even though we don't re-run the strike through the engine.
                     // ensureCenterTerrainSprite() redraws the bar from this each frame, and hides a
@@ -12286,6 +12485,7 @@ export class Sandbox extends PixiScene {
             this.drawnNarrowingLaps.add(layer);
             this.moveFiresInward(layer);
         }
+        this.dungeonVisuals.setNarrowingLayers(layers);
     }
     /**
      * Reconcile the rendered map narrowing to an authoritative snapshot value. Idempotent
@@ -13171,15 +13371,37 @@ export class Sandbox extends PixiScene {
                 if (
                     this.currentActiveUnit.getAttackTypeSelection() !== AttackVals.MAGIC &&
                     mountainFightProps.getGridType() === GridVals.BLOCK_CENTER &&
-                    mountainFightProps.getObstacleHitsLeft() > 0 &&
+                    (this.grid.hasScatteredMountains()
+                        ? this.grid.getScatteredMountainsStanding().length > 0
+                        : mountainFightProps.getObstacleHitsLeft() > 0) &&
                     !(forcedMountainBlocker && !forcedMountainBlocker.isDead())
                 ) {
                     const gsMountain = this.sc_sceneSettings.getGridSettings();
-                    const midColumn = gsMountain.getGridSize() >> 1;
                     const centerCells = this.grid.getCenterCells();
                     const pseudoTargets: Unit[] = [];
                     const pseudoPositions = new Map<string, HoCMath.XY>();
+                    if (this.grid.hasScatteredMountains()) {
+                        for (const cell of centerCells) {
+                            const position = GridMath.getPositionForCell(
+                                cell,
+                                gsMountain.getMinX(),
+                                gsMountain.getStep(),
+                                gsMountain.getHalfStep(),
+                            );
+                            const id = `mountain:${cell.x}:${cell.y}`;
+                            pseudoTargets.push({
+                                getId: () => id,
+                                isSmallSize: () => true,
+                                getCells: () => [cell],
+                            } as unknown as Unit);
+                            pseudoPositions.set(id, position);
+                        }
+                    }
+                    const midColumn = gsMountain.getGridSize() >> 1;
                     for (const side of ["left", "right"] as const) {
+                        if (this.grid.hasScatteredMountains()) {
+                            break;
+                        }
                         const cells = centerCells.filter((c) => (side === "left" ? c.x < midColumn : c.x >= midColumn));
                         if (cells.length !== 4) {
                             continue; // this side is already destroyed

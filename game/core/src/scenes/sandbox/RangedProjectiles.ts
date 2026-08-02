@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 /**
@@ -16,6 +16,8 @@ import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 export interface IRangedProjectilesContext {
     getGridSettings(): GridSettings;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
+    /** Remove the stationary aiming preview as soon as a shot starts moving. */
+    onProjectileFired?: () => void;
     /**
      * Optional texture lookup. Vector projectiles are fine for geometric shapes (a bolt, a cannonball, the
      * chakram's ring), but an organic one — Trent's thorn-clawed vine — cannot be faithfully drawn with
@@ -92,8 +94,13 @@ const VINE_CAP = 0x5e2038;
 export class RangedProjectiles {
     private context: IRangedProjectilesContext;
     private projectiles: IProjectile[] = [];
+    private armorPiercingBoltTexture?: Texture;
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
+        void Assets.load<Texture>("/armor_piercing_bolt.png").then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.armorPiercingBoltTexture = texture;
+        });
     }
     public hasActive(): boolean {
         return this.projectiles.length > 0;
@@ -110,6 +117,7 @@ export class RangedProjectiles {
         }
     }
     public fire(opts: IFireProjectileOptions): Promise<void> {
+        this.context.onProjectileFired?.();
         const cell = this.context.getGridSettings().getCellSize();
         const from = { x: opts.from.x, y: opts.from.y };
         const to = { x: opts.to.x, y: opts.to.y };
@@ -135,7 +143,11 @@ export class RangedProjectiles {
                 cell,
                 chakram: !!opts.chakram,
                 vine: !!opts.vine,
-                sprite: opts.vine ? this.makeVineSprite(cell) : undefined,
+                sprite: opts.vine
+                    ? this.makeVineSprite(cell)
+                    : !opts.big && !opts.chakram
+                      ? this.makeArmorPiercingBoltSprite(cell)
+                      : undefined,
                 spin: 0,
                 resolve,
             };
@@ -199,6 +211,8 @@ export class RangedProjectiles {
                 .fill({ color: 0x2b2b2f, alpha: 1 })
                 .stroke({ width: Math.max(1, r * 0.14), color: 0x0a0a0c, alpha: 0.95 });
             g.circle(x - r * 0.34, y + r * 0.34, r * 0.18).fill({ color: 0xc8ccd4, alpha: 0.45 });
+        } else if (p.sprite) {
+            this.drawArmorPiercingBoltSprite(p, x, y);
         } else {
             const len = p.cell * BOLT_LEN_FACTOR;
             const half = len / 2;
@@ -224,6 +238,33 @@ export class RangedProjectiles {
                 .lineTo(tipX - headLen * Math.cos(p.angle + headAngle), tipY - headLen * Math.sin(p.angle + headAngle))
                 .stroke({ width: w, color: 0xfff2cc, alpha: 1 });
         }
+    }
+    private makeArmorPiercingBoltSprite(cell: number): Sprite | undefined {
+        if (!this.armorPiercingBoltTexture) return undefined;
+        const sprite = new Sprite(this.armorPiercingBoltTexture);
+        sprite.anchor.set(0.5);
+        const targetLength = cell * 0.82;
+        sprite.scale.set(targetLength / Math.max(1, this.armorPiercingBoltTexture.width));
+        return sprite;
+    }
+    private drawArmorPiercingBoltSprite(p: IProjectile, x: number, y: number): void {
+        const sprite = p.sprite!;
+        if (!sprite.parent) this.context.attachToWorldRoot(sprite, PROJECTILE_Z);
+        sprite.position.set(x, y);
+        // The source points right. The world root already flips Y for the screen, so using the world-space
+        // trajectory angle here keeps the bolt's point aimed at its destination in every quadrant.
+        sprite.rotation = p.angle;
+        sprite.visible = true;
+
+        // A short ember wake ties the dark sprite into the existing projectile effects without obscuring
+        // the new silhouette.
+        const ca = Math.cos(p.angle);
+        const sa = Math.sin(p.angle);
+        const trail = p.cell * 0.34;
+        p.g
+            .moveTo(x - ca * trail, y - sa * trail)
+            .lineTo(x - ca * trail * 1.9, y - sa * trail * 1.9)
+            .stroke({ width: Math.max(2, p.cell * 0.045), color: 0xff4a24, alpha: 0.42, cap: "round" });
     }
     /**
      * Zena's chakram: a spinning bronze ring with blade cut-outs, wrapped in the motion blur a disc thrown

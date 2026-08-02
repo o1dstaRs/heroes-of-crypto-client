@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { Container, Texture } from "pixi.js";
 import { FightStateManager, GridConstants, GridSettings, GridVals, HoCConstants } from "@heroesofcrypto/common";
 
-import { DungeonVisuals, getMountainHitBarLayout } from "./DungeonVisuals";
+import { DungeonVisuals, getMountainHitBarLayout, getScatteredMountainHitBarLayout } from "./DungeonVisuals";
 
 describe("mountain HP bar layout", () => {
     test.each([48, 96, 165])("stays inside the mountain base at a %ipx cell size", (cellSize) => {
@@ -14,6 +14,14 @@ describe("mountain HP bar layout", () => {
         expect(framedBottom).toBeLessThanOrEqual(cellSize * 0.9);
         expect(layout.gap).toBeGreaterThan(0);
         expect(layout.height).toBeGreaterThan(0);
+    });
+
+    test.each([48, 96, 165])("keeps a tombstone's one-hit pip compact at a %ipx cell size", (cellSize) => {
+        const layout = getScatteredMountainHitBarLayout(cellSize);
+
+        expect(layout.width).toBeLessThanOrEqual(cellSize * 0.36);
+        expect(layout.height).toBeLessThanOrEqual(cellSize * 0.09);
+        expect(layout.centerOffset + layout.height / 2).toBeLessThan(cellSize * 0.42);
     });
 });
 

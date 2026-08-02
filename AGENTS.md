@@ -147,3 +147,7 @@ Multiple agents run on this repo **at the same time**. Rules:
 - Stage and commit **only your own files** (`git add <paths>`, never `git add -A`); `git fetch` right before
   pushing. Expect your commit to land alongside others'. Verify with `bun test` (transpiles independently of a
   peer's in-progress `tsc` errors) rather than blocking on a shared `tsc`.
+
+## Imported Claude Cowork project instructions
+
+client + common packages for the heroes of crypto game

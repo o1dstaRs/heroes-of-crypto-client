@@ -142,35 +142,97 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         : 0;
     const countdownOverlay =
         countdown !== null ? (
-            <div
-                style={{
+            <Box
+                aria-hidden="true"
+                sx={{
                     position: "fixed",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "100vh",
-                    height: "100%",
-                    backgroundColor: "rgba(255, 0, 0, 0.2)",
-                    color: "#fff",
+                    inset: 0,
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
-                    zIndex: 0,
+                    background:
+                        "radial-gradient(circle at center, rgba(65, 8, 8, 0.08) 0%, rgba(28, 4, 4, 0.2) 50%, rgba(10, 2, 2, 0.48) 100%)",
+                    backdropFilter: "saturate(0.78)",
+                    zIndex: 1,
                     pointerEvents: "none",
+                    "@keyframes countdown-enter": {
+                        from: { opacity: 0, transform: "scale(1.1)" },
+                        to: { opacity: 1, transform: "scale(1)" },
+                    },
+                    "@keyframes countdown-ring": {
+                        "0%, 100%": { boxShadow: "0 0 34px rgba(255, 74, 58, 0.2)" },
+                        "50%": { boxShadow: "0 0 58px rgba(255, 74, 58, 0.38)" },
+                    },
                 }}
             >
-                <Typography
-                    fontSize="43vw"
-                    style={{
-                        lineHeight: 1,
-                        margin: 0,
-                        color: "white",
-                        opacity: 0.55,
+                <Box
+                    sx={{
+                        position: "relative",
+                        width: "clamp(150px, 18vw, 230px)",
+                        aspectRatio: "1",
+                        borderRadius: "50%",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid rgba(255, 184, 153, 0.5)",
+                        background:
+                            "radial-gradient(circle at 42% 35%, rgba(111, 24, 20, 0.82), rgba(31, 6, 7, 0.94) 72%)",
+                        boxShadow:
+                            "inset 0 0 0 7px rgba(255, 255, 255, 0.025), inset 0 0 42px rgba(255, 83, 64, 0.13), 0 0 34px rgba(255, 74, 58, 0.2), 0 18px 55px rgba(0, 0, 0, 0.48)",
+                        animation:
+                            "countdown-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1), countdown-ring 1s ease-in-out infinite",
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            inset: 9,
+                            borderRadius: "50%",
+                            border: "1px solid rgba(255, 212, 174, 0.18)",
+                        },
                     }}
                 >
-                    {countdown}
-                </Typography>
-            </div>
+                    <Typography
+                        level="body-xs"
+                        sx={{
+                            color: "rgba(255, 220, 198, 0.72)",
+                            fontSize: "clamp(0.58rem, 0.75vw, 0.72rem)",
+                            fontWeight: 700,
+                            letterSpacing: "0.32em",
+                            lineHeight: 1,
+                            ml: "0.32em",
+                            mb: 0.5,
+                        }}
+                    >
+                        TIME
+                    </Typography>
+                    <Typography
+                        sx={{
+                            color: "#fff7f2",
+                            fontSize: "clamp(4.6rem, 9vw, 7.5rem)",
+                            fontWeight: 300,
+                            fontVariantNumeric: "tabular-nums",
+                            lineHeight: 0.88,
+                            letterSpacing: "-0.06em",
+                            textShadow: "0 2px 18px rgba(255, 86, 64, 0.34)",
+                            mr: "0.06em",
+                        }}
+                    >
+                        {countdown}
+                    </Typography>
+                    <Typography
+                        level="body-xs"
+                        sx={{
+                            color: "rgba(255, 220, 198, 0.52)",
+                            fontSize: "clamp(0.52rem, 0.65vw, 0.65rem)",
+                            letterSpacing: "0.16em",
+                            lineHeight: 1,
+                            mt: 1,
+                        }}
+                    >
+                        SECONDS LEFT
+                    </Typography>
+                </Box>
+            </Box>
         ) : null;
 
     // --- CASE 1: Game NOT Started ---

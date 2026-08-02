@@ -53,6 +53,9 @@ function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
 }
 
 function cursorCss(mode: CursorMode): string {
+    // The board renders the directional sword itself. Keeping a second OS sword/arrow over it produces
+    // two competing markers, so the native cursor disappears for exactly the duration of a melee aim.
+    if (mode === "melee") return "none";
     const hot = CURSOR_HOTSPOT[mode];
     return `url('/cursors/cursor_${mode}.png') ${hot.x} ${hot.y}, auto`;
 }
@@ -76,9 +79,19 @@ export function useGameCursor(): void {
     });
 
     useEffect(() => {
-        document.body.style.cursor = cursorCss(resolveCursorMode(hoverInfo));
+        const mode = resolveCursorMode(hoverInfo);
+        document.body.style.cursor = cursorCss(mode);
+        let hiddenCursorStyle: HTMLStyleElement | undefined;
+        if (mode === "melee") {
+            // Child controls can declare their own cursor and override an inherited body value. The
+            // temporary rule guarantees that the system pointer stays hidden over every canvas layer.
+            hiddenCursorStyle = document.createElement("style");
+            hiddenCursorStyle.textContent = "body, body * { cursor: none !important; }";
+            document.head.appendChild(hiddenCursorStyle);
+        }
         return () => {
             document.body.style.cursor = "";
+            hiddenCursorStyle?.remove();
         };
     }, [hoverInfo]);
 }
