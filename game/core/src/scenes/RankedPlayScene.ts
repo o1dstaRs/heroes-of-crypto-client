@@ -568,6 +568,11 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // seeded (which already contains those deltas) and subtracted Cursed Ward again on every
                 // refreshUnits(), so one artifact read as -12/-18. Mirrors luck_authoritative below.
                 morale_authoritative: true,
+                // The snapshot's max_hp is likewise FINAL (Pendant of Vitality / Boost Health already folded
+                // in), and applyArtifacts() re-applies the pendant buff object on every refresh — without
+                // this flag adjustBaseStats boosted the already-boosted cap again (200-base Arachna Queen
+                // read 250/313: "army never at full HP").
+                max_hp_authoritative: true,
                 speed: unitState.speed || baseProperties.speed,
                 // Luck is the server's already-rolled effective value (incl. the per-turn spread and
                 // auras like Leprechaun's Luck Aura). luck_authoritative tells adjustBaseStats to keep
