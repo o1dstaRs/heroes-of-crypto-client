@@ -287,21 +287,15 @@ export class DungeonVisuals {
      * instead of a peak leaning into the one above.
      */
     private static readonly MOUNTAIN_HEIGHT_CELLS = 83 / 64;
-    /** Soft grounding beneath an occupied cell; enough to read as blocked without hiding the board art. */
-    private static readonly MOUNTAIN_CELL_SHADE = 0.2;
     /** One entry per standing mountain: which cell it occupies and which variant it wears. */
     private scatteredMountains: IScatteredMountain[] = [];
     /** Stays true after the final tombstone dies, so the removed classic mountains never become a fallback. */
     private scatteredMountainMode = false;
     private scatteredMountainSprites: Sprite[] = [];
-    /** Alpha-only copies used to reveal the elevated fog layer strictly over tombstone silhouettes. */
-    private readonly scatteredMountainFogMask = new Container();
     /** White alpha-silhouette rings per stone, exposed only while that stone is targeted. */
     private scatteredMountainOutlines: Container[] = [];
     private tombstoneWhiteFilter?: ColorMatrixFilter;
     private tombstoneColorFilter?: ColorMatrixFilter;
-    /** One shade per occupied cell, drawn under its stone. */
-    private scatteredMountainShades: Graphics[] = [];
     /** One single-pip HP rail per tombstone: every scattered stone takes exactly one hit. */
     private scatteredMountainHitBars: Graphics[] = [];
     private narrowingLayers = 0;
@@ -327,13 +321,9 @@ export class DungeonVisuals {
         this.context = context;
         this.holeContainer = new Container();
         this.holeContainer.sortableChildren = true;
-        this.scatteredMountainFogMask.eventMode = "none";
     }
     public getHoleContainer(): Container {
         return this.holeContainer;
-    }
-    public getScatteredMountainFogMask(): Container {
-        return this.scatteredMountainFogMask;
     }
     public clearHoleLayers(): void {
         this.holeContainer.removeChildren();
@@ -570,18 +560,11 @@ export class DungeonVisuals {
         for (const outline of this.scatteredMountainOutlines) {
             outline.destroy({ children: true });
         }
-        for (const shade of this.scatteredMountainShades) {
-            shade.destroy();
-        }
         for (const hitBar of this.scatteredMountainHitBars) {
             hitBar.destroy();
         }
-        for (const maskSprite of this.scatteredMountainFogMask.removeChildren()) {
-            maskSprite.destroy();
-        }
         this.scatteredMountainSprites = [];
         this.scatteredMountainOutlines = [];
-        this.scatteredMountainShades = [];
         this.scatteredMountainHitBars = [];
         const tiles = this.mountainTiles();
         if (!tiles?.length || !this.scatteredMountains.length) {
@@ -590,19 +573,19 @@ export class DungeonVisuals {
         const gs = this.context.getGridSettings();
         const cellSize = gs.getCellSize();
         if (!this.tombstoneWhiteFilter) {
-            this.tombstoneWhiteFilter = new ColorMatrixFilter();
+            this.tombstoneWhiteFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
             // Replace RGB with warm white while preserving the texture's alpha exactly. Sprite.tint cannot
             // do this: white tint merely multiplies the original dark stone and therefore stays dark.
             this.tombstoneWhiteFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.99, 0, 0, 0, 0, 0.95, 0, 0, 0, 1, 0];
         }
         if (!this.tombstoneColorFilter) {
-            this.tombstoneColorFilter = new ColorMatrixFilter();
-            // The atlas is painted almost black and the former cool-slate correction pushed it even closer
-            // to the blue floor. Warm the midtones towards the board's brown carved tiles and add a small
-            // lift per channel so every silhouette stays readable through the dungeon fog. Alpha remains
-            // untouched, preserving the authored chipped edges and transparent cut-outs.
+            this.tombstoneColorFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
+            // The atlas is painted almost black and disappears into this dark blue floor. Pull the channels
+            // towards neutral concrete and lift the whole value range, with only a faint warm cast so it
+            // still belongs beside the board's carved stone tiles. Alpha remains untouched, preserving the
+            // authored chipped edges and transparent cut-outs.
             this.tombstoneColorFilter.matrix = [
-                1.2, 0.08, 0.02, 0, 0.045, 0.05, 1.05, 0.02, 0, 0.03, 0.01, 0.04, 0.78, 0, 0.015, 0, 0, 0, 1, 0,
+                1.1, 0.04, 0.02, 0, 0.155, 0.03, 1.1, 0.02, 0, 0.15, 0.02, 0.04, 1.04, 0, 0.14, 0, 0, 0, 1, 0,
             ];
         }
         const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
@@ -610,24 +593,18 @@ export class DungeonVisuals {
         // the surplus puts its base exactly on the cell's bottom edge and every extra pixel above it.
         const riseUp = (drawnHeight - cellSize) * 0.5;
         for (const mountain of this.scatteredMountains) {
-            const tex = tiles[((mountain.variant % tiles.length) + tiles.length) % tiles.length];
+            const tileIndex = ((mountain.variant % tiles.length) + tiles.length) % tiles.length;
+            const tex = tiles[tileIndex];
             const at = GridMath.getPositionForCell(
                 { x: mountain.x, y: mountain.y },
                 gs.getMinX(),
                 gs.getStep(),
                 gs.getHalfStep(),
             );
-            // Shade the occupied square before the stone goes on it: an object standing on a cell throws
-            // the cell into shadow, and it also tells the player at a glance which square is taken — the
-            // silhouette alone is ambiguous once it leans into the row above.
-            const shade = new Graphics();
-            shade.rect(at.x - cellSize * 0.5, at.y - cellSize * 0.5, cellSize, cellSize);
-            shade.fill({ color: 0x000000, alpha: DungeonVisuals.MOUNTAIN_CELL_SHADE });
-            this.context.attachToWorldRoot(shade, 49);
-            this.scatteredMountainShades.push(shade);
 
             const sprite = new Sprite(tex);
             sprite.anchor.set(0.5);
+            sprite.roundPixels = true;
             sprite.x = at.x;
             // World Y grows upward (the world root carries the flip), so adding lifts the rock on screen.
             sprite.y = at.y + riseUp;
@@ -641,15 +618,6 @@ export class DungeonVisuals {
             const depth = (GridConstants.GRID_SIZE - 1 - mountain.y) / GridConstants.GRID_SIZE;
             this.context.attachToWorldRoot(sprite, 50 + depth);
             this.scatteredMountainSprites.push(sprite);
-
-            // The elevated fog is clipped by a texture-identical copy, so it crosses the authored stone
-            // contour (including chips and leaning tops) without fogging the empty parts of its cell.
-            const fogMaskSprite = new Sprite(tex);
-            fogMaskSprite.anchor.copyFrom(sprite.anchor);
-            fogMaskSprite.position.copyFrom(sprite.position);
-            fogMaskSprite.scale.copyFrom(sprite.scale);
-            fogMaskSprite.eventMode = "none";
-            this.scatteredMountainFogMask.addChild(fogMaskSprite);
 
             // Offset copies of the texture's own alpha silhouette leave only a thin rim visible behind
             // the opaque original. This follows every chipped/leaning edge in the atlas instead of drawing
@@ -675,6 +643,7 @@ export class DungeonVisuals {
                 for (const [dx, dy] of directions) {
                     const edge = new Sprite(tex);
                     edge.anchor.set(0.5);
+                    edge.roundPixels = true;
                     edge.position.set(sprite.x + dx * offset, sprite.y + dy * offset);
                     edge.scale.copyFrom(sprite.scale);
                     edge.filters = this.tombstoneWhiteFilter;
@@ -727,10 +696,6 @@ export class DungeonVisuals {
         this.scatteredMountains.forEach((mountain, index) => {
             const visible = this.isScatteredMountainActive(mountain);
             if (this.scatteredMountainSprites[index]) this.scatteredMountainSprites[index].visible = visible;
-            if (this.scatteredMountainFogMask.children[index]) {
-                this.scatteredMountainFogMask.children[index].visible = visible;
-            }
-            if (this.scatteredMountainShades[index]) this.scatteredMountainShades[index].visible = visible;
             if (this.scatteredMountainHitBars[index]) this.scatteredMountainHitBars[index].visible = visible;
             if (!visible && this.scatteredMountainOutlines[index]) {
                 this.scatteredMountainOutlines[index].visible = false;
@@ -1126,6 +1091,7 @@ export class DungeonVisuals {
             for (let col = 0; col < 2; col++) {
                 const sprite = new Sprite(quarters[row * 2 + col]);
                 sprite.anchor.set(0.5);
+                sprite.roundPixels = true;
                 sprite.scale.set(chunkW / (tex.width / 2), -(chunkH / (tex.height / 2)));
                 sprite.filters = this.tombstoneColorFilter;
                 const homeX = center.x + (col === 0 ? -1 : 1) * (chunkW * 0.5);

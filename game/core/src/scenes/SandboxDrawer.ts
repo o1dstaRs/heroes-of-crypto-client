@@ -79,6 +79,11 @@ export interface IGameplayDrawContext {
      * highlight red and draws a glowing red border around the board to signal it is not your turn.
      */
     enemyTurnView?: boolean;
+    /**
+     * Ground-level destination cells can be drawn separately from rings and targeting previews. This lets
+     * tall terrain (tombstones, mountains) occlude the cell sheet while shot lines remain above terrain.
+     */
+    movementGraphics?: Graphics;
 }
 
 export interface IPlacementDrawContext {
@@ -111,6 +116,7 @@ export class SandboxDrawer {
             hoveredUnitMoveRange,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
+        const movementGraphics = ctx.movementGraphics ?? g;
         // The unit whose turn is active always receives a neutral white movement preview. Team colours are
         // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
         const movementColor = 0xffffff;
@@ -122,7 +128,7 @@ export class SandboxDrawer {
         // 0. Placement/sandbox movement preview uses the same continuous sheet as live combat. Keeping
         // this on a separate dot renderer made the sandbox look like a different rules/UI mode.
         if (ctx.hoveredMoveRange && ctx.hoveredMoveRange.length > 0) {
-            SandboxDrawer.drawMovementArea(g, ctx.hoveredMoveRange, gs, movementColor, hoverGlowPhase);
+            SandboxDrawer.drawMovementArea(movementGraphics, ctx.hoveredMoveRange, gs, movementColor, hoverGlowPhase);
         }
 
         // 0. Hovered Unit Range (New Feature - Unified Visuals)
@@ -200,17 +206,30 @@ export class SandboxDrawer {
             SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
         }
 
-        // 2b. A hovered unit uses the same per-cell movement style. Team colour makes the inspection
-        // unambiguous without bringing back a separate ring/dot language: grey for an ally, red for an enemy.
-        if (hoveredUnitMoveRange && hoveredUnitMoveRange.length > 0 && !sc_isAnimating) {
-            const hoverMovementColor = ctx.hoveredUnitMoveRangeIsEnemy ? 0xff3b3b : 0x3d444b;
-            SandboxDrawer.drawMovementArea(g, hoveredUnitMoveRange, gs, hoverMovementColor, hoverGlowPhase, 1.18);
+        const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
+
+        // Enemy inspection stays underneath the active white cells, so it cannot recolour the current mover.
+        if (hasHoveredMovement && ctx.hoveredUnitMoveRangeIsEnemy) {
+            SandboxDrawer.drawMovementArea(movementGraphics, hoveredUnitMoveRange!, gs, 0xff3b3b, hoverGlowPhase);
         }
 
-        // 2c. Draw the active movement cells LAST. White is the authoritative "unit whose turn it is"
-        // colour and must win anywhere a hovered ally/enemy inspection range overlaps it.
+        // White is the authoritative "unit whose turn it is" colour over enemy inspection.
         if (currentActivePath && currentActiveUnit && !sc_isAnimating) {
-            SandboxDrawer.drawMovementArea(g, currentActivePath, gs, movementColor, hoverGlowPhase);
+            SandboxDrawer.drawMovementArea(movementGraphics, currentActivePath, gs, movementColor, hoverGlowPhase);
+        }
+
+        // An explicitly inspected ally needs a dark tile body plus a contrasting grey edge. A uniformly
+        // near-black low-alpha colour disappears into the floor and the green aura, as the screenshots show.
+        if (hasHoveredMovement && !ctx.hoveredUnitMoveRangeIsEnemy) {
+            SandboxDrawer.drawMovementArea(
+                movementGraphics,
+                hoveredUnitMoveRange!,
+                gs,
+                0x4d4d4d,
+                hoverGlowPhase,
+                1,
+                true,
+            );
         }
 
         // 3. Active unit indication is the pulsing light-wave aura rendered on the unit itself
@@ -239,6 +258,7 @@ export class SandboxDrawer {
         color: number,
         phase: number,
         intensity = 1,
+        allyInspection = false,
     ): void {
         if (!cells.length) return;
         const half = gs.getStep() * 0.5;
@@ -258,18 +278,18 @@ export class SandboxDrawer {
         for (const cell of cells) {
             const { left, right, bottom, top } = boundsFor(cell);
             g.roundRect(left, bottom, right - left, top - bottom, radius).fill({
-                color,
-                alpha: (0.052 + pulse * 0.018) * intensity,
+                color: allyInspection ? 0x11151a : color,
+                alpha: allyInspection ? 0.2 + pulse * 0.04 : (0.052 + pulse * 0.018) * intensity,
             });
             g.roundRect(left, bottom, right - left, top - bottom, radius).stroke({
                 width: Math.max(3, gs.getCellSize() * 0.055),
-                color,
-                alpha: (0.045 + pulse * 0.025) * intensity,
+                color: allyInspection ? 0x59616a : color,
+                alpha: allyInspection ? 0.2 + pulse * 0.05 : (0.045 + pulse * 0.025) * intensity,
             });
             g.roundRect(left, bottom, right - left, top - bottom, radius).stroke({
                 width: Math.max(1, gs.getCellSize() * 0.012),
-                color,
-                alpha: (0.16 + pulse * 0.06) * intensity,
+                color: allyInspection ? 0xa0a5ab : color,
+                alpha: allyInspection ? 0.5 + pulse * 0.12 : (0.16 + pulse * 0.06) * intensity,
             });
         }
     }

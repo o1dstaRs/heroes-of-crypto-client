@@ -703,6 +703,8 @@ export class Sandbox extends PixiScene {
     /** Guards the one-time prewarm of unit animation atlases once the fight has started. */
     private atlasesPrewarmed = false;
     private gameplayGraphics?: Graphics;
+    /** Reachable-cell sheet below tall terrain; rings and targeting previews stay in gameplayGraphics above it. */
+    private movementGraphics?: Graphics;
     /** Tracks whether the dynamic board-overlay buffer needs one final clear after it becomes idle. */
     private gameplayGraphicsHasGeometry = false;
     private currentActiveSpell?: PixiRenderableSpell;
@@ -736,8 +738,6 @@ export class Sandbox extends PixiScene {
     private windLayer?: WindLayer;
     private lightingLayer?: LightingLayer;
     private dungeonAmbientLayer?: DungeonVfxLayer;
-    /** Same fog motion, masked to tombstone alpha and raised just above the stones. */
-    private dungeonTombstoneFogLayer?: DungeonVfxLayer;
     protected combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
     // Screen-shake state (e.g. Armageddon wave): offsets the world root with a decaying jitter.
@@ -2014,6 +2014,7 @@ export class Sandbox extends PixiScene {
     }
     public override CameraChanged(): void {
         this.attachToWorldRoot(this.placementGraphics, 90);
+        this.attachToWorldRoot(this.movementGraphics, 49.5);
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
         this.dungeonVisuals.attachCenterTerrainSprite();
         this.hoverManager.onCameraChanged();
@@ -2105,12 +2106,6 @@ export class Sandbox extends PixiScene {
         try {
             this.dungeonAmbientLayer = new DungeonVfxLayer(this.sc_sceneSettings.getGridSettings(), fog);
             this.attachToWorldRoot(this.dungeonAmbientLayer.getContainer(), 15);
-            this.dungeonTombstoneFogLayer = new DungeonVfxLayer(this.sc_sceneSettings.getGridSettings(), fog);
-            const tombstoneMask = this.dungeonVisuals.getScatteredMountainFogMask();
-            this.attachToWorldRoot(tombstoneMask, 51.49);
-            this.dungeonTombstoneFogLayer.getContainer().mask = tombstoneMask;
-            // Above every tombstone (50..51), below their HP bars (52+) and all units/gameplay UI.
-            this.attachToWorldRoot(this.dungeonTombstoneFogLayer.getContainer(), 51.5);
         } catch (error) {
             console.warn("Failed to install dungeon VFX layer", error);
             return;
@@ -4656,6 +4651,7 @@ export class Sandbox extends PixiScene {
         this.attachToWorldRoot(this.placementGraphics, 90);
         // Holes
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
+        this.attachToWorldRoot(this.movementGraphics, 49.5);
         this.attachToWorldRoot(this.gameplayGraphics, 55);
         this.dungeonVisuals.attachCenterTerrainSprite();
         this.spellBookOverlay?.resize(w, h);
@@ -11406,7 +11402,12 @@ export class Sandbox extends PixiScene {
     // --- Animation State ---
     private ensureGameplayGraphics(): void {
         if (!this.gameplayGraphics) this.gameplayGraphics = new Graphics();
-        this.attachToWorldRoot(this.gameplayGraphics, 55); // Above terrain, below units
+        if (!this.movementGraphics) this.movementGraphics = new Graphics();
+        // Reachable-cell fills belong to the floor. Tombstones start at z=50, so their overhanging tops
+        // naturally cover the neighbouring-cell sheet instead of being cut by its bright frame.
+        this.attachToWorldRoot(this.movementGraphics, 49.5);
+        // Range rings, spell footprints and targeting previews still need to remain visible over terrain.
+        this.attachToWorldRoot(this.gameplayGraphics, 55);
     }
     private hasAnySceneUnits(): boolean {
         return this.unitsHolder.getAllUnits().size > 0;
@@ -11518,10 +11519,8 @@ export class Sandbox extends PixiScene {
         const showDungeonFog =
             FightStateManager.getInstance().getFightProperties().getGridType() !== GridVals.LAVA_CENTER;
         this.dungeonAmbientLayer?.setVisible(showDungeonFog);
-        this.dungeonTombstoneFogLayer?.setVisible(showDungeonFog);
         if (showDungeonFog) {
             this.dungeonAmbientLayer?.update();
-            this.dungeonTombstoneFogLayer?.update();
         }
 
         if (fightStarted) {
@@ -11720,6 +11719,8 @@ export class Sandbox extends PixiScene {
         }
     }
     private drawGameplayVisuals(g: Graphics): void {
+        // Movement cells have their own lower layer and are rebuilt with the rest of the dynamic overlay.
+        this.movementGraphics?.clear();
         if (!this.hasGameplayVisuals()) {
             if (this.gameplayGraphicsHasGeometry) {
                 g.clear();
@@ -11827,6 +11828,7 @@ export class Sandbox extends PixiScene {
             hoveredUnitMoveRange: this.sc_hoveredMoveRange,
             hoveredUnitMoveRangeIsEnemy: this.sc_hoveredMoveRangeIsEnemy,
             enemyTurnView: this.isEnemyActiveTurn(),
+            movementGraphics: this.movementGraphics,
         });
 
         // Craft (ALLIES_AREA) aim preview: while armed, highlight the 2x2 that a click would craft.
