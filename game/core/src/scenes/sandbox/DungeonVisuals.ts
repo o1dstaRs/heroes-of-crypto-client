@@ -580,12 +580,11 @@ export class DungeonVisuals {
         }
         if (!this.tombstoneColorFilter) {
             this.tombstoneColorFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
-            // The atlas is painted almost black and disappears into this dark blue floor. Pull the channels
-            // towards neutral concrete and lift the whole value range, with only a faint warm cast so it
-            // still belongs beside the board's carved stone tiles. Alpha remains untouched, preserving the
-            // authored chipped edges and transparent cut-outs.
+            // ASH treatment: lift the dark atlas into a cool slate-grey range, with progressively more blue
+            // in the shadows and midtones. The steeper response keeps carved recesses and chipped edges crisp
+            // instead of flattening the whole tombstone into one pale value. Alpha remains untouched.
             this.tombstoneColorFilter.matrix = [
-                1.1, 0.04, 0.02, 0, 0.155, 0.03, 1.1, 0.02, 0, 0.15, 0.02, 0.04, 1.04, 0, 0.14, 0, 0, 0, 1, 0,
+                1.16, 0.05, 0.02, 0, 0.105, 0.04, 1.17, 0.03, 0, 0.12, 0.03, 0.06, 1.18, 0, 0.15, 0, 0, 0, 1, 0,
             ];
         }
         const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
