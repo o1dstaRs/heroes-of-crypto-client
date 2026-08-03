@@ -597,9 +597,13 @@ export class DungeonVisuals {
         }
         if (!this.tombstoneColorFilter) {
             this.tombstoneColorFilter = new ColorMatrixFilter();
-            // Match the floor's cool slate, then raise the result by 10%: reduce the warm red cast, retain
-            // green detail and lift blue slightly. Alpha stays untouched, so authored contours do not change.
-            this.tombstoneColorFilter.matrix = [0.968, 0, 0, 0, 0, 0, 1.078, 0, 0, 0, 0, 0, 1.188, 0, 0, 0, 0, 0, 1, 0];
+            // The atlas is painted almost black and the former cool-slate correction pushed it even closer
+            // to the blue floor. Warm the midtones towards the board's brown carved tiles and add a small
+            // lift per channel so every silhouette stays readable through the dungeon fog. Alpha remains
+            // untouched, preserving the authored chipped edges and transparent cut-outs.
+            this.tombstoneColorFilter.matrix = [
+                1.2, 0.08, 0.02, 0, 0.045, 0.05, 1.05, 0.02, 0, 0.03, 0.01, 0.04, 0.78, 0, 0.015, 0, 0, 0, 1, 0,
+            ];
         }
         const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
         // Stand the rock on the cell's floor: the sprite is anchored at its middle, so lifting it by half
