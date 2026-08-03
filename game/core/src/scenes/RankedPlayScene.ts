@@ -56,6 +56,23 @@ import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { setViewerTeamForColors } from "./teamColors";
+import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
+
+export const isRankedAuthoritativeRecordAlreadyApplied = (
+    lastAppliedSequence: number,
+    stateAfter: unknown,
+): boolean => {
+    if (!stateAfter || typeof stateAfter !== "object") {
+        return false;
+    }
+    const latestSequence = (stateAfter as { latestSequence?: unknown }).latestSequence;
+    return (
+        typeof latestSequence === "number" &&
+        Number.isSafeInteger(latestSequence) &&
+        latestSequence >= 0 &&
+        latestSequence <= lastAppliedSequence
+    );
+};
 
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
@@ -1366,6 +1383,11 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
 
+        // Full ranked hydrates reset FightProperties, while the play snapshot carries no vine/fire-wall
+        // cells. Re-materialize those transient terrain stores from the authoritative journal BEFORE
+        // activating the unit: activation immediately computes the move/attack preview from these stores.
+        reconcileRankedTransientTerrain(FightStateManager.getInstance().getFightProperties(), snapshot.journalTail);
+
         const newActiveId = snapshot.currentUnitId || undefined;
         // Right after an OPPONENT action the server may reassert the same enemy unit as still-active
         // (e.g. a multi-action unit between its shots) before the turn changes hands. Re-running
@@ -1714,6 +1736,15 @@ export class RankedPlayScene extends Sandbox {
         stateAfter?: unknown,
     ): Promise<boolean> {
         const authoritativeSequence = this.isAuthoritativeSnapshot(stateAfter) ? stateAfter.latestSequence : undefined;
+        // A fallback poll can hydrate a newer snapshot before a delayed SSE record arrives. This is
+        // especially visible for server-AI turns, whose move + end-turn records are emitted only a few
+        // milliseconds apart: replaying the older move would first reset the unit to event.from, making it
+        // appear to teleport backward and walk a turn the board has already incorporated. Treat an action
+        // at/below the scene's applied high-water mark as already represented. Returning true also tells the
+        // caller not to destructively rebuild for the redundant record's snapshot.
+        if (isRankedAuthoritativeRecordAlreadyApplied(this.lastAuthoritativeSequence, stateAfter)) {
+            return Promise.resolve(true);
+        }
         if (authoritativeSequence !== undefined && this.playedAuthoritativeActionSequences.has(authoritativeSequence)) {
             return Promise.resolve(true);
         }
