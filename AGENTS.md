@@ -152,9 +152,11 @@ Multiple agents run on this repo **at the same time**. Rules:
 ## Game image assets
 
 - Runtime game images are canonical only in the Dropbox directory referenced by HOC_IMAGES_LOC
-  (normally /Users/zolotukhin/Dropbox/heroesofcrypto/images). Never add game art to game/core/public
+  (normally /Users/zolotukhin/Dropbox/heroesofcrypto/images). Animation atlases and metadata are canonical
+  only under HOC_ANIMATIONS_LOC/output (normally /Users/zolotukhin/Dropbox/heroesofcrypto/animations/output). Never add game art to game/core/public
   or another tracked game directory.
-- Store game images as compressed WebP files in Dropbox, run bun run --cwd game/core build:images,
+- Store static game images as compressed WebP files in the images Dropbox folder; store animation atlas
+  WebPs and *_meta.json files in the animations Dropbox output folder. Run bun run --cwd game/core build:images,
   and reference them through src/generated/image_imports.ts or texAny(). Do not hard-code public image
   URLs such as /textures/foo.webp or call Assets.load() with a public image path.
 - Run bun run check:images before pushing; CI rejects tracked images outside site/public.
