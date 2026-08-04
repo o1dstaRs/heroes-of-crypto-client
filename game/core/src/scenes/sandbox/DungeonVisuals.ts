@@ -1,4 +1,4 @@
-import { Container, Filter, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { ColorMatrixFilter, Container, Filter, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import {
     GridSettings,
     GridVals,
@@ -6,11 +6,11 @@ import {
     GridConstants,
     GridMath,
     HoCConstants,
+    HoCMath,
 } from "@heroesofcrypto/common";
 
 import { boardFitSize, boardFitVerticalShift } from "../../pixi/boardFit";
 import { createDungeonLightFilter, updateDungeonLightUniforms } from "./DungeonLightFilter";
-import { createFireLightFilter, updateFireLightUniforms } from "./FireLightFilter";
 
 export interface IDungeonVisualsContext {
     getStage(): Container;
@@ -40,6 +40,8 @@ interface IMountainChunk {
     spin: number;
     /** The chunk's center settles on this line (the mountain's base) after falling. */
     floorY: number;
+    /** Extra variant-specific pause after the common shudder, used for staged collapses. */
+    delayMs?: number;
 }
 
 interface IMountainDustPuff {
@@ -58,6 +60,20 @@ interface IMountainCollapse {
     dust: IMountainDustPuff[];
     startMs: number;
     lastStepMs: number;
+    shudderMs?: number;
+    gravityScale?: number;
+}
+
+interface ITombstoneCollapseProfile {
+    /** Per quarter (image order: top-left, top-right, bottom-left, bottom-right). */
+    vx: readonly [number, number, number, number];
+    vy: readonly [number, number, number, number];
+    spin: readonly [number, number, number, number];
+    delayMs: readonly [number, number, number, number];
+    gravityScale: number;
+    shudderMs: number;
+    dust: readonly [number, number];
+    dustCount: number;
 }
 
 // Tuning for the mountain-collapse animation: the 2x2 block shudders in place, cracks into its four
@@ -70,6 +86,94 @@ const MC_FADE_END_MS = 1350; // ...and are fully gone here
 const MC_GRAVITY_CELLS = 9; // world-units/s² pulling chunks down, in cell sizes
 const MC_BOUNCE = 0.35; // vertical velocity kept after crashing onto the base line
 const MC_DUST_COUNT = 12;
+
+/**
+ * Eight deliberately different silhouettes of motion, one per tombstone atlas tile:
+ * burst, left topple, right topple, crown-pop, heavy crumble, cross-split, spiral, and geyser.
+ * Values are expressed in cell widths/second (velocity) and radians/second (spin).
+ */
+const TOMBSTONE_COLLAPSE_PROFILES: readonly ITombstoneCollapseProfile[] = [
+    {
+        vx: [-0.9, 0.9, -0.55, 0.55],
+        vy: [1.15, 1.05, 0.38, 0.32],
+        spin: [-3.4, 3.2, -1.8, 1.7],
+        delayMs: [0, 0, 35, 35],
+        gravityScale: 1,
+        shudderMs: 170,
+        dust: [0x897761, 0x665847],
+        dustCount: 8,
+    },
+    {
+        vx: [-1.2, -0.78, -0.72, -0.38],
+        vy: [0.38, 0.62, 0.12, 0.2],
+        spin: [-4.5, -3.8, -2.2, -1.8],
+        delayMs: [0, 45, 110, 145],
+        gravityScale: 1.25,
+        shudderMs: 230,
+        dust: [0x766657, 0x51463c],
+        dustCount: 10,
+    },
+    {
+        vx: [0.78, 1.2, 0.38, 0.72],
+        vy: [0.62, 0.38, 0.2, 0.12],
+        spin: [3.8, 4.5, 1.8, 2.2],
+        delayMs: [45, 0, 145, 110],
+        gravityScale: 1.25,
+        shudderMs: 230,
+        dust: [0x82705d, 0x594a3c],
+        dustCount: 10,
+    },
+    {
+        vx: [-0.42, 0.42, -0.2, 0.2],
+        vy: [1.85, 1.72, 0.18, 0.16],
+        spin: [-5.6, 5.6, -0.7, 0.7],
+        delayMs: [0, 0, 190, 190],
+        gravityScale: 0.82,
+        shudderMs: 125,
+        dust: [0x9a8467, 0x6b5945],
+        dustCount: 7,
+    },
+    {
+        vx: [-0.24, 0.2, -0.12, 0.1],
+        vy: [0.2, 0.16, 0.06, 0.05],
+        spin: [-1.1, 0.9, -0.45, 0.4],
+        delayMs: [30, 105, 0, 165],
+        gravityScale: 1.7,
+        shudderMs: 310,
+        dust: [0x62584c, 0x403a33],
+        dustCount: 14,
+    },
+    {
+        vx: [-1.15, 1.15, 0.75, -0.75],
+        vy: [0.78, 0.78, 0.42, 0.42],
+        spin: [-2.8, 2.8, 3.3, -3.3],
+        delayMs: [0, 0, 95, 95],
+        gravityScale: 1.05,
+        shudderMs: 155,
+        dust: [0x8c745b, 0x5f4b39],
+        dustCount: 9,
+    },
+    {
+        vx: [-0.72, 0.56, -0.48, 0.78],
+        vy: [1.2, 0.92, 0.48, 0.66],
+        spin: [5.8, 5.2, 4.4, 4.9],
+        delayMs: [0, 55, 110, 165],
+        gravityScale: 0.92,
+        shudderMs: 135,
+        dust: [0x746b63, 0x4e4944],
+        dustCount: 8,
+    },
+    {
+        vx: [-0.34, 0.34, -0.62, 0.62],
+        vy: [2.15, 1.9, 1.35, 1.48],
+        spin: [-6.5, 6.5, -5.2, 5.2],
+        delayMs: [0, 70, 140, 210],
+        gravityScale: 0.72,
+        shudderMs: 95,
+        dust: [0x9b8b78, 0x6d5f50],
+        dustCount: 12,
+    },
+];
 
 // How many cells wide/tall each 2x2 BLOCK_CENTER mountain sprite is DRAWN. Deliberately larger than the
 // 2-cell collision footprint so the rock reads as a chunky block (the texture has transparent padding).
@@ -104,6 +208,14 @@ export const getMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout
     };
 };
 
+export const getScatteredMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout => ({
+    width: cellSize * 0.36,
+    height: Math.max(4, Math.round(cellSize * 0.045)),
+    gap: 0,
+    framePadding: Math.max(1, Math.round(cellSize * 0.01)),
+    centerOffset: cellSize * 0.36,
+});
+
 export class DungeonVisuals {
     private context: IDungeonVisualsContext;
     // State
@@ -124,6 +236,11 @@ export class DungeonVisuals {
     private dungeonOverlay?: Container;
     private holeContainer: Container;
     private bgSprite?: Sprite;
+    /** Screen-space fire spill around the animated 4x4 lava pool; kept below the world and units. */
+    private lavaFireLight?: Container;
+    private lavaFireLightBase?: Graphics;
+    private lavaFireLightGroups: Graphics[] = [];
+    private lavaFireLightTimeSec = 0;
     private centerTerrainSprite?: Sprite;
     // Second mountain sprite: BLOCK_CENTER draws two 2x2 mountains flanking a 2x2 corridor (this is the
     // right-hand one; centerTerrainSprite is the left). Hidden for lava/water (single sprite).
@@ -142,20 +259,23 @@ export class DungeonVisuals {
     /** Cached 2x2 quarter textures of the mountain sprite, built once per source texture. */
     private mountainQuarterTextures?: { source: Texture; quarters: Texture[] };
     /**
-     * The scattered-mountain art: 6 rocks in a 3x2 atlas of 64x83 tiles, cut out of their painted ground
-     * so only the rock itself is drawn — the board's own floor shows through around it, which is what makes
-     * a mountain read as an object standing on a cell rather than a square of scenery pasted over it.
+     * The scattered-object art: 8 tombstones in a 4x2 atlas of 64x83 tiles, cut out of their painted ground
+     * so only the stone itself is drawn — the board's own floor shows through around it, which is what makes
+     * one read as an object standing on a cell rather than a square of scenery pasted over it.
      *
-     * The cut is a filled SILHOUETTE, not a colour key: the rock's dark faces are as dark as the shadowed
-     * ground and its lit tops are as warm as the lit ground, so no threshold separates them. Detecting the
-     * outline and flooding the outside does, and then everything the outline encloses is rock.
+     * The cut is hand-made. Every automatic matte tried here failed the same way: the stone's dark faces are
+     * exactly as dark as the shadowed floor and its lit tops exactly as warm as the lit floor, so no
+     * threshold on brightness, warmth or distance-to-background separates them without eating the stone.
+     *
+     * Scaling MUST premultiply alpha (see setScatteredMountains' caller): under the transparent pixels the
+     * source still carries floor colour, and a plain resize blends it into the edge as a pale halo.
      */
-    private static readonly MOUNTAIN_TILES_KEY = "mountain_tiles_64_atlas";
+    private static readonly MOUNTAIN_TILES_KEY = "tombstone_tiles_64_atlas";
     /** One cell wide; taller than it is wide, and the surplus is the part that overhangs (see below). */
     private static readonly MOUNTAIN_TILE_W = 64;
     private static readonly MOUNTAIN_TILE_H = 83;
-    private static readonly MOUNTAIN_TILE_COLS = 3;
-    private static readonly MOUNTAIN_TILE_COUNT = 6;
+    private static readonly MOUNTAIN_TILE_COLS = 4;
+    private static readonly MOUNTAIN_TILE_COUNT = 8;
     private mountainTileTextures?: Texture[];
     /**
      * How tall the rock is drawn, in cells — and it must match the atlas tile's own aspect (64x83), which is
@@ -169,14 +289,21 @@ export class DungeonVisuals {
     private static readonly MOUNTAIN_HEIGHT_CELLS = 83 / 64;
     /** One entry per standing mountain: which cell it occupies and which variant it wears. */
     private scatteredMountains: IScatteredMountain[] = [];
+    /** Stays true after the final tombstone dies, so the removed classic mountains never become a fallback. */
+    private scatteredMountainMode = false;
     private scatteredMountainSprites: Sprite[] = [];
+    /** White alpha-silhouette rings per stone, exposed only while that stone is targeted. */
+    private scatteredMountainOutlines: Container[] = [];
+    private tombstoneWhiteFilter?: ColorMatrixFilter;
+    private tombstoneColorFilter?: ColorMatrixFilter;
+    /** One single-pip HP rail per tombstone: every scattered stone takes exactly one hit. */
+    private scatteredMountainHitBars: Graphics[] = [];
+    private narrowingLayers = 0;
     /**
      * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 5s loop at 12fps.
      *
-     * The artwork is one 4x4 block of cells, and its own tile lattice was resampled cell-by-cell onto exact
-     * 64px quarters when the atlas was built — so the animation's grout lines sit on the board's cell edges
-     * rather than merely near them. It replaces the still lava_256 on exactly the same sprite, which means
-     * the existing placement (dead centre, scaled to four cells) already puts it on the right squares.
+     * The artwork is one 4x4 block of cells. Its original, softly glowing grout stays inside one sprite;
+     * only the block's outer footprint is inset slightly so it does not touch the surrounding stone rim.
      *
      * The loop is closed with a cross-dissolve rather than a hard cut: measured, the wrap now differs by
      * 0.83/255 against 1.63 for an ordinary frame step, so the repeat is less of a change than the
@@ -187,6 +314,8 @@ export class DungeonVisuals {
     private static readonly LAVA_ANIM_COLS = 8;
     private static readonly LAVA_ANIM_FRAMES = 60;
     private static readonly LAVA_ANIM_FPS = 12;
+    /** Slightly inset inside the logical 4x4 obstacle; the atlas's original internal grout is preserved. */
+    private static readonly LAVA_POOL_DRAW_CELLS = 3.86;
     private lavaAnimFrames?: Texture[];
     public constructor(context: IDungeonVisualsContext) {
         this.context = context;
@@ -377,7 +506,42 @@ export class DungeonVisuals {
      * mountain is destroyed, never per frame, and nine sprites are far cheaper to recreate than to reconcile.
      */
     public setScatteredMountains(mountains: IScatteredMountain[]): void {
+        this.scatteredMountainMode = mountains.length > 0;
         this.scatteredMountains = mountains.map((m) => ({ ...m }));
+        this.rebuildScatteredMountainSprites();
+    }
+    public setNarrowingLayers(layers: number): void {
+        this.narrowingLayers = Math.max(0, layers);
+        this.syncScatteredMountainVisibility();
+    }
+    public highlightScatteredMountains(positions: readonly HoCMath.XY[]): void {
+        const gs = this.context.getGridSettings();
+        const targets = new Set(
+            positions.map((position) => {
+                const cell = GridMath.getCellForPosition(gs, position);
+                return cell ? `${cell.x}:${cell.y}` : "";
+            }),
+        );
+        this.scatteredMountainOutlines.forEach((outline, index) => {
+            const mountain = this.scatteredMountains[index];
+            outline.visible =
+                !!mountain && this.isScatteredMountainActive(mountain) && targets.has(`${mountain.x}:${mountain.y}`);
+        });
+    }
+    public clearScatteredMountainHighlight(): void {
+        for (const outline of this.scatteredMountainOutlines) outline.visible = false;
+    }
+    /** Remove one destroyed stone while retaining every survivor's assigned art variant. */
+    public removeScatteredMountainAt(x: number, y: number): void {
+        const destroyed = this.scatteredMountains.find((mountain) => mountain.x === x && mountain.y === y);
+        if (destroyed) {
+            this.spawnScatteredMountainCollapse(destroyed);
+        }
+        const next = this.scatteredMountains.filter((mountain) => mountain.x !== x || mountain.y !== y);
+        if (next.length === this.scatteredMountains.length) {
+            return;
+        }
+        this.scatteredMountains = next;
         this.rebuildScatteredMountainSprites();
     }
     /**
@@ -393,39 +557,152 @@ export class DungeonVisuals {
         for (const sprite of this.scatteredMountainSprites) {
             sprite.destroy();
         }
+        for (const outline of this.scatteredMountainOutlines) {
+            outline.destroy({ children: true });
+        }
+        for (const hitBar of this.scatteredMountainHitBars) {
+            hitBar.destroy();
+        }
         this.scatteredMountainSprites = [];
+        this.scatteredMountainOutlines = [];
+        this.scatteredMountainHitBars = [];
         const tiles = this.mountainTiles();
         if (!tiles?.length || !this.scatteredMountains.length) {
             return;
         }
         const gs = this.context.getGridSettings();
         const cellSize = gs.getCellSize();
+        if (!this.tombstoneWhiteFilter) {
+            this.tombstoneWhiteFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
+            // Replace RGB with warm white while preserving the texture's alpha exactly. Sprite.tint cannot
+            // do this: white tint merely multiplies the original dark stone and therefore stays dark.
+            this.tombstoneWhiteFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.99, 0, 0, 0, 0, 0.95, 0, 0, 0, 1, 0];
+        }
+        if (!this.tombstoneColorFilter) {
+            this.tombstoneColorFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
+            // ASH treatment: lift the dark atlas into a cool slate-grey range, with progressively more blue
+            // in the shadows and midtones. The steeper response keeps carved recesses and chipped edges crisp
+            // instead of flattening the whole tombstone into one pale value. Alpha remains untouched.
+            this.tombstoneColorFilter.matrix = [
+                1.16, 0.05, 0.02, 0, 0.105, 0.04, 1.17, 0.03, 0, 0.12, 0.03, 0.06, 1.18, 0, 0.15, 0, 0, 0, 1, 0,
+            ];
+        }
         const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
         // Stand the rock on the cell's floor: the sprite is anchored at its middle, so lifting it by half
         // the surplus puts its base exactly on the cell's bottom edge and every extra pixel above it.
         const riseUp = (drawnHeight - cellSize) * 0.5;
         for (const mountain of this.scatteredMountains) {
-            const tex = tiles[((mountain.variant % tiles.length) + tiles.length) % tiles.length];
+            const tileIndex = ((mountain.variant % tiles.length) + tiles.length) % tiles.length;
+            const tex = tiles[tileIndex];
             const at = GridMath.getPositionForCell(
                 { x: mountain.x, y: mountain.y },
                 gs.getMinX(),
                 gs.getStep(),
                 gs.getHalfStep(),
             );
+
             const sprite = new Sprite(tex);
             sprite.anchor.set(0.5);
+            sprite.roundPixels = true;
             sprite.x = at.x;
             // World Y grows upward (the world root carries the flip), so adding lifts the rock on screen.
             sprite.y = at.y + riseUp;
             // Width stays one cell; only the height is stretched. scale.y is negative because the world
             // root is y-flipped, exactly as the other terrain does.
             sprite.scale.set(cellSize / tex.width, -(drawnHeight / tex.height));
-            this.context.attachToWorldRoot(sprite, 50);
+            sprite.filters = this.tombstoneColorFilter;
+            // Depth order: a stone standing lower on the board is NEARER, so its overhanging top must cover
+            // the base of the one behind it. Cell y counts upward on screen, so a smaller y sorts in front.
+            // The offset stays inside one unit, which keeps every stone below whatever already sits at 51+.
+            const depth = (GridConstants.GRID_SIZE - 1 - mountain.y) / GridConstants.GRID_SIZE;
+            this.context.attachToWorldRoot(sprite, 50 + depth);
             this.scatteredMountainSprites.push(sprite);
+
+            // Offset copies of the texture's own alpha silhouette leave only a thin rim visible behind
+            // the opaque original. This follows every chipped/leaning edge in the atlas instead of drawing
+            // a square around the occupied cell.
+            const outline = new Container();
+            const directions = [
+                [-1, -1],
+                [0, -1],
+                [1, -1],
+                [-1, 0],
+                [1, 0],
+                [-1, 1],
+                [0, 1],
+                [1, 1],
+            ] as const;
+            // A broad, faint silhouette supplies the glow; a second tighter ring supplies the crisp
+            // selection line. The original opaque sprite is rendered immediately above both layers and
+            // hides their interiors, leaving only the texture's real alpha contour visible.
+            for (const { offset, alpha } of [
+                { offset: Math.max(1.5, cellSize * 0.024), alpha: 0.09 },
+                { offset: Math.max(0.35, cellSize * 0.004), alpha: 0.52 },
+            ]) {
+                for (const [dx, dy] of directions) {
+                    const edge = new Sprite(tex);
+                    edge.anchor.set(0.5);
+                    edge.roundPixels = true;
+                    edge.position.set(sprite.x + dx * offset, sprite.y + dy * offset);
+                    edge.scale.copyFrom(sprite.scale);
+                    edge.filters = this.tombstoneWhiteFilter;
+                    edge.alpha = alpha;
+                    outline.addChild(edge);
+                }
+            }
+            outline.visible = false;
+            this.context.attachToWorldRoot(outline, 50 + depth - 0.001);
+            this.scatteredMountainOutlines.push(outline);
+
+            // A single compact pip under the base communicates the whole durability model: one remaining
+            // segment means one hit to destroy. It stays close to the stone and reads as a HUD accent,
+            // rather than a second object occupying the cell.
+            const hitBar = new Graphics();
+            const hitBarLayout = getScatteredMountainHitBarLayout(cellSize);
+            const barW = hitBarLayout.width;
+            const barH = hitBarLayout.height;
+            const barX = at.x - barW * 0.5;
+            const barY = at.y - hitBarLayout.centerOffset - barH * 0.5;
+            const frame = hitBarLayout.framePadding;
+            const radius = Math.max(2, barH * 0.5);
+            hitBar
+                .roundRect(barX - frame, barY - frame, barW + frame * 2, barH + frame * 2, radius + frame)
+                .fill({ color: 0x080706, alpha: 0.9 })
+                .stroke({ width: 1, color: 0x9c7340, alpha: 0.88 });
+            hitBar
+                .roundRect(barX, barY, barW, barH, radius)
+                .fill({ color: 0xd75a32, alpha: 1 })
+                .stroke({ width: 1, color: 0xffad67, alpha: 0.95 });
+            hitBar
+                .roundRect(barX + frame, barY + barH * 0.55, barW - frame * 2, Math.max(1, barH * 0.2), radius)
+                .fill({ color: 0xffd08a, alpha: 0.38 });
+            hitBar.visible = FightStateManager.getInstance().getFightProperties().hasFightStarted();
+            this.context.attachToWorldRoot(hitBar, 52 + depth);
+            this.scatteredMountainHitBars.push(hitBar);
         }
+        this.syncScatteredMountainVisibility();
+    }
+    private isScatteredMountainActive(mountain: IScatteredMountain): boolean {
+        const size = this.context.getGridSettings().getGridSize();
+        return (
+            mountain.x >= this.narrowingLayers &&
+            mountain.y >= this.narrowingLayers &&
+            mountain.x < size - this.narrowingLayers &&
+            mountain.y < size - this.narrowingLayers
+        );
+    }
+    private syncScatteredMountainVisibility(): void {
+        this.scatteredMountains.forEach((mountain, index) => {
+            const visible = this.isScatteredMountainActive(mountain);
+            if (this.scatteredMountainSprites[index]) this.scatteredMountainSprites[index].visible = visible;
+            if (this.scatteredMountainHitBars[index]) this.scatteredMountainHitBars[index].visible = visible;
+            if (!visible && this.scatteredMountainOutlines[index]) {
+                this.scatteredMountainOutlines[index].visible = false;
+            }
+        });
     }
     public hasScatteredMountains(): boolean {
-        return this.scatteredMountains.length > 0;
+        return this.scatteredMountainMode;
     }
     public ensureCenterTerrainSprite(): void {
         // A layout that arrived before its atlas did has no sprites yet — build them the first frame the
@@ -434,10 +711,15 @@ export class DungeonVisuals {
         if (this.scatteredMountains.length && !this.scatteredMountainSprites.length) {
             this.rebuildScatteredMountainSprites();
         }
+        const scatteredBarsVisible = FightStateManager.getInstance().getFightProperties().hasFightStarted();
+        this.scatteredMountainHitBars.forEach((hitBar, index) => {
+            const mountain = this.scatteredMountains[index];
+            hitBar.visible = scatteredBarsVisible && !!mountain && this.isScatteredMountainActive(mountain);
+        });
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         // Runs BEFORE the both-mountains-destroyed early return below — the collapse of the final
         // mountain must still be detected and stepped after its sprite is hidden.
-        if (gridType === GridVals.BLOCK_CENTER) {
+        if (gridType === GridVals.BLOCK_CENTER && !this.scatteredMountainMode) {
             this.detectMountainCollapses();
         }
         this.stepMountainCollapses();
@@ -450,15 +732,15 @@ export class DungeonVisuals {
                 texKey = this.centerDried ? "water_dry_256" : "water_256";
                 break;
             case GridVals.LAVA_CENTER:
-                // Still art is the fallback only; the live pool is the animated atlas resolved below. It is
-                // drawn even on the floor that already has lava painted into it, because it covers exactly
-                // the same four-by-four block — so it replaces that paint rather than stacking on it.
+                // Still art is the fallback only; the live pool is the animated atlas resolved below. The
+                // common stone floor is shared with every other map, so this sprite is the only lava art.
                 texKey = this.centerDried ? "lava_frozen_256" : "lava_256";
                 break;
             case GridVals.BLOCK_CENTER:
-                // A scattered layout owns the rock entirely — its own per-cell sprites are already on the
-                // board, so the classic pair (and its HP bars) must stay off.
-                texKey = this.hasScatteredMountains() ? undefined : "mountain_432_412";
+                // Tombstones fully replace the old central mountain pair. In particular, an empty survivor
+                // list means every tombstone was destroyed — it must leave an empty board, not resurrect the
+                // retired mountain art as a non-interactive fallback.
+                texKey = undefined;
                 break;
             default:
                 texKey = undefined;
@@ -489,6 +771,10 @@ export class DungeonVisuals {
             return;
         }
 
+        const gs = this.context.getGridSettings();
+        const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
+        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
+
         if (!this.centerTerrainSprite) {
             this.centerTerrainSprite = new Sprite(tex);
             this.centerTerrainSprite.anchor.set(0.5);
@@ -501,9 +787,6 @@ export class DungeonVisuals {
             this.context.attachToWorldRoot(this.centerTerrainSprite, 50);
         }
 
-        const gs = this.context.getGridSettings();
-        const centerX = (gs.getMinX() + gs.getMaxX()) * 0.5;
-        const centerY = (gs.getMinY() + gs.getMaxY()) * 0.5;
         const cellSize = gs.getCellSize();
         const texW = tex.width || 1;
         const texH = tex.height || 1;
@@ -539,8 +822,10 @@ export class DungeonVisuals {
             this.centerTerrainSpriteB.y = right.y;
             this.centerTerrainSpriteB.visible = rightHits > 0;
         } else {
-            const targetW = cellSize * 4;
-            const targetH = cellSize * 4;
+            const drawCells =
+                gridType === GridVals.LAVA_CENTER && !this.centerDried ? DungeonVisuals.LAVA_POOL_DRAW_CELLS : 4;
+            const targetW = cellSize * drawCells;
+            const targetH = cellSize * drawCells;
             this.centerTerrainSprite.scale.set(targetW / texW, -(targetH / texH));
             this.centerTerrainSprite.x = centerX;
             this.centerTerrainSprite.y = centerY;
@@ -670,11 +955,19 @@ export class DungeonVisuals {
         }
         const halfW = tex.width / 2;
         const halfH = tex.height / 2;
+        // `tex` can itself be a frame inside the 4x2 tombstone atlas. Slice relative to that frame,
+        // otherwise every collapse samples atlas tile 0 even though the standing sprite and motion
+        // profile belong to another variant.
+        const frameX = tex.frame.x;
+        const frameY = tex.frame.y;
         const quarters: Texture[] = [];
         for (let row = 0; row < 2; row++) {
             for (let col = 0; col < 2; col++) {
                 quarters.push(
-                    new Texture({ source: tex.source, frame: new Rectangle(col * halfW, row * halfH, halfW, halfH) }),
+                    new Texture({
+                        source: tex.source,
+                        frame: new Rectangle(frameX + col * halfW, frameY + row * halfH, halfW, halfH),
+                    }),
                 );
             }
         }
@@ -763,6 +1056,92 @@ export class DungeonVisuals {
 
         this.activeCollapses.push({ container, chunks, dust, startMs: now, lastStepMs: now });
     }
+    /** Break a one-cell tombstone into four tumbling pieces and a short dust burst. */
+    private spawnScatteredMountainCollapse(mountain: IScatteredMountain): void {
+        const tiles = this.mountainTiles();
+        if (!tiles?.length) {
+            return;
+        }
+        const tex = tiles[((mountain.variant % tiles.length) + tiles.length) % tiles.length];
+        const profile =
+            TOMBSTONE_COLLAPSE_PROFILES[
+                ((mountain.variant % TOMBSTONE_COLLAPSE_PROFILES.length) + TOMBSTONE_COLLAPSE_PROFILES.length) %
+                    TOMBSTONE_COLLAPSE_PROFILES.length
+            ];
+        const gs = this.context.getGridSettings();
+        const cellSize = gs.getCellSize();
+        const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
+        const riseUp = (drawnHeight - cellSize) * 0.5;
+        const center = GridMath.getPositionForCell(
+            { x: mountain.x, y: mountain.y },
+            gs.getMinX(),
+            gs.getStep(),
+            gs.getHalfStep(),
+        );
+        center.y += riseUp;
+        const quarters = this.getMountainQuarterTextures(tex);
+        const chunkW = cellSize * 0.5;
+        const chunkH = drawnHeight * 0.5;
+        const container = new Container();
+        this.context.attachToWorldRoot(container, 53);
+        const now = performance.now();
+        const chunks: IMountainChunk[] = [];
+        for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 2; col++) {
+                const sprite = new Sprite(quarters[row * 2 + col]);
+                sprite.anchor.set(0.5);
+                sprite.roundPixels = true;
+                sprite.scale.set(chunkW / (tex.width / 2), -(chunkH / (tex.height / 2)));
+                sprite.filters = this.tombstoneColorFilter;
+                const homeX = center.x + (col === 0 ? -1 : 1) * (chunkW * 0.5);
+                const homeY = center.y + (row === 0 ? 1 : -1) * (chunkH * 0.5);
+                sprite.position.set(homeX, homeY);
+                container.addChild(sprite);
+                const index = row * 2 + col;
+                const jitter = 0.9 + 0.2 * Math.abs(Math.sin((index + 2) * 9.713));
+                chunks.push({
+                    sprite,
+                    homeX,
+                    homeY,
+                    vx: profile.vx[index] * cellSize * jitter,
+                    vy: profile.vy[index] * cellSize * jitter,
+                    spin: profile.spin[index] * jitter,
+                    floorY: center.y - drawnHeight * 0.5,
+                    delayMs: profile.delayMs[index],
+                });
+            }
+        }
+        const dust: IMountainDustPuff[] = [];
+        const dustCount = profile.dustCount;
+        for (let i = 0; i < dustCount; i++) {
+            const gfx = new Graphics();
+            const t = i / (dustCount - 1);
+            const radius = cellSize * (0.045 + 0.055 * Math.abs(Math.sin(i * 31.71)));
+            gfx.circle(0, 0, radius).fill({ color: profile.dust[i % profile.dust.length], alpha: 1 });
+            gfx.alpha = 0;
+            gfx.x = center.x - cellSize * 0.42 + cellSize * 0.84 * t;
+            gfx.y = center.y - drawnHeight * 0.5;
+            container.addChild(gfx);
+            dust.push({
+                gfx,
+                vx: (t - 0.5) * cellSize,
+                vy: cellSize * (0.28 + 0.38 * Math.abs(Math.sin(i * 17.3))),
+                lifeMs: 520 + 260 * Math.abs(Math.sin(i * 23.9)),
+                baseAlpha: 0.58,
+                baseRadius: radius,
+                bornMs: now + profile.shudderMs,
+            });
+        }
+        this.activeCollapses.push({
+            container,
+            chunks,
+            dust,
+            startMs: now,
+            lastStepMs: now,
+            shudderMs: profile.shudderMs,
+            gravityScale: profile.gravityScale,
+        });
+    }
     /** Advance every active collapse; called each frame from ensureCenterTerrainSprite. */
     private stepMountainCollapses(): void {
         if (!this.activeCollapses.length) {
@@ -770,7 +1149,6 @@ export class DungeonVisuals {
         }
         const now = performance.now();
         const cellSize = this.context.getGridSettings().getCellSize();
-        const gravity = -cellSize * MC_GRAVITY_CELLS;
         this.activeCollapses = this.activeCollapses.filter((collapse) => {
             const t = now - collapse.startMs;
             if (t >= MC_TOTAL_MS) {
@@ -780,14 +1158,16 @@ export class DungeonVisuals {
             // Clamped so a hitched frame (tab switch) doesn't teleport chunks through the floor.
             const dt = Math.min(0.05, (now - collapse.lastStepMs) / 1000);
             collapse.lastStepMs = now;
+            const shudderMs = collapse.shudderMs ?? MC_SHUDDER_MS;
+            const gravity = -cellSize * MC_GRAVITY_CELLS * (collapse.gravityScale ?? 1);
             const fade =
                 t <= MC_FADE_START_MS
                     ? 1
                     : Math.max(0, 1 - (t - MC_FADE_START_MS) / (MC_FADE_END_MS - MC_FADE_START_MS));
 
-            if (t < MC_SHUDDER_MS) {
+            if (t < shudderMs) {
                 // The assembled block trembles: all four quarters jitter around their home position.
-                const mag = cellSize * 0.035 * (t / MC_SHUDDER_MS);
+                const mag = cellSize * 0.035 * (t / shudderMs);
                 for (const [index, chunk] of collapse.chunks.entries()) {
                     chunk.sprite.x = chunk.homeX + Math.sin(now * 0.09 + index * 1.7) * mag;
                     chunk.sprite.y = chunk.homeY + Math.sin(now * 0.11 + index * 2.3) * mag;
@@ -796,6 +1176,12 @@ export class DungeonVisuals {
             }
 
             for (const chunk of collapse.chunks) {
+                if (t < shudderMs + (chunk.delayMs ?? 0)) {
+                    const mag = cellSize * 0.02;
+                    chunk.sprite.x = chunk.homeX + Math.sin(now * 0.08 + chunk.homeX) * mag;
+                    chunk.sprite.y = chunk.homeY + Math.sin(now * 0.1 + chunk.homeY) * mag;
+                    continue;
+                }
                 chunk.vy += gravity * dt;
                 chunk.sprite.x += chunk.vx * dt;
                 chunk.sprite.y += chunk.vy * dt;
@@ -833,15 +1219,11 @@ export class DungeonVisuals {
      * two side by side (see Sandbox.setLegacyBoardBackground). Drop the pair and inline the winner once the
      * comparison is settled.
      */
-    private static readonly BG_KEY_CURRENT = "background_stone_tiles";
+    private static readonly BG_KEY_CURRENT = "background_stone_tiles_sinister_16x16";
     private static readonly BG_KEY_LEGACY = "background_new";
-    /**
-     * The lava board gets its OWN painting rather than the plain floor plus a lava sprite: the artwork
-     * carries different lighting for it — the room reads darker and colder away from the pool, which a
-     * decal pasted onto the neutral floor cannot reproduce. The molten centre is painted into it, so the
-     * separate hot-lava sprite is suppressed while this floor is up (see ensureCenterTerrainSprite).
-     */
-    private static readonly BG_KEY_LAVA = "background_stone_tiles_lava";
+    /** The animated pool is 4x4; its warm spill reaches one more cell on every side, making a 6x6 area. */
+    private static readonly LAVA_LIGHT_AREA_CELLS = 6;
+    private static readonly FLOOR_SOURCE_TILE_PX = 128;
     /**
      * Squares painted across the current floor texture — exactly the board's own GRID_SIZE, so the map
      * shows 16x16 and nothing else. Keep this in step with the artwork: the sprite is sized from it, so one
@@ -849,19 +1231,10 @@ export class DungeonVisuals {
      */
     private static readonly FLOOR_TILES_ACROSS = GridConstants.GRID_SIZE;
     private useLegacyBackground = false;
-    /**
-     * Brings the floor's PAINTED lighting to life (see FireLightFilter). Only the current texture carries
-     * its own light, so the legacy floor never gets this pass — there would be nothing lit for it to work
-     * on, and the shader would find no warm texels to modulate anyway.
-     */
-    private fireLightFilter?: Filter;
-    private fireLightTimeSec = 0;
-    /** performance.now() at the previous tick; 0 until the first one. See updateFireLight for why. */
-    private fireLightLastMs = 0;
     /** Switch the floor painting. The next layoutBackgroundSquare re-reads the key and swaps the texture. */
     public setLegacyBackground(enabled: boolean): void {
         this.useLegacyBackground = enabled;
-        this.syncFireLightFilter();
+        this.clearExperimentalBackgroundFilters();
     }
     public isLegacyBackground(): boolean {
         return this.useLegacyBackground;
@@ -870,28 +1243,19 @@ export class DungeonVisuals {
         if (this.useLegacyBackground) {
             return DungeonVisuals.BG_KEY_LEGACY;
         }
-        return this.hasBakedLavaFloor() ? DungeonVisuals.BG_KEY_LAVA : DungeonVisuals.BG_KEY_CURRENT;
+        return DungeonVisuals.BG_KEY_CURRENT;
     }
-    /**
-     * True only when the lava board is being played AND its painting is actually present.
-     *
-     * The texture check is the whole point of asking rather than assuming: if the art is missing the board
-     * falls back to the plain floor with its lava sprite — the pre-existing look — instead of failing to
-     * draw a floor at all. layoutBackgroundSquare likewise only swaps when the texture resolves.
-     */
-    private hasBakedLavaFloor(): boolean {
-        if (this.useLegacyBackground) {
-            return false;
-        }
-        const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
-        if (gridType !== GridVals.LAVA_CENTER) {
-            return false;
-        }
-        return !!this.context.texAny(DungeonVisuals.BG_KEY_LAVA);
+    /** A missing optional painting must never leave the battle board transparent over the black stage. */
+    private backgroundTexture(): Texture | undefined {
+        return (
+            this.context.texAny(this.backgroundKey()) ??
+            this.context.texAny(DungeonVisuals.BG_KEY_CURRENT) ??
+            this.context.texAny(DungeonVisuals.BG_KEY_LEGACY)
+        );
     }
     public ensureBackgroundSprite(): void {
         if (this.bgSprite) return;
-        const tex = this.context.texAny(this.backgroundKey());
+        const tex = this.backgroundTexture();
         if (!tex) return;
 
         const bg = new Sprite(tex);
@@ -902,58 +1266,107 @@ export class DungeonVisuals {
         bg.zIndex = -20;
         stage.addChild(bg);
         this.bgSprite = bg;
-        this.syncFireLightFilter();
+        this.ensureLavaFireLight();
+        this.clearExperimentalBackgroundFilters();
         // We can call layout here if we want/can
     }
     /**
-     * Attach the fire-light pass to the floor sprite, or take it off for the unlit legacy texture.
-     *
-     * Built once and kept, so flipping the floor back and forth doesn't recompile the shader; if the
-     * shader failed to build at all the floor simply renders as painted, which is a perfectly good board.
+     * Build a smooth, shader-free fire spill. Many very translucent overlapping shapes produce a soft
+     * falloff without a BlurFilter, keeping this localized effect safe on the WebGL paths where full-floor
+     * filters previously rendered the board black.
      */
-    private syncFireLightFilter(): void {
+    private ensureLavaFireLight(): void {
+        if (this.lavaFireLight) return;
+
+        const root = new Container();
+        root.eventMode = "none";
+        root.visible = false;
+        root.zIndex = -18;
+
+        const tilePx = DungeonVisuals.FLOOR_SOURCE_TILE_PX;
+        const areaPx = DungeonVisuals.LAVA_LIGHT_AREA_CELLS * tilePx;
+        const spillPx = tilePx;
+        const base = new Graphics();
+        base.eventMode = "none";
+        base.blendMode = "add";
+
+        // Rounded-square distance-field approximation: the outer edge is deep ember, becoming amber where
+        // it touches the pool. Thirty-two sub-percent layers are visually continuous at any board scale.
+        const gradientLayers = 32;
+        for (let i = 0; i < gradientLayers; i++) {
+            const t = i / (gradientLayers - 1);
+            const inset = t * spillPx;
+            const side = areaPx - inset * 2;
+            const r = Math.round(0x66 + (0xff - 0x66) * t);
+            const g = Math.round(0x0d + (0x69 - 0x0d) * t);
+            const b = Math.round(0x02 + (0x12 - 0x02) * t);
+            const color = (r << 16) | (g << 8) | b;
+            const radius = (1 - t) * tilePx * 0.46 + t * tilePx * 0.12;
+            base.roundRect(inset, inset, side, side, radius).fill({
+                color,
+                alpha: 0.009 + t * 0.009,
+            });
+        }
+
+        const edgeGroups = Array.from({ length: 4 }, () => {
+            const group = new Graphics();
+            group.eventMode = "none";
+            group.blendMode = "add";
+            return group;
+        });
+        const innerEdge = tilePx;
+        const sourceOffsets = [1.5, 2.5, 3.5, 4.5].map((cell) => cell * tilePx);
+        const drawLobe = (gfx: Graphics, x: number, y: number, horizontal: boolean): void => {
+            const lobeLayers = 9;
+            for (let layer = 0; layer < lobeLayers; layer++) {
+                const t = layer / (lobeLayers - 1);
+                const longRadius = tilePx * (0.82 - t * 0.56);
+                const shortRadius = tilePx * (0.56 - t * 0.35);
+                gfx.ellipse(x, y, horizontal ? longRadius : shortRadius, horizontal ? shortRadius : longRadius).fill({
+                    color: t > 0.62 ? 0xff9a2a : 0xd73d08,
+                    alpha: 0.009 + t * 0.012,
+                });
+            }
+        };
+        for (const offset of sourceOffsets) {
+            drawLobe(edgeGroups[0], offset, innerEdge, true);
+            drawLobe(edgeGroups[1], offset, areaPx - innerEdge, true);
+            drawLobe(edgeGroups[2], innerEdge, offset, false);
+            drawLobe(edgeGroups[3], areaPx - innerEdge, offset, false);
+        }
+
+        root.addChild(base, ...edgeGroups);
+        const stage = this.context.getStage();
+        stage.sortableChildren = true;
+        stage.addChild(root);
+        this.lavaFireLight = root;
+        this.lavaFireLightBase = base;
+        this.lavaFireLightGroups = edgeGroups;
+    }
+    /** Keep the floor free of the retired full-screen filters that could turn it black on WebGL. */
+    private clearExperimentalBackgroundFilters(): void {
         const bg = this.bgSprite;
         if (!bg) {
             return;
         }
-        const wanted = !this.useLegacyBackground;
-        if (wanted && !this.fireLightFilter) {
-            this.fireLightFilter = createFireLightFilter();
-        }
-        const filter = this.fireLightFilter;
-        if (!filter) {
-            return;
-        }
-        const attached = Array.isArray(bg.filters) && bg.filters.includes(filter);
-        if (wanted && !attached) {
-            bg.filters = [filter];
-        } else if (!wanted && attached) {
-            bg.filters = [];
-        }
+        // Experimental full-floor light filters are intentionally disabled. One of them rendered the
+        // background texture as solid black on a fresh WebGL scene even though overlays remained visible.
+        bg.filters = [];
     }
     /**
-     * Advance the fire-light clock. Called every frame from the scene's render loop; nothing else in this
-     * layer is time-driven, so this is a no-op whenever the floor has no painted light to animate.
-     */
-    /**
-     * Live state of the floor's fire-light pass, for the dev console (window.__hocFloorLight).
-     *
-     * Exists because this effect is invisible when it fails: the floor still renders, just frozen, so
-     * there is nothing on screen to tell "the shader never built" apart from "the clock never ticks" or
-     * "the filter is not on the sprite". Each of those is a different bug and this names which one.
+     * Live state of the localized lava-light pass, for the dev console (window.__hocFloorLight).
      */
     public getFireLightDiagnostics(): Record<string, unknown> {
         const sprite = this.bgSprite;
         return {
             spriteExists: !!sprite,
-            shaderBuilt: !!this.fireLightFilter,
+            shaderBuilt: false,
             filtersOnSprite: Array.isArray(sprite?.filters) ? sprite.filters.length : 0,
-            filterAttached:
-                !!this.fireLightFilter && Array.isArray(sprite?.filters)
-                    ? sprite.filters.includes(this.fireLightFilter)
-                    : false,
+            filterAttached: false,
             legacyFloor: this.useLegacyBackground,
-            clockSeconds: Number(this.fireLightTimeSec.toFixed(2)),
+            lavaFireLightVisible: !!this.lavaFireLight?.visible,
+            lavaFireLightGroups: this.lavaFireLightGroups.length,
+            clockSeconds: Number(this.lavaFireLightTimeSec.toFixed(2)),
         };
     }
     /**
@@ -970,24 +1383,27 @@ export class DungeonVisuals {
      * stamp per frame) keeps that from multiplying the speed by the number of substeps.
      */
     public updateFireLight(): void {
-        if (!this.fireLightFilter || this.useLegacyBackground) {
-            return;
+        const root = this.lavaFireLight;
+        const base = this.lavaFireLightBase;
+        if (!root || !base || !root.visible) return;
+
+        // Fire has a common body plus faster, slightly independent edge flicker. The source never blinks
+        // out and no single clean sine dominates, so the pool feels hot rather than electrically pulsed.
+        const t = performance.now() / 1000;
+        this.lavaFireLightTimeSec = t;
+        const body = Math.max(
+            0.45,
+            Math.min(
+                1,
+                0.76 + Math.sin(t * 3.7) * 0.09 + Math.sin(t * 7.9 + 1.1) * 0.065 + Math.sin(t * 15.3 + 2.7) * 0.035,
+            ),
+        );
+        root.alpha = 0.62 + body * 0.14;
+        base.alpha = 0.7 + body * 0.12;
+        for (let i = 0; i < this.lavaFireLightGroups.length; i++) {
+            const edge = Math.sin(t * (5.8 + i * 0.77) + i * 1.63) * 0.12;
+            this.lavaFireLightGroups[i].alpha = Math.max(0.48, Math.min(0.86, 0.62 + body * 0.16 + edge * 0.6));
         }
-        const nowMs = performance.now();
-        if (this.fireLightLastMs === 0) {
-            this.fireLightLastMs = nowMs;
-        }
-        // Clamped exactly like the sim loop clamps its own dt: a backgrounded tab resumes with a huge gap,
-        // and letting that through would jump the flame instead of continuing it.
-        const dt = Math.min(Math.max((nowMs - this.fireLightLastMs) / 1000, 0), 0.1);
-        this.fireLightLastMs = nowMs;
-        this.fireLightTimeSec += dt;
-        // Keep the value small enough that a 32-bit float still resolves the fast octaves. Wrapping costs
-        // one imperceptible reseed of the noise per ~3h session; drifting into float mush costs the flicker.
-        if (this.fireLightTimeSec > 10000) {
-            this.fireLightTimeSec -= 10000;
-        }
-        updateFireLightUniforms(this.fireLightFilter, this.fireLightTimeSec, 1);
     }
     public layoutBackgroundSquare(alpha: number): void {
         if (!this.bgSprite) return;
@@ -1013,10 +1429,22 @@ export class DungeonVisuals {
             this.bgSprite.height = size;
         }
         const wantKey = this.backgroundKey();
-        const wantTex = this.context.texAny(wantKey);
+        const wantTex = this.context.texAny(wantKey) ?? this.backgroundTexture();
 
         if (wantTex && this.bgSprite.texture !== wantTex) {
             this.bgSprite.texture = wantTex;
+        }
+
+        const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
+        const tileSize = size / DungeonVisuals.FLOOR_TILES_ACROSS;
+        const lightSize = tileSize * DungeonVisuals.LAVA_LIGHT_AREA_CELLS;
+        if (this.lavaFireLight) {
+            this.lavaFireLight.visible =
+                gridType === GridVals.LAVA_CENTER && !this.centerDried && !this.useLegacyBackground;
+            if (this.lavaFireLight.visible) {
+                this.lavaFireLight.position.set(x - lightSize * 0.5, y - lightSize * 0.5);
+                this.lavaFireLight.scale.set(tileSize / DungeonVisuals.FLOOR_SOURCE_TILE_PX);
+            }
         }
 
         // Update overlay

@@ -20,20 +20,20 @@ const REVEAL_KEYFRAMES = `
 
 /**
  * A 4x4-cell crop of the map's own centre — the same floor art the sandbox and the fight draw, not a
- * stylised icon. Standard and Mountains sit on the stone floor (Mountains gets its two blocks on top),
- * Lava uses the baked lava floor, Water lays its pool over the stone.
+ * stylised icon. Every map shares the stone floor; terrain-specific art is layered over its centre.
  *
  * The board is ~13 cells across, so showing the texture at 320% frames roughly four cells around dead
  * centre.
  */
 const MAP_FLOOR_KEY: Record<string, string> = {
-    Standard: "background_stone_tiles",
-    Lava: "background_stone_tiles_lava",
-    Mountains: "background_stone_tiles",
-    Water: "background_stone_tiles",
+    Standard: "background_stone_tiles_sinister_16x16",
+    Lava: "background_stone_tiles_sinister_16x16",
+    Mountains: "background_stone_tiles_sinister_16x16",
+    Water: "background_stone_tiles_sinister_16x16",
 };
 
 const MAP_CENTER_OVERLAY: Record<string, string | undefined> = {
+    Lava: "lava_256",
     Mountains: "mountain_432_412",
     Water: "water_256",
 };

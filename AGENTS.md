@@ -66,12 +66,12 @@ bun run check       # lint (eslint/stylelint/prettier --check) + typecheck (tsc)
 If `check` fails:
 
 - **Style/lint** (`prettier`/`eslint`/`scss`/package order) → `bun run lint:fix`, then re-run `bun run check`.
-  (The `.githooks/pre-commit` hook auto-fixes *staged* files via `lint-staged`, but only if hooks are
+  (The `.githooks/pre-commit` hook auto-fixes _staged_ files via `lint-staged`, but only if hooks are
   enabled — `bun install` wires them via `prepare`. Don't rely on it; run `bun run check` yourself.)
-- **typecheck** → fix the type errors in *your* files. A peer editing `main` may leave a transient `tsc`
+- **typecheck** → fix the type errors in _your_ files. A peer editing `main` may leave a transient `tsc`
   error in files you didn't touch — verify your own change with `bun test` rather than blocking on it.
 - **test** → some suites are peer-owned WIP (e.g. `AIController.*`, `ai/v0_*`); ensure the tests covering
-  *your* change pass, and don't "fix" a peer's failing test.
+  _your_ change pass, and don't "fix" a peer's failing test.
 
 ### Changes to the `@heroesofcrypto/common` submodule
 
@@ -121,21 +121,37 @@ This is an **M4 Max (12 perf + 4 efficiency cores)** — use concurrency `12`. O
 
 ## Local E2E testing
 
-A skill is installed for both Codex and opencode:
+The repo-owned `heroes-e2e` skill is available to Claude, Codex, and opencode. Its canonical files live
+under `.claude/skills/heroes-e2e`; `.agents/skills/heroes-e2e` is a relative symlink to the same directory.
 
 ```bash
-# Full stack: server + game client + site + seed players + dev match
-~/.codex/skills/heroes-local-e2e/scripts/hoc-local-e2e.sh all
-
-# Check status / cleanup
-~/.codex/skills/heroes-local-e2e/scripts/hoc-local-e2e.sh status
-~/.codex/skills/heroes-local-e2e/scripts/hoc-local-e2e.sh cleanup
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh match       # full human-vs-human pick/ban match
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh vs-ai       # human-vs-AI match
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh placement   # skip pick/ban and test placement/play
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh status
+.claude/skills/heroes-e2e/scripts/hoc-e2e.sh cleanup
 ```
 
-The skill is symlinked at `~/.config/opencode/skills/heroes-local-e2e` for opencode.
+## Canonical agent and simulation tools
+
+- Keep each repo skill's canonical files in `.claude/skills/<name>`. Every canonical skill must also have a
+  relative directory symlink at `.agents/skills/<name>` pointing to `../../.claude/skills/<name>`. Claude
+  discovers the canonical path, Codex discovers and follows the `.agents` symlink, and opencode discovers
+  both compatible locations. Do not create copied skill bodies or a redundant `.opencode/skills` tree.
+- When adding or updating a skill, change the canonical `.claude` files and verify its `.agents` symlink in
+  the same PR. Relative script paths in `SKILL.md` must resolve from the repository root for every agent.
+- AI meta cohort execution and HTML reporting already live in the common package at
+  `src/simulation/measure_ai_meta_cohorts.ts` and `src/simulation/render_ai_meta_report.ts`; Codex also has
+  the user-installed `heroes-ai-meta-report` skill. Reuse these instead of adding another cohort runner or
+  report generator to a client PR.
+- Do not commit generated E2E screenshots, cohort results, JSONL/summary outputs, or HTML reports unless the
+  task explicitly requests a versioned fixture. Keep normal run output outside Git and attach review
+  artifacts to the PR or issue.
 
 ## Parallel agents / mainline workflow
+
 Multiple agents run on this repo **at the same time**. Rules:
+
 - **Always work on `main` (the shared working tree). Do NOT create git worktrees or branches.**
 - **Never use `git stash`** (push/pop/apply) — it sweeps a peer's in-flight edits into your stash and restores
   a tree that never existed. To inspect pre-change behavior, read the committed version with
@@ -147,3 +163,20 @@ Multiple agents run on this repo **at the same time**. Rules:
 - Stage and commit **only your own files** (`git add <paths>`, never `git add -A`); `git fetch` right before
   pushing. Expect your commit to land alongside others'. Verify with `bun test` (transpiles independently of a
   peer's in-progress `tsc` errors) rather than blocking on a shared `tsc`.
+
+## Game image assets
+
+- Runtime game images are canonical only in the Dropbox directory referenced by HOC_IMAGES_LOC
+  (normally /Users/zolotukhin/Dropbox/heroesofcrypto/images). Animation atlases and metadata are canonical
+  only under HOC_ANIMATIONS_LOC/output (normally /Users/zolotukhin/Dropbox/heroesofcrypto/animations/output). Never add game art to game/core/public
+  or another tracked game directory.
+- Store static game images as compressed WebP files in the images Dropbox folder; store animation atlas
+  WebPs and *_meta.json files in the animations Dropbox output folder. Run bun run --cwd game/core build:images,
+  and reference them through src/generated/image_imports.ts or texAny(). Do not hard-code public image
+  URLs such as /textures/foo.webp or call Assets.load() with a public image path.
+- Run bun run check:images before pushing; CI rejects tracked images outside site/public.
+- The sole tracked game-image exception is game/core/public/favicon.ico. All other tracked images belong
+  under site/public. Attach gameplay review
+  screenshots to the PR or issue instead of committing them.
+- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from
+  Dropbox; do not force-add them.

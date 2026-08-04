@@ -5,6 +5,8 @@ import {
     RectanglePlacement,
     PlacementPositionType,
     IPlacement,
+    TeamType,
+    TeamVals,
 } from "@heroesofcrypto/common";
 
 export interface IDrawablePlacement extends IPlacement {
@@ -20,18 +22,18 @@ export function setSpawnFlowPhase(phase: number): void {
  * The caller advances the phase by `timeStep * 1.85`, and the simulation runs on a FIXED 1/240 step
  * (PixiGameManager.SIM_STEP) at roughly one slice per rendered frame — so the phase only gains about
  * 0.46 rad per second. Multiplied by a small factor the tiles took ~12s to complete a cycle, which reads
- * as a still image. These bring the ripple to ~2s and the flicker to ~0.8s.
+ * as a still image. These keep the motion visible but deliberately unhurried: a slow travelling ripple
+ * with only a small secondary shimmer, rather than the previous rapid flashing rim.
  */
-const SPAWN_WAVE_RATE = 7;
-const SPAWN_TWINKLE_RATE = 16;
+const SPAWN_WAVE_RATE = 3.2;
+const SPAWN_TWINKLE_RATE = 5;
 
-import { TeamVals } from "@heroesofcrypto/common";
+import { isFriendlyTeam } from "../scenes/teamColors";
 
-// The zone is painted in the same colour as the banners of the army that deploys into it — teamColors is
-// the one source both this and RenderableUnit's badges read. Before that these were hand-picked tints and
-// they had drifted: the lower zone was a yellow-green (#a0c85f) on rectangle placements but a different
-// green (#6ed25f) on square ones, and the upper zone a salmon (#ff5f3c) rather than the flag's red.
-import { teamColor } from "../scenes/teamColors";
+// Darker variants of the flag palette keep the team identity without glowing like UI chrome over the floor.
+const SPAWN_COLOR_FRIENDLY = 0x176f31;
+const SPAWN_COLOR_HOSTILE = 0x8a2d2d;
+const spawnColor = (team: TeamType): number => (isFriendlyTeam(team) ? SPAWN_COLOR_FRIENDLY : SPAWN_COLOR_HOSTILE);
 
 /**
  * A tile is a STATIC body with an ANIMATED rim: the pulse used to breathe across the whole square, which
@@ -47,8 +49,8 @@ const SPAWN_RIM_WIDTH_FRACTION = 0.05;
  */
 const SPAWN_RIM_INWARD_FRACTION = 0.6;
 /** Body opacity. The rim's alpha adds on top of this wherever the two overlap. */
-const SPAWN_BODY_ALPHA = 0.14;
-const SPAWN_RIM_ALPHA_MIN = 0.06;
+const SPAWN_BODY_ALPHA = 0.2;
+const SPAWN_RIM_ALPHA_MIN = 0.085;
 const SPAWN_RIM_ALPHA_MAX = 0.34;
 
 function hash2(x: number, y: number): number {
@@ -90,9 +92,6 @@ function drawSpawnCells(
     // The animated band, as a share of the lit tile's own width.
     const rimWidth = Math.max(1, side * SPAWN_RIM_WIDTH_FRACTION);
 
-    const prevBlend = gfx.blendMode;
-    gfx.blendMode = "add";
-
     // Half a step of slack on the loop bound: the placement rectangle is built from whole steps, so this
     // only guards against float drift rather than admitting a partial column.
     for (let y = yLower, row = 0; y < yUpper - step * 0.5; y += step, row++) {
@@ -102,7 +101,7 @@ function drawSpawnCells(
             //   twinkle — a faster flicker on each tile's own random offset
             const wave = Math.sin(gSpawnFlowPhase * SPAWN_WAVE_RATE - (col + row) * 0.55);
             const twinkle = Math.sin(gSpawnFlowPhase * SPAWN_TWINKLE_RATE + hash2(col, row) * Math.PI * 2);
-            const pulse = 0.5 + 0.3 * wave + 0.2 * twinkle; // ~0..1
+            const pulse = 0.5 + 0.18 * wave + 0.08 * twinkle; // calm ~0.24..0.76
 
             // The BODY of the tile is dead flat — one constant tone, no movement at all.
             gfx.roundRect(x + gap, y + gap, side, side, radius).fill({
@@ -132,8 +131,6 @@ function drawSpawnCells(
             });
         }
     }
-
-    gfx.blendMode = prevBlend;
 }
 
 /* -------------------- placements -------------------- */
@@ -148,7 +145,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
-        const fillColor = teamColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
+        const fillColor = spawnColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
         drawSpawnCells(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
     }
 }
@@ -163,7 +160,7 @@ export class DrawableRectanglePlacement extends RectanglePlacement implements ID
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
-        const fillColor = teamColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
+        const fillColor = spawnColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
         drawSpawnCells(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
     }
 }

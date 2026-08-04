@@ -142,35 +142,143 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         : 0;
     const countdownOverlay =
         countdown !== null ? (
-            <div
-                style={{
+            <Box
+                aria-hidden="true"
+                sx={{
                     position: "fixed",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    width: "100vh",
-                    height: "100%",
-                    backgroundColor: "rgba(255, 0, 0, 0.2)",
-                    color: "#fff",
+                    inset: 0,
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
-                    zIndex: 0,
+                    background:
+                        "radial-gradient(ellipse at center, rgba(91, 31, 18, 0.13) 0%, rgba(25, 10, 8, 0.16) 42%, rgba(4, 5, 6, 0.42) 100%)",
+                    backdropFilter: "saturate(0.82) brightness(0.9)",
+                    zIndex: 1,
                     pointerEvents: "none",
+                    "@keyframes countdown-enter": {
+                        from: { opacity: 0, transform: "translateY(12px) scale(0.96)" },
+                        to: { opacity: 1, transform: "translateY(0) scale(1)" },
+                    },
+                    "@keyframes countdown-ember": {
+                        "0%, 100%": { filter: "drop-shadow(0 12px 28px rgba(0,0,0,.62))" },
+                        "50%": {
+                            filter: "drop-shadow(0 12px 28px rgba(0,0,0,.62)) drop-shadow(0 0 14px rgba(210,72,38,.26))",
+                        },
+                    },
                 }}
             >
-                <Typography
-                    fontSize="43vw"
-                    style={{
-                        lineHeight: 1,
-                        margin: 0,
-                        color: "white",
-                        opacity: 0.55,
+                <Box
+                    sx={{
+                        position: "relative",
+                        width: "clamp(188px, 17vw, 244px)",
+                        minHeight: "clamp(138px, 13vw, 176px)",
+                        p: "2px",
+                        boxSizing: "border-box",
+                        clipPath: "polygon(10% 0, 90% 0, 100% 17%, 100% 83%, 90% 100%, 10% 100%, 0 83%, 0 17%)",
+                        background:
+                            "linear-gradient(135deg, #3f291e 0%, #b07847 24%, #4c2b20 50%, #d08a51 76%, #39251d 100%)",
+                        animation:
+                            "countdown-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1), countdown-ember 1s ease-in-out infinite",
+                        "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                     }}
                 >
-                    {countdown}
-                </Typography>
-            </div>
+                    <Box
+                        sx={{
+                            position: "relative",
+                            width: "100%",
+                            minHeight: "inherit",
+                            px: "clamp(18px, 2vw, 28px)",
+                            py: "clamp(14px, 1.5vw, 20px)",
+                            boxSizing: "border-box",
+                            clipPath: "polygon(10% 0, 90% 0, 100% 17%, 100% 83%, 90% 100%, 10% 100%, 0 83%, 0 17%)",
+                            overflow: "hidden",
+                            background:
+                                "radial-gradient(circle at 50% 42%, rgba(104,31,20,.44), transparent 58%), repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(27,20,17,.98), rgba(10,8,8,.99))",
+                            boxShadow: "inset 0 0 0 1px rgba(255,207,155,.14), inset 0 -18px 36px rgba(0,0,0,.38)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "stretch",
+                            justifyContent: "space-between",
+                            "&::after": {
+                                content: '\"\"',
+                                position: "absolute",
+                                left: "14%",
+                                right: "14%",
+                                top: 0,
+                                height: "1px",
+                                background: "linear-gradient(90deg, transparent, rgba(255,161,101,.72), transparent)",
+                                boxShadow: "0 0 8px rgba(224,82,43,.5)",
+                            },
+                        }}
+                    >
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75 }}>
+                            <TimelapseRoundedIcon
+                                sx={{ color: "rgba(218,143,91,.78)", fontSize: "clamp(0.9rem, 1.15vw, 1.15rem)" }}
+                            />
+                            <Typography
+                                level="body-xs"
+                                sx={{
+                                    color: "rgba(237, 190, 151, 0.76)",
+                                    fontSize: "clamp(0.54rem, 0.66vw, 0.66rem)",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.24em",
+                                    lineHeight: 1,
+                                    ml: "0.24em",
+                                }}
+                            >
+                                TURN TIMER
+                            </Typography>
+                        </Box>
+
+                        <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 1 }}>
+                            <Typography
+                                sx={{
+                                    color: "#fff0e2",
+                                    fontSize: "clamp(3.7rem, 6vw, 5.5rem)",
+                                    fontWeight: 500,
+                                    fontVariantNumeric: "tabular-nums",
+                                    lineHeight: 0.9,
+                                    letterSpacing: "-0.055em",
+                                    textShadow: "0 2px 14px rgba(222, 83, 47, 0.38)",
+                                    mr: "0.055em",
+                                }}
+                            >
+                                {countdown}
+                            </Typography>
+                            <Typography
+                                level="body-xs"
+                                sx={{
+                                    color: "rgba(229, 177, 139, 0.58)",
+                                    fontSize: "clamp(0.5rem, 0.62vw, 0.62rem)",
+                                    letterSpacing: "0.14em",
+                                    lineHeight: 1,
+                                }}
+                            >
+                                SEC
+                            </Typography>
+                        </Box>
+
+                        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px" }}>
+                            {[1, 2, 3, 4, 5].map((second) => {
+                                const active = second <= countdown;
+                                return (
+                                    <Box
+                                        key={second}
+                                        sx={{
+                                            height: "4px",
+                                            clipPath: "polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%)",
+                                            background: active
+                                                ? "linear-gradient(90deg, #8f2f20, #ef7543, #8f2f20)"
+                                                : "rgba(91,71,61,.38)",
+                                            boxShadow: active ? "0 0 6px rgba(239,95,55,.52)" : "none",
+                                        }}
+                                    />
+                                );
+                            })}
+                        </Box>
+                    </Box>
+                </Box>
+            </Box>
         ) : null;
 
     // --- CASE 1: Game NOT Started ---

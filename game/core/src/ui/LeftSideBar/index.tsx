@@ -12,6 +12,7 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from "react";
 
+import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -61,7 +62,7 @@ const NEUTRALISING_WASH = "rgba(2, 12, 13, 0.85)";
 /** One hide, both bars, tinted to the map. They differ only in which end of it they show — see the
  *  backgroundPosition on either Sheet — so the same crease never appears twice on screen. */
 export const SIDEBAR_BG_IMAGE =
-    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url('/textures/sidebar_leather_plain.webp')";
+    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url(" + images.sidebar_leather_plain + ")";
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
 

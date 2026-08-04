@@ -836,14 +836,9 @@ const StatValue = React.forwardRef<
 ));
 StatValue.displayName = "StatValue";
 
-// Trimmed copies of the pipeline's overlay art. The originals carry a flat sheet of team colour outside
-// the banner's own gold rails and above its crossbar — background the banner was composited on — which
-// showed as ragged wings either side of the portrait and a band over the name. Only those pixels are
-// cleared; the cloth, the rails and the finials are the pipeline's, pixel for pixel, and the image box is
-// unchanged, so nothing about the banner's geometry moves. They live under public/ because
-// game/core/images is gitignored — an edit there would not survive for anyone else.
-const greenBannerImage = "/textures/banner_green.webp";
-const redBannerImage = "/textures/banner_red.webp";
+// Dropbox-backed banner art, exposed through the generated image map.
+const greenBannerImage = images.banner_green;
+const redBannerImage = images.banner_red;
 
 /** Share of the banner image its CLOTH occupies. The rest is the pole overhang and the two finials, which
  *  stick out past the fabric — measured off the art after the gold side trim was painted out, the swallowtail

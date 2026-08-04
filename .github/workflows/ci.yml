@@ -29,6 +29,9 @@ jobs:
             - name: Lint
               run: bun run lint
 
+            - name: Check image asset locations
+              run: bun run check:images
+
     typecheck:
         name: Typecheck
         runs-on: ubuntu-latest

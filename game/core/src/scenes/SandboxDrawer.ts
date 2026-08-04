@@ -79,6 +79,11 @@ export interface IGameplayDrawContext {
      * highlight red and draws a glowing red border around the board to signal it is not your turn.
      */
     enemyTurnView?: boolean;
+    /**
+     * Ground-level destination cells can be drawn separately from rings and targeting previews. This lets
+     * tall terrain (tombstones, mountains) occlude the cell sheet while shot lines remain above terrain.
+     */
+    movementGraphics?: Graphics;
 }
 
 export interface IPlacementDrawContext {
@@ -111,37 +116,19 @@ export class SandboxDrawer {
             hoveredUnitMoveRange,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
-        // On the enemy's turn the movement highlight switches from white to red.
-        const movementColor = ctx.enemyTurnView ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff;
+        const movementGraphics = ctx.movementGraphics ?? g;
+        // The unit whose turn is active always receives a neutral white movement preview. Team colours are
+        // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
+        const movementColor = 0xffffff;
 
         // The board no longer gets a red frame on the enemy's turn — the turn card already says "Enemy
         // turn" in red, and the frame fought with the board art. The red movement highlight above still
         // carries the cue on the board itself.
 
-        // 0. Hovered Move Range (Placement Phase)
-        // 0. Hovered Move Range (Placement Phase) - Animated Dots
+        // 0. Placement/sandbox movement preview uses the same continuous sheet as live combat. Keeping
+        // this on a separate dot renderer made the sandbox look like a different rules/UI mode.
         if (ctx.hoveredMoveRange && ctx.hoveredMoveRange.length > 0) {
-            const step = gs.getStep();
-            const hs = gs.getHalfStep();
-            const minX = gs.getMinX();
-
-            // Animation Pulse
-            const pulse = (Math.sin(hoverGlowPhase * 3) + 1) / 2;
-            // [VISUAL TWEAK] Different sizes for Placement vs Combat
-            const dotBaseRadius = fightStarted ? step * 0.04 : step * 0.12;
-            const dotRadius = dotBaseRadius * (1 + 0.2 * pulse);
-            const dotAlpha = 0.4 + 0.3 * pulse;
-
-            for (const cell of ctx.hoveredMoveRange) {
-                const pos = GridMath.getPositionForCell(cell, minX, step, hs);
-                if (pos) {
-                    // Draw animated dot at center
-                    g.circle(pos.x, pos.y, dotRadius).fill({ color: movementColor, alpha: dotAlpha });
-
-                    // Optional: Faint outer ring for better visibility on light terrain
-                    g.circle(pos.x, pos.y, dotRadius + 2).stroke({ width: 1, color: 0x000000, alpha: 0.1 });
-                }
-            }
+            SandboxDrawer.drawMovementArea(movementGraphics, ctx.hoveredMoveRange, gs, movementColor, hoverGlowPhase);
         }
 
         // 0. Hovered Unit Range (New Feature - Unified Visuals)
@@ -163,13 +150,22 @@ export class SandboxDrawer {
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
             const { xy, attackRange, auraRanges, isSmall } = sidebarUnitRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, isSmall, gs.getCellSize(), 0.7);
+            SandboxDrawer.drawAuraAndAttackRanges(
+                g,
+                xy,
+                attackRange,
+                auraRanges,
+                isSmall,
+                gs.getCellSize(),
+                hoverGlowPhase,
+                0.7,
+            );
         }
 
         // 0.51 Hovered Aura Ranges
         if (hoveredAuraRanges) {
             const { xy, auraRanges, isSmall } = hoveredAuraRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), 0.7);
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), hoverGlowPhase, 0.7);
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
@@ -185,7 +181,16 @@ export class SandboxDrawer {
                 const xy = currentActiveUnit.getVisualCenter(gs);
                 const isSmall = currentActiveUnit.isSmallSize();
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
-                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), 0.5);
+                SandboxDrawer.drawAuraAndAttackRanges(
+                    g,
+                    xy,
+                    0,
+                    auraRanges,
+                    isSmall,
+                    gs.getCellSize(),
+                    hoverGlowPhase,
+                    0.5,
+                );
             }
         }
 
@@ -201,90 +206,30 @@ export class SandboxDrawer {
             SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
         }
 
-        // 2. Active path lights
-        if (currentActivePath && currentActiveUnit && !sc_isAnimating) {
-            const path = currentActivePath;
-            // While an ENEMY's yellow inspection overlay (2b) is up, the active unit's move cells that
-            // OVERLAP or sit ADJACENT to the enemy's reach flip to a vivid dark orange: "move here and
-            // you are inside their melee threat". Cells outside the enemy's reach keep the plain white
-            // dots, and hovering an ALLY changes nothing (no threat). The enemy-turn red always wins.
-            const enemyReachKeys =
-                !ctx.enemyTurnView && hoveredUnitMoveRange?.length && ctx.hoveredUnitMoveRangeIsEnemy
-                    ? new Set(hoveredUnitMoveRange.map((cell) => (cell.x << 4) | cell.y))
-                    : undefined;
-            const DANGER_COLOR = 0xff8c00;
-            if (path.length > 0) {
-                for (let i = 0; i < path.length; i++) {
-                    const cell = path[i];
-                    let cellColor = movementColor;
-                    let danger = false;
-                    if (enemyReachKeys) {
-                        // Bounds-check the neighbor probe: the (x << 4) | y key packing has a 4-bit y
-                        // field, so an off-board y of 16 would overflow into x and alias a BOTTOM-row
-                        // key — top-row cells lit orange whenever the enemy could reach the bottom row.
-                        const gridSize = gs.getGridSize();
-                        for (let dx = -1; dx <= 1 && !danger; dx++) {
-                            for (let dy = -1; dy <= 1; dy++) {
-                                const nx = cell.x + dx;
-                                const ny = cell.y + dy;
-                                if (nx < 0 || ny < 0 || nx >= gridSize || ny >= gridSize) {
-                                    continue;
-                                }
-                                if (enemyReachKeys.has((nx << 4) | ny)) {
-                                    danger = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (danger) {
-                            cellColor = DANGER_COLOR;
-                        }
-                    }
-                    const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                    const baseRadius = gs.getCellSize() * 0.12; // Reduced from 0.18 to 0.06 (Small dots)
-                    const phase = hoverGlowPhase + i * 0.4;
-                    const wave = (Math.sin(phase) + 1) / 2;
-                    const innerRadius = baseRadius * (0.9 + 0.2 * wave);
-                    const outerRadius = baseRadius * 1.8 * (0.9 + 0.25 * wave);
-                    // Danger dots render brighter (higher alpha) so the orange pops against the yellow.
-                    const innerAlpha = (danger ? 0.55 : 0.38) + (danger ? 0.25 : 0.2) * wave;
-                    const outerAlpha = (danger ? 0.14 : 0.08) + (danger ? 0.08 : 0.06) * wave;
-                    g.circle(pos.x, pos.y, outerRadius).fill({
-                        color: cellColor,
-                        alpha: outerAlpha,
-                    });
-                    g.circle(pos.x, pos.y, innerRadius).fill({
-                        color: cellColor,
-                        alpha: innerAlpha,
-                    });
-                }
-            }
+        const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
+
+        // Enemy inspection stays underneath the active white cells, so it cannot recolour the current mover.
+        if (hasHoveredMovement && ctx.hoveredUnitMoveRangeIsEnemy) {
+            SandboxDrawer.drawMovementArea(movementGraphics, hoveredUnitMoveRange!, gs, 0xff3b3b, hoverGlowPhase);
         }
 
-        // 2b. Hovered unit's movement range (inspection overlay). Drawn as LARGER yellow rings than the
-        //     active unit's dots above, so hovering a unit to inspect its reach never visually
-        //     merges with the active unit's own path even where the two ranges overlap.
-        if (hoveredUnitMoveRange && hoveredUnitMoveRange.length > 0 && !sc_isAnimating) {
-            const HOVER_MOVE_COLOR = 0xffd700;
-            for (let i = 0; i < hoveredUnitMoveRange.length; i++) {
-                const pos = GridMath.getPositionForCell(
-                    hoveredUnitMoveRange[i],
-                    gs.getMinX(),
-                    gs.getStep(),
-                    gs.getHalfStep(),
-                );
-                // ~2x the active path's baseRadius (0.12) so the rings are clearly distinct.
-                const baseRadius = gs.getCellSize() * 0.24;
-                const phase = hoverGlowPhase + i * 0.4;
-                const wave = (Math.sin(phase) + 1) / 2;
-                const radius = baseRadius * (0.9 + 0.15 * wave);
-                g.circle(pos.x, pos.y, radius).fill({ color: HOVER_MOVE_COLOR, alpha: 0.1 + 0.06 * wave });
-                g.circle(pos.x, pos.y, radius).stroke({
-                    width: 2,
-                    color: HOVER_MOVE_COLOR,
-                    alpha: 0.45 + 0.2 * wave,
-                });
-            }
+        // White is the authoritative "unit whose turn it is" colour over enemy inspection.
+        if (currentActivePath && currentActiveUnit && !sc_isAnimating) {
+            SandboxDrawer.drawMovementArea(movementGraphics, currentActivePath, gs, movementColor, hoverGlowPhase);
+        }
+
+        // An explicitly inspected ally needs a dark tile body plus a contrasting grey edge. A uniformly
+        // near-black low-alpha colour disappears into the floor and the green aura, as the screenshots show.
+        if (hasHoveredMovement && !ctx.hoveredUnitMoveRangeIsEnemy) {
+            SandboxDrawer.drawMovementArea(
+                movementGraphics,
+                hoveredUnitMoveRange!,
+                gs,
+                0x4d4d4d,
+                hoverGlowPhase,
+                1,
+                true,
+            );
         }
 
         // 3. Active unit indication is the pulsing light-wave aura rendered on the unit itself
@@ -306,6 +251,48 @@ export class SandboxDrawer {
             }
         }
     }
+    private static drawMovementArea(
+        g: Graphics,
+        cells: HoCMath.XY[],
+        gs: GridSettings,
+        color: number,
+        phase: number,
+        intensity = 1,
+        allyInspection = false,
+    ): void {
+        if (!cells.length) return;
+        const half = gs.getStep() * 0.5;
+        const edgeInset = gs.getCellSize() * 0.055;
+        const pulse = (Math.sin(phase * 0.65) + 1) * 0.5;
+        const boundsFor = (cell: HoCMath.XY) => {
+            const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+            return {
+                left: pos.x - half + edgeInset,
+                right: pos.x + half - edgeInset,
+                bottom: pos.y - half + edgeInset,
+                top: pos.y + half - edgeInset,
+            };
+        };
+        const radius = Math.max(2, gs.getCellSize() * 0.025);
+
+        for (const cell of cells) {
+            const { left, right, bottom, top } = boundsFor(cell);
+            g.roundRect(left, bottom, right - left, top - bottom, radius).fill({
+                color: allyInspection ? 0x11151a : color,
+                alpha: allyInspection ? 0.2 + pulse * 0.04 : (0.052 + pulse * 0.018) * intensity,
+            });
+            g.roundRect(left, bottom, right - left, top - bottom, radius).stroke({
+                width: Math.max(3, gs.getCellSize() * 0.055),
+                color: allyInspection ? 0x59616a : color,
+                alpha: allyInspection ? 0.2 + pulse * 0.05 : (0.045 + pulse * 0.025) * intensity,
+            });
+            g.roundRect(left, bottom, right - left, top - bottom, radius).stroke({
+                width: Math.max(1, gs.getCellSize() * 0.012),
+                color: allyInspection ? 0xa0a5ab : color,
+                alpha: allyInspection ? 0.5 + pulse * 0.12 : (0.16 + pulse * 0.06) * intensity,
+            });
+        }
+    }
     private static drawAuraAndAttackRanges(
         g: Graphics,
         xy: HoCMath.XY,
@@ -313,6 +300,7 @@ export class SandboxDrawer {
         auraRanges: { range: number; isBuff: boolean }[],
         isSmall: boolean,
         cellSize: number,
+        pulsePhase: number,
         alphaMultiplier = 1.0,
     ): void {
         // Attack Range
@@ -325,7 +313,8 @@ export class SandboxDrawer {
             });
         }
 
-        // Aura Ranges (Squares)
+        // Aura ranges are soft energy fields. The edge stays slightly inside the outer grid separators,
+        // while broad, fading square waves travel from the owner toward the aura's full reach.
         if (auraRanges && auraRanges.length > 0) {
             for (const aura of auraRanges) {
                 const { range, isBuff } = aura;
@@ -334,21 +323,35 @@ export class SandboxDrawer {
                 // Calculate half-extent based on range cells
                 // Formula: (Range + (UnitSizeCells / 2)) * CellSize
                 const unitHalfSizeCells = isSmall ? 0.5 : 1.0;
-                const extent = (range + unitHalfSizeCells) * cellSize;
+                const extent = (range + unitHalfSizeCells) * cellSize - cellSize * 0.055;
+                const feather = Math.min(cellSize * 0.28, extent * 0.12);
 
-                // Draw Square
-                // x, y are center. TopLeft = x - extent, y - extent.
-                // Width/Height = extent * 2
-                g.rect(xy.x - extent, xy.y - extent, extent * 2, extent * 2).stroke({
-                    width: 2,
-                    color: color,
-                    alpha: 0.6 * alphaMultiplier,
-                });
-                // Optional: Fill slightly
-                g.rect(xy.x - extent, xy.y - extent, extent * 2, extent * 2).fill({
-                    color: color,
-                    alpha: 0.2 * alphaMultiplier,
-                });
+                // Nested, very transparent sheets feather the edge instead of producing a hard rectangle.
+                const featherLayers = 5;
+                for (let layer = 0; layer < featherLayers; layer++) {
+                    const inset = (feather * layer) / (featherLayers - 1);
+                    const layerExtent = extent - inset;
+                    const layerAlpha = (0.022 + layer * 0.006) * alphaMultiplier;
+                    g.rect(xy.x - layerExtent, xy.y - layerExtent, layerExtent * 2, layerExtent * 2).fill({
+                        color,
+                        alpha: layerAlpha,
+                    });
+                }
+
+                // Three wave fronts continuously leave the unit. They broaden and fade as they approach
+                // the outer cells, giving the field a direction of energy rather than a static box border.
+                const cycle = (((pulsePhase / (Math.PI * 2)) % 1) + 1) % 1;
+                for (let waveIndex = 0; waveIndex < 3; waveIndex++) {
+                    const progress = (cycle + waveIndex / 3) % 1;
+                    const waveExtent = Math.max(cellSize * 0.42, extent * progress);
+                    const fade = Math.sin(progress * Math.PI);
+                    const radius = Math.min(cellSize * 0.18, waveExtent * 0.12);
+                    g.roundRect(xy.x - waveExtent, xy.y - waveExtent, waveExtent * 2, waveExtent * 2, radius).stroke({
+                        width: Math.max(2, cellSize * (0.035 - progress * 0.012)),
+                        color,
+                        alpha: fade * 0.3 * alphaMultiplier,
+                    });
+                }
             }
         }
     }

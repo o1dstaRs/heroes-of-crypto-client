@@ -965,6 +965,7 @@ export class PixiGameManager {
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
                 isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
+                meleeCursorDirection: this.m_scene.sc_meleeCursorDirection,
             });
             this.lastSentEmptyHoverInfo = false;
         } else if (!this.lastSentEmptyHoverInfo) {

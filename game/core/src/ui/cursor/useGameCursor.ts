@@ -1,22 +1,23 @@
 import { useEffect, useState } from "react";
 import { AttackVals } from "@heroesofcrypto/common";
+import { images } from "../../generated/image_imports";
 import type { IHoverInfo } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 
 /**
- * Cursor modes for the themed in-game cursor. Each maps to a PNG in `public/cursors/`:
- *   default     -> cursor_default.png     (no unit hovered, no attack selected)
- *   interactive -> cursor_interactive.png (hovering any unit, not an attack target)
- *   melee       -> cursor_melee.png       (hovering an attackable enemy with melee unit active)
- *   ranged      -> cursor_ranged.png      (hovering an attackable enemy with ranged unit active)
- *   magic       -> cursor_magic.png       (hovering an attackable enemy with magic unit active)
+ * Cursor modes for the themed in-game cursor. Each maps to a WebP in the Dropbox-backed generated image set:
+ *   default     -> cursor_default.webp     (no unit hovered, no attack selected)
+ *   interactive -> cursor_interactive.webp (hovering any unit, not an attack target)
+ *   melee       -> cursor_melee.webp       (hovering an attackable enemy with melee unit active)
+ *   ranged      -> cursor_ranged.webp      (hovering an attackable enemy with ranged unit active)
+ *   magic       -> cursor_magic.webp       (hovering an attackable enemy with magic unit active)
  *
  * HoMM-style behaviour: the attack cursor (sword/bow/magic) ONLY appears when the cursor is actively
  * over an enemy unit the active unit can attack — not merely from having selected an attack type.
  */
 export type CursorMode = "default" | "interactive" | "melee" | "ranged" | "magic";
 
-// Per-cursor hotspot, expressed in the cursor PNG's own pixel space. The PNGs are tight-cropped
+// Per-cursor hotspot, expressed in the cursor artwork.s own pixel space. The PNGs are tight-cropped
 // (no transparent border) with the sprite anchored in the top-left corner, so the click point is
 // (0, 0) — matching the OS default arrow, where the tip is the hot point.
 const CURSOR_HOTSPOT: Record<CursorMode, { x: number; y: number }> = {
@@ -27,9 +28,17 @@ const CURSOR_HOTSPOT: Record<CursorMode, { x: number; y: number }> = {
     magic: { x: 0, y: 0 },
 };
 
+const CURSOR_IMAGE: Record<CursorMode, string> = {
+    default: images.cursor_default,
+    interactive: images.cursor_interactive,
+    melee: images.cursor_melee,
+    ranged: images.cursor_ranged,
+    magic: images.cursor_magic,
+};
+
 function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
     // HoMM-style: the attack cursor only shows when actively aiming at an attackable enemy. The
-    // active unit's selected attack type then picks which attack-cursor PNG (sword/bow/magic) to use.
+    // active unit's selected attack type then picks which attack cursor image (sword/bow/magic) to use.
     if (hoverInfo?.isHoveringAttackTarget) {
         const attackType = hoverInfo.attackType;
         if (attackType === AttackVals.MELEE) {
@@ -53,8 +62,11 @@ function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
 }
 
 function cursorCss(mode: CursorMode): string {
+    // The board renders the directional sword itself. Keeping a second OS sword/arrow over it produces
+    // two competing markers, so the native cursor disappears for exactly the duration of a melee aim.
+    if (mode === "melee") return "none";
     const hot = CURSOR_HOTSPOT[mode];
-    return `url('/cursors/cursor_${mode}.png') ${hot.x} ${hot.y}, auto`;
+    return 'url("' + CURSOR_IMAGE[mode] + '") ' + hot.x + " " + hot.y + ", auto";
 }
 
 /**
@@ -76,9 +88,19 @@ export function useGameCursor(): void {
     });
 
     useEffect(() => {
-        document.body.style.cursor = cursorCss(resolveCursorMode(hoverInfo));
+        const mode = resolveCursorMode(hoverInfo);
+        document.body.style.cursor = cursorCss(mode);
+        let hiddenCursorStyle: HTMLStyleElement | undefined;
+        if (mode === "melee") {
+            // Child controls can declare their own cursor and override an inherited body value. The
+            // temporary rule guarantees that the system pointer stays hidden over every canvas layer.
+            hiddenCursorStyle = document.createElement("style");
+            hiddenCursorStyle.textContent = "body, body * { cursor: none !important; }";
+            document.head.appendChild(hiddenCursorStyle);
+        }
         return () => {
             document.body.style.cursor = "";
+            hiddenCursorStyle?.remove();
         };
     }, [hoverInfo]);
 }

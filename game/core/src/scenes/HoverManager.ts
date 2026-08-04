@@ -19,6 +19,42 @@ import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 
+const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
+// The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
+const MELEE_SWORD_ART_LENGTH = 29;
+// The source is 20x24, so its painted blade is not geometrically aligned to a perfect 45-degree
+// square diagonal. Measure the actual pommel -> tip vector; subtracting 135deg made every supposedly
+// horizontal/vertical marker visibly lean by several degrees.
+const MELEE_SWORD_NATIVE_WORLD_ANGLE = Math.atan2(23, -18);
+
+export const snapMeleeSwordAngle = (angle: number): number =>
+    Math.round(angle / MELEE_SWORD_ANGLE_STEP) * MELEE_SWORD_ANGLE_STEP;
+
+export const meleeSwordDisplayLength = (segmentLength: number, snappedAngle: number): number => {
+    const facing = Math.round(snappedAngle / MELEE_SWORD_ANGLE_STEP);
+    const isDiagonal = Math.abs(facing) % 2 === 1;
+    return isDiagonal ? segmentLength / Math.SQRT2 : segmentLength;
+};
+
+/**
+ * Intersection of the landing-cell -> target-centre ray with the target's square footprint.
+ * Cardinal landings meet the middle of an edge; diagonal landings meet the corresponding corner.
+ */
+export const meleeSwordTargetPoint = (
+    landingCenter: HoCMath.XY,
+    targetCenter: HoCMath.XY,
+    targetHalfExtent: number,
+): HoCMath.XY => {
+    const dx = landingCenter.x - targetCenter.x;
+    const dy = landingCenter.y - targetCenter.y;
+    const maxAxis = Math.max(Math.abs(dx), Math.abs(dy));
+    if (maxAxis === 0) return { ...targetCenter };
+    return {
+        x: targetCenter.x + (dx / maxAxis) * targetHalfExtent,
+        y: targetCenter.y + (dy / maxAxis) * targetHalfExtent,
+    };
+};
+
 export interface ISandboxHoverContext {
     grid: Grid;
     pathHelper: PathHelper;
@@ -80,10 +116,17 @@ export class HoverManager {
     private readonly hoverRearmDelaySec = 2.0;
     private auraGraphics: Graphics;
     private aoeGraphics: Graphics;
+    private hoverAttackSwordTexture?: Texture;
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
+        const texture = context.texAny("cursor_melee");
+        if (texture) {
+            // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
+            texture.source.scaleMode = "nearest";
+            this.hoverAttackSwordTexture = texture;
+        }
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;
@@ -227,6 +270,10 @@ export class HoverManager {
     }
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
+        if (this.animatedRangeArrow) {
+            const arrow = this.animatedRangeArrow;
+            this.drawAttackArrow(arrow.from, arrow.to, arrow.continuationTo, arrow.smokeFrom, "arrow", false);
+        }
         this.updateBoardHoverTween(dt);
         this.updatePlacementHoverRearm();
     }
@@ -506,6 +553,13 @@ export class HoverManager {
         this.clearAOEArea();
     }
     public hoverAttackArrow?: Graphics;
+    private animatedRangeArrow?: {
+        from: HoCMath.XY;
+        to: HoCMath.XY;
+        continuationTo?: HoCMath.XY;
+        smokeFrom?: HoCMath.XY;
+    };
+    private hoverAttackSword?: Sprite;
     private silhouetteLocked = false;
     public setSilhouetteLocked(locked: boolean): void {
         this.silhouetteLocked = locked;
@@ -531,6 +585,8 @@ export class HoverManager {
             this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
         }
+        this.animatedRangeArrow = undefined;
+        if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
         this.hoverAttackFromCell = undefined;
         this.hoverAttackTargetUnit = undefined;
     }
@@ -550,6 +606,7 @@ export class HoverManager {
             this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
         }
+        if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
     }
     private hoverDamageText?: Text;
     private hoverKillText?: Text;
@@ -666,6 +723,8 @@ export class HoverManager {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
+        this.animatedRangeArrow = undefined;
+        if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
         this.clearObstacleHighlight();
 
         // 1. Restore stack visibility for ALL highlighted units
@@ -811,13 +870,58 @@ export class HoverManager {
         to: HoCMath.XY,
         continuationTo?: HoCMath.XY,
         smokeFrom?: HoCMath.XY,
+        marker: "arrow" | "melee" = "arrow",
+        rememberAnimation = true,
     ): void {
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
             if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
+            if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
             return;
         }
+
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        if (marker === "melee") {
+            this.animatedRangeArrow = undefined;
+            if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
+            if (!this.hoverAttackSwordTexture) return;
+            if (!this.hoverAttackSword || this.hoverAttackSword.destroyed) {
+                this.hoverAttackSword = new Sprite(this.hoverAttackSwordTexture);
+                this.hoverAttackSword.anchor.set(0.5);
+                // The marker crosses the unit portrait by design. Keep it above units and their hover
+                // silhouettes; at the old arrow layer the compact sprite disappeared underneath them.
+                this.context.attachToWorldRoot(this.hoverAttackSword, 5600);
+            }
+            const sword = this.hoverAttackSword;
+            sword.visible = true;
+            // Melee landings occupy the eight cells around a target. Snap to those eight 45-degree
+            // facings so the marker never wobbles with tiny pointer movements inside the same cell.
+            // A diagonal cell is farther away by sqrt(2), but the icon must not grow with that distance:
+            // normalize it back to the cardinal length and keep its blade pinned to the target edge.
+            const snappedAngle = snapMeleeSwordAngle(angle);
+            const displayLength = meleeSwordDisplayLength(dist, snappedAngle);
+            const swordScale = displayLength / MELEE_SWORD_ART_LENGTH;
+            sword.scale.set(swordScale, -swordScale);
+            // Negative Y keeps the PNG upright inside the inverted world. Rotate from the artwork's
+            // measured axis rather than assuming its non-square 20x24 canvas has a perfect 45° diagonal.
+            sword.rotation = snappedAngle - MELEE_SWORD_NATIVE_WORLD_ANGLE;
+            sword.roundPixels = true;
+            sword.position.set(
+                to.x - Math.cos(snappedAngle) * (displayLength / 2),
+                to.y - Math.sin(snappedAngle) * (displayLength / 2),
+            );
+            return;
+        }
+        if (rememberAnimation) {
+            this.animatedRangeArrow = {
+                from: { ...from },
+                to: { ...to },
+                continuationTo: continuationTo ? { ...continuationTo } : undefined,
+                smokeFrom: smokeFrom ? { ...smokeFrom } : undefined,
+            };
+        }
+        if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
 
         if (!this.isGraphicsUsable(this.hoverAttackArrow)) {
             this.hoverAttackArrow = new Graphics();
@@ -833,23 +937,39 @@ export class HoverManager {
         g.visible = true;
 
         // Draw glow/light effect (layered lines)
-        const angle = Math.atan2(to.y - from.y, to.x - from.x);
-
         // Adjust arrow length to stop a bit before the visual center
         const stopDistance = 0; // Removed gap as per user request
         const arrowLen = Math.max(0, dist - stopDistance);
 
         if (arrowLen <= 0) return;
 
-        // Outer glow
-        g.moveTo(from.x, from.y)
-            .lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen)
-            .stroke({ width: 12, color: 0xff4444, alpha: 0.4 });
+        // Animated broken trajectory: compact ivory strokes flow toward the target over a warm glow.
+        // The gaps leave the board readable even for a shot crossing most of the map.
+        const dashLength = 18;
+        const dashGap = 11;
+        const dashCycle = dashLength + dashGap;
+        const dashPhase = (this.hoverGlowPhase * 58) % dashCycle;
+        const drawDashes = (start: number, finish: number, width: number, color: number, alpha: number) => {
+            for (let d = start - dashCycle + dashPhase; d < finish; d += dashCycle) {
+                const segmentStart = Math.max(start, d);
+                const segmentEnd = Math.min(finish, d + dashLength);
+                if (segmentEnd <= segmentStart) continue;
+                g.moveTo(from.x + Math.cos(angle) * segmentStart, from.y + Math.sin(angle) * segmentStart)
+                    .lineTo(from.x + Math.cos(angle) * segmentEnd, from.y + Math.sin(angle) * segmentEnd)
+                    .stroke({ width, color, alpha, cap: "round" });
+            }
+        };
+        drawDashes(0, arrowLen, 16, 0xff4028, 0.28);
+        drawDashes(0, arrowLen, 7, 0xffa13d, 0.58);
+        drawDashes(0, arrowLen, 2.5, 0xfff4dc, 0.98);
 
-        // Inner core
-        g.moveTo(from.x, from.y)
-            .lineTo(from.x + Math.cos(angle) * arrowLen, from.y + Math.sin(angle) * arrowLen)
-            .stroke({ width: 4, color: 0xffffff, alpha: 0.9 });
+        // A bright travelling bead makes the direction unmistakably animated even on dark or busy tiles.
+        const flightPulse = (this.hoverGlowPhase * 92) % Math.max(arrowLen, 1);
+        const pulseX = from.x + Math.cos(angle) * flightPulse;
+        const pulseY = from.y + Math.sin(angle) * flightPulse;
+        g.circle(pulseX, pulseY, 11).fill({ color: 0xff542e, alpha: 0.2 });
+        g.circle(pulseX, pulseY, 5).fill({ color: 0xffbc58, alpha: 0.62 });
+        g.circle(pulseX, pulseY, 2).fill({ color: 0xffffee, alpha: 1 });
 
         const endX = from.x + Math.cos(angle) * arrowLen;
         const endY = from.y + Math.sin(angle) * arrowLen;
@@ -862,8 +982,16 @@ export class HoverManager {
             const startAlong = Math.max(0, Math.min(arrowLen, along));
             const sx = from.x + Math.cos(angle) * startAlong;
             const sy = from.y + Math.sin(angle) * startAlong;
-            g.moveTo(sx, sy).lineTo(endX, endY).stroke({ width: 20, color: 0xff2a2a, alpha: 0.35 });
-            g.moveTo(sx, sy).lineTo(endX, endY).stroke({ width: 9, color: 0xff5555, alpha: 0.95 });
+            drawDashes(startAlong, arrowLen, 15, 0xff2020, 0.26);
+            drawDashes(startAlong, arrowLen, 5, 0xff5f4f, 0.95);
+            const smokeLength = arrowLen - startAlong;
+            if (smokeLength > 0) {
+                const smokePulse = startAlong + ((this.hoverGlowPhase * 76) % smokeLength);
+                const smokePulseX = from.x + Math.cos(angle) * smokePulse;
+                const smokePulseY = from.y + Math.sin(angle) * smokePulse;
+                g.circle(smokePulseX, smokePulseY, 12).fill({ color: 0xff1818, alpha: 0.24 });
+                g.circle(smokePulseX, smokePulseY, 4).fill({ color: 0xff7666, alpha: 0.95 });
+            }
             // A tick at the entry point so it is obvious WHERE the smoke starts, not just that it exists.
             const nx = Math.cos(angle + Math.PI / 2);
             const ny = Math.sin(angle + Math.PI / 2);
@@ -872,15 +1000,34 @@ export class HoverManager {
                 .stroke({ width: 4, color: 0xff8a8a, alpha: 0.95 });
         }
 
-        // Arrow Head
-        const headLen = 20;
-        const headAngle = Math.PI / 6;
-
-        g.moveTo(endX, endY)
-            .lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle))
-            .moveTo(endX, endY)
-            .lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle))
-            .stroke({ width: 4, color: 0xffffff, alpha: 1.0 });
+        // Filled triangular arrowhead. Its actual geometry breathes, so the pulse remains visible rather
+        // than being a tiny alpha change that disappears against a bright unit portrait.
+        const headPulse = (Math.sin(this.hoverGlowPhase * 6) + 1) / 2;
+        const headLen = 22 + headPulse * 7;
+        const headHalfWidth = 8 + headPulse * 4;
+        const nx = Math.cos(angle + Math.PI / 2);
+        const ny = Math.sin(angle + Math.PI / 2);
+        const baseX = endX - Math.cos(angle) * headLen;
+        const baseY = endY - Math.sin(angle) * headLen;
+        const glowWidth = headHalfWidth + 6;
+        g.poly([
+            endX + Math.cos(angle) * 3,
+            endY + Math.sin(angle) * 3,
+            baseX + nx * glowWidth,
+            baseY + ny * glowWidth,
+            baseX - nx * glowWidth,
+            baseY - ny * glowWidth,
+        ]).fill({ color: 0xff3b24, alpha: 0.22 + headPulse * 0.12 });
+        g.poly([
+            endX,
+            endY,
+            baseX + nx * headHalfWidth,
+            baseY + ny * headHalfWidth,
+            baseX - nx * headHalfWidth,
+            baseY - ny * headHalfWidth,
+        ])
+            .fill({ color: 0xffd28a, alpha: 0.96 })
+            .stroke({ width: 2, color: 0xffffed, alpha: 1, join: "round" });
 
         // Optional faint dashed continuation PAST the arrow tip. Used when a ranged shot is stopped by a
         // mountain: the arrow ends at the rock, then this thin dotted line traces where the shot WOULD
@@ -891,19 +1038,30 @@ export class HoverManager {
                 const cAngle = Math.atan2(continuationTo.y - endY, continuationTo.x - endX);
                 const dash = 9;
                 const gap = 9;
-                for (let d = 0; d < cDist; d += dash + gap) {
+                const continuationPhase = (this.hoverGlowPhase * 58) % (dash + gap);
+                for (let d = -dash - gap + continuationPhase; d < cDist; d += dash + gap) {
+                    const segmentStart = Math.max(0, d);
                     const segEnd = Math.min(d + dash, cDist);
-                    g.moveTo(endX + Math.cos(cAngle) * d, endY + Math.sin(cAngle) * d)
+                    if (segEnd <= segmentStart) continue;
+                    g.moveTo(endX + Math.cos(cAngle) * segmentStart, endY + Math.sin(cAngle) * segmentStart)
                         .lineTo(endX + Math.cos(cAngle) * segEnd, endY + Math.sin(cAngle) * segEnd)
-                        .stroke({ width: 2, color: 0xff4444, alpha: 0.4 });
+                        .stroke({ width: 2, color: 0xff9c70, alpha: 0.42, cap: "round" });
                 }
+                const continuationPulse = (this.hoverGlowPhase * 74) % cDist;
+                const continuationPulseX = endX + Math.cos(cAngle) * continuationPulse;
+                const continuationPulseY = endY + Math.sin(cAngle) * continuationPulse;
+                g.circle(continuationPulseX, continuationPulseY, 7).fill({ color: 0xff6540, alpha: 0.2 });
+                g.circle(continuationPulseX, continuationPulseY, 2.5).fill({ color: 0xffb27f, alpha: 0.8 });
             }
         }
     }
     // Soft red glow marking an obstacle (a BLOCK_CENTER mountain) as the thing a blocked ranged shot
     // actually hits — used instead of the unit target-silhouette, since the unit behind it takes no damage.
     private hoverObstacleHighlight?: Graphics;
-    public highlightObstacle(position: HoCMath.XY, cellSize: number): void {
+    public highlightObstacle(position: HoCMath.XY, cellSize: number, subtleInteractive = false): void {
+        this.highlightObstacles([position], cellSize, subtleInteractive);
+    }
+    public highlightObstacles(positions: readonly HoCMath.XY[], cellSize: number, subtleInteractive = false): void {
         if (!this.isGraphicsUsable(this.hoverObstacleHighlight)) {
             this.hoverObstacleHighlight = new Graphics();
             if (!this.safeAttachGraphics(this.hoverObstacleHighlight, 2150)) {
@@ -915,10 +1073,36 @@ export class HoverManager {
         const g = this.hoverObstacleHighlight;
         g.clear();
         g.visible = true;
+        if (subtleInteractive) {
+            const pulse = 0.5 + 0.5 * Math.sin(this.hoverGlowPhase * 2.2);
+            const inset = cellSize * (0.09 - pulse * 0.018);
+            // Animated white focus brackets stay readable on every tombstone texture without tinting
+            // the art. A soft outer trace breathes around a crisp inner rim, so crossed obstacles read
+            // as interactive trajectory hits rather than enemy targets or selected board cells.
+            for (const position of positions) {
+                g.roundRect(
+                    position.x - cellSize * 0.5 + inset,
+                    position.y - cellSize * 0.5 + inset,
+                    cellSize - inset * 2,
+                    cellSize - inset * 2,
+                    cellSize * 0.12,
+                ).stroke({ width: 5 + pulse * 2, color: 0xffffff, alpha: 0.08 + pulse * 0.12 });
+                g.roundRect(
+                    position.x - cellSize * 0.5 + inset,
+                    position.y - cellSize * 0.5 + inset,
+                    cellSize - inset * 2,
+                    cellSize - inset * 2,
+                    cellSize * 0.12,
+                ).stroke({ width: 1.5 + pulse * 0.7, color: 0xffffff, alpha: 0.72 + pulse * 0.25 });
+            }
+            return;
+        }
         const r = cellSize * 0.72;
-        g.circle(position.x, position.y, r * 1.25).fill({ color: 0xaa0000, alpha: 0.22 });
-        g.circle(position.x, position.y, r).fill({ color: 0xff2a2a, alpha: 0.3 });
-        g.circle(position.x, position.y, r).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
+        for (const position of positions) {
+            g.circle(position.x, position.y, r * 1.25).fill({ color: 0xaa0000, alpha: 0.22 });
+            g.circle(position.x, position.y, r).fill({ color: 0xff2a2a, alpha: 0.3 });
+            g.circle(position.x, position.y, r).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
+        }
     }
     public clearObstacleHighlight(): void {
         if (this.hoverObstacleHighlight) {
@@ -1049,6 +1233,9 @@ export class HoverManager {
         }
         if (this.hoverAttackArrow && !this.hoverAttackFromCell) {
             this.hoverAttackArrow.visible = false;
+        }
+        if (this.hoverAttackSword && !this.hoverAttackFromCell) {
+            this.hoverAttackSword.visible = false;
         }
 
         // 1. If we have an attack-from cell, we behave differently:

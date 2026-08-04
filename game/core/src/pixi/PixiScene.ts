@@ -176,6 +176,7 @@ export abstract class PixiScene {
     // Drives the HoMM-style attack cursor: the themed attack-cursor PNG only shows when actively aiming
     // at an attackable target, NOT merely from the active unit having selected an attack type.
     public sc_isHoveringAttackTarget = false;
+    public sc_meleeCursorDirection?: "left" | "right";
     public sc_mouseDropStep = 0;
     public sc_mouseDownStep = 0;
     public sc_hoverTextUpdateNeeded = false;
@@ -483,6 +484,7 @@ export abstract class PixiScene {
         this.sc_hoverUnitLevel = 0;
         this.sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
         this.sc_isHoveringAttackTarget = false;
+        this.sc_meleeCursorDirection = undefined;
         this.sc_hoverTextUpdateNeeded = updateNeeded;
     }
     protected setSelectedUnitProperties(unitProperties: UnitProperties): void {

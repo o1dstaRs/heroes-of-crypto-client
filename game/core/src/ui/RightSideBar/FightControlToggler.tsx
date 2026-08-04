@@ -243,7 +243,7 @@ const FightControlToggler: React.FC = () => {
                                         fontWeight: open ? "xl" : "md",
                                     }}
                                 >
-                                    Reds
+                                    Red
                                 </Typography>
                             </ListItemContent>
                             {/* The four racial synergies, right of the flag: visible whether the section is open
@@ -312,7 +312,7 @@ const FightControlToggler: React.FC = () => {
                                         fontWeight: open ? "xl" : "md",
                                     }}
                                 >
-                                    Greens
+                                    Green
                                 </Typography>
                             </ListItemContent>
                             {/* The four racial synergies, right of the flag: visible whether the section is open
