@@ -62,7 +62,7 @@ const NEUTRALISING_WASH = "rgba(2, 12, 13, 0.85)";
 /** One hide, both bars, tinted to the map. They differ only in which end of it they show — see the
  *  backgroundPosition on either Sheet — so the same crease never appears twice on screen. */
 export const SIDEBAR_BG_IMAGE =
-    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url('/textures/sidebar_leather_plain.webp')";
+    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url(" + images.sidebar_leather_plain + ")";
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
 
