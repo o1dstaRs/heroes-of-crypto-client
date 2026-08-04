@@ -37,6 +37,7 @@ import { SpeedIcon } from "../svg/speed";
 import { SwordIcon } from "../svg/sword";
 import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
+import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
 
 const images = rawImages as Record<string, string>;
 
@@ -1785,6 +1786,8 @@ interface StainedGlassProps {
     gameId?: string;
     opponentLabel?: string;
     height?: number;
+    /** Ranked/private games hide the opponent rail while the final augment event hands off to Setup. */
+    showOpponentRosterDuringAugmentHandoff?: boolean;
 }
 
 // The opponent's army rendered as EXACTLY 6 fixed level-ordered slots [L1,L1,L2,L2,L3,L4]. Each slot shows one
@@ -1938,7 +1941,12 @@ export const OpponentDraftBar: React.FC<{
     );
 };
 
-const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, gameId, opponentLabel = "Opponent" }) => {
+const StainedGlassWindow: React.FC<StainedGlassProps> = ({
+    userTeam,
+    gameId,
+    opponentLabel = "Opponent",
+    showOpponentRosterDuringAugmentHandoff = true,
+}) => {
     const {
         pickPhase,
         isYourTurn,
@@ -2108,7 +2116,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, gameId, opp
     // greys out units we already know are gone instead of letting us pick into a guaranteed collision.
     const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
     const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
-    const isHandoff = pickPhase === PickPhaseVals.AUGMENTS || pickPhase === PickPhaseVals.AUGMENTS_SCOUT;
+    const isHandoff = isAugmentHandoffPhase(pickPhase);
     // The doctrine step is a pass-through whenever a pre-game perk is stored (the usual case): the client
     // auto-commits it and the server advances. Until that lands there is nothing to choose, so the screen
     // says so instead of flashing the chooser's title, hint and turn chips.
@@ -2324,8 +2332,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, gameId, opp
 
                 {pickPhase !== PickPhaseVals.PERK && (
                     <>
-                        {/* Both armies sit ABOVE the grid, side by side: yours (doctrine, six level slots, artifacts) and
-                the opponent's (hidden / watched / revealed), so the draft state reads before the choices. */}
+                        {/* Both armies sit above the grid by default. Ranked/private callers can suppress the
+                            opponent rail during the zero-second augment handoff before private Setup opens. */}
                         <Box
                             sx={{
                                 display: "flex",
@@ -2352,14 +2360,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({ userTeam, gameId, opp
                             <Box sx={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
                                 <MapBadge mapType={mapType} />
                             </Box>
-                            <OpponentDraftBar
-                                opponentPicked={opponentPicked}
-                                opponentLabel={opponentLabel}
-                                watchedSlots={watchedSlots}
-                                onInspect={beginInspect}
-                                onInspectEnd={endInspect}
-                                gameId={gameId}
-                            />
+                            {shouldShowOpponentDraftRail(pickPhase, showOpponentRosterDuringAugmentHandoff) && (
+                                <OpponentDraftBar
+                                    opponentPicked={opponentPicked}
+                                    opponentLabel={opponentLabel}
+                                    watchedSlots={watchedSlots}
+                                    onInspect={beginInspect}
+                                    onInspectEnd={endInspect}
+                                    gameId={gameId}
+                                />
+                            )}
                         </Box>
                     </>
                 )}

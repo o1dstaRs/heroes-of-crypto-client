@@ -470,6 +470,65 @@ describe("ranked placement scene state", () => {
         });
     });
 
+    test("applies explicit Setup roster privacy while preserving the public default and Board reveal", () => {
+        const units = [
+            unitState({ id: "own", team: TeamVals.LOWER, name: "Peasant", creatureId: CreatureVals.PEASANT }),
+            unitState({
+                id: "known-op",
+                team: TeamVals.UPPER,
+                name: "Orc",
+                creatureId: CreatureVals.ORC,
+                placed: true,
+                cells: [{ x: 9, y: 13 }],
+                baseCell: { x: 9, y: 13 },
+                amountAlive: 0,
+            }),
+        ];
+        const privateSetup = authoritativeSnapshotToSandboxSceneState(
+            {
+                ...placementSnapshot(units),
+                placementSplit: true,
+                placementStage: 0,
+                hideOpponentRosterDuringSetup: true,
+            },
+            { hideOpponentPlacements: true },
+        );
+        const publicSetup = authoritativeSnapshotToSandboxSceneState(
+            { ...placementSnapshot(units), placementSplit: true, placementStage: 0 },
+            { hideOpponentPlacements: true },
+        );
+        const board = authoritativeSnapshotToSandboxSceneState(
+            {
+                ...placementSnapshot(units),
+                placementSplit: true,
+                placementStage: 1,
+                hideOpponentRosterDuringSetup: true,
+            },
+            { hideOpponentPlacements: true },
+        );
+        const privateObserverSetup = authoritativeSnapshotToSandboxSceneState(
+            {
+                ...placementSnapshot(units),
+                viewerTeam: undefined,
+                placementSplit: true,
+                placementStage: 0,
+                hideOpponentRosterDuringSetup: true,
+            },
+            { hideOpponentPlacements: true },
+        );
+
+        expect(privateSetup.units.map((unit) => unit.properties.id)).toEqual(["own"]);
+        expect(privateObserverSetup.units).toEqual([]);
+        expect(publicSetup.units.map((unit) => unit.properties.id).sort()).toEqual(["known-op", "own"]);
+        expect(board.units.map((unit) => unit.properties.id).sort()).toEqual(["known-op", "own"]);
+        expect(board.units.find((unit) => unit.properties.id === "known-op")).toMatchObject({
+            team: TeamVals.UPPER,
+            placed: false,
+            cells: [],
+            properties: { amount_alive: 1 },
+        });
+    });
+
     test("drops a spent ability the snapshot no longer lists (Angel's Resurrection), keeping the rest", () => {
         // Ranked rebuilds units from the base creature config, which always lists Resurrection. After the
         // Angel resurrects, the server drops it from the unit's live abilities — the client must honour that

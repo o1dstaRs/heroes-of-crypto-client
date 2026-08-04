@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     decodePlayEvent,
     decodePlaySnapshot,
+    encodeDevCreatePlayGameRequest,
     encodePlayAction,
     PlayActionType,
     PlayEventKind,
@@ -64,6 +65,21 @@ const doubleField = (field: number, value: number): number[] => {
 };
 
 describe("play protobuf decoder", () => {
+    test("encodes split Setup duration and its explicit opponent-roster policy", () => {
+        const encoded = Array.from(
+            encodeDevCreatePlayGameRequest({
+                setupSeconds: 45,
+                hideOpponentRosterDuringSetup: true,
+            }),
+        );
+
+        expect(containsSubsequence(encoded, intField(8, 45))).toBe(true);
+        expect(containsSubsequence(encoded, intField(9, 1))).toBe(true);
+
+        // Proto defaults remain omitted, preserving compatibility with public/reusable dev games.
+        expect(Array.from(encodeDevCreatePlayGameRequest({}))).toEqual([]);
+    });
+
     test("decodes unit speed from protobuf float fields", () => {
         const unit = [...stringField(1, "unit-1"), ...floatField(13, 2.5)];
         const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
@@ -304,6 +320,16 @@ describe("play protobuf decoder", () => {
         const legacy = decodePlaySnapshot(new Uint8Array([...stringField(1, "legacy-game")]));
         expect(legacy.placementSplit).toBe(false);
         expect(legacy.placementStage).toBe(0);
+    });
+
+    test("decodes the explicit private-Setup roster policy and defaults it to public visibility", () => {
+        const privateSetup = decodePlaySnapshot(
+            new Uint8Array([...stringField(1, "private-setup"), ...intField(55, 1)]),
+        );
+        const publicDefault = decodePlaySnapshot(new Uint8Array([...stringField(1, "public-default")]));
+
+        expect(privateSetup.hideOpponentRosterDuringSetup).toBe(true);
+        expect(publicDefault.hideOpponentRosterDuringSetup).toBe(false);
     });
 
     test("decodes the authoritative steps morale multiplier and defaults it for older snapshots", () => {

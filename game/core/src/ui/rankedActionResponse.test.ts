@@ -25,6 +25,7 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
     placementDeadlineMs: 0,
     placementStage: 1,
     placementSplit: false,
+    hideOpponentRosterDuringSetup: false,
     currentTurnStartMs: 0,
     currentTurnEndMs: 0,
     units: [],
