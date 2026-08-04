@@ -157,7 +157,9 @@ Multiple agents run on this repo **at the same time**. Rules:
 - Store game images as compressed WebP files in Dropbox, run bun run --cwd game/core build:images,
   and reference them through src/generated/image_imports.ts or texAny(). Do not hard-code public image
   URLs such as /textures/foo.webp or call Assets.load() with a public image path.
-- Newly committed image binaries are site-only and belong under site/public. Attach gameplay review
+- Run bun run check:images before pushing; CI rejects tracked images outside site/public.
+- The sole tracked game-image exception is game/core/public/favicon.ico. All other tracked images belong
+  under site/public. Attach gameplay review
   screenshots to the PR or issue instead of committing them.
 - game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from
   Dropbox; do not force-add them.
