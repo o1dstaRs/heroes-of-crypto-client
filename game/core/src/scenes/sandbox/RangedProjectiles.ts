@@ -1,4 +1,4 @@
-import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 
 /**
@@ -97,10 +97,11 @@ export class RangedProjectiles {
     private armorPiercingBoltTexture?: Texture;
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
-        void Assets.load<Texture>("/armor_piercing_bolt.png").then((texture) => {
+        const texture = context.texAny?.("armor_piercing_bolt_512");
+        if (texture) {
             texture.source.scaleMode = "linear";
             this.armorPiercingBoltTexture = texture;
-        });
+        }
     }
     public hasActive(): boolean {
         return this.projectiles.length > 0;

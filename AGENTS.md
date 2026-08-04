@@ -148,6 +148,16 @@ Multiple agents run on this repo **at the same time**. Rules:
   pushing. Expect your commit to land alongside others'. Verify with `bun test` (transpiles independently of a
   peer's in-progress `tsc` errors) rather than blocking on a shared `tsc`.
 
-## Imported Claude Cowork project instructions
 
-client + common packages for the heroes of crypto game
+## Game image assets
+
+- Runtime game images are canonical only in the Dropbox directory referenced by HOC_IMAGES_LOC
+  (normally /Users/zolotukhin/Dropbox/heroesofcrypto/images). Never add game art to game/core/public
+  or another tracked game directory.
+- Store game images as compressed WebP files in Dropbox, run bun run --cwd game/core build:images,
+  and reference them through src/generated/image_imports.ts or texAny(). Do not hard-code public image
+  URLs such as /textures/foo.webp or call Assets.load() with a public image path.
+- Newly committed image binaries are site-only and belong under site/public. Attach gameplay review
+  screenshots to the PR or issue instead of committing them.
+- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from
+  Dropbox; do not force-add them.

@@ -1,4 +1,4 @@
-import { Assets, Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
+import { Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -121,17 +121,12 @@ export class HoverManager {
         this.context = context;
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
-        // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
-        // artwork lives in public/ rather than the scene atlas, so load it explicitly; otherwise the melee
-        // geometry runs but the Sprite can remain Texture.EMPTY and nothing appears on the board.
-        void Assets.load<Texture>("/cursors/cursor_melee.png").then((texture) => {
+        const texture = context.texAny("cursor_melee");
+        if (texture) {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
-            if (this.hoverAttackSword && !this.hoverAttackSword.destroyed) {
-                this.hoverAttackSword.texture = texture;
-            }
-        });
+        }
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;

@@ -12,6 +12,7 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from "react";
 
+import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 import { MessageBox } from "./MessageBox";
 import { usePixiManager } from "../../pixi/PixiGameManager";

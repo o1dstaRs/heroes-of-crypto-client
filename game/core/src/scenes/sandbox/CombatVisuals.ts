@@ -958,7 +958,7 @@ export class CombatVisuals {
         container.addChild(label, amountText);
 
         if (unitsDied && unitsDied > 0) {
-            const skullTex = Texture.from(images.skull || "/skull.webp");
+            const skullTex = Texture.from(images.skull);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
@@ -3721,7 +3721,7 @@ export class CombatVisuals {
 
         // 2. Skull + Count if units died
         if (unitsDied && unitsDied > 0) {
-            const skullTex = Texture.from(images.skull || "/skull.webp");
+            const skullTex = Texture.from(images.skull);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
