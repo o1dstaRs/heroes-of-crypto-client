@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HoC Forge — варианты интервала START</title>
+        <style>
+            @font-face {
+                font-family: "HoC Forge";
+                src: url("./HoCForge-Regular.ttf") format("truetype");
+                font-style: normal;
+                font-weight: 400;
+                font-display: block;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                min-height: 100%;
+                margin: 0;
+            }
+
+            body {
+                width: 1600px;
+                min-height: 1200px;
+                color: #e6d7c2;
+                background:
+                    radial-gradient(circle at 50% 28%, rgba(117, 53, 25, 0.16), transparent 38%),
+                    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 9px),
+                    linear-gradient(180deg, #171615 0%, #0d0d0d 100%);
+                font-family: Inter, system-ui, sans-serif;
+            }
+
+            main {
+                width: 100%;
+                min-height: 1200px;
+                padding: 54px 90px 70px;
+            }
+
+            h1 {
+                margin: 0;
+                color: #d6b18c;
+                font-family: "HoC Forge", Georgia, serif;
+                font-size: 48px;
+                font-weight: 700;
+                font-synthesis: weight;
+                letter-spacing: 0.08em;
+                text-align: center;
+                text-shadow: 0 3px 4px #000;
+            }
+
+            .subtitle {
+                margin: 12px 0 38px;
+                color: #8f8172;
+                font-size: 20px;
+                letter-spacing: 0.04em;
+                text-align: center;
+            }
+
+            .options {
+                display: grid;
+                gap: 24px;
+                width: 1180px;
+                margin: 0 auto;
+            }
+
+            .option {
+                padding: 20px 24px 24px;
+                border: 1px solid rgba(179, 112, 67, 0.23);
+                background: linear-gradient(180deg, rgba(34, 29, 25, 0.72), rgba(10, 10, 10, 0.74));
+                box-shadow:
+                    inset 0 1px rgba(255, 219, 178, 0.035),
+                    0 12px 30px rgba(0, 0, 0, 0.28);
+            }
+
+            .label {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                width: 940px;
+                margin: 0 auto 10px;
+                color: #c8b39c;
+                font-size: 21px;
+                font-weight: 650;
+            }
+
+            .label small {
+                color: #806e5f;
+                font-size: 16px;
+                font-weight: 500;
+            }
+
+            .button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 940px;
+                aspect-ratio: 432 / 114;
+                margin: 0 auto;
+                overflow: hidden;
+                color: #cda078;
+                background-image: url("/ui/start_button_plate_trimmed.png");
+                background-position: center;
+                background-repeat: no-repeat;
+                background-size: 100% 100%;
+                font-family: "HoC Forge", Georgia, serif;
+                font-size: 85px;
+                font-style: normal;
+                font-weight: 700;
+                font-synthesis: weight;
+                line-height: 1;
+                paint-order: stroke fill;
+                text-transform: uppercase;
+                -webkit-text-stroke: 0.06em rgba(43, 25, 15, 0.96);
+                text-shadow:
+                    0 0.075em 0 #070504,
+                    0 -0.022em 0 rgba(255, 222, 178, 0.24),
+                    0 0.12em 0.08em rgba(0, 0, 0, 0.82);
+            }
+
+            .spacing-10 {
+                letter-spacing: 0.121em;
+            }
+
+            .spacing-15 {
+                letter-spacing: 0.1265em;
+            }
+
+            .spacing-20 {
+                letter-spacing: 0.132em;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>START — LETTER SPACING</h1>
+            <p class="subtitle">Одинаковый размер, цвет и начертание — меняется только расстояние между буквами</p>
+
+            <section class="options">
+                <article class="option">
+                    <div class="label"><span>ВАРИАНТ 1 · +10%</span><small>letter-spacing: 0.121em</small></div>
+                    <div class="button spacing-10">START</div>
+                </article>
+
+                <article class="option">
+                    <div class="label"><span>ВАРИАНТ 2 · +15%</span><small>letter-spacing: 0.1265em</small></div>
+                    <div class="button spacing-15">START</div>
+                </article>
+
+                <article class="option">
+                    <div class="label"><span>ВАРИАНТ 3 · +20%</span><small>letter-spacing: 0.132em</small></div>
+                    <div class="button spacing-20">START</div>
+                </article>
+            </section>
+        </main>
+    </body>
+</html>

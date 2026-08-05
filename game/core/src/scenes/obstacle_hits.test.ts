@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { GameEvent } from "@heroesofcrypto/common";
 
-import { nextObstacleHits } from "./Sandbox";
+import { nextObstacleHits, obstacleStrikePositions } from "./Sandbox";
 
 type ObstacleEvent = Extract<GameEvent, { type: "obstacle_attacked" }>;
 
@@ -96,5 +96,34 @@ describe("mountain hits from a replayed obstacle_attacked", () => {
             left: 2,
             right: 3,
         });
+    });
+});
+
+describe("obstacle strike animation positions", () => {
+    test("keeps two scattered tombstones in first-impact then second-impact order", () => {
+        const first = event({
+            targetPosition: { x: -64, y: 256 },
+            hitsBefore: 9,
+            hitsAfter: 9,
+        });
+        const second = event({
+            targetPosition: { x: -64, y: 128 },
+            hitsBefore: 9,
+            hitsAfter: 9,
+        });
+
+        expect(obstacleStrikePositions([first, second], { x: 0, y: 0 })).toEqual([
+            first.targetPosition,
+            second.targetPosition,
+        ]);
+    });
+
+    test("repeats a classic mountain target once per aggregated landed hit", () => {
+        const doubleHit = event({ hitsBefore: 6, hitsAfter: 4 });
+
+        expect(obstacleStrikePositions([doubleHit], { x: 0, y: 0 })).toEqual([
+            doubleHit.targetPosition,
+            doubleHit.targetPosition,
+        ]);
     });
 });

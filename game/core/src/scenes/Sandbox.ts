@@ -434,6 +434,27 @@ export const nextObstacleHits = (
 };
 
 /**
+ * Exact impact points an obstacle strike must animate, in landing order.
+ *
+ * Scattered tombstones emit one `obstacle_attacked` event per destroyed stone, so their recorded positions
+ * are already the authoritative Double Shot path. Classic mountains instead aggregate a multi-hit strike
+ * into one event; repeat that single position once per landed hit to preserve the existing two-projectile
+ * presentation there.
+ */
+export const obstacleStrikePositions = (events: readonly GameEvent[], fallback: HoCMath.XY): HoCMath.XY[] => {
+    const obstacleEvents = events.filter(
+        (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
+    );
+    if (obstacleEvents.length > 1) {
+        return obstacleEvents.map((event) => ({ ...event.targetPosition }));
+    }
+    const event = obstacleEvents[0];
+    const landedHits = event ? Math.max(1, event.hitsBefore - event.hitsAfter) : 1;
+    const position = event?.targetPosition ?? fallback;
+    return Array.from({ length: landedHits }, () => ({ ...position }));
+};
+
+/**
  * Split an area attack's `splash` payload into one bucket per wave.
  *
  * The engine folds every wave of a single area attack into one ordered `splash` array: each wave
@@ -717,6 +738,7 @@ export class Sandbox extends PixiScene {
     private gridDebugRendered = false;
     // Spellbook
     private spellBookContainer: Container;
+    private spellBookBackdrop: Graphics;
     private spellBookOverlay?: SpellBookOverlay;
     private digitTextures?: Map<number, Texture>;
     // [NEW] Sub-Managers
@@ -882,6 +904,9 @@ export class Sandbox extends PixiScene {
         this.spellBookContainer.visible = false;
         this.spellBookContainer.sortableChildren = true;
         this.spellBookContainer.zIndex = 7000;
+        this.spellBookBackdrop = new Graphics();
+        this.spellBookBackdrop.zIndex = -1;
+        this.spellBookContainer.addChild(this.spellBookBackdrop);
         // Add Book Background Graphic
         const bookTex = this.texAny("book_1024");
         if (bookTex) {
@@ -3461,16 +3486,25 @@ export class Sandbox extends PixiScene {
         this.spawnChainLightningVfx(attacker, target, attackEvent.damage);
         // Fire damage burns AT IMPACT too (Fire Shield reflect / dragon-breath burn / Fireforged Sword).
         this.spawnFireDamageVfx(attacker, target, attackEvent.damage);
+        // In authoritative replays the live unit may already contain the post-action state, while its
+        // sprite is deliberately kept until this impact. Resolve lethal victims from the replay events
+        // before applying hit reactions so a killed cap plays only its death animation.
+        const teardownEventUnitIds = new Set(
+            record.events
+                .filter((event) => event.type === "unit_destroyed" || event.type === "unit_deleted")
+                .map((event) => event.unitId),
+        );
+        const destroyedUnitIds = new Set(attackEvent.unitIdsDied.filter((unitId) => teardownEventUnitIds.has(unitId)));
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
-        this.applyReplayAttackRecoil(attacker, attackEvent);
+        this.applyReplayAttackRecoil(attacker, attackEvent, destroyedUnitIds);
         // Melee strikes don't emit a per-target recoil animation (only ranged hits do, via the
         // animations array), so knock the defender back here to give the struck side a visible hit
         // reaction regardless of attacker/target. A fully-dodged strike never connected — the dodge
         // animation (showAttackMissedVfx) is the reaction, so no knockback on top of it.
-        if (attackEvent.attackType !== "range" && !attackEvent.damage.missed) {
+        if (attackEvent.attackType !== "range" && !attackEvent.damage.missed && !destroyedUnitIds.has(target.getId())) {
             this.applyReplayHitKnockback(target, attacker);
             // Double Punch / Crafted Double Punch land a SECOND melee strike inside the SAME action, so
             // the engine records two damage.hits[] entries and showReplayAttackDamage staggers a number
@@ -3492,12 +3526,6 @@ export class Sandbox extends PixiScene {
         // through the 300ms damage-number hold before applying unit_destroyed, so even an ordinary
         // single-hit melee/projectile kill visibly lingered after contact. Multi-hit attacks still wait
         // until their final 240ms-staggered impact; the 300ms readability hold starts after that.
-        const teardownEventUnitIds = new Set(
-            record.events
-                .filter((event) => event.type === "unit_destroyed" || event.type === "unit_deleted")
-                .map((event) => event.unitId),
-        );
-        const destroyedUnitIds = new Set(attackEvent.unitIdsDied.filter((unitId) => teardownEventUnitIds.has(unitId)));
         const replayRetaliationDamage = this.getReplayRetaliationDamage(attacker, target, attackEvent, record);
         const attackerDiesFromRetaliation =
             destroyedUnitIds.has(attacker.getId()) && replayRetaliationDamage !== undefined;
@@ -3570,6 +3598,17 @@ export class Sandbox extends PixiScene {
             to: targetPosition,
             big: bigProjectile,
             chakram: attacker.hasAbilityActive("Chakram"),
+            orcAxe: attacker.getName().trim().toLowerCase() === "orc",
+            arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
+            centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
+            dryadDart: attacker.getName().trim().toLowerCase() === "dryad",
+            beholderEye: attacker.getName().trim().toLowerCase() === "beholder",
+            elfArrow: attacker.getName().trim().toLowerCase() === "elf",
+            medusaSerpent: attacker.getName().trim().toLowerCase() === "medusa",
+            cyclopsRock: attacker.getName().trim().toLowerCase() === "cyclops",
+            monkOrb: attacker.getName().trim().toLowerCase() === "monk",
+            tsarCannonball: attacker.getName().trim().toLowerCase() === "tsar cannon",
+            gargantuanRock: attacker.getName().trim().toLowerCase() === "gargantuan",
         });
     }
     /**
@@ -4032,6 +4071,7 @@ export class Sandbox extends PixiScene {
     private applyReplayAttackRecoil(
         attacker: RenderableUnit,
         attackEvent: Extract<GameEvent, { type: "unit_attacked" }>,
+        skipUnitIds: ReadonlySet<string> = new Set<string>(),
     ): void {
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
@@ -4040,7 +4080,7 @@ export class Sandbox extends PixiScene {
             const unit = unitId
                 ? (this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined)
                 : undefined;
-            if (!unit) {
+            if (!unit || unit.isDead() || skipUnitIds.has(unit.getId())) {
                 continue;
             }
             const from = animation.fromPosition ?? attackerCenter;
@@ -4050,23 +4090,31 @@ export class Sandbox extends PixiScene {
             const len = Math.sqrt(dx * dx + dy * dy);
             if (len > 0.001) {
                 const magnitude = gs.getCellSize() * 0.28;
-                unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
+                unit.applyHitReaction((dx / len) * magnitude, (dy / len) * magnitude);
             }
         }
     }
-    /** Knock `unit` back along the vector pointing away from `source` — a brief defensive hit reaction. */
-    private applyReplayHitKnockback(unit: RenderableUnit, source: RenderableUnit): void {
+    /** Push a surviving unit away from an impact origin and let RenderableUnit spring it back. */
+    private applyHitReactionFromPoint(unit: Unit | undefined, source: HoCMath.XY, magnitudeScale = 0.22): void {
+        if (!(unit instanceof RenderableUnit) || unit.isDead()) {
+            return;
+        }
         const gs = this.sc_sceneSettings.getGridSettings();
-        const unitCenter = unit.getVisualCenter(gs);
-        const sourceCenter = source.getVisualCenter(gs);
-        const dx = unitCenter.x - sourceCenter.x;
-        const dy = unitCenter.y - sourceCenter.y;
+        const center = unit.getVisualCenter(gs);
+        const dx = center.x - source.x;
+        const dy = center.y - source.y;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len <= 0.001) {
             return;
         }
-        const magnitude = gs.getCellSize() * 0.28;
-        unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
+        const magnitude = gs.getCellSize() * magnitudeScale;
+        unit.applyHitReaction((dx / len) * magnitude, (dy / len) * magnitude);
+    }
+    /** Knock `unit` back along the vector pointing away from `source` — a brief defensive hit reaction. */
+    private applyReplayHitKnockback(unit: RenderableUnit, source: RenderableUnit): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const sourceCenter = source.getVisualCenter(gs);
+        this.applyHitReactionFromPoint(unit, sourceCenter, 0.28);
     }
     /** Lunge `unit` toward `target` — a brief forward strike (applyRecoil's out-and-back envelope). */
     private applyReplayLunge(unit: RenderableUnit, target: RenderableUnit): void {
@@ -4138,8 +4186,8 @@ export class Sandbox extends PixiScene {
     /**
      * Replay the defender's counterattack so an exchange animates on both sides, not just the
      * initiating attacker. The engine emits the attacker's strike but conveys the response only as
-     * damage/recoil, so here we play the return strike (ranged projectile or melee lunge), the
-     * attacker's hit reaction, and the response damage. Detection is purely data-driven: a positive
+     * damage, so here we play the return strike (ranged projectile or melee lunge) and its response
+     * damage. Detection is purely data-driven: a positive
      * HP loss on the attacker during its own action means it was struck back.
      */
     private async playReplayRetaliation(
@@ -4169,10 +4217,6 @@ export class Sandbox extends PixiScene {
             this.applyReplayLunge(target, attacker);
             await this.delayReplay(Sandbox.REPLAY_CONTROL_HOLD_MS);
         }
-        // Recoil the attacker on impact. For ranged the animations-array recoil has already decayed
-        // by the time the return shot lands; melee responses emit no recoil entry at all.
-        this.applyReplayHitKnockback(attacker, target);
-
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
         const targetCenter = target.getVisualCenter(gs);
@@ -4248,21 +4292,30 @@ export class Sandbox extends PixiScene {
         // handed over), which would silently drop the whole strike — the mountain damage, the
         // destroy, and any lap mechanics (lava drying) bundled into this action's events. Driving it
         // off the journal mirrors how unit attacks replay and guarantees those all show.
-        const obstacleEvent = record.events.find(
+        const obstacleEvents = record.events.filter(
             (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
         );
-        const landedHits = obstacleEvent ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter) : 1;
+        const remainingEvents = record.events.filter((event) => event.type !== "obstacle_attacked");
+        const strikePositions = obstacleStrikePositions(record.events, action.targetPosition);
+        const scattered = this.grid.hasScatteredMountains();
         this.sc_sceneLog.updateLog(`${unit.getName()} hit mountain`);
-        this.animateObstacleStrike(unit, action.targetPosition, action.attackFrom, landedHits);
-        await this.delayReplay(this.getReplayObstacleStrikeHoldMs(landedHits));
-        this.applyReplayEvents(record.events);
+        let appliedObstacleEvents = 0;
+        await this.animateObstacleStrikeSequence(unit, strikePositions, action.attackFrom, (impactIndex) => {
+            if (!scattered) {
+                return;
+            }
+            const event = obstacleEvents[impactIndex];
+            if (!event) {
+                return;
+            }
+            this.applyReplayEvents([event]);
+            appliedObstacleEvents = impactIndex + 1;
+        });
+        this.applyReplayEvents([...obstacleEvents.slice(appliedObstacleEvents), ...remainingEvents]);
         this.sc_moveBlocked = false;
+        await this.delayReplay(Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS);
         await this.delayReplay(Sandbox.REPLAY_ATTACK_AFTER_APPLY_HOLD_MS);
         return true;
-    }
-    /** Hold long enough for every staggered obstacle lunge/projectile (240ms cadence) to land. */
-    private getReplayObstacleStrikeHoldMs(landedHits: number): number {
-        return Sandbox.REPLAY_ATTACK_DAMAGE_BASE_HOLD_MS + Math.max(0, landedHits - 1) * 240;
     }
     private async playReplayAreaThrowAction(record: SandboxReplay["actions"][number]): Promise<boolean> {
         const action = record.action;
@@ -4316,6 +4369,10 @@ export class Sandbox extends PixiScene {
         // -> renderCastOutcomes), which is authoritative and so identical on both players' screens.
         const isCraftCast = action.spellName === "Craft";
         const craftCasterPos = { ...caster.getPosition() };
+        const craftTargetPos =
+            isCraftCast && action.targetCell
+                ? (this.getAreaSpellVisualCenter("Craft", action.targetCell) ?? craftCasterPos)
+                : craftCasterPos;
 
         // Castling (POSITION_CHANGE) swaps the caster with a target. Re-running the engine during
         // replay is unreliable here (validateTurnAction can reject — the turn has handed over), so apply
@@ -4437,7 +4494,7 @@ export class Sandbox extends PixiScene {
         // snapshot (`spell_not_available`), or the turn has handed over. Gating the animation on
         // `result.completed` therefore swallowed the whole forge in ranked while it always played in sandbox.
         if (isCraftCast) {
-            const forgeMs = this.combatVisuals?.spawnCraftForge(craftCasterPos, gs.getCellSize()) ?? 0;
+            const forgeMs = this.combatVisuals?.spawnCraftForge(craftTargetPos, gs.getCellSize()) ?? 0;
             // The per-ally results the SERVER rolled, held until the forge finishes so they read as its
             // output. Safe from the replay precisely because they are stated on the record rather than
             // re-derived — re-running the roll locally would show each player a different craft.
@@ -4618,6 +4675,15 @@ export class Sandbox extends PixiScene {
         const scale = Math.min(width / 1680, height / 980) * 0.88;
         this.spellBookContainer.scale.set(scale);
         this.spellBookContainer.position.set(width / 2, height / 2);
+
+        // Dim exactly the square occupied by the map. The backdrop is a child of the scaled book
+        // container, so draw it in inverse-scaled local pixels to keep its final screen size stable.
+        const mapSize = Math.min(width, height);
+        const localMapSize = mapSize / scale;
+        this.spellBookBackdrop
+            .clear()
+            .rect(-localMapSize / 2, -localMapSize / 2, localMapSize, localMapSize)
+            .fill({ color: 0x000000, alpha: 0.65 });
     }
     public override Resize(w: number, h: number): void {
         // 1) Let the base scene update camera, worldRoot, etc.
@@ -5844,19 +5910,12 @@ export class Sandbox extends PixiScene {
             }
             // A ranged shot whose line of sight is blocked by the mountain hits the mountain
             // instead of the enemy behind it (the hover step armed this).
-            const doubleShotContinuesThroughStone =
-                this.grid.hasScatteredMountains() &&
-                !!this.currentActiveUnit &&
-                !!(
-                    this.currentActiveUnit.getAbility("Double Shot") ??
-                    this.currentActiveUnit.getAbility("Crafted Double Shot")
-                ) &&
-                !!this.getUnitAtPosition(p);
-            if (
-                this.hoverRangeAttackObstacle &&
-                !doubleShotContinuesThroughStone &&
-                this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)
-            ) {
+            // With one scattered stone, Double Shot's hover leaves this unset because shot two can continue
+            // to the unit. With two stones it is the SECOND intersection: route the click to obstacle_attack
+            // so shot one destroys stone one and shot two destroys stone two. The previous blanket
+            // "Double Shot + clicked unit" exemption sent this case into a rejected unit attack and left the
+            // scene input-locked.
+            if (this.hoverRangeAttackObstacle && this.attemptObstacleAttack(this.hoverRangeAttackObstacle.position)) {
                 return;
             }
 
@@ -6568,13 +6627,14 @@ export class Sandbox extends PixiScene {
         // Meteorite's impact burst + one damage number per enemy caught under the 2x2.
         this.renderSpellDamageVfx(result.events, casterPos);
 
-        // Craft-only theatrics: the forge cast (anvil + hammer) over the Blacksmith, then each ally's
+        // Craft-only theatrics: the forge cast (anvil + hammer) over the selected 2x2, then each ally's
         // crafted result once it finishes. Gated on the spell — Smoke shares this cast path but has no
         // forge and no per-ally outcome, and playing the anvil over an Ash Moth would be nonsense. Its own
         // visual is the ground cloud, which SmokeCloudLayer picks up from the authoritative store.
         if (spell.getName() === "Craft") {
+            const forgePos = this.getAreaSpellVisualCenter(spell.getName(), cell) ?? casterPos;
             const forgeMs =
-                this.combatVisuals?.spawnCraftForge(casterPos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
+                this.combatVisuals?.spawnCraftForge(forgePos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
                 0;
             this.cleanupAfterSpell(result.events, unitSnapshot);
             setTimeout(() => this.renderCastOutcomes(result.events), forgeMs + 80);
@@ -7225,6 +7285,18 @@ export class Sandbox extends PixiScene {
     private cellTargetedSpellBlock(spell: Spell, origin: HoCMath.XY): HoCMath.XY[] {
         return cellTargetedSpellBlockCells(spell.getName(), origin);
     }
+    /** World-space centre of a cell-targeted footprint, used to place its cast animation. */
+    private getAreaSpellVisualCenter(spellName: string, origin: HoCMath.XY): HoCMath.XY | undefined {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const positions = cellTargetedSpellBlockCells(spellName, origin)
+            .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
+            .filter((position): position is HoCMath.XY => !!position);
+        if (!positions.length) return undefined;
+        return {
+            x: positions.reduce((sum, position) => sum + position.x, 0) / positions.length,
+            y: positions.reduce((sum, position) => sum + position.y, 0) / positions.length,
+        };
+    }
     /**
      * Whether a unit-targeted spell can reach the target through the current board. The common classifier
      * includes Vine Throw despite its non-damaging status multiplier and lets called-down spells pass.
@@ -7482,11 +7554,7 @@ export class Sandbox extends PixiScene {
             return submitted;
         }
         if (!attackFromCell) {
-            const ok = this.applyObstacleAttackAction(unit, targetPosition);
-            if (ok) {
-                onComplete?.();
-            }
-            return ok;
+            return this.applyObstacleAttackAction(unit, targetPosition, undefined, onComplete);
         }
 
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
@@ -7498,11 +7566,7 @@ export class Sandbox extends PixiScene {
         const alreadyAtAttackCell =
             Math.abs(currentPos.x - attackFromPos.x) < 0.1 && Math.abs(currentPos.y - attackFromPos.y) < 0.1;
         if (alreadyAtAttackCell) {
-            const ok = this.applyObstacleAttackAction(unit, targetPosition, attackFromCell);
-            if (ok) {
-                onComplete?.();
-            }
-            return ok;
+            return this.applyObstacleAttackAction(unit, targetPosition, attackFromCell, onComplete);
         }
 
         const routes = this.currentActiveKnownPaths?.get((attackFromCell.x << 4) | attackFromCell.y);
@@ -7517,8 +7581,7 @@ export class Sandbox extends PixiScene {
         }
 
         this.executeMoveSequence(unit, route, footprint, () => {
-            this.applyObstacleAttackAction(unit, targetPosition, attackFromCell);
-            onComplete?.();
+            this.applyObstacleAttackAction(unit, targetPosition, attackFromCell, onComplete);
         });
         return true;
     }
@@ -7544,6 +7607,7 @@ export class Sandbox extends PixiScene {
         unit: RenderableUnit,
         worldPos: HoCMath.XY,
         attackFromCell?: HoCMath.XY,
+        onComplete?: () => void,
     ): boolean {
         const action = this.buildObstacleAttackAction(unit, worldPos, attackFromCell);
         const unitSnapshot = this.snapshotRenderableUnits();
@@ -7552,21 +7616,49 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        const obstacleEvent = result.events.find((event) => event.type === "obstacle_attacked");
-        const landedHits =
-            obstacleEvent?.type === "obstacle_attacked"
-                ? Math.max(1, obstacleEvent.hitsBefore - obstacleEvent.hitsAfter)
-                : 1;
-        this.animateObstacleStrike(unit, worldPos, attackFromCell, landedHits);
-
-        this.unitsHolder.refreshStackPowerForAllUnits();
+        const obstacleEvents = result.events.filter(
+            (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> => event.type === "obstacle_attacked",
+        );
+        const remainingEvents = result.events.filter((event) => event.type !== "obstacle_attacked");
+        const strikePositions = obstacleStrikePositions(result.events, worldPos);
+        const scattered = this.grid.hasScatteredMountains();
         this.hoverManager.clearHoverSilhouette();
         this.hoverManager.clearAttackVisuals();
         this.hoverManager.hoverAttackFromCell = undefined;
-        this.sc_moveBlocked = false;
-        this.sc_visibleStateUpdateNeeded = true;
-        this.refreshUnits();
-        this.applyTurnEngineEvents(result.events, unitSnapshot);
+        this.sc_moveBlocked = true;
+
+        // The engine has already resolved the action, but the tombstone sprites and turn hand-off wait for
+        // their matching impacts. This makes Double Shot read as two real shots instead of deleting both
+        // stones immediately and then drawing a cosmetic projectile at the final target.
+        void (async () => {
+            let appliedObstacleEvents = 0;
+            try {
+                await this.animateObstacleStrikeSequence(unit, strikePositions, attackFromCell, (impactIndex) => {
+                    if (!scattered) {
+                        return;
+                    }
+                    const event = obstacleEvents[impactIndex];
+                    if (!event) {
+                        return;
+                    }
+                    this.applyTurnEngineEvents([event], unitSnapshot);
+                    appliedObstacleEvents = impactIndex + 1;
+                });
+            } finally {
+                // Classic mountains aggregate all hits into one event, so apply it after the final impact.
+                // The slice is also a recovery path if an animation is interrupted before every scattered
+                // event reaches its per-impact callback: the turn can never remain locked indefinitely.
+                const pendingEvents: GameEvent[] = [...obstacleEvents.slice(appliedObstacleEvents), ...remainingEvents];
+                if (pendingEvents.length) {
+                    this.applyTurnEngineEvents(pendingEvents, unitSnapshot);
+                }
+                this.unitsHolder.refreshStackPowerForAllUnits();
+                this.sc_moveBlocked = false;
+                this.sc_visibleStateUpdateNeeded = true;
+                this.refreshUnits();
+                onComplete?.();
+            }
+        })();
         return true;
     }
     /**
@@ -7575,43 +7667,55 @@ export class Sandbox extends PixiScene {
      * melee lunge / range projectile. One animation plays per landed hit, so Double Punch (two lunges)
      * and Double Shot (two arrows) both read as the two strikes they are — staggered so they're distinct.
      */
-    private animateObstacleStrike(
+    private async animateObstacleStrikeSequence(
         unit: RenderableUnit,
-        worldPos: HoCMath.XY,
+        worldPositions: readonly HoCMath.XY[],
         attackFromCell: HoCMath.XY | undefined,
-        landedHits: number,
-    ): void {
+        onImpact?: (impactIndex: number) => void,
+    ): Promise<void> {
         const gsAnim = this.sc_sceneSettings.getGridSettings();
         const muzzle = unit.getVisualCenter(gsAnim);
-        const animDir = { x: worldPos.x - muzzle.x, y: worldPos.y - muzzle.y };
-        const animLen = Math.hypot(animDir.x, animDir.y);
-        const hits = Math.max(1, landedHits);
         if (attackFromCell) {
-            if (animLen > 0.001) {
+            for (let hitIndex = 0; hitIndex < worldPositions.length; hitIndex += 1) {
+                const worldPos = worldPositions[hitIndex];
+                const animDir = { x: worldPos.x - muzzle.x, y: worldPos.y - muzzle.y };
+                const animLen = Math.hypot(animDir.x, animDir.y);
+                if (animLen <= 0.001) {
+                    onImpact?.(hitIndex);
+                    continue;
+                }
                 const mag = gsAnim.getCellSize() * 0.22;
                 const recoilX = (animDir.x / animLen) * mag;
                 const recoilY = (animDir.y / animLen) * mag;
-                for (let hitIndex = 0; hitIndex < hits; hitIndex += 1) {
-                    if (hitIndex === 0) {
-                        unit.applyRecoil(recoilX, recoilY);
-                    } else {
-                        // Stagger extra lunges so they read as distinct (matches the multi-hit cadence).
-                        setTimeout(() => unit.applyRecoil(recoilX, recoilY), hitIndex * 240);
-                    }
+                unit.applyRecoil(recoilX, recoilY);
+                onImpact?.(hitIndex);
+                if (hitIndex + 1 < worldPositions.length) {
+                    await this.delayReplay(ATTACK_HIT_STAGGER_MS);
                 }
             }
-        } else {
-            const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
-            for (let shotIndex = 0; shotIndex < hits; shotIndex += 1) {
-                if (shotIndex === 0) {
-                    void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
-                } else {
-                    // Stagger extra shots so they read as distinct (matches the multi-hit cadence).
-                    setTimeout(() => {
-                        void this.rangedProjectiles.fire({ from: muzzle, to: worldPos, big });
-                    }, shotIndex * 240);
-                }
-            }
+            return;
+        }
+
+        const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
+        const unitName = unit.getName().trim().toLowerCase();
+        for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
+            await this.rangedProjectiles.fire({
+                from: muzzle,
+                to: worldPositions[shotIndex],
+                big,
+                orcAxe: unitName === "orc",
+                arbalesterBolt: unitName === "arbalester",
+                centaurSpear: unitName === "centaur",
+                dryadDart: unitName === "dryad",
+                beholderEye: unitName === "beholder",
+                elfArrow: unitName === "elf",
+                medusaSerpent: unitName === "medusa",
+                cyclopsRock: unitName === "cyclops",
+                monkOrb: unitName === "monk",
+                tsarCannonball: unitName === "tsar cannon",
+                gargantuanRock: unitName === "gargantuan",
+            });
+            onImpact?.(shotIndex);
         }
     }
     private getObstacleAttackFromPosition(unit: RenderableUnit, attackFromCell: HoCMath.XY): HoCMath.XY | undefined {
@@ -7643,11 +7747,11 @@ export class Sandbox extends PixiScene {
      * the cursor around the rock — edges, corners, both flanks), plus the move silhouette and arrow.
      */
     private updateObstacleHover(): boolean {
-        // Clear any stale "Hit the mountain" state and report "not targeting the mountain".
+        // Clear any stale obstacle-hit state and report "not targeting the obstacle".
         const notHovering = (): boolean => {
             this.hoverManager.clearObstacleHighlight();
             this.dungeonVisuals.clearScatteredMountainHighlight();
-            if (this.sc_hoverInfoArr[0] === "Hit the mountain") {
+            if (this.sc_hoverInfoArr[0] === "Hit the object") {
                 this.sc_hoverInfoArr = [];
                 this.sc_hoverTextUpdateNeeded = true;
                 this.hoverManager.hoverAttackFromCell = undefined;
@@ -7657,8 +7761,8 @@ export class Sandbox extends PixiScene {
             return false;
         };
         const showHit = (): void => {
-            if (this.sc_hoverInfoArr[0] !== "Hit the mountain") {
-                this.sc_hoverInfoArr = ["Hit the mountain"];
+            if (this.sc_hoverInfoArr[0] !== "Hit the object") {
+                this.sc_hoverInfoArr = ["Hit the object"];
                 this.sc_hoverTextUpdateNeeded = true;
             }
         };
@@ -7730,11 +7834,26 @@ export class Sandbox extends PixiScene {
         }
         this.hoverManager.hoverAttackFromCell = attackFromCell;
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
+        const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         if (attackFromPos) {
             this.hoverManager.updateHoverSilhouette(attackFromPos);
-            this.hoverManager.drawAttackArrow(attackFromPos, this.sc_mouseWorld, undefined, undefined, "melee");
+            // Aim at the TARGET's own footprint, not at the raw pointer. The sword's length is normalised
+            // for diagonals on the assumption of cell geometry (see meleeSwordDisplayLength), and mouse
+            // coordinates do not obey it — feeding them in is what made the diagonal icon grow. The
+            // unit-vs-unit path already aims this way; only the obstacle path was passing the cursor.
+            //
+            // Suppressed once the swing is committed: the marker is redrawn every frame while the pointer
+            // rests on the target, so clearing it once at attack time was immediately undone.
+            if (!this.isStrikeInFlight()) {
+                this.hoverManager.drawAttackArrow(
+                    attackFromPos,
+                    meleeSwordTargetPoint(attackFromPos, cellCenter, gs.getHalfStep()),
+                    undefined,
+                    undefined,
+                    "melee",
+                );
+            }
         }
-        const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         if (this.grid.hasScatteredMountains()) {
             this.dungeonVisuals.highlightScatteredMountains([cellCenter]);
         } else {
@@ -8122,10 +8241,17 @@ export class Sandbox extends PixiScene {
 
         const muzzle = unit.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
+        const areaThrowUnitName = unit.getName().trim().toLowerCase();
         const isDoubleShot = unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot");
         // Shot ONE. Double Shot's second projectile is fired below, AFTER wave 1's numbers, so each shot's
         // damage pops in sync with its own throw instead of both landing at the end.
-        await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
+        await this.rangedProjectiles.fire({
+            from: muzzle,
+            to: effectivePosition,
+            big: bigProjectile,
+            tsarCannonball: areaThrowUnitName === "tsar cannon",
+            gargantuanRock: areaThrowUnitName === "gargantuan",
+        });
 
         const unitSnapshot = this.snapshotRenderableUnits();
         const result = this.createActionEngine().apply(action);
@@ -8169,7 +8295,13 @@ export class Sandbox extends PixiScene {
         const throwCount = Math.max(waves.length, isDoubleShot ? 2 : 1);
         let shownAnyWave = this.showSplashDamage(waves[0] ?? [], muzzle);
         for (let throwIndex = 1; throwIndex < throwCount; throwIndex++) {
-            await this.rangedProjectiles.fire({ from: muzzle, to: effectivePosition, big: bigProjectile });
+            await this.rangedProjectiles.fire({
+                from: muzzle,
+                to: effectivePosition,
+                big: bigProjectile,
+                tsarCannonball: areaThrowUnitName === "tsar cannon",
+                gargantuanRock: areaThrowUnitName === "gargantuan",
+            });
             shownAnyWave = this.showSplashDamage(waves[throwIndex] ?? [], muzzle) || shownAnyWave;
         }
         if (!shownAnyWave) {
@@ -8362,6 +8494,9 @@ export class Sandbox extends PixiScene {
         replayAction?: Extract<GameAction, { type: "melee_attack" }> | Extract<GameAction, { type: "range_attack" }>,
     ): Promise<boolean> {
         this.sc_moveBlocked = true;
+        // The click has committed the attack. Drop the aim silhouette, directional sword, damage
+        // prediction and attack cursor immediately instead of leaving them over the board until impact.
+        this.clearCommittedBoardActionPreview();
 
         // Create a local damage object for animation
         const damageForAnimation: IVisibleDamage = {
@@ -8570,6 +8705,17 @@ export class Sandbox extends PixiScene {
                 to: shotTarget,
                 big: bigProjectile,
                 chakram: attacker.hasAbilityActive("Chakram"),
+                orcAxe: attacker.getName().trim().toLowerCase() === "orc",
+                arbalesterBolt: attacker.getName().trim().toLowerCase() === "arbalester",
+                centaurSpear: attacker.getName().trim().toLowerCase() === "centaur",
+                dryadDart: attacker.getName().trim().toLowerCase() === "dryad",
+                beholderEye: attacker.getName().trim().toLowerCase() === "beholder",
+                elfArrow: attacker.getName().trim().toLowerCase() === "elf",
+                medusaSerpent: attacker.getName().trim().toLowerCase() === "medusa",
+                cyclopsRock: attacker.getName().trim().toLowerCase() === "cyclops",
+                monkOrb: attacker.getName().trim().toLowerCase() === "monk",
+                tsarCannonball: attacker.getName().trim().toLowerCase() === "tsar cannon",
+                gargantuanRock: attacker.getName().trim().toLowerCase() === "gargantuan",
             });
 
             if (!applyAttackActionResult(this.createActionEngine().apply(action))) {
@@ -8626,6 +8772,17 @@ export class Sandbox extends PixiScene {
                     to: responseEdge,
                     big: bigResponse,
                     chakram: target.hasAbilityActive("Chakram"),
+                    orcAxe: target.getName().trim().toLowerCase() === "orc",
+                    arbalesterBolt: target.getName().trim().toLowerCase() === "arbalester",
+                    centaurSpear: target.getName().trim().toLowerCase() === "centaur",
+                    dryadDart: target.getName().trim().toLowerCase() === "dryad",
+                    beholderEye: target.getName().trim().toLowerCase() === "beholder",
+                    elfArrow: target.getName().trim().toLowerCase() === "elf",
+                    medusaSerpent: target.getName().trim().toLowerCase() === "medusa",
+                    cyclopsRock: target.getName().trim().toLowerCase() === "cyclops",
+                    monkOrb: target.getName().trim().toLowerCase() === "monk",
+                    tsarCannonball: target.getName().trim().toLowerCase() === "tsar cannon",
+                    gargantuanRock: target.getName().trim().toLowerCase() === "gargantuan",
                 });
             }
         } else {
@@ -8775,6 +8932,14 @@ export class Sandbox extends PixiScene {
             // Calculate trajectory direction (Attacker -> Target)
             const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
             const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+
+            // The struck cap yields away from the incoming blow, then springs back to its cell. The
+            // engine state is already applied here, so lethal victims are dead and intentionally skip
+            // this reaction in favour of the existing death animation.
+            const struckUnit =
+                this.unitsHolder.getAllUnits().get(primaryVictimId) ??
+                (primaryVictimId === target.getId() ? target : undefined);
+            this.applyHitReactionFromPoint(struckUnit, aCenter);
 
             // An intercepted shot damages the SCREEN, and the unit we aimed at stands BEHIND it —
             // attacker, screen and aimed unit are collinear by construction. The offsets below push the
@@ -8975,6 +9140,15 @@ export class Sandbox extends PixiScene {
             const totalHpAfter = currentAmount > 0 ? (currentAmount - 1) * unitMaxHp + currentHp : 0;
             const diff = totalHpBefore - totalHpAfter;
 
+            const primaryVictimId = damageForAnimation.unitId ?? target.getId();
+            const primaryReactionAlreadyPlayed =
+                uId === primaryVictimId && !damageForAnimation.splash?.length && damageForAnimation.amount > 0;
+            if (diff > 0 && !primaryReactionAlreadyPlayed) {
+                // Splash and other secondary victims recoil away from the attack origin too. Missing or
+                // dead units are ignored by the helper, leaving lethal hits to the death animation.
+                this.applyHitReactionFromPoint(u, attacker.getVisualCenter(gs), 0.2);
+            }
+
             const diedCount = Math.max(0, snap.amount - currentAmount);
 
             // Deduct damage the attack's own hit numbers already showed (Section 1). Key off the
@@ -8983,7 +9157,6 @@ export class Sandbox extends PixiScene {
             // intercepts the ray (or the target is switched after a kill) those differ, and keying
             // on `target` left this at 0 — so Section 3 drew the full diff (standard + Petrifying
             // Gaze = the sum) instead of the isolated gaze.
-            const primaryVictimId = damageForAnimation.unitId ?? target.getId();
             let alreadyShown = 0;
             // Kills the primary hit numbers already rendered for this victim (Section 1). The extra
             // number below must show only the deaths from the UNACCOUNTED damage, not the victim's
@@ -9176,6 +9349,20 @@ export class Sandbox extends PixiScene {
         }
         return true;
     }
+    /** Clear transient pointer previews as soon as a move/attack command is accepted. */
+    private clearCommittedBoardActionPreview(): void {
+        this.hoverManager.clearAttackVisuals();
+        // Move animation locks silhouettes so its completion cannot be disturbed by hover updates. Force
+        // this pre-lock clear: a normal clear after setSilhouetteLocked(true) is deliberately ignored.
+        this.hoverManager.clearHoverSilhouette(true);
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.hoverManager.hoveredUnitHighlight = undefined;
+        this.hoverRangeAttackObstacle = undefined;
+        this.sc_isHoveringAttackTarget = false;
+        this.sc_meleeCursorDirection = undefined;
+        this.sc_hoverInfoArr = [];
+        this.sc_hoverTextUpdateNeeded = true;
+    }
     private executeMoveSequence(
         unit: RenderableUnit,
         path: HoCMath.XY[],
@@ -9367,12 +9554,14 @@ export class Sandbox extends PixiScene {
             this.sc_visibleStateUpdateNeeded = true;
         }
 
+        // Once the engine accepts the move, remove every click/hover preview in the same frame. Previously
+        // the silhouette was locked first and clearHoverSilhouette() therefore did nothing, while the
+        // sword and target shadow survived for the entire run-up to a melee strike.
+        this.clearCommittedBoardActionPreview();
         this.hoverManager.setSilhouetteLocked(true);
         this.currentActivePath = undefined;
         this.currentActiveKnownPaths = undefined;
         this.currentActivePathHashes = undefined;
-        this.hoverManager.clearHoverSilhouette();
-        this.hoverManager.hoveredUnitHighlight = undefined;
         this.sc_moveBlocked = true;
         return true;
     }
@@ -9734,11 +9923,19 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.clearHoverSilhouette();
                 this.hoverManager.hoverAttackFromCell = undefined;
 
-                // Castling reads as dark yellow; buffs/heals green; debuffs/damage red.
+                // Positive magic reads emerald; debuffs and battle magic read as fire-red.
                 const isSwap = spell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
-                const spellColor = isSwap ? 0xb8860b : spell.isBuff() ? 0x1aa84a : 0xaa0000;
+                const isPositiveSpell = spell.isBuff() || isSwap;
+                const spellColor = isPositiveSpell ? 0x18c868 : 0xe02b16;
                 const casterPos = caster.getVisualCenter(gs2);
                 const iconTex = this.texAny(SpellHelper.spellToTextureName(spell.getName())) ?? Texture.EMPTY;
+                // Direct buffs/debuffs are applied to the chosen unit without travelling through the board,
+                // so a trajectory arrow is misleading. Keep arrows for damaging, swap and genuinely thrown
+                // spells; the shared classifier is the same one used by the engine and AI for interception.
+                const hideDirectStatusArrow =
+                    !SpellHelper.targetedSpellRequiresLineOfSight(spell.getName()) &&
+                    !isOffensiveSpellMultiplier(spell.getMultiplierType()) &&
+                    spell.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
 
                 let targetCenter: HoCMath.XY | undefined;
                 if (isSwap && this.currentEnemiesCellsWithinMovementRange) {
@@ -9864,10 +10061,11 @@ export class Sandbox extends PixiScene {
 
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
-                    targetPos: targetCenter,
+                    targetPos: hideDirectStatusArrow ? undefined : targetCenter,
                     iconTex,
                     label: spell.getName(),
                     color: spellColor,
+                    beamStyle: isPositiveSpell ? "positive" : "negative",
                 });
                 return;
             }
@@ -10681,7 +10879,7 @@ export class Sandbox extends PixiScene {
                                 );
                             }
                             this.sc_hoverInfoArr = [
-                                doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the mountain",
+                                doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
                             ];
                             this.sc_hoverTextUpdateNeeded = true;
                             isAttacking = true;
@@ -11516,12 +11714,9 @@ export class Sandbox extends PixiScene {
         // The localized spill around the lava pool stays alive during placement as well as combat.
         this.dungeonVisuals.updateFireLight();
         this.ensureDungeonAmbientLayer();
-        const showDungeonFog =
-            FightStateManager.getInstance().getFightProperties().getGridType() !== GridVals.LAVA_CENTER;
-        this.dungeonAmbientLayer?.setVisible(showDungeonFog);
-        if (showDungeonFog) {
-            this.dungeonAmbientLayer?.update();
-        }
+        // The same authored dungeon fog now belongs to every active map, including Lava.
+        this.dungeonAmbientLayer?.setVisible(true);
+        this.dungeonAmbientLayer?.update();
 
         if (fightStarted) {
             // Atmosphere Transition & Animation

@@ -30,28 +30,11 @@ const SPAWN_TWINKLE_RATE = 5;
 
 import { isFriendlyTeam } from "../scenes/teamColors";
 
-// Darker variants of the flag palette keep the team identity without glowing like UI chrome over the floor.
-const SPAWN_COLOR_FRIENDLY = 0x176f31;
-const SPAWN_COLOR_HOSTILE = 0x8a2d2d;
+// Placement energy is concentrated in the grid seams rather than painted over the stone faces. These
+// brighter source colours are tempered by low-alpha glow layers below, matching the ember/emerald reference.
+const SPAWN_COLOR_FRIENDLY = 0x27e34f;
+const SPAWN_COLOR_HOSTILE = 0xff3b30;
 const spawnColor = (team: TeamType): number => (isFriendlyTeam(team) ? SPAWN_COLOR_FRIENDLY : SPAWN_COLOR_HOSTILE);
-
-/**
- * A tile is a STATIC body with an ANIMATED rim: the pulse used to breathe across the whole square, which
- * made the entire zone throb, and the movement is easier to read when it is confined to the edges and the
- * colour under the units stays put. The rim is 5% of the lit body's width and sits just OUTSIDE it, so the
- * highlight as a whole claims more of the cell than the body on its own.
- */
-const SPAWN_RIM_WIDTH_FRACTION = 0.05;
-/**
- * How far the rim also reaches INWARD, over the body, as a share of its outward width. The band keeps the
- * outer edge it already had and thickens on the inside only, so widening it does not push the highlight
- * any closer to the neighbouring cell.
- */
-const SPAWN_RIM_INWARD_FRACTION = 0.6;
-/** Body opacity. The rim's alpha adds on top of this wherever the two overlap. */
-const SPAWN_BODY_ALPHA = 0.2;
-const SPAWN_RIM_ALPHA_MIN = 0.085;
-const SPAWN_RIM_ALPHA_MAX = 0.34;
 
 function hash2(x: number, y: number): number {
     // deterministic hash in [0,1)
@@ -59,15 +42,11 @@ function hash2(x: number, y: number): number {
     return s - Math.floor(s);
 }
 
-/* -------------------- per-cell spawn highlight -------------------- */
+/* -------------------- grid-seam spawn highlight -------------------- */
 /**
- * Lights the deployment zone CELL BY CELL instead of washing one tinted sheet over the whole rectangle.
- *
- * The old version stacked 100 horizontal strips and jittered each strip's left and right edge along a noise
- * field, which is what produced the ragged tongues hanging off the sides of the zone — they reached well
- * past the squares a unit could actually occupy, so the highlight lied about where you could deploy. Here
- * every square the placement allows gets its own tile, inset so the board's own gutters stay unpainted, and
- * nothing is drawn outside the zone at all.
+ * Leaves the tile faces untouched and channels team energy through the gaps between cells. Each seam is
+ * built from a broad dim halo, a coloured middle band and a narrow hot core; intersections receive a small
+ * breathing ember. This reproduces the reference without hiding the board art or changing legal geometry.
  */
 function drawSpawnCells(
     gfx: Graphics,
@@ -82,53 +61,111 @@ function drawSpawnCells(
         return;
     }
 
-    const gap = Math.max(1, step * 0.08);
-    const side = step - gap * 2;
-    if (side <= 0) {
-        return;
+    const columns = Math.round((xRight - xLeft) / step);
+    const rows = Math.round((yUpper - yLower) / step);
+
+    // A restrained team tint sits inside each legal cell as a separate body. It is intentionally inset so
+    // the glowing seams remain distinct, and faint enough that the original stone texture stays readable.
+    const cellInset = Math.max(1.5, step * 0.075);
+    const cellSide = step - cellInset * 2;
+    const cellRadius = Math.max(2, step * 0.055);
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+            const variation = 0.88 + hash2(col + 17, row + 29) * 0.18;
+            gfx.roundRect(
+                xLeft + col * step + cellInset,
+                yLower + row * step + cellInset,
+                cellSide,
+                cellSide,
+                cellRadius,
+            ).fill({ color: baseColor, alpha: 0.042 * variation });
+        }
     }
 
-    const radius = Math.min(6, side * 0.14);
-    // The animated band, as a share of the lit tile's own width.
-    const rimWidth = Math.max(1, side * SPAWN_RIM_WIDTH_FRACTION);
+    const drawSeam = (x1: number, y1: number, x2: number, y2: number, index: number, outer: boolean): void => {
+        const wave = Math.sin(gSpawnFlowPhase * SPAWN_WAVE_RATE - index * 0.42);
+        const shimmer = Math.sin(gSpawnFlowPhase * SPAWN_TWINKLE_RATE + hash2(index, index + 3) * Math.PI * 2);
+        const pulse = 0.82 + wave * 0.1 + shimmer * 0.04;
+        const farAuraWidth = Math.max(outer ? 8 : 4, step * (outer ? 0.5 : 0.25));
+        const auraWidth = Math.max(outer ? 5 : 3, step * (outer ? 0.3 : 0.17));
+        const broadWidth = Math.max(outer ? 3 : 1.75, step * (outer ? 0.15 : 0.09));
+        const middleWidth = Math.max(outer ? 1.25 : 0.85, step * (outer ? 0.038 : 0.022));
+        const coreWidth = Math.max(outer ? 0.7 : 0.45, step * (outer ? 0.014 : 0.009));
+        const farAuraAlpha = outer ? 0.025 : 0.014;
+        const auraAlpha = outer ? 0.075 : 0.042;
+        const broadAlpha = outer ? 0.075 : 0.02205;
+        const middleAlpha = outer ? 0.28 : 0.0882;
+        const coreAlpha = outer ? 0.55 : 0.2268;
 
-    // Half a step of slack on the loop bound: the placement rectangle is built from whole steps, so this
-    // only guards against float drift rather than admitting a partial column.
-    for (let y = yLower, row = 0; y < yUpper - step * 0.5; y += step, row++) {
-        for (let x = xLeft, col = 0; x < xRight - step * 0.5; x += step, col++) {
-            // Two beats layered so the field never looks like one metronome:
-            //   wave    — a slow ripple travelling diagonally across the zone (its phase shifts with col+row)
-            //   twinkle — a faster flicker on each tile's own random offset
-            const wave = Math.sin(gSpawnFlowPhase * SPAWN_WAVE_RATE - (col + row) * 0.55);
-            const twinkle = Math.sin(gSpawnFlowPhase * SPAWN_TWINKLE_RATE + hash2(col, row) * Math.PI * 2);
-            const pulse = 0.5 + 0.18 * wave + 0.08 * twinkle; // calm ~0.24..0.76
+        const vertical = Math.abs(x2 - x1) < 0.001;
+        const length = vertical ? y2 - y1 : x2 - x1;
+        const cellsAlongSeam = Math.max(1, Math.round(Math.abs(length) / step));
+        const subdivisions = 4;
+        const segmentCount = cellsAlongSeam * subdivisions;
+        const jitterLimit = step * (outer ? 0.015 : 0.013);
+        const points: Array<{ x: number; y: number }> = [];
 
-            // The BODY of the tile is dead flat — one constant tone, no movement at all.
-            gfx.roundRect(x + gap, y + gap, side, side, radius).fill({
-                color: baseColor,
-                alpha: SPAWN_BODY_ALPHA,
+        // Every fourth point is an exact grid intersection so seams still meet cleanly. The points between
+        // them drift by less than a pixel at normal scale, creating the hand-burned, uneven edge in the
+        // reference without making the placement geometry itself look bent.
+        for (let segment = 0; segment <= segmentCount; segment++) {
+            const t = segment / segmentCount;
+            const onIntersection = segment % subdivisions === 0;
+            const noise = hash2(index * 37 + segment * 1.71, index * 11 + segment * 2.43) * 2 - 1;
+            const drift = onIntersection ? 0 : noise * jitterLimit;
+            points.push({
+                x: vertical ? x1 + drift : x1 + length * t,
+                y: vertical ? y1 + length * t : y1 + drift,
             });
+        }
 
-            // ...and all the life moves into a band straddling the body's edge: it reaches rimWidth OUTWARD
-            // into the margin and 60% of that INWARD over the body, so the two together cover more of the
-            // cell than the body alone. A stroke is centred on its path, so the path is pushed out by half
-            // the difference between the two reaches — that is what pins the outer edge in place while the
-            // band thickens inward. The outward reach still clears the gutter: the margin is 8% of a step
-            // and the band about 4% of it, so neighbouring cells never meet.
-            const rimInner = rimWidth * SPAWN_RIM_INWARD_FRACTION;
-            const rimTotal = rimWidth + rimInner;
-            const offset = (rimWidth - rimInner) * 0.5;
-            gfx.roundRect(
-                x + gap - offset,
-                y + gap - offset,
-                side + offset * 2,
-                side + offset * 2,
-                radius + offset,
-            ).stroke({
+        const strokeRoughPath = (width: number, alpha: number): void => {
+            gfx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                gfx.lineTo(points[i].x, points[i].y);
+            }
+            gfx.stroke({ color: baseColor, width, alpha: alpha * pulse });
+        };
+
+        strokeRoughPath(farAuraWidth, farAuraAlpha);
+        strokeRoughPath(auraWidth, auraAlpha);
+        strokeRoughPath(broadWidth, broadAlpha);
+        strokeRoughPath(middleWidth, middleAlpha);
+        strokeRoughPath(coreWidth, coreAlpha);
+    };
+
+    let seamIndex = 0;
+    for (let col = 0; col <= columns; col++) {
+        const x = xLeft + col * step;
+        drawSeam(x, yLower, x, yUpper, seamIndex++, col === 0 || col === columns);
+    }
+    for (let row = 0; row <= rows; row++) {
+        const y = yLower + row * step;
+        drawSeam(xLeft, y, xRight, y, seamIndex++, row === 0 || row === rows);
+    }
+
+    const sparkRadius = Math.max(1, step * 0.032);
+    for (let row = 0; row <= rows; row++) {
+        const y = yLower + row * step;
+        for (let col = 0; col <= columns; col++) {
+            const x = xLeft + col * step;
+            const flicker = 0.82 + 0.18 * Math.sin(gSpawnFlowPhase * SPAWN_TWINKLE_RATE + hash2(col, row) * 6.28);
+            const isOuter = col === 0 || col === columns || row === 0 || row === rows;
+            const ray = sparkRadius * (isOuter ? 2.5 : 1.9);
+            const rayAlpha = (isOuter ? 0.72 : 0.46) * flicker;
+
+            gfx.circle(x, y, sparkRadius * (isOuter ? 2.6 : 2.05)).fill({
                 color: baseColor,
-                width: rimTotal,
-                alpha: SPAWN_RIM_ALPHA_MIN + (SPAWN_RIM_ALPHA_MAX - SPAWN_RIM_ALPHA_MIN) * pulse,
+                alpha: (isOuter ? 0.14 : 0.07) * flicker,
             });
+            gfx.moveTo(x - ray, y)
+                .lineTo(x + ray, y)
+                .stroke({ color: baseColor, width: Math.max(0.55, step * 0.01), alpha: rayAlpha });
+            gfx.moveTo(x, y - ray)
+                .lineTo(x, y + ray)
+                .stroke({ color: baseColor, width: Math.max(0.55, step * 0.01), alpha: rayAlpha });
+            gfx.circle(x, y, sparkRadius * 0.72).fill({ color: baseColor, alpha: 0.96 * flicker });
+            gfx.circle(x, y, Math.max(0.45, sparkRadius * 0.24)).fill({ color: 0xfff0dc, alpha: flicker });
         }
     }
 }

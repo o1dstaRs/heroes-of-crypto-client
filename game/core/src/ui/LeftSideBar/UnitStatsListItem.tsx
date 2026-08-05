@@ -53,6 +53,7 @@ import {
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
+import { hocDisplayFontFamily } from "../hocTheme";
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
     teamType: TeamType;
@@ -575,12 +576,15 @@ const StackCountBadge: React.FC<{ stacks?: number }> = ({ stacks }) => {
 // reads as an inset plate rather than icons floating on the bar.
 export const stonePlateSx = {
     padding: "10px",
-    borderRadius: "8px",
+    borderRadius: "3px",
     // Neutral, not brown: the sidebars are now tinted to the board's stone (rgb 18,18,17), and a warm
     // plate on a neutral bar reads as a leftover. Same luminance as before, warm bias removed.
-    background: "linear-gradient(180deg, rgba(27,27,25,.92), rgba(11,11,10,.94))",
-    border: "2px solid #0c0c0b",
-    boxShadow: "inset 0 0 0 1px rgba(150,130,98,.16), inset 0 2px 10px rgba(0,0,0,.75), 0 2px 6px rgba(0,0,0,.6)",
+    background:
+        "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(28,27,24,.96), rgba(9,9,8,.98))",
+    border: "2px solid #080706",
+    outline: "1px solid rgba(132,92,53,.34)",
+    outlineOffset: "-4px",
+    boxShadow: "inset 0 0 0 1px rgba(196,148,83,.16), inset 0 2px 12px rgba(0,0,0,.82), 0 3px 8px rgba(0,0,0,.68)",
 } as const;
 
 // Team colour lives only as a diffuse, fire-like aura behind the portrait — three blurred discs that
@@ -677,27 +681,54 @@ const ScrollWell: React.FC<{
 
 // Section caption + the 2px rule under it. Used for Abilities / Buffs / Debuffs here and for Up next in
 // the sidebar itself, so all four headings read as one family.
-export const SectionTitle: React.FC<{ title: string; metrics: ISidebarMetrics }> = ({ title, metrics }) => (
-    <Box sx={{ width: "100%" }}>
+export const SectionTitle: React.FC<{
+    title: string;
+    metrics: ISidebarMetrics;
+    displayFont?: boolean;
+    preserveCase?: boolean;
+    namePlaque?: boolean;
+}> = ({ title, metrics, displayFont = false, preserveCase = false, namePlaque = false }) => (
+    <Box sx={{ width: "100%", display: "flex", alignItems: "center", gap: "6px" }}>
+        <Box sx={{ height: "1px", flex: 1, background: "linear-gradient(90deg, transparent, rgba(132,91,52,.58))" }} />
         <Typography
             level="title-sm"
             sx={{
-                fontSize: `${metrics.sectionTitleRem}rem`,
+                // The three unit-card plaques are deliberately 10% larger than the shared Up next title.
+                // This is local to displayFont; the common font metrics remain unchanged everywhere else.
+                fontSize: `${metrics.sectionTitleRem * (namePlaque ? 1.45 : displayFont ? 1.1 : 1)}rem`,
+                ...(displayFont
+                    ? {
+                          fontFamily: hocDisplayFontFamily,
+                          fontSynthesis: "weight",
+                          // 10% more than the chosen global HoC Forge spacing (0.121em).
+                          letterSpacing: "0.1331em",
+                      }
+                    : {}),
                 fontWeight: 800,
-                lineHeight: 1.2,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "#dcb158",
-                textShadow: "0 1px 0 rgba(0,0,0,.8)",
+                lineHeight: 1,
+                ...(!displayFont ? { letterSpacing: "0.16em" } : {}),
+                textTransform: preserveCase ? "none" : "uppercase",
+                color: "#d7b77b",
+                textShadow: "0 1px 0 rgba(0,0,0,.9)",
+                px: namePlaque ? "14px" : "10px",
+                py: namePlaque ? "2px" : "5px",
+                minWidth: namePlaque ? "58.8%" : "42%",
+                textAlign: "center",
+                clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
+                background: namePlaque
+                    ? "linear-gradient(180deg, rgba(44,37,30,.72), rgba(14,13,12,.735)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box"
+                    : "linear-gradient(180deg, rgba(44,37,30,.96), rgba(14,13,12,.98)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box",
+                border: "1px solid transparent",
+                boxShadow: "inset 0 1px 0 rgba(237,190,121,.12), 0 2px 4px rgba(0,0,0,.55)",
             }}
         >
             {title}
         </Typography>
         <Box
             sx={{
-                height: "2px",
-                mt: "2px",
-                background: "linear-gradient(90deg, rgba(120,104,80,.5), transparent)",
+                height: "1px",
+                flex: 1,
+                background: "linear-gradient(90deg, rgba(132,91,52,.58), transparent)",
             }}
         />
     </Box>
@@ -716,10 +747,25 @@ const PanelSection: React.FC<{
             gap: `${Math.max(2, Math.round(metrics.gapPx * 0.4))}px`,
         }}
     >
-        <SectionTitle title={title} metrics={metrics} />
+        <SectionTitle title={title} metrics={metrics} displayFont />
         {children}
     </Box>
 );
+
+/** The unit readout now lives inside the sidebar's single outer frame. This wrapper only reserves room
+ * for the section plaque; it deliberately has no second full-height frame competing with the sidebar. */
+const unitDetailsShellSx = (metrics: ISidebarMetrics) =>
+    ({
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: 0,
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        padding: `0 ${Math.max(2, Math.round(metrics.padPx * 0.16))}px`,
+        overflow: "hidden",
+    }) as const;
 
 // Just the tiles. Split out of EffectRow so the Buffs section can put buff tiles and synergy badges under
 // a single caption.
@@ -829,25 +875,21 @@ const StatValue = React.forwardRef<
         {React.cloneElement(icon, {
             sx: { color, fontSize: `${metrics.statIconPx}px`, pr: "3px", flex: "none" },
         })}
-        <Typography fontSize={`${metrics.statFontRem}rem`} component="span" sx={{ whiteSpace: "nowrap" }}>
+        <Typography
+            fontSize={`${metrics.statFontRem * 1.15}rem`}
+            component="span"
+            sx={{ whiteSpace: "nowrap", fontWeight: 600, fontSynthesis: "weight" }}
+        >
             {value}
         </Typography>
     </Box>
 ));
 StatValue.displayName = "StatValue";
 
-// Dropbox-backed banner art, exposed through the generated image map.
-const greenBannerImage = images.banner_green;
-const redBannerImage = images.banner_red;
-
-/** Share of the banner image its CLOTH occupies. The rest is the pole overhang and the two finials, which
- *  stick out past the fabric — measured off the art after the gold side trim was painted out, the swallowtail
- *  cut away, and the crossbar's arms squeezed in toward the cloth twice (0.673 -> 0.634 -> 0.735 -> 0.801).
- *
- *  The arms keep being shortened for the same reason: the banner is sized so its cloth matches the portrait,
- *  which leaves each arm only the (bar - portrait) / 2 of room the sidebar has spare, and the panel's
- *  `overflow: hidden` takes off whatever does not fit. */
-const BANNER_CLOTH_FRACTION = 0.8534;
+// Poleless, transparent banners selected for the unit card. Both team variants share the exact same
+// silhouette and bronze binding; only the cloth colour changes.
+const greenBannerImage = images.ui_banner_green_soft_wide;
+const redBannerImage = images.ui_banner_red_soft_wide;
 
 /** Where the portrait's top edge lands on the banner, as a share of the art's height — just under the
  *  crossbar's valance, which is the last thing on the cloth now that the crenellated line has been cut out
@@ -858,10 +900,6 @@ const BANNER_CLOTH_FRACTION = 0.8534;
  *  tending to a fixed share of the height while this stayed at its own, so the two crossed and the art's
  *  head cut further into the portrait the larger the card got. */
 const BANNER_PORTRAIT_TOP = 0.1229;
-
-/** How far the cloth runs past the creature drawn on it. Cut flush to the art, the medallion's frame ended
- *  exactly on the fabric's edge and the two read as one piece; this leaves the creature standing on cloth. */
-const BANNER_CLOTH_MARGIN = 1.12;
 
 /** How much bigger the portrait art draws than the box the banner is measured against.
  *
@@ -877,10 +915,6 @@ const PORTRAIT_ART_SCALE = 1.06;
  *  and its line-height already carries half-leading above the letters, so nothing actually touches the
  *  crossbar. */
 const NAME_TOP_PAD_PX = 0;
-
-/** The name's font, in rem before the sidebar's own scale. */
-const NAME_FONT_REM = 1.1;
-
 /** The stat plate's own 2px rim. The banner's hem runs down behind it, so no strip of bare card shows between
  *  bright cloth and the plate — that gap plus the near-black rim read as a black rule under the banner. */
 const STAT_PLATE_RIM_PX = 2;
@@ -894,9 +928,9 @@ const STAT_PLATE_RIM_PX = 2;
 const portraitBoxPx = (metrics: ISidebarMetrics): number =>
     Math.round(Math.min(metrics.portraitMax, Math.max(60, metrics.contentWidth - 12 * 2 - 52)));
 
-/** The name row's own height: its font at 1.2 line-height, plus its 2px top padding. */
-const nameTextHeightPx = (metrics: ISidebarMetrics): number =>
-    Math.round(NAME_FONT_REM * metrics.fontScale * 16 * 1.2) + 2;
+/** The name plaque keeps the shared section geometry, but its type fills the height: 2px vertical padding
+ *  and the same 1px transparent border on both sides. */
+const nameTextHeightPx = (metrics: ISidebarMetrics): number => Math.round(metrics.sectionTitleRem * 1.45 * 16) + 4 + 2;
 
 /**
  * Everything the banner and the name row are laid out from, solved in one place so the pieces cannot drift.
@@ -934,29 +968,28 @@ const bannerLayout = (metrics: ISidebarMetrics) => {
  * behind. Positioned in the sidebar instead, both ends had to be guessed, and every change to the card's
  * metrics broke it.
  *
- * Width is set by the CLOTH, not by the image: sized so the fabric matches the ART's own rendered width —
- * which is not the portrait slot, since an atlas frame taller than it is wide is centred narrower than its
- * box. Sizing off the slot left the cloth hanging wider than the creature it framed.
- *
- * Vertically it is hung from the crest (see bannerLayout): the gold line comes down onto the portrait's top
- * edge, the name reads as printed on the cloth above it, and the hem runs on past the portrait's foot to
- * finish behind the stat plate's rim.
+ * Its horizontal edges follow the stat plate's full width. Vertically, the alpha-trimmed top rail starts at
+ * the card's top and the lower point lands exactly on the stat plate, so no transparent source padding can
+ * reintroduce the old gaps.
  */
-const teamBannerSx = (layout: ReturnType<typeof bannerLayout>, artWidth: number) =>
-    ({
+const teamBannerSx = (layout: ReturnType<typeof bannerLayout>) => {
+    // Keep the cloth at exactly the same footprint while shaving another 30% from the visible
+    // gold rails. Fractional clipping is intentional: it preserves the fine stitched inner line.
+    const sideTrimCrop = 1.95;
+    const bottomTrimCrop = 3.9;
+    return {
         position: "absolute",
-        top: `${-layout.lift}px`,
-        left: "50%",
-        transform: "translateX(-50%)",
-        // Off the art's DRAWN width, scale included: the cloth is cut to match the creature on it, and the
-        // creature is drawn a little larger than the box the rest of the layout is measured against.
-        width: `${Math.round((artWidth * PORTRAIT_ART_SCALE * BANNER_CLOTH_MARGIN) / BANNER_CLOTH_FRACTION)}px`,
-        // Backstop for the widest bars, where the portrait stops growing but the card does not: the arms are
-        // cut to fit the room a normal bar leaves, and past that the whole banner steps down a little rather
-        // than having its finials sliced off by the panel's `overflow: hidden`.
-        maxWidth: "100%",
-        height: `${layout.height}px`,
+        top: `calc(${-layout.lift}px - var(--sidebar-card-top-extension, 0px))`,
+        left: `${-sideTrimCrop}px`,
+        width: `calc(100% + ${sideTrimCrop * 2}px)`,
+        // The source has been alpha-trimmed: its first pixel is the upper rail and its last pixel is the
+        // lower point. This therefore anchors the point exactly on the stat plate's top edge.
+        height: `calc(${layout.height - STAT_PLATE_RIM_PX + bottomTrimCrop}px + var(--sidebar-card-top-extension, 0px))`,
         objectFit: "fill",
+        objectPosition: "center",
+        // Crop away the outer portion of the authored side and bottom rails, then oversize the image by the
+        // same amount so the remaining thinner metal still lands on the exact card boundaries.
+        clipPath: `inset(0 ${sideTrimCrop}px ${bottomTrimCrop}px ${sideTrimCrop}px)`,
         // Behind the portrait (zIndex 1) and the stat plate, which is given its own zIndex for the purpose:
         // a positioned element at 0 still paints over a static sibling, which is why the swallowtail was
         // crossing the stat rows.
@@ -964,7 +997,8 @@ const teamBannerSx = (layout: ReturnType<typeof bannerLayout>, artWidth: number)
         pointerEvents: "none",
         transition: "opacity 220ms ease-out",
         willChange: "opacity",
-    }) as const;
+    } as const;
+};
 
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
@@ -1199,17 +1233,6 @@ const UnitStatsLayout: React.FC<{
     const effectWellHeight = Math.max(metrics.effectIcon, metrics.synergyIcon + 9) + 6;
     const layout = bannerLayout(metrics);
     const portraitBox = layout.portrait;
-    // What the art actually measures across, which is only the same as the slot for a square frame: an atlas
-    // frame is capped on HEIGHT and keeps its aspect, so a tall one draws narrower and centres. The banner's
-    // cloth is matched to this, not to the slot.
-    const portraitArtWidth = animationConfig?.meta
-        ? Math.min(
-              portraitBox,
-              Math.round(
-                  portraitBox * ((animationConfig.meta.frameWidth ?? 512) / (animationConfig.meta.frameHeight ?? 512)),
-              ),
-          )
-        : portraitBox;
 
     return (
         <Box
@@ -1247,8 +1270,18 @@ const UnitStatsLayout: React.FC<{
                     its shape from the moment you select a creature, and the absence of team colour is what
                     says "not deployed yet". */}
                 {[
-                    { key: "lower", image: greenBannerImage, shown: team === TeamVals.LOWER, neutral: false },
-                    { key: "upper", image: redBannerImage, shown: team === TeamVals.UPPER, neutral: false },
+                    {
+                        key: "lower",
+                        image: greenBannerImage,
+                        shown: team === TeamVals.LOWER,
+                        neutral: false,
+                    },
+                    {
+                        key: "upper",
+                        image: redBannerImage,
+                        shown: team === TeamVals.UPPER,
+                        neutral: false,
+                    },
                     {
                         key: "neutral",
                         image: greenBannerImage,
@@ -1263,10 +1296,9 @@ const UnitStatsLayout: React.FC<{
                         alt=""
                         aria-hidden
                         sx={{
-                            ...teamBannerSx(layout, portraitArtWidth),
+                            ...teamBannerSx(layout),
                             opacity: shown ? 1 : 0,
-                            // Desaturated rather than a separate asset: the cloth, rails and finials are
-                            // identical across the two banners, so the grey one cannot drift from them.
+                            // Desaturated rather than a separate asset: the cloth and binding stay identical.
                             ...(neutral ? { filter: "grayscale(1) brightness(0.92)" } : {}),
                         }}
                     />
@@ -1641,77 +1673,57 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
 
         return (
             // @ts-ignore: MUI type mismatch
-            <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
-                {/* Plain headline: no team crest (the portrait's aura carries the side) and no collapse
-                    chevron — the stats are the point of the card, so they are always open. */}
-                <Typography
-                    level="title-sm"
-                    sx={{
-                        fontSize: `${NAME_FONT_REM * metrics.fontScale}rem`,
-                        fontWeight: 800,
-                        letterSpacing: "0.03em",
-                        lineHeight: 1.2,
-                        color: "#f2e3c0",
-                        textShadow: "0 1px 0 rgba(0,0,0,.85)",
-                        textAlign: "center",
-                        // The name alone, centred on the banner. The head-count that used to sit beside it
-                        // lives on the board sprite and in the turn order, and repeating it here only pulled
-                        // the name off the banner's middle.
-                        display: "flex",
-                        justifyContent: "center",
-                        pt: "2px",
-                        // Centred in the cloth between the crossbar and the crest — the run down from the
-                        // pole and the run on to the portrait match. The banner is already flush with the top
-                        // of the screen, so this room comes out of the card, not out of a further lift.
-                        mt: `${bannerLayout(metrics).above}px`,
-                        mb: `${bannerLayout(metrics).below}px`,
-                        // Over the banner, which reaches up past the card to sit behind this line. Without
-                        // its own stacking position the name loses: the banner is positioned and comes
-                        // later in the document, and that beats a static element every time.
-                        position: "relative",
-                        zIndex: 2,
-                    }}
-                >
+            <ListItem
+                style={{ "--List-nestedInsetStart": "0px" }}
+                sx={{ display: "block", width: "100%", height: "100%", minHeight: 0, p: 0 }}
+                nested
+            >
+                <Box sx={unitDetailsShellSx(metrics)}>
+                    {/* The creature name uses the same plaque as Abilities / Buffs / Debuffs. The wrapper
+                        only positions that shared component over the team flag; it adds no second surface. */}
                     <Box
-                        component="span"
                         sx={{
-                            // Carries the shade and hugs the name. Just enough to lift the letters off the
-                            // cloth: a gradient that fades to nothing rather than a panel, since the banner is
-                            // patterned and any hard edge here reads as a second frame on it.
+                            // Centred in the cloth between the crossbar and the crest — the run down from the
+                            // pole and the run on to the portrait match. The banner is already flush with the top
+                            // of the screen, so this room comes out of the card, not out of a further lift.
+                            mt: `${bannerLayout(metrics).above}px`,
+                            mb: `${bannerLayout(metrics).below}px`,
                             position: "relative",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            maxWidth: "100%",
-                            px: "14px",
-                            background:
-                                "radial-gradient(ellipse at center, rgba(0,0,0,.5) 0%, rgba(0,0,0,.34) 55%, rgba(0,0,0,0) 100%)",
+                            zIndex: 2,
+                            width: "100%",
                         }}
                     >
-                        {unitProperties.name}
+                        <SectionTitle
+                            title={unitProperties.name.toUpperCase()}
+                            metrics={metrics}
+                            displayFont
+                            preserveCase
+                            namePlaque
+                        />
                     </Box>
-                </Typography>
-                <List sx={{ p: 0, gap: 0 }}>
-                    <UnitStatsLayout
-                        unitProperties={unitProperties}
-                        damageRange={damageRange}
-                        attackTypeSelected={attackTypeSelected}
-                        attackDamage={attackDamage}
-                        meleeArmor={meleeArmor}
-                        rangeArmor={rangeArmor}
-                        stepsMod={stepsMod}
-                        hasDifferentRangeArmor={hasDifferentRangeArmor}
-                        isDarkMode={isDarkMode}
-                        metrics={metrics}
-                        largeTextureName={largeTextureName}
-                        images={images}
-                        onImageLoaded={onImageLoaded}
-                        abilities={abilities}
-                        buffs={buffs}
-                        debuffs={debuffs}
-                        hasBreakApplied={hasBreakApplied}
-                        team={unitProperties.team}
-                    />
-                </List>
+                    <List sx={{ p: 0, gap: 0, flex: 1, minHeight: 0 }}>
+                        <UnitStatsLayout
+                            unitProperties={unitProperties}
+                            damageRange={damageRange}
+                            attackTypeSelected={attackTypeSelected}
+                            attackDamage={attackDamage}
+                            meleeArmor={meleeArmor}
+                            rangeArmor={rangeArmor}
+                            stepsMod={stepsMod}
+                            hasDifferentRangeArmor={hasDifferentRangeArmor}
+                            isDarkMode={isDarkMode}
+                            metrics={metrics}
+                            largeTextureName={largeTextureName}
+                            images={images}
+                            onImageLoaded={onImageLoaded}
+                            abilities={abilities}
+                            buffs={buffs}
+                            debuffs={debuffs}
+                            hasBreakApplied={hasBreakApplied}
+                            team={unitProperties.team}
+                        />
+                    </List>
+                </Box>
             </ListItem>
         );
     }

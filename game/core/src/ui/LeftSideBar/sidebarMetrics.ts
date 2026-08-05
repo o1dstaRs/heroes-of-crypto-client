@@ -71,6 +71,31 @@ export interface ISidebarMetrics {
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
+/**
+ * The left frame rail is narrow, while the board-facing side has no matching inner ornament. Keep only
+ * enough room to clear that rail: the card deliberately grows leftwards and keeps its right edge fixed.
+ */
+export const sidebarFrameSideInsetPx = (barSize: number): number => clamp(Math.round(barSize * 0.035), 12, 18);
+
+/** The board-facing edge stays where it is; this is the existing small breathing room beside the board. */
+export const SIDEBAR_FRAME_RIGHT_INSET_PX = 6;
+
+/** The left border is part of the Sheet's border-box and therefore not usable content width. */
+export const SIDEBAR_FRAME_LEFT_BORDER_PX = 5;
+
+/** Matches the compact square corner instead of the old full-image top stretch. */
+export const sidebarFrameTopInsetPx = (viewportHeight: number): number =>
+    clamp(Math.round(viewportHeight * 0.018), 14, 24);
+
+/** Bottom is the same slim mirrored rail as the top; it no longer reserves room for a decorative plinth. */
+export const sidebarFrameBottomInsetPx = sidebarFrameTopInsetPx;
+
+/** The clean right-hand rail has no large caps or bottom plinth, so its content may sit closer to the edge. */
+export const sidebarPlainFrameSideInsetPx = (barSize: number): number => clamp(Math.round(barSize * 0.045), 10, 20);
+
+export const sidebarPlainFrameVerticalInsetPx = (viewportHeight: number): number =>
+    clamp(Math.round(viewportHeight * 0.022), 12, 24);
+
 const densityFor = (barSize: number): SidebarDensity => {
     if (barSize < 200) return "micro";
     if (barSize < 300) return "narrow";
@@ -80,7 +105,10 @@ const densityFor = (barSize: number): SidebarDensity => {
 
 // Native size of the start-button atlas frame — the scale is derived from it so the button spans the bar
 // without overhanging it.
-const START_BUTTON_FRAME_WIDTH = 344;
+const START_BUTTON_FRAME_WIDTH = 432;
+// After the first 20% reduction, the command panel needed one more 13% step down.
+// Keep the reduction multiplicative so the final plate is 69.6% of its original design size.
+const START_BUTTON_SIZE_FACTOR = 0.8 * 0.87;
 
 export function computeSidebarMetrics(
     barSize: number,
@@ -92,7 +120,10 @@ export function computeSidebarMetrics(
 
     const padPx = density === "micro" ? 6 : density === "narrow" ? 10 : 14;
     const gapPx = density === "micro" ? 5 : density === "narrow" ? 7 : 10;
-    const contentWidth = Math.max(48, barSize - padPx * 2);
+    const contentWidth = Math.max(
+        48,
+        barSize - sidebarFrameSideInsetPx(barSize) - SIDEBAR_FRAME_RIGHT_INSET_PX - SIDEBAR_FRAME_LEFT_BORDER_PX,
+    );
 
     // Past ~620px of bar (a 3440x1440 ultrawide leaves 1000) the panel starts looking sparse at default
     // sizes, so text and art scale up a notch instead of floating in the middle of a huge column.
@@ -133,11 +164,9 @@ export function computeSidebarMetrics(
     // a heavily buffed unit render a visibly smaller portrait than a plain one.
     const portraitMax = clamp(contentWidth, 72, portraitCap);
 
-    // 15% over the bar-derived fit: Start is the one call to action on the placement screen and was reading
-    // as just another control. The factor is applied AFTER the clamp so it lifts the 0.62 ceiling too — that
-    // ceiling is what the button actually hits on a roomy bar. The button's own `width: 100%` still stops it
-    // overhanging a narrow one, where the extra size lands on its height and label instead.
-    const startButtonScale = clamp(contentWidth / START_BUTTON_FRAME_WIDTH, 0.3, 0.62) * 1.15;
+    // Derive the fit from the native 432px plate, then keep the whole CTA at the requested reduced size. Its own
+    // `width: 100%` remains the final guard on very narrow bars.
+    const startButtonScale = clamp(contentWidth / START_BUTTON_FRAME_WIDTH, 0.3, 1) * START_BUTTON_SIZE_FACTOR;
 
     return {
         barSize,

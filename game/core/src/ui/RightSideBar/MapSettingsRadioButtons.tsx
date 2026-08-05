@@ -6,6 +6,7 @@ import RadioGroup from "@mui/joy/RadioGroup";
 import Radio from "@mui/joy/Radio";
 import Button from "@mui/joy/Button";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { hocDisplayFontFamily, hocFantasyRadioSx, hocSidebarImageButtonSx } from "../hocTheme";
 
 const MapSettingsRadioButtons: React.FC = () => {
     const [gridType, setGridType] = useState<GridType>(GridVals.NORMAL);
@@ -44,7 +45,17 @@ const MapSettingsRadioButtons: React.FC = () => {
     };
 
     return (
-        <Box sx={{ padding: 1, display: "flex" }}>
+        <Box
+            sx={{
+                ...hocFantasyRadioSx,
+                m: 1.25,
+                p: 1.25,
+                display: "flex",
+                border: "1px solid rgba(126,83,44,.45)",
+                background: "rgba(0,0,0,.28)",
+                boxShadow: "inset 0 0 13px rgba(0,0,0,.75)",
+            }}
+        >
             {/* Left side: Radio buttons */}
             <Box sx={{ flex: 1 }}>
                 <FormControl>
@@ -56,7 +67,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                     >
                         <Radio
                             value={GridVals.NORMAL}
-                            label="Normal"
+                            label="NORMAL"
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {
@@ -64,6 +75,9 @@ const MapSettingsRadioButtons: React.FC = () => {
                                 },
                                 "& .MuiTypography-root": {
                                     color: "rgba(255, 143, 0, 0.5)",
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontWeight: 460,
+                                    fontSynthesis: "weight",
                                 },
                                 "&.Mui-checked .MuiTypography-root": {
                                     color: "#FF8F00",
@@ -76,7 +90,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         />
                         <Radio
                             value={GridVals.LAVA_CENTER}
-                            label="Lava"
+                            label="LAVA"
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {
@@ -84,6 +98,9 @@ const MapSettingsRadioButtons: React.FC = () => {
                                 },
                                 "& .MuiTypography-root": {
                                     color: "rgba(255, 143, 0, 0.5)",
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontWeight: 460,
+                                    fontSynthesis: "weight",
                                 },
                                 "&.Mui-checked .MuiTypography-root": {
                                     color: "#FF8F00",
@@ -96,7 +113,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         />
                         <Radio
                             value={GridVals.BLOCK_CENTER}
-                            label="Mountains"
+                            label="CEMETERY"
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {
@@ -104,6 +121,9 @@ const MapSettingsRadioButtons: React.FC = () => {
                                 },
                                 "& .MuiTypography-root": {
                                     color: "rgba(255, 143, 0, 0.5)",
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontWeight: 460,
+                                    fontSynthesis: "weight",
                                 },
                                 "&.Mui-checked .MuiTypography-root": {
                                     color: "#FF8F00",
@@ -122,20 +142,15 @@ const MapSettingsRadioButtons: React.FC = () => {
             {/* Right side: Random button */}
             <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
                 <Button
-                    variant="outlined"
+                    variant="plain"
                     onClick={handleRandomButtonClick}
                     sx={{
-                        height: "100%",
-                        width: "100%",
-                        borderColor: "#FF8F00",
-                        color: "#FF8F00",
-                        "&:hover": {
-                            borderColor: "#FF8F00",
-                            backgroundColor: "rgba(255, 143, 0, 0.1)",
-                        },
-                        "&:active": {
-                            backgroundColor: "rgba(255, 143, 0, 0.2)",
-                        },
+                        ...hocSidebarImageButtonSx("neutral"),
+                        // Keep the label and right edge fixed; the plate is 25% shorter and grows 5% leftward.
+                        height: "48.3px",
+                        width: "105%",
+                        transform: "translateX(-5%)",
+                        minHeight: 0,
                     }}
                 >
                     Random

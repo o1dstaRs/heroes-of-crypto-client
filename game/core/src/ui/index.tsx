@@ -6,11 +6,12 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
-import "typeface-open-sans";
+import { TextStyle } from "pixi.js";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
+import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
+import { images } from "../generated/image_imports";
 import { WalletProvider } from "../wallet/WalletProvider";
-import { BoardEdgeTrim } from "./boardEdgeTrim";
 import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
 import RightSideBar from "./RightSideBar";
@@ -176,7 +177,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider>
                     <CssBaseline />
-                    {!isLoading && <BoardEdgeTrim windowSize={windowSize} />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                     <UpNextOverlay />
@@ -260,7 +260,6 @@ const PickAndBanView: React.FC<{
             >
                 <CssVarsProvider>
                     <CssBaseline />
-                    {!isLoading && <BoardEdgeTrim windowSize={windowSize} />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                 </CssVarsProvider>
@@ -686,4 +685,16 @@ const container = document.getElementById("root") as HTMLElement & {
 };
 const root = container.__appRoot ?? createRoot(container);
 container.__appRoot = root;
-root.render(<App />);
+const renderApplication = async (): Promise<void> => {
+    // DOM text can repaint after a font swap; already-rasterised Pixi labels cannot. Wait for the complete
+    // face (letters and digits), then make it Pixi's default before any scene creates a TextStyle.
+    await document.fonts?.load('16px "HoC Forge"', "START БИТВА 0123456789").catch(() => undefined);
+    TextStyle.defaultTextStyle.fontFamily = HOC_GAME_FONT_FAMILY;
+    document.documentElement.style.setProperty(
+        "--hoc-cursor-interactive",
+        `url("${images.cursor_interactive_point_x}") 0 0`,
+    );
+    root.render(<App />);
+};
+
+void renderApplication();

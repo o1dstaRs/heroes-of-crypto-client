@@ -1,6 +1,7 @@
 // scripts/generate_image_imports.js
 const fs = require("fs");
 const path = require("path");
+const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
 
 const imageDir = path.resolve(__dirname, "../images");
 const generatedDir = path.resolve(__dirname, "../src/generated");
@@ -23,31 +24,28 @@ const SEGMENT_NAME_TO_IMPORT_NAME = {
 const EXCLUDED_IMAGE_FILES = new Set([
     "dungeon_volumetric_fog_v1.webp",
     "dungeon_god_rays_v1.webp",
-    "dungeon_god_rays_v2.webp",
     "background_stone_tiles_sinister_16x16_brown.webp",
     "background_stone_tiles_lava.webp",
 ]);
-
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 
 const files = fs.readdirSync(imageDir);
 const entries = [];
 
 for (const file of files) {
+    const extension = path.extname(file).toLowerCase();
     if (
-        file.endsWith(".webp") &&
+        isWebPFile(file) &&
         !EXCLUDED_IMAGE_FILES.has(file) &&
         !file.startsWith("synergy_") &&
         !file.startsWith("overlay_") &&
         !file.startsWith("icon_")
     ) {
-        const segs = file.split("_");
+        const segs = path.basename(file, extension).split("_");
         if (!segs.length) continue;
-        const first = segs[0];
-        const base = `${SEGMENT_NAME_TO_IMPORT_NAME[first] || first}_${segs.slice(1).join("_")}`;
-        let cutBy = 5;
-        if (base.endsWith("_")) cutBy = 6;
-        const key = base.substring(0, base.length - cutBy);
+        const first = segs.shift();
+        if (!first) continue;
+        const key = [SEGMENT_NAME_TO_IMPORT_NAME[first] || first, ...segs].join("_");
         entries.push({ key, file });
     }
 }
