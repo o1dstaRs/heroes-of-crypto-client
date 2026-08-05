@@ -586,6 +586,7 @@ export class PixiRenderableSpell extends Spell {
         }
 
         // Cover the source mockup's sample digit with matching parchment; the live count is drawn above it.
+        const r = 13.5;
         this.amountBadgeGfx
             .circle(centerX, centerY, r - 7)
             .fill({ color: 0xd2aa6b, alpha: visualAlpha * 0.98 })

@@ -1,9 +1,10 @@
 import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture } from "pixi.js";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
+import { images } from "../generated/image_imports";
 
-const FORGING_BACKGROUND_URL = new URL("../assets/loading_screen_forging_base.png", import.meta.url).toString();
-const FORGING_LAVA_URL = new URL("../assets/loading_screen_forging_lava_strip.png", import.meta.url).toString();
-const DRAGON_MEDALLION_URL = new URL("../assets/loading_screen_dragon_medallion.png", import.meta.url).toString();
+const FORGING_BACKGROUND_URL = images.loading_screen_forging_base;
+const FORGING_LAVA_URL = images.loading_screen_forging_lava_strip;
+const DRAGON_MEDALLION_URL = images.loading_screen_dragon_medallion;
 
 const ART_WIDTH = 1672;
 const ART_HEIGHT = 941;

@@ -6,10 +6,7 @@ import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 
 const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
-const hourglassIconImage = new URL(
-    "../../../design/assets/ui/combat-toolbar-button-style/hourglass-style-1.png",
-    import.meta.url,
-).toString();
+const hourglassIconImage = images.combat_toolbar_hourglass;
 const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.meta.url).toString();
 const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
 const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
@@ -18,14 +15,8 @@ const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.met
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
-const toolbarPanelImage = new URL(
-    "../../../design/assets/ui/combat-toolbar-panel/panel-v2.png",
-    import.meta.url,
-).toString();
-const toolbarButtonStyleImage = new URL(
-    "../../../design/assets/ui/combat-toolbar-button-style/button-style-1.png",
-    import.meta.url,
-).toString();
+const toolbarPanelImage = images.combat_toolbar_panel;
+const toolbarButtonStyleImage = images.combat_toolbar_button;
 
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";

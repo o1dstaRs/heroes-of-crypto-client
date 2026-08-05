@@ -888,13 +888,12 @@ StatValue.displayName = "StatValue";
 
 // Poleless, transparent banners selected for the unit card. Both team variants share the exact same
 // silhouette and bronze binding; only the cloth colour changes.
-const greenBannerImage = images.ui_banner_green_square;
-const redBannerImage = images.ui_banner_red_square;
+const greenBannerImage = images.ui_banner_green_soft_wide;
+const redBannerImage = images.ui_banner_red_soft_wide;
 // The selected rounded binding is a transparent, three-sided overlay. Keeping it separate from the cloth
 // lets the same pixel-perfect rail serve green, red and neutral banners without recolouring or duplicating
 // the generated asset.
-const bannerBorderImage = new URL("../../../design/banner-border-variants/banner_border_round_c.png", import.meta.url)
-    .href;
+const bannerBorderImage = images.banner_border_round_c;
 
 /** Where the portrait's top edge lands on the banner, as a share of the art's height — just under the
  *  crossbar's valance, which is the last thing on the cloth now that the crenellated line has been cut out
