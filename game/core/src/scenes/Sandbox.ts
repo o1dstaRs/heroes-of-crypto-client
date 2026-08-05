@@ -3176,6 +3176,92 @@ export class Sandbox extends PixiScene {
         }
     }
     /**
+     * Render ability cards explicitly delivered by a spell. Wild Regeneration is the first: its card flies
+     * from the Troll to the receiving ally with GIFTED (or COPIED under Holy Cross). The outcome comes from
+     * `spell_cast.abilityTransfers`, so this helper is safe in both the live sandbox path and ranked replay;
+     * neither side guesses from a before/after snapshot.
+     */
+    protected spawnAbilityTransferVfx(
+        events: readonly GameEvent[] | undefined,
+        unitSnapshot?: ReadonlyMap<string, RenderableUnit>,
+    ): void {
+        if (!events?.length || !this.combatVisuals) {
+            return;
+        }
+        const units = this.unitsHolder.getAllUnits();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const event of events) {
+            if (event.type !== "spell_cast" || !event.abilityTransfers?.length) {
+                continue;
+            }
+            for (const transfer of event.abilityTransfers) {
+                const from =
+                    (units.get(transfer.fromUnitId) as RenderableUnit | undefined) ??
+                    unitSnapshot?.get(transfer.fromUnitId);
+                const to =
+                    (units.get(transfer.toUnitId) as RenderableUnit | undefined) ??
+                    unitSnapshot?.get(transfer.toUnitId);
+                if (!from || !to) {
+                    continue;
+                }
+                const iconTexture = this.texAny(AbilityHelper.abilityToTextureName(transfer.abilityName));
+                this.combatVisuals.spawnAbilityGift(
+                    from.getVisualCenter(gs),
+                    to.getVisualCenter(gs),
+                    gs.getCellSize(),
+                    transfer.abilityName,
+                    transfer.mode,
+                    iconTexture,
+                    () => {
+                        // A ranked post-cast hydrate can replace every RenderableUnit while the card is
+                        // still flying. Resolve the current body by id on arrival instead of flashing the
+                        // captured (destroyed) pre-hydrate instance.
+                        const currentRecipient = this.unitsHolder.getAllUnits().get(transfer.toUnitId) as
+                            RenderableUnit | undefined;
+                        if (currentRecipient && !currentRecipient.isDead()) {
+                            currentRecipient.flashBuffApplied();
+                        }
+                    },
+                );
+            }
+        }
+    }
+    /** Rebuild the receiving spellbook/sidebar after an ability-transfer event mutates either endpoint. */
+    private syncAbilityTransferUi(
+        event: Extract<GameEvent, { type: "spell_cast" }>,
+        unitSnapshot: ReadonlyMap<string, RenderableUnit>,
+    ): void {
+        if (!event.abilityTransfers?.length) {
+            return;
+        }
+        const units = this.unitsHolder.getAllUnits();
+        for (const transfer of event.abilityTransfers) {
+            const recipient =
+                (units.get(transfer.toUnitId) as RenderableUnit | undefined) ?? unitSnapshot.get(transfer.toUnitId);
+            // Read the durable spell entries, not getSpellsCount(): Break deliberately makes the latter
+            // report zero. A broken, previously spell-less ally can still receive this card, and must have
+            // its Pixi spellbook layer ready for when Break expires.
+            if (recipient?.getUnitProperties().spells.length) {
+                this.ensureDigitTextures();
+                if (this.digitTextures) {
+                    recipient.setSpellBookLayer(this.spellBookContainer, this.digitTextures);
+                }
+            }
+
+            const selectedId = this.sc_selectedUnitProperties?.id;
+            if (selectedId !== transfer.fromUnitId && selectedId !== transfer.toUnitId) {
+                continue;
+            }
+            const selected = (units.get(selectedId) as RenderableUnit | undefined) ?? unitSnapshot.get(selectedId);
+            if (selected) {
+                const props = { ...selected.getUnitProperties() };
+                this.sc_selectedUnitProperties = props;
+                this.setSelectedUnitProperties(props);
+                this.sc_unitPropertiesUpdateNeeded = true;
+            }
+        }
+    }
+    /**
      * Pikeman's Skewer Strike pierces the primary target AND the unit(s) standing behind it along the
      * attack line. Draw a wind "spear" through attacker → target → those units so the two-unit (or more)
      * pierce reads at a glance. Driven off the authoritative `damage.secondary` (source "skewer_strike"),
@@ -4514,6 +4600,10 @@ export class Sandbox extends PixiScene {
             return true;
         }
 
+        // Render from the RECORD before the best-effort local re-apply. Ranked commonly rejects that
+        // re-apply after the authoritative turn has already advanced, but the server-stated transfer must
+        // still animate on both players' clients.
+        this.spawnAbilityTransferVfx(record.events, unitSnapshot);
         const result = this.createActionEngine().apply(action);
         // Heal numbers come from the RECORD, not `result`: the local re-apply above is best-effort and in
         // ranked is routinely rejected, whereas the record is what the server actually resolved. Safe to
@@ -6504,6 +6594,8 @@ export class Sandbox extends PixiScene {
         this.renderHealVfx(result.events);
         // Fire Strike's fireball + damage number. Same sharing rule as the heal above.
         this.renderSpellDamageVfx(result.events, casterPosBeforeCast);
+        // Wild Regeneration's delivered card, shared with the authoritative replay path above.
+        this.spawnAbilityTransferVfx(result.events, unitSnapshot);
 
         if (isSwap && oldCasterPos && oldTargetPos) {
             // Clear armed-spell state now; the turn ends when the swap animation finishes.
@@ -12718,6 +12810,7 @@ export class Sandbox extends PixiScene {
                     for (const raised of event.resurrected ?? []) {
                         this.renderResurrectionVfx(raised.position, raised.amount);
                     }
+                    this.syncAbilityTransferUi(event, unitSnapshot);
                     shouldRefreshVisibleState = true;
                     break;
                 case "vine_placed": {

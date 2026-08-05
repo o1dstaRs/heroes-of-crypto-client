@@ -78,7 +78,10 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "per-victim sweeps — those read as a volley of fire arrows and hid the ring). A Magic Mirror " +
             "rebound (damaged[].rebounded) takes the mirror treatment instead of the fire: " +
             "spawnMagicMirrorRebound draws the glass pane on the holder (damaged[].reboundedFromUnitId) and " +
-            "the shard back into the caster, with a cyan damage number so it never reads as the caster's own hit",
+            "the shard back into the caster, with a cyan damage number so it never reads as the caster's own hit. " +
+            "Wild Regeneration's authoritative abilityTransfers[] drives spawnAbilityTransferVfx in both " +
+            "castSpellOnTarget (live sandbox) and playReplayCastSpellAction (ranked/replay): a green ability " +
+            "card flies caster->recipient and resolves as GIFTED or COPIED without inferring snapshot diffs",
     },
     unit_moved: { rendered: true, ranked: "replay", note: "move slide; playReplayMoveRecord" },
     unit_summoned: {

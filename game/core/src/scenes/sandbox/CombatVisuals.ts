@@ -344,9 +344,15 @@ interface IAbilitySteal {
     payloadGlow: Sprite;
     trail: Sprite[];
     stolenLabel: PixiText;
+    labelPosition: HoCMath.XY;
     from: HoCMath.XY;
     to: HoCMath.XY;
     control: HoCMath.XY;
+    tint: number;
+    core: number;
+    drawWeb: boolean;
+    /** Gift flights are position-captured overlays and may finish across a ranked snapshot rebuild. */
+    keepAcrossHydrate: boolean;
     cellSize: number;
     age: number;
     life: number;
@@ -387,6 +393,11 @@ const ABILITY_STEAL_FADE_FROM = 0.54;
 const ABILITY_STEAL_TINT = 0x9acd32;
 const ABILITY_STEAL_CORE = 0xf2ffd0;
 const ABILITY_STEAL_TRAIL_COUNT = 6;
+// Wild Regeneration's transfer uses the same readable card-flight grammar, but as a warm living-green gift
+// rather than Arachna's lime web extraction. No web is drawn: the spark trail runs source -> recipient and
+// the GIFTED/COPIED label blooms over the receiving ally.
+const ABILITY_GIFT_TINT = 0x43e77b;
+const ABILITY_GIFT_CORE = 0xe8ffd6;
 
 // Tuning for the Black Dragon's Fire Breath sweep — a line of embers that rushes from the attacker
 // through every unit the breath burns. Timed to land with the strike: a tiny lead so the fire erupts
@@ -1031,6 +1042,69 @@ export class CombatVisuals {
         iconTexture?: Texture,
         onArrival?: () => void,
     ): void {
+        this.spawnAbilityTransfer(
+            from,
+            to,
+            cellSize,
+            abilityName,
+            iconTexture,
+            {
+                label: "STOLEN",
+                labelAtDestination: false,
+                tint: ABILITY_STEAL_TINT,
+                core: ABILITY_STEAL_CORE,
+                drawWeb: true,
+                keepAcrossHydrate: false,
+            },
+            onArrival,
+        );
+    }
+    /** Wild Regeneration: visibly carry its ability card from the Troll into the ally receiving it. */
+    public spawnAbilityGift(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        cellSize: number,
+        abilityName: string,
+        mode: "gifted" | "copied",
+        iconTexture?: Texture,
+        onArrival?: () => void,
+    ): void {
+        this.spawnAbilityTransfer(
+            from,
+            to,
+            cellSize,
+            abilityName,
+            iconTexture,
+            {
+                label: mode === "copied" ? "COPIED" : "GIFTED",
+                labelAtDestination: true,
+                tint: ABILITY_GIFT_TINT,
+                core: ABILITY_GIFT_CORE,
+                drawWeb: false,
+                // Ranked may hydrate its authoritative post-cast snapshot after the 150ms replay hold,
+                // before this card reaches the ally (~460ms). The flight owns captured world positions,
+                // so it is safe (and necessary) to let it finish across that board rebuild.
+                keepAcrossHydrate: true,
+            },
+            onArrival,
+        );
+    }
+    private spawnAbilityTransfer(
+        from: HoCMath.XY,
+        to: HoCMath.XY,
+        cellSize: number,
+        abilityName: string,
+        iconTexture: Texture | undefined,
+        presentation: {
+            label: string;
+            labelAtDestination: boolean;
+            tint: number;
+            core: number;
+            drawWeb: boolean;
+            keepAcrossHydrate: boolean;
+        },
+        onArrival?: () => void,
+    ): void {
         if (Math.hypot(to.x - from.x, to.y - from.y) < 1) {
             onArrival?.();
             return;
@@ -1049,7 +1123,7 @@ export class CombatVisuals {
             const mote = new Sprite(lightTexture);
             mote.anchor.set(0.5);
             mote.blendMode = "add";
-            mote.tint = ABILITY_STEAL_TINT;
+            mote.tint = presentation.tint;
             mote.visible = false;
             container.addChild(mote);
             trail.push(mote);
@@ -1061,7 +1135,7 @@ export class CombatVisuals {
         const payloadGlow = new Sprite(lightTexture);
         payloadGlow.anchor.set(0.5);
         payloadGlow.blendMode = "add";
-        payloadGlow.tint = ABILITY_STEAL_TINT;
+        payloadGlow.tint = presentation.tint;
         payloadGlow.width = cellSize * 1.05;
         payloadGlow.height = cellSize * 1.05;
         payload.addChild(payloadGlow);
@@ -1074,7 +1148,7 @@ export class CombatVisuals {
             icon.height = iconSize;
             const frame = new Graphics();
             frame.roundRect(-iconSize * 0.54, -iconSize * 0.54, iconSize * 1.08, iconSize * 1.08, iconSize * 0.14);
-            frame.stroke({ width: Math.max(2, cellSize * 0.035), color: ABILITY_STEAL_CORE, alpha: 0.95 });
+            frame.stroke({ width: Math.max(2, cellSize * 0.035), color: presentation.core, alpha: 0.95 });
             payload.addChild(icon, frame);
         }
 
@@ -1093,9 +1167,10 @@ export class CombatVisuals {
         payload.scale.set(0.45, -0.45);
         container.addChild(payload);
 
-        const stolenLabel = new PixiText({ text: "STOLEN", style: this.getStolenLabelStyle() });
+        const labelPosition = presentation.labelAtDestination ? to : from;
+        const stolenLabel = new PixiText({ text: presentation.label, style: this.getStolenLabelStyle() });
         stolenLabel.anchor.set(0.5);
-        stolenLabel.position.set(from.x, from.y + cellSize * 0.62);
+        stolenLabel.position.set(labelPosition.x, labelPosition.y + cellSize * 0.62);
         stolenLabel.scale.set(0.5, -0.5);
         stolenLabel.alpha = 0;
         container.addChild(stolenLabel);
@@ -1123,9 +1198,14 @@ export class CombatVisuals {
             payloadGlow,
             trail,
             stolenLabel,
+            labelPosition: { ...labelPosition },
             from: { ...from },
             to: { ...to },
             control,
+            tint: presentation.tint,
+            core: presentation.core,
+            drawWeb: presentation.drawWeb,
+            keepAcrossHydrate: presentation.keepAcrossHydrate,
             cellSize,
             age: 0,
             life: ABILITY_STEAL_LIFE,
@@ -1169,11 +1249,14 @@ export class CombatVisuals {
     }
     private drawAbilityStealWeb(steal: IAbilitySteal, reveal: number, alpha: number): void {
         steal.web.clear();
+        if (!steal.drawWeb) {
+            return;
+        }
         for (const strand of [-1, 0, 1]) {
             this.traceAbilityStealStrand(steal, strand, reveal);
             steal.web.stroke({
                 width: steal.cellSize * 0.06,
-                color: ABILITY_STEAL_TINT,
+                color: steal.tint,
                 alpha: alpha * 0.25,
                 cap: "round",
                 join: "round",
@@ -1181,7 +1264,7 @@ export class CombatVisuals {
             this.traceAbilityStealStrand(steal, strand, reveal);
             steal.web.stroke({
                 width: Math.max(1.5, steal.cellSize * 0.016),
-                color: strand === 0 ? ABILITY_STEAL_CORE : ABILITY_STEAL_TINT,
+                color: strand === 0 ? steal.core : steal.tint,
                 alpha: alpha * (strand === 0 ? 0.95 : 0.72),
                 cap: "round",
                 join: "round",
@@ -1197,7 +1280,7 @@ export class CombatVisuals {
         }
         steal.web.stroke({
             width: Math.max(1, steal.cellSize * 0.01),
-            color: ABILITY_STEAL_CORE,
+            color: steal.core,
             alpha: alpha * 0.5,
             cap: "round",
         });
@@ -1254,7 +1337,8 @@ export class CombatVisuals {
             const labelPop = Math.min(1, steal.age / 0.12);
             const labelScale = 0.5 + 0.5 * easeOutBack(labelPop);
             steal.stolenLabel.scale.set(labelScale, -labelScale);
-            steal.stolenLabel.y = steal.from.y + steal.cellSize * (0.62 + 0.2 * easeOutCubic(steal.age / steal.life));
+            steal.stolenLabel.y =
+                steal.labelPosition.y + steal.cellSize * (0.62 + 0.2 * easeOutCubic(steal.age / steal.life));
             steal.stolenLabel.alpha = Math.max(0, Math.min(1, steal.age / 0.07)) * fade;
 
             steal.rings.clear();
@@ -1263,7 +1347,7 @@ export class CombatVisuals {
             steal.rings.circle(steal.from.x, steal.from.y, extractRadius);
             steal.rings.stroke({
                 width: steal.cellSize * 0.045,
-                color: ABILITY_STEAL_TINT,
+                color: steal.tint,
                 alpha: fade * (1 - extractProgress * 0.45),
             });
             const arrivalProgress = Math.max(
@@ -1278,7 +1362,7 @@ export class CombatVisuals {
                 );
                 steal.rings.stroke({
                     width: steal.cellSize * 0.055,
-                    color: ABILITY_STEAL_CORE,
+                    color: steal.core,
                     alpha: (1 - arrivalProgress) * 0.9,
                 });
             }
@@ -1402,10 +1486,14 @@ export class CombatVisuals {
             }
             this.debuffPops.length = 0;
         }
-        for (const steal of this.abilitySteals) {
-            steal.container.destroy({ children: true });
+        for (let i = this.abilitySteals.length - 1; i >= 0; i--) {
+            const transfer = this.abilitySteals[i];
+            if (keepDetachedOverlays && transfer.keepAcrossHydrate) {
+                continue;
+            }
+            transfer.container.destroy({ children: true });
+            this.abilitySteals.splice(i, 1);
         }
-        this.abilitySteals.length = 0;
         for (const claw of this.clawSlashes) {
             claw.container.destroy({ children: true });
         }

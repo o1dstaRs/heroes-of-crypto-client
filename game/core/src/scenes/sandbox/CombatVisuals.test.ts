@@ -48,7 +48,13 @@ type VisualsInternals = {
     }[];
     cleaveDeaths: unknown[];
     dissolveDeaths: unknown[];
-    abilitySteals: { payload: Container; arrived: boolean }[];
+    abilitySteals: {
+        payload: Container;
+        stolenLabel: { text: string };
+        arrived: boolean;
+        drawWeb: boolean;
+        keepAcrossHydrate: boolean;
+    }[];
     craftForges: {
         container: Container;
         anvil: Container;
@@ -281,6 +287,60 @@ describe("Predatory Assimilation ability-steal VFX", () => {
         expect(arrived).toBe(false);
         expect(internals(visuals).abilitySteals.length).toBe(0);
         expect(attached[0].destroyed).toBe(true);
+    });
+
+    test("Wild Regeneration flies to its recipient as a gift rather than a stolen web", () => {
+        const { visuals } = makeVisuals();
+        let arrivals = 0;
+        visuals.spawnAbilityGift(
+            { x: 20, y: 30 },
+            { x: 220, y: 130 },
+            80,
+            "Wild Regeneration",
+            "gifted",
+            undefined,
+            () => arrivals++,
+        );
+
+        const transfer = internals(visuals).abilitySteals[0];
+        expect(transfer.stolenLabel.text).toBe("GIFTED");
+        expect(transfer.drawWeb).toBe(false);
+        visuals.update(0.47);
+        expect(arrivals).toBe(1);
+        visuals.update(0.4);
+        expect(internals(visuals).abilitySteals).toHaveLength(0);
+    });
+
+    test("Holy Cross labels the same recipient-side transfer as copied", () => {
+        const { visuals } = makeVisuals();
+        visuals.spawnAbilityGift({ x: 20, y: 30 }, { x: 220, y: 130 }, 80, "Wild Regeneration", "copied");
+
+        expect(internals(visuals).abilitySteals[0].stolenLabel.text).toBe("COPIED");
+    });
+
+    test("a gift finishes across a ranked board hydrate while a theft arc is discarded", () => {
+        const { visuals } = makeVisuals();
+        let arrivals = 0;
+        visuals.spawnAbilityGift(
+            { x: 20, y: 30 },
+            { x: 220, y: 130 },
+            80,
+            "Wild Regeneration",
+            "gifted",
+            undefined,
+            () => arrivals++,
+        );
+        visuals.spawnAbilitySteal({ x: 0, y: 0 }, { x: 100, y: 0 }, 80, "Dodge");
+
+        visuals.update(0.15); // ranked's normal replay hold before the authoritative hydrate
+        visuals.clear({ keepDetachedOverlays: true });
+
+        expect(internals(visuals).abilitySteals).toHaveLength(1);
+        expect(internals(visuals).abilitySteals[0].keepAcrossHydrate).toBe(true);
+        visuals.update(0.32);
+        expect(arrivals).toBe(1);
+        visuals.update(0.4);
+        expect(internals(visuals).abilitySteals).toHaveLength(0);
     });
 });
 
