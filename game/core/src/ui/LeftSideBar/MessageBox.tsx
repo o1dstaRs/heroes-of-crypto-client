@@ -1,5 +1,6 @@
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import Button from "@mui/joy/Button";
@@ -13,21 +14,58 @@ import Box from "@mui/joy/Box";
 import React, { useEffect, useState, useRef } from "react";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { images } from "../../generated/image_imports";
 import { nextLapHazard } from "../nextLapHazard";
 import { IVisibleState } from "../../scenes/VisibleState";
-import { hocColors, hocStartButtonSx } from "../hocTheme";
+import { hocColors, hocDisplayFontFamily, hocDisplayLetterSpacing } from "../hocTheme";
 import { useViewerTeam } from "../context/ViewerTeamContext";
 import { meteorIconDataUrl } from "../meteorIcon";
 import { TurnTimerBar } from "./TurnTimerBar";
+import { stonePlateSx } from "./UnitStatsListItem";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
 
-// The start button used to be a 73-frame sprite atlas ping-ponging at 12fps, with the word START painted
-// into the artwork. It is now drawn in CSS and labelled in the app's own typeface, like every other action
-// button in the bar. The frame size the atlas used is kept as the button's footprint so sidebarMetrics'
-// startButtonScale (which divides the available width by exactly this) still lands on the same size.
-const START_BUTTON_FRAME = { width: 344, height: 128 };
+// Exact crop supplied for the new command-panel direction. Only the frame and stone surface remain baked
+// into the high-resolution 432x114 plate; START is live HoC Forge text, so the same type system can be used
+// for other controls without changing this button's footprint or accessibility semantics.
+const START_BUTTON_FRAME = { width: 432, height: 114 };
+const START_BUTTON_HEIGHT_FACTOR = 0.9;
+const AiOrbToggleImage = ({ active, team }: { active: boolean; team: "green" | "red" }) => {
+    // Both states share the exact same bright ring. The inactive state only covers the inner sphere.
+    const src = team === "green" ? images.ui_ai_toggle_orb_green_on : images.ui_ai_toggle_orb_red_on;
+
+    return (
+        <Box sx={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+            <Box
+                component="img"
+                src={src}
+                alt=""
+                draggable={false}
+                sx={{ display: "block", width: "100%", height: "100%", objectFit: "fill" }}
+            />
+            {!active && (
+                // Cover only the coloured sphere: the surrounding luminous ring stays identical to ON.
+                <Box
+                    sx={{
+                        position: "absolute",
+                        left: "50%",
+                        top: "50%",
+                        width: "57%",
+                        height: "57%",
+                        borderRadius: "50%",
+                        transform: "translate(-50%, -50%)",
+                        background:
+                            team === "green"
+                                ? "radial-gradient(circle at 48% 44%, #1e221e, #141714 62%, #0b0d0b)"
+                                : "radial-gradient(circle at 48% 44%, #211c1a, #171311 62%, #0d0b0a)",
+                        boxShadow: "inset 0 2px 6px rgba(0,0,0,.6), 0 1px 3px rgba(0,0,0,.72)",
+                    }}
+                />
+            )}
+        </Box>
+    );
+};
 
 const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale: number; disabled?: boolean }) => {
     const button = (
@@ -36,19 +74,56 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
             onClick={disabled ? undefined : onClick}
             disabled={disabled}
             sx={{
-                ...hocStartButtonSx,
+                position: "relative",
+                overflow: "hidden",
+                p: 0,
+                border: 0,
+                borderRadius: 0,
+                outline: 0,
+                backgroundColor: "transparent",
+                backgroundImage: `url(${images.ui_start_button_plate_trimmed})`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                backgroundSize: "100% 100%",
+                color: "#cda078",
+                fontFamily: hocDisplayFontFamily,
+                fontSize: `${Math.max(16, Math.round(39 * scale))}px`,
+                fontStyle: "normal",
+                // HoC Forge ships as one master face; the browser's weight synthesis thickens that same
+                // geometry for the primary CTA instead of substituting an unrelated bold font.
+                fontWeight: 800,
+                fontSynthesis: "weight",
+                letterSpacing: hocDisplayLetterSpacing,
+                textTransform: "uppercase",
+                lineHeight: 1,
+                WebkitTextStroke: "0.06em rgba(43,25,15,.96)",
+                paintOrder: "stroke fill",
+                textShadow: "0 .075em 0 #070504, 0 -.022em 0 rgba(255,222,178,.24), 0 .12em .08em rgba(0,0,0,.82)",
+                boxShadow: "none",
+                transition: "filter 140ms ease, transform 80ms ease",
                 // The old art could overhang the bar unnoticed — its frame was mostly transparent glow, and
                 // startButtonScale bottoms out at 0.3 regardless of how narrow the bar gets. A solid button
                 // would show that overhang, so the bar's width wins and the art's size is only a ceiling.
                 width: "100%",
                 maxWidth: `${START_BUTTON_FRAME.width * scale}px`,
-                // Two thirds of the old art's height: the atlas frame was mostly glow around the word.
-                height: `${START_BUTTON_FRAME.height * scale * 0.66}px`,
+                height: "auto",
+                // Preserve the reduced width while making only the plate height another 10% slimmer.
+                aspectRatio: `${START_BUTTON_FRAME.width} / ${START_BUTTON_FRAME.height * START_BUTTON_HEIGHT_FACTOR}`,
                 minHeight: 0,
                 margin: "0 auto",
-                fontSize: `${Math.max(0.72, 1.5 * scale)}rem`,
-                letterSpacing: "0.16em",
-                ...(disabled ? { cursor: "not-allowed" } : {}),
+                "&:hover:not(:disabled)": {
+                    backgroundColor: "transparent",
+                    filter: "brightness(1.09) contrast(1.04) drop-shadow(0 0 7px rgba(224,83,34,.38))",
+                    transform: "translateY(-1px) scale(1.012)",
+                },
+                "&:active": { transform: "translateY(1px)" },
+                "&.Mui-disabled": {
+                    cursor: "not-allowed",
+                    opacity: 1,
+                    color: "#c69a72",
+                    backgroundColor: "transparent",
+                    filter: "brightness(.78) saturate(.82)",
+                },
             }}
         >
             Start
@@ -73,6 +148,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
     const manager = usePixiManager();
     const metrics = useSidebarMetrics();
+    const aiToggleSize = Math.max(30, Math.round(42 * metrics.startButtonScale));
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
     // Sandbox-only "AI side" toggles: hand green (LOWER) / red (UPPER) entirely to the AI. Such a team
@@ -150,9 +226,6 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
-                    background:
-                        "radial-gradient(ellipse at center, rgba(91, 31, 18, 0.13) 0%, rgba(25, 10, 8, 0.16) 42%, rgba(4, 5, 6, 0.42) 100%)",
-                    backdropFilter: "saturate(0.82) brightness(0.9)",
                     zIndex: 1,
                     pointerEvents: "none",
                     "@keyframes countdown-enter": {
@@ -170,16 +243,28 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 <Box
                     sx={{
                         position: "relative",
-                        width: "clamp(188px, 17vw, 244px)",
-                        minHeight: "clamp(138px, 13vw, 176px)",
+                        width: "clamp(216px, 19.55vw, 281px)",
+                        minHeight: "clamp(159px, 14.95vw, 202px)",
                         p: "2px",
                         boxSizing: "border-box",
-                        clipPath: "polygon(10% 0, 90% 0, 100% 17%, 100% 83%, 90% 100%, 10% 100%, 0 83%, 0 17%)",
-                        background:
-                            "linear-gradient(135deg, #3f291e 0%, #b07847 24%, #4c2b20 50%, #d08a51 76%, #39251d 100%)",
+                        borderRadius: "14px",
                         animation:
                             "countdown-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1), countdown-ember 1s ease-in-out infinite",
                         "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            inset: 0,
+                            p: "2px",
+                            boxSizing: "border-box",
+                            borderRadius: "14px",
+                            clipPath: "polygon(9% 0, 91% 0, 100% 15%, 100% 85%, 91% 100%, 9% 100%, 0 85%, 0 15%)",
+                            background:
+                                "linear-gradient(135deg, #38100c 0%, #c64930 24%, #56150f 50%, #ec6a47 76%, #2b0a08 100%)",
+                            WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+                            WebkitMaskComposite: "xor",
+                            maskComposite: "exclude",
+                        },
                     }}
                 >
                     <Box
@@ -188,13 +273,14 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                             width: "100%",
                             minHeight: "inherit",
                             px: "clamp(18px, 2vw, 28px)",
-                            py: "clamp(14px, 1.5vw, 20px)",
+                            py: "clamp(12px, 1.25vw, 17px)",
                             boxSizing: "border-box",
-                            clipPath: "polygon(10% 0, 90% 0, 100% 17%, 100% 83%, 90% 100%, 10% 100%, 0 83%, 0 17%)",
+                            borderRadius: "12px",
+                            clipPath: "polygon(9% 0, 91% 0, 100% 15%, 100% 85%, 91% 100%, 9% 100%, 0 85%, 0 15%)",
                             overflow: "hidden",
                             background:
-                                "radial-gradient(circle at 50% 42%, rgba(104,31,20,.44), transparent 58%), repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(27,20,17,.98), rgba(10,8,8,.99))",
-                            boxShadow: "inset 0 0 0 1px rgba(255,207,155,.14), inset 0 -18px 36px rgba(0,0,0,.38)",
+                                "radial-gradient(circle at 50% 48%, rgba(129,25,17,.16), transparent 62%), repeating-linear-gradient(135deg, rgba(255,106,79,.02) 0 1px, transparent 1px 8px), linear-gradient(180deg, rgba(24,13,11,.68), rgba(7,4,4,.68))",
+                            boxShadow: "inset 0 0 0 1px rgba(255,124,96,.15), inset 0 -18px 36px rgba(54,0,0,.42)",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "stretch",
@@ -205,56 +291,35 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                                 left: "14%",
                                 right: "14%",
                                 top: 0,
-                                height: "1px",
-                                background: "linear-gradient(90deg, transparent, rgba(255,161,101,.72), transparent)",
-                                boxShadow: "0 0 8px rgba(224,82,43,.5)",
+                                height: "2px",
+                                background: "linear-gradient(90deg, transparent, rgba(255,105,73,.92), transparent)",
+                                boxShadow: "0 0 12px rgba(255,62,35,.72)",
                             },
                         }}
                     >
-                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75 }}>
-                            <TimelapseRoundedIcon
-                                sx={{ color: "rgba(218,143,91,.78)", fontSize: "clamp(0.9rem, 1.15vw, 1.15rem)" }}
-                            />
-                            <Typography
-                                level="body-xs"
-                                sx={{
-                                    color: "rgba(237, 190, 151, 0.76)",
-                                    fontSize: "clamp(0.54rem, 0.66vw, 0.66rem)",
-                                    fontWeight: 700,
-                                    letterSpacing: "0.24em",
-                                    lineHeight: 1,
-                                    ml: "0.24em",
-                                }}
-                            >
-                                TURN TIMER
-                            </Typography>
-                        </Box>
-
-                        <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 1 }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flex: 1,
+                                pt: "clamp(15px, 1.8vw, 24px)",
+                                transform: "translateY(-10px)",
+                            }}
+                        >
                             <Typography
                                 sx={{
-                                    color: "#fff0e2",
-                                    fontSize: "clamp(3.7rem, 6vw, 5.5rem)",
-                                    fontWeight: 500,
+                                    color: "#ff6047",
+                                    fontSize: "clamp(7.25rem, 10.5vw, 10rem)",
+                                    fontWeight: 600,
                                     fontVariantNumeric: "tabular-nums",
-                                    lineHeight: 0.9,
-                                    letterSpacing: "-0.055em",
-                                    textShadow: "0 2px 14px rgba(222, 83, 47, 0.38)",
-                                    mr: "0.055em",
+                                    lineHeight: 0.68,
+                                    letterSpacing: "-0.04em",
+                                    textShadow:
+                                        "0 2px 1px rgba(45,3,2,.96), 0 0 13px rgba(255,55,32,.72), 0 0 28px rgba(161,20,12,.42)",
                                 }}
                             >
                                 {countdown}
-                            </Typography>
-                            <Typography
-                                level="body-xs"
-                                sx={{
-                                    color: "rgba(229, 177, 139, 0.58)",
-                                    fontSize: "clamp(0.5rem, 0.62vw, 0.62rem)",
-                                    letterSpacing: "0.14em",
-                                    lineHeight: 1,
-                                }}
-                            >
-                                SEC
                             </Typography>
                         </Box>
 
@@ -268,14 +333,35 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                                             height: "4px",
                                             clipPath: "polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%)",
                                             background: active
-                                                ? "linear-gradient(90deg, #8f2f20, #ef7543, #8f2f20)"
-                                                : "rgba(91,71,61,.38)",
-                                            boxShadow: active ? "0 0 6px rgba(239,95,55,.52)" : "none",
+                                                ? "linear-gradient(90deg, #a51e18, #ff5f3f, #a51e18)"
+                                                : "rgba(104,45,40,.44)",
+                                            boxShadow: active ? "0 0 10px rgba(255,72,48,.72)" : "none",
                                         }}
                                     />
                                 );
                             })}
                         </Box>
+                    </Box>
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            left: "50%",
+                            top: 0,
+                            transform: "translate(-50%, -50%)",
+                            zIndex: 2,
+                            width: "clamp(34px, 3.3vw, 48px)",
+                            height: "clamp(34px, 3.3vw, 48px)",
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "radial-gradient(circle at 50% 35%, rgba(122,43,25,.98), rgba(24,8,6,.99))",
+                            border: "2px solid #8f3927",
+                            boxShadow:
+                                "0 0 0 2px #130706, inset 0 1px 2px rgba(255,181,121,.28), 0 0 12px rgba(210,55,31,.34)",
+                        }}
+                    >
+                        <HourglassTopRoundedIcon sx={{ color: "#f3a56d", fontSize: "clamp(1.25rem, 1.9vw, 1.9rem)" }} />
                     </Box>
                 </Box>
             </Box>
@@ -290,7 +376,32 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: `${metrics.gapPx}px`,
+                    gap: `${Math.max(10, metrics.gapPx)}px`,
+                    pt: `${Math.max(12, Math.round(metrics.gapPx * 1.35))}px`,
+                    position: "relative",
+                    "&::before": {
+                        content: '\"\"',
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: "2.25px",
+                        background:
+                            "linear-gradient(90deg, transparent, rgba(118,56,29,.72) 6%, #bd6537 50%, rgba(118,56,29,.72) 94%, transparent)",
+                        boxShadow: "0 2px 8px rgba(211,70,26,.2), 0 -1px 0 rgba(0,0,0,.9)",
+                    },
+                    "&::after": {
+                        content: '\"\"',
+                        position: "absolute",
+                        top: "-3px",
+                        left: "50%",
+                        width: "8px",
+                        height: "8px",
+                        transform: "translateX(-50%) rotate(45deg)",
+                        background: "#d06d36",
+                        border: "2px solid #1a0e09",
+                        boxShadow: "0 0 7px rgba(231,83,32,.46)",
+                    },
                 }}
             >
                 {visibleState.canBeStarted ? (
@@ -298,76 +409,120 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 ) : (
                     <StartButton scale={metrics.startButtonScale} disabled />
                 )}
-                {/* Sandbox only: hand a side to the AI. That team auto-plays and the human can't act for
-                    it (its toolbar/board are locked on its turn). Check both to watch two AIs clash.
-                    The pair wraps rather than overflowing once the bar gets narrow. */}
+                {/* Sandbox only: hand a side to the AI. The compact AI + green/red icon group stays centred
+                    against the Start plate instead of repeating a long team label beside each switch. */}
                 {isSandbox && (
                     <Stack
                         direction="row"
-                        useFlexGap
-                        flexWrap="wrap"
+                        alignItems="center"
                         justifyContent="center"
                         sx={{
-                            gap: `${metrics.gapPx}px`,
-                            width: "100%",
-                            // Bounded by the Start button above and centred on it. Spanning the whole bar
-                            // instead put the pair WIDER than the button, and on a bar narrower than its
-                            // own content the row overflowed symmetrically — the green box ran off the
-                            // panel's left edge. Same expression the button caps itself with, so the two
-                            // stay aligned at every bar width.
+                            position: "relative",
+                            gap: `${Math.max(7, metrics.gapPx * 0.7)}px`,
+                            width: "fit-content",
                             maxWidth: `${START_BUTTON_FRAME.width * metrics.startButtonScale}px`,
                             mx: "auto",
                         }}
                     >
+                        <Typography
+                            sx={{
+                                // Keep the label outside the controls' layout width: the midpoint between
+                                // the two equal AI squares must stay exactly on the START plate's centre.
+                                position: "absolute",
+                                top: "50%",
+                                right: `calc(100% + ${Math.max(7, metrics.gapPx * 0.7)}px)`,
+                                transform: "translateY(-50%)",
+                                color: "#c4b69d",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSynthesis: "weight",
+                                fontWeight: 700,
+                                fontSize: `${1.08 * metrics.fontScale}rem`,
+                                letterSpacing: hocDisplayLetterSpacing,
+                                lineHeight: 1,
+                                textShadow: "0 1px 0 #000",
+                            }}
+                        >
+                            AI
+                        </Typography>
                         {[
                             {
-                                key: "green",
+                                key: "green" as const,
                                 color: "success" as const,
                                 label: "Green AI",
                                 checked: greenAi,
                                 team: TeamVals.LOWER,
                             },
                             {
-                                key: "red",
+                                key: "red" as const,
                                 color: "danger" as const,
                                 label: "Red AI",
                                 checked: redAi,
                                 team: TeamVals.UPPER,
                             },
                         ].map(({ key, color, label, checked, team }) => (
-                            <Checkbox
-                                key={key}
-                                size="md"
-                                color={color}
-                                variant="outlined"
-                                label={label}
-                                checked={checked}
-                                onChange={(e) => toggleTeamAi(team, e.target.checked)}
-                                sx={{
-                                    // They used to sit as two small labels huddled in the middle of the bar
-                                    // with the width around them unused. Each now claims half the button's
-                                    // width above, so the whole half is a click target rather than just the
-                                    // box and its word. The 45% basis (not 50%) leaves the gap its room
-                                    // before flex-wrap would kick in; minWidth lets a very narrow bar shrink
-                                    // them past their label instead of bursting the row.
-                                    flex: "1 1 45%",
-                                    minWidth: 0,
-                                    justifyContent: "center",
-                                    // Joy gives the label `flex: 1 1 0%`, so it stretched to fill the
-                                    // control: the box sat hard against the left of its half and the text
-                                    // ran left-aligned inside a much wider label, leaving dead space to its
-                                    // right. The pair read as shoved left under a centred button even
-                                    // though the row itself was exactly the button's width.
-                                    //
-                                    // `0 1 auto` sizes the label to its text so justifyContent can centre
-                                    // box and text together. All three parts matter: flex-grow 0 is the fix
-                                    // itself, the `auto` basis is what makes the label its text's width
-                                    // (leaving Joy's 0% basis collapses it to nothing), and flex-shrink 1
-                                    // keeps the text wrapping instead of overflowing on a very narrow bar.
-                                    "& .MuiCheckbox-label": { flex: "0 1 auto" },
-                                    fontSize: `${0.85 * metrics.fontScale}rem`,
-                                }}
-                            />
+                            <Tooltip key={key} title={label} placement="top" variant="solid" sx={commonTooltipSx}>
+                                <Checkbox
+                                    aria-label={label}
+                                    size="md"
+                                    color={color}
+                                    variant="outlined"
+                                    checked={checked}
+                                    uncheckedIcon={<AiOrbToggleImage active={false} team={key} />}
+                                    checkedIcon={<AiOrbToggleImage active team={key} />}
+                                    onChange={(e) => toggleTeamAi(team, e.target.checked)}
+                                    sx={{
+                                        flex: "0 0 auto",
+                                        isolation: "isolate",
+                                        width: `${aiToggleSize}px`,
+                                        height: `${aiToggleSize}px`,
+                                        minWidth: 0,
+                                        p: 0,
+                                        "--Checkbox-size": `${aiToggleSize}px`,
+                                        "&::before": {
+                                            content: '""',
+                                            position: "absolute",
+                                            zIndex: 0,
+                                            inset: "-30.4%",
+                                            borderRadius: "50%",
+                                            pointerEvents: "none",
+                                            opacity: 0,
+                                            transform: "scale(.82)",
+                                            background: `radial-gradient(circle, ${
+                                                key === "green" ? "rgba(48,255,99,.90)" : "rgba(255,55,38,.90)"
+                                            } 0%, ${
+                                                key === "green" ? "rgba(34,208,76,.59)" : "rgba(232,42,31,.59)"
+                                            } 38%, transparent 72%)`,
+                                            filter: "blur(2.85px)",
+                                            transition: "opacity 140ms ease, transform 140ms ease",
+                                        },
+                                        "& .MuiCheckbox-checkbox": {
+                                            position: "relative",
+                                            zIndex: 1,
+                                            inset: 0,
+                                            width: "100%",
+                                            height: "100%",
+                                            p: 0,
+                                            overflow: "visible",
+                                            border: 0,
+                                            borderRadius: 0,
+                                            background: "transparent",
+                                            boxShadow: "none",
+                                            transition: "filter 140ms ease, transform 90ms ease",
+                                        },
+                                        "&:hover .MuiCheckbox-checkbox": {
+                                            background: "transparent",
+                                            filter: "brightness(1.36)",
+                                        },
+                                        "&:hover::before": {
+                                            opacity: 1,
+                                            transform: "scale(1)",
+                                        },
+                                        "&:active .MuiCheckbox-checkbox": {
+                                            transform: "translateY(1px) scale(.98)",
+                                        },
+                                    }}
+                                />
+                            </Tooltip>
                         ))}
                     </Stack>
                 )}
@@ -524,43 +679,16 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                     boxShadow: "none",
                     p: `${Math.round(metrics.gapPx * 0.6)}px`,
                     gap: `${Math.round(metrics.gapPx * 0.35)}px`,
-                    // Joy's soft variant paints a flat neutral grey — rgb(23, 23, 23), opaque, and cold
-                    // against the hide behind it. A dark BROWN wash instead, mostly opaque so the card still
-                    // reads as a panel rather than a stain: over the bar's rgb(25, 13, 9) this lands on
-                    // about rgb(15, 10, 6) — a clear step below the hide around it, so the card sits IN the
-                    // bar rather than floating on it. The pigment keeps the hide's hue: dropping to neutral
-                    // black at this depth reads as a hole cut in the leather.
-                    backgroundColor: "rgba(11, 9, 5, 0.7)",
+                    // Use the exact same inset-stone surface as the stats readout above.
+                    background: stonePlateSx.background,
                 }}
             >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
-                    <Typography
-                        level="title-sm"
-                        sx={{
-                            fontSize: `${0.72 * metrics.fontScale}rem`,
-                            lineHeight: 1.15,
-                            // Red marks a turn YOU can act on, matching the timer fill under it — the side
-                            // that has something to do is the side that gets the loud colour.
-                            ...(cannotAct ? {} : { color: hocColors.danger }),
-                        }}
-                    >
-                        {messageBoxTitle}
-                    </Typography>
-                    {/* Fixed slot: the hazard icons (narrowing / armageddon) swap in at different intrinsic
-                        sizes, and without this the header row grew and nudged the timer. */}
-                    <Box
-                        sx={{
-                            flex: "none",
-                            width: 22,
-                            height: 22,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                    >
-                        {visibleState.hasFinished ? <RefreshRoundedIcon /> : defaultIcon}
-                    </Box>
-                </Stack>
+                {visibleState.hasFinished && (
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={0.5}>
+                        <Typography level="title-sm">{messageBoxTitle}</Typography>
+                        <RefreshRoundedIcon />
+                    </Stack>
+                )}
                 {messageBoxText && (
                     <Typography level="body-xs" sx={{ fontSize: `${0.7 * metrics.fontScale}rem` }}>
                         {messageBoxText}
@@ -572,6 +700,35 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         secondsRemaining={visibleState.secondsRemaining}
                         secondsMax={visibleState.secondsMax}
                         enemyTurn={cannotAct}
+                        heading={
+                            <Typography
+                                level="title-sm"
+                                sx={{
+                                    // A further 20% increase requested for the active-turn callout.
+                                    fontSize: `${1.0368 * metrics.fontScale}rem`,
+                                    lineHeight: 1.05,
+                                    ...(cannotAct ? {} : { color: hocColors.danger }),
+                                }}
+                            >
+                                {messageBoxTitle}
+                            </Typography>
+                        }
+                        footerIndicator={
+                            <Box
+                                sx={{
+                                    width: 22,
+                                    height: 22,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: hocColors.gold,
+                                    filter: `drop-shadow(0 0 3px ${hocColors.gold}66)`,
+                                    "& svg": { color: "inherit" },
+                                }}
+                            >
+                                {defaultIcon}
+                            </Box>
+                        }
                         // The slot is always filled, so the card never changes height: the control greys out
                         // when the reserve is unavailable instead of vanishing and reflowing everything below
                         // it. It rides under the groove rather than across the card — it does one thing, to
@@ -592,7 +749,10 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                                     // frame so it reads as belonging to the gauge without competing with
                                     // it — the two are the same object, one above the other.
                                     border: `1px solid ${hocColors.gold}80`,
-                                    fontSize: `${0.62 * metrics.fontScale}rem`,
+                                    // Keep the narrower plate; make the live label another 15% larger and
+                                    // heavier without changing the button's own dimensions.
+                                    fontSize: `${0.8556 * metrics.fontScale}rem`,
+                                    fontWeight: 800,
                                     transition: "border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease",
                                     // Lights up under the cursor: the hairline goes to full gold and a soft
                                     // glow comes up around it, so the control announces itself as pressable

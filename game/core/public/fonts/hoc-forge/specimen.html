@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>HoC Forge — Font Specimen</title>
+        <style>
+            @font-face {
+                font-family: "HoC Forge";
+                src: url("./HoCForge-Regular.ttf") format("truetype");
+                font-style: normal;
+                font-weight: 400;
+                font-display: swap;
+            }
+
+            :root {
+                color-scheme: dark;
+                font-family: "HoC Forge", Georgia, serif;
+                background: #090908;
+                color: #c89b70;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                min-height: 100vh;
+                margin: 0;
+                padding: clamp(24px, 5vw, 72px);
+                background:
+                    radial-gradient(circle at 50% 0, rgb(103 49 23 / 18%), transparent 38%),
+                    repeating-linear-gradient(135deg, rgb(255 255 255 / 1.2%) 0 1px, transparent 1px 8px),
+                    linear-gradient(180deg, #171614, #080807);
+            }
+
+            main {
+                width: min(1180px, 100%);
+                margin: auto;
+                padding: clamp(22px, 4vw, 58px);
+                border: 1px solid #8b5b34;
+                outline: 5px solid #060504;
+                box-shadow:
+                    inset 0 0 0 2px #25170f,
+                    inset 0 0 50px #000,
+                    0 30px 80px #000;
+                background: rgb(9 9 8 / 82%);
+            }
+
+            h1,
+            .display {
+                margin: 0;
+                font-weight: 400;
+                font-synthesis: none;
+                letter-spacing: 0.09em;
+                text-align: center;
+                -webkit-text-stroke: 0.018em rgb(48 29 18 / 90%);
+                paint-order: stroke fill;
+                text-shadow:
+                    0 0.055em 0 #080605,
+                    0 -0.018em 0 rgb(255 220 171 / 20%),
+                    0 0.08em 0.15em rgb(0 0 0 / 72%);
+            }
+
+            h1 {
+                font-size: clamp(48px, 9vw, 108px);
+            }
+
+            .eyebrow {
+                margin: 12px 0 46px;
+                color: #765337;
+                font:
+                    13px/1.2 ui-sans-serif,
+                    system-ui,
+                    sans-serif;
+                letter-spacing: 0.28em;
+                text-align: center;
+                text-transform: uppercase;
+            }
+
+            section {
+                padding: 26px 0;
+                border-top: 1px solid rgb(139 91 52 / 42%);
+            }
+
+            section:last-child {
+                padding-bottom: 0;
+            }
+
+            h2 {
+                margin: 0 0 14px;
+                color: #74543b;
+                font:
+                    11px/1.2 ui-sans-serif,
+                    system-ui,
+                    sans-serif;
+                letter-spacing: 0.24em;
+                text-transform: uppercase;
+            }
+
+            p {
+                margin: 8px 0;
+                overflow-wrap: anywhere;
+            }
+
+            .large {
+                font-size: clamp(31px, 5vw, 62px);
+                line-height: 1.28;
+            }
+
+            .medium {
+                font-size: clamp(23px, 3vw, 38px);
+                line-height: 1.45;
+            }
+
+            .alphabet {
+                letter-spacing: 0.045em;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>HoC Forge</h1>
+            <div class="eyebrow">Full Latin + Cyrillic display face</div>
+
+            <section>
+                <h2>Controls</h2>
+                <p class="display large">START · BATTLE · ACCEPT</p>
+                <p class="display large">СТАРТ · БИТВА · ПРИНЯТЬ</p>
+            </section>
+
+            <section>
+                <h2>Latin</h2>
+                <p class="medium alphabet">ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
+                <p class="medium alphabet">abcdefghijklmnopqrstuvwxyz</p>
+            </section>
+
+            <section>
+                <h2>Cyrillic</h2>
+                <p class="medium alphabet">АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ</p>
+                <p class="medium alphabet">абвгдеёжзийклмнопрстуфхцчшщъыьэюя</p>
+            </section>
+
+            <section>
+                <h2>Numbers & punctuation</h2>
+                <p class="display large">0123456789</p>
+                <p class="medium">! ? № # % &amp; + − × / : ; , . ( ) [ ] « »</p>
+            </section>
+        </main>
+    </body>
+</html>

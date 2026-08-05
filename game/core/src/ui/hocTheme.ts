@@ -1,3 +1,18 @@
+import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
+import { images } from "../generated/image_imports";
+
+const sidebarSectionFrames = {
+    army: images.ui_container_frame_1_9slice,
+    board: images.ui_container_frame_2_9slice,
+    team: images.ui_container_frame_2_9slice,
+} as const;
+
+const sidebarSectionFrameSlices = {
+    army: "120 120 120 120",
+    board: "104 104 104 104",
+    team: "104 104 104 104",
+} as const;
+
 export const hocColors = {
     black: "#070504",
     panel: "rgba(14, 9, 5, 0.94)",
@@ -53,7 +68,27 @@ export const hocSoftButtonSx = {
  * so panel labels and board labels read as one family. Stated explicitly on the action buttons below because
  * MUI Joy's Button sets its own fontFamily from the Joy theme and would otherwise not inherit it.
  */
-export const hocFontFamily = '"Open Sans", Verdana, sans-serif';
+export const hocFontFamily = HOC_NUMERIC_FONT_FAMILY;
+
+/**
+ * Project display face built for carved fantasy headings and controls. It contains Latin, Cyrillic,
+ * numerals and punctuation; use the family alone when colour belongs to the component, or spread
+ * `hocEngravedTextSx` for the same bronze-on-stone finish as the START plate.
+ */
+export const hocDisplayFontFamily = '"HoC Forge", Georgia, "Times New Roman", serif';
+export const hocDisplayLetterSpacing = "0.121em";
+
+export const hocEngravedTextSx = {
+    fontFamily: hocDisplayFontFamily,
+    fontStyle: "normal",
+    fontWeight: 400,
+    fontSynthesis: "none",
+    letterSpacing: hocDisplayLetterSpacing,
+    color: "#c89b70",
+    WebkitTextStroke: "0.018em rgba(48,29,18,.9)",
+    paintOrder: "stroke fill",
+    textShadow: "0 .055em 0 #080605, 0 -.018em 0 rgba(255,220,171,.2), 0 .08em .15em rgba(0,0,0,.72)",
+} as const;
 
 /**
  * Shared look for the sidebar's action buttons (Start / Accept / Clone / Split / Delete). They used to be
@@ -156,6 +191,121 @@ export const hocObsidianPanelSx = {
     border: "2.34px solid #3a382f",
     boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
 };
+
+/** Exact OFF/ON radio artwork cropped from the user-selected concept sheet. */
+export const hocFantasyRadioSx = {
+    "& .MuiRadio-radio": {
+        position: "relative",
+        width: "23.4px",
+        height: "23.4px",
+        flex: "0 0 23.4px",
+        border: "none",
+        borderRadius: "50%",
+        color: "transparent",
+        backgroundColor: "transparent",
+        backgroundImage: `url(${images.ui_fantasy_radio_off})`,
+        backgroundSize: "100% 100%",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        boxShadow: "none",
+    },
+    "& .MuiRadio-radio.Mui-checked": {
+        color: "transparent",
+        backgroundColor: "transparent",
+        backgroundImage: `url(${images.ui_fantasy_radio_on})`,
+        boxShadow: "none",
+    },
+    "& .MuiRadio-radio::before, & .MuiRadio-radio::after": {
+        display: "none",
+    },
+} as const;
+
+/**
+ * Exact frame cut from the supplied HUD reference.  `border-image` treats it as a 9-slice: the four real
+ * corners remain undistorted while the original left/right and top/bottom rails stretch to the section's
+ * current dimensions.  The centre of the screenshot is never painted, so none of its Green-row content
+ * leaks into these controls.
+ */
+export const hocSidebarSectionSx = (variant: keyof typeof sidebarSectionFrames) => ({
+    position: "relative" as const,
+    width: "100%",
+    overflow: "hidden",
+    boxSizing: "border-box" as const,
+    border: "10px solid transparent",
+    borderImageSource: `url(${sidebarSectionFrames[variant]})`,
+    borderImageSlice: sidebarSectionFrameSlices[variant],
+    borderImageWidth: "10px",
+    // Extend opened sections by repeating the original side-rail texture instead of stretching one strip.
+    borderImageRepeat: "stretch round",
+    borderImageOutset: 0,
+    borderRadius: 0,
+    background: "rgba(5, 6, 6, 0.66)",
+    boxShadow: "0 7px 16px rgba(0,0,0,.72), inset 0 0 18px rgba(0,0,0,.58)",
+});
+
+/** Header row inside hocSidebarSectionSx. */
+export const hocSidebarSectionHeaderSx = {
+    minHeight: "64px",
+    px: 2,
+    py: 1.25,
+    borderRadius: 0,
+    borderBottom: "1px solid rgba(112, 75, 42, 0.35)",
+    backgroundColor: "rgba(0,0,0,.1)",
+    "--ListItemButton-hoverBackground": "transparent",
+    "--ListItemButton-selectedBackground": "transparent",
+    transform: "scale(1)",
+    transformOrigin: "center",
+    transition: "transform .16s ease, box-shadow .18s ease",
+    "@media (max-height: 800px)": {
+        minHeight: "52px",
+        py: 0.5,
+    },
+    "&:hover": {
+        backgroundColor: "transparent !important",
+        transform: "scale(1.018)",
+        boxShadow: "inset 0 0 18px rgba(188,119,49,.08)",
+    },
+    "&:focus-visible, &.Mui-selected, &.Mui-selected:hover": {
+        backgroundColor: "transparent !important",
+    },
+};
+
+/** Image-backed fantasy action button used by the setup controls in the right sidebar. */
+export const hocSidebarImageButtonSx = (variant: "primary" | "neutral" | "danger" = "neutral") => ({
+    fontFamily: hocDisplayFontFamily,
+    fontWeight: 800,
+    fontSynthesis: "weight",
+    letterSpacing: hocDisplayLetterSpacing,
+    textTransform: "uppercase" as const,
+    color: "#cda078",
+    minHeight: "45px",
+    border: 0,
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    backgroundImage: `${
+        variant === "primary"
+            ? "linear-gradient(rgba(105,48,18,.46),rgba(105,48,18,.46))"
+            : variant === "danger"
+              ? "linear-gradient(rgba(92,10,10,.58),rgba(92,10,10,.58))"
+              : "linear-gradient(rgba(4,5,6,.16),rgba(4,5,6,.16))"
+    }, url(${images.ui_start_button_plate_trimmed})`,
+    backgroundBlendMode: "color, normal",
+    backgroundSize: "100% 100%",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    WebkitTextStroke: "0.045em rgba(43,25,15,.96)",
+    paintOrder: "stroke fill",
+    textShadow: "0 .075em 0 #070504, 0 -.022em 0 rgba(255,222,178,.24), 0 .12em .08em rgba(0,0,0,.82)",
+    filter: "brightness(.9) saturate(.88)",
+    transition: "filter .15s ease, transform .08s ease",
+    "&:hover": {
+        backgroundColor: "transparent",
+        color: "#d8ab80",
+        filter: "brightness(1.09) contrast(1.04) drop-shadow(0 0 7px rgba(224,83,34,.28))",
+    },
+    "&:active": { transform: "translateY(1px)", filter: "brightness(.92)" },
+    "&.Mui-disabled": { opacity: 0.42, color: "rgba(232,211,173,.65)", filter: "grayscale(.65) brightness(.68)" },
+});
 
 /** Destructive action (Delete): the same frame in the palette's ember red. */
 export const hocActionDangerButtonSx = {

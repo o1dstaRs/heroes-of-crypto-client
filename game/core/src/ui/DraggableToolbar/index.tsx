@@ -94,10 +94,12 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 export const toolbarColumnHeightPx = (): number => {
     const screenRatio = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
     const slots = 6;
-    const gap = 12; // the column's `gap: 1.5`
-    const framePadding = 24; // 12px above the first button, 12px below the last
-    const frameRim = 2 * 2.34;
-    return Math.round(45 * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
+    const gap = 8; // the column's `gap: 1`
+    const framePadding = 16; // 8px above the first button, 8px below the last
+    const frameRim = 4;
+    // Each medallion now sits in a square bronze cell, matching the compact combat-sidebar mockup.
+    const cellSize = 57;
+    return Math.round(cellSize * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
 };
 
 // How far the option markers under a multi-state button sit from the centre of their row.
@@ -110,13 +112,13 @@ const GLYPH_FILTER_BRIGHT = "brightness(1.12) drop-shadow(0 2px 5px rgba(243,212
 // frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
 const StyledSheet = styled(Sheet)(() => ({
     backgroundImage: "linear-gradient(180deg, rgba(28,20,12,.96), rgba(8,6,4,.96))",
-    padding: "12px 8px",
-    borderRadius: "14px",
+    padding: "8px 6px",
+    borderRadius: "3px",
     // Only the outline is lifted: a touch wider and in bronze rather than near-black, so the column reads
     // as a framed panel against the sidebar instead of dissolving into it. Everything inside — the obsidian
     // fill, the faint inner rim, the drop shadow — is left alone.
-    border: "2.34px solid #473b25",
-    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
+    border: "2px solid #5d4827",
+    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(183,139,67,.28), inset 0 0 16px rgba(0,0,0,.72)",
 }));
 
 const StyledIconButton = styled("button", {
@@ -249,7 +251,21 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     const initialRotation = needRotate ? 180 : 0;
 
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <Box
+            sx={{
+                width: 57 * SCREEN_RATIO,
+                height: 57 * SCREEN_RATIO,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                background: "linear-gradient(145deg, rgba(48,34,21,.98), rgba(12,9,6,.98))",
+                border: `${2 * SCREEN_RATIO}px solid #5c4528`,
+                borderRadius: `${2 * SCREEN_RATIO}px`,
+                boxShadow:
+                    "inset 0 0 0 1px rgba(205,156,75,.22), inset 0 0 12px rgba(0,0,0,.82), 0 2px 5px rgba(0,0,0,.65)",
+            }}
+        >
             <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO, position: "relative" }}>
                 <Tooltip title={text} placement="top">
                     <StyledIconButton
@@ -314,8 +330,9 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                     sx={{
                         display: "flex",
                         justifyContent: "center",
-                        marginTop: `${0.35 * SCREEN_RATIO}rem`,
-                        position: "relative",
+                        position: "absolute",
+                        bottom: 1 * SCREEN_RATIO,
+                        left: 6 * SCREEN_RATIO,
                         width: 45 * SCREEN_RATIO,
                         height: 9.1 * SCREEN_RATIO,
                     }}
@@ -422,7 +439,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 1.5,
+                    gap: 1,
                 }}
             >
                 {buttonGroup.map((button) => (
@@ -464,7 +481,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 1.5,
+                gap: 1,
                 userSelect: "none",
                 // A pure shift: no compensating padding, so the panel keeps its own width and simply moves
                 // over. The damage table next to it is the flexible item in the row, so the width freed at

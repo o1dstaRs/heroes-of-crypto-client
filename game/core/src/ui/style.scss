@@ -1,3 +1,11 @@
+@font-face {
+    font-family: "HoC Forge";
+    src: url("/fonts/hoc-forge/HoCForge-Regular.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
 .App {
     text-align: center;
 }
@@ -7,6 +15,37 @@
     --spacing-md: 12px;
     --spacing-lg: 16px;
     --size-sidebar: 260px;
+    --hoc-font-display: "HoC Forge", Georgia, "Times New Roman", serif;
+    --hoc-font-display-letter-spacing: 0.121em;
+    --hoc-font-ui: "HoC Forge", Georgia, "Times New Roman", serif;
+}
+
+/* Joy reads its own variables rather than body font-family. Body also covers Tooltip/Modal portals, which
+   mount outside #root; native form controls are listed below because user-agent styles do not inherit. */
+body,
+#root {
+    --joy-fontFamily-body: var(--hoc-font-ui);
+    --joy-fontFamily-display: var(--hoc-font-ui);
+}
+
+/* Reusable title face matching the carved START plate. Keep the face and the engraved paint separate:
+   some screens need only the letter shapes, while stone/metal controls can opt into the complete finish. */
+.hoc-forge-display {
+    font-family: var(--hoc-font-display);
+    font-style: normal;
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: var(--hoc-font-display-letter-spacing);
+}
+
+.hoc-forge-engraved {
+    color: #c89b70;
+    -webkit-text-stroke: 0.018em rgb(48 29 18 / 90%);
+    paint-order: stroke fill;
+    text-shadow:
+        0 0.055em 0 #080605,
+        0 -0.018em 0 rgb(255 220 171 / 20%),
+        0 0.08em 0.15em rgb(0 0 0 / 72%);
 }
 
 .container {
@@ -82,8 +121,21 @@ body,
     height: 100vh;
     margin: 0;
     padding: 0;
-    font-family: "Open Sans", Verdana, sans-serif;
+    font-family: var(--hoc-font-ui);
     color: var(--color-text);
+}
+
+button,
+input,
+textarea,
+select {
+    font-family: var(--hoc-font-ui);
+}
+
+/* HoMM-style pointer for clickable UI. Keep disabled controls honest, and let the battle cursor's
+   temporary `cursor: none !important` rule continue to win while a melee target is being aimed at. */
+:where(button:not(:disabled), a[href], [role="button"], input[type="range"], label[for]) {
+    cursor: var(--hoc-cursor-interactive), pointer !important;
 }
 
 .main {

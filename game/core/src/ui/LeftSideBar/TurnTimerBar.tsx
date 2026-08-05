@@ -15,6 +15,7 @@ interface TurnTimerBarProps {
     lapNumber: number;
     secondsRemaining: number;
     secondsMax: number;
+    heading?: React.ReactNode;
     // Ranked only: whose clock is running. Your own gets the red fill; theirs gets the calm amber one.
     enemyTurn?: boolean;
     /**
@@ -24,14 +25,17 @@ interface TurnTimerBarProps {
      * the second half of the timer.
      */
     footer?: React.ReactNode;
+    footerIndicator?: React.ReactNode;
 }
 
 export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
     lapNumber,
     secondsRemaining,
     secondsMax,
+    heading,
     enemyTurn = false,
     footer,
+    footerIndicator,
 }) => {
     const metrics = useSidebarMetrics();
     const hasTimer = Number.isFinite(secondsMax) && secondsMax > 0 && secondsRemaining >= 0;
@@ -73,6 +77,23 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
 
     return (
         <Box sx={{ width: "100%", my: "2px" }}>
+            {heading && (
+                <Box
+                    sx={{
+                        pl: `${medallion + gapPx + footerInsetPx}px`,
+                        pr: `${secondsWidth + gapPx + footerInsetPx}px`,
+                        // Let the turn label sit lower than the medallion's top and tuck it tightly against
+                        // the timer groove without moving the groove itself.
+                        mb: "-3px",
+                        position: "relative",
+                        zIndex: 1,
+                        transform: "translateY(2px)",
+                        textAlign: "center",
+                    }}
+                >
+                    {heading}
+                </Box>
+            )}
             <Box sx={{ display: "flex", alignItems: "center", gap: `${gapPx}px`, width: "100%" }}>
                 {/* Lap medallion — a gold coin so the lap number reads as part of the timer. */}
                 <Box
@@ -199,13 +220,36 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                         // `flex`, not the default block: an inline child leaves a few pixels of line-height
                         // under it, which is exactly the seam this is trying to close.
                         display: "flex",
+                        position: "relative",
                         pl: `${medallion + gapPx + footerInsetPx}px`,
                         pr: `${secondsWidth + gapPx + footerInsetPx}px`,
-                        "& > *": { flex: 1 },
+                        justifyContent: "center",
                         mt: `${footerGapPx - medallionOverhangPx}px`,
+                        // Keep a visible seam of background between the timer and the smaller action.
+                        transform: `translateY(${Math.round(4 * metrics.fontScale)}px)`,
                     }}
                 >
-                    {footer}
+                    <Box sx={{ display: "flex", flex: "0 0 68%", maxWidth: "68%", "& > *": { flex: 1 } }}>{footer}</Box>
+                    {footerIndicator && (
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                // Match the seconds column exactly. The seconds are right-aligned inside
+                                // this same-width slot, so its visual centre lands directly above the icon.
+                                // The visible time includes the trailing "s" beyond the two digits. Nudge
+                                // the icon to the visual centre of the complete label rather than the digits.
+                                right: `-${Math.round(5 * metrics.fontScale)}px`,
+                                top: "50%",
+                                width: `${secondsWidth}px`,
+                                transform: "translateY(-50%)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
+                        >
+                            {footerIndicator}
+                        </Box>
+                    )}
                 </Box>
             )}
         </Box>
