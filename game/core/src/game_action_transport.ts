@@ -79,6 +79,13 @@ export interface AuthoritativeUnitState {
     stepsMod?: number;
     /** Set only by a server that computed these, so a genuine 0 is distinguishable from an old server. */
     statModsAuthoritative?: boolean;
+    /**
+     * FINAL base armor/attack — the BASE-stat twins of armorMod/attackMod, for drifts that mutate the
+     * base itself (Bitter Experience's +1 armor per stack death, Made of Fire, Unyielding Power). The
+     * ranked client re-derives both bases from its local creature config, so these gains were invisible.
+     */
+    baseArmor?: number;
+    baseAttack?: number;
 }
 
 export interface AuthoritativeJournalEntry {

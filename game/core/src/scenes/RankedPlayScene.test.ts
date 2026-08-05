@@ -861,6 +861,52 @@ describe("ranked placement scene state", () => {
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(false);
     });
 
+    test("syncs authoritative base armor (Bitter Experience gains) without rebuilding the unit", () => {
+        const snapshotProperties = (baseArmor: number) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "seasoned-peasant",
+                        statModsAuthoritative: true,
+                        armorMod: 0,
+                        attackMod: 0,
+                        baseArmor,
+                        baseAttack: 5,
+                    }),
+                ]),
+            ).units[0]!.properties;
+        // The hydrate must land the wire value AND flag it, or adjustBaseStats re-derives the config base.
+        const hydrated = snapshotProperties(7);
+        expect(hydrated.base_armor).toBe(7);
+        expect(hydrated.base_armor_authoritative).toBe(true);
+        expect(hydrated.base_attack_authoritative).toBe(true);
+
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(7),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        expect(liveUnit.getUnitProperties().base_armor).toBe(7);
+
+        // The live report: a Peasant stack losing members gains +1 base armor per death server-side
+        // (Bitter Experience), but the animation-preserving snapshot paths never carried base stats, so
+        // the sidebar showed the config armor for the whole fight. The reconcile lands the gain in place.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(8))).toBe(true);
+        expect(liveUnit.getUnitProperties().base_armor).toBe(8);
+        expect(liveUnit.getArmor()).toBe(8);
+
+        // Idempotent: an unchanged snapshot must not report churn.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(8))).toBe(false);
+    });
+
     test("syncs Dulling Defense into the ranked debuff display without rebuilding the unit", () => {
         const snapshotProperties = (totalReduced?: number) =>
             authoritativeSnapshotToSandboxSceneState(

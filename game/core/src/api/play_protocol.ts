@@ -143,6 +143,10 @@ export interface PlayUnitState {
     steps?: number;
     /** Server-computed movement-step modifier (proto field 41). */
     stepsMod?: number;
+    /** Server-computed FINAL base armor (proto field 42) — carries base-stat drifts like Bitter Experience. */
+    baseArmor?: number;
+    /** Server-computed FINAL base attack (proto field 43) — the attack twin of baseArmor. */
+    baseAttack?: number;
 }
 
 export interface PlayJournalEntry {
@@ -969,6 +973,12 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.steps = reader.float32();
         } else if (field === 41) {
             unit.stepsMod = reader.float32();
+        } else if (field === 42) {
+            // FINAL base armor — the BASE-stat twin of armorMod, for drifts that mutate the base itself
+            // (Bitter Experience, Made of Fire). Presence-gated: an older server never sends it.
+            unit.baseArmor = reader.float32();
+        } else if (field === 43) {
+            unit.baseAttack = reader.float32();
         } else {
             reader.skip(wireType);
         }
