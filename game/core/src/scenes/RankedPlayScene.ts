@@ -867,6 +867,19 @@ export const spellCastNarratedPairs = (events: readonly GameEvent[]): Set<string
     return pairs;
 };
 
+/** Wild Regeneration's authoritative delivery wording, matching the sandbox engine scene log. */
+export const spellAbilityTransferSceneLogSuffix = (event: GameEvent): string => {
+    if (event.type !== "spell_cast" || !event.abilityTransfers?.length) {
+        return "";
+    }
+    // Single-target gift spells currently deliver one card. Prefer the transfer aimed at targetId so
+    // this remains correct if a future cast reports more than one delivery in the same event.
+    const transfer =
+        event.abilityTransfers.find((entry) => !event.targetId || entry.toUnitId === event.targetId) ??
+        event.abilityTransfers[0];
+    return ` => ${transfer.mode}`;
+};
+
 /**
  * Scene-log lines for a cast's ROLLED outcomes (spell_cast.outcomes): the Blacksmith's Craft and the
  * Armor/Weapon Runes resolve by dice, so their results — including the two that change no state at all
@@ -2731,6 +2744,7 @@ export class RankedPlayScene extends Sandbox {
                         : restoredHpTotal > 0
                           ? ` for ${restoredHpTotal} hp`
                           : "";
+                const abilityTransferSuffix = spellAbilityTransferSceneLogSuffix(event);
                 // Single-target casts (Riot, Magic Mirror, …) carry the target so the log says on whom
                 // (matching the sandbox engine text); mass casts (Mass Riot, …) have no single target and
                 // read fine from the spell name.
@@ -2749,11 +2763,11 @@ export class RankedPlayScene extends Sandbox {
                         damagedTotal > 0
                             ? `${damageSuffix} across ${primaryDamage.unitCount} unit${primaryDamage.unitCount === 1 ? "" : "s"}`
                             : "";
-                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}`;
+                    return `${nameOf(event.casterId)} cast ${event.spellName}${massHealSuffix}${massDamageSuffix}${abilityTransferSuffix}`;
                 }
                 return event.targetId === event.casterId
-                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}`
-                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}`;
+                    ? `${nameOf(event.casterId)} cast ${event.spellName} on themselves${healSuffix}${damageSuffix}${resurrectSuffix}${abilityTransferSuffix}`
+                    : `${nameOf(event.casterId)} cast ${event.spellName} on ${nameOf(event.targetId)}${healSuffix}${damageSuffix}${resurrectSuffix}${abilityTransferSuffix}`;
             }
             // The vine itself needs no line — the spell_cast above already reads "X cast Vine Throw on Y".
             // A RESISTED snare does, though: the terrain went down either way, so without this the log
