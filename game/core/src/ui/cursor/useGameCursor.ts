@@ -12,7 +12,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
  */
 export type CursorMode = "default" | "interactive" | "melee" | "ranged" | "magic";
 
-// Per-cursor hotspot, expressed in the cursor PNG's own pixel space. The PNGs are tight-cropped
+// Per-cursor hotspot, expressed in the cursor artwork.s own pixel space. The PNGs are tight-cropped
 // (no transparent border) with the sprite anchored in the top-left corner, so the click point is
 // (0, 0) — matching the OS default arrow, where the tip is the hot point.
 const CURSOR_HOTSPOT: Record<CursorMode, { x: number; y: number }> = {
@@ -33,7 +33,7 @@ const CURSOR_IMAGE: Record<CursorMode, string> = {
 
 function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
     // HoMM-style: the attack cursor only shows when actively aiming at an attackable enemy. The
-    // active unit's selected attack type then picks which attack-cursor PNG (sword/bow/magic) to use.
+    // active unit's selected attack type then picks which attack cursor image (sword/bow/magic) to use.
     if (hoverInfo?.isHoveringAttackTarget) {
         const attackType = hoverInfo.attackType;
         if (attackType === AttackVals.MELEE) {

@@ -176,10 +176,12 @@ export interface PlaySnapshot {
     serverTimeMs: number;
     placementDeadlineMs: number;
     // Split-placement sub-stage: 0 = Setup (augments/synergies), 1 = Board (positioning). Always 1 for a
-    // legacy single-window placement. `placementSplit` gates the two-stage UX. Default 1/false on older
-    // servers (decoder), i.e. the combined placement.
+    // legacy single-window placement. `placementSplit` gates the two-stage UX, so the decoder's 0/false
+    // defaults still represent combined placement for older servers.
     placementStage: number;
     placementSplit: boolean;
+    /** Explicit server policy for split Setup. Absent/false keeps the reusable public roster visible. */
+    hideOpponentRosterDuringSetup: boolean;
     currentTurnStartMs: number;
     currentTurnEndMs: number;
     units: PlayUnitState[];
@@ -307,6 +309,8 @@ export interface DevCreatePlayGameRequest {
     unitAmount?: number;
     placementSeconds?: number;
     gridType?: number;
+    setupSeconds?: number;
+    hideOpponentRosterDuringSetup?: boolean;
 }
 
 export interface DevCreatePlayGameResponse {
@@ -514,6 +518,8 @@ export const encodeDevCreatePlayGameRequest = (request: DevCreatePlayGameRequest
     writer.int32(5, request.unitAmount);
     writer.int32(6, request.placementSeconds);
     writer.int32(7, request.gridType);
+    writer.int32(8, request.setupSeconds);
+    writer.bool(9, request.hideOpponentRosterDuringSetup);
     return writer.finish();
 };
 
@@ -679,6 +685,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         // server on the BOARD stage sends placement_stage = 1 explicitly (1 != 0, so it IS on the wire).
         placementStage: 0,
         placementSplit: false,
+        // Public/reusable default: older servers omit field 55 and continue showing the opponent roster.
+        hideOpponentRosterDuringSetup: false,
         currentTurnStartMs: 0,
         currentTurnEndMs: 0,
         units: [],
@@ -832,6 +840,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.lowerAugmentEmpower = reader.varintNumber();
         } else if (field === 54) {
             snapshot.upperAugmentEmpower = reader.varintNumber();
+        } else if (field === 55) {
+            snapshot.hideOpponentRosterDuringSetup = reader.bool();
         } else {
             reader.skip(wireType);
         }

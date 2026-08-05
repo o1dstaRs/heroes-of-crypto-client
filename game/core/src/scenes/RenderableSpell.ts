@@ -585,6 +585,11 @@ export class PixiRenderableSpell extends Spell {
             this.amountScrollSprite.visible = true;
         }
 
+        // Cover the source mockup's sample digit with matching parchment; the live count is drawn above it.
+        this.amountBadgeGfx
+            .circle(centerX, centerY, r - 7)
+            .fill({ color: 0xd2aa6b, alpha: visualAlpha * 0.98 })
+            .stroke({ width: 0.8, color: 0x8a5b2e, alpha: visualAlpha * 0.55 });
         this.amountText.text = label;
         this.amountText.style = new TextStyle({
             fill: enabled ? SPELL_TITLE_FILL : SPELL_TITLE_FILL_DISABLED,

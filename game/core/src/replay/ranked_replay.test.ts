@@ -73,6 +73,19 @@ const createReadyStartEntry = (sequence: number): PlayJournalEntry => ({
     ]),
 });
 
+const createStartFightEntry = (sequence: number, events: unknown[]): PlayJournalEntry => ({
+    ...createEntry(sequence),
+    actionType: PlayActionType.START_FIGHT,
+    actionJson: JSON.stringify({
+        actionId: `start-${sequence}`,
+        gameId: "game-1",
+        playerId: "player-1",
+        expectedSequence: sequence - 1,
+        type: PlayActionType.START_FIGHT,
+    }),
+    eventsJson: JSON.stringify(events),
+});
+
 const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number): PlaySnapshot => ({
     gameId: "game-1",
     phase: PlayPhase.PLAY,
@@ -87,6 +100,7 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     placementDeadlineMs: 0,
     placementStage: 1,
     placementSplit: false,
+    hideOpponentRosterDuringSetup: false,
     currentTurnStartMs: 0,
     currentTurnEndMs: 0,
     units: [],
@@ -126,6 +140,22 @@ describe("ranked replay helpers", () => {
 
     it("turns a ready-placement journal row that starts the fight into a replay checkpoint", () => {
         const record = parseRankedReplayAction(createReadyStartEntry(2));
+
+        expect(record?.action).toEqual({ type: "start_fight" });
+        expect(record?.events.map((event) => event.type)).toEqual(["fight_started", "next_unit_selected"]);
+    });
+
+    it("ignores a split-setup START_FIGHT lock that did not actually start combat", () => {
+        expect(parseRankedReplayAction(createStartFightEntry(2, []))).toBeUndefined();
+    });
+
+    it("keeps a START_FIGHT journal row when its events actually start combat", () => {
+        const record = parseRankedReplayAction(
+            createStartFightEntry(2, [
+                { type: "fight_started", lowerUnitsAlive: 1, upperUnitsAlive: 1 },
+                { type: "next_unit_selected", unitId: "attacker-1", team: TeamVals.LOWER },
+            ]),
+        );
 
         expect(record?.action).toEqual({ type: "start_fight" });
         expect(record?.events.map((event) => event.type)).toEqual(["fight_started", "next_unit_selected"]);

@@ -107,6 +107,12 @@ export interface AuthoritativeGameSnapshot {
     latestSequence: number;
     serverTimeMs?: number;
     placementDeadlineMs?: number;
+    /** Split-placement sub-stage: 0 = augment/synergy Setup, 1 = Board positioning. */
+    placementStage?: number;
+    /** False/absent for legacy placement where setup and positioning share one window. */
+    placementSplit?: boolean;
+    /** Explicit opt-in privacy policy; false/absent preserves public Setup roster visibility. */
+    hideOpponentRosterDuringSetup?: boolean;
     currentTurnStartMs?: number;
     currentTurnEndMs?: number;
     narrowingLayers: number;

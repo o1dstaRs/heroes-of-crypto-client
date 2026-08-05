@@ -81,11 +81,17 @@ const parseRankedJournalGameAction = (entry: PlayJournalEntry): GameAction | und
 export const parseRankedReplayAction = (entry: PlayJournalEntry): RankedReplayActionRecord | undefined => {
     const parsedEvents = parseJson<GameEvent[]>(entry.eventsJson);
     const events = Array.isArray(parsedEvents) ? parsedEvents : [];
-    const action =
-        parseRankedJournalGameAction(entry) ??
-        (entry.actionType === PlayActionType.READY_PLACEMENT && events.some((event) => event.type === "fight_started")
+    const hasFightStarted = events.some((event) => event.type === "fight_started");
+    // Split Setup now uses START_FIGHT as its augment-lock command, with no fight_started event. Replay
+    // parsing must therefore treat BOTH placement completion opcodes as event-authoritative checkpoints:
+    // only the journal row that actually started combat becomes common's start_fight action.
+    const isPlacementCompletion =
+        entry.actionType === PlayActionType.START_FIGHT || entry.actionType === PlayActionType.READY_PLACEMENT;
+    const action = isPlacementCompletion
+        ? hasFightStarted
             ? ({ type: "start_fight" } satisfies GameAction)
-            : undefined);
+            : undefined
+        : parseRankedJournalGameAction(entry);
     if (!action) {
         return undefined;
     }

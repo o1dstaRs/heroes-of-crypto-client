@@ -1,4 +1,4 @@
-import { Assets, Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
+import { Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -130,10 +130,7 @@ export class HoverManager {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
-            if (this.hoverAttackSword && !this.hoverAttackSword.destroyed) {
-                this.hoverAttackSword.texture = texture;
-            }
-        });
+        }
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;

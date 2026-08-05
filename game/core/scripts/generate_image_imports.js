@@ -1,6 +1,7 @@
 // scripts/generate_image_imports.js
 const fs = require("fs");
 const path = require("path");
+const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
 
 const imageDir = path.resolve(__dirname, "../images");
 const generatedDir = path.resolve(__dirname, "../src/generated");

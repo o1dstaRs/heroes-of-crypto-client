@@ -217,13 +217,26 @@ const shouldHidePreFightOpponentUnit = (
     snapshot: AuthoritativeGameSnapshot,
     unitState: AuthoritativeUnitState,
     options: { hideOpponentPlacements?: boolean },
-): boolean =>
-    !!options.hideOpponentPlacements &&
-    !snapshot.fightStarted &&
-    !snapshot.fightFinished &&
-    snapshot.viewerTeam !== undefined &&
-    unitState.team !== snapshot.viewerTeam &&
-    !isKnownPlacementOpponentUnit(unitState);
+): boolean => {
+    // Roster privacy is an explicit server policy, not an inherent property of Setup: public/reusable
+    // matches keep the opponent visible by default. A private Setup suppresses opponent renderables even
+    // if an over-broad snapshot carries them. An observer has no own team, so it suppresses every unit.
+    const isPrivateSplitSetup =
+        snapshot.hideOpponentRosterDuringSetup === true &&
+        snapshot.placementSplit === true &&
+        snapshot.placementStage !== 1;
+    if (!options.hideOpponentPlacements || snapshot.fightStarted || snapshot.fightFinished) {
+        return false;
+    }
+    if (isPrivateSplitSetup) {
+        return snapshot.viewerTeam === undefined || unitState.team !== snapshot.viewerTeam;
+    }
+    return (
+        snapshot.viewerTeam !== undefined &&
+        unitState.team !== snapshot.viewerTeam &&
+        !isKnownPlacementOpponentUnit(unitState)
+    );
+};
 
 export const authoritativeSnapshotToSandboxSceneState = (
     snapshot: AuthoritativeGameSnapshot,
@@ -3370,13 +3383,19 @@ export class RankedPlayScene extends Sandbox {
         // Must include each unit's placement state — not just its id — otherwise unplacing a unit
         // (placed: true -> false) leaves the key unchanged, canSkipPreFightHydrate short-circuits,
         // and the unit never returns to the bench overlay (UNPLACE_UNIT looks like it "does nothing").
-        return snapshot.units
+        // The split sub-stage and its explicit privacy policy belong in the same key: private Setup omits
+        // opponent renderables, so a policy change or Setup -> Board must hydrate even if raw units match.
+        const placementStageKey = snapshot.placementSplit
+            ? `split:${snapshot.placementStage ?? 0}:private=${snapshot.hideOpponentRosterDuringSetup === true ? 1 : 0}`
+            : "legacy";
+        const unitStateKey = snapshot.units
             .map(
                 (unit) =>
                     `${unit.id}:${unit.placed ? 1 : 0}:${unit.cells.map((cell) => `${cell.x},${cell.y}`).join("-")}`,
             )
             .sort()
             .join("|");
+        return `${placementStageKey}|${unitStateKey}`;
     }
     private isAuthoritativeSnapshot(value: unknown): value is AuthoritativeGameSnapshot {
         return (
@@ -3551,6 +3570,9 @@ export class RankedPlayScene extends Sandbox {
     private createBoardSignature(snapshot: AuthoritativeGameSnapshot): string {
         return JSON.stringify({
             phase: snapshot.phase,
+            placementSplit: snapshot.placementSplit ?? false,
+            placementStage: snapshot.placementStage ?? 0,
+            hideOpponentRosterDuringSetup: snapshot.hideOpponentRosterDuringSetup ?? false,
             gridType: snapshot.gridType,
             currentLap: snapshot.currentLap,
             fightStarted: snapshot.fightStarted,

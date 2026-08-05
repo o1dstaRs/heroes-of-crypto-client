@@ -266,6 +266,7 @@ const PickAndBanView: React.FC<{
                 <StainedGlassWindow
                     userTeam={userTeam}
                     gameId={gameId}
+                    showOpponentRosterDuringAugmentHandoff={false}
                     opponentLabel={
                         isMarkedVsAiGame(gameId)
                             ? (() => {

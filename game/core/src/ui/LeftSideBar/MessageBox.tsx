@@ -1,5 +1,6 @@
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import Button from "@mui/joy/Button";
@@ -240,6 +241,20 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         aspectRatio: "1425 / 1104",
                         animation: "countdown-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
                         "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            inset: 0,
+                            p: "2px",
+                            boxSizing: "border-box",
+                            borderRadius: "14px",
+                            clipPath: "polygon(9% 0, 91% 0, 100% 15%, 100% 85%, 91% 100%, 9% 100%, 0 85%, 0 15%)",
+                            background:
+                                "linear-gradient(135deg, #38100c 0%, #c64930 24%, #56150f 50%, #ec6a47 76%, #2b0a08 100%)",
+                            WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+                            WebkitMaskComposite: "xor",
+                            maskComposite: "exclude",
+                        },
                     }}
                 >
                     <Typography

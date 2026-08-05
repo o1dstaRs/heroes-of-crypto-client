@@ -91,6 +91,11 @@ import {
     shouldApplyActionResponseSnapshotToViewer,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
+import {
+    rankedPlacementLockActionType,
+    shouldHideRankedSetupOpponentRoster,
+    shouldShowRankedPlacementRosters,
+} from "./rankedPlacementStage";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
 import {
     aiOpponentLabel,
@@ -1572,7 +1577,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     }
                 }
                 await submitProtocolActionForTeam(
-                    { type: PlayActionType.READY_PLACEMENT },
+                    { type: rankedPlacementLockActionType(latestSnapshot) },
                     effectiveLocalModelConfig.modelTeam,
                     effectiveLocalModelConfig.authorization,
                 );
@@ -2116,9 +2121,8 @@ const RankedAugmentSummary: React.FC<{
 // Fixed six level slots, in the order the draft fills them.
 const ROSTER_LEVEL_SLOTS: number[] = [1, 1, 2, 2, 3, 4];
 
-// Sidebar roster row. The draft rails (MyDraftBar/OpponentDraftBar) are laid out for the 1340px draft
-// column and get clipped at the ~340px sidebar width, so placement renders this compact variant instead;
-// the rails stay in the full-screen augment pop-up where they fit.
+// Sidebar roster row. The own-army draft rail is laid out for the 1340px draft column and gets clipped at
+// the ~340px sidebar width, so board placement renders this compact variant instead.
 const RankedRosterRow: React.FC<{
     title: string;
     accent: string;
@@ -2178,14 +2182,39 @@ const RankedRosterRow: React.FC<{
     </Box>
 );
 
-// Both rosters as the placement sidebar shows them: your six slots, and the opponent's full army. Slots the
-// server has not revealed yet (creatureId 0 during the split Setup stage) render as "?" rather than vanish,
-// so the army always reads as six slots.
-const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
-    if (snapshot.phase !== PlayPhase.PLACEMENT) {
-        return null;
-    }
+// Preserve the draft header's own-army / map / opponent balance when the server opts this Setup into roster
+// privacy. Its footprint matches OpponentDraftBar, but it contains no slots or unit data.
+const RankedOpponentArmyPrivacyCard: React.FC = () => (
+    <Box sx={{ flex: "0 0 auto", width: 496, display: "flex", justifyContent: "center" }}>
+        <Sheet
+            variant="soft"
+            sx={{
+                width: "100%",
+                minHeight: 62,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 0.25,
+                borderRadius: "14px",
+                bgcolor: "#241416",
+                border: "1px solid rgba(138,43,43,0.6)",
+                color: "#f0e7e9",
+            }}
+        >
+            <Typography level="title-sm" sx={{ color: "#ffb0b0", fontWeight: 700 }}>
+                Opponent army
+            </Typography>
+            <Typography level="body-xs" sx={{ color: "rgba(240,231,233,0.64)" }}>
+                Revealed during board placement
+            </Typography>
+        </Sheet>
+    </Box>
+);
 
+// Both rosters during BOARD placement: your six slots, and the opponent's full army. Any slot not present in
+// a legacy/sanitized snapshot renders as "?" rather than vanishing, so each army still reads as six slots.
+const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamType }> = ({ snapshot, userTeam }) => {
     const myIds = snapshot.units.filter((unit) => unit.team === userTeam && !unit.dead).map((unit) => unit.creatureId);
     const opponentIds = snapshot.units
         .filter((unit) => unit.team !== userTeam && !unit.dead)
@@ -2402,7 +2431,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                 {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
                     <Stack spacing={0.75}>
-                        <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
+                        {shouldShowRankedPlacementRosters(snapshot, augmentOverlayOpen) && (
+                            <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
+                        )}
                         <RankedArtifactsPanel snapshot={snapshot} userTeam={userTeam} />
                         {/* The augment/synergy picker lives HERE in the sidebar — the pre-#129 home,
                             restored by owner request: pick augments beside the board instead of inside a
@@ -2438,8 +2469,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                     {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
                                     <DraftTitle>Choose your augments</DraftTitle>
-                                    {/* The draft's own rails, fed from the play snapshot, so this screen shows the
-                                    armies exactly like every pick phase before it. */}
+                                    {/* Setup always recaps the player's draft. Opponent visibility follows the
+                                    snapshot's explicit policy: normal rail by default, privacy card when set. */}
                                     <Stack
                                         direction="row"
                                         spacing={1.25}
@@ -2475,16 +2506,20 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
                                             <MapBadge mapType={snapshot.gridType ?? 0} />
                                         </Box>
-                                        <OpponentDraftBar
-                                            opponentPicked={snapshot.units
-                                                .filter(
-                                                    (unit) =>
-                                                        unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
-                                                )
-                                                .map((unit) => unit.creatureId)}
-                                            opponentLabel="Opponent"
-                                            watchedSlots={[0, 1, 2, 3, 4, 5]}
-                                        />
+                                        {shouldHideRankedSetupOpponentRoster(snapshot) ? (
+                                            <RankedOpponentArmyPrivacyCard />
+                                        ) : (
+                                            <OpponentDraftBar
+                                                opponentPicked={snapshot.units
+                                                    .filter(
+                                                        (unit) =>
+                                                            unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
+                                                    )
+                                                    .map((unit) => unit.creatureId)}
+                                                opponentLabel="Opponent"
+                                                watchedSlots={[0, 1, 2, 3, 4, 5]}
+                                            />
+                                        )}
                                     </Stack>
                                     <PhasePanel>
                                         <Box
@@ -2511,7 +2546,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         </Box>
                                     </PhasePanel>
                                     {/* Split Setup: this is the setup-ready that advances to the board (both-ready
-                                    or the 30s deadline advances; the AI auto-spends for anyone not locked in).
+                                    or the setup deadline advances; the AI auto-spends for anyone not locked in).
                                     Legacy: choices commit as clicked, so this just closes the pop-up.
                                     Disabled until the build is complete (all points spent + all synergies
                                     picked) — see the setupComplete comment; the ready-locked state stays
@@ -2544,7 +2579,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
                                             onCommit={() => {
                                                 if (inSetupStage) {
-                                                    void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT });
+                                                    void submitProtocolAction({
+                                                        type: rankedPlacementLockActionType(snapshot),
+                                                    });
                                                 } else {
                                                     setAugmentOverlayOpen(false);
                                                 }

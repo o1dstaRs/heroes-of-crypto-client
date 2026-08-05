@@ -29,6 +29,12 @@ jobs:
             - name: Lint
               run: bun run lint
 
+            - name: Check image asset locations
+              run: bun run check:images
+
+            - name: Test game image asset policy
+              run: bun test --cwd game/core src/gameImageAssetPolicy.test.ts
+
     typecheck:
         name: Typecheck
         runs-on: ubuntu-latest
