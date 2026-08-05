@@ -360,6 +360,25 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
         liveProperties.steps_authoritative = true;
         changed = true;
     }
+    // Base stats too — the drifts that mutate the base rather than the mod (Bitter Experience's +1 armor
+    // per stack death, Made of Fire). The animation-preserving paths never copied these, so the Peasant's
+    // armor gain only appeared after some later board movement forced a full rebuild — or never.
+    if (
+        properties.base_armor_authoritative &&
+        (!liveProperties.base_armor_authoritative || liveProperties.base_armor !== properties.base_armor)
+    ) {
+        liveProperties.base_armor = properties.base_armor;
+        liveProperties.base_armor_authoritative = true;
+        changed = true;
+    }
+    if (
+        properties.base_attack_authoritative &&
+        (!liveProperties.base_attack_authoritative || liveProperties.base_attack !== properties.base_attack)
+    ) {
+        liveProperties.base_attack = properties.base_attack;
+        liveProperties.base_attack_authoritative = true;
+        changed = true;
+    }
 
     // Mirror buffs the authoritative snapshot no longer lists — e.g. a spent Water Shield, which the
     // engine deletes server-side in applyDamage. This animation-preserving reconcile skips the board
@@ -673,6 +692,16 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                                     steps_mod: unitState.stepsMod ?? 0,
                                     steps_authoritative: true,
                                 }
+                              : {}),
+                          // BASE stats too, presence-gated the same way. Drifts that mutate the base rather
+                          // than the mod — Bitter Experience's +1 armor per stack death, Made of Fire — never
+                          // reach the mods above, so a Peasant showed its config armor for the whole fight
+                          // while the server had the gains applied ("Bitter Experience isn't working").
+                          ...(unitState.baseArmor !== undefined
+                              ? { base_armor: unitState.baseArmor, base_armor_authoritative: true }
+                              : {}),
+                          ...(unitState.baseAttack !== undefined
+                              ? { base_attack: unitState.baseAttack, base_attack_authoritative: true }
                               : {}),
                       }
                     : {}),
