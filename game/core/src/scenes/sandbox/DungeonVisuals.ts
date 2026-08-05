@@ -510,8 +510,12 @@ export class DungeonVisuals {
      * Sprites are rebuilt from scratch rather than diffed: this runs when the board type is picked or a
      * mountain is destroyed, never per frame, and nine sprites are far cheaper to recreate than to reconcile.
      */
-    public setScatteredMountains(mountains: IScatteredMountain[]): void {
-        this.scatteredMountainMode = mountains.length > 0;
+    public setScatteredMountains(mountains: IScatteredMountain[], scatteredMode?: boolean): void {
+        // scatteredMode override: a ranked game whose EVERY stone is already destroyed reinstalls an empty
+        // list on rehydrate, but the board is still a scattered one — without the override an empty install
+        // would flip the mode off and the classic mountain pair would ghost back in (see the
+        // BLOCK_CENTER fallback in ensureCenterTerrainSprite).
+        this.scatteredMountainMode = scatteredMode ?? mountains.length > 0;
         this.scatteredMountains = mountains.map((m) => ({ ...m }));
         this.rebuildScatteredMountainSprites();
     }

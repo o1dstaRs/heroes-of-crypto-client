@@ -158,6 +158,30 @@ describe("play protobuf decoder", () => {
         expect(containsSubsequence(encoded, expectedTargetCell)).toBe(true);
     });
 
+    test("decodes scattered-mountain standing state (snapshot fields 58 and 59, 1-based on the wire)", () => {
+        // Three stones standing — one of them at cell (0,0), whose packed key 0 only survives proto3's
+        // zero-default thanks to the +1 wire encoding. Count is 1-based too: wire 4 = 3 standing.
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...intField(58, 1), // cell (0,0) -> packed 0, wire 1
+            ...intField(58, 100), // packed 99 = x 6, y 3
+            ...intField(58, 250), // packed 249 = x 15, y 9
+            ...intField(59, 4),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.scatteredStandingCells).toEqual([0, 99, 249]);
+        expect(decoded.scatteredStandingCount).toBe(3);
+    });
+
+    test("scattered fields absent (older server / classic game) stay undefined", () => {
+        const decoded = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
+
+        expect(decoded.scatteredStandingCells).toBeUndefined();
+        expect(decoded.scatteredStandingCount).toBeUndefined();
+    });
+
     test("decodes a unit's repeated debuff and buff names (proto fields 18 and 19)", () => {
         const unit = [
             ...stringField(1, "unit-1"),

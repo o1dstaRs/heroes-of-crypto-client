@@ -14,12 +14,14 @@ import {
     Unit,
     UnitVals,
     UnitsHolder,
+    scatteredMountainsForSeed,
     type GameEvent,
 } from "@heroesofcrypto/common";
 
 import type { AuthoritativeGameSnapshot, AuthoritativeUnitState } from "../game_action_transport";
 import {
     authoritativeSnapshotToSandboxSceneState,
+    planScatteredMountainSync,
     applyRankedUnitMechanicalEffects,
     applyRankedUnitSnapshotStats,
     effectsAppliedSceneLogLines,
@@ -1535,5 +1537,47 @@ describe("ranked ability-transfer scene log", () => {
             } as GameEvent),
         ).toBe("");
         expect(spellAbilityTransferSceneLogSuffix({ type: "unit_waited", unitId: "ally" } as GameEvent)).toBe("");
+    });
+});
+
+describe("planScatteredMountainSync", () => {
+    const gameId = "36f05c02-d25a-4ea6-87ed-d852a333ae83";
+    const layout = scatteredMountainsForSeed(gameId);
+    const packed = (cell: { x: number; y: number }) => cell.x * GridConstants.GRID_SIZE + cell.y;
+
+    test("no scattered state at all (older server / classic game) -> no plan", () => {
+        expect(planScatteredMountainSync(gameId, undefined, undefined)).toBeUndefined();
+        // A stray cells list without the count marker must not fabricate a scattered board either.
+        expect(planScatteredMountainSync(gameId, [1, 2, 3], undefined)).toBeUndefined();
+    });
+
+    test("every seeded stone standing -> full layout with variants, nothing destroyed", () => {
+        const plan = planScatteredMountainSync(
+            gameId,
+            layout.map((rock) => packed(rock.cell)),
+            layout.length,
+        );
+        expect(plan?.destroyed).toEqual([]);
+        expect(plan?.standing).toEqual(
+            layout.map((rock) => ({ x: rock.cell.x, y: rock.cell.y, variant: rock.variant })),
+        );
+    });
+
+    test("a mined stone lands in destroyed; the packing mirrors the server encoder", () => {
+        const downed = layout[0];
+        const plan = planScatteredMountainSync(
+            gameId,
+            layout.slice(1).map((rock) => packed(rock.cell)),
+            layout.length - 1,
+        );
+        expect(plan?.destroyed).toEqual([{ x: downed.cell.x, y: downed.cell.y }]);
+        expect(plan?.standing).toHaveLength(layout.length - 1);
+        expect(plan?.standing.every((rock) => rock.x !== downed.cell.x || rock.y !== downed.cell.y)).toBe(true);
+    });
+
+    test("count 0 with no cells = scattered board with every stone destroyed", () => {
+        const plan = planScatteredMountainSync(gameId, undefined, 0);
+        expect(plan?.standing).toEqual([]);
+        expect(plan?.destroyed).toHaveLength(layout.length);
     });
 });

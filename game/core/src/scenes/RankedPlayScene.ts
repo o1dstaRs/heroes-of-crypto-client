@@ -10,7 +10,10 @@ import {
     FightStateManager,
     Spell,
     getFactionOf,
+    GridConstants,
     GridMath,
+    GridVals,
+    scatteredMountainsForSeed,
     synergyVariantsForSeed,
     HoCConfig,
     HoCConstants,
@@ -236,6 +239,43 @@ const shouldHidePreFightOpponentUnit = (
         unitState.team !== snapshot.viewerTeam &&
         !isKnownPlacementOpponentUnit(unitState)
     );
+};
+
+export interface IScatteredMountainSyncPlan {
+    /** Seeded stones the server still reports standing, in layout order (art variants preserved). */
+    standing: { x: number; y: number; variant: number }[];
+    /** Cells whose stones the server reports destroyed. */
+    destroyed: HoCMath.XY[];
+}
+
+/**
+ * Split the game's seeded scattered-mountain layout into standing/destroyed according to an
+ * authoritative snapshot. The layout never travels: server and both seats derive identical stones from
+ * the game id (scatteredMountainsForSeed), and the snapshot only carries which still stand — packed as
+ * x * GRID_SIZE + y, which MUST mirror the server encoder (play_session fields 58/59). Pure and exported
+ * so that packing contract stays pinned by tests. Returns undefined when the snapshot carries no
+ * scattered state at all (older server / a game persisted before scattered ranked shipped) — the caller
+ * keeps the classic mountain pair for those.
+ */
+export const planScatteredMountainSync = (
+    gameId: string,
+    scatteredStandingCells: number[] | undefined,
+    scatteredStandingCount: number | undefined,
+): IScatteredMountainSyncPlan | undefined => {
+    if (scatteredStandingCount === undefined) {
+        return undefined;
+    }
+    const standingKeys = new Set(scatteredStandingCells ?? []);
+    const standing: { x: number; y: number; variant: number }[] = [];
+    const destroyed: HoCMath.XY[] = [];
+    for (const rock of scatteredMountainsForSeed(gameId)) {
+        if (standingKeys.has(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y)) {
+            standing.push({ x: rock.cell.x, y: rock.cell.y, variant: rock.variant });
+        } else {
+            destroyed.push({ x: rock.cell.x, y: rock.cell.y });
+        }
+    }
+    return { standing, destroyed };
 };
 
 export const authoritativeSnapshotToSandboxSceneState = (
@@ -1486,6 +1526,12 @@ export class RankedPlayScene extends Sandbox {
         // post-action aura suppression. This runs synchronously with the reassignment, so the aura
         // switches straight from the old unit (off) to the new one with no flash in between.
         this.awaitingTurnHandoff = false;
+        // Re-stamp occupancy+aggro from truth BEFORE activation computes the HUMAN's move/attack
+        // preview. ensureAuthoritativeGrid was wired only before AI decisions, so the player's own
+        // preview still pathed on the drifted incremental aggro board — live case: a Hydra offered
+        // attack-from cells deep inside an enemy threat zone that the server's rebuilt-aggro oracle
+        // refuses (attack_not_available on a plainly reachable-looking straight line).
+        this.ensureAuthoritativeGrid();
         this.syncAuthoritativeActiveUnit(newActiveId, snapshot.currentLap);
     }
     protected override isAwaitingAuthoritativeTurnHandoff(): boolean {
@@ -1626,6 +1672,9 @@ export class RankedPlayScene extends Sandbox {
             if (this.syncRankedUnitMechanicalEffects(state.units)) {
                 this.unitsHolder.refreshStackPowerForAllUnits();
             }
+            // Scattered stones the server mined between snapshots must fall BEFORE activation paths the
+            // board (same reasoning as the occupancy audit below).
+            this.applyScatteredMountainsFromSnapshot(snapshot);
             // Occupancy audit BEFORE turn activation: activation regenerates movement paths, and a stale
             // grid registration (a missed move) otherwise survives here forever — the signature matches
             // precisely because the SERVER board didn't change, saying nothing about ours being right.
@@ -1660,6 +1709,9 @@ export class RankedPlayScene extends Sandbox {
             // (a kill conveyed by snapshot rather than a replayed event), so they linger as "ghosts" the
             // AI then targets — which the server rejects as unit_not_found. Remove them here.
             this.reconcileGhostUnits(new Set(state.units.map((u) => u.properties.id)));
+            // Scattered stones a replayed action mined (or a between-snapshots server clear) come down
+            // before the occupancy audit, so the audit and path previews see the true board.
+            this.applyScatteredMountainsFromSnapshot(snapshot);
             // ...and units whose occupancy a replayed move failed to land (the Angel/Fairy phantom-path
             // case): audit every live unit's registration against the authoritative cells.
             this.healRankedGridOccupancy(state.units);
@@ -1705,6 +1757,10 @@ export class RankedPlayScene extends Sandbox {
         const armedSpellName = this.currentActiveSpell?.getName();
         const armedUnitId = armedSpellName ? this.getCurrentActiveUnit()?.getId() : undefined;
         this.hydrateSceneState(state);
+        // hydrateSceneState -> refreshWithNewType just re-carved the CLASSIC mountain pair, so the seeded
+        // scattered layout must be re-stamped from scratch (standing stones only) before anything below
+        // paths or activates on the rebuilt board.
+        this.applyScatteredMountainsFromSnapshot(snapshot, { reinstallLayout: true });
         // hydrateSceneState re-runs refreshStackPowerForAllUnits -> trySeedWaterShield, which RE-GRANTS a
         // Water Shield onto the freshly-built (waterShieldSpent=false) units even when the server already
         // consumed it. The authoritative `state` is the truth: a unit with the innate Water Shield ability
@@ -1751,6 +1807,65 @@ export class RankedPlayScene extends Sandbox {
         this.applyRankedFightStats(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
+        }
+    }
+    /**
+     * Ranked never rolls its own scattered stones: the layout is SEEDED from the game id so the server
+     * and both seats agree (the sandbox Math.random() roll is exactly what put different stones on each
+     * ranked screen while the server played the classic pair). Installed from snapshots instead — see
+     * applyScatteredMountainsFromSnapshot.
+     */
+    protected override scatteredMountainsAutoRoll(): boolean {
+        return false;
+    }
+    /**
+     * Install/reconcile the seeded scattered-mountain layout from an authoritative snapshot (wire fields
+     * 58/59 — the reconnect truth; the obstacle_attacked events that mined a stone were consumed before a
+     * cold-loaded client subscribed). No-op when the snapshot carries no scattered state (older server /
+     * pre-scattered persisted game): those keep the classic mountain pair.
+     *
+     * reinstallLayout is for the full-hydrate path, where refreshWithNewType just re-carved the classic
+     * pair: the layout is re-stamped from scratch. Only STANDING stones are stamped — writing a destroyed
+     * stone's cell would overwrite whatever unit now stands on it.
+     */
+    private applyScatteredMountainsFromSnapshot(
+        snapshot: AuthoritativeGameSnapshot,
+        options?: { reinstallLayout?: boolean },
+    ): void {
+        if (snapshot.gridType !== GridVals.BLOCK_CENTER) {
+            return;
+        }
+        const plan = planScatteredMountainSync(
+            snapshot.gameId,
+            snapshot.scatteredStandingCells,
+            snapshot.scatteredStandingCount,
+        );
+        if (!plan) {
+            return;
+        }
+        let changed = false;
+        if (options?.reinstallLayout || !this.grid.hasScatteredMountains()) {
+            this.grid.setScatteredMountains(plan.standing.map((rock) => ({ x: rock.x, y: rock.y })));
+            if (!plan.standing.length) {
+                // An all-stones-destroyed reinstall is a pure clear, which leaves the classic pair the
+                // hydrate re-carved — in a scattered game those cells were never obstacles.
+                this.grid.clearMountainSide(false);
+                this.grid.clearMountainSide(true);
+            }
+            // scatteredMode stays true even with zero stones left, or the classic pair would ghost back.
+            this.dungeonVisuals?.setScatteredMountains(plan.standing, true);
+            changed = true;
+        } else {
+            for (const cell of this.grid.getScatteredMountainsStanding()) {
+                if (plan.destroyed.some((down) => down.x === cell.x && down.y === cell.y)) {
+                    this.grid.clearScatteredMountainAt(cell.x, cell.y);
+                    this.dungeonVisuals?.removeScatteredMountainAt(cell.x, cell.y);
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            this.refreshGridMatrices();
         }
     }
     /**

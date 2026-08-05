@@ -129,6 +129,12 @@ export interface AuthoritativeGameSnapshot {
      * never saw the obstacle_attacked events, so without these it redraws destroyed rock solid. */
     centerObstacleHitsLeft?: number;
     centerObstacleHitsRight?: number;
+    /** Scattered-mountain stones still standing (0-based packed cells, x * GRID_SIZE + y). The layout
+     * itself is derived from the game id on every side (scatteredMountainsForSeed) — only the standing
+     * state travels. Count 0 = scattered board with every stone destroyed; undefined = classic pair
+     * (older server / game persisted before scattered ranked shipped). */
+    scatteredStandingCells?: number[];
+    scatteredStandingCount?: number;
     /** Cumulative server movement penalty used with unit morale when calculating effective speed. */
     stepsMoraleMultiplier?: number;
     units: AuthoritativeUnitState[];

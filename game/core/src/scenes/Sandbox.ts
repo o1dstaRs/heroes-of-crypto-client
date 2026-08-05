@@ -743,7 +743,8 @@ export class Sandbox extends PixiScene {
     private spellBookOverlay?: SpellBookOverlay;
     private digitTextures?: Map<number, Texture>;
     // [NEW] Sub-Managers
-    private dungeonVisuals: DungeonVisuals;
+    // Protected: the ranked scene installs/clears the seeded scattered stones on it from snapshots.
+    protected dungeonVisuals: DungeonVisuals;
     private moveAnimManager: MoveAnimationManager;
     private smokeLayer?: SmokeLayer;
     private smokeCloudLayer?: SmokeCloudLayer;
@@ -5547,6 +5548,15 @@ export class Sandbox extends PixiScene {
         }
     }
     /**
+     * Whether this scene rolls its own random scattered layout. The ranked scene overrides this OFF: its
+     * layout is SEEDED from the game id (scatteredMountainsForSeed) so the server and both seats agree —
+     * a local Math.random() roll here is exactly what put different stones on each ranked screen while
+     * the server played yet another board ("still thinks we have old two mountains").
+     */
+    protected scatteredMountainsAutoRoll(): boolean {
+        return true;
+    }
+    /**
      * Drop SCATTERED_MOUNTAIN_COUNT single-cell mountains at random over the neutral band, each wearing a
      * random variant from the art pool. A no-op (and a full clear) on any board that is not Mountains.
      *
@@ -5555,6 +5565,9 @@ export class Sandbox extends PixiScene {
      * someone's back line the moment either changed. Whatever neither team may stand on is fair game.
      */
     private rollScatteredMountains(): void {
+        if (!this.scatteredMountainsAutoRoll()) {
+            return;
+        }
         const isMountains =
             FightStateManager.getInstance().getFightProperties().getGridType() === GridVals.BLOCK_CENTER;
         if (!isMountains) {

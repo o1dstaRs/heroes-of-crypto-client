@@ -200,6 +200,14 @@ export interface PlaySnapshot {
      * fields 56/57). Undefined from an older server — the scene keeps its locally-tracked values. */
     centerObstacleHitsLeft?: number;
     centerObstacleHitsRight?: number;
+    /** Scattered-mountain stones still standing, decoded from wire field 58: each is a 0-based cell
+     * packed as x * GRID_SIZE + y (the wire adds 1 so a genuine (0,0) survives proto3's zero-default).
+     * The LAYOUT never travels — every side derives it from the game id via scatteredMountainsForSeed. */
+    scatteredStandingCells?: number[];
+    /** How many scattered stones still stand (wire field 59, 1-based). 0 here means "scattered layout
+     * active, every stone destroyed"; undefined means classic mountains (older server / pre-scattered
+     * persisted game) — the scene must keep the classic pair for those. */
+    scatteredStandingCount?: number;
     /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
     stepsMoraleMultiplier?: number;
     upNext: string[];
@@ -857,6 +865,11 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.centerObstacleHitsLeft = Math.max(0, reader.varintNumber() - 1);
         } else if (field === 57) {
             snapshot.centerObstacleHitsRight = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 58) {
+            // packed=false: one occurrence per standing stone. Decode the 1-based packed cell to 0-based.
+            (snapshot.scatteredStandingCells ??= []).push(Math.max(0, reader.varintNumber() - 1));
+        } else if (field === 59) {
+            snapshot.scatteredStandingCount = Math.max(0, reader.varintNumber() - 1);
         } else {
             reader.skip(wireType);
         }
