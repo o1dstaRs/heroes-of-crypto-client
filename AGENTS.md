@@ -171,9 +171,11 @@ Multiple agents run on this repo **at the same time**. Rules:
   only under HOC_ANIMATIONS_LOC/output (normally /Users/zolotukhin/Dropbox/heroesofcrypto/animations/output). Never add game art to game/core/public
   or another tracked game directory.
 - Store static game images as compressed WebP files in the images Dropbox folder; store animation atlas
-  WebPs and *_meta.json files in the animations Dropbox output folder. Run bun run --cwd game/core build:images,
-  and reference them through src/generated/image_imports.ts or texAny(). Do not hard-code public image
-  URLs such as /textures/foo.webp or call Assets.load() with a public image path.
+  WebPs and *_meta.json files in the animations Dropbox output folder. Static images must be valid WebP
+  files no larger than 1,766,026 bytes; animation atlas WebPs are exempt from only that size ceiling. Run
+  bun run --cwd game/core check:image-assets (also enforced by build:images), then reference assets through
+  src/generated/image_imports.ts or texAny(). Do not hard-code public image URLs such as
+  /textures/foo.webp or call Assets.load() with a public image path.
 - Run bun run check:images before pushing; CI rejects tracked images outside site/public.
 - The sole tracked game-image exception is game/core/public/favicon.ico. All other tracked images belong
   under site/public. Attach gameplay review

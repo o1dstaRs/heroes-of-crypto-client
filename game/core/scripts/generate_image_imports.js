@@ -1,6 +1,7 @@
 // scripts/generate_image_imports.js
 const fs = require("fs");
 const path = require("path");
+const { isWebPFile } = require("../src/gameImageAssetPolicy.ts");
 
 const imageDir = path.resolve(__dirname, "../images");
 const generatedDir = path.resolve(__dirname, "../src/generated");
@@ -26,8 +27,6 @@ const EXCLUDED_IMAGE_FILES = new Set([
     "background_stone_tiles_sinister_16x16_brown.webp",
     "background_stone_tiles_lava.webp",
 ]);
-const SUPPORTED_IMAGE_EXTENSIONS = new Set([".webp", ".png", ".jpg", ".jpeg", ".gif", ".avif"]);
-
 if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 
 const files = fs.readdirSync(imageDir);
@@ -36,7 +35,7 @@ const entries = [];
 for (const file of files) {
     const extension = path.extname(file).toLowerCase();
     if (
-        SUPPORTED_IMAGE_EXTENSIONS.has(extension) &&
+        isWebPFile(file) &&
         !EXCLUDED_IMAGE_FILES.has(file) &&
         !file.startsWith("synergy_") &&
         !file.startsWith("overlay_") &&
