@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from "pixi.js";
+import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 
 export class LoadingScreen extends Container {
     private bg: Graphics;
@@ -17,7 +18,7 @@ export class LoadingScreen extends Container {
         this.logoText = new Text({
             text: "HEROES OF CRYPTO",
             style: new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 48,
                 fontWeight: "bold",
                 fill: 0xffaa00, // Orange
@@ -47,7 +48,7 @@ export class LoadingScreen extends Container {
         this.loadingLabel = new Text({
             text: "Loading assets...",
             style: new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 16,
                 fill: 0x888888,
             }),
