@@ -4,7 +4,7 @@ import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/joy";
 
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { hocDisplayFontFamily } from "../hocTheme";
+import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 
 const imageFor = (imageKey: string): string | undefined => (images as Record<string, string>)[imageKey];
 
@@ -22,7 +22,18 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
         {/* Just a label now — the whole block opens from the Artifacts header above. */}
         <Typography
             level="body-xs"
-            sx={{ mb: isOpen ? 0.5 : 0, px: 0.5, display: isOpen ? "block" : "none", textAlign: "center" }}
+            sx={{
+                height: isOpen ? "22px" : 0,
+                mb: 0,
+                px: 0.5,
+                display: isOpen ? "flex" : "none",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                fontSize: "0.825rem",
+                lineHeight: 1,
+                color: hocColors.sidebarTitle,
+            }}
         >
             {title}
         </Typography>
@@ -135,6 +146,7 @@ export const ArtifactToggler: React.FC<{
                 gap: 0,
                 mt: 0,
                 fontFamily: hocDisplayFontFamily,
+                color: hocColors.sidebarTitle,
                 fontWeight: 460,
                 fontSynthesis: "weight",
                 "& .MuiTypography-root": {

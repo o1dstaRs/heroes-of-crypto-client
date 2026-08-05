@@ -12,8 +12,8 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from "react";
 
-import { images } from "../../generated/image_imports";
 import { MessageBox } from "./MessageBox";
+import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { SidebarFrame } from "../SidebarFrame";
 // Black under everything. The hide is laid over it at partial opacity, so this is what mutes it — and what
@@ -61,7 +61,6 @@ export const SIDEBAR_BG = "#000000";
  * near-black value range: ember-specked hammered stone on the unit panel, engraved hide on the controls. */
 export const LEFT_SIDEBAR_BG_IMAGE = `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.2)), url(${images.ui_sidebar_bg_left_emberstone})`;
 export const RIGHT_SIDEBAR_BG_IMAGE = `linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.16)), url(${images.ui_sidebar_bg_right_runic})`;
-// Kept while the right-sidebar redesign lands in the next stacked PR.
 export const SIDEBAR_BG_IMAGE = RIGHT_SIDEBAR_BG_IMAGE;
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";

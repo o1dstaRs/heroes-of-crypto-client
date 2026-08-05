@@ -229,7 +229,18 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                         transform: `translateY(${Math.round(4 * metrics.fontScale)}px)`,
                     }}
                 >
-                    <Box sx={{ display: "flex", flex: "0 0 68%", maxWidth: "68%", "& > *": { flex: 1 } }}>{footer}</Box>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            // Wide enough for the enlarged heroic label at narrow fullscreen widths while
+                            // still leaving clear air at both ends of the timer groove.
+                            flex: "0 0 78%",
+                            maxWidth: "78%",
+                            "& > *": { flex: 1, whiteSpace: "nowrap" },
+                        }}
+                    >
+                        {footer}
+                    </Box>
                     {footerIndicator && (
                         <Box
                             sx={{

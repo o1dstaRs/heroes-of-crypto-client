@@ -22,6 +22,7 @@ export const hocColors = {
     orangeSoft: "rgba(255, 143, 0, 0.16)",
     orangeBorder: "rgba(255, 143, 0, 0.42)",
     gold: "#dcb158",
+    sidebarTitle: "#d8c29c",
     parchment: "#efe4cc",
     muted: "rgba(239, 228, 204, 0.66)",
     mutedStrong: "rgba(239, 228, 204, 0.8)",

@@ -1,4 +1,4 @@
-import { Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
+import { Assets, Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -19,6 +19,7 @@ import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
+import { images } from "../generated/image_imports";
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
 // The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
@@ -122,12 +123,14 @@ export class HoverManager {
         this.context = context;
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
-        const texture = context.texAny("cursor_melee");
-        if (texture) {
+        // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
+        // artwork comes from the Dropbox-backed generated image set; load it explicitly so the melee
+        // geometry never starts with Texture.EMPTY.
+        void Assets.load<Texture>(images.cursor_melee).then((texture) => {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
-        }
+        });
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;

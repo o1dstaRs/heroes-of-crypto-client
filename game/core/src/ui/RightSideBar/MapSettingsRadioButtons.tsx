@@ -64,6 +64,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         name="map-settings"
                         value={gridType}
                         onChange={handleMapSettingChange}
+                        sx={{ "& .MuiRadio-label": { letterSpacing: "0.05em" } }}
                     >
                         <Radio
                             value={GridVals.NORMAL}

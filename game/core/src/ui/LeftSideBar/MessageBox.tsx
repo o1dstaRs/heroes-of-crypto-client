@@ -1,6 +1,5 @@
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
-import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import Button from "@mui/joy/Button";
@@ -232,24 +231,14 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         from: { opacity: 0, transform: "translateY(12px) scale(0.96)" },
                         to: { opacity: 1, transform: "translateY(0) scale(1)" },
                     },
-                    "@keyframes countdown-ember": {
-                        "0%, 100%": { filter: "drop-shadow(0 12px 28px rgba(0,0,0,.62))" },
-                        "50%": {
-                            filter: "drop-shadow(0 12px 28px rgba(0,0,0,.62)) drop-shadow(0 0 14px rgba(210,72,38,.26))",
-                        },
-                    },
                 }}
             >
                 <Box
                     sx={{
                         position: "relative",
-                        width: "clamp(216px, 19.55vw, 281px)",
-                        minHeight: "clamp(159px, 14.95vw, 202px)",
-                        p: "2px",
-                        boxSizing: "border-box",
-                        borderRadius: "14px",
-                        animation:
-                            "countdown-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1), countdown-ember 1s ease-in-out infinite",
+                        width: "clamp(648px, 58.65vw, 843px)",
+                        aspectRatio: "1425 / 1104",
+                        animation: "countdown-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
                         "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                         "&::before": {
                             content: '\"\"',
@@ -267,102 +256,35 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                         },
                     }}
                 >
-                    <Box
-                        sx={{
-                            position: "relative",
-                            width: "100%",
-                            minHeight: "inherit",
-                            px: "clamp(18px, 2vw, 28px)",
-                            py: "clamp(12px, 1.25vw, 17px)",
-                            boxSizing: "border-box",
-                            borderRadius: "12px",
-                            clipPath: "polygon(9% 0, 91% 0, 100% 15%, 100% 85%, 91% 100%, 9% 100%, 0 85%, 0 15%)",
-                            overflow: "hidden",
-                            background:
-                                "radial-gradient(circle at 50% 48%, rgba(129,25,17,.16), transparent 62%), repeating-linear-gradient(135deg, rgba(255,106,79,.02) 0 1px, transparent 1px 8px), linear-gradient(180deg, rgba(24,13,11,.68), rgba(7,4,4,.68))",
-                            boxShadow: "inset 0 0 0 1px rgba(255,124,96,.15), inset 0 -18px 36px rgba(54,0,0,.42)",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "stretch",
-                            justifyContent: "space-between",
-                            "&::after": {
-                                content: '\"\"',
-                                position: "absolute",
-                                left: "14%",
-                                right: "14%",
-                                top: 0,
-                                height: "2px",
-                                background: "linear-gradient(90deg, transparent, rgba(255,105,73,.92), transparent)",
-                                boxShadow: "0 0 12px rgba(255,62,35,.72)",
-                            },
-                        }}
-                    >
-                        <Box
-                            sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                flex: 1,
-                                pt: "clamp(15px, 1.8vw, 24px)",
-                                transform: "translateY(-10px)",
-                            }}
-                        >
-                            <Typography
-                                sx={{
-                                    color: "#ff6047",
-                                    fontSize: "clamp(7.25rem, 10.5vw, 10rem)",
-                                    fontWeight: 600,
-                                    fontVariantNumeric: "tabular-nums",
-                                    lineHeight: 0.68,
-                                    letterSpacing: "-0.04em",
-                                    textShadow:
-                                        "0 2px 1px rgba(45,3,2,.96), 0 0 13px rgba(255,55,32,.72), 0 0 28px rgba(161,20,12,.42)",
-                                }}
-                            >
-                                {countdown}
-                            </Typography>
-                        </Box>
-
-                        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px" }}>
-                            {[1, 2, 3, 4, 5].map((second) => {
-                                const active = second <= countdown;
-                                return (
-                                    <Box
-                                        key={second}
-                                        sx={{
-                                            height: "4px",
-                                            clipPath: "polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%)",
-                                            background: active
-                                                ? "linear-gradient(90deg, #a51e18, #ff5f3f, #a51e18)"
-                                                : "rgba(104,45,40,.44)",
-                                            boxShadow: active ? "0 0 10px rgba(255,72,48,.72)" : "none",
-                                        }}
-                                    />
-                                );
-                            })}
-                        </Box>
-                    </Box>
-                    <Box
+                    <Typography
                         sx={{
                             position: "absolute",
                             left: "50%",
-                            top: 0,
-                            transform: "translate(-50%, -50%)",
+                            top: "50.5%",
                             zIndex: 2,
-                            width: "clamp(34px, 3.3vw, 48px)",
-                            height: "clamp(34px, 3.3vw, 48px)",
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "radial-gradient(circle at 50% 35%, rgba(122,43,25,.98), rgba(24,8,6,.99))",
-                            border: "2px solid #8f3927",
-                            boxShadow:
-                                "0 0 0 2px #130706, inset 0 1px 2px rgba(255,181,121,.28), 0 0 12px rgba(210,55,31,.34)",
+                            transform: "translate(-50%, -50%) scaleX(.86)",
+                            color: "transparent",
+                            fontSize: "clamp(18.45rem, 26.4vw, 26.1rem)",
+                            fontFamily: hocDisplayFontFamily,
+                            fontWeight: 400,
+                            fontVariantNumeric: "tabular-nums",
+                            fontSynthesis: "none",
+                            lineHeight: 0.72,
+                            letterSpacing: "-0.025em",
+                            opacity: 0.65,
+                            backgroundImage:
+                                "repeating-linear-gradient(135deg, rgba(255,190,170,.11) 0 1px, transparent 1px 7px), linear-gradient(180deg, #ff735c 0%, #d94735 52%, #9d2b23 100%)",
+                            backgroundClip: "text",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                            WebkitTextStroke: "0.012em rgba(255,105,83,.86)",
+                            paintOrder: "stroke fill",
+                            filter: "drop-shadow(0 0 .035em rgba(255,69,47,.48))",
+                            textShadow: "none",
                         }}
                     >
-                        <HourglassTopRoundedIcon sx={{ color: "#f3a56d", fontSize: "clamp(1.25rem, 1.9vw, 1.9rem)" }} />
-                    </Box>
+                        {countdown}
+                    </Typography>
                 </Box>
             </Box>
         ) : null;

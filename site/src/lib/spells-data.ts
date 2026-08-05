@@ -169,9 +169,9 @@ const resolvedDescriptions: Record<string, string> = {
         "All allies gain one additional movement step per creature alive in the caster's stack, and are ensured to deal maximum damage with each attack.",
     "System:Resurrection":
         "Resurrects fallen ally units on the battlefield, up to the caster stack's cumulative maximum hit points.",
-    "Life:Fire Strike":
+    "Chaos:Fire Strike":
         "Sends a small fireball at an enemy in line of sight. Deals 6 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
-    "Life:Meteorite":
+    "Chaos:Meteorite":
         "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Deals 4 damage for every creature alive in the caster's stack — less than Fire Strike, because it strikes them all at once.",
     "Nature:Lightning Strike":
         "Calls lightning down on an enemy anywhere on the battlefield — no wall, body or mountain can block it. Deals 150 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
@@ -250,9 +250,9 @@ const descriptionsRu: Record<string, string> = {
     "Death:Hamstrung": "Дистанция перемещения юнита снижена на 30%.",
     "Death:Weakening Beam": "Базовая броня юнита снижена на 24%.",
     "Death:Weakness": "Базовая атака юнита снижена на 30%.",
-    "Life:Fire Strike":
+    "Chaos:Fire Strike":
         "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = 6 за каждое живое существо в стеке заклинателя.\nСила стека не меняет урон — она лишь определяет, можно ли вообще применить заклинание.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
-    "Life:Meteorite":
+    "Chaos:Meteorite":
         "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = 4 за каждое живое существо в стеке заклинателя — меньше, чем у «Удара огнем», потому что бьет по всем сразу.",
     "Nature:Lightning Strike":
         "Призывает молнию на любого врага на поле боя — ни стена, ни тела, ни гора её не остановят.\nУрон = 150 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",

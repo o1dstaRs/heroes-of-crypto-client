@@ -31,11 +31,13 @@ import {
 const sectionTitleSx = {
     fontFamily: hocDisplayFontFamily,
     fontSynthesis: "weight",
-    fontWeight: 800,
+    fontWeight: 900,
     fontSize: "1.05rem",
     letterSpacing: "0.12em",
     textTransform: "uppercase",
-    color: "#d8c29c",
+    color: hocColors.sidebarTitle,
+    WebkitTextStroke: "0.012em currentColor",
+    paintOrder: "stroke fill",
     textShadow: "0 2px 2px #000",
 } as const;
 

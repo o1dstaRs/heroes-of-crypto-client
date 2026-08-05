@@ -37,7 +37,7 @@ const hocBronzeScrollSx = {
     "&::-webkit-scrollbar-thumb:hover": { backgroundColor: "rgba(255, 143, 0, 0.55)" },
 } as const;
 
-const damageIcon = new URL("../../../images/damage_icon.webp", import.meta.url).toString(); // [NEW]
+const damageIcon = images.damage_icon;
 
 export default function RightSideBar({
     gameStarted,
@@ -291,13 +291,20 @@ export default function RightSideBar({
                                         borderBottom: "1px solid rgba(112,75,42,.48)",
                                     }}
                                 >
-                                    <Box component="img" src={damageIcon} sx={{ width: 28, height: 28 }} />
+                                    <Box component="img" src={damageIcon} sx={{ width: 43, height: 43 }} />
                                     <Typography
                                         sx={{
                                             flex: 1,
                                             textAlign: "center",
                                             fontFamily: hocDisplayFontFamily,
-                                            fontSize: "0.9rem",
+                                            fontSize: "1.139rem",
+                                            // The display face has no intermediate 575 file. Ask the browser
+                                            // to synthesize the next visible weight and reinforce it with a
+                                            // hairline stroke so the requested heavier title survives scaling.
+                                            fontWeight: 570,
+                                            fontSynthesis: "weight",
+                                            WebkitTextStroke: "0.0114em currentColor",
+                                            paintOrder: "stroke fill",
                                             letterSpacing: "0.13em",
                                             color: hocColors.gold,
                                         }}
@@ -337,22 +344,19 @@ export default function RightSideBar({
                                 sx={{
                                     flex: "0 0 42px",
                                     display: "grid",
-                                    gridTemplateColumns: "32px 1fr 20px",
+                                    gridTemplateColumns: "20px 1fr 20px",
                                     alignItems: "center",
                                     px: "8px",
                                     borderBottom: "1px solid rgba(112,75,42,.48)",
                                 }}
                             >
-                                <Box
-                                    component="img"
-                                    src={images.flag_red_icon}
-                                    sx={{ width: 28, height: 28, objectFit: "contain" }}
-                                />
+                                <Box />
                                 <Typography
                                     sx={{
                                         textAlign: "center",
                                         fontFamily: hocDisplayFontFamily,
-                                        fontSize: "0.86rem",
+                                        fontSize: "0.989rem",
+                                        fontWeight: 500,
                                         letterSpacing: "0.13em",
                                         color: hocColors.gold,
                                     }}
@@ -380,7 +384,12 @@ export default function RightSideBar({
                                 variant="soft"
                                 color="danger"
                                 onClick={() => navigate("/play")}
-                                sx={{ width: "100%", ...hocSidebarImageButtonSx("danger") }}
+                                sx={{
+                                    width: "100%",
+                                    ...hocSidebarImageButtonSx("danger"),
+                                    fontSize: "1.006rem",
+                                    fontWeight: 880,
+                                }}
                             >
                                 EXIT FIGHT
                             </Button>

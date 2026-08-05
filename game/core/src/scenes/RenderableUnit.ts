@@ -484,7 +484,15 @@ export class RenderableUnit extends Unit {
                 getSpellCornerFrameTextureKey(fallbackFrameFaction) ??
                 getSpellCornerFrameTextureKey(FactionVals.CHAOS);
             const cornerFrameTex = cornerFrameKey ? this.texResolver(cornerFrameKey) : undefined;
-            const scrollBadgeTex = this.texResolver("spell_scroll_badge");
+            const scrollBadgeTex =
+                this.texResolver("spell_cast_scroll_variant2") ?? Texture.from(images.spell_cast_scroll_variant2);
+            const stackRailTex =
+                this.texResolver("spell_stack_rail_variant2") ?? Texture.from(images.spell_stack_rail_variant2);
+            const stackFillGreenTex =
+                this.texResolver("spell_stack_fill_green_variant2") ??
+                Texture.from(images.spell_stack_fill_green_variant2);
+            const stackFillRedTex =
+                this.texResolver("spell_stack_fill_red_variant2") ?? Texture.from(images.spell_stack_fill_red_variant2);
             // HMR-safe fallback: an already registered core bundle does not learn about newly added
             // public assets until a full app restart, while Texture.from can load this exact URL now.
             // The asset is OPTIONAL art (PixiRenderableSpell guards its sprite) — but Texture.from(undefined)
@@ -497,24 +505,22 @@ export class RenderableUnit extends Unit {
                 (innerFrameImage ? Texture.from(innerFrameImage) : undefined);
 
             if (iconTex && cellTex) {
-                // One bad card must never cost the unit its whole book (or its scene wiring) — skip it.
-                try {
-                    const newSpell = new PixiRenderableSpell(
-                        { spellProperties: spellProperties, amount: v },
-                        this.spellBookLayer,
-                        {
-                            spell_cell_260: cellTex,
-                            cornerFrame: cornerFrameTex,
-                            scrollBadge: scrollBadgeTex,
-                            innerFrame: innerFrameTex,
-                        },
-                        iconTex,
-                        this.digitTextures,
-                    );
-                    this.pixiSpells.push(newSpell);
-                } catch (err) {
-                    console.warn(`spellbook: failed to build card for ${spellName}`, err);
-                }
+                const newSpell = new PixiRenderableSpell(
+                    { spellProperties: spellProperties, amount: v },
+                    this.spellBookLayer,
+                    {
+                        spell_cell_260: cellTex,
+                        cornerFrame: cornerFrameTex,
+                        scrollBadge: scrollBadgeTex,
+                        innerFrame: innerFrameTex,
+                        stackRail: stackRailTex,
+                        stackFillGreen: stackFillGreenTex,
+                        stackFillRed: stackFillRedTex,
+                    },
+                    iconTex,
+                    this.digitTextures,
+                );
+                this.pixiSpells.push(newSpell);
             }
         }
     }

@@ -1,5 +1,6 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
+import { images } from "../../generated/image_imports";
 
 /**
  * Renders flying projectiles for ranged attacks. Each projectile is a single
@@ -164,24 +165,54 @@ export class RangedProjectiles {
     private gargantuanRootBoulderTexture?: Texture;
     public constructor(context: IRangedProjectilesContext) {
         this.context = context;
-        const assignTexture = (key: string, assign: (texture: Texture) => void): void => {
-            const texture = context.texAny?.(key);
-            if (!texture) return;
+        void Assets.load<Texture>(images.armor_piercing_bolt).then((texture) => {
             texture.source.scaleMode = "linear";
-            assign(texture);
-        };
-        assignTexture("armor_piercing_bolt", (texture) => (this.armorPiercingBoltTexture = texture));
-        assignTexture("orc_throwing_axe", (texture) => (this.orcThrowingAxeTexture = texture));
-        assignTexture("arbalester_cyan_bolt", (texture) => (this.arbalesterCyanBoltTexture = texture));
-        assignTexture("centaur_spear_variant_4", (texture) => (this.centaurSpearTexture = texture));
-        assignTexture("dryad_thorn_dart", (texture) => (this.dryadThornDartTexture = texture));
-        assignTexture("beholder_purple_eye_orb", (texture) => (this.beholderPurpleEyeTexture = texture));
-        assignTexture("elf_emerald_arrow", (texture) => (this.elfEmeraldArrowTexture = texture));
-        assignTexture("medusa_spectral_serpent", (texture) => (this.medusaSpectralSerpentTexture = texture));
-        assignTexture("cyclops_heavy_boulder", (texture) => (this.cyclopsHeavyBoulderTexture = texture));
-        assignTexture("monk_solar_orb", (texture) => (this.monkSolarOrbTexture = texture));
-        assignTexture("tsar_cannon_molten_ball", (texture) => (this.tsarCannonMoltenBallTexture = texture));
-        assignTexture("gargantuan_root_boulder", (texture) => (this.gargantuanRootBoulderTexture = texture));
+            this.armorPiercingBoltTexture = texture;
+        });
+        void Assets.load<Texture>(images.orc_throwing_axe).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.orcThrowingAxeTexture = texture;
+        });
+        void Assets.load<Texture>(images.arbalester_cyan_bolt).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.arbalesterCyanBoltTexture = texture;
+        });
+        void Assets.load<Texture>(images.centaur_spear_variant_4).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.centaurSpearTexture = texture;
+        });
+        void Assets.load<Texture>(images.dryad_thorn_dart).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.dryadThornDartTexture = texture;
+        });
+        void Assets.load<Texture>(images.beholder_purple_eye_orb).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.beholderPurpleEyeTexture = texture;
+        });
+        void Assets.load<Texture>(images.elf_emerald_arrow).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.elfEmeraldArrowTexture = texture;
+        });
+        void Assets.load<Texture>(images.medusa_spectral_serpent).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.medusaSpectralSerpentTexture = texture;
+        });
+        void Assets.load<Texture>(images.cyclops_heavy_boulder).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.cyclopsHeavyBoulderTexture = texture;
+        });
+        void Assets.load<Texture>(images.monk_solar_orb).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.monkSolarOrbTexture = texture;
+        });
+        void Assets.load<Texture>(images.tsar_cannon_molten_ball).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.tsarCannonMoltenBallTexture = texture;
+        });
+        void Assets.load<Texture>(images.gargantuan_root_boulder).then((texture) => {
+            texture.source.scaleMode = "linear";
+            this.gargantuanRootBoulderTexture = texture;
+        });
     }
     public hasActive(): boolean {
         return this.projectiles.length > 0;

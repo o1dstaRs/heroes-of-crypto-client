@@ -1,105 +1,120 @@
-import { Container, Graphics, Text, TextStyle } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture } from "pixi.js";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
+import { images } from "../generated/image_imports";
+
+const FORGING_BACKGROUND_URL = images.loading_screen_forging_base;
+const FORGING_LAVA_URL = images.loading_screen_forging_lava_strip;
+const DRAGON_MEDALLION_URL = images.loading_screen_dragon_medallion;
+
+const ART_WIDTH = 1672;
+const ART_HEIGHT = 941;
+const TRACK_X = 510;
+const TRACK_Y = 744;
+const TRACK_WIDTH = 652;
+const TRACK_HEIGHT = 27;
+const MEDALLION_ASSET_SIZE = 100;
+const LABEL_Y = 821;
 
 export class LoadingScreen extends Container {
-    private bg: Graphics;
-    private progressBarBg: Graphics;
-    private progressBarFill: Graphics;
-    private loadingLabel: Text;
-    private logoText: Text;
-    // Use explicit init width/height, don't override Container's width/height getters/setters via constructor params
-    public constructor(screenWidth: number, screenHeight: number) {
+    private readonly viewportBackground = new Graphics();
+    private readonly artwork = new Container();
+    private readonly backgroundSprite: Sprite;
+    private readonly progressGlow = new Graphics();
+    private readonly lavaSprite: Sprite;
+    private readonly lavaMask = new Graphics();
+    private readonly dragonMedallion: Sprite;
+    private readonly loadingLabel: Text;
+    private progress = 0;
+    private constructor(
+        screenWidth: number,
+        screenHeight: number,
+        background: Texture,
+        lava: Texture,
+        medallion: Texture,
+    ) {
         super();
-        // 1. Black Background
-        this.bg = new Graphics();
-        this.bg.rect(0, 0, screenWidth, screenHeight).fill(0x000000);
-        this.addChild(this.bg);
-        // 2. Logo / Title
-        this.logoText = new Text({
-            text: "HEROES OF CRYPTO",
-            style: new TextStyle({
-                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                fontSize: 48,
-                fontWeight: "bold",
-                fill: 0xffaa00, // Orange
-                letterSpacing: 4,
-            }),
-        });
-        this.logoText.anchor.set(0.5);
-        this.logoText.x = screenWidth / 2;
-        // Center Group: Logo slightly above center
-        this.logoText.y = screenHeight / 2 - 30;
-        this.addChild(this.logoText);
-        // 3. Progress Bar Component
-        const barWidth = 400;
-        const barHeight = 6;
-        const barX = screenWidth / 2 - barWidth / 2;
-        // Center Group: Bar slightly below center
-        const barY = screenHeight / 2 + 40;
-        // Trace
-        this.progressBarBg = new Graphics();
-        this.progressBarBg.rect(barX, barY, barWidth, barHeight).fill({ color: 0x333333 });
-        this.addChild(this.progressBarBg);
-        // Fill
-        this.progressBarFill = new Graphics();
-        this.progressBarFill.rect(barX, barY, 0, barHeight).fill({ color: 0xffaa00 });
-        this.addChild(this.progressBarFill);
-        // 4. Loading Text
+
+        this.backgroundSprite = new Sprite(background);
+        this.backgroundSprite.width = ART_WIDTH;
+        this.backgroundSprite.height = ART_HEIGHT;
+
+        // This plate contains the selected realistic molten texture across the complete trough. A mask
+        // reveals only the loaded portion, retaining the exact artwork while keeping the percentage real.
+        this.lavaSprite = new Sprite(lava);
+        this.lavaSprite.position.set(TRACK_X, TRACK_Y);
+        this.lavaSprite.width = TRACK_WIDTH;
+        this.lavaSprite.height = TRACK_HEIGHT;
+        this.lavaSprite.mask = this.lavaMask;
+
+        this.dragonMedallion = new Sprite(medallion);
+        this.dragonMedallion.anchor.set(0.5);
+        // The transparent asset deliberately has generous padding. At 150px the visible coin is the
+        // same ~90px diameter as the marker in the selected loading-screen artwork.
+        this.dragonMedallion.width = MEDALLION_ASSET_SIZE;
+        this.dragonMedallion.height = MEDALLION_ASSET_SIZE;
+
         this.loadingLabel = new Text({
-            text: "Loading assets...",
+            text: "FORGING THE BATTLEFIELD   0%",
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                fontSize: 16,
-                fill: 0x888888,
+                fontSize: 27,
+                fontWeight: "500",
+                fill: 0xd77d28,
+                letterSpacing: 1.2,
+                stroke: { color: 0x321005, width: 1.5 },
             }),
         });
         this.loadingLabel.anchor.set(0.5);
-        this.loadingLabel.x = screenWidth / 2;
-        this.loadingLabel.y = barY + 30;
-        this.addChild(this.loadingLabel);
+        this.loadingLabel.position.set(ART_WIDTH / 2, LABEL_Y);
+
+        // The ornate track and end caps are baked into the exact selected artwork. Only the molten
+        // interior, the moving medallion and the real loading percentage are dynamic layers.
+        this.artwork.addChild(
+            this.backgroundSprite,
+            this.progressGlow,
+            this.lavaSprite,
+            this.lavaMask,
+            this.dragonMedallion,
+            this.loadingLabel,
+        );
+        this.addChild(this.viewportBackground, this.artwork);
+
+        this.resize(screenWidth, screenHeight);
+        this.setProgress(0);
     }
-    public setProgress(p: number): void {
-        const barWidth = 400;
-        const width = 400 * Math.max(0, Math.min(1, p));
-        const barHeight = 6;
-        // Re-calculate based on current screen size if stored, or just rely on fixed relative offsets?
-        // Ideally we store screen dimensions or re-calc center.
-        // For simplicity, let's just update the rect using the LAST known positions or center 0,0 relative?
-        // Actually since we redraw cleanly, we can just use local coords if graphics were centered.
-        // But here we drew absolute coords.
-        // Let's assume resize() updates stored values, or we access this.bg.width?
-        // Safer: use the graphics object we already placed?
-        // No, we clear it. Let's rely on resize() being called or initial values being roughly correct.
-        // Better: store screenW/H in private props if needed, but not naming them width/height.
-        const screenWidth = this.bg.width;
-        const screenHeight = this.bg.height;
-        const barX = screenWidth / 2 - barWidth / 2;
-        // Match constructor Y
-        const barY = screenHeight / 2 + 40;
-        this.progressBarFill.clear();
-        this.progressBarFill.rect(barX, barY, width, barHeight).fill({ color: 0xffaa00 });
-        this.loadingLabel.text = `Loading assets... ${Math.floor(p * 100)}%`;
+    public static async create(screenWidth: number, screenHeight: number): Promise<LoadingScreen> {
+        const [background, lava, medallion] = await Promise.all([
+            Assets.load<Texture>(FORGING_BACKGROUND_URL),
+            Assets.load<Texture>(FORGING_LAVA_URL),
+            Assets.load<Texture>(DRAGON_MEDALLION_URL),
+        ]);
+        return new LoadingScreen(screenWidth, screenHeight, background, lava, medallion);
     }
-    public resize(w: number, h: number): void {
-        this.bg.clear();
-        this.bg.rect(0, 0, w, h).fill(0x000000);
+    public setProgress(value: number): void {
+        this.progress = Math.max(0, Math.min(1, value));
+        const fillWidth = TRACK_WIDTH * this.progress;
 
-        this.logoText.x = w / 2;
-        this.logoText.y = h / 2 - 30;
+        this.progressGlow.clear();
+        this.lavaMask.clear();
 
-        const barWidth = 400;
-        const barHeight = 6;
-        const barX = w / 2 - barWidth / 2;
-        const barY = h / 2 + 40;
+        if (fillWidth > 0) {
+            this.progressGlow
+                .rect(TRACK_X - 2, TRACK_Y - 5, fillWidth + 4, TRACK_HEIGHT + 10)
+                .fill({ color: 0xff4d00, alpha: 0.15 });
+            this.lavaMask.rect(TRACK_X, TRACK_Y, fillWidth, TRACK_HEIGHT).fill(0xffffff);
+        }
 
-        this.progressBarBg.clear();
-        this.progressBarBg.rect(barX, barY, barWidth, barHeight).fill({ color: 0x333333 });
+        this.dragonMedallion.position.set(TRACK_X + fillWidth, TRACK_Y + TRACK_HEIGHT / 2);
+        this.dragonMedallion.rotation = this.progress * Math.PI * 4;
+        this.loadingLabel.text = `FORGING THE BATTLEFIELD   ${Math.round(this.progress * 100)}%`;
+    }
+    public resize(screenWidth: number, screenHeight: number): void {
+        this.viewportBackground.clear();
+        this.viewportBackground.rect(0, 0, screenWidth, screenHeight).fill(0x050505);
 
-        // Redraw fill? The next setProgress will fix it, or we should strictly redraw here.
-        // Let's just update positions of what's there.
-        // Since we clear fill in setProgress, we might leave it or empty it.
-        // Optimization: trigger a progress update
-        this.loadingLabel.x = w / 2;
-        this.loadingLabel.y = barY + 30;
+        const coverScale = Math.max(screenWidth / ART_WIDTH, screenHeight / ART_HEIGHT);
+        this.artwork.scale.set(coverScale);
+        this.artwork.pivot.set(ART_WIDTH / 2, ART_HEIGHT / 2);
+        this.artwork.position.set(screenWidth / 2, screenHeight / 2);
     }
 }

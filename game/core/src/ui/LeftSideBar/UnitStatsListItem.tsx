@@ -890,6 +890,10 @@ StatValue.displayName = "StatValue";
 // silhouette and bronze binding; only the cloth colour changes.
 const greenBannerImage = images.ui_banner_green_soft_wide;
 const redBannerImage = images.ui_banner_red_soft_wide;
+// The selected rounded binding is a transparent, three-sided overlay. Keeping it separate from the cloth
+// lets the same pixel-perfect rail serve green, red and neutral banners without recolouring or duplicating
+// the generated asset.
+const bannerBorderImage = images.banner_border_round_c;
 
 /** Where the portrait's top edge lands on the banner, as a share of the art's height — just under the
  *  crossbar's valance, which is the last thing on the cloth now that the crenellated line has been cut out
@@ -914,7 +918,7 @@ const PORTRAIT_ART_SCALE = 1.06;
 /** How far the name clears the very top of the banner. Zero: the row starts on the banner's own top edge,
  *  and its line-height already carries half-leading above the letters, so nothing actually touches the
  *  crossbar. */
-const NAME_TOP_PAD_PX = 0;
+const NAME_TOP_PAD_PX = 6;
 /** The stat plate's own 2px rim. The banner's hem runs down behind it, so no strip of bare card shows between
  *  bright cloth and the plate — that gap plus the near-black rim read as a black rule under the banner. */
 const STAT_PLATE_RIM_PX = 2;
@@ -973,23 +977,21 @@ const bannerLayout = (metrics: ISidebarMetrics) => {
  * reintroduce the old gaps.
  */
 const teamBannerSx = (layout: ReturnType<typeof bannerLayout>) => {
-    // Keep the cloth at exactly the same footprint while shaving another 30% from the visible
-    // gold rails. Fractional clipping is intentional: it preserves the fine stitched inner line.
-    const sideTrimCrop = 1.95;
-    const bottomTrimCrop = 3.9;
     return {
         position: "absolute",
         top: `calc(${-layout.lift}px - var(--sidebar-card-top-extension, 0px))`,
-        left: `${-sideTrimCrop}px`,
-        width: `calc(100% + ${sideTrimCrop * 2}px)`,
+        left: 0,
+        width: "100%",
         // The source has been alpha-trimmed: its first pixel is the upper rail and its last pixel is the
         // lower point. This therefore anchors the point exactly on the stat plate's top edge.
-        height: `calc(${layout.height - STAT_PLATE_RIM_PX + bottomTrimCrop}px + var(--sidebar-card-top-extension, 0px))`,
+        height: `calc(${layout.height - STAT_PLATE_RIM_PX}px + var(--sidebar-card-top-extension, 0px))`,
         objectFit: "fill",
         objectPosition: "center",
-        // Crop away the outer portion of the authored side and bottom rails, then oversize the image by the
-        // same amount so the remaining thinner metal still lands on the exact card boundaries.
-        clipPath: `inset(0 ${sideTrimCrop}px ${bottomTrimCrop}px ${sideTrimCrop}px)`,
+        // Match the production overlay's elliptical lower corners. Horizontal and vertical radii come from
+        // its alpha silhouette, so the cloth ends beneath the rail instead of poking through its curve.
+        borderRadius: "0 0 16.53% 16.53% / 0 0 11.76% 11.76%",
+        boxSizing: "border-box",
+        overflow: "hidden",
         // Behind the portrait (zIndex 1) and the stat plate, which is given its own zIndex for the purpose:
         // a positioned element at 0 still paints over a static sibling, which is why the swallowtail was
         // crossing the stat rows.
@@ -999,6 +1001,15 @@ const teamBannerSx = (layout: ReturnType<typeof bannerLayout>) => {
         willChange: "opacity",
     } as const;
 };
+
+const teamBannerBorderSx = (layout: ReturnType<typeof bannerLayout>) => ({
+    ...teamBannerSx(layout),
+    // The rail already contains its own antialiased curve and must not be clipped a second time.
+    borderRadius: 0,
+    overflow: "visible",
+    transition: "none",
+    willChange: "auto",
+});
 
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
@@ -1303,6 +1314,7 @@ const UnitStatsLayout: React.FC<{
                         }}
                     />
                 ))}
+                <Box component="img" src={bannerBorderImage} alt="" aria-hidden sx={teamBannerBorderSx(layout)} />
                 <Box
                     sx={{
                         width: "100%",
@@ -1691,6 +1703,21 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
                             position: "relative",
                             zIndex: 2,
                             width: "100%",
+                            // A restrained finishing rail closes the flag above the name plaque. It sits in
+                            // the banner's top padding, so it reaches the cloth edges without crossing the
+                            // plaque or stealing any room from the portrait.
+                            "&::before": {
+                                content: '""',
+                                position: "absolute",
+                                top: "-4px",
+                                left: "1.5%",
+                                right: "1.5%",
+                                height: "1px",
+                                background:
+                                    "linear-gradient(90deg, transparent 0%, rgba(116,77,42,.72) 5%, rgba(203,159,92,.72) 50%, rgba(116,77,42,.72) 95%, transparent 100%)",
+                                boxShadow: "0 1px 0 rgba(0,0,0,.7)",
+                                pointerEvents: "none",
+                            },
                         }}
                     >
                         <SectionTitle

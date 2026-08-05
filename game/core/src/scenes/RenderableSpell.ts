@@ -43,18 +43,31 @@ const BOOK_POSITION_ROW_STEP = 230;
 const BOOK_CELL_SIZE = 220;
 const BOOK_CELL_OFFSET_X = 8; // nudge the scroll-like spell cell (drawn under each spell) right...
 const BOOK_CELL_OFFSET_Y = -9; // ...and up a little
-const BOOK_SPELL_SIZE = 120;
-const BOOK_ICON_OFFSET_X = 75;
-const BOOK_ICON_OFFSET_Y = 38;
+// The artwork is 6% larger than the original 120px square. Shift it by half the growth so its
+// visual centre stays in exactly the same place inside the ornate frame.
+const BOOK_SPELL_SIZE = 127.2;
+const BOOK_ICON_OFFSET_X = 71.4;
+const BOOK_ICON_OFFSET_Y = 34.4;
 const BOOK_TITLE_MARGIN_X = 11;
 const BOOK_TITLE_MARGIN_BOTTOM = 18;
-const BOOK_STACK_BAR_X = 48;
-const BOOK_STACK_BAR_WIDTH = 13;
+// Literal stack rail cropped from the approved variant-2 mock-up. Its proportions and the normalized
+// fill coordinates below come directly from that source image, so dynamic pips sit inside the five
+// antique slots instead of approximating them with vector rectangles.
+const BOOK_STACK_RAIL_X = 44;
+const BOOK_STACK_RAIL_Y = 36;
+const BOOK_STACK_RAIL_HEIGHT = 124;
+const BOOK_STACK_RAIL_WIDTH = (BOOK_STACK_RAIL_HEIGHT * 75) / 490;
+const BOOK_STACK_SLOT_STEP = BOOK_STACK_RAIL_HEIGHT / HoCConstants.MAX_UNIT_STACK_POWER;
+const BOOK_STACK_FILL_WIDTH = BOOK_STACK_RAIL_WIDTH * 0.68;
+const BOOK_STACK_FILL_HEIGHT = BOOK_STACK_SLOT_STEP * 0.74;
+const BOOK_STACK_FILL_X = BOOK_STACK_RAIL_X + (BOOK_STACK_RAIL_WIDTH - BOOK_STACK_FILL_WIDTH) / 2;
+const BOOK_STACK_FILL_BOTTOM_Y =
+    BOOK_STACK_RAIL_Y +
+    BOOK_STACK_SLOT_STEP * (HoCConstants.MAX_UNIT_STACK_POWER - 1) +
+    (BOOK_STACK_SLOT_STEP - BOOK_STACK_FILL_HEIGHT) / 2;
 // Keep the complete cast-count seal (including its wax edge and ribbon tail) inside the card frame.
 const HOVER_FRAME_EXTRA_RIGHT = 58;
-const AMOUNT_MEDALLION_RADIUS = 19.5;
 const SCHOOL_FRAME_ALPHA = 0.8;
-const STACK_SLOT_FRAME_ALPHA = 0.32;
 
 // "Old book" styling: a gentle warm/sepia multiply tint so the art and name read as ink on aged
 // parchment (not stark white), plus a soft brown shadow cast under each spell image so it looks like
@@ -73,6 +86,7 @@ const BOOK_CORNER_FRAME_PADDING = 6;
 const OUTER_SCHOOL_CORNER_SIZE = 57.75;
 const CARD_FRAME_TOP_OFFSET = 5;
 const CARD_FRAME_HEIGHT = 204;
+const HOVER_CARD_SCALE = 1.07;
 
 const SPELL_CORNER_FRAME_TEXTURE_KEYS: Partial<Record<number, string>> = {
     [ToFactionType.Chaos]: "spell_corner_chaos_a",
@@ -96,6 +110,10 @@ export class PixiRenderableSpell extends Spell {
     private readonly cornerFrameSprites: readonly PixiSprite[];
     private readonly amountScrollSprite?: PixiSprite;
     private readonly innerFrameSprite?: PixiSprite;
+    private readonly stackRailSprite?: PixiSprite;
+    private readonly stackFillSprites: readonly PixiSprite[];
+    private readonly stackFillGreenTexture?: Texture;
+    private readonly stackFillRedTexture?: Texture;
     /**
      * Spell name drawn as TEXT rather than a pre-baked "<spell>_font" strip. Those strips had to be
      * hand-authored per spell, and a missing one silently dropped the whole spell from the book (the
@@ -135,6 +153,9 @@ export class PixiRenderableSpell extends Spell {
             cornerFrame?: Texture;
             scrollBadge?: Texture;
             innerFrame?: Texture;
+            stackRail?: Texture;
+            stackFillGreen?: Texture;
+            stackFillRed?: Texture;
         },
         iconTexture: Texture,
         _digits: DigitTextureMap,
@@ -184,6 +205,25 @@ export class PixiRenderableSpell extends Spell {
             this.innerFrameSprite.anchor.set(0, 0);
             this.innerFrameSprite.visible = false;
         }
+        this.stackFillGreenTexture = textures.stackFillGreen;
+        this.stackFillRedTexture = textures.stackFillRed;
+        if (textures.stackRail) {
+            this.stackRailSprite = new PixiSprite(textures.stackRail);
+            this.stackRailSprite.anchor.set(0, 0);
+            this.stackRailSprite.visible = false;
+        }
+        if (textures.stackFillGreen) {
+            this.stackFillSprites = Array.from(
+                { length: HoCConstants.MAX_UNIT_STACK_POWER },
+                () => new PixiSprite(textures.stackFillGreen),
+            );
+            for (const fill of this.stackFillSprites) {
+                fill.anchor.set(0, 0);
+                fill.visible = false;
+            }
+        } else {
+            this.stackFillSprites = [];
+        }
 
         // Serif to match the aged-parchment spellbook; the previous strips were a bold serif too, so the
         // book keeps its look. Fitted to the cell width in renderOnPage rather than wrapped, so a long
@@ -224,6 +264,8 @@ export class PixiRenderableSpell extends Spell {
             ...(this.innerFrameSprite ? [this.innerFrameSprite] : []),
             this.iconSprite,
         );
+        if (this.stackRailSprite) this.cardContainer.addChild(this.stackRailSprite);
+        if (this.stackFillSprites.length) this.cardContainer.addChild(...this.stackFillSprites);
         if (this.cornerFrameSprites.length) {
             this.cardContainer.addChild(...this.cornerFrameSprites);
         }
@@ -243,6 +285,8 @@ export class PixiRenderableSpell extends Spell {
         for (const corner of this.cornerFrameSprites) corner.visible = false;
         if (this.amountScrollSprite) this.amountScrollSprite.visible = false;
         if (this.innerFrameSprite) this.innerFrameSprite.visible = false;
+        if (this.stackRailSprite) this.stackRailSprite.visible = false;
+        for (const fill of this.stackFillSprites) fill.visible = false;
         this.titleText.visible = false;
         this.stackColumnGfx.clear();
         this.amountBadgeGfx.clear();
@@ -252,6 +296,9 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.visible = false;
         this.highlighted = false;
         this.lastFrameRender = undefined;
+        this.cardContainer.pivot.set(0, 0);
+        this.cardContainer.position.set(0, 0);
+        this.cardContainer.scale.set(1);
     }
     public setHighlighted(highlighted: boolean): void {
         if (this.highlighted === highlighted) return;
@@ -407,7 +454,7 @@ export class PixiRenderableSpell extends Spell {
         const iconX = cellX + BOOK_ICON_OFFSET_X;
         const iconY = cellY + BOOK_ICON_OFFSET_Y;
 
-        // The parent remains fixed: hover transforms only the spell art, never its title, pips or scroll.
+        // Reset before laying out a reused card; renderBaseCardFrame reapplies the centred hover scale.
         this.cardContainer.pivot.set(0, 0);
         this.cardContainer.position.set(0, 0);
         this.cardContainer.scale.set(1);
@@ -521,26 +568,25 @@ export class PixiRenderableSpell extends Spell {
     }
     private renderAmount(cellX: number, cellY: number, enabled: boolean): void {
         const label = String(this.amountRemaining);
-        // Option 3: a compact parchment medallion attached just outside the spell art's top-right corner.
+        // Exact tall parchment scroll cropped from the approved variant-2 mock-up. Its original sample
+        // digit was removed from the bitmap; the live amount is centred here as text.
         const frameRight = cellX - 5 + BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
-        const centerX = frameRight - 55;
-        const centerY = cellY + 35;
+        const centerX = frameRight - 51.5;
+        const centerY = cellY + 98;
         const visualAlpha = enabled ? 0.9 : 0.5;
 
         this.amountBadgeGfx.clear();
-        const r = AMOUNT_MEDALLION_RADIUS;
         if (this.amountScrollSprite) {
-            // Literal cutout from the chosen option-3 mockup. Its canvas includes the ribbon below the
-            // medal, so offset the sprite down while keeping the round face centred on centerY.
-            this.amountScrollSprite.position.set(centerX, centerY + 6.3);
-            this.amountScrollSprite.width = 52;
-            this.amountScrollSprite.height = 65;
+            this.amountScrollSprite.position.set(centerX, centerY);
+            this.amountScrollSprite.width = 40.5;
+            this.amountScrollSprite.height = 134;
             this.amountScrollSprite.alpha = visualAlpha;
             this.amountScrollSprite.tint = enabled ? 0xffffff : 0x8c8274;
             this.amountScrollSprite.visible = true;
         }
 
         // Cover the source mockup's sample digit with matching parchment; the live count is drawn above it.
+        const r = 13.5;
         this.amountBadgeGfx
             .circle(centerX, centerY, r - 7)
             .fill({ color: 0xd2aa6b, alpha: visualAlpha * 0.98 })
@@ -549,41 +595,62 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.style = new TextStyle({
             fill: enabled ? SPELL_TITLE_FILL : SPELL_TITLE_FILL_DISABLED,
             fontFamily: HOC_NUMERIC_GEORGIA_FONT_FAMILY,
-            fontSize: label.length > 2 ? 22 : 27,
+            fontSize: label.length > 2 ? 19 : 27,
             fontWeight: "700",
         });
-        // The live number is centred on the circular seal face, independently of the ribbon tail.
-        this.amountText.position.set(centerX, centerY + 0.5);
+        this.amountText.position.set(centerX, centerY + 1);
         this.amountText.alpha = enabled ? 1 : 0.7;
         this.amountText.visible = true;
     }
     private renderStackColumn(cellX: number, cellY: number, ownerStackPower: number, canRenderStack: boolean) {
-        // Clear previous vectors
         this.stackColumnGfx.clear();
 
-        // Draw all five empty slots first, so the maximum stack is always visible even when the
-        // spell requires only one or two pips. Filled pips are then painted over these guides.
-        const barX = cellX + BOOK_STACK_BAR_X;
-        const barW = BOOK_STACK_BAR_WIDTH;
-        const barH = BOOK_SPELL_SIZE / HoCConstants.MAX_UNIT_STACK_POWER;
+        const useGreen = ownerStackPower >= this.getMinimalCasterStackPower();
+        const fillTexture = useGreen ? this.stackFillGreenTexture : this.stackFillRedTexture;
+        const alpha = canRenderStack ? 1 : 0.4;
+
+        if (this.stackRailSprite && fillTexture && this.stackFillSprites.length) {
+            this.stackRailSprite.position.set(cellX + BOOK_STACK_RAIL_X, cellY + BOOK_STACK_RAIL_Y);
+            this.stackRailSprite.width = BOOK_STACK_RAIL_WIDTH;
+            this.stackRailSprite.height = BOOK_STACK_RAIL_HEIGHT;
+            this.stackRailSprite.alpha = alpha;
+            this.stackRailSprite.tint = canRenderStack ? 0xffffff : 0x8c8274;
+            this.stackRailSprite.visible = true;
+
+            this.stackFillSprites.forEach((fill, slotIndex) => {
+                const isFilled = slotIndex < this.getMinimalCasterStackPower();
+                fill.texture = fillTexture;
+                fill.position.set(
+                    cellX + BOOK_STACK_FILL_X,
+                    cellY + BOOK_STACK_FILL_BOTTOM_Y - slotIndex * BOOK_STACK_SLOT_STEP,
+                );
+                fill.width = BOOK_STACK_FILL_WIDTH;
+                fill.height = BOOK_STACK_FILL_HEIGHT;
+                fill.alpha = alpha;
+                fill.visible = isFilled;
+            });
+            return;
+        }
+
+        // Texture-free fallback for headless tests and the first HMR frame while a new asset loads.
+        const barX = cellX + BOOK_STACK_FILL_X;
+        const barW = BOOK_STACK_FILL_WIDTH;
+        const barH = BOOK_STACK_RAIL_HEIGHT / HoCConstants.MAX_UNIT_STACK_POWER;
 
         for (let slotIndex = 0; slotIndex < HoCConstants.MAX_UNIT_STACK_POWER; slotIndex++) {
-            const targetY = cellY + BOOK_ICON_OFFSET_Y + BOOK_SPELL_SIZE - barH - slotIndex * barH;
+            const targetY = cellY + BOOK_STACK_RAIL_Y + BOOK_STACK_RAIL_HEIGHT - barH - slotIndex * barH;
             this.stackColumnGfx
                 .rect(barX, targetY, barW, barH - 3)
                 .fill({ color: 0x2d2417, alpha: 0.12 })
-                .stroke({ width: 1.5, color: 0x6b5734, alpha: STACK_SLOT_FRAME_ALPHA });
+                .stroke({ width: 1.5, color: 0x6b5734, alpha: 0.32 });
         }
 
-        // Choose color based on requirement
-        const useGreen = ownerStackPower >= this.getMinimalCasterStackPower();
         const fillColor = useGreen ? 0x00aa55 : 0xaa0033; // approximate tint to your old textures
-        const alpha = canRenderStack ? 1 : 0.4;
 
         // Draw minimal caster stack power blocks (one per required stack)
         let stackIndex = 1;
         while (stackIndex <= this.getMinimalCasterStackPower()) {
-            const targetY = cellY + BOOK_ICON_OFFSET_Y + BOOK_SPELL_SIZE - barH - (stackIndex - 1) * barH;
+            const targetY = cellY + BOOK_STACK_RAIL_Y + BOOK_STACK_RAIL_HEIGHT - barH - (stackIndex - 1) * barH;
             this.stackColumnGfx.rect(barX, targetY, barW, barH - 3).fill({ color: fillColor, alpha });
             stackIndex++;
         }
@@ -591,11 +658,20 @@ export class PixiRenderableSpell extends Spell {
     /** Permanent option-2 frame: exact detached antique corners from the approved mockup. */
     private renderBaseCardFrame(cellX: number, cellY: number, enabled: boolean): void {
         this.lastFrameRender = { cellX, cellY, enabled };
+        const cardLeft = cellX - 5;
+        const cardTop = cellY + CARD_FRAME_TOP_OFFSET;
+        const cardWidth = BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
+        const cardCenterX = cardLeft + cardWidth / 2;
+        const cardCenterY = cardTop + CARD_FRAME_HEIGHT / 2;
+        this.cardContainer.pivot.set(cardCenterX, cardCenterY);
+        this.cardContainer.position.set(cardCenterX, cardCenterY);
+        this.cardContainer.scale.set(this.highlighted && enabled ? HOVER_CARD_SCALE : 1);
+
         const g = this.hoverFrameGfx;
         g.clear();
-        const left = cellX - 5;
-        const top = cellY + CARD_FRAME_TOP_OFFSET;
-        const width = BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
+        const left = cardLeft;
+        const top = cardTop;
+        const width = cardWidth;
         const height = CARD_FRAME_HEIGHT;
         const alphaScale = enabled ? 1 : 0.52;
 
@@ -688,6 +764,8 @@ export class PixiRenderableSpell extends Spell {
         }
         this.amountScrollSprite?.destroy();
         this.innerFrameSprite?.destroy();
+        this.stackRailSprite?.destroy();
+        for (const fill of this.stackFillSprites) fill.destroy();
         this.titleText.destroy();
         this.cardContainer.destroy();
     }

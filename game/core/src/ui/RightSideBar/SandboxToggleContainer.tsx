@@ -51,9 +51,12 @@ const compactAugmentSheetSx = {
     padding: 0.5,
     borderRadius: "md",
     borderColor: "rgba(112, 75, 42, 0.55)",
+    backgroundColor: "rgba(5, 8, 9, 0.78)",
+    color: hocColors.sidebarTitle,
     fontWeight: 530,
     fontSynthesis: "weight",
     "& .MuiFormLabel-root": {
+        color: hocColors.sidebarTitle,
         marginBottom: 0.25,
         lineHeight: 1.15,
         fontWeight: 530,
@@ -70,6 +73,7 @@ const compactAugmentSheetSx = {
         alignItems: "center",
     },
     "& .MuiRadio-label": {
+        color: hocColors.sidebarTitle,
         display: "flex",
         alignItems: "center",
         minHeight: "26px",
@@ -564,7 +568,7 @@ const SandboxToggleContainer = ({
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
-                    color: augmentsOpen ? "#FF8F00" : "inherit",
+                    color: augmentsOpen ? "#FF8F00" : hocColors.sidebarTitle,
                     "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
                 }}
             >
