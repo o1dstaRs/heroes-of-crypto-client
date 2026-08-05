@@ -19,7 +19,7 @@ describe("mountain HP bar layout", () => {
     test.each([48, 96, 165])("keeps a tombstone's one-hit pip compact at a %ipx cell size", (cellSize) => {
         const layout = getScatteredMountainHitBarLayout(cellSize);
 
-        expect(layout.width).toBeLessThanOrEqual(cellSize * 0.36);
+        expect(layout.width).toBeCloseTo(cellSize * 0.306);
         expect(layout.height).toBeLessThanOrEqual(cellSize * 0.09);
         expect(layout.centerOffset + layout.height / 2).toBeLessThan(cellSize * 0.42);
     });

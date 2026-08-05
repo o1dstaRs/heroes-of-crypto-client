@@ -209,7 +209,8 @@ export const getMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout
 };
 
 export const getScatteredMountainHitBarLayout = (cellSize: number): IMountainHitBarLayout => ({
-    width: cellSize * 0.36,
+    // The inset stone-framed meter is 15% narrower than the previous floating orange pip.
+    width: cellSize * 0.36 * 0.85,
     height: Math.max(4, Math.round(cellSize * 0.045)),
     gap: 0,
     framePadding: Math.max(1, Math.round(cellSize * 0.01)),
@@ -287,11 +288,15 @@ export class DungeonVisuals {
      * instead of a peak leaning into the one above.
      */
     private static readonly MOUNTAIN_HEIGHT_CELLS = 83 / 64;
+    /** How far the occupied cell is darkened, under the stone. */
+    private static readonly MOUNTAIN_CELL_SHADE = 0.35;
     /** One entry per standing mountain: which cell it occupies and which variant it wears. */
     private scatteredMountains: IScatteredMountain[] = [];
     /** Stays true after the final tombstone dies, so the removed classic mountains never become a fallback. */
     private scatteredMountainMode = false;
     private scatteredMountainSprites: Sprite[] = [];
+    /** One shade per occupied cell, drawn under its stone. */
+    private scatteredMountainShades: Graphics[] = [];
     /** White alpha-silhouette rings per stone, exposed only while that stone is targeted. */
     private scatteredMountainOutlines: Container[] = [];
     private tombstoneWhiteFilter?: ColorMatrixFilter;
@@ -563,9 +568,13 @@ export class DungeonVisuals {
         for (const hitBar of this.scatteredMountainHitBars) {
             hitBar.destroy();
         }
+        for (const shade of this.scatteredMountainShades) {
+            shade.destroy();
+        }
         this.scatteredMountainSprites = [];
         this.scatteredMountainOutlines = [];
         this.scatteredMountainHitBars = [];
+        this.scatteredMountainShades = [];
         const tiles = this.mountainTiles();
         if (!tiles?.length || !this.scatteredMountains.length) {
             return;
@@ -600,6 +609,16 @@ export class DungeonVisuals {
                 gs.getStep(),
                 gs.getHalfStep(),
             );
+
+            // Shade the occupied square before the stone goes on it: an object standing on a cell throws
+            // the cell into shadow, and it also tells the player at a glance which square is taken — the
+            // silhouette alone is ambiguous once it leans into the row above. Sits under every stone (49),
+            // so a nearer stone's overhang still covers a farther cell's shade.
+            const shade = new Graphics();
+            shade.rect(at.x - cellSize * 0.5, at.y - cellSize * 0.5, cellSize, cellSize);
+            shade.fill({ color: 0x000000, alpha: DungeonVisuals.MOUNTAIN_CELL_SHADE });
+            this.context.attachToWorldRoot(shade, 49);
+            this.scatteredMountainShades.push(shade);
 
             const sprite = new Sprite(tex);
             sprite.anchor.set(0.5);
@@ -664,18 +683,18 @@ export class DungeonVisuals {
             const barX = at.x - barW * 0.5;
             const barY = at.y - hitBarLayout.centerOffset - barH * 0.5;
             const frame = hitBarLayout.framePadding;
-            const radius = Math.max(2, barH * 0.5);
+            const radius = Math.max(1, barH * 0.18);
             hitBar
                 .roundRect(barX - frame, barY - frame, barW + frame * 2, barH + frame * 2, radius + frame)
-                .fill({ color: 0x080706, alpha: 0.9 })
-                .stroke({ width: 1, color: 0x9c7340, alpha: 0.88 });
+                .fill({ color: 0x0b0c0e, alpha: 0.94 })
+                .stroke({ width: 1, color: 0x777b80, alpha: 0.82 });
             hitBar
                 .roundRect(barX, barY, barW, barH, radius)
-                .fill({ color: 0xd75a32, alpha: 1 })
-                .stroke({ width: 1, color: 0xffad67, alpha: 0.95 });
+                .fill({ color: 0x75150f, alpha: 1 })
+                .stroke({ width: 1, color: 0x3b0b08, alpha: 0.96 });
             hitBar
-                .roundRect(barX + frame, barY + barH * 0.55, barW - frame * 2, Math.max(1, barH * 0.2), radius)
-                .fill({ color: 0xffd08a, alpha: 0.38 });
+                .roundRect(barX + frame, barY + frame, barW - frame * 2, Math.max(1, barH * 0.18), radius)
+                .fill({ color: 0xb54434, alpha: 0.42 });
             hitBar.visible = FightStateManager.getInstance().getFightProperties().hasFightStarted();
             this.context.attachToWorldRoot(hitBar, 52 + depth);
             this.scatteredMountainHitBars.push(hitBar);
@@ -875,8 +894,15 @@ export class DungeonVisuals {
             this.drawOneHitBar(bar, right.x, right.y - layout.centerOffset, layout, rightHits);
         }
     }
-    private drawOneHitBar(bar: Graphics, cx: number, cy: number, layout: IMountainHitBarLayout, hits: number): void {
-        const totalHits = HoCConstants.HITS_PER_MOUNTAIN;
+    private drawOneHitBar(
+        bar: Graphics,
+        cx: number,
+        cy: number,
+        layout: IMountainHitBarLayout,
+        hits: number,
+        segments: number = HoCConstants.HITS_PER_MOUNTAIN,
+    ): void {
+        const totalHits = segments;
         const { width: barW, height: barH, gap, framePadding } = layout;
         const x0 = cx - barW / 2;
         const y0 = cy - barH / 2;
@@ -1254,21 +1280,24 @@ export class DungeonVisuals {
         );
     }
     public ensureBackgroundSprite(): void {
-        if (this.bgSprite) return;
-        const tex = this.backgroundTexture();
-        if (!tex) return;
+        if (!this.bgSprite) {
+            const tex = this.backgroundTexture();
+            if (!tex) return;
 
-        const bg = new Sprite(tex);
-        bg.anchor.set(0.5);
-        // Behind the dungeon floor-lighting overlay (-10); both stay below the world/units (camera @0).
-        const stage = this.context.getStage();
-        stage.sortableChildren = true;
-        bg.zIndex = -20;
-        stage.addChild(bg);
-        this.bgSprite = bg;
+            const bg = new Sprite(tex);
+            bg.anchor.set(0.5);
+            // Behind every floor-only light; all remain below the world/units (camera @0).
+            const stage = this.context.getStage();
+            stage.sortableChildren = true;
+            bg.zIndex = -20;
+            stage.addChild(bg);
+            this.bgSprite = bg;
+        }
+
+        // Optional VFX textures can finish decoding after the floor. Retry these independently instead of
+        // returning just because bgSprite already exists.
         this.ensureLavaFireLight();
         this.clearExperimentalBackgroundFilters();
-        // We can call layout here if we want/can
     }
     /**
      * Build a smooth, shader-free fire spill. Many very translucent overlapping shapes produce a soft
