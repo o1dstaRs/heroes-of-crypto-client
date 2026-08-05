@@ -552,6 +552,10 @@ export class RenderableUnit extends Unit {
             s.cleanupPagePosition();
         }
     }
+    /** The unit's built spellbook card for a spell name, if the book has been constructed. */
+    public getBookSpellByName(spellName: string): PixiRenderableSpell | undefined {
+        return this.pixiSpells.find((spell) => spell.getName() === spellName);
+    }
     public setHoveredSpell(spell: PixiRenderableSpell | undefined): void {
         for (const s of this.pixiSpells) {
             s.setHighlighted(s === spell);

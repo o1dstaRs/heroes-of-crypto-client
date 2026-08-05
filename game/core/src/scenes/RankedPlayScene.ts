@@ -1677,6 +1677,14 @@ export class RankedPlayScene extends Sandbox {
 
         const selectedUnitId = this.sc_selectedUnitProperties?.id;
 
+        // A mid-turn full hydrate (an opponent auto-action, a lap event — anything that changes the board
+        // signature without a replayable record) destroys every unit AND the player's armed spell. The
+        // target click then fell through to a plain MOVE: live case, a Magic Dragon that could cast its
+        // first Lightning Strike but every later attempt "moved instead" — polls almost always land
+        // between arming and clicking the target. Capture the armed state here and re-arm it after the
+        // rebuilt board re-activates the same unit (mirrors the attack-type restore in activation).
+        const armedSpellName = this.currentActiveSpell?.getName();
+        const armedUnitId = armedSpellName ? this.getCurrentActiveUnit()?.getId() : undefined;
         this.hydrateSceneState(state);
         // hydrateSceneState re-runs refreshStackPowerForAllUnits -> trySeedWaterShield, which RE-GRANTS a
         // Water Shield onto the freshly-built (waterShieldSpent=false) units even when the server already
@@ -1710,6 +1718,17 @@ export class RankedPlayScene extends Sandbox {
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
         this.syncRankedVisibleTurnState(snapshot);
+        // Re-arm the spell the hydrate wiped, when the SAME unit is still active, still ours to control,
+        // and its rebuilt book still holds usable charges of that spell. See the capture above the hydrate.
+        if (armedSpellName && armedUnitId) {
+            const active = this.getCurrentActiveUnit() as RenderableUnit | undefined;
+            if (active && active.getId() === armedUnitId && this.canControlCurrentActiveUnit()) {
+                const bookSpell = active.getBookSpellByName(armedSpellName);
+                if (bookSpell && bookSpell.canUse(active.getStackPower())) {
+                    this.currentActiveSpell = bookSpell;
+                }
+            }
+        }
         this.applyRankedFightStats(snapshot, state.units);
         if (selectedUnitId && !snapshot.fightStarted && !snapshot.fightFinished) {
             this.selectSceneUnitForPlacement(selectedUnitId);
