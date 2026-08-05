@@ -23,13 +23,15 @@ import {
     FightStateManager,
     AbilityHelper,
     AllAbilities,
+    FactionVals,
 } from "@heroesofcrypto/common";
-import { PixiRenderableSpell } from "./RenderableSpell";
+import { getSpellCornerFrameTextureKey, PixiRenderableSpell } from "./RenderableSpell";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
 import { teamColor as resolveTeamColor } from "./teamColors";
+import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 export type TexResolver = (name: string) => Texture | undefined;
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
@@ -274,7 +276,7 @@ export const dropDuplicateAppliedEntries = (
  * rendering in a different typeface from every other piece of text in the game — close enough to look
  * like a mistake rather than a choice. Anything drawn onto the board should use this.
  */
-const BOARD_FONT_FAMILY = '"Open Sans", Verdana, sans-serif';
+const BOARD_FONT_FAMILY = HOC_NUMERIC_FONT_FAMILY;
 
 /**
  * The roster-card colour for a unit that belongs to NO team.
@@ -368,6 +370,8 @@ export class RenderableUnit extends Unit {
     private recoilStartMs = 0;
     private recoilDx = 0;
     private recoilDy = 0;
+    // Only damage reactions add a restrained side-to-side vibration; attack lunges stay perfectly clean.
+    private recoilShakeAmplitude = 0;
     // When true the recoil uses a wind-up envelope (pull back, then thrust forward, then settle) over a
     // longer duration — used for Pikeman's Skewer Strike spear thrust. Otherwise a simple out-and-back.
     private recoilWindup = false;
@@ -471,12 +475,42 @@ export class RenderableUnit extends Unit {
             // spellbook. A new spell now needs one icon and nothing else.
             const iconTex = this.texResolver(SpellHelper.spellToTextureName(spellName));
             const cellTex = this.texResolver("spell_cell_260");
+            // Ability/system spells do not always carry a school. In that case their outer book frame
+            // follows the creature's faction; Might deliberately uses the Chaos treatment.
+            const ownerFaction = this.getFaction();
+            const fallbackFrameFaction = ownerFaction === FactionVals.MIGHT ? FactionVals.CHAOS : ownerFaction;
+            const cornerFrameKey =
+                getSpellCornerFrameTextureKey(spellProperties.faction) ??
+                getSpellCornerFrameTextureKey(fallbackFrameFaction) ??
+                getSpellCornerFrameTextureKey(FactionVals.CHAOS);
+            const cornerFrameTex = cornerFrameKey ? this.texResolver(cornerFrameKey) : undefined;
+            const scrollBadgeTex =
+                this.texResolver("spell_cast_scroll_variant2") ?? Texture.from(images.spell_cast_scroll_variant2);
+            const stackRailTex =
+                this.texResolver("spell_stack_rail_variant2") ?? Texture.from(images.spell_stack_rail_variant2);
+            const stackFillGreenTex =
+                this.texResolver("spell_stack_fill_green_variant2") ??
+                Texture.from(images.spell_stack_fill_green_variant2);
+            const stackFillRedTex =
+                this.texResolver("spell_stack_fill_red_variant2") ?? Texture.from(images.spell_stack_fill_red_variant2);
+            // HMR-safe fallback: an already registered core bundle does not learn about newly added
+            // public assets until a full app restart, while Texture.from can load this exact URL now.
+            const innerFrameTex =
+                this.texResolver("spell_inner_frame_option4") ?? Texture.from(images.spell_inner_frame_option4);
 
             if (iconTex && cellTex) {
                 const newSpell = new PixiRenderableSpell(
                     { spellProperties: spellProperties, amount: v },
                     this.spellBookLayer,
-                    { spell_cell_260: cellTex },
+                    {
+                        spell_cell_260: cellTex,
+                        cornerFrame: cornerFrameTex,
+                        scrollBadge: scrollBadgeTex,
+                        innerFrame: innerFrameTex,
+                        stackRail: stackRailTex,
+                        stackFillGreen: stackFillGreenTex,
+                        stackFillRed: stackFillRedTex,
+                    },
                     iconTex,
                     this.digitTextures,
                 );
@@ -907,7 +941,9 @@ export class RenderableUnit extends Unit {
 
         const cell = gs.getCellSize();
         const isLarge = this.getUnitProperties().size === 2;
-        const baseR = cell * (isLarge ? 0.95 : 0.55);
+        // Begin the turn waves on the portrait rim (slightly inside it), rather than in the empty
+        // space above/outside the creature. This keeps the indicator visually attached to the cap.
+        const baseR = cell * (isLarge ? 0.86 : 0.47);
         const t = performance.now() / 1000;
 
         const g = this.activeAura;
@@ -923,7 +959,7 @@ export class RenderableUnit extends Unit {
         // 2. Expanding light rings radiating outward, staggered so a new wave emerges as the last fades.
         const ringCount = 3;
         const cycleSec = 1.8;
-        const maxR = baseR * (isLarge ? 1.5 : 1.35);
+        const maxR = baseR * (isLarge ? 1.5 : 1.35) * 1.15;
         for (let i = 0; i < ringCount; i++) {
             const phase = (t / cycleSec + i / ringCount) % 1;
             const r = baseR + (maxR - baseR) * phase;
@@ -1984,14 +2020,28 @@ export class RenderableUnit extends Unit {
     }
     /**
      * Apply a brief positional "recoil": the sprite/shadow jerk by (dx, dy) and spring back over
-     * ~220ms. Used for petrifying-gaze hits to yank the target away from the attacker.
+     * ~220ms. Used for attack lunges and authored special-ability motion.
      */
     public applyRecoil(dx: number, dy: number): void {
         this.recoilStartMs = performance.now();
         this.recoilDx = dx;
         this.recoilDy = dy;
+        this.recoilShakeAmplitude = 0;
         this.recoilWindup = false;
         this.recoilDurationMs = 220;
+    }
+    /**
+     * Softer damage reaction: half-length knockback, a slower return and a very small perpendicular
+     * shake. Kept separate from applyRecoil so attack lunges and authored ability motion are unchanged.
+     */
+    public applyHitReaction(dx: number, dy: number): void {
+        this.recoilStartMs = performance.now();
+        this.recoilDx = dx * 0.5;
+        this.recoilDy = dy * 0.5;
+        const shortenedLength = Math.hypot(this.recoilDx, this.recoilDy);
+        this.recoilShakeAmplitude = Math.min(2.2, Math.max(0.8, shortenedLength * 0.14));
+        this.recoilWindup = false;
+        this.recoilDurationMs = 330;
     }
     /**
      * "Bullet-time" dodge for a fully-missed attack: the unit dashes (dx, dy) out of the strike line
@@ -2111,6 +2161,7 @@ export class RenderableUnit extends Unit {
         this.recoilStartMs = performance.now();
         this.recoilDx = dx;
         this.recoilDy = dy;
+        this.recoilShakeAmplitude = 0;
         this.recoilWindup = true;
         this.recoilDurationMs = 380;
     }
@@ -2124,7 +2175,16 @@ export class RenderableUnit extends Unit {
         // Wind-up: -sin(2πt) pulls back (away from target) over the first half, then thrusts forward
         // (toward target) over the second half, settling at 0. Plain hit: out-and-back sin(πt).
         const env = this.recoilWindup ? -Math.sin(2 * Math.PI * t) : Math.sin(Math.PI * t);
-        return { x: this.recoilDx * env, y: this.recoilDy * env };
+        let x = this.recoilDx * env;
+        let y = this.recoilDy * env;
+        if (this.recoilShakeAmplitude > 0) {
+            const len = Math.hypot(this.recoilDx, this.recoilDy) || 1;
+            const fade = (1 - t) * (1 - t);
+            const shake = Math.sin(t * Math.PI * 8) * this.recoilShakeAmplitude * fade;
+            x += (-this.recoilDy / len) * shake;
+            y += (this.recoilDx / len) * shake;
+        }
+        return { x, y };
     }
     /**
      * Briefly wash the unit toward a colour then back to normal — a "something just landed on me" cue

@@ -1,16 +1,13 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
-import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 import { setVolumeSlot } from "../audio/volumeSlot";
 import { FightLog } from "./FightLog";
-import DraggableToolbar, { TOOLBAR_TOP_LIFT_PX, TRIM_OVERHANG_PX, toolbarColumnHeightPx } from "../DraggableToolbar";
-import { SIDEBAR_BG, SIDEBAR_BG_IMAGE, SIDEBAR_BG_REPEAT, SIDEBAR_BG_SIZE } from "../LeftSideBar";
+import DraggableToolbar, { toolbarColumnHeightPx } from "../DraggableToolbar";
+import { RIGHT_SIDEBAR_BG_IMAGE, SIDEBAR_BG, SIDEBAR_BG_REPEAT, SIDEBAR_BG_SIZE } from "../LeftSideBar";
+import { SidebarFrame } from "../SidebarFrame";
 import Divider from "@mui/joy/Divider";
 import Box from "@mui/joy/Box";
 import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
-import ListItem from "@mui/joy/ListItem";
-import ListItemButton from "@mui/joy/ListItemButton";
-import ListItemContent from "@mui/joy/ListItemContent";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
@@ -18,21 +15,12 @@ import Button from "@mui/joy/Button";
 import { useNavigate } from "react-router";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
-import Toggler from "../Toggler";
-import { hocColors, hocFontFamily, hocObsidianPanelSx } from "../hocTheme";
+import { hocColors, hocDisplayFontFamily, hocSidebarImageButtonSx, hocSidebarSectionSx } from "../hocTheme";
 import FightControlToggler from "./FightControlToggler";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
-
-// Everything below the button row runs the full width of that row: from the button column's left rim —
-// which reaches back past the sidebar's padding to meet the board trim — to the damage table's right edge.
-// Left on the padding they came out a rim's width narrower than the panels above and read as a separate,
-// indented column.
-const fullBleedSx = {
-    ml: `-${TRIM_OVERHANG_PX}px`,
-    width: `calc(100% + ${TRIM_OVERHANG_PX}px)`,
-} as const;
+import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -49,88 +37,7 @@ const hocBronzeScrollSx = {
     "&::-webkit-scrollbar-thumb:hover": { backgroundColor: "rgba(255, 143, 0, 0.55)" },
 } as const;
 
-interface IDamageStatsTogglerProps {
-    unitStatsElements: React.ReactNode;
-}
-
-const damageIcon = new URL("../../../images/damage_icon.webp", import.meta.url).toString(); // [NEW]
-
-const DamageStatsToggler: React.FC<IDamageStatsTogglerProps> = ({
-    unitStatsElements,
-}: {
-    unitStatsElements: React.ReactNode;
-}) => (
-    /* @ts-ignore: style params */
-    <ListItem style={{ "--List-nestedInsetStart": "0px" }} nested>
-        <Toggler
-            renderToggle={({ open, setOpen }) => (
-                <ListItemButton
-                    onClick={() => setOpen(!open)}
-                    sx={{
-                        // Built as a CONTROL, not a list row, and specifically to match the button column
-                        // beside it: the SAME obsidian fill the toolbar shell uses, so the two surfaces are
-                        // literally the same colour rather than merely similar.
-                        ...hocObsidianPanelSx,
-                        // No outline of any kind. The toolbar column is a floating object over the board and
-                        // earns a bronze edge; this header sits ON the sidebar, where any edge — the outer
-                        // border or the shell's inset rim, which reads as a second hairline — turned into a
-                        // frame competing with everything around it. Only the drop shadow is kept, so the
-                        // panel still lifts off the leather, and the ember is left to the glyph and label.
-                        border: "none",
-                        boxShadow: "0 4px 14px rgba(0,0,0,.7)",
-                        py: 1.5,
-                        px: 1.5,
-                        my: 0.5,
-                        transition: "background-image 0.25s",
-                        "&:hover": {
-                            backgroundImage: "linear-gradient(180deg, rgba(28,28,26,.96), rgba(9,9,9,.96))",
-                        },
-                    }}
-                >
-                    <Box
-                        component="img"
-                        src={damageIcon} // Use the new icon
-                        sx={{
-                            width: "36px",
-                            height: "36px",
-                            filter: open ? "none" : "grayscale(100%)",
-                            opacity: open ? 1 : 0.7,
-                            mr: 1.5, // Slight spacing
-                        }}
-                    />
-                    <ListItemContent>
-                        <Typography
-                            level="title-sm"
-                            sx={{
-                                fontFamily: hocFontFamily,
-                                fontWeight: 700,
-                                letterSpacing: "0.09em",
-                                textTransform: "uppercase",
-                                color: open ? hocColors.orange : hocColors.parchment,
-                            }}
-                        >
-                            Damage
-                        </Typography>
-                    </ListItemContent>
-                    <Box
-                        component="img"
-                        src={images.tr_up}
-                        sx={{
-                            width: "12px",
-                            transform: open ? "none" : "rotate(180deg)",
-                            transition: "transform 0.2s",
-                            filter: open
-                                ? "brightness(0) saturate(100%) invert(58%) sepia(91%) saturate(3089%) hue-rotate(2deg) brightness(103%) contrast(104%)"
-                                : "none",
-                        }}
-                    />
-                </ListItemButton>
-            )}
-        >
-            <List sx={{ gap: 0, pt: 2 }}>{unitStatsElements}</List>
-        </Toggler>
-    </ListItem>
-);
+const damageIcon = images.damage_icon;
 
 export default function RightSideBar({
     gameStarted,
@@ -274,21 +181,32 @@ export default function RightSideBar({
                 width: `${barSize}px`,
                 top: 0,
                 right: 0,
-                p: 2,
+                // All combat blocks share one left edge. The compensation preserves the existing visual
+                // gap at the right rail and mirrors that gap on the board-facing side.
+                pl: gameStarted ? `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px` : "6px",
+                // Setup keeps its safer inset for wide accordion controls and scrollbars.
+                pr: gameStarted ? 0 : `${sidebarPlainFrameSideInsetPx(barSize)}px`,
+                pt: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
+                pb: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 // flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
                 // Board-facing edge, mirrored from LeftSideBar: widened to the gold trim's width and the
                 // background clipped to the padding box, so the leather ends where the trim begins.
-                borderLeft: `${BOARD_EDGE_TRIM_WIDTH_PX}px solid #0a0705`,
                 backgroundClip: "padding-box",
                 boxShadow: "inset 1px 0 0 rgba(120,104,80,.22), -6px 0 18px rgba(0,0,0,.7)",
-                overflowY: "auto", // Allow vertical scrolling
+                // Setup must always fit as one fixed command deck. Combat/ranked screens can still scroll
+                // when their logs or server-provided panels genuinely exceed the viewport.
+                overflowY: !gameStarted && !rankedPanel ? "hidden" : "auto",
                 overflowX: "hidden", // Prevent horizontal scrolling
+                // Reserve the scrollbar lane even while the short/collapsed layout does not need it.
+                // Otherwise opening an augment makes the scrollbar appear, steals width, and visibly
+                // jerks every 9-slice container frame and its right rail to the left.
+                scrollbarGutter: !gameStarted && !rankedPanel ? "auto" : "stable",
                 // Same ground as the left bar.
                 backgroundColor: SIDEBAR_BG,
-                backgroundImage: SIDEBAR_BG_IMAGE,
+                backgroundImage: RIGHT_SIDEBAR_BG_IMAGE,
                 backgroundSize: SIDEBAR_BG_SIZE,
                 backgroundRepeat: SIDEBAR_BG_REPEAT,
                 backgroundPosition: "right center",
@@ -306,6 +224,8 @@ export default function RightSideBar({
                     size="sm"
                     sx={{
                         gap: 1,
+                        px: 0,
+                        "--ListItem-paddingX": "0px",
                         // Claim the bar's full height so the bottom control strip can sit on the very edge.
                         flexGrow: 1,
                         minHeight: 0,
@@ -328,7 +248,6 @@ export default function RightSideBar({
                                 // the damage table has anything to gain from the bar's spare height, and
                                 // claiming it here is what pushed the log down the bar.
                                 alignItems: "flex-start",
-                                gap: 1,
                                 // No bottom margin of its own: the List already puts a gap between every
                                 // child, and carrying a second one here opened a band of bare leather
                                 // between the button column and the log. The log is measured on the first
@@ -340,9 +259,10 @@ export default function RightSideBar({
                                 // by where it ends.
                                 height: `${toolbarColumnHeightPx()}px`,
                                 flexShrink: 0,
+                                gap: "6px",
                             }}
                         >
-                            <DraggableToolbar flushToTrim />
+                            <DraggableToolbar />
                             {/* Shown from the first turn, not from the first hit: the table keeps its place
                                 and simply lists nothing until damage is dealt, instead of appearing out of
                                 nowhere mid-fight and pushing everything below it. */}
@@ -355,15 +275,45 @@ export default function RightSideBar({
                                     flex: "1 1 auto",
                                     minWidth: 0,
                                     alignSelf: "stretch",
-                                    position: "relative",
-                                    // Lifted by exactly as much as the button column is, so both start on
-                                    // the same line. Its bottom is pinned by the stretch, so this only ever
-                                    // adds height at the top.
-                                    mt: `-${TOOLBAR_TOP_LIFT_PX}px`,
+                                    ...hocSidebarSectionSx("board"),
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    p: 0,
                                 }}
                             >
-                                <Box sx={{ position: "absolute", inset: 0, overflowY: "auto", ...hocBronzeScrollSx }}>
-                                    <DamageStatsToggler unitStatsElements={unitStatsElements} />
+                                <Box
+                                    sx={{
+                                        flex: "0 0 48px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        px: "10px",
+                                        gap: "8px",
+                                        borderBottom: "1px solid rgba(112,75,42,.48)",
+                                    }}
+                                >
+                                    <Box component="img" src={damageIcon} sx={{ width: 43, height: 43 }} />
+                                    <Typography
+                                        sx={{
+                                            flex: 1,
+                                            textAlign: "center",
+                                            fontFamily: hocDisplayFontFamily,
+                                            fontSize: "1.139rem",
+                                            // The display face has no intermediate 575 file. Ask the browser
+                                            // to synthesize the next visible weight and reinforce it with a
+                                            // hairline stroke so the requested heavier title survives scaling.
+                                            fontWeight: 570,
+                                            fontSynthesis: "weight",
+                                            WebkitTextStroke: "0.0114em currentColor",
+                                            paintOrder: "stroke fill",
+                                            letterSpacing: "0.13em",
+                                            color: hocColors.gold,
+                                        }}
+                                    >
+                                        DAMAGE
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: "10px", ...hocBronzeScrollSx }}>
+                                    {unitStatsElements}
                                 </Box>
                             </Box>
                         </Box>
@@ -380,42 +330,80 @@ export default function RightSideBar({
                         <Box
                             ref={logBoxRef}
                             sx={{
-                                ...fullBleedSx,
                                 display: "flex",
                                 flexDirection: "column",
                                 minHeight: `${LOG_MIN_HEIGHT_PX}px`,
+                                ...hocSidebarSectionSx("team"),
+                                p: 0,
                                 ...(frozenLogHeight === null
                                     ? { flex: "1 1 auto" }
                                     : { flex: "0 0 auto", height: `${frozenLogHeight}px` }),
                             }}
                         >
-                            <FightLog text={attackText} />
+                            <Box
+                                sx={{
+                                    flex: "0 0 42px",
+                                    display: "grid",
+                                    gridTemplateColumns: "20px 1fr 20px",
+                                    alignItems: "center",
+                                    px: "8px",
+                                    borderBottom: "1px solid rgba(112,75,42,.48)",
+                                }}
+                            >
+                                <Box />
+                                <Typography
+                                    sx={{
+                                        textAlign: "center",
+                                        fontFamily: hocDisplayFontFamily,
+                                        fontSize: "0.989rem",
+                                        fontWeight: 500,
+                                        letterSpacing: "0.13em",
+                                        color: hocColors.gold,
+                                    }}
+                                >
+                                    BATTLE LOG
+                                </Typography>
+                                <Box
+                                    component="img"
+                                    src={images.tr_up}
+                                    sx={{ width: 11, transform: "rotate(180deg)" }}
+                                />
+                            </Box>
+                            <Box sx={{ flex: 1, minHeight: 0, display: "flex", p: "4px" }}>
+                                <FightLog text={attackText} />
+                            </Box>
                         </Box>
                     )}
-                    {rankedPanel && gameStarted && <Box sx={{ ...fullBleedSx, mt: 1 }}>{rankedPanel}</Box>}
+                    {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
                     {/* Sandbox has no ranked sheet to carry the control, and no forfeit either — there is no
                         opponent to award the win to. It still needs a way out of a running fight, so it gets
                         the same bare button, wired to leave rather than to concede. */}
                     {!rankedPanel && gameStarted && (
-                        <Box sx={{ ...fullBleedSx, mt: 1 }}>
+                        <Box sx={{ mt: 1 }}>
                             <Button
                                 variant="soft"
                                 color="danger"
                                 onClick={() => navigate("/play")}
-                                sx={{ width: "100%" }}
+                                sx={{
+                                    width: "100%",
+                                    ...hocSidebarImageButtonSx("danger"),
+                                    fontSize: "1.006rem",
+                                    fontWeight: 880,
+                                }}
                             >
                                 EXIT FIGHT
                             </Button>
                         </Box>
                     )}
-                    <Divider sx={fullBleedSx} />
+                    <Divider />
                     {showWallet && <WalletLinker />}
                     {/* The strip under EXIT FIGHT, in flow: fullscreen hard left, the music control hard
                         right. Both used to be pinned to the window's bottom-right corner on their own
                         layer, which floated them OVER the exit button instead of under it. */}
                     <Box
                         sx={{
-                            ...fullBleedSx,
+                            width: "100%",
+                            pl: gameStarted ? 0 : `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
@@ -430,6 +418,7 @@ export default function RightSideBar({
                     </Box>
                 </List>
             </Box>
+            <SidebarFrame side="right" width={barSize} height={windowSize.height} />
         </Sheet>
     );
 }

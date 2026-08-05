@@ -243,6 +243,9 @@ export class SandboxDrawer {
         if (!placementGraphics) return;
         const g = placementGraphics;
         g.clear();
+        // Reference placement borders are child sprites. Detach them together with the frame's vector
+        // geometry so hidden/changed placements never leave a stale glow on the board.
+        g.removeChildren();
         if (!fightProps.hasFightStarted()) {
             placementManager.draw(g, restrictToTeam);
             hoverManager.drawHoverPlacementCell(g);

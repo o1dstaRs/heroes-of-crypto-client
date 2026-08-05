@@ -1,4 +1,4 @@
-import { Graphics } from "pixi.js";
+import { Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import {
     GridSettings,
     SquarePlacement,
@@ -9,67 +9,31 @@ import {
     TeamVals,
 } from "@heroesofcrypto/common";
 
+import { images } from "../generated/image_imports";
+import { isFriendlyTeam } from "../scenes/teamColors";
+
 export interface IDrawablePlacement extends IPlacement {
     draw(gfx: Graphics): void;
 }
 
-let gSpawnFlowPhase = 0;
+let spawnFlowPhase = 0;
 export function setSpawnFlowPhase(phase: number): void {
-    gSpawnFlowPhase = phase;
+    spawnFlowPhase = phase;
 }
 
-/**
- * The caller advances the phase by `timeStep * 1.85`, and the simulation runs on a FIXED 1/240 step
- * (PixiGameManager.SIM_STEP) at roughly one slice per rendered frame — so the phase only gains about
- * 0.46 rad per second. Multiplied by a small factor the tiles took ~12s to complete a cycle, which reads
- * as a still image. These keep the motion visible but deliberately unhurried: a slow travelling ripple
- * with only a small secondary shimmer, rather than the previous rapid flashing rim.
- */
-const SPAWN_WAVE_RATE = 3.2;
-const SPAWN_TWINKLE_RATE = 5;
+const SPAWN_COLOR_FRIENDLY = 0x27e34f;
+const SPAWN_COLOR_HOSTILE = 0xff3b30;
+const REFERENCE_CELL_PX = 69;
 
-import { isFriendlyTeam } from "../scenes/teamColors";
-
-// Darker variants of the flag palette keep the team identity without glowing like UI chrome over the floor.
-const SPAWN_COLOR_FRIENDLY = 0x176f31;
-const SPAWN_COLOR_HOSTILE = 0x8a2d2d;
 const spawnColor = (team: TeamType): number => (isFriendlyTeam(team) ? SPAWN_COLOR_FRIENDLY : SPAWN_COLOR_HOSTILE);
 
-/**
- * A tile is a STATIC body with an ANIMATED rim: the pulse used to breathe across the whole square, which
- * made the entire zone throb, and the movement is easier to read when it is confined to the edges and the
- * colour under the units stays put. The rim is 5% of the lit body's width and sits just OUTSIDE it, so the
- * highlight as a whole claims more of the cell than the body on its own.
- */
-const SPAWN_RIM_WIDTH_FRACTION = 0.05;
-/**
- * How far the rim also reaches INWARD, over the body, as a share of its outward width. The band keeps the
- * outer edge it already had and thickens on the inside only, so widening it does not push the highlight
- * any closer to the neighbouring cell.
- */
-const SPAWN_RIM_INWARD_FRACTION = 0.6;
-/** Body opacity. The rim's alpha adds on top of this wherever the two overlap. */
-const SPAWN_BODY_ALPHA = 0.2;
-const SPAWN_RIM_ALPHA_MIN = 0.085;
-const SPAWN_RIM_ALPHA_MAX = 0.34;
-
 function hash2(x: number, y: number): number {
-    // deterministic hash in [0,1)
     const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
     return s - Math.floor(s);
 }
 
-/* -------------------- per-cell spawn highlight -------------------- */
-/**
- * Lights the deployment zone CELL BY CELL instead of washing one tinted sheet over the whole rectangle.
- *
- * The old version stacked 100 horizontal strips and jittered each strip's left and right edge along a noise
- * field, which is what produced the ragged tongues hanging off the sides of the zone — they reached well
- * past the squares a unit could actually occupy, so the highlight lied about where you could deploy. Here
- * every square the placement allows gets its own tile, inset so the board's own gutters stay unpainted, and
- * nothing is drawn outside the zone at all.
- */
-function drawSpawnCells(
+/** Draws only the subtle transparent tint inside legal cells. Border light comes exclusively from images. */
+function drawSpawnCellBackgrounds(
     gfx: Graphics,
     step: number,
     xLeft: number,
@@ -78,89 +42,218 @@ function drawSpawnCells(
     yUpper: number,
     baseColor: number,
 ): void {
-    if (step <= 0) {
-        return;
-    }
+    if (step <= 0) return;
 
-    const gap = Math.max(1, step * 0.08);
-    const side = step - gap * 2;
-    if (side <= 0) {
-        return;
-    }
+    const columns = Math.round((xRight - xLeft) / step);
+    const rows = Math.round((yUpper - yLower) / step);
+    const cellInset = Math.max(1.5, step * 0.075);
+    const cellSide = step - cellInset * 2;
+    const cellRadius = Math.max(2, step * 0.055);
 
-    const radius = Math.min(6, side * 0.14);
-    // The animated band, as a share of the lit tile's own width.
-    const rimWidth = Math.max(1, side * SPAWN_RIM_WIDTH_FRACTION);
-
-    // Half a step of slack on the loop bound: the placement rectangle is built from whole steps, so this
-    // only guards against float drift rather than admitting a partial column.
-    for (let y = yLower, row = 0; y < yUpper - step * 0.5; y += step, row++) {
-        for (let x = xLeft, col = 0; x < xRight - step * 0.5; x += step, col++) {
-            // Two beats layered so the field never looks like one metronome:
-            //   wave    — a slow ripple travelling diagonally across the zone (its phase shifts with col+row)
-            //   twinkle — a faster flicker on each tile's own random offset
-            const wave = Math.sin(gSpawnFlowPhase * SPAWN_WAVE_RATE - (col + row) * 0.55);
-            const twinkle = Math.sin(gSpawnFlowPhase * SPAWN_TWINKLE_RATE + hash2(col, row) * Math.PI * 2);
-            const pulse = 0.5 + 0.18 * wave + 0.08 * twinkle; // calm ~0.24..0.76
-
-            // The BODY of the tile is dead flat — one constant tone, no movement at all.
-            gfx.roundRect(x + gap, y + gap, side, side, radius).fill({
-                color: baseColor,
-                alpha: SPAWN_BODY_ALPHA,
-            });
-
-            // ...and all the life moves into a band straddling the body's edge: it reaches rimWidth OUTWARD
-            // into the margin and 60% of that INWARD over the body, so the two together cover more of the
-            // cell than the body alone. A stroke is centred on its path, so the path is pushed out by half
-            // the difference between the two reaches — that is what pins the outer edge in place while the
-            // band thickens inward. The outward reach still clears the gutter: the margin is 8% of a step
-            // and the band about 4% of it, so neighbouring cells never meet.
-            const rimInner = rimWidth * SPAWN_RIM_INWARD_FRACTION;
-            const rimTotal = rimWidth + rimInner;
-            const offset = (rimWidth - rimInner) * 0.5;
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < columns; col++) {
+            const variation = 0.88 + hash2(col + 17, row + 29) * 0.18;
             gfx.roundRect(
-                x + gap - offset,
-                y + gap - offset,
-                side + offset * 2,
-                side + offset * 2,
-                radius + offset,
-            ).stroke({
-                color: baseColor,
-                width: rimTotal,
-                alpha: SPAWN_RIM_ALPHA_MIN + (SPAWN_RIM_ALPHA_MAX - SPAWN_RIM_ALPHA_MIN) * pulse,
-            });
+                xLeft + col * step + cellInset,
+                yLower + row * step + cellInset,
+                cellSide,
+                cellSide,
+                cellRadius,
+            ).fill({ color: baseColor, alpha: 0.042 * variation });
         }
     }
 }
 
-/* -------------------- placements -------------------- */
+/** Adds a restrained animated halo centred on the four outer edges without changing internal grid lines. */
+function drawOuterContourGlow(
+    gfx: Graphics,
+    step: number,
+    xLeft: number,
+    yLower: number,
+    xRight: number,
+    yUpper: number,
+    baseColor: number,
+): void {
+    const width = xRight - xLeft;
+    const height = yUpper - yLower;
+    const cornerRadius = Math.max(3, step * 0.12);
+    // The four primary perimeter lines sit 15% below their previous opacity, so the deployment boundary
+    // still reads clearly without overpowering the cell grid underneath it.
+    const coreBaseAlpha = 0.16 * 0.85;
+
+    const waveAt = (distance: number, edgePhase: number, layerPhase: number): number => {
+        const cellDistance = distance / step;
+        const slowWave = Math.sin((cellDistance * Math.PI * 2) / 3.4 + spawnFlowPhase * 2.8 + edgePhase + layerPhase);
+        const detailWave = Math.sin(
+            (cellDistance * Math.PI * 2) / 1.55 - spawnFlowPhase * 1.65 + edgePhase * 1.7 - layerPhase,
+        );
+        return (slowWave + detailWave * 0.34) / 1.34;
+    };
+
+    const drawWavyAura = (strokeWidth: number, alpha: number, amplitude: number, layerPhase: number): void => {
+        const horizontalLength = width;
+        const verticalLength = height;
+        const horizontalSegments = Math.max(12, Math.ceil(horizontalLength / Math.max(5, step * 0.12)));
+        const verticalSegments = Math.max(8, Math.ceil(verticalLength / Math.max(5, step * 0.12)));
+
+        const strokeHorizontal = (isBottom: boolean, edgePhase: number): void => {
+            for (let segment = 0; segment <= horizontalSegments; segment++) {
+                const distance = (horizontalLength * segment) / horizontalSegments;
+                const x = xLeft + distance;
+                const wave = waveAt(distance, edgePhase, layerPhase) * amplitude;
+                const y = isBottom ? yUpper - wave : yLower + wave;
+                if (segment === 0) gfx.moveTo(x, y);
+                else gfx.lineTo(x, y);
+            }
+            gfx.stroke({ color: baseColor, width: strokeWidth, alpha });
+        };
+
+        const strokeVertical = (isRight: boolean, edgePhase: number): void => {
+            for (let segment = 0; segment <= verticalSegments; segment++) {
+                const distance = (verticalLength * segment) / verticalSegments;
+                const y = yLower + distance;
+                const wave = waveAt(distance, edgePhase, layerPhase) * amplitude;
+                const x = isRight ? xRight - wave : xLeft + wave;
+                if (segment === 0) gfx.moveTo(x, y);
+                else gfx.lineTo(x, y);
+            }
+            gfx.stroke({ color: baseColor, width: strokeWidth, alpha });
+        };
+
+        strokeHorizontal(false, 0.15);
+        strokeHorizontal(true, 2.35);
+        strokeVertical(false, 1.2);
+        strokeVertical(true, 3.55);
+    };
+
+    const drawInsideStroke = (strokeWidth: number, alpha: number): void => {
+        const inset = strokeWidth * 0.5;
+        gfx.roundRect(
+            xLeft + inset,
+            yLower + inset,
+            width - strokeWidth,
+            height - strokeWidth,
+            Math.max(1, cornerRadius - inset),
+        ).stroke({ color: baseColor, width: strokeWidth, alpha });
+    };
+
+    // Only the background aura moves. Its centre path follows the exact outer boundary, distributing the
+    // unchanged glow envelope equally inside and outside the straight line. The bright core stays flat.
+    drawWavyAura(Math.max(9.36, step * 0.234), 0.0338, step * 0.055, 0);
+    drawWavyAura(Math.max(4.68, step * 0.12285), 0.078, step * 0.034, 1.1);
+    drawInsideStroke(Math.max(1.15, step * 0.022), coreBaseAlpha * 1.1);
+}
+
+/**
+ * Every field size is a literal crop of one pre-baked 16×6 master. This keeps line alpha and width identical
+ * across placement upgrades while the texture frame provides a hard clip at the legal field boundary.
+ */
+function attachReferenceGrid(
+    gfx: Graphics,
+    existingGrid: Sprite | undefined,
+    step: number,
+    xLeft: number,
+    yLower: number,
+    xRight: number,
+    yUpper: number,
+    baseColor: number,
+    cropColumn: number,
+    cropRow: number,
+): Sprite {
+    const columns = Math.round((xRight - xLeft) / step);
+    const rows = Math.round((yUpper - yLower) / step);
+    const grid =
+        existingGrid ??
+        new Sprite(
+            new Texture({
+                source: Texture.from(images.deployment_grid_glow_master_16x6).source,
+                frame: new Rectangle(
+                    cropColumn * REFERENCE_CELL_PX,
+                    cropRow * REFERENCE_CELL_PX,
+                    columns * REFERENCE_CELL_PX,
+                    rows * REFERENCE_CELL_PX,
+                ),
+            }),
+        );
+
+    grid.position.set(xLeft, yLower);
+    grid.scale.set(step / REFERENCE_CELL_PX);
+    grid.tint = baseColor;
+    grid.alpha = 0.96;
+    grid.blendMode = "add";
+
+    if (grid.parent !== gfx) gfx.addChild(grid);
+    return grid;
+}
+
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
-    /** The grid's own cell pitch — the tiles are laid out on it, so no separate geometry is cached. */
     private readonly step: number;
+    private readonly cropColumn: number;
+    private readonly cropRow: number;
+    private referenceGrid?: Sprite;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
         this.step = gs.getStep();
+        const isLower = pos === PlacementPositionType.LOWER_RIGHT || pos === PlacementPositionType.LOWER_LEFT;
+        const masterYLower = isLower ? gs.getMinY() : gs.getMaxY() - 6 * this.step;
+        this.cropColumn = Math.round((this.xLeft - gs.getMinX()) / this.step);
+        this.cropRow = Math.round((this.yLower - masterYLower) / this.step);
     }
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
         const fillColor = spawnColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
-        drawSpawnCells(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+
+        drawSpawnCellBackgrounds(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+        drawOuterContourGlow(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+        this.referenceGrid = attachReferenceGrid(
+            gfx,
+            this.referenceGrid,
+            this.step,
+            this.xLeft,
+            this.yLower,
+            this.xRight,
+            this.yUpper,
+            fillColor,
+            this.cropColumn,
+            this.cropRow,
+        );
     }
 }
 
 export class DrawableRectanglePlacement extends RectanglePlacement implements IDrawablePlacement {
     private readonly step: number;
+    private readonly cropColumn: number;
+    private readonly cropRow: number;
+    private referenceGrid?: Sprite;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
         this.step = gs.getStep();
+        const isLower = pos === PlacementPositionType.LOWER_RIGHT || pos === PlacementPositionType.LOWER_LEFT;
+        const masterYLower = isLower ? gs.getMinY() : gs.getMaxY() - 6 * this.step;
+        this.cropColumn = Math.round((this.xLeft - gs.getMinX()) / this.step);
+        this.cropRow = Math.round((this.yLower - masterYLower) / this.step);
     }
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
         const fillColor = spawnColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
-        drawSpawnCells(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+
+        drawSpawnCellBackgrounds(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+        drawOuterContourGlow(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+        this.referenceGrid = attachReferenceGrid(
+            gfx,
+            this.referenceGrid,
+            this.step,
+            this.xLeft,
+            this.yLower,
+            this.xRight,
+            this.yUpper,
+            fillColor,
+            this.cropColumn,
+            this.cropRow,
+        );
     }
 }

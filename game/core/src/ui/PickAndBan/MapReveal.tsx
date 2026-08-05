@@ -28,13 +28,13 @@ const REVEAL_KEYFRAMES = `
 const MAP_FLOOR_KEY: Record<string, string> = {
     Standard: "background_stone_tiles_sinister_16x16",
     Lava: "background_stone_tiles_sinister_16x16",
-    Mountains: "background_stone_tiles_sinister_16x16",
+    Cemetery: "background_stone_tiles_sinister_16x16",
     Water: "background_stone_tiles_sinister_16x16",
 };
 
 const MAP_CENTER_OVERLAY: Record<string, string | undefined> = {
     Lava: "lava_256",
-    Mountains: "mountain_432_412",
+    Cemetery: "mountain_432_412",
     Water: "water_256",
 };
 

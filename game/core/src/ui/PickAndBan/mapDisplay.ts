@@ -28,10 +28,10 @@ export const getMapDisplay = (mapType: number): IMapDisplay | undefined => {
             };
         case GridVals.BLOCK_CENTER:
             return {
-                name: "Mountains",
+                name: "Cemetery",
                 imageKey: "mountain_432_412",
                 accent: "#d8b073",
-                blurb: "Two mountains flank a narrow central corridor.",
+                blurb: "Tombstones crowd a narrow central corridor.",
             };
         case GridVals.WATER_CENTER:
             return {

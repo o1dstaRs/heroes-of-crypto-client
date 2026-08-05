@@ -216,7 +216,7 @@ export const FightLog = ({ text }: { text: string }) => {
                     overflowX: "hidden",
                     // Contain wheel scrolling here so it doesn't bubble to the sidebar when over the log.
                     overscrollBehavior: "contain",
-                    borderRadius: "8px",
+                    borderRadius: 0,
                     border: "1px solid rgba(255, 143, 0, 0.32)",
                     // Dark ember well so the warm text glows against it.
                     background: "linear-gradient(180deg, rgba(20, 12, 6, 0.66) 0%, rgba(10, 7, 4, 0.78) 100%)",

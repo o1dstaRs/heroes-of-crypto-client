@@ -1,5 +1,5 @@
 // game/core/src/overlays/UnitsOverlay.ts
-import { Application, Circle, Container, Rectangle, Text, TextStyle, Texture, Graphics, Ticker } from "pixi.js";
+import { Application, Circle, Container, Rectangle, Text, TextStyle, Texture, Graphics, Sprite, Ticker } from "pixi.js";
 
 import { unitToTextureName, TextureType } from "../pixi/PixiUnitsFactory";
 import { UnitChip } from "./UnitChip";
@@ -19,24 +19,25 @@ import {
 } from "@heroesofcrypto/common";
 import type { UnitLevelId } from "@heroesofcrypto/common";
 import { BASE_UNIT_STACK_TO_SPAWN_EXP } from "@/statics";
+import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 
 /** The app's own stack — same as style.scss's <body> rule and the board labels in RenderableUnit. */
-const OVERLAY_FONT_FAMILY = '"Open Sans", Verdana, sans-serif';
+const OVERLAY_FONT_FAMILY = HOC_NUMERIC_FONT_FAMILY;
 /** Placeholder size only; layout() sets the real one from the row height on every resize. */
 const OVERLAY_LEVEL_LABEL_BASE_SIZE = 24;
+/** L1..L4 labels are intentionally 13% larger than the original plate-relative sizing. */
+const LEVEL_LABEL_SIZE_FACTOR = 1.13;
+/** Distance between the L and its digit, expressed in em so it follows responsive label sizing. */
+const LEVEL_LABEL_LETTER_SPACING_FACTOR = 0.18;
 
 /** Collapse-toggle diameter, as a fraction of a board cell. */
 const TOGGLE_BUTTON_CELL_FRACTION = 0.64;
-/**
- * The toggle states its own effect by colour: green while the panel is open, red once it is collapsed — the
- * same green and ember red the sidebar's Start and Delete buttons use, so the palette stays one palette. The
- * chevron already turns 180 degrees between the two, but on a small disc against a dark board that read as
- * ambiguous on its own.
- */
-const TOGGLE_OPEN_COLOR = 0x46d160;
-const TOGGLE_OPEN_COLOR_HOVER = 0x7ce894;
-const TOGGLE_CLOSED_COLOR = 0xff5a3f;
-const TOGGLE_CLOSED_COLOR_HOVER = 0xff8a72;
+/** Muted moss for the open panel; ember red makes the enlarged closed control easy to find on the board. */
+const TOGGLE_OPEN_COLOR = 0x4f813f;
+const TOGGLE_OPEN_COLOR_HOVER = 0x73ad59;
+const TOGGLE_CLOSED_COLOR = 0xa63b32;
+const TOGGLE_CLOSED_COLOR_HOVER = 0xd45a4d;
+const TOGGLE_CLOSED_SCALE = 1.3;
 
 /** No faction line runs longer than this; past three the chips shrink faster than the line buys room. */
 const MAX_CHIPS_PER_ROW = 3;
@@ -73,7 +74,47 @@ function bestChipFit(n: number, boxW: number, boxH: number): { side: number; col
 
 type GetTexture = (key: string) => Texture | undefined;
 type LevelBucket = Readonly<{ label: string; count: number; unitSize: 1 | 2 }>;
-type LevelTab = Readonly<{ level: number; cont: Container; plate: Graphics; label: Text }>;
+type LevelTab = {
+    level: number;
+    cont: Container;
+    glow: Graphics;
+    plate: Graphics;
+    hoverLight: Graphics;
+    label: Text;
+    hovered: boolean;
+};
+
+/** Bevelled level plate from the sandbox handoff, with identical clipped corners on both sides. */
+const levelPlatePath = (width: number, height: number, pointer: number): number[] => {
+    const halfW = width * 0.5;
+    const halfH = height * 0.5;
+    const cut = Math.min(height * 0.16, width * 0.11);
+    const shoulder = Math.min(height * 0.18, halfH - cut);
+    return [
+        -halfW + cut,
+        -halfH,
+        halfW - cut,
+        -halfH,
+        halfW,
+        -halfH + cut,
+        halfW,
+        halfH - cut,
+        halfW - cut,
+        halfH,
+        -halfW + cut,
+        halfH,
+        -halfW,
+        halfH - cut,
+        -halfW,
+        shoulder,
+        -halfW - pointer,
+        0,
+        -halfW,
+        -shoulder,
+        -halfW,
+        -halfH + cut,
+    ];
+};
 
 /**
  * Pixi's `visible` flag is local to each display object. A child remains `visible === true` even when a
@@ -108,7 +149,9 @@ export class UnitsOverlay {
     private toggleGlow = new Graphics();
     private toggleGlowPhase = 0;
     private toggleGlowStep?: (ticker: Ticker) => void;
-    /** The button's frame, drawn in the panel palette instead of the old ornate `arrow_button_*` art. */
+    /** Generated rune-medallion base; neutral metal is tinted green/open or red/closed at runtime. */
+    private toggleMedallion = new Sprite(Texture.EMPTY);
+    /** Vector fallback if the generated medallion texture has not loaded. */
     private toggleFrame = new Graphics();
     /** The chevron inside that frame. */
     private toggleArrow = new Graphics();
@@ -173,21 +216,33 @@ export class UnitsOverlay {
         this.toggleBtn.eventMode = "static";
         this.toggleBtn.cursor = "pointer";
 
-        this.toggleBtn.addChild(this.toggleGlow, this.toggleFrame, this.toggleArrow);
+        const toggleMedallionTexture = this.getTex("panel_toggle_medallion");
+        if (toggleMedallionTexture) {
+            this.toggleMedallion.texture = toggleMedallionTexture;
+        }
+        this.toggleMedallion.anchor.set(0.5);
+        this.toggleMedallion.visible = !!toggleMedallionTexture;
+        this.toggleBtn.addChild(this.toggleGlow, this.toggleMedallion, this.toggleFrame, this.toggleArrow);
 
-        // A slow breath rather than a fixed halo: at rest the button is easy to miss against the panel, and
-        // a moving highlight costs one alpha write per frame.
+        // A visible but restrained breath in the medallion's circular halo.
         this.toggleGlowStep = (ticker: Ticker) => {
             this.toggleGlowPhase += ticker.deltaMS / 1000;
-            // Swings nearly the full range: the halo's own ring alphas are already fractional, so a timid
-            // envelope on top of them left the pulse invisible.
-            this.toggleGlow.alpha = 0.62 + 0.38 * Math.sin(this.toggleGlowPhase * 1.9);
-            // Collapsed, the panel is gone and this disc is the only way back to it, so the chevron beats as
+            this.toggleGlow.alpha = 0.54 + 0.12 * Math.sin(this.toggleGlowPhase * 1.65);
+            // Collapsed, the panel is gone and this medallion is the only way back to it, so the chevron beats as
             // well as the halo. Open it holds still — a twitching arrow next to a full grid of chips is just
             // one more thing moving. Faster than the halo so the two read as separate, and scale only: the
             // rotation on this same object is the open/closed flip and must not be fought over.
             const beat = this.openTarget ? 1 : 1 + 0.14 * Math.sin(this.toggleGlowPhase * 3.6);
             this.toggleArrow.scale.set(beat);
+
+            // Gold is reserved for the active creature level. A restrained independent breath keeps the
+            // chosen plate alive without making its label or dark fill blink.
+            const levelPulse = 0.5 + 0.5 * Math.sin(this.toggleGlowPhase * 2.35 + 0.7);
+            for (const tab of this.levelTabs) {
+                const selected = tab.level === this.selectedLevel;
+                tab.glow.alpha = selected ? 0.34 + levelPulse * 0.28 : 0;
+                tab.glow.scale.set(selected ? 1 + levelPulse * 0.018 : 1);
+            }
         };
         this.app.ticker.add(this.toggleGlowStep);
 
@@ -203,9 +258,8 @@ export class UnitsOverlay {
         this.app.stage.addChild(this.container);
     }
     /**
-     * Draws the collapse toggle in the same language as the sidebar's action buttons — a dark panel with a
-     * thin ember border — instead of the ornate `arrow_button_active/inactive` plates it used to blit. The
-     * chevron points LEFT at rotation 0 (overlay open) and the container is flipped 180° when closed.
+     * Draw the generated dark-metal rune medallion in the overlay state colour. The chevron points LEFT at
+     * rotation 0 (overlay open) and flips 180° when closed, while the medallion itself remains upright.
      */
     private updateButtonVisuals(isHovered: boolean): void {
         const r = this.btnRadius;
@@ -220,37 +274,53 @@ export class UnitsOverlay {
             : isHovered
               ? TOGGLE_CLOSED_COLOR_HOVER
               : TOGGLE_CLOSED_COLOR;
+        const outerRing = this.openTarget ? 0x172719 : 0x321312;
+        const innerRing = this.openTarget ? 0x203b22 : 0x55201d;
 
-        // Halo: a few widening rings at falling alpha stand in for a blur, which Pixi Graphics has no cheap
-        // equivalent of. The ticker fades the whole thing in and out.
+        // Once the panel has left the screen this is its only return control. Grow the complete medallion —
+        // frame, arrow, halo and Pixi hit area — by exactly 30%; the open state remains at its original size.
+        this.toggleBtn.scale.set(this.openTarget ? 1 : TOGGLE_CLOSED_SCALE);
+
+        // Compact halo follows the medallion silhouette. It remains green while the panel is visible and turns
+        // red together with the enlarged button when the panel is hidden.
         this.toggleGlow.clear();
-        for (let ring = 0; ring < 5; ring++) {
-            const t = ring / 4;
+        for (let ring = 0; ring < 3; ring++) {
+            const t = ring / 2;
             this.toggleGlow
-                .circle(0, 0, r * (1.0 + t * 0.6))
-                .stroke({ color: accent, width: size * 0.13, alpha: (1 - t) * (isHovered ? 0.95 : 0.7) });
+                .circle(0, 0, r * (0.98 + t * 0.24))
+                .stroke({ color: accent, width: size * 0.075, alpha: (1 - t) * (isHovered ? 0.76 : 0.56) });
         }
 
-        // A medallion rather than a plate: the overlay it belongs to is a grid of round creature chips, so a
-        // disc reads as part of that furniture instead of as a stray tile. Double ring — a bright inner edge
-        // over a dimmer outer one — is the same trick the chip frames use to lift off a dark panel without
-        // needing an ornate border texture.
-        this.toggleFrame
-            .clear()
-            .circle(0, 0, r * 0.96)
-            .fill({ color: 0x0e0905, alpha: isHovered ? 0.97 : 0.9 })
-            .circle(0, 0, r * 0.96)
-            .stroke({ color: accent, width: Math.max(1, size * 0.045), alpha: isHovered ? 1 : 0.65 })
-            .circle(0, 0, r * 0.76)
-            .stroke({ color: accent, width: Math.max(1, size * 0.022), alpha: isHovered ? 0.55 : 0.28 });
+        if (this.toggleMedallion.visible) {
+            this.toggleMedallion.width = size;
+            this.toggleMedallion.height = size;
+            this.toggleMedallion.tint = accent;
+            this.toggleFrame.clear();
+        } else {
+            // Keep the control usable if an old cached image manifest omits the new texture.
+            this.toggleFrame
+                .clear()
+                .circle(0, 0, r * 0.96)
+                .fill({ color: 0x030604, alpha: 0.98 })
+                .stroke({ color: outerRing, width: Math.max(2, size * 0.1), alpha: 0.98 })
+                .circle(0, 0, r * 0.8)
+                .stroke({ color: accent, width: Math.max(1, size * 0.046), alpha: isHovered ? 0.9 : 0.62 })
+                .circle(0, 0, r * 0.68)
+                .fill({ color: 0x050806, alpha: 1 })
+                .stroke({ color: innerRing, width: Math.max(1, size * 0.025), alpha: isHovered ? 0.78 : 0.52 });
+        }
 
-        const a = r * 0.4;
+        const a = r * 0.34;
         this.toggleArrow
             .clear()
             .moveTo(a * 0.62, -a)
             .lineTo(-a * 0.66, 0)
             .lineTo(a * 0.62, a)
-            .stroke({ color: accent, width: Math.max(2, size * 0.095), join: "round", cap: "round" });
+            .stroke({ color: 0x010201, width: Math.max(3, size * 0.13), join: "round", cap: "round" })
+            .moveTo(a * 0.62, -a)
+            .lineTo(-a * 0.66, 0)
+            .lineTo(a * 0.62, a)
+            .stroke({ color: accent, width: Math.max(2, size * 0.07), join: "round", cap: "round" });
     }
     public handlePointerDown(globalX: number, globalY: number): boolean {
         const localOverlay = this.container.toLocal({ x: globalX, y: globalY });
@@ -378,7 +448,9 @@ export class UnitsOverlay {
         // full "LEVEL 1" wording only fitted when it was a banner spanning a whole column.
         for (let i = 0; i < this.levelBuckets.length; i++) {
             const cont = new Container();
+            const glow = new Graphics();
             const plate = new Graphics();
+            const hoverLight = new Graphics();
             const label = new Text({
                 text: `L${i + 1}`,
                 style: new TextStyle({
@@ -390,11 +462,35 @@ export class UnitsOverlay {
                 }),
             });
             label.anchor.set(0.5);
+            glow.blendMode = "add";
+            hoverLight.alpha = 0;
             cont.eventMode = "static";
             cont.cursor = "pointer";
-            cont.addChild(plate, label);
+            const tab: LevelTab = {
+                level: i + 1,
+                cont,
+                glow,
+                plate,
+                hoverLight,
+                label,
+                hovered: false,
+            };
+            // Only the glyphs and a restrained inner light react on hover: the plate and its spacing remain
+            // perfectly still. Eleven percent is readable without making the rail jump.
+            cont.on("pointerenter", () => {
+                tab.hovered = true;
+                const interactive = tab.level !== this.selectedLevel;
+                label.scale.set(interactive ? 1.11 : 1);
+                hoverLight.alpha = interactive ? 1 : 0;
+            });
+            cont.on("pointerleave", () => {
+                tab.hovered = false;
+                label.scale.set(1);
+                hoverLight.alpha = 0;
+            });
+            cont.addChild(glow, plate, hoverLight, label);
             this.levelRail.addChild(cont);
-            this.levelTabs.push({ level: i + 1, cont, plate, label });
+            this.levelTabs.push(tab);
         }
 
         // One row per LEVEL; inside it one bucket per FACTION.
@@ -444,6 +540,11 @@ export class UnitsOverlay {
         // picked a creature from the newly expanded row.
         this.clearSelection(true);
         this.selectedLevel = level;
+        for (const tab of this.levelTabs) {
+            tab.hovered = false;
+            tab.label.scale.set(1);
+            tab.hoverLight.alpha = 0;
+        }
         this.onResize(this.app.renderer.width, this.app.renderer.height);
     }
     public onResize(stageW: number, stageH: number): void {
@@ -475,7 +576,7 @@ export class UnitsOverlay {
         // runs the full four cells and the chips grow by about a third.
         const toggleSize = cell * TOGGLE_BUTTON_CELL_FRACTION;
         this.backdrop.clear();
-        this.backdrop.rect(0, 0, this.overlayW, this.overlayH).fill({ color: 0x000000, alpha: 0.8 });
+        this.backdrop.rect(0, 0, this.overlayW, this.overlayH).fill({ color: 0x000000, alpha: 0.55 });
 
         // A frame around the whole creature grid, with hairlines dividing the faction blocks inside it.
         // Without the dividers one faction's clump runs into the next; without the frame the grid has no
@@ -520,20 +621,52 @@ export class UnitsOverlay {
         const blockX = (index: number) => gridX + (index % blockCols) * blockW;
         const blockY = (index: number) => gridY + Math.floor(index / blockCols) * blockH;
 
+        // Dividers should separate the creature groups, not cut through the panel's empty padding. Derive
+        // their ends from the same fit calculation used below to place the chips, so switching level or
+        // changing the block tiling keeps every line flush with the outer edges of the visible icons.
+        const blockIconBounds = bucketCounts.map((n, index) => {
+            if (!n) return undefined;
+            const { side: spacing, cols } = bestChipFit(n, blockW * BLOCK_FILL, blockH * BLOCK_FILL);
+            const rows = Math.ceil(n / cols);
+            const iconSide = spacing * 0.9;
+            const centreX = blockX(index) + blockW * 0.5;
+            const centreY = blockY(index) + blockH * 0.5;
+            return {
+                left: centreX - ((cols - 1) * spacing + iconSide) * 0.5,
+                right: centreX + ((cols - 1) * spacing + iconSide) * 0.5,
+                top: centreY - ((rows - 1) * spacing + iconSide) * 0.5,
+                bottom: centreY + ((rows - 1) * spacing + iconSide) * 0.5,
+            };
+        });
+
         this.backdrop
             .roundRect(gridX, gridY, gridW, gridH, Math.min(9, cell * 0.14))
             .stroke({ color: 0xdcb158, width: hairline, alpha: 0.34 });
 
-        for (let i = 1; i < blockCols; i++) {
-            this.backdrop
-                .moveTo(gridX + i * blockW, gridY)
-                .lineTo(gridX + i * blockW, gridY + gridH)
-                .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
+        for (let row = 0; row < blockRows; row++) {
+            const rowBounds = blockIconBounds
+                .slice(row * blockCols, (row + 1) * blockCols)
+                .filter((bounds) => bounds !== undefined);
+            if (!rowBounds.length) continue;
+            const top = Math.min(...rowBounds.map((bounds) => bounds.top));
+            const bottom = Math.max(...rowBounds.map((bounds) => bounds.bottom));
+            for (let col = 1; col < blockCols; col++) {
+                this.backdrop
+                    .moveTo(gridX + col * blockW, top)
+                    .lineTo(gridX + col * blockW, bottom)
+                    .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
+            }
         }
-        for (let i = 1; i < blockRows; i++) {
+        for (let row = 1; row < blockRows; row++) {
+            const adjacentBounds = blockIconBounds
+                .slice((row - 1) * blockCols, (row + 1) * blockCols)
+                .filter((bounds) => bounds !== undefined);
+            if (!adjacentBounds.length) continue;
+            const left = Math.min(...adjacentBounds.map((bounds) => bounds.left));
+            const right = Math.max(...adjacentBounds.map((bounds) => bounds.right));
             this.backdrop
-                .moveTo(gridX, gridY + i * blockH)
-                .lineTo(gridX + gridW, gridY + i * blockH)
+                .moveTo(left, gridY + row * blockH)
+                .lineTo(right, gridY + row * blockH)
                 .stroke({ color: 0xdcb158, width: hairline, alpha: 0.26 });
         }
 
@@ -552,9 +685,9 @@ export class UnitsOverlay {
         // between neighbours, then centred: giving each tab an equal slot instead made the gaps depend on
         // how much smaller its plate was than the slot, so the selected (taller) tab appeared to push its
         // neighbours away while L1/L2 sat tight against each other.
-        const selectedTabH = Math.min(railH * 0.3, cell * 0.9);
-        const plainTabH = Math.min(railH * 0.17, cell * 0.5);
-        const tabGap = Math.min(railH * 0.055, cell * 0.18);
+        const selectedTabH = Math.min(railH * 0.25, cell * 0.78);
+        const plainTabH = Math.min(railH * 0.19, cell * 0.63);
+        const tabGap = Math.min(railH * 0.04, cell * 0.12);
         const tabsTotalH =
             selectedTabH + plainTabH * (this.levelBuckets.length - 1) + tabGap * (this.levelBuckets.length - 1);
         let tabCursorY = railTop + (railH - tabsTotalH) * 0.5;
@@ -564,19 +697,45 @@ export class UnitsOverlay {
             const plateH = isSelected ? selectedTabH : plainTabH;
             // Capped against the CELL, not the rail: centred on railCentreX a rail-width plate would hang
             // off the panel's left edge.
-            const plateW = Math.min(this.leftColW * (isSelected ? 0.78 : 0.6), cell * (isSelected ? 0.92 : 0.72));
-            const accent = isSelected ? 0xff8f00 : 0xdcb158;
+            const plateW = Math.min(this.leftColW * (isSelected ? 0.8 : 0.72), cell * (isSelected ? 0.94 : 0.84));
+            // The former selected-state pointer protruded only from the left edge. Keeping this at zero makes
+            // the chosen plate use the same clipped geometry on both sides.
+            const pointer = 0;
+            const path = levelPlatePath(plateW, plateH, pointer);
+            const accent = isSelected ? 0xffa45c : 0x81684a;
 
             tab.cont.position.set(railCentreX, tabCursorY + plateH * 0.5);
             tabCursorY += plateH + tabGap;
+            tab.glow
+                .clear()
+                .poly(path)
+                .stroke({ color: 0xff8f32, width: Math.max(2, plateH * 0.15), alpha: isSelected ? 0.5 : 0 });
             tab.plate
                 .clear()
-                .roundRect(-plateW * 0.5, -plateH * 0.5, plateW, plateH, Math.min(6, plateH * 0.28))
-                .fill({ color: isSelected ? 0x2a1705 : 0x0e0905, alpha: isSelected ? 0.95 : 0.75 })
-                .stroke({ color: accent, width: Math.max(1, plateH * 0.06), alpha: isSelected ? 1 : 0.45 });
-            tab.label.style.fontSize = Math.max(9, Math.round(plateH * 0.46));
-            tab.label.style.fill = accent;
-            tab.cont.hitArea = new Rectangle(-plateW * 0.5, -plateH * 0.5, plateW, plateH);
+                .poly(path)
+                .fill({ color: isSelected ? 0x241308 : 0x090806, alpha: isSelected ? 0.98 : 0.92 })
+                .stroke({ color: accent, width: Math.max(1, plateH * 0.065), alpha: isSelected ? 1 : 0.72 })
+                .poly(levelPlatePath(plateW * 0.88, plateH * 0.78, pointer * 0.54))
+                .stroke({ color: isSelected ? 0xffd29a : 0x443829, width: Math.max(1, plateH * 0.025), alpha: 0.5 });
+            if (!isSelected) {
+                const rivetX = plateW * 0.38;
+                const rivetY = plateH * 0.32;
+                for (const x of [-rivetX, rivetX]) {
+                    for (const y of [-rivetY, rivetY]) {
+                        tab.plate.circle(x, y, Math.max(0.75, plateH * 0.025)).fill({ color: 0x6a563e, alpha: 0.56 });
+                    }
+                }
+            }
+            tab.hoverLight
+                .clear()
+                .poly(levelPlatePath(plateW * 0.82, plateH * 0.7, 0))
+                .fill({ color: 0xe0bd8c, alpha: 0.11 });
+            tab.hoverLight.alpha = tab.hovered && !isSelected ? 1 : 0;
+            const labelFontSize = Math.round(Math.max(10, plateH * 0.5) * LEVEL_LABEL_SIZE_FACTOR);
+            tab.label.style.fontSize = labelFontSize;
+            tab.label.style.letterSpacing = labelFontSize * LEVEL_LABEL_LETTER_SPACING_FACTOR;
+            tab.label.style.fill = isSelected ? 0xffd49a : 0xd2b58c;
+            tab.cont.hitArea = new Rectangle(-plateW * 0.5 - pointer, -plateH * 0.5, plateW + pointer, plateH);
         }
 
         // --- Creature buckets: the open level fills the grid, full height ---

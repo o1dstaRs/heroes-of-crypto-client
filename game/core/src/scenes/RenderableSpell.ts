@@ -4,7 +4,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
+import { Container, Graphics, Rectangle, Sprite as PixiSprite, Text, TextStyle, Texture } from "pixi.js";
 import {
     AllAbilities,
     calculateSpellDamage,
@@ -17,7 +17,9 @@ import {
     ISpellParams,
     Spell,
     SpellMultiplierType,
+    ToFactionType,
 } from "@heroesofcrypto/common";
+import { HOC_NUMERIC_GEORGIA_FONT_FAMILY } from "../fontFamilies";
 
 export enum BookPosition {
     ONE = 1,
@@ -41,13 +43,31 @@ const BOOK_POSITION_ROW_STEP = 230;
 const BOOK_CELL_SIZE = 220;
 const BOOK_CELL_OFFSET_X = 8; // nudge the scroll-like spell cell (drawn under each spell) right...
 const BOOK_CELL_OFFSET_Y = -9; // ...and up a little
-const BOOK_SPELL_SIZE = 140;
-const BOOK_ICON_OFFSET_X = 40;
-const BOOK_ICON_OFFSET_Y = 28;
+// The artwork is 6% larger than the original 120px square. Shift it by half the growth so its
+// visual centre stays in exactly the same place inside the ornate frame.
+const BOOK_SPELL_SIZE = 127.2;
+const BOOK_ICON_OFFSET_X = 71.4;
+const BOOK_ICON_OFFSET_Y = 34.4;
 const BOOK_TITLE_MARGIN_X = 11;
-const BOOK_TITLE_MARGIN_BOTTOM = 8;
-const BOOK_STACK_BAR_X = 14;
-const AMOUNT_BADGE_HEIGHT = 38;
+const BOOK_TITLE_MARGIN_BOTTOM = 18;
+// Literal stack rail cropped from the approved variant-2 mock-up. Its proportions and the normalized
+// fill coordinates below come directly from that source image, so dynamic pips sit inside the five
+// antique slots instead of approximating them with vector rectangles.
+const BOOK_STACK_RAIL_X = 44;
+const BOOK_STACK_RAIL_Y = 36;
+const BOOK_STACK_RAIL_HEIGHT = 124;
+const BOOK_STACK_RAIL_WIDTH = (BOOK_STACK_RAIL_HEIGHT * 75) / 490;
+const BOOK_STACK_SLOT_STEP = BOOK_STACK_RAIL_HEIGHT / HoCConstants.MAX_UNIT_STACK_POWER;
+const BOOK_STACK_FILL_WIDTH = BOOK_STACK_RAIL_WIDTH * 0.68;
+const BOOK_STACK_FILL_HEIGHT = BOOK_STACK_SLOT_STEP * 0.74;
+const BOOK_STACK_FILL_X = BOOK_STACK_RAIL_X + (BOOK_STACK_RAIL_WIDTH - BOOK_STACK_FILL_WIDTH) / 2;
+const BOOK_STACK_FILL_BOTTOM_Y =
+    BOOK_STACK_RAIL_Y +
+    BOOK_STACK_SLOT_STEP * (HoCConstants.MAX_UNIT_STACK_POWER - 1) +
+    (BOOK_STACK_SLOT_STEP - BOOK_STACK_FILL_HEIGHT) / 2;
+// Keep the complete cast-count seal (including its wax edge and ribbon tail) inside the card frame.
+const HOVER_FRAME_EXTRA_RIGHT = 58;
+const SCHOOL_FRAME_ALPHA = 0.8;
 
 // "Old book" styling: a gentle warm/sepia multiply tint so the art and name read as ink on aged
 // parchment (not stark white), plus a soft brown shadow cast under each spell image so it looks like
@@ -62,16 +82,38 @@ const BOOK_TITLE_NOMINAL_HEIGHT = 32;
 const SPELL_TITLE_FILL = 0x4a3410;
 const SPELL_TITLE_FILL_HOVER = 0x6d4d18;
 const SPELL_TITLE_FILL_DISABLED = 0x3a3024;
-const SPELL_SHADOW_COLOR = 0x2b1c0b;
+const BOOK_CORNER_FRAME_PADDING = 6;
+const OUTER_SCHOOL_CORNER_SIZE = 57.75;
+const CARD_FRAME_TOP_OFFSET = 5;
+const CARD_FRAME_HEIGHT = 204;
+const HOVER_CARD_SCALE = 1.07;
+
+const SPELL_CORNER_FRAME_TEXTURE_KEYS: Partial<Record<number, string>> = {
+    [ToFactionType.Chaos]: "spell_corner_chaos_a",
+    [ToFactionType.Nature]: "spell_corner_nature_b",
+    [ToFactionType.Life]: "spell_corner_life_b",
+};
+
+/** Selected spellbook corner art for each playable magic school. */
+export const getSpellCornerFrameTextureKey = (faction: number): string | undefined =>
+    SPELL_CORNER_FRAME_TEXTURE_KEYS[faction];
 
 export type DigitTextureMap = Map<number, Texture>;
 
 export class PixiRenderableSpell extends Spell {
-    /** Parent layer where all elements get attached */
-    private readonly layer: Container;
+    /** One transform root lets hover scale the complete card as a single object. */
+    private readonly cardContainer: Container;
     /** Visuals */
     private readonly bgSprite: PixiSprite;
     private readonly iconSprite: PixiSprite;
+    /** Four detached school-specific corner ornaments rendered over the spell art. */
+    private readonly cornerFrameSprites: readonly PixiSprite[];
+    private readonly amountScrollSprite?: PixiSprite;
+    private readonly innerFrameSprite?: PixiSprite;
+    private readonly stackRailSprite?: PixiSprite;
+    private readonly stackFillSprites: readonly PixiSprite[];
+    private readonly stackFillGreenTexture?: Texture;
+    private readonly stackFillRedTexture?: Texture;
     /**
      * Spell name drawn as TEXT rather than a pre-baked "<spell>_font" strip. Those strips had to be
      * hand-authored per spell, and a missing one silently dropped the whole spell from the book (the
@@ -79,10 +121,6 @@ export class PixiRenderableSpell extends Spell {
      * empty spellbook. Rendering the name means a new spell needs no art beyond its icon.
      */
     private readonly titleText: Text;
-    /** Digit textures 0..9 (and optionally -1 for special glyph) */
-    private readonly digits: DigitTextureMap;
-    /** Runtime digit sprites that show "amountRemaining" */
-    private amountDigitSprites: PixiSprite[] = [];
     /** Column of stacks — drawn with Graphics for perf */
     private stackColumnGfx: Graphics;
     private amountBadgeGfx: Graphics;
@@ -92,6 +130,7 @@ export class PixiRenderableSpell extends Spell {
     private iconShadowGfx: Graphics;
     private amountText: Text;
     private highlighted = false;
+    private lastFrameRender?: { cellX: number; cellY: number; enabled: boolean };
     /** Cached hover rect */
     private xMin = 0;
     private xMax = 0;
@@ -111,20 +150,80 @@ export class PixiRenderableSpell extends Spell {
             spell_cell_260: Texture;
             stack_green?: Texture; // optional, not used (we draw with Graphics)
             stack_red?: Texture; // optional, not used (we draw with Graphics)
+            cornerFrame?: Texture;
+            scrollBadge?: Texture;
+            innerFrame?: Texture;
+            stackRail?: Texture;
+            stackFillGreen?: Texture;
+            stackFillRed?: Texture;
         },
         iconTexture: Texture,
-        digits: DigitTextureMap,
+        _digits: DigitTextureMap,
     ) {
         super(spellParams);
 
-        this.layer = layer;
-        this.digits = digits;
-
+        this.cardContainer = new Container();
+        layer.addChild(this.cardContainer);
         this.bgSprite = new PixiSprite(textures.spell_cell_260);
         this.bgSprite.anchor.set(0, 0);
 
         this.iconSprite = new PixiSprite(iconTexture);
-        this.iconSprite.anchor.set(0, 0);
+        this.iconSprite.anchor.set(0.5);
+
+        if (textures.cornerFrame) {
+            const source = textures.cornerFrame.source;
+            // The artwork lives in four ~180px corner islands on a 512px transparent canvas. Cropping
+            // literal halves made width changes mostly scale empty pixels, so the visible ornament barely
+            // moved. Tight edge crops make OUTER_SCHOOL_CORNER_SIZE describe the ornament itself.
+            const baseFrame = textures.cornerFrame.frame;
+            const cropWidth = (baseFrame.width * 180) / 512;
+            const cropHeight = (baseFrame.height * 180) / 512;
+            const leftX = baseFrame.x;
+            const rightX = baseFrame.x + baseFrame.width - cropWidth;
+            const topY = baseFrame.y;
+            const bottomY = baseFrame.y + baseFrame.height - cropHeight;
+            this.cornerFrameSprites = [
+                new PixiSprite(new Texture({ source, frame: new Rectangle(leftX, topY, cropWidth, cropHeight) })),
+                new PixiSprite(new Texture({ source, frame: new Rectangle(rightX, topY, cropWidth, cropHeight) })),
+                new PixiSprite(new Texture({ source, frame: new Rectangle(leftX, bottomY, cropWidth, cropHeight) })),
+                new PixiSprite(new Texture({ source, frame: new Rectangle(rightX, bottomY, cropWidth, cropHeight) })),
+            ];
+        } else {
+            this.cornerFrameSprites = [];
+        }
+        for (const corner of this.cornerFrameSprites) {
+            corner.anchor.set(0.5);
+            corner.visible = false;
+        }
+        if (textures.scrollBadge) {
+            this.amountScrollSprite = new PixiSprite(textures.scrollBadge);
+            this.amountScrollSprite.anchor.set(0.5);
+            this.amountScrollSprite.visible = false;
+        }
+        if (textures.innerFrame) {
+            this.innerFrameSprite = new PixiSprite(textures.innerFrame);
+            this.innerFrameSprite.anchor.set(0, 0);
+            this.innerFrameSprite.visible = false;
+        }
+        this.stackFillGreenTexture = textures.stackFillGreen;
+        this.stackFillRedTexture = textures.stackFillRed;
+        if (textures.stackRail) {
+            this.stackRailSprite = new PixiSprite(textures.stackRail);
+            this.stackRailSprite.anchor.set(0, 0);
+            this.stackRailSprite.visible = false;
+        }
+        if (textures.stackFillGreen) {
+            this.stackFillSprites = Array.from(
+                { length: HoCConstants.MAX_UNIT_STACK_POWER },
+                () => new PixiSprite(textures.stackFillGreen),
+            );
+            for (const fill of this.stackFillSprites) {
+                fill.anchor.set(0, 0);
+                fill.visible = false;
+            }
+        } else {
+            this.stackFillSprites = [];
+        }
 
         // Serif to match the aged-parchment spellbook; the previous strips were a bold serif too, so the
         // book keeps its look. Fitted to the cell width in renderOnPage rather than wrapped, so a long
@@ -133,9 +232,9 @@ export class PixiRenderableSpell extends Spell {
             text: spellParams.spellProperties.name,
             style: new TextStyle({
                 fill: SPELL_TITLE_FILL,
-                fontFamily: "Georgia, 'Times New Roman', serif",
+                fontFamily: HOC_NUMERIC_GEORGIA_FONT_FAMILY,
                 fontSize: 26,
-                fontWeight: "700",
+                fontWeight: "800",
                 align: "center",
             }),
         });
@@ -157,18 +256,23 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.anchor.set(0.5);
         this.amountText.visible = false;
 
-        this.layer.addChild(
-            // Shadow first so it sits behind the spell image it's cast from.
+        this.cardContainer.addChild(
+            // Glow first so it sits behind every part of the spell card.
+            this.hoverFrameGfx,
             this.iconShadowGfx,
             this.bgSprite,
+            ...(this.innerFrameSprite ? [this.innerFrameSprite] : []),
             this.iconSprite,
-            this.titleText,
-            this.stackColumnGfx,
-            this.disabledOverlayGfx,
-            this.amountBadgeGfx,
-            this.amountText,
-            this.hoverFrameGfx,
         );
+        if (this.stackRailSprite) this.cardContainer.addChild(this.stackRailSprite);
+        if (this.stackFillSprites.length) this.cardContainer.addChild(...this.stackFillSprites);
+        if (this.cornerFrameSprites.length) {
+            this.cardContainer.addChild(...this.cornerFrameSprites);
+        }
+        this.cardContainer.addChild(this.titleText, this.stackColumnGfx, this.disabledOverlayGfx);
+        // The seal is intentionally the final visual layer: icon art, frame and hover content may never crop it.
+        if (this.amountScrollSprite) this.cardContainer.addChild(this.amountScrollSprite);
+        this.cardContainer.addChild(this.amountBadgeGfx, this.amountText);
     }
     /** Old API parity */
     public getSprite(): PixiSprite {
@@ -178,12 +282,12 @@ export class PixiRenderableSpell extends Spell {
         this.xMin = this.xMax = this.yMin = this.yMax = 0;
         this.bgSprite.visible = false;
         this.iconSprite.visible = false;
+        for (const corner of this.cornerFrameSprites) corner.visible = false;
+        if (this.amountScrollSprite) this.amountScrollSprite.visible = false;
+        if (this.innerFrameSprite) this.innerFrameSprite.visible = false;
+        if (this.stackRailSprite) this.stackRailSprite.visible = false;
+        for (const fill of this.stackFillSprites) fill.visible = false;
         this.titleText.visible = false;
-        for (const s of this.amountDigitSprites) {
-            s.parent?.removeChild(s);
-            s.destroy();
-        }
-        this.amountDigitSprites = [];
         this.stackColumnGfx.clear();
         this.amountBadgeGfx.clear();
         this.disabledOverlayGfx.clear();
@@ -191,10 +295,21 @@ export class PixiRenderableSpell extends Spell {
         this.iconShadowGfx.clear();
         this.amountText.visible = false;
         this.highlighted = false;
+        this.lastFrameRender = undefined;
+        this.cardContainer.pivot.set(0, 0);
+        this.cardContainer.position.set(0, 0);
+        this.cardContainer.scale.set(1);
     }
     public setHighlighted(highlighted: boolean): void {
         if (this.highlighted === highlighted) return;
         this.highlighted = highlighted;
+        if (this.lastFrameRender) {
+            this.renderBaseCardFrame(
+                this.lastFrameRender.cellX,
+                this.lastFrameRender.cellY,
+                this.lastFrameRender.enabled,
+            );
+        }
     }
     public syncAmount(amountRemaining: number): void {
         this.amountRemaining = Math.max(0, Math.floor(amountRemaining));
@@ -311,8 +426,8 @@ export class PixiRenderableSpell extends Spell {
         }
         if (!includeUnavailable && !this.canUse(ownerStackPower)) return false;
 
-        // Hit-test against the icon's actual rendered bounds.
-        const b = this.iconSprite.getBounds();
+        // Hovering anywhere inside the spell card lights the whole card, not only the icon square.
+        const b = this.hoverFrameGfx.getBounds();
         return globalMouse.x >= b.minX && globalMouse.x <= b.maxX && globalMouse.y >= b.minY && globalMouse.y <= b.maxY;
     }
     public getOnPagePosition(): HoCMath.XY[] {
@@ -339,6 +454,11 @@ export class PixiRenderableSpell extends Spell {
         const iconX = cellX + BOOK_ICON_OFFSET_X;
         const iconY = cellY + BOOK_ICON_OFFSET_Y;
 
+        // Reset before laying out a reused card; renderBaseCardFrame reapplies the centred hover scale.
+        this.cardContainer.pivot.set(0, 0);
+        this.cardContainer.position.set(0, 0);
+        this.cardContainer.scale.set(1);
+
         // Background cell — the scroll-like plate that sits under each spell.
         this.bgSprite.width = BOOK_CELL_SIZE;
         this.bgSprite.height = BOOK_CELL_SIZE;
@@ -348,19 +468,38 @@ export class PixiRenderableSpell extends Spell {
         // Icon (main sprite)
         this.iconSprite.width = BOOK_SPELL_SIZE;
         this.iconSprite.height = BOOK_SPELL_SIZE;
-        this.iconSprite.x = iconX;
-        this.iconSprite.y = iconY;
+        this.iconSprite.position.set(iconX + BOOK_SPELL_SIZE / 2, iconY + BOOK_SPELL_SIZE / 2);
+        if (this.cornerFrameSprites.length) {
+            // School/race ornaments now belong to the complete card, not to the spell icon itself.
+            const frameLeft = cellX - 5;
+            const frameTop = cellY + CARD_FRAME_TOP_OFFSET;
+            const frameWidth = BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
+            const frameHeight = CARD_FRAME_HEIGHT;
+            const inset = OUTER_SCHOOL_CORNER_SIZE / 2 - BOOK_CORNER_FRAME_PADDING;
+            const positions = [
+                [frameLeft + inset, frameTop + inset],
+                [frameLeft + frameWidth - inset, frameTop + inset],
+                [frameLeft + inset, frameTop + frameHeight - inset],
+                [frameLeft + frameWidth - inset, frameTop + frameHeight - inset],
+            ] as const;
+            this.cornerFrameSprites.forEach((corner, index) => {
+                corner.width = OUTER_SCHOOL_CORNER_SIZE;
+                corner.height = OUTER_SCHOOL_CORNER_SIZE;
+                corner.position.set(positions[index][0], positions[index][1]);
+            });
+        }
 
         // Hover rect cache (icon bounds)
         this.xMin = iconX;
-        this.xMax = iconX + BOOK_SPELL_SIZE;
+        this.xMax = cellX + BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT;
         this.yMin = iconY;
         this.yMax = iconY + BOOK_SPELL_SIZE;
 
         // Keep long spell names inside the cell instead of matching the smaller icon width.
         // Fit-to-width: scale down only (never up), so short names keep the designed size and long ones
         // stay inside their cell. Height is whatever the font needs, bottom-aligned like the old strip.
-        const titleMaxWidth = BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_X * 2;
+        const outerFrameWidth = BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
+        const titleMaxWidth = outerFrameWidth - BOOK_TITLE_MARGIN_X * 2;
         this.titleText.scale.set(1);
         // Reading .width/.height MEASURES the text, which needs a canvas 2D context. That is missing in a
         // headless test runner and can also fail in a browser before the webfont resolves. Neither is a
@@ -376,7 +515,7 @@ export class PixiRenderableSpell extends Spell {
         } catch {
             this.titleText.scale.set(1);
         }
-        this.titleText.x = cellX + BOOK_CELL_SIZE / 2;
+        this.titleText.x = cellX - 5 + outerFrameWidth / 2;
         this.titleText.y = cellY + BOOK_CELL_SIZE - BOOK_TITLE_MARGIN_BOTTOM - titleHeight;
 
         // Visibility + alpha rules
@@ -386,6 +525,11 @@ export class PixiRenderableSpell extends Spell {
 
         this.bgSprite.alpha = enabled ? 1 : 0.62;
         this.iconSprite.alpha = enabled ? 1 : 0.42;
+        for (const corner of this.cornerFrameSprites) {
+            // Keep the school ornament visible without letting it overpower the spell art.
+            corner.alpha = enabled ? SCHOOL_FRAME_ALPHA : SCHOOL_FRAME_ALPHA * 0.42;
+            corner.tint = enabled ? 0xffffff : 0x807867;
+        }
         this.titleText.alpha = enabled ? 1 : 0.42;
         // Warm/sepia multiply so art + name look inked on aged parchment; hover stays the brighter gold.
         this.bgSprite.tint = enabled ? (this.highlighted ? 0xfff1bf : 0xffffff) : 0x858585;
@@ -400,139 +544,193 @@ export class PixiRenderableSpell extends Spell {
         // The scroll-like background plate under each spell is intentionally hidden — only the icon and
         // title show on the book page.
         this.bgSprite.visible = false;
+        if (this.innerFrameSprite) {
+            this.innerFrameSprite.position.set(cellX + 4, cellY + 14);
+            this.innerFrameSprite.width = 270;
+            this.innerFrameSprite.height = 160;
+            this.innerFrameSprite.alpha = enabled ? 0.72 : 0.34;
+            this.innerFrameSprite.tint = enabled ? 0xffffff : 0x8c8274;
+            this.innerFrameSprite.visible = true;
+        }
         this.iconSprite.visible = true;
+        for (const corner of this.cornerFrameSprites) corner.visible = true;
         this.titleText.visible = true;
 
-        this.renderIconShadow(iconX, iconY, enabled);
+        this.iconShadowGfx.clear();
         this.renderDisabledOverlay(iconX, iconY, !enabled);
-        this.renderHoverFrame(cellX, cellY, enabled);
+        this.renderBaseCardFrame(cellX, cellY, enabled);
 
         // Number of scrolls remaining.
-        this.renderAmount(cellX, cellY, enabled, hasStackPower);
+        this.renderAmount(cellX, cellY, enabled);
 
         // Stack column
         this.renderStackColumn(cellX, cellY, ownerStackPower, hasScrolls);
     }
-    private clearAmountDigitSprites(): void {
-        for (const s of this.amountDigitSprites) {
-            s.parent?.removeChild(s);
-            s.destroy();
-        }
-        this.amountDigitSprites = [];
-    }
-    private renderAmount(cellX: number, cellY: number, enabled: boolean, hasStackPower: boolean): void {
-        this.clearAmountDigitSprites();
-
+    private renderAmount(cellX: number, cellY: number, enabled: boolean): void {
         const label = String(this.amountRemaining);
-        const badgeWidth = Math.max(48, label.length * 22 + 26);
-        const badgeX = cellX + BOOK_CELL_SIZE - badgeWidth - 12;
-        const badgeY = cellY + 12;
-        const fillColor = this.amountRemaining > 0 ? (hasStackPower ? 0x123c23 : 0x6d2c2c) : 0x303030;
-        const strokeColor = enabled ? 0xf6d87c : 0x888888;
+        // Exact tall parchment scroll cropped from the approved variant-2 mock-up. Its original sample
+        // digit was removed from the bitmap; the live amount is centred here as text.
+        const frameRight = cellX - 5 + BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
+        const centerX = frameRight - 51.5;
+        const centerY = cellY + 98;
+        const visualAlpha = enabled ? 0.9 : 0.5;
 
-        this.amountBadgeGfx
-            .clear()
-            .rect(badgeX, badgeY, badgeWidth, AMOUNT_BADGE_HEIGHT)
-            .fill({ color: fillColor, alpha: enabled ? 0.92 : 0.72 })
-            .stroke({ width: 2, color: strokeColor, alpha: enabled ? 0.95 : 0.72 });
-
-        const centerX = badgeX + badgeWidth / 2;
-        const centerY = badgeY + AMOUNT_BADGE_HEIGHT / 2 + 1;
-        const canRenderDigitTextures = [...label].every((digit) => this.digits.has(Number(digit)));
-
-        if (canRenderDigitTextures) {
-            this.renderDigitAmount(label, centerX, centerY, enabled);
-            this.amountText.visible = false;
-            return;
+        this.amountBadgeGfx.clear();
+        if (this.amountScrollSprite) {
+            this.amountScrollSprite.position.set(centerX, centerY);
+            this.amountScrollSprite.width = 40.5;
+            this.amountScrollSprite.height = 134;
+            this.amountScrollSprite.alpha = visualAlpha;
+            this.amountScrollSprite.tint = enabled ? 0xffffff : 0x8c8274;
+            this.amountScrollSprite.visible = true;
         }
 
         this.amountText.text = label;
         this.amountText.style = new TextStyle({
-            fill: enabled ? 0xffffff : 0xcfcfcf,
-            fontSize: label.length > 2 ? 24 : 30,
+            fill: enabled ? SPELL_TITLE_FILL : SPELL_TITLE_FILL_DISABLED,
+            fontFamily: HOC_NUMERIC_GEORGIA_FONT_FAMILY,
+            fontSize: label.length > 2 ? 19 : 27,
             fontWeight: "700",
         });
-        this.amountText.position.set(centerX, centerY);
+        this.amountText.position.set(centerX, centerY + 1);
         this.amountText.alpha = enabled ? 1 : 0.7;
         this.amountText.visible = true;
     }
-    private renderDigitAmount(label: string, centerX: number, centerY: number, enabled: boolean): void {
-        const digitW = 22;
-        const digitH = 34;
-        const startX = centerX - ((label.length - 1) * digitW) / 2;
-
-        for (let i = 0; i < label.length; i++) {
-            const tex = this.digits.get(Number(label[i]));
-            if (!tex) continue;
-            const s = new PixiSprite(tex);
-            s.anchor.set(0.5);
-            s.width = digitW;
-            s.height = digitH;
-            s.position.set(startX + i * digitW, centerY);
-            s.alpha = enabled ? 1 : 0.55;
-            this.layer.addChild(s);
-            this.amountDigitSprites.push(s);
-        }
-    }
     private renderStackColumn(cellX: number, cellY: number, ownerStackPower: number, canRenderStack: boolean) {
-        // Clear previous vectors
         this.stackColumnGfx.clear();
 
-        // Draw thin rectangles using Graphics (Pixi v8 API)
-        const sixthStep = BOOK_SPELL_SIZE / 6;
-        const barX = cellX + BOOK_STACK_BAR_X;
-        const barW = sixthStep - 8;
-        const barH = BOOK_SPELL_SIZE / HoCConstants.MAX_UNIT_STACK_POWER;
-
-        // Choose color based on requirement
         const useGreen = ownerStackPower >= this.getMinimalCasterStackPower();
-        const fillColor = useGreen ? 0x00aa55 : 0xaa0033; // approximate tint to your old textures
+        const fillTexture = useGreen ? this.stackFillGreenTexture : this.stackFillRedTexture;
         const alpha = canRenderStack ? 1 : 0.4;
+
+        if (this.stackRailSprite && fillTexture && this.stackFillSprites.length) {
+            this.stackRailSprite.position.set(cellX + BOOK_STACK_RAIL_X, cellY + BOOK_STACK_RAIL_Y);
+            this.stackRailSprite.width = BOOK_STACK_RAIL_WIDTH;
+            this.stackRailSprite.height = BOOK_STACK_RAIL_HEIGHT;
+            this.stackRailSprite.alpha = alpha;
+            this.stackRailSprite.tint = canRenderStack ? 0xffffff : 0x8c8274;
+            this.stackRailSprite.visible = true;
+
+            this.stackFillSprites.forEach((fill, slotIndex) => {
+                const isFilled = slotIndex < this.getMinimalCasterStackPower();
+                fill.texture = fillTexture;
+                fill.position.set(
+                    cellX + BOOK_STACK_FILL_X,
+                    cellY + BOOK_STACK_FILL_BOTTOM_Y - slotIndex * BOOK_STACK_SLOT_STEP,
+                );
+                fill.width = BOOK_STACK_FILL_WIDTH;
+                fill.height = BOOK_STACK_FILL_HEIGHT;
+                fill.alpha = alpha;
+                fill.visible = isFilled;
+            });
+            return;
+        }
+
+        // Texture-free fallback for headless tests and the first HMR frame while a new asset loads.
+        const barX = cellX + BOOK_STACK_FILL_X;
+        const barW = BOOK_STACK_FILL_WIDTH;
+        const barH = BOOK_STACK_RAIL_HEIGHT / HoCConstants.MAX_UNIT_STACK_POWER;
+
+        for (let slotIndex = 0; slotIndex < HoCConstants.MAX_UNIT_STACK_POWER; slotIndex++) {
+            const targetY = cellY + BOOK_STACK_RAIL_Y + BOOK_STACK_RAIL_HEIGHT - barH - slotIndex * barH;
+            this.stackColumnGfx
+                .rect(barX, targetY, barW, barH - 3)
+                .fill({ color: 0x2d2417, alpha: 0.12 })
+                .stroke({ width: 1.5, color: 0x6b5734, alpha: 0.32 });
+        }
+
+        const fillColor = useGreen ? 0x00aa55 : 0xaa0033; // approximate tint to your old textures
 
         // Draw minimal caster stack power blocks (one per required stack)
         let stackIndex = 1;
-        let yShift = 0;
         while (stackIndex <= this.getMinimalCasterStackPower()) {
-            const targetY = cellY + BOOK_ICON_OFFSET_Y + BOOK_SPELL_SIZE - barH - yShift;
+            const targetY = cellY + BOOK_STACK_RAIL_Y + BOOK_STACK_RAIL_HEIGHT - barH - (stackIndex - 1) * barH;
             this.stackColumnGfx.rect(barX, targetY, barW, barH - 3).fill({ color: fillColor, alpha });
             stackIndex++;
-            yShift += BOOK_SPELL_SIZE / 5;
         }
     }
-    private renderHoverFrame(cellX: number, cellY: number, enabled: boolean): void {
-        this.hoverFrameGfx.clear();
-        if (!this.highlighted) return;
+    /** Permanent option-2 frame: exact detached antique corners from the approved mockup. */
+    private renderBaseCardFrame(cellX: number, cellY: number, enabled: boolean): void {
+        this.lastFrameRender = { cellX, cellY, enabled };
+        const cardLeft = cellX - 5;
+        const cardTop = cellY + CARD_FRAME_TOP_OFFSET;
+        const cardWidth = BOOK_CELL_SIZE + HOVER_FRAME_EXTRA_RIGHT + 10;
+        const cardCenterX = cardLeft + cardWidth / 2;
+        const cardCenterY = cardTop + CARD_FRAME_HEIGHT / 2;
+        this.cardContainer.pivot.set(cardCenterX, cardCenterY);
+        this.cardContainer.position.set(cardCenterX, cardCenterY);
+        this.cardContainer.scale.set(this.highlighted && enabled ? HOVER_CARD_SCALE : 1);
 
-        const outerColor = enabled ? 0xf6d87c : 0x9a9a9a;
-        const innerColor = enabled ? 0x5b3508 : 0x555555;
+        const g = this.hoverFrameGfx;
+        g.clear();
+        const left = cardLeft;
+        const top = cardTop;
+        const width = cardWidth;
+        const height = CARD_FRAME_HEIGHT;
+        const alphaScale = enabled ? 1 : 0.52;
 
-        this.hoverFrameGfx
-            .rect(cellX - 6, cellY - 6, BOOK_CELL_SIZE + 12, BOOK_CELL_SIZE + 12)
-            .stroke({ width: 5, color: outerColor, alpha: enabled ? 0.95 : 0.7 })
-            .rect(cellX + 2, cellY + 2, BOOK_CELL_SIZE - 4, BOOK_CELL_SIZE - 4)
-            .stroke({ width: 2, color: innerColor, alpha: enabled ? 0.85 : 0.65 });
-    }
-    /**
-     * Soft brown shadow under the spell image, cast down-right, so each spell reads as resting on the
-     * old parchment page instead of floating. Stacked translucent rounded squares fake a cheap blur.
-     */
-    private renderIconShadow(iconX: number, iconY: number, enabled: boolean): void {
-        this.iconShadowGfx.clear();
-        const size = BOOK_SPELL_SIZE;
-        const cx = iconX + size / 2 + 6;
-        const cy = iconY + size / 2 + 8;
-        const baseAlpha = enabled ? 1 : 0.5;
-        const layers = [
-            { grow: 14, alpha: 0.1 },
-            { grow: 8, alpha: 0.14 },
-            { grow: 3, alpha: 0.2 },
-        ];
-        for (const l of layers) {
-            const half = size / 2 + l.grow;
-            this.iconShadowGfx
-                .roundRect(cx - half, cy - half, half * 2, half * 2, 18)
-                .fill({ color: SPELL_SHADOW_COLOR, alpha: l.alpha * baseAlpha });
+        g.roundRect(left + 3, top + 4, width, height, 7).fill({ color: 0x24180e, alpha: 0.065 * alphaScale });
+        g.roundRect(left, top, width, height, 7).fill({ color: 0xe4c58b, alpha: 0.025 * alphaScale });
+
+        // Hover belongs to the complete spell card. Keep the icon geometry fixed and light the whole
+        // parchment area plus its boundary instead of making the artwork jump in size.
+        if (this.highlighted && enabled) {
+            g.roundRect(left, top, width, height, 7).fill({ color: 0xffdf86, alpha: 0.11 });
+            g.roundRect(left - 2, top - 2, width + 4, height + 4, 9).stroke({
+                width: 2,
+                color: 0xffe6a0,
+                alpha: 0.72,
+            });
         }
+
+        // Fine double parchment boundary from the approved option, running continuously between corners.
+        g.rect(left + 2, top + 2, width - 4, height - 4).stroke({
+            width: 1.2,
+            color: 0x8b6a39,
+            alpha: 0.42 * alphaScale,
+        });
+        g.rect(left + 4, top + 4, width - 8, height - 8).stroke({
+            width: 0.7,
+            color: 0xe0c48d,
+            alpha: 0.52 * alphaScale,
+        });
+
+        // Transparent option-4 title ornaments. Their outer endpoints stay fixed at the approved red
+        // guides; their inner endpoints follow the measured title width so no spell name can overlap them.
+        let renderedTitleWidth = 92;
+        let renderedTitleHeight = BOOK_TITLE_NOMINAL_HEIGHT;
+        try {
+            renderedTitleWidth = this.titleText.width || renderedTitleWidth;
+            renderedTitleHeight = this.titleText.height || renderedTitleHeight;
+        } catch {
+            // The nominal dimensions above keep headless/font-loading fallback deterministic.
+        }
+        const ruleY = this.titleText.y + renderedTitleHeight * 0.53;
+        const titleCenterX = this.titleText.x;
+        const titleGap = 9;
+        const leftStart = left + 36;
+        const leftEnd = titleCenterX - renderedTitleWidth / 2 - titleGap;
+        const rightStart = titleCenterX + renderedTitleWidth / 2 + titleGap;
+        const rightEnd = left + width - 36;
+        const drawRule = (startX: number, endX: number, diamondX: number): void => {
+            if (endX - startX < 7) return;
+            g.moveTo(startX, ruleY)
+                .lineTo(endX, ruleY)
+                .stroke({
+                    width: 0.85,
+                    color: 0x755326,
+                    alpha: 0.72 * alphaScale,
+                });
+            g.poly([diamondX, ruleY - 2.2, diamondX + 2.2, ruleY, diamondX, ruleY + 2.2, diamondX - 2.2, ruleY]).fill({
+                color: 0x805c2d,
+                alpha: 0.82 * alphaScale,
+            });
+        };
+        drawRule(leftStart, leftEnd, Math.max(leftStart + 4, leftEnd - 10));
+        drawRule(rightStart, rightEnd, Math.min(rightEnd - 4, rightStart + 10));
+
+        // The old generic metal corners are deliberately retired. The school/race frame sprite is
+        // positioned around this same outer boundary in renderOnPage.
     }
     private renderDisabledOverlay(xPos: number, yPos: number, disabled: boolean): void {
         this.disabledOverlayGfx.clear();
@@ -546,7 +744,6 @@ export class PixiRenderableSpell extends Spell {
             .stroke({ width: 5, color: 0x111111, alpha: 0.48 });
     }
     public destroy(): void {
-        this.clearAmountDigitSprites();
         this.stackColumnGfx.destroy();
         this.amountBadgeGfx.destroy();
         this.disabledOverlayGfx.destroy();
@@ -555,6 +752,15 @@ export class PixiRenderableSpell extends Spell {
         this.amountText.destroy();
         this.bgSprite.destroy();
         this.iconSprite.destroy();
+        for (const corner of this.cornerFrameSprites) {
+            corner.texture.destroy(false);
+            corner.destroy();
+        }
+        this.amountScrollSprite?.destroy();
+        this.innerFrameSprite?.destroy();
+        this.stackRailSprite?.destroy();
+        for (const fill of this.stackFillSprites) fill.destroy();
         this.titleText.destroy();
+        this.cardContainer.destroy();
     }
 }

@@ -7,7 +7,7 @@ describe("getMapDisplay (ranked map reveal presentation)", () => {
     it("maps each ranked grid type to its user-facing name and image", () => {
         expect(getMapDisplay(GridVals.NORMAL)).toMatchObject({ name: "Standard", imageKey: "board_icon" });
         expect(getMapDisplay(GridVals.LAVA_CENTER)).toMatchObject({ name: "Lava", imageKey: "lava_256" });
-        expect(getMapDisplay(GridVals.BLOCK_CENTER)).toMatchObject({ name: "Mountains", imageKey: "mountain_432_412" });
+        expect(getMapDisplay(GridVals.BLOCK_CENTER)).toMatchObject({ name: "Cemetery", imageKey: "mountain_432_412" });
     });
 
     it("still resolves Water (disabled in ranked, but mapped for robustness)", () => {

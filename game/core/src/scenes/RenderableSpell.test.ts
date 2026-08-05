@@ -2,9 +2,15 @@ import { describe, expect, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 
-import { HoCConfig } from "@heroesofcrypto/common";
+import { HoCConfig, ToFactionType } from "@heroesofcrypto/common";
 
-import { PixiRenderableSpell } from "./RenderableSpell";
+import { getSpellCornerFrameTextureKey, PixiRenderableSpell } from "./RenderableSpell";
+
+test("maps each magic school to the selected corner-frame artwork", () => {
+    expect(getSpellCornerFrameTextureKey(ToFactionType.Chaos)).toBe("spell_corner_chaos_a");
+    expect(getSpellCornerFrameTextureKey(ToFactionType.Nature)).toBe("spell_corner_nature_b");
+    expect(getSpellCornerFrameTextureKey(ToFactionType.Life)).toBe("spell_corner_life_b");
+});
 
 describe("PixiRenderableSpell magic-damage hover", () => {
     test("shows the same combined Empower and Sylvan bonus used by the engine", () => {

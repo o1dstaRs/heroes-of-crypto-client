@@ -364,21 +364,21 @@ describe("Blacksmith Craft forge VFX", () => {
         textureFrom.mockRestore();
         const forge = internals(visuals).craftForges[0];
 
-        expect(durationMs).toBe(1500);
+        expect(durationMs).toBe(900);
         expect(attached).toEqual([forge.container]);
         expect(forge.container.position.x).toBe(100);
-        expect(forge.container.position.y).toBeGreaterThan(200);
+        expect(forge.container.position.y).toBe(200);
         expect(forge.container.scale.y).toBe(-1); // cancels worldRoot's y flip for upright source art
         expect(forge.anvil.y).toBeGreaterThan(forge.contactY);
 
         const pivot = { x: forge.hammer.x, y: forge.hammer.y };
         const impactRotation = forge.hammer.rotation;
-        visuals.update(0.21); // halfway through the 0.42s cycle: hammer is raised
+        visuals.update(0.126); // halfway through the shortened 0.252s cycle: hammer is raised
         const raisedRotation = forge.hammer.rotation;
         expect(raisedRotation - impactRotation).toBeGreaterThan(1);
         expect(forge.hammer.position).toMatchObject(pivot);
 
-        visuals.update(0.1); // crosses the first impact at phase 0.72
+        visuals.update(0.06); // crosses the first impact at phase 0.72
         expect(forge.hammer.rotation).toBeLessThan(raisedRotation - 1);
         expect(forge.hammer.position).toMatchObject(pivot);
         expect(forge.sparks.length).toBeGreaterThan(0);

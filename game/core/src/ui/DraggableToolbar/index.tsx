@@ -6,7 +6,10 @@ import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 
 const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
-const hourglassIconImage = new URL("../../../images/icon_hourglass_black.webp", import.meta.url).toString();
+const hourglassIconImage = new URL(
+    "../../../design/assets/ui/combat-toolbar-button-style/hourglass-style-1.png",
+    import.meta.url,
+).toString();
 const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.meta.url).toString();
 const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
 const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
@@ -15,6 +18,14 @@ const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.met
 const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
+const toolbarPanelImage = new URL(
+    "../../../design/assets/ui/combat-toolbar-panel/panel-v2.png",
+    import.meta.url,
+).toString();
+const toolbarButtonStyleImage = new URL(
+    "../../../design/assets/ui/combat-toolbar-button-style/button-style-1.png",
+    import.meta.url,
+).toString();
 
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
@@ -53,6 +64,9 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
  * glyph a tenth smaller than a flush 4% inset, with a ring of bare disc around it.
  */
 const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {
+    // The selected polished hourglass is already a clean transparent cutout rather than an atlas
+    // medallion, so it needs no bezel-removal zoom.
+    [hourglassIconImage]: { zoom: 70, inset: 8.6 },
     // The AI medallion carries far more dead field than the others: its brain ends at r ≈ 0.58 of the
     // source while the bezel does not begin until r ≈ 0.70, so the default crop framed the glyph in a wide
     // ring of bare medallion, and the default inset added its own margin on top of that — together they
@@ -94,10 +108,12 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 export const toolbarColumnHeightPx = (): number => {
     const screenRatio = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
     const slots = 6;
-    const gap = 12; // the column's `gap: 1.5`
-    const framePadding = 24; // 12px above the first button, 12px below the last
-    const frameRim = 2 * 2.34;
-    return Math.round(45 * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
+    const gap = 8; // the column's `gap: 1`
+    const framePadding = 22; // 11px above the first button, 11px below the last
+    const frameRim = 0; // the approved frame is painted inside that padding
+    // Each medallion now sits in a square bronze cell, matching the compact combat-sidebar mockup.
+    const cellSize = 57;
+    return Math.round(cellSize * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
 };
 
 // How far the option markers under a multi-state button sit from the centre of their row.
@@ -109,21 +125,32 @@ const GLYPH_FILTER_BRIGHT = "brightness(1.12) drop-shadow(0 2px 5px rgba(243,212
 // Obsidian shell from the fight-sidebar handoff. The old bronze-trimmed stone panel read as another gold
 // frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
 const StyledSheet = styled(Sheet)(() => ({
-    backgroundImage: "linear-gradient(180deg, rgba(28,20,12,.96), rgba(8,6,4,.96))",
-    padding: "12px 8px",
-    borderRadius: "14px",
-    // Only the outline is lifted: a touch wider and in bronze rather than near-black, so the column reads
-    // as a framed panel against the sidebar instead of dissolving into it. Everything inside — the obsidian
-    // fill, the faint inner rim, the drop shadow — is left alone.
-    border: "2.34px solid #473b25",
-    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 0 1px rgba(150,130,98,.2), inset 0 0 16px rgba(0,0,0,.6)",
+    // One complete raster panel: frame and field are precomposed from the approved second mockup, so no
+    // independently stretched rails can bow, drift, or leave seams at their corners.
+    backgroundImage: `url(${toolbarPanelImage})`,
+    backgroundPosition: "center",
+    backgroundSize: "100% 100%",
+    backgroundRepeat: "no-repeat",
+    padding: "19px 10px 13px",
+    boxSizing: "border-box",
+    alignSelf: "stretch",
+    height: "calc(100% + 19px)",
+    // Collapse the unused side gutters around the 57px medallions. The row beside us is flexible, so every
+    // pixel removed here is handed directly to the DAMAGE panel while this panel's left edge stays fixed.
+    aspectRatio: "124 / 684",
+    marginTop: "-7px",
+    marginBottom: "-12px",
+    borderRadius: 0,
+    // The four rails above are literal crops from the approved concept, not a CSS approximation.
+    border: 0,
+    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 16px rgba(0,0,0,.72)",
 }));
 
 const StyledIconButton = styled("button", {
     shouldForwardProp: (prop) => typeof prop === "string" && !["rotationDegrees", "clickEffectNeeded"].includes(prop),
 })<{ rotationDegrees: number; clickEffectNeeded?: boolean }>(({ rotationDegrees, clickEffectNeeded }) => ({
-    width: 45 * SCREEN_RATIO,
-    height: 45 * SCREEN_RATIO,
+    width: 57 * SCREEN_RATIO,
+    height: 57 * SCREEN_RATIO,
     padding: 0,
     borderRadius: "50%",
     transition: "all 0.3s ease",
@@ -134,10 +161,14 @@ const StyledIconButton = styled("button", {
     // The button draws the frame, not the art: an obsidian disc with a black rim, matching the panel it sits
     // on. The medallion's own gold bezel is cropped away (see GLYPH_CROP_DEFAULT) precisely so this one rim
     // is the only ring on screen. The glyph rides on the ::before layer, which keeps the filter off the disc.
-    background: "radial-gradient(circle at 42% 32%, #2b2118, #120c07 70%)",
-    border: "2px solid #241a10",
-    // Only the outer shadow lives here now; the inset ring moved to ::after so the glyph cannot bury it.
-    boxShadow: "0 0 12px rgba(0,0,0,.5)",
+    backgroundColor: "#211309",
+    backgroundImage: `url(${toolbarButtonStyleImage})`,
+    backgroundSize: "100% 100%",
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "center",
+    border: 0,
+    // The approved image ring already carries its own depth; a second CSS shadow made a thick black halo.
+    boxShadow: "none",
     "&::before": {
         content: '""',
         position: "absolute",
@@ -152,30 +183,23 @@ const StyledIconButton = styled("button", {
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
         filter: GLYPH_FILTER,
-        transition: "filter 0.3s ease",
-        pointerEvents: "none",
-    },
-    // The frame, kept as its own layer ON TOP of the glyph. As part of the button's own background it was
-    // painted before the ::before disc, so any icon cropped flush to the rim — the brain most of all — drew
-    // straight over the bezel and that button lost the ring the others have. Up here it cannot be covered,
-    // whatever a glyph's crop does.
-    "&::after": {
-        content: '""',
-        position: "absolute",
-        inset: 0,
-        borderRadius: "50%",
-        boxShadow: "inset 0 2px 6px rgba(0,0,0,.9), inset 0 0 0 1px rgba(150,130,98,.22)",
+        transform: "scale(0.81)",
+        transformOrigin: "center",
+        transition: "filter 0.3s ease, transform 0.3s ease",
         pointerEvents: "none",
     },
     "&:hover:not(:disabled)": {
         transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
-        background: "radial-gradient(circle at 42% 32%, #3a2c1c, #1a1109 70%)",
+        backgroundColor: "#211309",
+        backgroundImage: `url(${toolbarButtonStyleImage})`,
         borderColor: "#8a7136",
-        boxShadow: "0 0 18px rgba(243,212,136,.4)",
+        boxShadow: "none",
+        filter: "brightness(1.12)",
         "&::before": { filter: GLYPH_FILTER_BRIGHT },
     },
     "&:disabled": {
-        background: "radial-gradient(circle at 42% 32%, #201811, #0d0905 70%)",
+        backgroundColor: "#160e08",
+        backgroundImage: `url(${toolbarButtonStyleImage})`,
         borderColor: "rgba(202,162,79,.35)",
         boxShadow: "none",
         opacity: 0.5,
@@ -249,8 +273,25 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     const initialRotation = needRotate ? 180 : 0;
 
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <Box sx={{ display: "flex", alignItems: "center", height: 45 * SCREEN_RATIO, position: "relative" }}>
+        <Box
+            sx={{
+                width: 57 * SCREEN_RATIO,
+                height: 57 * SCREEN_RATIO,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+            }}
+        >
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    height: 57 * SCREEN_RATIO,
+                    position: "relative",
+                    zIndex: 3,
+                }}
+            >
                 <Tooltip title={text} placement="top">
                     <StyledIconButton
                         onClick={handleClick}
@@ -264,8 +305,8 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                                 "--hoc-glyph": `url(${iconImage})`,
                                 "--hoc-glyph-zoom": `${glyphCrop.zoom}%`,
                                 "--hoc-glyph-inset": `${glyphCrop.inset}%`,
-                                width: 45 * SCREEN_RATIO,
-                                height: 45 * SCREEN_RATIO,
+                                width: 57 * SCREEN_RATIO,
+                                height: 57 * SCREEN_RATIO,
                                 ...(transfusionEffect
                                     ? {
                                           animation: "transfusion 1.5s linear",
@@ -314,8 +355,9 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                     sx={{
                         display: "flex",
                         justifyContent: "center",
-                        marginTop: `${0.35 * SCREEN_RATIO}rem`,
-                        position: "relative",
+                        position: "absolute",
+                        bottom: 1 * SCREEN_RATIO,
+                        left: 6 * SCREEN_RATIO,
                         width: 45 * SCREEN_RATIO,
                         height: 9.1 * SCREEN_RATIO,
                     }}
@@ -422,7 +464,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 1.5,
+                    gap: 1,
                 }}
             >
                 {buttonGroup.map((button) => (
@@ -459,12 +501,12 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                 // cells that have to be clickable to move and attack. Sized to the button column so the
                 // damage table sits beside it rather than under it.
                 position: "relative",
-                width: "fit-content",
+                width: "auto",
                 flex: "none",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 1.5,
+                gap: 1,
                 userSelect: "none",
                 // A pure shift: no compensating padding, so the panel keeps its own width and simply moves
                 // over. The damage table next to it is the flexible item in the row, so the width freed at

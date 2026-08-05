@@ -12,7 +12,7 @@ import React, { useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
-import { hocColors } from "../hocTheme";
+import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
 
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
@@ -44,6 +44,45 @@ const AUGMENT_BUTTONS: ReadonlyArray<{
 // rendered underneath the frame and was sliced off at the panel's edge.
 const AUGMENT_TOOLTIP_Z = 10000;
 
+// The setup deck is intentionally non-scrollable. Keep every augment choice compact enough that the
+// longest panel (Sniper, with four rows) still leaves room for both team headers at laptop heights.
+const compactAugmentSheetSx = {
+    ...hocFantasyRadioSx,
+    padding: 0.5,
+    borderRadius: "md",
+    borderColor: "rgba(112, 75, 42, 0.55)",
+    backgroundColor: "rgba(5, 8, 9, 0.78)",
+    color: hocColors.sidebarTitle,
+    fontWeight: 530,
+    fontSynthesis: "weight",
+    "& .MuiFormLabel-root": {
+        color: hocColors.sidebarTitle,
+        marginBottom: 0.25,
+        lineHeight: 1.15,
+        fontWeight: 530,
+        fontSynthesis: "weight",
+    },
+    "& .MuiRadioGroup-root": {
+        gap: 0,
+    },
+    "& .MuiRadio-root": {
+        minHeight: "26px",
+        paddingBlock: 0,
+        fontSize: "1.00625rem",
+        lineHeight: 1.15,
+        alignItems: "center",
+    },
+    "& .MuiRadio-label": {
+        color: hocColors.sidebarTitle,
+        display: "flex",
+        alignItems: "center",
+        minHeight: "26px",
+        lineHeight: 1.15,
+        fontWeight: 530,
+        fontSynthesis: "weight",
+    },
+} as const;
+
 const PlacementToggler = ({
     title,
     teamType,
@@ -66,14 +105,8 @@ const PlacementToggler = ({
     };
 
     return (
-        <Box sx={{ marginBottom: 0.5 }}>
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
+        <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
+            <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
                     <FormLabel>Augment Board Placement</FormLabel>
                     <RadioGroup
@@ -135,16 +168,10 @@ const ArmorToggler = ({
     };
 
     return (
-        <Box sx={{ marginBottom: 0.5 }}>
+        <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             {/* Remaining Points Text (Orange and Bold) */}
             {/* The Toggler Sheet */}
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
+            <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
                     <FormLabel>Augment Armor</FormLabel>
                     <RadioGroup
@@ -207,16 +234,10 @@ const MightToggler = ({
     };
 
     return (
-        <Box sx={{ marginBottom: 0.5 }}>
+        <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             {/* Remaining Points Text (Orange and Bold) */}
             {/* The Toggler Sheet */}
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
+            <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
                     <FormLabel>Augment Might</FormLabel>
                     <RadioGroup
@@ -279,16 +300,10 @@ const EmpowerToggler = ({
     };
 
     return (
-        <Box sx={{ marginBottom: 0.5 }}>
+        <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             {/* Remaining Points Text (Orange and Bold) */}
             {/* The Toggler Sheet */}
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
+            <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
                     <FormLabel>Augment Empower</FormLabel>
                     <RadioGroup
@@ -351,14 +366,8 @@ const SniperToggler = ({
     };
 
     return (
-        <Box sx={{ marginBottom: 0.5 }}>
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
+        <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
+            <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
                     <FormLabel>Augment Sniper</FormLabel>
                     <RadioGroup
@@ -427,14 +436,8 @@ const MovementToggler = ({
     };
 
     return (
-        <Box sx={{ marginBottom: 0.5 }}>
-            <Sheet
-                variant="outlined"
-                sx={{
-                    padding: 2,
-                    borderRadius: "md",
-                }}
-            >
+        <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
+            <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
                     <FormLabel>Augment Movement</FormLabel>
                     <RadioGroup
@@ -532,7 +535,22 @@ const SandboxToggleContainer = ({
     };
 
     return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 2 }}>
+        <Box
+            sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 0.5,
+                paddingTop: 0.25,
+                fontFamily: hocDisplayFontFamily,
+                fontWeight: 460,
+                fontSynthesis: "weight",
+                "& .MuiTypography-root, & .MuiFormLabel-root": {
+                    fontFamily: hocDisplayFontFamily,
+                    fontWeight: 460,
+                    fontSynthesis: "weight",
+                },
+            }}
+        >
             {/* Header in the same shape as Artifacts below: a title and a collapse chevron, so the two
                 blocks in this bar read as a pair rather than one titled section and one loose icon row. */}
             <Box
@@ -546,15 +564,18 @@ const SandboxToggleContainer = ({
                     justifyContent: "space-between",
                     gap: 1,
                     px: 0.5,
-                    py: 0.5,
+                    py: 0.25,
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
-                    color: augmentsOpen ? "#FF8F00" : "inherit",
+                    color: augmentsOpen ? "#FF8F00" : hocColors.sidebarTitle,
                     "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" },
                 }}
             >
-                <Typography level="title-sm" sx={{ color: "inherit" }}>
+                <Typography
+                    level="title-sm"
+                    sx={{ color: "inherit", fontSize: "1.1rem", letterSpacing: "0.06em", lineHeight: 1.25 }}
+                >
                     Augments
                 </Typography>
                 <Box
@@ -579,28 +600,57 @@ const SandboxToggleContainer = ({
                     Written as a map over AUGMENT_BUTTONS rather than six near-identical Tooltip/IconButton
                     blocks: they differed only in image, label and key, and the selected-state styling had to
                     be repeated verbatim in each one. */}
-                    <Box sx={{ display: "flex", justifyContent: "center", gap: 0, flexWrap: "nowrap" }}>
+                    <Box
+                        sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: 0,
+                            flexWrap: "nowrap",
+                        }}
+                    >
                         {AUGMENT_BUTTONS.map(({ kind, title, alt, img }) => {
                             const selected = togglerType === kind;
                             return (
                                 <Tooltip key={kind} title={title} placement="right" sx={{ zIndex: AUGMENT_TOOLTIP_Z }}>
                                     <IconButton
                                         sx={{
-                                            p: 0.25,
+                                            px: 0.25,
+                                            py: 0.75,
+                                            my: -0.5,
                                             minWidth: 0,
                                             flex: "1 1 0",
+                                            cursor: "default !important",
                                             // The open augment used to be marked by brightness alone (1.2 vs
                                             // 0.6), which on six busy 48px illustrations was easy to miss —
                                             // several of them are bright to begin with. An amber frame in the
                                             // panel's own accent says which one is open at a glance. The
                                             // border is always present and merely transparent when idle, so
                                             // selecting an icon cannot nudge the row's layout.
-                                            borderRadius: "8px",
-                                            border: "1px solid",
-                                            borderColor: selected ? hocColors.orange : "transparent",
+                                            position: "relative",
+                                            overflow: "hidden",
+                                            isolation: "isolate",
+                                            zIndex: selected ? 1 : 0,
+                                            borderRadius: "3px",
+                                            border: "1px solid transparent !important",
                                             backgroundColor: selected ? "rgba(255, 143, 0, 0.12)" : "transparent",
                                             boxShadow: selected ? "0 0 8px rgba(255, 143, 0, 0.45)" : "none",
                                             transition: "background-color 0.15s, box-shadow 0.15s",
+                                            // Draw the selected ring above the artwork. A normal button border
+                                            // sat underneath the full-bleed image, leaving only its side rails
+                                            // visible; this overlay keeps all four sides equally clear.
+                                            "&::after": {
+                                                content: '""',
+                                                position: "absolute",
+                                                inset: 0,
+                                                boxSizing: "border-box",
+                                                zIndex: 10,
+                                                pointerEvents: "none",
+                                                borderRadius: "inherit",
+                                                border: selected
+                                                    ? `2px solid ${hocColors.orange}`
+                                                    : "2px solid transparent",
+                                                boxShadow: selected ? "inset 0 0 5px rgba(255, 194, 92, 0.28)" : "none",
+                                            },
                                             // Hover deliberately paints NO frame. The frame means "this
                                             // augment's panel is the open one", and lighting one under the
                                             // cursor put that mark on two icons at once. Hover grows the art
@@ -610,6 +660,7 @@ const SandboxToggleContainer = ({
                                             "&:hover": {
                                                 backgroundColor: selected ? "rgba(255, 143, 0, 0.12)" : "transparent",
                                             },
+                                            "& img": { transform: selected ? "scale(1.15)" : "scale(1)" },
                                             "&:hover img": { transform: "scale(1.15)" },
                                         }}
                                         onClick={() => handleAugmentClick(kind)}
@@ -631,7 +682,15 @@ const SandboxToggleContainer = ({
                             );
                         })}
                     </Box>
-                    <Typography sx={{ color: "orange", fontWeight: "bold", paddingTop: 1 }}>
+                    <Typography
+                        sx={{
+                            width: "93%",
+                            mx: "auto",
+                            color: "orange",
+                            fontWeight: "bold",
+                            paddingTop: 0,
+                        }}
+                    >
                         Remaining Points: {totalPoints}
                     </Typography>
                     {togglerType === "Placement" && (

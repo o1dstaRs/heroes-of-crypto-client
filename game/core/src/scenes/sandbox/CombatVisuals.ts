@@ -3,6 +3,7 @@ import { Container, Sprite, Text as PixiText, TextStyle, Texture, Rectangle, Gra
 import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@heroesofcrypto/common";
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
+import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -461,8 +462,10 @@ const WINDSPEAR_TRAIL_SPACING = 0.32; // gap (cells) between successive trail or
 // shape (not a clean line) reads as an open wound rather than a drawn stroke.
 const SLASH_Z = 2050; // over the unit sprite (~1000), about level with the damage numbers
 const CRAFT_Z = 2060; // Craft's anvil/hammer, just over the slash layer
-const CRAFT_FORGE_LIFE = 1.5; // seconds — the full Craft cast animation (snappy)
-const CRAFT_STRIKE_CYCLE = 0.42; // seconds per hammer strike (~3 strikes across the cast)
+const CRAFT_TIME_SCALE = 0.6; // 40% shorter than the original forge sequence
+const CRAFT_FORGE_LIFE = 1.5 * CRAFT_TIME_SCALE;
+const CRAFT_STRIKE_CYCLE = 0.42 * CRAFT_TIME_SCALE;
+const CRAFT_FADE_IN = 0.12 * CRAFT_TIME_SCALE;
 const CRAFT_HAMMER_RAISED_ANGLE = -0.45;
 const CRAFT_HAMMER_IMPACT_ANGLE = -2.1;
 const ENCHANT_Z = 2066; // Armor Rune/Weapon attempt-then-resolve VFX, just over the craft forge
@@ -662,7 +665,7 @@ export class CombatVisuals {
         let style = this.damageStyleCache.get(key);
         if (!style) {
             style = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 60,
                 fontWeight: "900",
                 fill,
@@ -681,7 +684,7 @@ export class CombatVisuals {
     private getCountStyle(): TextStyle {
         if (!this.countStyle) {
             this.countStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 40,
                 fontWeight: "bold",
                 fill: "#ffffff",
@@ -693,7 +696,7 @@ export class CombatVisuals {
     private getDebuffStyle(): TextStyle {
         if (!this.debuffStyle) {
             this.debuffStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 34,
                 fontWeight: "900",
                 fill: "#c77dff", // violet reads clearly as a debuff
@@ -711,7 +714,7 @@ export class CombatVisuals {
     private getBuffStyle(): TextStyle {
         if (!this.buffStyle) {
             this.buffStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 34,
                 fontWeight: "900",
                 fill: "#7dffb0", // green reads clearly as a buff (vs the violet debuff)
@@ -729,7 +732,7 @@ export class CombatVisuals {
     private getMissStyle(): TextStyle {
         if (!this.missStyle) {
             this.missStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 34,
                 fontWeight: "900",
                 fill: "#e8eef5", // neutral cool-white — reads as "no hit", distinct from red/violet/green
@@ -747,7 +750,7 @@ export class CombatVisuals {
     private getAbsorbedLabelStyle(): TextStyle {
         if (!this.absorbedLabelStyle) {
             this.absorbedLabelStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 28,
                 fontWeight: "900",
                 fill: "#fff36d",
@@ -765,7 +768,7 @@ export class CombatVisuals {
     private getStolenLabelStyle(): TextStyle {
         if (!this.stolenLabelStyle) {
             this.stolenLabelStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 34,
                 fontWeight: "900",
                 fill: "#d7ff66",
@@ -783,7 +786,7 @@ export class CombatVisuals {
     private getStolenAbilityNameStyle(): TextStyle {
         if (!this.stolenAbilityNameStyle) {
             this.stolenAbilityNameStyle = new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 20,
                 fontWeight: "900",
                 fill: "#f4ffd7",
@@ -878,7 +881,7 @@ export class CombatVisuals {
         const label = new PixiText({
             text: "LUCKY!",
             style: new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 32,
                 fontWeight: "900",
                 fill: "#ffd94d",
@@ -900,7 +903,7 @@ export class CombatVisuals {
         const caption = new PixiText({
             text: "RAISED",
             style: new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 26,
                 fontWeight: "900",
                 fill: "#fff3c4",
@@ -925,7 +928,7 @@ export class CombatVisuals {
         const label = new PixiText({
             text: "No effect!",
             style: new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 30,
                 fontWeight: "900",
                 fill: "#4a4a4a", // muted dark grey — "nothing happened"
@@ -958,7 +961,7 @@ export class CombatVisuals {
         container.addChild(label, amountText);
 
         if (unitsDied && unitsDied > 0) {
-            const skullTex = Texture.from(images.skull || "/skull.webp");
+            const skullTex = Texture.from(images.skull);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
@@ -1342,7 +1345,7 @@ export class CombatVisuals {
      * happened and expire on their own — the Craft forge, damage numbers, buff/debuff pops — while still
      * dropping everything anchored to the units/board being torn down (death shatters, ability-steal arcs,
      * area effects). Ranked full-hydrates on any snapshot whose unit mechanics drifted, which lands ~150ms
-     * into a 1.5s Craft forge; without this the cast animation was wiped almost as soon as it started.
+     * into a Craft forge; without this the cast animation was wiped almost as soon as it started.
      */
     public clear(options?: { keepDetachedOverlays?: boolean }): void {
         const keepDetachedOverlays = options?.keepDetachedOverlays ?? false;
@@ -2768,13 +2771,13 @@ export class CombatVisuals {
             }
         }
     }
-    /** Blacksmith's Craft cast: an upright anvil and a hammer swinging around its grip, just above the caster. */
+    /** Blacksmith's Craft cast: an upright anvil and hammer centred over the selected 2x2 area. */
     public spawnCraftForge(center: HoCMath.XY, cellSize: number): number {
         const container = new Container();
         // worldRoot is y-up. Counter-flip the forge art so both source images stay upright, then use ordinary
         // screen-style local coordinates (positive y is down) to keep the anvil below the swinging hammer.
         container.scale.set(1, -1);
-        container.position.set(center.x, center.y + cellSize * 0.7);
+        container.position.set(center.x, center.y);
         this.context.attachToWorldRoot(container, CRAFT_Z);
 
         const anvilTex = Texture.from(images.craft_anvil);
@@ -2827,7 +2830,7 @@ export class CombatVisuals {
             impactsDone: 0,
             impactFlash: 0,
         });
-        return CRAFT_FORGE_LIFE * 1000;
+        return Math.round(CRAFT_FORGE_LIFE * 1000);
     }
     private spawnForgeSparks(forge: ICraftForge): void {
         const count = 11;
@@ -2867,8 +2870,8 @@ export class CombatVisuals {
 
             // Group fade: in over the first 0.12s, hold, out over the last 0.2s.
             let groupAlpha = 1;
-            if (forge.age < 0.12) {
-                groupAlpha = forge.age / 0.12;
+            if (forge.age < CRAFT_FADE_IN) {
+                groupAlpha = forge.age / CRAFT_FADE_IN;
             } else if (t > 0.86) {
                 groupAlpha = 1 - (t - 0.86) / 0.14;
             }
@@ -2954,7 +2957,7 @@ export class CombatVisuals {
         const label = new PixiText({
             text: opts.label,
             style: new TextStyle({
-                fontFamily: "Arial",
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 26,
                 fontWeight: "900",
                 fill: opts.success ? "#8ef08a" : "#b8b8b8",
@@ -3721,7 +3724,7 @@ export class CombatVisuals {
 
         // 2. Skull + Count if units died
         if (unitsDied && unitsDied > 0) {
-            const skullTex = Texture.from(images.skull || "/skull.webp");
+            const skullTex = Texture.from(images.skull);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;

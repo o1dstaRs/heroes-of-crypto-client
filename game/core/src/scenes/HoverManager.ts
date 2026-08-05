@@ -18,6 +18,8 @@ import {
 import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
+import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
+import { images } from "../generated/image_imports";
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
 // The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
@@ -122,9 +124,9 @@ export class HoverManager {
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
         // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
-        // artwork lives in public/ rather than the scene atlas, so load it explicitly; otherwise the melee
-        // geometry runs but the Sprite can remain Texture.EMPTY and nothing appears on the board.
-        void Assets.load<Texture>("/cursors/cursor_melee.png").then((texture) => {
+        // artwork comes from the Dropbox-backed generated image set; load it explicitly so the melee
+        // geometry never starts with Texture.EMPTY.
+        void Assets.load<Texture>(images.cursor_melee).then((texture) => {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
@@ -634,7 +636,7 @@ export class HoverManager {
             this.hoverDamageText = new Text({
                 text: damageStr,
                 style: {
-                    fontFamily: "Arial",
+                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                     fontSize: 24,
                     fill: 0xffffff,
                     stroke: { color: 0x000000, width: 4, join: "round" },
@@ -658,7 +660,7 @@ export class HoverManager {
                 this.hoverKillText = new Text({
                     text: killStr || "0",
                     style: {
-                        fontFamily: "Arial",
+                        fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                         fontSize: 24,
                         fill: 0xff3333,
                         stroke: { color: 0x000000, width: 4, join: "round" },
@@ -843,7 +845,7 @@ export class HoverManager {
             label = new Text({
                 text: damageStr,
                 style: {
-                    fontFamily: "Arial",
+                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                     fontSize: 24,
                     fill: 0xffffff,
                     stroke: { color: 0x000000, width: 4, join: "round" },
@@ -1127,6 +1129,7 @@ export class HoverManager {
         iconTex: Texture;
         label: string;
         color: number;
+        beamStyle: "positive" | "negative";
     }): void {
         const color = opts.color;
 
@@ -1148,15 +1151,56 @@ export class HoverManager {
             const tx = opts.targetPos.x;
             const ty = opts.targetPos.y;
             const angle = Math.atan2(ty - fy, tx - fx);
-            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 16, color, alpha: 0.22 });
-            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 5, color, alpha: 0.9 });
-            const hl = 22;
-            const ha = Math.PI / 6;
-            g.moveTo(tx, ty)
-                .lineTo(tx - hl * Math.cos(angle - ha), ty - hl * Math.sin(angle - ha))
-                .moveTo(tx, ty)
-                .lineTo(tx - hl * Math.cos(angle + ha), ty - hl * Math.sin(angle + ha))
-                .stroke({ width: 5, color, alpha: 1.0 });
+            const negative = opts.beamStyle === "negative";
+            const glowColor = negative ? 0x9e1308 : 0x00a94f;
+            const midColor = negative ? 0xff3b12 : 0x18e875;
+            const coreColor = negative ? 0xffc04a : 0xbaffd2;
+
+            // Variant 1: a narrow luminous core, broad magical glow and a sharp arcane spearhead.
+            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 20, color: glowColor, alpha: 0.16 });
+            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 9, color: midColor, alpha: 0.38 });
+            g.moveTo(fx, fy).lineTo(tx, ty).stroke({ width: 3, color: coreColor, alpha: 0.95 });
+
+            const dx = tx - fx;
+            const dy = ty - fy;
+            const length = Math.max(1, Math.hypot(dx, dy));
+            const nx = -dy / length;
+            const ny = dx / length;
+            for (let i = 1; i <= 6; i++) {
+                const t = i / 8;
+                const wave = Math.sin(i * 2.35) * (negative ? 8 : 5);
+                const px = fx + dx * t + nx * wave;
+                const py = fy + dy * t + ny * wave;
+                const runeSize = negative ? 4 + (i % 2) : 3 + (i % 2);
+                if (negative) {
+                    // Ember tongues trail off the fiery red beam.
+                    g.moveTo(px - nx * runeSize, py - ny * runeSize)
+                        .quadraticCurveTo(
+                            px + nx * runeSize * 2.5 - (dx / length) * 5,
+                            py + ny * runeSize * 2.5 - (dy / length) * 5,
+                            px + nx * runeSize * 0.6,
+                            py + ny * runeSize * 0.6,
+                        )
+                        .stroke({ width: 2, color: i % 2 ? 0xff6a18 : 0xffc13b, alpha: 0.72 });
+                } else {
+                    // Small diamond runes keep the green beam magical without obscuring the board.
+                    g.poly([px, py - runeSize, px + runeSize, py, px, py + runeSize, px - runeSize, py]).stroke({
+                        width: 1.5,
+                        color: coreColor,
+                        alpha: 0.72,
+                    });
+                }
+            }
+
+            const hl = 28;
+            const hw = 12;
+            const ux = Math.cos(angle);
+            const uy = Math.sin(angle);
+            const bx = tx - ux * hl;
+            const by = ty - uy * hl;
+            g.poly([tx, ty, bx + nx * hw, by + ny * hw, bx + ux * 7, by + uy * 7, bx - nx * hw, by - ny * hw])
+                .fill({ color: midColor, alpha: 0.28 })
+                .stroke({ width: 3, color: coreColor, alpha: 1 });
         } else if (this.spellBeam) {
             this.safeClearGraphics(this.spellBeam);
         }
@@ -1196,7 +1240,7 @@ export class HoverManager {
             this.spellBadgeText = new Text({
                 text: opts.label,
                 style: {
-                    fontFamily: "Arial",
+                    fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                     fontSize: 18,
                     fill: 0xffffff,
                     stroke: { color: 0x000000, width: 4, join: "round" },

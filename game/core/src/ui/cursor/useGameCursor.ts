@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
 import { AttackVals } from "@heroesofcrypto/common";
+import { images } from "../../generated/image_imports";
 import type { IHoverInfo } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 
 /**
- * Cursor modes for the themed in-game cursor. Each maps to a PNG in `public/cursors/`:
- *   default     -> cursor_default.png     (no unit hovered, no attack selected)
- *   interactive -> cursor_interactive.png (hovering any unit, not an attack target)
- *   melee       -> cursor_melee.png       (hovering an attackable enemy with melee unit active)
- *   ranged      -> cursor_ranged.png      (hovering an attackable enemy with ranged unit active)
- *   magic       -> cursor_magic.png       (hovering an attackable enemy with magic unit active)
+ * Cursor modes for the themed in-game cursor. Each maps to the Dropbox-backed generated image set.
  *
  * HoMM-style behaviour: the attack cursor (sword/bow/magic) ONLY appears when the cursor is actively
  * over an enemy unit the active unit can attack — not merely from having selected an attack type.
@@ -25,6 +21,14 @@ const CURSOR_HOTSPOT: Record<CursorMode, { x: number; y: number }> = {
     melee: { x: 0, y: 0 },
     ranged: { x: 0, y: 0 },
     magic: { x: 0, y: 0 },
+};
+
+const CURSOR_IMAGE: Record<CursorMode, string> = {
+    default: images.cursor_default,
+    interactive: images.cursor_interactive_point_x,
+    melee: images.cursor_melee,
+    ranged: images.cursor_ranged,
+    magic: images.cursor_magic,
 };
 
 function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
@@ -57,7 +61,7 @@ function cursorCss(mode: CursorMode): string {
     // two competing markers, so the native cursor disappears for exactly the duration of a melee aim.
     if (mode === "melee") return "none";
     const hot = CURSOR_HOTSPOT[mode];
-    return `url('/cursors/cursor_${mode}.png') ${hot.x} ${hot.y}, auto`;
+    return `url("${CURSOR_IMAGE[mode]}") ${hot.x} ${hot.y}, auto`;
 }
 
 /**

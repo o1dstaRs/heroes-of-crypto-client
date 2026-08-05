@@ -7,7 +7,7 @@ import Slider from "@mui/joy/Slider";
 import Button from "@mui/joy/Button";
 import Tooltip from "@mui/joy/Tooltip";
 import { images } from "../../generated/image_imports";
-import { hocActionDangerButtonSx, hocActionSoftButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily, hocSidebarImageButtonSx } from "../hocTheme";
 
 interface IUnitSplitterProps {
     totalUnits: number;
@@ -36,6 +36,7 @@ function isEditableShortcutTarget(target: EventTarget | null): boolean {
 const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
     const manager = usePixiManager();
     const [splitValue, setSplitValue] = React.useState(1); // Start with minimum value
+    const hasSelectedUnit = totalUnits > 0;
 
     // Reset slider value whenever totalUnits changes
     useEffect(() => {
@@ -91,7 +92,9 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                     // ends, and the counts sitting above them, stay inside the panel.
                     paddingX: `${SLIDER_INSET_PX}px`,
                     "& .MuiTypography-root": {
-                        color: "rgba(255, 143, 0, 0.5)",
+                        color: "rgba(216,194,156,.7)",
+                        fontFamily: hocDisplayFontFamily,
+                        fontSynthesis: "none",
                         transition: "all 0.2s ease",
                     },
                     "&:hover .MuiTypography-root": {
@@ -100,13 +103,13 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                 }}
             >
                 <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                    <Typography level="body-sm">{splitValue}</Typography>
-                    <Typography level="body-sm">{totalUnits - splitValue}</Typography>
+                    <Typography level="body-sm">{hasSelectedUnit ? splitValue : 0}</Typography>
+                    <Typography level="body-sm">{hasSelectedUnit ? totalUnits - splitValue : 1}</Typography>
                 </Box>
 
                 <Slider
                     sx={{
-                        color: "#FF8F00", // Dark Orange Gold
+                        color: "#9a5a26",
                         padding: "4px 0",
                         height: 10,
                         "&:hover": {
@@ -126,31 +129,37 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                             },
                         },
                         "& .MuiSlider-rail": {
-                            height: 10,
-                            opacity: 0.5,
-                            backgroundColor: "#FF8F00", // Match main color
+                            height: 6.5,
+                            opacity: 1,
+                            background:
+                                "linear-gradient(180deg,#1b0d07 0%,#080504 66%,#6b3516 67%,#6b3516 80%,#1b0d07 81%)",
+                            border: "1px solid rgba(147,92,43,.72)",
+                            boxShadow: "inset 0 1px 3px #000, 0 1px 2px rgba(190,117,50,.25)",
                         },
                         "& .MuiSlider-track": {
-                            height: 10,
-                            border: "none",
-                            backgroundColor: "#FF8F00", // Explicitly Orange/Gold
+                            height: 6.5,
+                            border: "1px solid rgba(188,111,47,.68)",
+                            background: "linear-gradient(180deg,#9a4e1d,#3a1809 55%,#7a3514)",
+                            boxShadow: "inset 0 1px 2px rgba(255,194,108,.24)",
                         },
                     }}
-                    value={splitValue}
+                    value={hasSelectedUnit ? splitValue : 0}
                     onChange={handleSliderChange}
-                    min={1}
-                    max={totalUnits - 1}
+                    min={hasSelectedUnit ? 1 : 0}
+                    max={hasSelectedUnit ? Math.max(1, totalUnits - 1) : 1}
+                    track={hasSelectedUnit ? "normal" : false}
+                    disabled={!hasSelectedUnit}
                     step={1}
                     aria-label="Unit Split Slider"
                 />
             </Stack>
-            <Stack direction="row" spacing={2} sx={{ marginTop: 2, marginBottom: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 2, marginBottom: 2 }}>
                 <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
                         size="sm"
                         onClick={handleAcceptSplit}
-                        sx={{ ...hocActionSoftButtonSx, flex: 1, minWidth: 0 }}
+                        sx={{ ...hocSidebarImageButtonSx("neutral"), flex: 1, minWidth: 0 }}
                     >
                         Split
                     </Button>
@@ -162,7 +171,7 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                         onClick={() => {
                             manager.Delete();
                         }}
-                        sx={{ ...hocActionDangerButtonSx, flex: 1, minWidth: 0 }}
+                        sx={{ ...hocSidebarImageButtonSx("danger"), flex: 1, minWidth: 0 }}
                     >
                         Delete
                     </Button>

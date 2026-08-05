@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>HoC Forge — цифры</title>
+        <style>
+            @font-face {
+                font-family: "HoC Forge";
+                src: url("./HoCForge-Regular.ttf") format("truetype");
+                font-style: normal;
+                font-weight: 400;
+                font-display: block;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                margin: 0;
+                min-height: 100%;
+            }
+
+            body {
+                width: 1500px;
+                min-height: 880px;
+                display: grid;
+                place-items: center;
+                background:
+                    radial-gradient(circle at 50% 34%, rgba(112, 50, 22, 0.18), transparent 42%),
+                    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 9px),
+                    linear-gradient(180deg, #171615, #090909);
+                color: #e8e1d5;
+                font-family: Inter, system-ui, sans-serif;
+            }
+
+            main {
+                width: 1240px;
+                padding: 46px 54px 54px;
+                border: 1px solid rgba(174, 103, 57, 0.45);
+                background: linear-gradient(180deg, rgba(32, 27, 23, 0.92), rgba(8, 8, 8, 0.96));
+                box-shadow:
+                    inset 0 0 0 2px #070504,
+                    inset 0 0 0 3px rgba(178, 119, 72, 0.16),
+                    0 22px 54px rgba(0, 0, 0, 0.55);
+            }
+
+            h1 {
+                margin: 0 0 34px;
+                color: #b99878;
+                font-size: 25px;
+                font-weight: 650;
+                letter-spacing: 0.04em;
+                text-align: center;
+                text-transform: uppercase;
+            }
+
+            .digits {
+                color: #eee6d8;
+                font-family: "HoC Forge", Georgia, serif;
+                font-size: 128px;
+                font-weight: 700;
+                font-synthesis: weight;
+                letter-spacing: 0.121em;
+                line-height: 1;
+                text-align: center;
+                text-shadow: 0 4px 2px #000;
+                white-space: nowrap;
+            }
+
+            .rule {
+                height: 1px;
+                margin: 38px 0 28px;
+                background: linear-gradient(90deg, transparent, #9e653c, transparent);
+            }
+
+            .examples {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 18px;
+            }
+
+            .example {
+                padding: 20px 14px 18px;
+                border: 1px solid rgba(143, 102, 67, 0.26);
+                background: linear-gradient(180deg, rgba(26, 25, 23, 0.94), rgba(8, 8, 8, 0.96));
+                text-align: center;
+            }
+
+            .example span {
+                color: #e6e3dc;
+                font-family: "HoC Forge", Georgia, serif;
+                font-size: 55px;
+                font-weight: 700;
+                font-synthesis: weight;
+                letter-spacing: 0.121em;
+                line-height: 1;
+                text-shadow: 0 2px 1px #000;
+            }
+
+            .caption {
+                margin-top: 13px;
+                color: #796c5f;
+                font-size: 14px;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>HoC Forge · цифры с игровым интервалом +10%</h1>
+            <div class="digits">0123456789</div>
+            <div class="rule"></div>
+            <section class="examples">
+                <div class="example">
+                    <span>9/9</span>
+                    <div class="caption">здоровье</div>
+                </div>
+                <div class="example">
+                    <span>2–3</span>
+                    <div class="caption">урон</div>
+                </div>
+                <div class="example">
+                    <span>0%</span>
+                    <div class="caption">сопротивление</div>
+                </div>
+                <div class="example">
+                    <span>11</span>
+                    <div class="caption">параметр</div>
+                </div>
+            </section>
+        </main>
+    </body>
+</html>

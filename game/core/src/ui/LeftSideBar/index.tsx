@@ -12,9 +12,10 @@ import { useColorScheme } from "@mui/joy/styles";
 import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } from "react";
 
-import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 import { MessageBox } from "./MessageBox";
+import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { SidebarFrame } from "../SidebarFrame";
 // Black under everything. The hide is laid over it at partial opacity, so this is what mutes it — and what
 // shows on its own for the moment before the texture arrives.
 export const SIDEBAR_BG = "#000000";
@@ -56,18 +57,25 @@ export const SIDEBAR_BG = "#000000";
  * red channel would need a negative wash to cancel, since red is where the hide is warmest. 0.15 sits just
  * under it and leaves about +/-1.7 levels of texture, which is faint but not flat.
  */
-const NEUTRALISING_WASH = "rgba(2, 12, 13, 0.85)";
-
-/** One hide, both bars, tinted to the map. They differ only in which end of it they show — see the
- *  backgroundPosition on either Sheet — so the same crease never appears twice on screen. */
-export const SIDEBAR_BG_IMAGE =
-    `linear-gradient(${NEUTRALISING_WASH}, ${NEUTRALISING_WASH}),` + " url('/textures/sidebar_leather_plain.webp')";
+/** The chosen pair deliberately gives the two command decks different materials while keeping the same
+ * near-black value range: ember-specked hammered stone on the unit panel, engraved hide on the controls. */
+export const LEFT_SIDEBAR_BG_IMAGE = `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.2)), url(${images.ui_sidebar_bg_left_emberstone})`;
+export const RIGHT_SIDEBAR_BG_IMAGE = `linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.16)), url(${images.ui_sidebar_bg_right_runic})`;
+export const SIDEBAR_BG_IMAGE = RIGHT_SIDEBAR_BG_IMAGE;
 export const SIDEBAR_BG_SIZE = "auto, cover";
 export const SIDEBAR_BG_REPEAT = "no-repeat, no-repeat";
 
 import { UnitStatsListItem } from "./UnitStatsListItem";
 import { UpNext } from "./UpNext";
-import { computeSidebarMetrics, SidebarMetricsContext } from "./sidebarMetrics";
+import {
+    computeSidebarMetrics,
+    SIDEBAR_FRAME_LEFT_BORDER_PX,
+    SIDEBAR_FRAME_RIGHT_INSET_PX,
+    SidebarMetricsContext,
+    sidebarFrameBottomInsetPx,
+    sidebarFrameSideInsetPx,
+    sidebarFrameTopInsetPx,
+} from "./sidebarMetrics";
 import type { IVisibleImpact } from "../../scenes/VisibleState";
 import { useFitScale } from "./useFitScale";
 import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
@@ -181,6 +189,12 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
     );
 
     const unitProperties = selection.unit || ({} as UnitProperties);
+    // Keep the usable width unchanged while centring the whole inner column between the two outer rails.
+    // The left side includes a real border, so its CSS padding must be that border narrower than the right.
+    const balancedOuterInset = Math.round(
+        (sidebarFrameSideInsetPx(barSize) + SIDEBAR_FRAME_LEFT_BORDER_PX + SIDEBAR_FRAME_RIGHT_INSET_PX) / 2,
+    );
+    const balancedLeftPadding = Math.max(0, balancedOuterInset - SIDEBAR_FRAME_LEFT_BORDER_PX);
 
     // The card is the only elastic block: everything else is pinned, so it both reports its own height
     // (feeding the metrics above) and scales itself down if its content still cannot fit.
@@ -214,10 +228,15 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     width: `${barSize}px`,
                     top: 0,
                     left: 0,
-                    px: `${metrics.padPx}px`,
-                    // Less dead air above the unit name; the height goes to the card.
-                    pt: `${Math.round(metrics.padPx * 0.4)}px`,
-                    pb: `${metrics.padPx}px`,
+                    // Equal visible margins on both sides. The left padding is smaller only because the
+                    // five-pixel border beside it is part of that same visible outer gap.
+                    pl: `${balancedLeftPadding}px`,
+                    pr: `${balancedOuterInset}px`,
+                    pt: `${sidebarFrameTopInsetPx(windowSize.height)}px`,
+                    pb: `${sidebarFrameBottomInsetPx(windowSize.height)}px`,
+                    // The banner consumes this inset itself so its top rail reaches the inner edge of the
+                    // outer frame while the rest of the card keeps the normal safe content padding.
+                    "--sidebar-card-top-extension": `${sidebarFrameTopInsetPx(windowSize.height)}px`,
                     display: "flex",
                     flexDirection: "column",
                     gap: `${metrics.gapPx}px`,
@@ -226,9 +245,15 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     // width and the background is clipped to the padding box, so the leather stops before
                     // the trim rather than running under it and on into the board's edge column of cells.
                     // Should the trim ever not be drawn, what shows here is a dark rule, not hide.
-                    borderRight: `${BOARD_EDGE_TRIM_WIDTH_PX}px solid #0a0705`,
+                    borderLeft: "5px solid #100c09",
+                    borderTop: "5px solid #100c09",
+                    borderBottom: "5px solid #100c09",
+                    boxSizing: "border-box",
                     backgroundClip: "padding-box",
-                    boxShadow: "inset -1px 0 0 rgba(120,104,80,.22), 6px 0 18px rgba(0,0,0,.7)",
+                    // Do not use a four-sided bronze inset here: its right side duplicated the board edge
+                    // and appeared as the stray orange vertical line. The authored outer frame supplies
+                    // the remaining rails; this keeps only depth and the shadow cast toward the board.
+                    boxShadow: "inset 0 0 22px rgba(0,0,0,.82), 6px 0 18px rgba(0,0,0,.76)",
                     // Everything below sizes itself to the bar, and the card scales down when its content
                     // cannot fit, so a scrollbar only ever appears on a screen too short for the pinned
                     // turn panel and queue alone.
@@ -237,7 +262,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     transition: "width 180ms ease-out",
                     willChange: "width",
                     backgroundColor: SIDEBAR_BG,
-                    backgroundImage: SIDEBAR_BG_IMAGE,
+                    backgroundImage: LEFT_SIDEBAR_BG_IMAGE,
                     backgroundSize: SIDEBAR_BG_SIZE,
                     backgroundRepeat: SIDEBAR_BG_REPEAT,
                     // The two bars take opposite ends of the same hide, so they are never a mirrored pair.
@@ -345,6 +370,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                         <UpNext />
                     </Box>
                 )}
+                <SidebarFrame side="left" width={barSize} height={windowSize.height} />
             </Sheet>
         </SidebarMetricsContext.Provider>
     );
