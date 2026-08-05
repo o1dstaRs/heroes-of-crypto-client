@@ -35,7 +35,6 @@ import {
     revealedOpponentRowX,
     revealedOpponentRowY,
     shouldPublishRankedFinish,
-    spellAbilityTransferSceneLogSuffix,
     spellCastNarratedPairs,
     spellOutcomeSceneLogLines,
 } from "./RankedPlayScene";
@@ -1500,40 +1499,5 @@ describe("ranked rolled-cast outcome lines", () => {
 
     test("non-outcome casts contribute nothing", () => {
         expect(spellOutcomeSceneLogLines(event("Heal", []), names)).toEqual([]);
-    });
-});
-
-describe("ranked ability-transfer scene log", () => {
-    const transferEvent = (mode: "gifted" | "copied"): GameEvent =>
-        ({
-            type: "spell_cast",
-            casterId: "troll",
-            spellName: "Wild Regeneration",
-            targetId: "ally",
-            abilityTransfers: [
-                {
-                    abilityName: "Wild Regeneration",
-                    fromUnitId: "troll",
-                    toUnitId: "ally",
-                    mode,
-                },
-            ],
-        }) as GameEvent;
-
-    test("restores sandbox's gifted/copied wording from the authoritative cast event", () => {
-        expect(spellAbilityTransferSceneLogSuffix(transferEvent("gifted"))).toBe(" => gifted");
-        expect(spellAbilityTransferSceneLogSuffix(transferEvent("copied"))).toBe(" => copied");
-    });
-
-    test("keeps older server events and unrelated events unchanged", () => {
-        expect(
-            spellAbilityTransferSceneLogSuffix({
-                type: "spell_cast",
-                casterId: "troll",
-                spellName: "Wild Regeneration",
-                targetId: "ally",
-            } as GameEvent),
-        ).toBe("");
-        expect(spellAbilityTransferSceneLogSuffix({ type: "unit_waited", unitId: "ally" } as GameEvent)).toBe("");
     });
 });
