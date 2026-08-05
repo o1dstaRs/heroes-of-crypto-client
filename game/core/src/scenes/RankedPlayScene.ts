@@ -948,6 +948,18 @@ export const rankedSecondarySceneLogLines = (
             case "flesh_shield":
                 text = `${name} absorbed (${entry.amount}) with Flesh Shield${kills}`;
                 break;
+            case "water_shield": {
+                // Name the striker — the event itself knows who swung; matches the engine's sandbox line.
+                const strikerId =
+                    event.type === "unit_attacked" || event.type === "area_attacked"
+                        ? event.attackerId
+                        : event.type === "spell_cast"
+                          ? event.casterId
+                          : undefined;
+                const striker = strikerId ? unitNames.get(strikerId) : undefined;
+                text = `${name}'s Water Shield absorbs ${striker ? `${striker}'s hit` : "the hit"} and breaks`;
+                break;
+            }
             case "devour_essence":
                 // A HEAL: same wording the engine writes to the local sandbox log, so both modes match.
                 text = `${name} rejuvinated for ${entry.amount} hp`;

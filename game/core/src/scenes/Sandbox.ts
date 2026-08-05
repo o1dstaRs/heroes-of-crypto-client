@@ -3791,6 +3791,34 @@ export class Sandbox extends PixiScene {
         return aggregated;
     }
     /**
+     * Yellow ABSORBED pop over a Water Shield owner whose shield ate the whole hit (source
+     * "water_shield") — shared by the live paths, the spell path and the ranked replay per the ABILITY
+     * VFX CONTRACT. The red-number loops all EXCLUDE this source: the owner took nothing.
+     */
+    protected showWaterShieldAbsorbs(
+        secondary?: IVisibleDamage["secondary"],
+        attackerCenter?: HoCMath.XY,
+        delayMs = 0,
+    ): void {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        for (const entry of secondary ?? []) {
+            if (entry.source !== "water_shield" || entry.amount <= 0) {
+                continue;
+            }
+            const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
+            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
+            const show = (): void => {
+                this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction);
+            };
+            if (delayMs > 0) {
+                setTimeout(show, delayMs);
+            } else {
+                show();
+            }
+        }
+    }
+    /**
      * Render an AOE attack's per-unit floating damage from `damage.splash` — one number on EVERY splashed
      * unit at its own position. A Double-Shot AOE (Gargantuan Area Throw) lands TWO entries per unit (one
      * per shot); the repeated entry is staggered so the two numbers don't draw on top of each other.
@@ -3877,11 +3905,19 @@ export class Sandbox extends PixiScene {
         // Flesh Shield is deliberately rendered as ONE aggregated, labelled value on the aura owner.
         // Keep it out of the generic secondary loop below or it would also draw as an ordinary `-X` hit.
         this.showFleshShieldAbsorbedDamage(damage.secondary, attackerCenter, 220);
+        this.showWaterShieldAbsorbs(damage.secondary, attackerCenter, 220);
         // Devour Essence is a HEAL riding the same payload — green "+N" on the devourer, kept out of
         // the red-number loop below.
         this.showDevourEssenceHeals(damage.secondary);
         (damage.secondary ?? [])
-            .filter((entry) => entry.source !== "flesh_shield" && entry.source !== "devour_essence")
+            .filter(
+                (entry) =>
+                    entry.source !== "flesh_shield" &&
+                    entry.source !== "devour_essence" &&
+                    // A Water Shield absorb is not damage taken — it gets the ABSORBED pop below, never
+                    // a red number.
+                    entry.source !== "water_shield",
+            )
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;
                 const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
@@ -7335,6 +7371,7 @@ export class Sandbox extends PixiScene {
             // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
             // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
             this.showFleshShieldAbsorbedDamage(secondary, casterPosition);
+            this.showWaterShieldAbsorbs(secondary, casterPosition);
             // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
             // Strike, Meteor Shower) have nothing to travel and just burst where they land.
             //
@@ -8278,6 +8315,7 @@ export class Sandbox extends PixiScene {
             this.noteDeathBlowsFromAttackEvent(areaEvent);
         }
         const fleshShieldDamageByUnit = this.showFleshShieldAbsorbedDamage(areaEvent?.damage.secondary, muzzle, 180);
+        this.showWaterShieldAbsorbs(areaEvent?.damage.secondary, muzzle, 180);
         const splash = areaEvent?.damage.splash;
         // The engine resolved EVERY wave in the single apply() above, and `splash` carries one entry per
         // surviving unit per wave — wave 1 then wave 2 (double_shot_ability appends the second). Show each
@@ -8878,6 +8916,7 @@ export class Sandbox extends PixiScene {
             attacker.getVisualCenter(gs),
             180,
         );
+        this.showWaterShieldAbsorbs(damageForAnimation.secondary, attacker.getVisualCenter(gs), 180);
 
         // Devour Essence heal (Hydra devouring a slain enemy): green "+N" + buff-wash on the devourer.
         this.showDevourEssenceHeals(damageForAnimation.secondary);

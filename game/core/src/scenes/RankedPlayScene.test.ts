@@ -1345,6 +1345,36 @@ describe("ranked spell secondary-damage scene log", () => {
             "🟢 Battle Mage received (570) from Magic Mirror rebound 💀 1",
         ]);
     });
+
+    test("a Water Shield break names the shield owner AND the striker", () => {
+        const attackEvent = {
+            type: "unit_attacked",
+            attackType: "melee",
+            attackerId: "orc",
+            targetId: "mermaid",
+            unitIdsDied: [],
+            animations: [],
+            damage: {
+                amount: 0,
+                secondary: [
+                    {
+                        source: "water_shield",
+                        unitId: "mermaid",
+                        position: { x: 5, y: 6 },
+                        amount: 44,
+                        unitsDied: 0,
+                    },
+                ],
+            },
+        } as unknown as GameEvent;
+        const shieldNames = new Map([
+            ["orc", "Orc"],
+            ["mermaid", "Mermaid"],
+        ]);
+        expect(rankedSecondarySceneLogLines(attackEvent, shieldNames, () => "🔴")).toEqual([
+            "🔴 Mermaid's Water Shield absorbs Orc's hit and breaks",
+        ]);
+    });
 });
 
 describe("ranked effects_applied scene log", () => {
