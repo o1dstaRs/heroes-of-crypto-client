@@ -196,6 +196,10 @@ export interface PlaySnapshot {
     maxUpperUnits: number;
     narrowingLayers: number;
     centerDried: boolean;
+    /** Remaining hits of the two BLOCK_CENTER mountains (true counts, decoded from the 1-based wire
+     * fields 56/57). Undefined from an older server — the scene keeps its locally-tracked values. */
+    centerObstacleHitsLeft?: number;
+    centerObstacleHitsRight?: number;
     /** Server-authoritative cumulative multiplier applied to morale when deriving movement steps. */
     stepsMoraleMultiplier?: number;
     upNext: string[];
@@ -846,6 +850,13 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
             snapshot.upperAugmentEmpower = reader.varintNumber();
         } else if (field === 55) {
             snapshot.hideOpponentRosterDuringSetup = reader.bool();
+        } else if (field === 56) {
+            // 1-based on the wire (hits + 1) so a destroyed mountain's genuine 0 survives proto3's
+            // zero-default; decode to the true count. Absent (older server) stays undefined and the
+            // scene falls back to its locally-tracked values.
+            snapshot.centerObstacleHitsLeft = Math.max(0, reader.varintNumber() - 1);
+        } else if (field === 57) {
+            snapshot.centerObstacleHitsRight = Math.max(0, reader.varintNumber() - 1);
         } else {
             reader.skip(wireType);
         }
