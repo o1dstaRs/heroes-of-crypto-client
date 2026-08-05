@@ -728,7 +728,8 @@ export class Sandbox extends PixiScene {
     private movementGraphics?: Graphics;
     /** Tracks whether the dynamic board-overlay buffer needs one final clear after it becomes idle. */
     private gameplayGraphicsHasGeometry = false;
-    private currentActiveSpell?: PixiRenderableSpell;
+    // Protected: RankedPlayScene re-arms it after a mid-turn full hydrate (the armed-spell restore).
+    protected currentActiveSpell?: PixiRenderableSpell;
     private hoveredSpell?: PixiRenderableSpell;
     private spellHoverInfoKey = "";
     private drawnNarrowingLaps: Set<number> = new Set();
