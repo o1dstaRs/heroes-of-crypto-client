@@ -27,6 +27,15 @@ const sliceFrom = (source: string, anchor: string, length: number): string => {
     return source.slice(start, start + length);
 };
 
+const areaThrowSource = (): string => {
+    const source = sandboxSource();
+    const start = source.indexOf("private async performAreaThrow(");
+    const end = source.indexOf("\n    protected renderIncomingThreatPreview(", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return source.slice(start, end);
+};
+
 describe("area throw replay reads the authoritative record", () => {
     test("the replay dispatcher hands down the whole record, not just the action", () => {
         const source = sandboxSource();
@@ -42,7 +51,7 @@ describe("area throw replay reads the authoritative record", () => {
     });
 
     test("performAreaThrow prefers the recorded area_attacked over its own re-roll", () => {
-        const body = sliceFrom(sandboxSource(), "private async performAreaThrow(", 7200);
+        const body = areaThrowSource();
 
         expect(body).toContain('replayRecord?: SandboxReplay["actions"][number]');
         expect(body).toContain("findAreaEvent(replayRecord.events)");
@@ -51,7 +60,7 @@ describe("area throw replay reads the authoritative record", () => {
     });
 
     test("a rejected re-apply still lands the recorded events", () => {
-        const body = sliceFrom(sandboxSource(), "private async performAreaThrow(", 7200);
+        const body = areaThrowSource();
 
         // Both exits matter: the one that draws nothing (no recorded event either) and the one that drew
         // the recorded numbers but never mutated local state.
