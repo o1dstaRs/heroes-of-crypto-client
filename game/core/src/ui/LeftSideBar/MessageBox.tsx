@@ -1,6 +1,5 @@
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
-import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
 import TimelapseRoundedIcon from "@mui/icons-material/TimelapseRounded";
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import Button from "@mui/joy/Button";
