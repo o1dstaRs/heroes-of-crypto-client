@@ -6,6 +6,15 @@
              ../../images/ path escaped the vite root (src/ui), so in dev the browser resolved it to
              /images/favicon.ico — answered by the SPA fallback with HTML, never an icon. -->
         <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <!-- The display face is also consumed by Pixi/canvas, where a late font swap cannot repaint text
+             automatically. Preload it before either renderer creates its first carved heading. -->
+        <link
+            rel="preload"
+            href="/fonts/hoc-forge/HoCForge-Regular.ttf"
+            as="font"
+            type="font/ttf"
+            crossorigin="anonymous"
+        />
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Play Heroes of Crypto</title>
