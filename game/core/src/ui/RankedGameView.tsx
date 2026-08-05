@@ -57,7 +57,6 @@ import { getLocalModelOpponentConfig, isLocalModelAction } from "../scenes/Local
 import { authoritativeSnapshotToSandboxSceneState, RankedPlayScene } from "../scenes/RankedPlayScene";
 import type { IWindowSize } from "../scenes/VisibleState";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
-import { BoardEdgeTrim } from "./boardEdgeTrim";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
@@ -1680,7 +1679,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         around the same two sidebars — never drew it and the board simply ran into the
                         leather. It is anchored to the BOARD's edges, so it belongs beside the bars wherever
                         they are used. */}
-                    <BoardEdgeTrim windowSize={windowSize} />
                     <ViewerTeamContext.Provider value={viewerTeam}>
                         <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
                     </ViewerTeamContext.Provider>

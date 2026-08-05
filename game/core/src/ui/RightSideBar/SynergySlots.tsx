@@ -44,7 +44,7 @@ const levelsBySynergy = (
     return levels;
 };
 
-export const SynergySlots: React.FC<{ teamType: TeamType; size?: number }> = ({ teamType, size = 22 }) => {
+export const SynergySlots: React.FC<{ teamType: TeamType; size?: number | string }> = ({ teamType, size = 22 }) => {
     const manager = usePixiManager();
     const [possible, setPossible] = useState<Map<TeamType, SynergyWithLevel[]> | null>(null);
     useEffect(() => {
@@ -59,7 +59,18 @@ export const SynergySlots: React.FC<{ teamType: TeamType; size?: number }> = ({ 
     const levels = levelsBySynergy(possible, teamType);
 
     return (
-        <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.25 }}>
+        <Box
+            sx={{
+                display: "flex",
+                flex: "1 1 auto",
+                minWidth: 0,
+                flexWrap: "nowrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                gap: 0.2,
+            }}
+        >
             {SYNERGIES.map(({ key, label, variant }) => {
                 const level = levels[key] ?? 0;
                 const isActive = level > 0;
@@ -91,7 +102,12 @@ export const SynergySlots: React.FC<{ teamType: TeamType; size?: number }> = ({ 
                             alt={label}
                             sx={{
                                 width: size,
-                                height: size,
+                                height: "auto",
+                                maxWidth: size,
+                                minWidth: 0,
+                                aspectRatio: "1 / 1",
+                                objectFit: "contain",
+                                flex: `1 1 ${typeof size === "number" ? `${size}px` : size}`,
                                 filter: isActive ? "none" : "grayscale(100%) brightness(0.55)",
                                 opacity: isActive ? 1 : 0.5,
                                 transition: "filter 0.25s, opacity 0.25s",
