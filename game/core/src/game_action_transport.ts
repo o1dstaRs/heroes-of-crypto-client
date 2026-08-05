@@ -124,6 +124,11 @@ export interface AuthoritativeGameSnapshot {
     currentTurnEndMs?: number;
     narrowingLayers: number;
     centerDried: boolean;
+    /** Remaining hits of the two BLOCK_CENTER mountains (true counts). Undefined from an older server;
+     * the scene then keeps its locally-tracked values. The reconnect contract: a cold-loaded client
+     * never saw the obstacle_attacked events, so without these it redraws destroyed rock solid. */
+    centerObstacleHitsLeft?: number;
+    centerObstacleHitsRight?: number;
     /** Cumulative server movement penalty used with unit morale when calculating effective speed. */
     stepsMoraleMultiplier?: number;
     units: AuthoritativeUnitState[];

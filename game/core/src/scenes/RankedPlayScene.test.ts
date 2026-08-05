@@ -35,6 +35,7 @@ import {
     revealedOpponentRowX,
     revealedOpponentRowY,
     shouldPublishRankedFinish,
+    spellAbilityTransferSceneLogSuffix,
     spellCastNarratedPairs,
     spellOutcomeSceneLogLines,
 } from "./RankedPlayScene";
@@ -83,6 +84,28 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
 });
 
 describe("ranked placement scene state", () => {
+    test("carries authoritative mountain HP into the scene state for reconnect hydrates", () => {
+        // The live report (game 89ec52d4 on prod): the right BLOCK_CENTER mountain was mined to 0 and
+        // the server legally moved a Frenzied Boar onto its freed cells, but a client that loads after
+        // the fact never sees the obstacle_attacked events (SSE starts after the snapshot's sequence)
+        // and re-drew the destroyed rock solid — with the boar standing on it. The snapshot now carries
+        // the counts, and hydrateSceneState prefers them and re-clears a side at 0.
+        const withHits = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([]),
+            gridType: 4,
+            fightStarted: true,
+            centerObstacleHitsLeft: 2,
+            centerObstacleHitsRight: 0,
+        });
+        expect(withHits.obstacleHitsLeftLeft).toBe(2);
+        expect(withHits.obstacleHitsLeftRight).toBe(0);
+
+        // An older server omits the fields — the scene must keep its locally-tracked values.
+        const withoutHits = authoritativeSnapshotToSandboxSceneState(placementSnapshot([]));
+        expect(withoutHits.obstacleHitsLeftLeft).toBeUndefined();
+        expect(withoutHits.obstacleHitsLeftRight).toBeUndefined();
+    });
+
     test("restores the server movement penalty used by ranked AI pathfinding", () => {
         const manager = FightStateManager.getInstance();
         manager.reset();
@@ -1477,5 +1500,40 @@ describe("ranked rolled-cast outcome lines", () => {
 
     test("non-outcome casts contribute nothing", () => {
         expect(spellOutcomeSceneLogLines(event("Heal", []), names)).toEqual([]);
+    });
+});
+
+describe("ranked ability-transfer scene log", () => {
+    const transferEvent = (mode: "gifted" | "copied"): GameEvent =>
+        ({
+            type: "spell_cast",
+            casterId: "troll",
+            spellName: "Wild Regeneration",
+            targetId: "ally",
+            abilityTransfers: [
+                {
+                    abilityName: "Wild Regeneration",
+                    fromUnitId: "troll",
+                    toUnitId: "ally",
+                    mode,
+                },
+            ],
+        }) as GameEvent;
+
+    test("restores sandbox's gifted/copied wording from the authoritative cast event", () => {
+        expect(spellAbilityTransferSceneLogSuffix(transferEvent("gifted"))).toBe(" => gifted");
+        expect(spellAbilityTransferSceneLogSuffix(transferEvent("copied"))).toBe(" => copied");
+    });
+
+    test("keeps older server events and unrelated events unchanged", () => {
+        expect(
+            spellAbilityTransferSceneLogSuffix({
+                type: "spell_cast",
+                casterId: "troll",
+                spellName: "Wild Regeneration",
+                targetId: "ally",
+            } as GameEvent),
+        ).toBe("");
+        expect(spellAbilityTransferSceneLogSuffix({ type: "unit_waited", unitId: "ally" } as GameEvent)).toBe("");
     });
 });
