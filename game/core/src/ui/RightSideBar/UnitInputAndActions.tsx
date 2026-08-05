@@ -8,7 +8,7 @@ import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { hocActionPrimaryButtonSx, hocActionSoftButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily, hocSidebarImageButtonSx } from "../hocTheme";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
@@ -148,7 +148,17 @@ const UnitInputAndActions = ({
     return (
         <Box sx={{ width: "100%", marginTop: 2 }}>
             {slots !== null && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, paddingTop: 1, paddingBottom: 2 }}>
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        width: "93%",
+                        mx: "auto",
+                        paddingTop: 1,
+                        paddingBottom: 2,
+                    }}
+                >
                     <Typography
                         sx={{
                             color: "rgba(255, 143, 0, 0.85)",
@@ -156,6 +166,8 @@ const UnitInputAndActions = ({
                             fontSize: "0.8rem",
                             textTransform: "uppercase",
                             letterSpacing: "0.04em",
+                            fontFamily: hocDisplayFontFamily,
+                            fontSynthesis: "none",
                         }}
                     >
                         Slots left
@@ -171,6 +183,7 @@ const UnitInputAndActions = ({
                             borderRadius: "8px",
                             border: "1.5px solid rgba(255, 143, 0, 0.5)",
                             backgroundColor: "rgba(255, 143, 0, 0.12)",
+                            fontFamily: hocDisplayFontFamily,
                             ...(pulse
                                 ? { animation: `${pulse.dir === "up" ? "hocSlotsUp" : "hocSlotsDown"} 0.45s ease-out` }
                                 : {}),
@@ -201,18 +214,27 @@ const UnitInputAndActions = ({
                                 fontSize: "1.1rem",
                                 lineHeight: 1,
                                 color: slots.remaining === 0 ? "#ff5a5a" : "#FFB74D",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSynthesis: "none",
                             }}
                         >
                             {slots.remaining}
                         </Typography>
-                        <Typography sx={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.55)" }}>
+                        <Typography
+                            sx={{
+                                fontSize: "0.75rem",
+                                color: "rgba(255, 255, 255, 0.55)",
+                                fontFamily: hocDisplayFontFamily,
+                                fontSynthesis: "none",
+                            }}
+                        >
                             / {slots.max}
                         </Typography>
                     </Box>
                 </Box>
             )}
 
-            <Stack spacing={1}>
+            <Stack spacing={2}>
                 <Input
                     type="number"
                     value={unitCount}
@@ -220,18 +242,27 @@ const UnitInputAndActions = ({
                     placeholder="# of units"
                     variant="outlined"
                     sx={{
-                        color: "rgba(255, 143, 0, 0.5)",
-                        borderColor: "rgba(255, 143, 0, 0.5)",
-                        "--Input-focusedHighlight": "#FF8F00",
+                        width: "93%",
+                        mx: "auto",
+                        transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
+                        minHeight: "48px",
+                        borderRadius: 0,
+                        color: "#d8c29c",
+                        background: "linear-gradient(180deg, rgba(6,6,6,.78), rgba(18,15,12,.78))",
+                        borderColor: "rgba(116, 78, 43, .58)",
+                        boxShadow: "inset 0 0 12px rgba(0,0,0,.8)",
+                        fontFamily: hocDisplayFontFamily,
+                        fontSynthesis: "none",
+                        "--Input-focusedHighlight": "#9b693a",
                         "--Input-focusedThickness": "2px",
                         "&:hover": {
-                            borderColor: "#FF8F00",
-                            color: "#FF8F00",
+                            borderColor: "#b17a43",
+                            color: "#e5c594",
                         },
                         "&:focus-within": {
-                            borderColor: "#FF8F00",
-                            color: "#FF8F00",
-                            "--Input-focusedHighlight": "#FF8F00",
+                            borderColor: "#b17a43",
+                            color: "#e5c594",
+                            "--Input-focusedHighlight": "#b17a43",
                         },
                         "&::before": {
                             boxShadow: "none !important",
@@ -241,18 +272,22 @@ const UnitInputAndActions = ({
                             boxShadow: "0 0 0 var(--Input-focusedThickness) var(--Input-focusedHighlight) !important",
                         },
                         "&.Mui-focused": {
-                            borderColor: "#FF8F00",
-                            color: "#FF8F00",
+                            borderColor: "#b17a43",
+                            color: "#e5c594",
                             boxShadow: "none",
                             outline: "none",
                             "& input::placeholder": {
-                                color: "#FF8F00",
+                                color: "#d8c29c",
                                 opacity: 0.6,
                             },
                         },
                         "& input::placeholder": {
-                            color: "rgba(255, 143, 0, 0.5)",
+                            color: "rgba(216,194,156,.58)",
                             opacity: 0.6,
+                        },
+                        "& input": {
+                            fontFamily: hocDisplayFontFamily,
+                            fontSynthesis: "none",
                         },
                         transition: "all 0.2s ease",
                     }}
@@ -262,7 +297,15 @@ const UnitInputAndActions = ({
                         },
                     }}
                 />
-                <Stack direction="row" spacing={1.5}>
+                <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{
+                        width: "93%",
+                        mx: "auto",
+                        transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
+                    }}
+                >
                     <Tooltip title="Accept (A)" placement="top" sx={shortcutTooltipSx}>
                         <Button
                             variant="plain"
@@ -270,7 +313,7 @@ const UnitInputAndActions = ({
                             onClick={() => {
                                 handleAccept(parseInt(unitCount) || DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT);
                             }}
-                            sx={{ ...hocActionPrimaryButtonSx, flex: 1, minWidth: 0 }}
+                            sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
                         >
                             Accept
                         </Button>
@@ -282,7 +325,7 @@ const UnitInputAndActions = ({
                             onClick={() => {
                                 manager.Clone();
                             }}
-                            sx={{ ...hocActionSoftButtonSx, flex: 1, minWidth: 0 }}
+                            sx={{ ...hocSidebarImageButtonSx("neutral"), flex: 1, minWidth: 0 }}
                         >
                             Clone
                         </Button>
