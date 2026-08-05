@@ -167,9 +167,9 @@ Multiple agents run on this repo **at the same time**. Rules:
 ## Game image assets
 
 - Runtime game images are canonical only in the Dropbox directory referenced by HOC_IMAGES_LOC
-  (normally /Users/zolotukhin/Dropbox/heroesofcrypto/images). Animation atlases and metadata are canonical
-  only under HOC_ANIMATIONS_LOC/output (normally /Users/zolotukhin/Dropbox/heroesofcrypto/animations/output). Never add game art to game/core/public
-  or another tracked game directory.
+  (normally ~/Dropbox/heroesofcrypto/images). Animation atlases and metadata are canonical only under
+  HOC_ANIMATIONS_LOC/output (normally ~/Dropbox/heroesofcrypto/animations/output). Never add game art to
+  game/core/public or another tracked game directory.
 - Store static game images as compressed WebP files in the images Dropbox folder; store animation atlas
   WebPs and *_meta.json files in the animations Dropbox output folder. Static images must be valid WebP
   files no larger than 1,766,026 bytes; animation atlas WebPs are exempt from only that size ceiling. Run
