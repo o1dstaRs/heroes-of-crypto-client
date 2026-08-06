@@ -355,7 +355,14 @@ export class AIController {
         return (
             this.shouldControlUnit(unit) ||
             playerAIEnabled ||
-            unit.hasAbilityActive("AI Driven") ||
+            // A mindless "AI Driven" creature (Berserker, Frenzied Boar) self-plays — but only on the
+            // client responsible for SUBMITTING its team's actions. Ungated, BOTH ranked clients ran a
+            // local v0.1 turn for the ENEMY's mindless unit: this client animated its own divergent
+            // move (rejected server-side as wrong_team), then the owner's authoritative record yanked
+            // the unit to the server's truth — the live "moves, then teleports back" report. Sandbox
+            // has no controlled team configured, so both sides still self-play there; the local-model
+            // harness seat already auto-plays via shouldControlUnit above.
+            (unit.hasAbilityActive("AI Driven") && this.toggleAiControlsUnit(unit)) ||
             !!this.context.isTeamAiControlled?.(unit.getTeam())
         );
     }
