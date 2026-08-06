@@ -1,6 +1,3 @@
-// Use export to silence "defined but never used" if it's meant to be a module, or just remove if truly dead.
-export const SynergyKeysToPower: Record<string, number> = {};
-
 const synergyAbilitiesPowerImg = new URL(
     "../../../images/synergy_abilities_power_256.webp",
     import.meta.url,
