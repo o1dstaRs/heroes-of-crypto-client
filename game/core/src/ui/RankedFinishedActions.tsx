@@ -3,7 +3,7 @@ import React from "react";
 /**
  * Top-left post-match actions, shown on a FINISHED ranked board (for the participating player, not
  * observers/replay). Two buttons:
- *   - "Play another" — starts another ranked game (a fresh vs-AI match at the same tier, or the
+ *   - "Play another" — starts another ranked game (a fresh match against the default AI, or the
  *     matchmaking/game-type screen for a human match);
  *   - "Home screen" — returns to the game-type selection screen (/play).
  *

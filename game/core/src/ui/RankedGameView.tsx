@@ -796,8 +796,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         return hasAiSeatPlayer(snapshot?.players);
     }, [gameId, snapshot]);
     // The AI opponent's identity, tier first: the seat playerId in the snapshot encodes the difficulty
-    // ("ai:v0.7:brutal:…" — authoritative, survives refresh/other browsers); the local marker covers the
-    // pre-snapshot window. Legacy tier-less seats degrade to "AI (v0.7)".
+    // ("ai:v0.8:brutal:…" — authoritative, survives refresh/other browsers); the local marker covers the
+    // pre-snapshot window. Legacy tier-less seats degrade to their version-only label, e.g. "AI (v0.8)".
     const aiSeatPlayerId = useMemo(() => findAiSeatPlayerId(snapshot?.players), [snapshot]);
     const vsAiDifficulty = useMemo<VsAiDifficulty | undefined>(
         () => getAiSeatDifficulty(aiSeatPlayerId) ?? getMarkedVsAiDifficulty(gameId),
@@ -843,8 +843,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         }
         throw lastError instanceof Error ? lastError : new Error("Unable to start an AI match");
     }, [navigate]);
-    // Top-left "Play another": start a fresh ranked game. A vs-AI match rematches directly at the same
-    // tier; a human match has no instant rematch, so route to the game-type selection (/play) where
+    // Top-left "Play another": start a fresh ranked game. A vs-AI match starts another default-AI game;
+    // a human match has no instant rematch, so route to the game-type selection (/play) where
     // Find Opponent / Play vs AI live.
     const handlePlayAnother = useCallback(async () => {
         if (playAnotherBusy) {

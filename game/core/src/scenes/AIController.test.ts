@@ -324,8 +324,8 @@ describe("AIController", () => {
         expect(buttonManager.sc_isAIActive).toBe(true);
     });
 
-    // --- v0.5 learned-strategy routing (performAction → decideTurn) ---------------------------------
-    describe("v0.5 strategy routing", () => {
+    // --- shipped default-strategy routing (performAction → decideTurn) -------------------------------
+    describe("default strategy routing", () => {
         // Swap getAIStrategy(DEFAULT_AI_VERSION) for a fake whose decideTurn we control. spyOn on the
         // @heroesofcrypto/common namespace also rebinds AIController's own `getAIStrategy` import (verified),
         // so performAction() drives the fake plan through the real translation/execution machinery.
@@ -386,6 +386,7 @@ describe("AIController", () => {
             await controller.performAction(true);
 
             // (i) decideTurn was called for the active unit with the wired IDecisionContext.
+            expect(strategySpy).toHaveBeenCalledWith(HoC.DEFAULT_AI_VERSION);
             expect(decideTurn).toHaveBeenCalledTimes(1);
             const [decidedUnit, decidedCtx] = decideTurn.mock.calls[0] as unknown as [
                 RenderableUnit,

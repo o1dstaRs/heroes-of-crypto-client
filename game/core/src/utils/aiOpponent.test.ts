@@ -11,6 +11,7 @@ import {
     isMarkedVsAiGame,
     markVsAiGame,
     parseVsAiDifficulty,
+    DEFAULT_VS_AI_DIFFICULTY,
     VS_AI_DIFFICULTIES,
     VS_AI_DIFFICULTY_VERSIONS,
     vsAiDifficultyLabel,
@@ -52,10 +53,15 @@ describe("aiOpponent seat identification", () => {
 });
 
 describe("vs-AI difficulty tiers", () => {
+    test("defaults new AI games to the v0.8 tier", () => {
+        expect(DEFAULT_VS_AI_DIFFICULTY).toBe("brutal");
+        expect(VS_AI_DIFFICULTY_VERSIONS[DEFAULT_VS_AI_DIFFICULTY]).toBe("v0.8");
+    });
+
     test("extracts the tier from a difficulty-encoded seat id and labels it", () => {
-        const brutalSeat = "ai:v0.7:brutal:".padEnd(36, "0");
+        const brutalSeat = "ai:v0.8:brutal:".padEnd(36, "0");
         expect(getAiSeatDifficulty(brutalSeat)).toBe("brutal");
-        expect(aiOpponentLabel(brutalSeat)).toBe("AI — Brutal (v0.7)");
+        expect(aiOpponentLabel(brutalSeat)).toBe("AI — Brutal (v0.8)");
         const easySeat = "ai:v0.4:easy:".padEnd(36, "0");
         expect(getAiSeatDifficulty(easySeat)).toBe("easy");
         expect(aiOpponentLabel(easySeat)).toBe("AI — Easy (v0.4)");
@@ -72,6 +78,7 @@ describe("vs-AI difficulty tiers", () => {
         }
         expect(vsAiDifficultyLabel("hard")).toBe("AI — Hard (v0.7)");
         expect(vsAiDifficultyLabel("normal")).toBe("AI — Normal (v0.6)");
+        expect(vsAiDifficultyLabel("brutal")).toBe("AI — Brutal (v0.8)");
     });
 
     test("parseVsAiDifficulty accepts only the four tiers", () => {

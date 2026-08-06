@@ -554,11 +554,11 @@ export class AIController {
         // invalid_move). Runs once per decision; no-op in sandbox (grid already authoritative there).
         this.context.ensureAuthoritativeGrid?.();
 
-        // Route production AI through the shipped learned strategy (v0.5: tuned weights + strategic
-        // hourglass). This is the SAME entry point (getAIStrategy(DEFAULT_AI_VERSION).decideTurn) that
-        // measured the ~68%-vs-v0.4 win rate in the sim — the client previously bypassed it via
-        // AI.findTarget + local handlers. Gated so we can A/B / roll back: default ON in the browser
-        // bundle (process.env is build-time-replaced; undefined → "on"), consistent with other V05_* gates.
+        // Route production AI through the shipped default strategy. This is the SAME entry point
+        // (getAIStrategy(DEFAULT_AI_VERSION).decideTurn) used by the shared engine; the client previously
+        // bypassed it via AI.findTarget + local handlers. Gated so we can A/B / roll back: default ON in
+        // the browser bundle (process.env is build-time-replaced; undefined → "on"), consistent with other
+        // V05_* gates.
         // Skip the strategy for a unit whose previous strategy action was rejected/dropped this turn — its
         // deterministic re-decision would just re-emit the refused move/attack. Fall straight through to
         // findTarget (a different algorithm) for a real second attempt before the escape-hatch skip.
@@ -596,7 +596,7 @@ export class AIController {
                 console.error(
                     mindlessAi
                         ? "v0.1 decideTurn threw; awaiting mindless retry/turn recovery"
-                        : "v0.5 decideTurn threw; falling back to base AI",
+                        : `${DEFAULT_AI_VERSION} decideTurn threw; falling back to base AI`,
                     err,
                 );
                 strategyActions = [];
@@ -619,7 +619,7 @@ export class AIController {
             }
         }
 
-        // Fallback: the pre-v0.5 spell + AI.findTarget path (kept intact for A/B, rollback, and as the
+        // Fallback: the legacy spell + AI.findTarget path (kept intact for A/B, rollback, and as the
         // safety net whenever the strategy declines / throws so a turn is never left dead).
         await this.performFindTargetAction(currentUnit, wasAIActive);
     }
@@ -1133,8 +1133,8 @@ export class AIController {
         return true;
     }
     /**
-     * The pre-v0.5 decision path: spell heuristics + AI.findTarget + the move/attack handlers. Kept as the
-     * fallback whenever the v0.5 strategy is gated off, declines, or throws — so a turn is never left dead.
+     * The legacy decision path: spell heuristics + AI.findTarget + the move/attack handlers. Kept as the
+     * fallback whenever the default strategy is gated off, declines, or throws — so a turn is never left dead.
      */
     private async performFindTargetAction(currentUnit: RenderableUnit, wasAIActive: boolean): Promise<void> {
         // Spell casting: the built-in AI.findTarget only does move/attack, so evaluate the active

@@ -41,7 +41,7 @@ export const createVsAiGame = async (
     difficulty?: VsAiDifficulty,
     post: VsAiPost = postVsAi,
 ): Promise<GamePublicObject> => {
-    // The difficulty tier rides as a query param (easy=v0.4, normal=v0.6, hard=v0.7, brutal=v0.7 +
+    // The difficulty tier rides as a query param (easy=v0.4, normal=v0.6, hard=v0.7, brutal=v0.8 +
     // per-match rollout search — server api/game/v1/ai_seat.ts). Absent keeps the server's default seat.
     const url = difficulty ? `${endpoints.mm.vsAi}?difficulty=${difficulty}` : endpoints.mm.vsAi;
     const response = await post(url, null, {
