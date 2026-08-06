@@ -847,8 +847,8 @@ describe("ranked placement scene state", () => {
 
     test("syncs authoritative movement (Quagmire-class steps changes) without rebuilding the unit", () => {
         const snapshotProperties = (steps: number) =>
-            authoritativeSnapshotToSandboxSceneState(
-                placementSnapshot([
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([
                     unitState({
                         id: "quagmired-wolf",
                         name: "Wolf",
@@ -860,7 +860,8 @@ describe("ranked placement scene state", () => {
                         attackMod: 0,
                     }),
                 ]),
-            ).units[0]!.properties;
+                fightStarted: true,
+            }).units[0]!.properties;
         const effectFactory = new EffectFactory();
         const liveUnit = RenderableUnit.fromBase(
             Unit.createUnit(
@@ -888,8 +889,8 @@ describe("ranked placement scene state", () => {
 
     test("syncs authoritative base armor (Bitter Experience gains) without rebuilding the unit", () => {
         const snapshotProperties = (baseArmor: number) =>
-            authoritativeSnapshotToSandboxSceneState(
-                placementSnapshot([
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([
                     unitState({
                         id: "seasoned-peasant",
                         statModsAuthoritative: true,
@@ -899,7 +900,8 @@ describe("ranked placement scene state", () => {
                         baseAttack: 5,
                     }),
                 ]),
-            ).units[0]!.properties;
+                fightStarted: true,
+            }).units[0]!.properties;
         // The hydrate must land the wire value AND flag it, or adjustBaseStats re-derives the config base.
         const hydrated = snapshotProperties(7);
         expect(hydrated.base_armor).toBe(7);
@@ -986,8 +988,8 @@ describe("ranked placement scene state", () => {
 
     test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
         const snapshotProperties = (attackMod: number, armorMod: number, runeStacks = 0) =>
-            authoritativeSnapshotToSandboxSceneState(
-                placementSnapshot([
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([
                     unitState({
                         id: "enchanted-arbalester",
                         name: "Arbalester",
@@ -1000,7 +1002,8 @@ describe("ranked placement scene state", () => {
                         buffDescriptions: runeStacks ? [`+{} attack;${runeStacks};`, `+{} armor;${runeStacks};`] : [],
                     }),
                 ]),
-            ).units[0]!.properties;
+                fightStarted: true,
+            }).units[0]!.properties;
         const effectFactory = new EffectFactory();
         const liveUnit = RenderableUnit.fromBase(
             Unit.createUnit(
