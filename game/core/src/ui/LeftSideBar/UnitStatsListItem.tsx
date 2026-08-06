@@ -1153,11 +1153,11 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
                 // OWNER call: show the EXACT fractional stat (Trent's 3.9), one decimal, trailing .0
-                // dropped. Most creatures carry x.1–x.9 steps as a balance knob and the engine's
-                // Unit.getSteps() ROUNDS for actual movement — a rounded (or floored) display hid why
-                // a "3-step" Trent walks 4 cells, and the raw value is what the codex shows too.
+                // dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
+                // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
+                // the board can no longer disagree.
                 value={Number((unitProperties.steps + stepsMod).toFixed(1))}
-                tooltip="Movement steps in cells (the board rounds to whole cells)"
+                tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
                 secondIcon={<SpeedIcon />}
