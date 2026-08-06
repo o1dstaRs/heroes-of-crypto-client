@@ -13074,6 +13074,14 @@ export class Sandbox extends PixiScene {
         }
 
         unit.setPosition(event.position.x, event.position.y);
+        // Restore the LOGICAL stack too, not just the sprite: in ranked the replay has already applied
+        // the lethal hit (amount 0 -> isDead()), and the raise event is the authority on what came back.
+        // Without this the freshly-raised unit read as DEAD until the next snapshot's stat apply — a
+        // window where any dead-unit cull (activation checks, targeting, a ghost reconcile racing this
+        // animation) dropped the stack entirely. Idempotent in sandbox, where the local engine already
+        // revived it to exactly these values.
+        const stackTotal = unit.getAmountAlive() + unit.getAmountDied();
+        unit.setRemainingStats(event.amount, event.hp, Math.max(0, stackTotal - event.amount));
         unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
         this.renderResurrectionVfx(event.position, event.amount);
         unit.playOneShotAnimation("death", () => {
