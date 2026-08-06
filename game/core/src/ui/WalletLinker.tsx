@@ -6,6 +6,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 
 import { useAuthContext } from "./auth/context/auth_context";
+import type { GoogleAuthStatus } from "./auth/context/types";
+import { GoogleSignInButton } from "./auth/GoogleSignInButton";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 
 const shortAddress = (address: string): string => `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -30,14 +32,29 @@ interface WalletLinkerProps {
 }
 
 export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) => {
-    const { authenticated, user, getWallets, linkWallet, unlinkWallet, requestEmailLink, confirmEmailLink } =
-        useAuthContext();
+    const {
+        authenticated,
+        user,
+        getWallets,
+        linkWallet,
+        unlinkWallet,
+        requestEmailLink,
+        confirmEmailLink,
+        getGoogleAuthStatus,
+        linkGoogle,
+        unlinkGoogle,
+    } = useAuthContext();
     const { address, isConnected } = useAccount();
     const { signMessageAsync } = useSignMessage();
     const { disconnectAsync } = useDisconnect();
     const { openConnectModal } = useConnectModal();
 
     const [linked, setLinked] = useState<string[]>([]);
+    const [googleStatus, setGoogleStatus] = useState<GoogleAuthStatus>({
+        linked: false,
+        email: "",
+        hasPasswordLogin: false,
+    });
     const [busy, setBusy] = useState(false);
     const [loadingWallets, setLoadingWallets] = useState(false);
     const [error, setError] = useState("");
@@ -49,29 +66,36 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
     const [emailCodeSent, setEmailCodeSent] = useState(false);
     const lastAutoLinkRef = useRef<string | null>(null);
 
-    const hasEmail = !!user?.email?.trim();
+    const accountEmail = user?.email?.trim() || googleStatus.email;
     const normalizedLinked = useMemo(() => new Set(linked.map(normalizeAddress)), [linked]);
     const isLinked = !!address && normalizedLinked.has(normalizeAddress(address));
-    const canUnlink = hasEmail || linked.length > 1;
+    const canUnlinkWallet = googleStatus.hasPasswordLogin || googleStatus.linked || linked.length > 1;
+    const canUnlinkGoogle = googleStatus.hasPasswordLogin || linked.length > 0;
 
-    const loadWallets = useCallback(async () => {
+    const loadAuthMethods = useCallback(async () => {
         if (!authenticated) {
             setLinked([]);
+            setGoogleStatus({ linked: false, email: "", hasPasswordLogin: false });
             return;
         }
         setLoadingWallets(true);
-        try {
-            setLinked(await getWallets());
-        } catch {
-            setLinked([]);
-        } finally {
-            setLoadingWallets(false);
+        const [walletsResult, googleResult] = await Promise.allSettled([getWallets(), getGoogleAuthStatus()]);
+        setLinked(walletsResult.status === "fulfilled" ? walletsResult.value : []);
+        if (googleResult.status === "fulfilled") {
+            setGoogleStatus(googleResult.value);
         }
-    }, [authenticated, getWallets]);
+        setLoadingWallets(false);
+    }, [authenticated, getGoogleAuthStatus, getWallets]);
 
     useEffect(() => {
-        void loadWallets();
-    }, [loadWallets]);
+        void loadAuthMethods();
+    }, [loadAuthMethods]);
+
+    useEffect(() => {
+        if (!email && accountEmail) {
+            setEmail(accountEmail);
+        }
+    }, [accountEmail, email]);
 
     const handleLink = useCallback(
         async (walletAddress: string) => {
@@ -113,8 +137,8 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
     }, [address, busy, connectIntent, handleLink, isConnected, normalizedLinked]);
 
     const handleUnlink = async (walletAddress: string) => {
-        if (!canUnlink) {
-            setError("Add an email or link another wallet before unlinking this wallet");
+        if (!canUnlinkWallet) {
+            setError("Add another sign-in method before unlinking this wallet");
             return;
         }
 
@@ -127,6 +151,39 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
             setNotice(`Unlinked ${shortAddress(walletAddress)}`);
         } catch (err: unknown) {
             setError(messageFromError(err, "Failed to unlink wallet"));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleGoogleCredential = async (credential: string) => {
+        setError("");
+        setNotice("");
+        setBusy(true);
+        try {
+            const status = await linkGoogle(credential);
+            setGoogleStatus(status);
+            setNotice(`Google sign-in linked${status.email ? ` as ${status.email}` : ""}`);
+        } catch (err: unknown) {
+            setError(messageFromError(err, "Failed to link Google sign-in"));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleGoogleUnlink = async () => {
+        if (!canUnlinkGoogle) {
+            setError("Add another sign-in method before unlinking Google");
+            return;
+        }
+        setError("");
+        setNotice("");
+        setBusy(true);
+        try {
+            setGoogleStatus(await unlinkGoogle());
+            setNotice("Google sign-in unlinked");
+        } catch (err: unknown) {
+            setError(messageFromError(err, "Failed to unlink Google sign-in"));
         } finally {
             setBusy(false);
         }
@@ -214,6 +271,7 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
         setBusy(true);
         try {
             await confirmEmailLink(email, password, code.trim());
+            setGoogleStatus(await getGoogleAuthStatus());
             setEmailCodeSent(false);
             setPassword("");
             setCode("");
@@ -254,7 +312,7 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
                             {compact ? "Wallet" : "Account"}
                         </Typography>
                         <Typography level="body-xs" textColor={hocColors.muted} noWrap>
-                            {hasEmail ? user?.email : "Wallet account"}
+                            {accountEmail || "Wallet account"}
                         </Typography>
                     </Box>
                     <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.5)">
@@ -262,11 +320,11 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
                     </Typography>
                 </Box>
 
-                {!compact && !hasEmail && (
+                {!compact && !googleStatus.hasPasswordLogin && (
                     <Box component="form" onSubmit={emailCodeSent ? handleConfirmEmail : handleRequestEmail}>
                         <Stack spacing={0.75}>
                             <Typography level="body-xs" textColor={hocColors.muted}>
-                                Add email login
+                                {accountEmail ? "Add password login" : "Add email login"}
                             </Typography>
                             <FormControl size="sm">
                                 <FormLabel sx={{ color: hocColors.mutedStrong }}>Email</FormLabel>
@@ -275,7 +333,7 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
                                     value={email}
                                     onChange={(event) => setEmail(event.target.value)}
                                     placeholder="you@example.com"
-                                    disabled={busy || emailCodeSent}
+                                    disabled={busy || emailCodeSent || Boolean(accountEmail)}
                                     sx={hocInputSx}
                                 />
                             </FormControl>
@@ -322,6 +380,45 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
                             )}
                         </Stack>
                     </Box>
+                )}
+
+                {!compact && <Divider sx={{ borderColor: hocColors.orangeBorder }} />}
+
+                {!compact && (
+                    <Stack spacing={0.75}>
+                        <Typography level="body-xs" textColor={hocColors.muted}>
+                            Google sign-in
+                        </Typography>
+                        {loadingWallets ? (
+                            <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.52)">
+                                Loading sign-in methods...
+                            </Typography>
+                        ) : googleStatus.linked ? (
+                            <Box
+                                sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}
+                            >
+                                <Typography level="body-xs" textColor={hocColors.mutedStrong} noWrap>
+                                    {googleStatus.email || "Google account"}
+                                </Typography>
+                                <Button
+                                    size="sm"
+                                    variant="plain"
+                                    color="neutral"
+                                    onClick={() => void handleGoogleUnlink()}
+                                    disabled={busy || !canUnlinkGoogle}
+                                    sx={{ color: hocColors.mutedStrong }}
+                                >
+                                    Unlink
+                                </Button>
+                            </Box>
+                        ) : (
+                            <GoogleSignInButton
+                                action="link"
+                                disabled={busy}
+                                onCredential={(credential) => void handleGoogleCredential(credential)}
+                            />
+                        )}
+                    </Stack>
                 )}
 
                 {!compact && <Divider sx={{ borderColor: hocColors.orangeBorder }} />}
@@ -379,7 +476,7 @@ export const WalletLinker: React.FC<WalletLinkerProps> = ({ compact = false }) =
                                                 variant="plain"
                                                 color="neutral"
                                                 onClick={() => void handleUnlink(walletAddress)}
-                                                disabled={busy || !canUnlink}
+                                                disabled={busy || !canUnlinkWallet}
                                                 sx={{ color: hocColors.mutedStrong }}
                                             >
                                                 Unlink

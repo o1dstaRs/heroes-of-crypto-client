@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
 import { useAuthContext } from "../auth/context/auth_context";
+import { GoogleSignInButton } from "../auth/GoogleSignInButton";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 
 type Mode = "login" | "register" | "verify";
@@ -13,7 +14,7 @@ type Mode = "login" | "register" | "verify";
 const shortAddress = (address: string): string => `${address.slice(0, 6)}…${address.slice(-4)}`;
 
 export const LoginScreen: React.FC = () => {
-    const { login, register, loginWithWallet, confirmCode, requestCode, logout, user, authenticated } =
+    const { login, register, loginWithWallet, loginWithGoogle, confirmCode, requestCode, logout, user, authenticated } =
         useAuthContext();
     const { openConnectModal } = useConnectModal();
     const { address, isConnected } = useAccount();
@@ -53,6 +54,19 @@ export const LoginScreen: React.FC = () => {
         }
         setUserClickedConnect(true);
         openConnectModal?.();
+    };
+
+    const handleGoogleCredential = async (credential: string) => {
+        setError("");
+        setInfo("");
+        setBusy(true);
+        try {
+            await loginWithGoogle(credential);
+        } catch (err: unknown) {
+            setError(typeof err === "string" ? err : (err as Error)?.message || "Google sign-in failed");
+        } finally {
+            setBusy(false);
+        }
     };
 
     useEffect(() => {
@@ -234,6 +248,16 @@ export const LoginScreen: React.FC = () => {
                                 </Button>
                             </Stack>
 
+                            <GoogleSignInButton
+                                action={mode === "register" ? "signup" : "login"}
+                                disabled={busy}
+                                onCredential={(credential) => void handleGoogleCredential(credential)}
+                            />
+
+                            <Divider sx={{ color: hocColors.muted, borderColor: hocColors.orangeBorder }}>
+                                or use email
+                            </Divider>
+
                             <form onSubmit={handleSubmit}>
                                 <Stack spacing={1.5}>
                                     {mode === "register" && (
@@ -276,7 +300,9 @@ export const LoginScreen: React.FC = () => {
                                 </Stack>
                             </form>
 
-                            <Divider sx={{ color: hocColors.muted, borderColor: hocColors.orangeBorder }}>or</Divider>
+                            <Divider sx={{ color: hocColors.muted, borderColor: hocColors.orangeBorder }}>
+                                or use a wallet
+                            </Divider>
 
                             <Button
                                 fullWidth

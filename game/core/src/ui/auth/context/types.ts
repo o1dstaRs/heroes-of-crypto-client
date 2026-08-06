@@ -24,6 +24,12 @@ export type AuthStateType = {
     user: AuthUserType;
 };
 
+export type GoogleAuthStatus = {
+    linked: boolean;
+    email: string;
+    hasPasswordLogin: boolean;
+};
+
 // ----------------------------------------------------------------------
 
 // type CanRemove = {
@@ -75,4 +81,8 @@ export type JWTContextType = {
     linkWallet: (address: string, signMessage: SignMessageFn) => Promise<string[]>;
     unlinkWallet: (address: string) => Promise<string[]>;
     getWallets: () => Promise<string[]>;
+    loginWithGoogle: (credential: string) => Promise<void>;
+    linkGoogle: (credential: string) => Promise<GoogleAuthStatus>;
+    unlinkGoogle: () => Promise<GoogleAuthStatus>;
+    getGoogleAuthStatus: () => Promise<GoogleAuthStatus>;
 };
