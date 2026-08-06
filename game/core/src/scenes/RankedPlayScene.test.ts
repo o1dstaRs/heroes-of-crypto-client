@@ -875,13 +875,14 @@ describe("ranked placement scene state", () => {
             ),
             undefined as never,
         );
-        expect(liveUnit.getSteps()).toBe(4);
+        // Steps are a PURE fractional budget since common 640736b — no rounding, ever.
+        expect(liveUnit.getSteps()).toBe(3.7);
 
         // The live case (game 7a2b509d): Quagmire cut the Wolf's steps server-side (3.7 -> 2.8) but the
         // animation-preserving snapshot paths never carried movement, so the client kept previewing
-        // 4-step attacks the server rejected. The reconcile must land the authoritative steps in place.
+        // wider attacks than the server accepted. The reconcile must land the authoritative steps in place.
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(true);
-        expect(liveUnit.getSteps()).toBe(3);
+        expect(liveUnit.getSteps()).toBe(2.8);
 
         // Idempotent: an unchanged snapshot must not report churn.
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(false);

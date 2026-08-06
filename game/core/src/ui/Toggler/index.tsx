@@ -25,6 +25,8 @@ export default function Toggler({
                 setOpen: expanded !== undefined ? setLocalOpen : setLocalOpen,
             })}
             <Box
+                data-hoc-toggler-body="true"
+                data-open={open ? "true" : "false"}
                 sx={{
                     display: "grid",
                     gridTemplateRows: open ? "1fr" : "0fr",
