@@ -212,10 +212,27 @@ interface IPendingEffectPop {
     buffs: string[];
 }
 
+/** One team's pre-fight picks, captured so "Rematch" restores them after the FightProperties reset. */
+interface ITeamConfigSnapshot {
+    placement: number;
+    armor: number;
+    might: number;
+    empower: number;
+    sniper: number;
+    movement: number;
+    artifactTier1: number;
+    artifactTier2: number;
+    synergies: string[];
+}
+
 /** Full board snapshot taken at fight start (pre-supply) for "Rematch". */
 interface IFightSnapshot {
     units: IUnitFightSnapshot[];
     gridType: GridType;
+    /** Augments/artifacts/synergies per team. Without these, rematch silently dropped every pick: the
+     * FightStateManager reset wipes them, the units were recreated with bare properties, and the sidebar
+     * still SHOWED the old selections — a half-default state that read as "rematch doesn't clean up". */
+    teamConfigs: Partial<Record<TeamType, ITeamConfigSnapshot>>;
 }
 
 /**
@@ -4653,9 +4670,25 @@ export class Sandbox extends PixiScene {
                 position: { ...unit.getPosition() },
             });
         }
+        const fightProps = FightStateManager.getInstance().getFightProperties();
+        const teamConfigs: Partial<Record<TeamType, ITeamConfigSnapshot>> = {};
+        for (const team of [TeamVals.LOWER, TeamVals.UPPER] as TeamType[]) {
+            teamConfigs[team] = {
+                placement: fightProps.getAugmentPlacementLevel(team),
+                armor: fightProps.getAugmentArmor(team),
+                might: fightProps.getAugmentMight(team),
+                empower: fightProps.getAugmentEmpower(team),
+                sniper: fightProps.getAugmentSniper(team),
+                movement: fightProps.getAugmentMovement(team),
+                artifactTier1: fightProps.getArtifactTier1(team),
+                artifactTier2: fightProps.getArtifactTier2(team),
+                synergies: [...fightProps.getSynergiesPerTeam(team)],
+            };
+        }
         return {
             units,
-            gridType: FightStateManager.getInstance().getFightProperties().getGridType(),
+            gridType: fightProps.getGridType(),
+            teamConfigs,
         };
     }
     /**
@@ -4683,6 +4716,23 @@ export class Sandbox extends PixiScene {
             const freshProps = FightStateManager.getInstance().getFightProperties();
             freshProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
             freshProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+
+            // Restore each team's pre-fight picks: the reset wiped them, and replaying the SAME fight is
+            // the whole promise of the button — the sidebar still shows these picks, so the engine must
+            // hold them too (refreshUnits below re-derives the augment/artifact buffs from here).
+            for (const team of [TeamVals.LOWER, TeamVals.UPPER] as TeamType[]) {
+                const config = snapshot.teamConfigs?.[team];
+                if (!config) continue;
+                freshProps.setAugmentPerTeam(team, { type: "Placement", value: config.placement });
+                freshProps.setAugmentPerTeam(team, { type: "Armor", value: config.armor });
+                freshProps.setAugmentPerTeam(team, { type: "Might", value: config.might });
+                freshProps.setAugmentPerTeam(team, { type: "Empower", value: config.empower });
+                freshProps.setAugmentPerTeam(team, { type: "Sniper", value: config.sniper });
+                freshProps.setAugmentPerTeam(team, { type: "Movement", value: config.movement });
+                freshProps.setArtifactPerTeam(team, Artifact.ArtifactTier.TIER_1, config.artifactTier1);
+                freshProps.setArtifactPerTeam(team, Artifact.ArtifactTier.TIER_2, config.artifactTier2);
+                freshProps.setSynergiesPerTeam(team, [...config.synergies]);
+            }
 
             // 2. Clear leftover combat VFX + wipe the current board (force, since units may be
             //    mid/post-fight). destroySpecificUnits frees each unit's grid occupancy.
