@@ -6,7 +6,6 @@ import { RIGHT_SIDEBAR_BG_IMAGE, SIDEBAR_BG, SIDEBAR_BG_REPEAT, SIDEBAR_BG_SIZE 
 import { SidebarFrame } from "../SidebarFrame";
 import Divider from "@mui/joy/Divider";
 import Box from "@mui/joy/Box";
-import LinearProgress from "@mui/joy/LinearProgress";
 import List from "@mui/joy/List";
 import Sheet from "@mui/joy/Sheet";
 import Typography from "@mui/joy/Typography";
@@ -24,6 +23,10 @@ import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
+// One complete damage entry (name/value plus its framed meter). The viewport is rounded down to a whole
+// number of these rows so the next creature never peeks out without its meter at the bottom edge.
+const DAMAGE_ROW_HEIGHT_PX = 54;
+const DAMAGE_LIST_VERTICAL_PADDING_PX = 20;
 
 // Same slim bronze scrollbar the fight log and the left bar's wells use, so every scrollable block in the
 // sidebar reads as the same kind of surface.
@@ -37,7 +40,7 @@ const hocBronzeScrollSx = {
     "&::-webkit-scrollbar-thumb:hover": { backgroundColor: "rgba(255, 143, 0, 0.55)" },
 } as const;
 
-const damageIcon = images.damage_icon;
+const damageIcon = images.damage_analytics_icon;
 
 export default function RightSideBar({
     gameStarted,
@@ -66,6 +69,8 @@ export default function RightSideBar({
 
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
+    const damageListSpaceRef = useRef<HTMLDivElement>(null);
+    const [damageListViewportHeight, setDamageListViewportHeight] = useState<number | null>(null);
 
     useLayoutEffect(() => {
         setFrozenLogHeight(null);
@@ -80,6 +85,25 @@ export default function RightSideBar({
             setFrozenLogHeight(Math.max(LOG_MIN_HEIGHT_PX, Math.round(measured)));
         }
     }, [frozenLogHeight]);
+
+    useLayoutEffect(() => {
+        const space = damageListSpaceRef.current;
+        if (!space) {
+            return;
+        }
+
+        const fitWholeRows = () => {
+            const availableHeight = space.clientHeight;
+            const contentHeight = Math.max(0, availableHeight - DAMAGE_LIST_VERTICAL_PADDING_PX);
+            const wholeRowsHeight = Math.floor(contentHeight / DAMAGE_ROW_HEIGHT_PX) * DAMAGE_ROW_HEIGHT_PX;
+            setDamageListViewportHeight(wholeRowsHeight + DAMAGE_LIST_VERTICAL_PADDING_PX);
+        };
+
+        fitWholeRows();
+        const resizeObserver = new ResizeObserver(fitWholeRows);
+        resizeObserver.observe(space);
+        return () => resizeObserver.disconnect();
+    }, [gameStarted]);
 
     useEffect(() => {
         if (!gameStarted) {
@@ -133,43 +157,85 @@ export default function RightSideBar({
             const stringParts = s.unitName.split(/\s/);
             unitName = `${stringParts[0][0]}. ${stringParts[1]}`;
         }
-        unitStats.push({ unitName, damage: s.damage, team: s.team, lap: s.lap });
+        unitStats.push({ unitName: unitName.toUpperCase(), damage: s.damage, team: s.team, lap: s.lap });
         maxDmg = Math.max(maxDmg, s.damage);
     }
 
-    const unitStatsElements = unitStats.map((stat) => (
-        <Box key={`${stat.unitName}-${stat.team}`}>
-            <Typography
-                color={stat.team === 1 ? "danger" : "success"}
-                level="body-xs"
-                fontWeight="xl"
+    const unitStatsElements = unitStats.map((stat) => {
+        const isEnemy = stat.team === 1;
+        const teamColor = isEnemy ? hocColors.danger : hocColors.green;
+        const value = maxDmg > 0 ? (stat.damage / maxDmg) * 100 : 0;
+        const key = `${stat.unitName}-${stat.team}`;
+
+        return (
+            <Box
+                key={key}
                 sx={{
-                    display: "flex",
-                    position: "absolute",
+                    height: `${DAMAGE_ROW_HEIGHT_PX}px`,
+                    boxSizing: "border-box",
+                    pt: "2px",
+                    scrollSnapAlign: "start",
                 }}
             >
-                {stat.unitName}
-            </Typography>
-            <Typography
-                color={stat.team === 1 ? "danger" : "success"}
-                level="body-xs"
-                fontWeight="xl"
-                sx={{
-                    justifyContent: "flex-end",
-                    display: "flex",
-                }}
-            >
-                {stat.damage}
-            </Typography>
-            <LinearProgress
-                color={stat.team === 1 ? "danger" : "success"}
-                variant="soft"
-                determinate
-                value={(stat.damage / maxDmg) * 100}
-                sx={{ my: 1 }}
-            />
-        </Box>
-    ));
+                <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+                    <Typography
+                        sx={{
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontFamily: hocDisplayFontFamily,
+                            fontSize: "0.72rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.045em",
+                            color: teamColor,
+                        }}
+                    >
+                        {stat.unitName}
+                    </Typography>
+                    <Typography
+                        sx={{ flexShrink: 0, fontFamily: hocDisplayFontFamily, fontSize: "0.73rem", color: teamColor }}
+                    >
+                        {stat.damage}
+                    </Typography>
+                </Box>
+                <Box
+                    sx={{
+                        position: "relative",
+                        mt: "6px",
+                        mx: "5px",
+                        height: 10.35,
+                        p: "1px",
+                        border: "2px solid rgba(118,76,30,.94)",
+                        bgcolor: "rgba(3,3,2,.72)",
+                        boxShadow: "inset 0 1px 2px rgba(0,0,0,.9)",
+                        "&::before, &::after": {
+                            content: '""',
+                            position: "absolute",
+                            top: "50%",
+                            width: 8.05,
+                            height: 8.05,
+                            border: "2px solid rgba(118,76,30,.94)",
+                            bgcolor: "#100b06",
+                            transform: "translateY(-50%) rotate(45deg)",
+                            zIndex: 1,
+                        },
+                        "&::before": { left: -6 },
+                        "&::after": { right: -6 },
+                    }}
+                >
+                    <Box
+                        sx={{
+                            width: `${value}%`,
+                            height: "100%",
+                            bgcolor: teamColor,
+                            boxShadow: `inset 0 1px 0 rgba(255,255,255,.18), 0 0 3px ${teamColor}`,
+                        }}
+                    />
+                </Box>
+            </Box>
+        );
+    });
 
     return (
         <Sheet
@@ -312,8 +378,23 @@ export default function RightSideBar({
                                         DAMAGE
                                     </Typography>
                                 </Box>
-                                <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: "10px", ...hocBronzeScrollSx }}>
-                                    {unitStatsElements}
+                                <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+                                    <Box
+                                        sx={{
+                                            height:
+                                                damageListViewportHeight === null
+                                                    ? "100%"
+                                                    : `${damageListViewportHeight}px`,
+                                            maxHeight: "100%",
+                                            overflowY: "auto",
+                                            overflowX: "hidden",
+                                            scrollSnapType: "y mandatory",
+                                            p: "10px",
+                                            ...hocBronzeScrollSx,
+                                        }}
+                                    >
+                                        {unitStatsElements}
+                                    </Box>
                                 </Box>
                             </Box>
                         </Box>
@@ -342,15 +423,14 @@ export default function RightSideBar({
                         >
                             <Box
                                 sx={{
-                                    flex: "0 0 42px",
-                                    display: "grid",
-                                    gridTemplateColumns: "20px 1fr 20px",
+                                    flex: "0 0 34px",
+                                    display: "flex",
                                     alignItems: "center",
+                                    justifyContent: "center",
                                     px: "8px",
                                     borderBottom: "1px solid rgba(112,75,42,.48)",
                                 }}
                             >
-                                <Box />
                                 <Typography
                                     sx={{
                                         textAlign: "center",
@@ -363,50 +443,25 @@ export default function RightSideBar({
                                 >
                                     BATTLE LOG
                                 </Typography>
-                                <Box
-                                    component="img"
-                                    src={images.tr_up}
-                                    sx={{ width: 11, transform: "rotate(180deg)" }}
-                                />
                             </Box>
-                            <Box sx={{ flex: 1, minHeight: 0, display: "flex", p: "4px" }}>
+                            <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
                                 <FightLog text={attackText} />
                             </Box>
                         </Box>
                     )}
                     {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
-                    {/* Sandbox has no ranked sheet to carry the control, and no forfeit either — there is no
-                        opponent to award the win to. It still needs a way out of a running fight, so it gets
-                        the same bare button, wired to leave rather than to concede. */}
-                    {!rankedPanel && gameStarted && (
-                        <Box sx={{ mt: 1 }}>
-                            <Button
-                                variant="soft"
-                                color="danger"
-                                onClick={() => navigate("/play")}
-                                sx={{
-                                    width: "100%",
-                                    ...hocSidebarImageButtonSx("danger"),
-                                    fontSize: "1.006rem",
-                                    fontWeight: 880,
-                                }}
-                            >
-                                EXIT FIGHT
-                            </Button>
-                        </Box>
-                    )}
                     <Divider />
                     {showWallet && <WalletLinker />}
-                    {/* The strip under EXIT FIGHT, in flow: fullscreen hard left, the music control hard
-                        right. Both used to be pinned to the window's bottom-right corner on their own
-                        layer, which floated them OVER the exit button instead of under it. */}
+                    {/* Compact footer: fullscreen and music stay on the edges, while sandbox's exit action
+                        occupies the centre instead of consuming a separate row above. The fight log receives
+                        all of the height released by removing that row. */}
                     <Box
                         sx={{
                             width: "100%",
                             pl: gameStarted ? 0 : `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px`,
-                            display: "flex",
+                            display: "grid",
+                            gridTemplateColumns: "32px minmax(0, 1fr) 32px",
                             alignItems: "center",
-                            justifyContent: "space-between",
                             // Pushed to the very bottom of the bar: with the log hidden before the fight the
                             // strip used to float mid-panel, right under the ready button.
                             mt: "auto",
@@ -414,7 +469,32 @@ export default function RightSideBar({
                         }}
                     >
                         <FullscreenToggle />
-                        <Box ref={volumeSlotRef} sx={{ display: "flex", alignItems: "center", flex: "0 0 auto" }} />
+                        {!rankedPanel && gameStarted ? (
+                            <Button
+                                variant="soft"
+                                color="danger"
+                                onClick={() => navigate("/play")}
+                                sx={{
+                                    ...hocSidebarImageButtonSx("danger"),
+                                    justifySelf: "center",
+                                    width: "min(100%, 209px)",
+                                    height: "35.2px",
+                                    minHeight: "35.2px",
+                                    px: 1,
+                                    backgroundSize: "100% 100%",
+                                    fontSize: "0.924rem",
+                                    fontWeight: 880,
+                                }}
+                            >
+                                EXIT FIGHT
+                            </Button>
+                        ) : (
+                            <Box />
+                        )}
+                        <Box
+                            ref={volumeSlotRef}
+                            sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", minWidth: 0 }}
+                        />
                     </Box>
                 </List>
             </Box>

@@ -1,6 +1,7 @@
 import Box from "@mui/joy/Box";
 import React, { useLayoutEffect, useRef, useState } from "react";
 
+import { images } from "../../generated/image_imports";
 import { IFightStatsSample } from "../../scenes/VisibleState";
 import { CasualtyChart, GOLD } from "./CasualtyChart";
 
@@ -20,10 +21,11 @@ export const CHART_PANEL_H = 170;
  * scale: a viewBox matching the box 1:1 fills the panel exactly — no letterboxing from
  * `preserveAspectRatio`, no stretched strokes or axis labels from `none`.
  */
-export const CasualtyChartPanel: React.FC<{ series: IFightStatsSample[]; height?: number }> = ({
-    series,
-    height = CHART_PANEL_H,
-}) => {
+export const CasualtyChartPanel: React.FC<{
+    series: IFightStatsSample[];
+    height?: number;
+    ornateResultsFrame?: boolean;
+}> = ({ series, height = CHART_PANEL_H, ornateResultsFrame = false }) => {
     const boxRef = useRef<HTMLDivElement | null>(null);
     const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
@@ -79,9 +81,26 @@ export const CasualtyChartPanel: React.FC<{ series: IFightStatsSample[]; height?
                 // measured against, and only a ResizeObserver tick would ever reconcile the two.
                 mb: 2,
                 // No padding on purpose either — the chart insets its own plot with axis gutters.
-                borderRadius: "10px",
-                border: `1px solid ${roomy ? `${GOLD}55` : "transparent"}`,
+                borderRadius: ornateResultsFrame ? 0 : "10px",
+                border: ornateResultsFrame ? "none" : `1px solid ${roomy ? `${GOLD}55` : "transparent"}`,
                 backgroundColor: roomy ? "rgba(0,0,0,0.25)" : "transparent",
+                ...(ornateResultsFrame && roomy
+                    ? {
+                          "&::after": {
+                              content: '""',
+                              position: "absolute",
+                              inset: 0,
+                              zIndex: 3,
+                              pointerEvents: "none",
+                              boxSizing: "border-box",
+                              border: "12px solid transparent",
+                              borderImageSource: `url(${images.fight_results_chart_frame_v3})`,
+                              borderImageSlice: "70",
+                              borderImageWidth: "12px",
+                              borderImageRepeat: "stretch",
+                          },
+                      }
+                    : {}),
             }}
         >
             {roomy && innerW > 0 && (

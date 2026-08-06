@@ -18,7 +18,7 @@ import {
     type TeamType,
 } from "@heroesofcrypto/common";
 
-import { dropDuplicateAppliedEntries, RenderableUnit } from "./RenderableUnit";
+import { activeTurnFireFrameForElapsed, dropDuplicateAppliedEntries, RenderableUnit } from "./RenderableUnit";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -60,6 +60,14 @@ const spellAmounts = (unit: Unit): Record<string, number> =>
     Object.fromEntries(unit.getSpells().map((spell) => [spell.getName(), spell.getAmount()]));
 
 afterEach(() => HoCLib.setDeterministicRandomSource(undefined));
+
+test("active-turn fire atlas ping-pongs without jumping at either endpoint", () => {
+    const frameMs = 1000 / 18;
+    expect(activeTurnFireFrameForElapsed(0)).toBe(0);
+    expect(activeTurnFireFrameForElapsed(frameMs * 63)).toBe(63);
+    expect(activeTurnFireFrameForElapsed(frameMs * 64)).toBe(62);
+    expect(activeTurnFireFrameForElapsed(frameMs * 126)).toBe(0);
+});
 
 describe("RenderableUnit runtime spell synchronization", () => {
     test("removes and grants getSpells entries when a castable ability is stolen", () => {

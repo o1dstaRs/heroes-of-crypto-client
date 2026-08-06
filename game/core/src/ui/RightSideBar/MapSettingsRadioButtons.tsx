@@ -1,12 +1,11 @@
-import { ToGridType, GridType, GridVals, HoCLib } from "@heroesofcrypto/common";
+import { ToGridType, GridType, GridVals } from "@heroesofcrypto/common";
 import React, { useState, useEffect } from "react";
 import Box from "@mui/joy/Box";
 import FormControl from "@mui/joy/FormControl";
 import RadioGroup from "@mui/joy/RadioGroup";
 import Radio from "@mui/joy/Radio";
-import Button from "@mui/joy/Button";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { hocDisplayFontFamily, hocFantasyRadioSx, hocSidebarImageButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
 
 const MapSettingsRadioButtons: React.FC = () => {
     const [gridType, setGridType] = useState<GridType>(GridVals.NORMAL);
@@ -28,22 +27,6 @@ const MapSettingsRadioButtons: React.FC = () => {
         manager.SetGridType(newGridType);
     };
 
-    const handleRandomButtonClick = () => {
-        // Filter out NO_TYPE from the grid types
-        const availableGridTypes = [
-            GridVals.NORMAL,
-            GridVals.LAVA_CENTER,
-            GridVals.BLOCK_CENTER,
-            // GridType.WATER_CENTER,
-        ];
-
-        // Randomly select a grid type from the filtered list
-        const randomGridType = availableGridTypes[HoCLib.getRandomInt(0, availableGridTypes.length)];
-
-        setGridType(randomGridType);
-        manager.SetGridType(randomGridType);
-    };
-
     return (
         <Box
             sx={{
@@ -56,8 +39,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                 boxShadow: "inset 0 0 13px rgba(0,0,0,.75)",
             }}
         >
-            {/* Left side: Radio buttons */}
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ width: "100%" }}>
                 <FormControl>
                     <RadioGroup
                         aria-label="map-settings"
@@ -138,24 +120,6 @@ const MapSettingsRadioButtons: React.FC = () => {
                         {/* <Radio value={GridType.WATER_CENTER} label="Water" /> */}
                     </RadioGroup>
                 </FormControl>
-            </Box>
-
-            {/* Right side: Random button */}
-            <Box sx={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                <Button
-                    variant="plain"
-                    onClick={handleRandomButtonClick}
-                    sx={{
-                        ...hocSidebarImageButtonSx("neutral"),
-                        // Keep the label and right edge fixed; the plate is 25% shorter and grows 5% leftward.
-                        height: "48.3px",
-                        width: "105%",
-                        transform: "translateX(-5%)",
-                        minHeight: 0,
-                    }}
-                >
-                    Random
-                </Button>
             </Box>
         </Box>
     );

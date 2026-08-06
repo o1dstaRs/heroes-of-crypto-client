@@ -5,18 +5,17 @@ import { styled } from "@mui/system";
 import { images } from "../../generated/image_imports";
 import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 
-const spellbookIconImage = new URL("../../../images/icon_spellbook_black.webp", import.meta.url).toString();
-const hourglassIconImage = images.combat_toolbar_hourglass;
-const swordIconImage = new URL("../../../images/icon_sword_black.webp", import.meta.url).toString();
-const bowIconImage = new URL("../../../images/icon_bow_black.webp", import.meta.url).toString();
-const scepterIconImage = new URL("../../../images/icon_scepter_black.webp", import.meta.url).toString();
-const aiIconImage = new URL("../../../images/icon_ai_black.webp", import.meta.url).toString();
-const skipIconImage = new URL("../../../images/icon_skip_black.webp", import.meta.url).toString();
-const luckShieldIconImage = new URL("../../../images/icon_luck_shield_black.webp", import.meta.url).toString();
+const spellbookIconImage = images.combat_toolbar_ember_spellbook;
+const hourglassIconImage = images.combat_toolbar_ember_hourglass;
+const swordIconImage = images.combat_toolbar_ember_sword;
+const bowIconImage = images.combat_toolbar_ember_bow;
+const scepterIconImage = images.combat_toolbar_ember_scepter;
+const aiIconImage = images.combat_toolbar_ember_ai;
+const skipIconImage = images.combat_toolbar_ember_next;
+const luckShieldIconImage = images.combat_toolbar_ember_luck;
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
 const toolbarPanelImage = images.combat_toolbar_panel;
-const toolbarButtonStyleImage = images.combat_toolbar_button;
 
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
@@ -37,41 +36,9 @@ const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`LuckShield${VisibleButtonState.FIRST}`]: luckShieldIconImage,
 };
 
-/**
- * How each glyph is fitted into its button. `zoom` scales the art inside the button; `inset` pulls the whole
- * layer in from the rim so nothing touches the border.
- *
- * The atlas art is a gold medallion: an ornate bezel ring around a dark field with the glyph in the middle.
- * Only the GLYPH is wanted — the button draws the frame, so showing the medallion whole put a gold ring
- * inside the button's own rim and every icon read as two concentric frames.
- *
- * The crop is measured, not guessed. A radial luminance profile over all six icons puts the bezel's bright
- * ring at r ≈ 0.72–1.0 of the source radius, peaking at 0.80, with the glyph field inside r ≈ 0.70. Blowing
- * the art up to 160% pushes everything past r ≈ 0.62 outside the layer's circular clip, so the bezel is gone
- * with margin to spare while the glyph still sits comfortably inside.
- *
- * `inset` is a PERCENTAGE, so it scales the rendered glyph without touching the crop: the window stays the
- * same fraction of the source whatever the box size. 8.6% leaves the layer at 82.8% of the button — the
- * glyph a tenth smaller than a flush 4% inset, with a ring of bare disc around it.
- */
-const GLYPH_CROP: Record<string, { zoom: number; inset: number }> = {
-    // The selected polished hourglass is already a clean transparent cutout rather than an atlas
-    // medallion, so it needs no bezel-removal zoom.
-    [hourglassIconImage]: { zoom: 70, inset: 8.6 },
-    // The AI medallion carries far more dead field than the others: its brain ends at r ≈ 0.58 of the
-    // source while the bezel does not begin until r ≈ 0.70, so the default crop framed the glyph in a wide
-    // ring of bare medallion, and the default inset added its own margin on top of that — together they
-    // left the brain filling barely three quarters of the button.
-    //
-    // 172% puts the visible disc at r ≈ 0.58, right on the brain's own edge. Nothing of the glyph is lost:
-    // the crown sparkles sit inside 0.58 too. This is well clear of the bezel, so raising the zoom here
-    // costs nothing — the earlier 190/15 override went the other way and cropped INTO the brain.
-    //
-    // A flush inset 0 then let the brain run right out to the rim and bury the button's frame; 5% holds it
-    // a tenth off the edge, which is where the frame reads again.
-    [aiIconImage]: { zoom: 172, inset: 5 },
-};
-const GLYPH_CROP_DEFAULT = { zoom: 160, inset: 8.6 };
+// The selected ember artwork is a finished medallion, including its own dark face and bronze bezel. Keep
+// every asset at 1:1 scale instead of cropping the bezel and rebuilding a second frame in CSS.
+const GLYPH_CROP_DEFAULT = { zoom: 100, inset: 0 };
 
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
@@ -107,11 +74,9 @@ export const toolbarColumnHeightPx = (): number => {
     return Math.round(cellSize * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
 };
 
-// How far the option markers under a multi-state button sit from the centre of their row.
-const OPTION_ARC_RADIUS = 7.6;
-
 const GLYPH_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,.85))";
-const GLYPH_FILTER_BRIGHT = "brightness(1.12) drop-shadow(0 2px 5px rgba(243,212,136,.45))";
+const ACTIVE_ICON_FILTER = "brightness(1.15)";
+const ACTIVE_ICON_FILTER_BRIGHT = "brightness(1.27) drop-shadow(0 2px 5px rgba(243,212,136,.35))";
 
 // Obsidian shell from the fight-sidebar handoff. The old bronze-trimmed stone panel read as another gold
 // frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
@@ -149,21 +114,15 @@ const StyledIconButton = styled("button", {
     overflow: "hidden",
     cursor: "pointer",
     transform: `rotate(${rotationDegrees}deg)`,
-    // The button draws the frame, not the art: an obsidian disc with a black rim, matching the panel it sits
-    // on. The medallion's own gold bezel is cropped away (see GLYPH_CROP_DEFAULT) precisely so this one rim
-    // is the only ring on screen. The glyph rides on the ::before layer, which keeps the filter off the disc.
-    backgroundColor: "#211309",
-    backgroundImage: `url(${toolbarButtonStyleImage})`,
-    backgroundSize: "100% 100%",
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "center",
+    // The selected artwork already contains the complete dark face and bronze rim.
+    background: "transparent",
     border: 0,
     // The approved image ring already carries its own depth; a second CSS shadow made a thick black halo.
     boxShadow: "none",
     "&::before": {
         content: '""',
         position: "absolute",
-        // Both values come from GLYPH_CROP, set per icon on the element (see ButtonComponent).
+        // These values stay explicit so custom sprites can keep using the same rendering layer.
         inset: "var(--hoc-glyph-inset)",
         // The layer clips itself, rather than relying on the button's overflow. Once `inset` shrinks it, the
         // button's circle no longer sits at the layer's edge, so the crop that hides the bezel would stop at
@@ -174,27 +133,58 @@ const StyledIconButton = styled("button", {
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
         filter: GLYPH_FILTER,
-        transform: "scale(0.81)",
+        // Keep the complete bronze bezel inside the circular clip. At 100% the outermost gold pixels of
+        // the selected raster touched the button edge and were cut off on several medallions.
+        // Every WebP is physically cropped to the same outer gold radius and transparent beyond it.
+        transform: "scale(1)",
         transformOrigin: "center",
         transition: "filter 0.3s ease, transform 0.3s ease",
         pointerEvents: "none",
+        zIndex: 1,
+    },
+    // Repeat only the centre of the medallion above the base artwork. The soft radial mask ends before the
+    // bezel, so active symbols gain 15% brightness while the gold frame keeps exactly the same colour.
+    "&:not(:disabled)::after": {
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        borderRadius: "50%",
+        backgroundImage: "var(--hoc-glyph)",
+        backgroundSize: "var(--hoc-glyph-zoom)",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        filter: ACTIVE_ICON_FILTER,
+        maskImage: "radial-gradient(ellipse 38% 38% at center, #000 0 82%, rgba(0,0,0,.92) 90%, transparent 100%)",
+        pointerEvents: "none",
+        zIndex: 2,
     },
     "&:hover:not(:disabled)": {
         transform: `scale(1.15) rotate(${rotationDegrees}deg)`,
-        backgroundColor: "#211309",
-        backgroundImage: `url(${toolbarButtonStyleImage})`,
+        background: "transparent",
         borderColor: "#8a7136",
         boxShadow: "none",
         filter: "brightness(1.12)",
-        "&::before": { filter: GLYPH_FILTER_BRIGHT },
+        "&::after": { filter: ACTIVE_ICON_FILTER_BRIGHT },
     },
     "&:disabled": {
-        backgroundColor: "#160e08",
-        backgroundImage: `url(${toolbarButtonStyleImage})`,
-        borderColor: "rgba(202,162,79,.35)",
+        transform: `scale(0.94) rotate(${rotationDegrees}deg)`,
+        background: "transparent",
+        borderColor: "#8a7136",
         boxShadow: "none",
-        opacity: 0.5,
+        opacity: 1,
         cursor: "not-allowed",
+    },
+    // Keep the complete gold bezel at active brightness. Only the playable face and its symbol are muted,
+    // so unavailable actions remain clearly visible without looking clickable.
+    "&:disabled::after": {
+        content: '\"\"',
+        position: "absolute",
+        inset: "13%",
+        borderRadius: "50%",
+        background: "rgba(0, 0, 0, .5)",
+        boxShadow: "inset 0 1px 5px rgba(0, 0, 0, .5)",
+        pointerEvents: "none",
+        zIndex: 2,
     },
     "&:active:not(:disabled)": {
         ...(clickEffectNeeded
@@ -216,6 +206,7 @@ interface ButtonComponentProps {
     customSpriteName?: string;
     numberOfOptions?: number;
     selectedOption?: number;
+    isAttackType?: boolean;
     /** Draws the "ON" badge over the artwork; the artwork itself stays put. */
     showOnBadge?: boolean;
 }
@@ -230,6 +221,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     customSpriteName,
     numberOfOptions = 1,
     selectedOption = 1,
+    isAttackType = false,
     showOnBadge = false,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
@@ -259,9 +251,20 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
         return null;
     }
 
-    const glyphCrop = GLYPH_CROP[iconImage] ?? GLYPH_CROP_DEFAULT;
+    const glyphCrop = GLYPH_CROP_DEFAULT;
     const needRotate = ICON_IMAGE_NEED_ROTATE[iconImage];
     const initialRotation = needRotate ? 180 : 0;
+    // A pure melee creature has nothing to switch to, so its sword stays a plain action button without
+    // the two-dot attack-mode toggle. Hybrid creatures still show the selector whenever multiple modes
+    // are available; the existing ranged fallback keeps its two-state affordance during temporary locks.
+    const isSingleMeleeAttack = isAttackType && numberOfOptions <= 1 && iconImage === swordIconImage;
+    const displayedOptionCount = isSingleMeleeAttack
+        ? 1
+        : isAttackType
+          ? Math.max(2, numberOfOptions)
+          : numberOfOptions;
+    const displayedSelectedOption =
+        isAttackType && numberOfOptions <= 1 && iconImage === bowIconImage ? 2 : selectedOption;
 
     return (
         <Box
@@ -291,8 +294,8 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                         clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
                         style={
                             {
-                                // The glyph URL reaches the ::before layer through a custom property, so the
-                                // ember filter tints the artwork without touching the disc underneath.
+                                // The complete medallion reaches the ::before layer through a custom
+                                // property, keeping hover and rotation effects off the surrounding panel.
                                 "--hoc-glyph": `url(${iconImage})`,
                                 "--hoc-glyph-zoom": `${glyphCrop.zoom}%`,
                                 "--hoc-glyph-inset": `${glyphCrop.inset}%`,
@@ -341,31 +344,35 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                     </Box>
                 )}
             </Box>
-            {numberOfOptions > 1 && (
+            {displayedOptionCount > 1 && (
                 <Box
                     sx={{
                         display: "flex",
+                        alignItems: "center",
                         justifyContent: "center",
+                        gap: `${2 * SCREEN_RATIO}px`,
                         position: "absolute",
-                        bottom: 1 * SCREEN_RATIO,
-                        left: 6 * SCREEN_RATIO,
-                        width: 45 * SCREEN_RATIO,
-                        height: 9.1 * SCREEN_RATIO,
+                        bottom: -1.5 * SCREEN_RATIO,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        minWidth: 23 * SCREEN_RATIO,
+                        height: 11 * SCREEN_RATIO,
+                        padding: `0 ${2.5 * SCREEN_RATIO}px`,
+                        borderRadius: "999px",
+                        background: "rgba(5, 5, 4, .88)",
+                        border: `${0.8 * SCREEN_RATIO}px solid rgba(174, 133, 67, .82)`,
+                        boxShadow: "0 1px 4px rgba(0,0,0,.9)",
+                        zIndex: 6,
+                        opacity: isDisabled ? 0.65 : 1,
+                        pointerEvents: "none",
                     }}
                 >
-                    {Array.from({ length: numberOfOptions }, (_, index) => {
-                        const angle = (index / (numberOfOptions - 1)) * Math.PI;
-                        // The arc's radius, not its centre — the row of dots stays centred under the button
-                        // and only draws itself in. At the old 12.6 the two attack-type markers sat almost
-                        // at the medallion's edges and read as two unrelated lights rather than as one
-                        // two-state control.
-                        const x = (12.6 + OPTION_ARC_RADIUS * Math.cos(angle) - 4.55) * SCREEN_RATIO;
-                        const y = (5.6 * Math.sin(angle) - 4.55) * SCREEN_RATIO;
+                    {Array.from({ length: displayedOptionCount }, (_, index) => {
                         return (
                             <img
                                 key={index}
                                 src={
-                                    numberOfOptions - index - 1 === selectedOption - 1
+                                    displayedOptionCount - index - 1 === displayedSelectedOption - 1
                                         ? activeOptionIconImage
                                         : inactiveOptionIconImage
                                 }
@@ -373,9 +380,8 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                                 style={{
                                     width: 9.1 * SCREEN_RATIO,
                                     height: 9.1 * SCREEN_RATIO,
-                                    position: "absolute",
-                                    left: `${x + 9.1 * SCREEN_RATIO}px`,
-                                    top: `${y}px`,
+                                    display: "block",
+                                    filter: "drop-shadow(0 0 2px rgba(0,0,0,.9))",
                                 }}
                             />
                         );
@@ -470,6 +476,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
+                        isAttackType={button.name === "AttackType"}
                         showOnBadge={button.name === "AI" && button.state === VisibleButtonState.SECOND}
                     />
                 ))}

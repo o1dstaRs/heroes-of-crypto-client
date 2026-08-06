@@ -1,6 +1,6 @@
 import { Chip } from "@mui/joy";
 import React from "react";
-import { HOC_NUMERIC_DIGITAL_FONT_FAMILY } from "../../fontFamilies";
+import { hocDisplayFontFamily } from "../hocTheme";
 
 // Compact inline countdown that lives in the status row (next to the turn/upgrade chips).
 // Turns urgent (red, pulsing) only in the final seconds of your own turn — otherwise it's a
@@ -20,7 +20,7 @@ export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYo
             variant={urgent ? "solid" : "soft"}
             color={urgent ? "danger" : "neutral"}
             sx={{
-                fontFamily: HOC_NUMERIC_DIGITAL_FONT_FAMILY,
+                fontFamily: hocDisplayFontFamily,
                 fontWeight: "bold",
                 minWidth: 56,
                 justifyContent: "center",

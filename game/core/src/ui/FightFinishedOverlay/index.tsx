@@ -8,11 +8,52 @@ import Typography from "@mui/joy/Typography";
 import { motion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 
+import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
+
+const RESULTS_PREVIEW_STATE: IVisibleState = {
+    canBeStarted: false,
+    hasFinished: true,
+    secondsRemaining: 0,
+    secondsMax: 60,
+    hasAdditionalTime: false,
+    lapNumber: 5,
+    numberOfLapsTillNarrowing: 0,
+    numberOfLapsTillStopNarrowing: 0,
+    canRequestAdditionalTime: false,
+    upNext: [],
+    lapsNarrowed: 0,
+    teamWin: TeamVals.UPPER,
+    fightStats: {
+        winner: TeamVals.UPPER,
+        series: [
+            { lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 },
+            { lap: 2, lowerKilled: 74, upperKilled: 80, lowerKilledPct: 37, upperKilledPct: 40 },
+            { lap: 3, lowerKilled: 128, upperKilled: 126, lowerKilledPct: 64, upperKilledPct: 63 },
+            { lap: 4, lowerKilled: 160, upperKilled: 152, lowerKilledPct: 80, upperKilledPct: 76 },
+            { lap: 5, lowerKilled: 171, upperKilled: 200, lowerKilledPct: 86, upperKilledPct: 100 },
+        ],
+        lowerDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: TeamVals.LOWER },
+        ],
+        upperDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: TeamVals.UPPER },
+        ],
+        damageByUnit: [
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: TeamVals.UPPER },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: TeamVals.LOWER },
+        ],
+        lowerStartTotal: 200,
+        upperStartTotal: 200,
+        lowerKilledTotal: 200,
+        upperKilledTotal: 171,
+        totalLaps: 5,
+    },
+};
 
 // =============================================================================
 // Casualty roster column (per team): unit icons + how many fell
@@ -25,6 +66,10 @@ const CasualtyColumn: React.FC<{
 }> = ({ team, deaths, killedTotal, startTotal }) => {
     const color = teamColor(team);
     const pct = startTotal > 0 ? Math.round((killedTotal / startTotal) * 100) : 0;
+    const frameImage =
+        team === TeamVals.LOWER
+            ? imgSrc("fight_results_fallen_green_frame_v3")
+            : imgSrc("fight_results_fallen_red_frame_v3");
 
     return (
         <Box sx={{ flex: 1, minWidth: 220 }}>
@@ -45,14 +90,28 @@ const CasualtyColumn: React.FC<{
             </Stack>
             <Box
                 sx={{
+                    position: "relative",
                     display: "flex",
                     flexWrap: "wrap",
                     gap: 1,
-                    p: 1,
-                    borderRadius: "10px",
-                    border: `1px solid ${GOLD}55`,
+                    p: 1.25,
+                    borderRadius: 0,
+                    border: "none",
                     backgroundColor: "rgba(0,0,0,0.25)",
-                    minHeight: 64,
+                    minHeight: 68,
+                    "&::after": {
+                        content: '""',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 3,
+                        pointerEvents: "none",
+                        boxSizing: "border-box",
+                        backgroundImage: `url(${frameImage})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "100% 100%",
+                        filter: team === TeamVals.LOWER ? "brightness(1.55) saturate(.9)" : "brightness(1.08)",
+                    },
                 }}
             >
                 {deaths.length === 0 && (
@@ -121,30 +180,36 @@ const ActionButton: React.FC<{ label: string; disabled?: boolean; primary?: bool
     <Box
         onClick={disabled ? undefined : onClick}
         sx={{
-            px: 3,
-            py: 1.1,
-            borderRadius: "10px",
+            px: primary ? 3.4 : 3,
+            py: primary ? 1.35 : 1.1,
+            minWidth: primary ? 160 : 138,
+            borderRadius: 0,
             cursor: disabled ? "not-allowed" : "pointer",
             fontWeight: 800,
             letterSpacing: "0.04em",
             fontSize: "0.95rem",
+            fontFamily: HOC_GAME_FONT_FAMILY,
             userSelect: "none",
-            border: `2px solid ${GOLD}`,
-            color: disabled ? `${PARCHMENT}66` : primary ? WOOD_DARK : PARCHMENT,
-            background: primary ? `linear-gradient(180deg, #f3d488 0%, ${GOLD} 100%)` : "transparent",
-            boxShadow: primary ? `0 0 16px ${GOLD}66` : "none",
+            border: "none",
+            color: disabled ? `${PARCHMENT}66` : primary ? "#f3d08a" : PARCHMENT,
+            backgroundColor: "transparent",
+            backgroundImage: primary
+                ? `linear-gradient(180deg, rgba(255,211,111,.28), rgba(153,91,12,.16)), url(${imgSrc("ui_start_button_plate_trimmed")})`
+                : `linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.12)), url(${imgSrc("ui_start_button_plate_trimmed")})`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center",
+            backgroundSize: "100% 100%",
+            textShadow: primary ? "0 2px 2px #090501, 0 0 8px rgba(225,170,67,.4)" : "0 2px 2px #090501",
+            boxShadow: primary ? `0 0 13px ${GOLD}55` : "0 3px 7px rgba(0,0,0,.5)",
             opacity: disabled ? 0.45 : 1,
             transition: "all 0.15s ease",
             "&:hover": {
                 transform: disabled ? "none" : "translateY(-1px)",
                 boxShadow: disabled ? (primary ? `0 0 16px ${GOLD}66` : "none") : `0 0 20px ${GOLD}aa`,
-                background: disabled
-                    ? primary
-                        ? `linear-gradient(180deg, #f3d488 0%, ${GOLD} 100%)`
-                        : "transparent"
-                    : primary
-                      ? `linear-gradient(180deg, #ffe5a0 0%, ${GOLD} 100%)`
-                      : `${GOLD}22`,
+                backgroundColor: "transparent",
+                backgroundImage: primary
+                    ? `linear-gradient(180deg, rgba(255,224,142,.38), rgba(172,105,18,.2)), url(${imgSrc("ui_start_button_plate_trimmed")})`
+                    : `linear-gradient(180deg, rgba(255,205,112,.12), rgba(95,55,12,.12)), url(${imgSrc("ui_start_button_plate_trimmed")})`,
             },
             "&:active": { transform: "translateY(0)" },
         }}
@@ -179,6 +244,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     onBackToLobby,
 }) => {
     const manager = usePixiManager();
+    const previewMode =
+        import.meta.env.DEV && new URLSearchParams(window.location.search).get("fight-results-preview") === "1";
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [dismissed, setDismissed] = useState(false);
     const [replayResult, setReplayResult] = useState(false);
@@ -208,7 +275,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
         };
     }, [manager]);
 
-    const stats: IFightStatsReport | undefined = visibleState.fightStats;
+    const renderedState = previewMode ? RESULTS_PREVIEW_STATE : visibleState;
+    const stats: IFightStatsReport | undefined = renderedState.fightStats;
 
     // A finished fight shows this overlay — for BOTH players, and when a completed game is (re)loaded.
     // teamWin === TeamVals.NO_TEAM is a genuine DRAW (e.g. armageddon wiping both sides on the same lap),
@@ -220,11 +288,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     // already guards against a 0 total, so a missing start total just degrades that team's casualty
     // figures rather than hiding the whole overlay.
     if (
-        !visibleState.hasFinished ||
+        !renderedState.hasFinished ||
         !stats ||
         dismissed ||
-        visibleState.teamWin === undefined ||
-        stats.winner !== visibleState.teamWin
+        renderedState.teamWin === undefined ||
+        stats.winner !== renderedState.teamWin
     ) {
         return null;
     }
@@ -232,14 +300,15 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const isDraw = stats.winner === TeamVals.NO_TEAM;
     const winnerColor = isDraw ? GOLD : teamColor(stats.winner);
     const canSandboxReplay = manager.CanPlayCurrentSandboxReplay();
-    const canReplay = canReplayOverride ?? canSandboxReplay;
-    const showSandboxActions = mode === "sandbox" && canSandboxReplay;
+    const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
+    const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
     const clearReplayTimers = (): void => {
         replayTimers.current.forEach(window.clearTimeout);
         replayTimers.current = [];
     };
     const replayFight = async (): Promise<void> => {
+        if (previewMode) return;
         clearReplayTimers();
         setDismissed(true);
         replayInProgress.current = true;
@@ -275,7 +344,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "rgba(0,0,0,0.72)",
+                backgroundColor: "#050504",
+                backgroundImage: `url(${imgSrc("fight_results_obsidian_ember_background")})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
             }}
         >
             {/* Winner-coloured glow behind the card */}
@@ -310,39 +383,59 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
-                    borderRadius: "18px",
-                    border: `2px solid ${GOLD}`,
+                    borderRadius: "6px",
+                    border: "none",
                     // Near-black with a warm cast, matching the game's other panels (the sidebar wells
                     // sit at rgba(18,11,4) / rgba(11,9,5) / rgba(12,12,12)) instead of the lighter
                     // brown this card used to be. Still 95% opaque, so the board reads faintly through.
-                    background: "linear-gradient(160deg, rgba(30,18,7,0.95) 0%, rgba(9,6,2,0.95) 100%)",
+                    background: "linear-gradient(160deg, rgba(30,18,7,0.71) 0%, rgba(9,6,2,0.71) 100%)",
                     boxShadow: "0 16px 48px rgba(0,0,0,0.85)",
                     padding: "28px 32px",
+                    // Reuse the command deck's approved metal-and-ember frame. A pseudo-element keeps
+                    // the 9-slice artwork independent from the card's layout, so replacing the old 2px
+                    // CSS stroke does not move or resize any results content.
+                    "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 5,
+                        pointerEvents: "none",
+                        boxSizing: "border-box",
+                        border: "16px solid transparent",
+                        borderImageSource: `url(${imgSrc("ui_outer_frame_3_9slice")})`,
+                        borderImageSlice: "58",
+                        borderImageWidth: "16px",
+                        borderImageRepeat: "stretch",
+                    },
                 }}
             >
                 {/* Close button */}
                 <Box
+                    component="button"
+                    aria-label="Close fight results"
                     onClick={() => setDismissed(true)}
                     sx={{
                         position: "absolute",
-                        top: 14,
-                        right: 16,
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        border: `1.5px solid ${GOLD}`,
-                        color: PARCHMENT,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        top: 10,
+                        right: 12,
+                        width: 42,
+                        height: 42,
+                        border: 0,
+                        backgroundColor: "transparent",
+                        backgroundImage: `url(${imgSrc("fight_results_close_button_v1")})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "contain",
                         cursor: "pointer",
-                        fontSize: "1.1rem",
-                        lineHeight: 1,
-                        "&:hover": { backgroundColor: `${GOLD}22` },
+                        zIndex: 6,
+                        filter: "drop-shadow(0 2px 3px rgba(0,0,0,.75))",
+                        transition: "transform .14s ease, filter .14s ease",
+                        "&:hover": {
+                            transform: "scale(1.06)",
+                            filter: "drop-shadow(0 0 6px rgba(231,168,57,.5))",
+                        },
                     }}
-                >
-                    ✕
-                </Box>
+                />
 
                 {/* Winner banner (or draw banner — armageddon can wipe both sides on the same lap) */}
                 {/* The cup sits BESIDE the headline, not over it. Stacked, it cost the card a whole line of
@@ -355,6 +448,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             sx={{
                                 color: winnerColor,
                                 fontWeight: 900,
+                                fontFamily: HOC_GAME_FONT_FAMILY,
                                 letterSpacing: "0.08em",
                                 fontSize: "2rem",
                                 textShadow: `0 0 18px ${winnerColor}aa`,
@@ -402,7 +496,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             flexDirection: "column",
                         }}
                     >
-                        <CasualtyChartPanel series={stats.series} />
+                        <CasualtyChartPanel series={stats.series} ornateResultsFrame />
 
                         {/* Damage stats — pinned directly under the chart. */}
                         <Box sx={{ flexShrink: 0 }}>
@@ -464,6 +558,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             label="⚔ Rematch"
                             primary
                             onClick={() => {
+                                if (previewMode) return;
                                 console.log("[Rematch] button clicked");
                                 clearReplayTimers();
                                 setDismissed(true);
@@ -475,6 +570,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <ActionButton
                             label="+ New Battle"
                             onClick={() => {
+                                if (previewMode) return;
                                 clearReplayTimers();
                                 setDismissed(true);
                                 manager.StartOver();

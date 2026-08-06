@@ -243,15 +243,12 @@ export class SandboxDrawer {
         if (!placementGraphics) return;
         const g = placementGraphics;
         g.clear();
-        // Reference placement borders are child sprites. Detach them together with the frame's vector
-        // geometry so hidden/changed placements never leave a stale glow on the board.
+        // Remove any transient placement children together with the glow geometry so a hidden or resized
+        // deployment zone can never leave stale light on the board.
         g.removeChildren();
         if (!fightProps.hasFightStarted()) {
             placementManager.draw(g, restrictToTeam);
             hoverManager.drawHoverPlacementCell(g);
-            if (hoverManager.hoveredUnitHighlight) {
-                hoverManager.drawHoveredUnitHighlight(g);
-            }
         }
     }
     private static drawMovementArea(

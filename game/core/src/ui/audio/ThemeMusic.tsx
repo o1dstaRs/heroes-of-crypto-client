@@ -275,7 +275,7 @@ export const ThemeMusic: React.FC = () => {
               display: "flex",
               alignItems: "center",
               gap: volumeExpanded ? "0.5rem" : 0,
-              color: silent ? "rgba(255, 143, 0, 0.45)" : "rgba(255, 143, 0, 0.8)",
+              color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
           }
         : {
               position: "fixed",
@@ -338,7 +338,7 @@ export const ThemeMusic: React.FC = () => {
                     borderRadius: "50%",
                     border: dockSlot ? "none" : "1px solid rgba(255, 255, 255, 0.12)",
                     background: dockSlot ? "transparent" : "rgba(255, 255, 255, 0.04)",
-                    color: "inherit",
+                    color: dockSlot ? (silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158") : "inherit",
                     cursor: "pointer",
                 }}
             >

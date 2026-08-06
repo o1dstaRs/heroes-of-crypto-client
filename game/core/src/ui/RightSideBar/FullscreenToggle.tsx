@@ -3,6 +3,7 @@ import Box from "@mui/joy/Box";
 import Tooltip from "@mui/joy/Tooltip";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import { hocColors } from "../hocTheme";
 
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 
@@ -30,12 +31,13 @@ export const FullscreenToggle: React.FC = () => {
                     height: 32,
                     width: 32,
                     cursor: "pointer",
-                    color: "rgba(255, 143, 0, 0.8)",
+                    color: `${hocColors.gold} !important`,
                     transition: "transform 0.3s ease, color 0.2s ease",
-                    "&:hover": { color: "#FF8F00", transform: "scale(1.1)" },
+                    "&:hover": { color: "#f0ca75", transform: "scale(1.1)" },
+                    "& .MuiSvgIcon-root": { color: "inherit !important" },
                 }}
             >
-                <Icon sx={{ fontSize: 22 }} />
+                <Icon sx={{ fontSize: 22, color: "inherit !important" }} />
             </Box>
         </Tooltip>
     );

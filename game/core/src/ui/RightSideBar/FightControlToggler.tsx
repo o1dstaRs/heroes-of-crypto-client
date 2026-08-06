@@ -42,8 +42,8 @@ const sectionTitleSx = {
 } as const;
 
 const sectionIconSx = {
-    width: "41.4px",
-    height: "41.4px",
+    width: "46.4px",
+    height: "46.4px",
     objectFit: "contain",
     filter: "sepia(.18) saturate(.88) drop-shadow(0 2px 2px rgba(0,0,0,.8))",
 } as const;
@@ -267,6 +267,7 @@ const FightControlToggler: React.FC = () => {
                                     src={images.flag_red_icon}
                                     sx={{
                                         ...teamFlagSx,
+                                        filter: "saturate(1.38) brightness(1.28) contrast(1.06)",
                                         // The flag IS the team colour — it is what tells Reds from Greens at a
                                         // glance. Graying it while the section is closed (which the Army and
                                         // Board icons do, where colour carries nothing) left both sections
@@ -324,6 +325,7 @@ const FightControlToggler: React.FC = () => {
                                     src={images.flag_green_icon}
                                     sx={{
                                         ...teamFlagSx,
+                                        filter: "saturate(1.48) brightness(1.35) contrast(1.04)",
                                         // The flag IS the team colour — it is what tells Reds from Greens at a
                                         // glance. Graying it while the section is closed (which the Army and
                                         // Board icons do, where colour carries nothing) left both sections
