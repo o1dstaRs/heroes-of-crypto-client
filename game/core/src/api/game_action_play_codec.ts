@@ -129,6 +129,10 @@ export const createPlayActionFromGameAction = (
                 targetUnitId: action.targetId,
                 targetCell: action.targetCell,
                 spellName: action.spellName,
+                // Fire Wall's rotated aim. 1-based so HORIZONTAL (0) survives the varint zero-skip —
+                // without this field the server always normalized to HORIZONTAL, so a diagonal or
+                // vertical wall was either refused (default-orientation cells blocked) or laid wrong.
+                targetOrientation: action.targetOrientation !== undefined ? action.targetOrientation + 1 : undefined,
             });
         case "place_unit":
             return withEnvelope(envelope, {
@@ -275,6 +279,8 @@ export const createGameActionFromPlayAction = (action: Partial<PlayAction>): Gam
                       spellName: action.spellName,
                       targetId: action.targetUnitId || undefined,
                       targetCell: maybeCell(action.targetCell),
+                      // 1-based on the wire (see the encoder above); absent = legacy horizontal.
+                      targetOrientation: action.targetOrientation ? action.targetOrientation - 1 : undefined,
                   }
                 : undefined;
         case PlayActionType.DELETE_UNIT:

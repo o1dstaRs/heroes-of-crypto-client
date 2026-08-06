@@ -133,6 +133,32 @@ describe("createPlayActionFromGameAction", () => {
         });
     });
 
+    it("round-trips the Fire Wall orientation so a rotated wall survives the wire", () => {
+        // HORIZONTAL is 0 and must survive: it is sent 1-based so the varint zero-skip can't drop it.
+        // Without this field the server normalized EVERY ranked cast to horizontal — the live "unable
+        // to cast Fire Wall diagonally in ranked" report.
+        for (const orientation of [0, 1, 2, 3]) {
+            const action: GameAction = {
+                type: "cast_spell",
+                casterId: "c9",
+                spellName: "Fire Wall",
+                targetCell: { x: 5, y: 6 },
+                targetOrientation: orientation,
+            };
+            const wire = createPlayActionFromGameAction(action, envelope);
+            expect(wire.targetOrientation).toBe(orientation + 1);
+            expect(createGameActionFromPlayAction(wire)).toEqual(action);
+        }
+
+        // A spell with no rotatable footprint sends nothing and decodes to undefined (legacy horizontal).
+        const plain = createPlayActionFromGameAction(
+            { type: "cast_spell", casterId: "c1", spellName: "Heal", targetId: "t1" },
+            envelope,
+        );
+        expect(plain.targetOrientation).toBeUndefined();
+        expect(createGameActionFromPlayAction(plain)).toMatchObject({ targetOrientation: undefined });
+    });
+
     it("maps spell, obstacle, and area actions", () => {
         expect(
             createPlayActionFromGameAction(

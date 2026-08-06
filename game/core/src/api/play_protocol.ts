@@ -281,6 +281,9 @@ export interface PlayAction {
     // Ranged aim: 1-based cell side the shot is aimed at (1=LEFT,2=RIGHT,3=DOWN,4=UP; 0/undefined =
     // none). 1-based so side LEFT (0) survives the varint zero-skip. Paired with targetCell (aimCell).
     targetSide?: number;
+    // Fire Wall's rotated aim: 1-based FireWallOrientation (1=HORIZONTAL,2=DIAGONAL_DOWN,3=VERTICAL,
+    // 4=DIAGONAL_UP; 0/undefined = legacy horizontal). 1-based so HORIZONTAL (0) survives the zero-skip.
+    targetOrientation?: number;
     attackType?: number;
     spellName?: string;
     hasLavaCell?: boolean;
@@ -572,6 +575,7 @@ export const encodePlayAction = (action: PlayAction): Uint8Array => {
     writer.string(19, action.reason);
     writer.int32(20, action.amount);
     writer.int32(21, action.targetSide);
+    writer.int32(22, action.targetOrientation);
     return writer.finish();
 };
 
