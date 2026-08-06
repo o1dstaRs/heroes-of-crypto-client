@@ -41,6 +41,7 @@ import {
     ToChaosSynergy,
     ToMightSynergy,
     ToNatureSynergy,
+    FACTION_SYNERGY_PAIRS,
     FactionVals,
     AttackVals,
     MovementVals,
@@ -693,6 +694,9 @@ export class Sandbox extends PixiScene {
     /** Phase for animating the hover glow (shimmer effect) */
     private hoverGlowPhase = 0;
     private hoverRangeAttackDivisors: number[] = []; // Unified Range Visualization
+    // Sandbox-only manual synergy picking (owner call): each team's explicitly chosen variant per
+    // faction, re-applied by refreshSynergyNumbers on top of the fight-wide seeded/default variant.
+    private sc_synergyVariantChoicePerTeam: Map<TeamType, { [factionName: string]: SpecificSynergy }> = new Map();
     private sc_hoveredShotRange?: { xy: HoCMath.XY; distance: number };
     private sc_hoveredAuraRanges?: {
         xy: HoCMath.XY;
@@ -5418,10 +5422,102 @@ export class Sandbox extends PixiScene {
                 uniqueNamesMight.length,
                 uniqueNamesNature.length,
             );
+        // Sandbox keeps MANUAL per-team variant picking (owner call): setSynergyUnitsPerFactions just
+        // auto-applied the fight-wide seeded/default variant, so re-apply this team's explicit choices
+        // on top — updateSynergyPerTeam enforces one-of-two by stripping the faction's other entry.
+        const choices = this.sc_synergyVariantChoicePerTeam.get(teamType);
+        if (choices) {
+            const fightProps = FightStateManager.getInstance().getFightProperties();
+            const countByFaction: Record<string, number> = {
+                Life: uniqueNamesLife.length,
+                Chaos: uniqueNamesChaos.length,
+                Might: uniqueNamesMight.length,
+                Nature: uniqueNamesNature.length,
+            };
+            const factionValByName: Record<string, FactionType> = {
+                Life: FactionVals.LIFE,
+                Chaos: FactionVals.CHAOS,
+                Might: FactionVals.MIGHT,
+                Nature: FactionVals.NATURE,
+            };
+            for (const [factionName, chosenVariant] of Object.entries(choices)) {
+                const level = Math.min(
+                    Math.floor((countByFaction[factionName] ?? 0) / 2),
+                    HoCConstants.MAX_SYNERGY_LEVEL,
+                );
+                if (level > 0) {
+                    fightProps.updateSynergyPerTeam(teamType, factionValByName[factionName], chosenVariant, level);
+                }
+            }
+        }
         const synergies = this.sc_possibleSynergiesPerTeam.get(teamType);
         const newSynergies = FightStateManager.getInstance().getFightProperties().getPossibleSynergies(teamType);
         this.sc_possibleSynergiesPerTeam.set(teamType, newSynergies);
         this.sc_possibleSynergiesUpdateNeeded = synergies !== newSynergies;
+    }
+    /**
+     * Sandbox-only manual synergy picking (owner call): choose which of a faction's two synergies this
+     * TEAM fields. The choice is durable — refreshSynergyNumbers re-applies it after every loadout
+     * change on top of the fight-wide seeded/default variant — and takes effect immediately at the
+     * level the army currently unlocks (2/4/6 unique creatures -> level 1/2/3).
+     */
+    public selectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
+        const pair = FACTION_SYNERGY_PAIRS[factionName];
+        if (!pair) {
+            return false;
+        }
+        let chosen: SpecificSynergy | undefined;
+        if (factionName === "Life") {
+            chosen = ToLifeSynergy[synergyName];
+        } else if (factionName === "Chaos") {
+            chosen = ToChaosSynergy[synergyName];
+        } else if (factionName === "Might") {
+            chosen = ToMightSynergy[synergyName];
+        } else if (factionName === "Nature") {
+            chosen = ToNatureSynergy[synergyName];
+        }
+        if (!chosen || !pair.includes(chosen)) {
+            return false;
+        }
+        const choices = this.sc_synergyVariantChoicePerTeam.get(teamType) ?? {};
+        choices[factionName] = chosen;
+        this.sc_synergyVariantChoicePerTeam.set(teamType, choices);
+        this.refreshSynergyNumbers(teamType);
+        this.refreshAfterLoadoutChange();
+        // Nature's board-units synergy resizes the placement cap; shrink an over-filled board like
+        // propagateSynergy does when a choice moves the cap down.
+        if (factionName === "Nature") {
+            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
+            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
+            if (lowerLeftPlacement && upperRightPlacement) {
+                const targetTeamSize = FightStateManager.getInstance()
+                    .getFightProperties()
+                    .getNumberOfUnitsAvailableForPlacement(teamType);
+                if (
+                    this.unitsHolder.getAllAlliesPlaced(
+                        teamType,
+                        lowerLeftPlacement,
+                        upperRightPlacement,
+                        this.getPlacement(TeamVals.LOWER, 1),
+                        this.getPlacement(TeamVals.UPPER, 1),
+                    ).length > targetTeamSize
+                ) {
+                    const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
+                        targetTeamSize,
+                        teamType,
+                        lowerLeftPlacement,
+                        upperRightPlacement,
+                        this.getPlacement(TeamVals.LOWER, 1),
+                        this.getPlacement(TeamVals.UPPER, 1),
+                    );
+                    if (unitsToCleanupFromTheBoard.length) {
+                        this.destroySpecificUnits(unitsToCleanupFromTheBoard as RenderableUnit[]);
+                    }
+                }
+            }
+        }
+        this.sc_possibleSynergiesUpdateNeeded = true;
+        return true;
     }
     protected handleMouseDownForSelectedBody(): void {}
     public cloneObject(newAmount?: number): boolean {

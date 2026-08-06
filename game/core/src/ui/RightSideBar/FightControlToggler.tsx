@@ -16,7 +16,8 @@ import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
 // expanded at once, which in this narrow panel stacks three tall radio groups and pushes the artifacts and
 // the other team's section off the bottom. Sandbox wants the pre-redesign shape instead — one row of augment
 // icons, and only the CHOSEN augment's options underneath — so it mounts SandboxToggleContainer, where that
-// panel and the two artifact tiers form a single accordion (opening one closes the others, all shut at rest).
+// augment and artifact blocks are independently collapsible, with both shown when the available height can
+// hold them.
 import SandboxToggleContainer from "./SandboxToggleContainer";
 import { SynergySlots } from "./SynergySlots";
 import UnitSplitter from "./UnitSplitter";
@@ -126,11 +127,29 @@ const FightControlToggler: React.FC = () => {
     return (
         /* @ts-ignore: style params */
         <ListItem
+            data-sandbox-scroll-region="true"
             style={{ "--List-nestedInsetStart": "0px" }}
             nested
             sx={{
                 display: "flex",
                 flexDirection: "column",
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflowY: "auto",
+                overflowX: "hidden",
+                overscrollBehavior: "contain",
+                scrollbarWidth: "thin",
+                scrollbarColor: "rgba(255, 143, 0, 0.35) transparent",
+                "&::-webkit-scrollbar": { width: "6px" },
+                "&::-webkit-scrollbar-track": { background: "transparent" },
+                "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: "rgba(255, 143, 0, 0.32)",
+                    borderRadius: "3px",
+                },
+                // Let the active framed section keep its natural content height. Otherwise flexbox shrinks
+                // the frame itself, whose overflow:hidden then clips the bottom before this parent can
+                // expose a scrollbar or make the both-panels fit decision.
+                "& > *": { flexShrink: 0 },
                 gap: 1.5,
                 "@media (max-height: 800px)": {
                     gap: 0.5,

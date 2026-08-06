@@ -173,6 +173,10 @@ export const endpoints = {
         walletLink: IS_PROD ? "/v1/wallet-link" : "/v1/auth/wallet-link",
         walletUnlink: IS_PROD ? "/v1/wallet-unlink" : "/v1/auth/wallet-unlink",
         walletList: IS_PROD ? "/v1/wallet-list" : "/v1/auth/wallet-list",
+        googleLogin: IS_PROD ? "/v1/google-login" : "/v1/auth/google-login",
+        googleLink: IS_PROD ? "/v1/google-link" : "/v1/auth/google-link",
+        googleUnlink: IS_PROD ? "/v1/google-unlink" : "/v1/auth/google-unlink",
+        googleStatus: IS_PROD ? "/v1/google-status" : "/v1/auth/google-status",
     },
     mm: {
         queue: IS_PROD ? "/v1/queue" : "/v1/mm/queue",

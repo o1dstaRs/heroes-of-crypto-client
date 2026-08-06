@@ -4,24 +4,24 @@
 // the 36-character player-id contract (see server api/game/v1/ai_seat.ts). The ranked play snapshot
 // exposes that playerId, so any surface that renders an opponent identity can label the bot —
 // e.g. "AI — Hard (v0.7)" — without extra wire fields. The <seat> component carries the difficulty
-// tier ("easy"/"normal"/"hard"/"brutal") for games created with a difficulty; older games use the
-// tier-less "default" seat and degrade to the version-only label.
+// tier ("easy"/"normal"/"hard"/"brutal") for games created with a difficulty; games created without
+// one use the tier-less "default" seat and degrade to the version-only label.
 
 export const AI_SEAT_PLAYER_ID_PREFIX = "ai:";
 
 // Mirrors the server's VS_AI_DIFFICULTY_TIERS (api/game/v1/ai_seat.ts): easy=v0.4, normal=v0.6,
-// hard=v0.7 (no rollout search), brutal=v0.7 + per-match rollout search.
+// hard=v0.7 (no rollout search), brutal=v0.8 + per-match rollout search.
 export type VsAiDifficulty = "easy" | "normal" | "hard" | "brutal";
 
 export const VS_AI_DIFFICULTIES: readonly VsAiDifficulty[] = ["easy", "normal", "hard", "brutal"];
 
-export const DEFAULT_VS_AI_DIFFICULTY: VsAiDifficulty = "normal";
+export const DEFAULT_VS_AI_DIFFICULTY: VsAiDifficulty = "brutal";
 
 export const VS_AI_DIFFICULTY_VERSIONS: Readonly<Record<VsAiDifficulty, string>> = {
     easy: "v0.4",
     normal: "v0.6",
     hard: "v0.7",
-    brutal: "v0.7",
+    brutal: "v0.8",
 };
 
 const VS_AI_DIFFICULTY_TITLES: Readonly<Record<VsAiDifficulty, string>> = {
@@ -92,8 +92,8 @@ export const aiOpponentLabel = (playerId?: string): string | undefined => {
 // session doesn't exist yet), so the client remembers the game it just created via "Play vs AI" and
 // the draft UI labels the opponent from that. A player can only be in one game at a time, so a
 // single slot suffices. Degrades gracefully (generic "Opponent") in a different browser/tab.
-// The chosen difficulty rides along so the pick-phase label shows the tier and "Play Again vs AI"
-// can repeat it.
+// The chosen difficulty rides along so the pick-phase label can show the tier. Tier-less games use
+// the server's current default AI profile.
 const VS_AI_GAME_STORAGE_KEY = "hoc:vs-ai-game";
 const VS_AI_DIFFICULTY_STORAGE_KEY = "hoc:vs-ai-difficulty";
 

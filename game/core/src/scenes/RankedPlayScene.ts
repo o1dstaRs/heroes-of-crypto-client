@@ -79,8 +79,9 @@ export const isRankedAuthoritativeRecordAlreadyApplied = (
 
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
+    options?: { statsAuthoritative?: boolean },
 ): SandboxSceneUnitState | undefined => {
-    const properties = getUnitPropertiesFromAuthoritativeState(unitState);
+    const properties = getUnitPropertiesFromAuthoritativeState(unitState, options);
     if (!properties) {
         return undefined;
     }
@@ -299,7 +300,11 @@ export const authoritativeSnapshotToSandboxSceneState = (
         if (shouldHidePreFightOpponentUnit(snapshot, unit, options)) {
             return [];
         }
-        const restored = authoritativeUnitToSandboxUnitState(unit);
+        // Pre-fight stats stay locally derived (see getUnitPropertiesFromAuthoritativeState): the server
+        // withholds augment/artifact folds until fight start, so placement snapshots carry base values.
+        const restored = authoritativeUnitToSandboxUnitState(unit, {
+            statsAuthoritative: snapshot.fightStarted || snapshot.fightFinished,
+        });
         if (
             restored &&
             options.hideOpponentPlacements &&
@@ -524,7 +529,18 @@ export const rankedUnitMechanicsMatch = (unit: RenderableUnit, properties: UnitP
     );
 };
 
-const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitState): UnitProperties | undefined => {
+const getUnitPropertiesFromAuthoritativeState = (
+    unitState: AuthoritativeUnitState,
+    options?: { statsAuthoritative?: boolean },
+): UnitProperties | undefined => {
+    // PRE-FIGHT, the server's stats are known-incomplete BY DESIGN: augments and artifacts fold into
+    // authoritative stats only at fight start, so opponent picks aren't revealed during placement. A
+    // placement snapshot therefore carries BASE stats, and stamping them authoritative froze the whole
+    // sidebar/range preview at base — the viewer's OWN picks never showed ("stats not recalculated
+    // during placement"). Pre-fight we skip the authoritative flags so adjustBaseStats derives locally
+    // from the buff objects refreshUnits() builds out of the viewer's picks (the opponent's arrive
+    // redacted as 0, so their units stay base exactly as the server shows them).
+    const statsAuthoritative = options?.statsAuthoritative ?? true;
     const unitName = UNIT_ID_TO_NAME[unitState.creatureId] ?? unitState.name;
     const team = unitState.team as TeamType;
     const candidateFactions =
@@ -704,19 +720,19 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // lost during the fight. Without this flag adjustBaseStats rebuilt it from the base we just
                 // seeded (which already contains those deltas) and subtracted Cursed Ward again on every
                 // refreshUnits(), so one artifact read as -12/-18. Mirrors luck_authoritative below.
-                morale_authoritative: true,
+                morale_authoritative: statsAuthoritative,
                 // The snapshot's max_hp is likewise FINAL (Pendant of Vitality / Boost Health already folded
                 // in), and applyArtifacts() re-applies the pendant buff object on every refresh — without
                 // this flag adjustBaseStats boosted the already-boosted cap again (200-base Arachna Queen
                 // read 250/313: "army never at full HP").
-                max_hp_authoritative: true,
+                max_hp_authoritative: statsAuthoritative,
                 speed: unitState.speed || baseProperties.speed,
                 // Luck is the server's already-rolled effective value (incl. the per-turn spread and
                 // auras like Leprechaun's Luck Aura). luck_authoritative tells adjustBaseStats to keep
                 // it verbatim rather than re-rolling a divergent client-side spread on top.
                 luck: unitState.luck,
                 luck_mod: 0,
-                luck_authoritative: true,
+                luck_authoritative: statsAuthoritative,
                 // Every debuff/buff-driven change to armor and attack, straight from the server. Ranked
                 // seeds the effect/buff DISPLAY strings but deliberately not the OBJECT arrays that
                 // adjustBaseStats derives these from, so without them the HUD showed a unit's base armor
@@ -724,7 +740,7 @@ const getUnitPropertiesFromAuthoritativeState = (unitState: AuthoritativeUnitSta
                 // nothing. The *_authoritative flags tell adjustBaseStats to keep these verbatim rather
                 // than re-deriving from arrays it cannot see; an older server sends neither field, and
                 // then we fall through to the local derivation exactly as before.
-                ...(unitState.statModsAuthoritative
+                ...(statsAuthoritative && unitState.statModsAuthoritative
                     ? {
                           armor_mod: unitState.armorMod ?? 0,
                           attack_mod: unitState.attackMod ?? 0,
@@ -1790,6 +1806,15 @@ export class RankedPlayScene extends Sandbox {
             this.refreshUnits();
         }
         this.reconcileAuraEffectsFromSnapshot(snapshot);
+        // PLACEMENT PREVIEW: fold the viewer's own picked augments/artifacts (+aura ranges, synergy
+        // bonuses) into the freshly rebuilt units. The server withholds these folds until fight start so
+        // opponent picks stay hidden — which also blanked the viewer's OWN picks from the sidebar and
+        // range previews for the whole placement. RankedGameView seeds FightProperties from every
+        // snapshot (opponent values redacted to 0, a no-op), so this recomputes exactly what the viewer
+        // is entitled to see. Fight-time snapshots stay authoritative and never take this path.
+        if (!snapshot.fightStarted && !snapshot.fightFinished) {
+            this.refreshUnits();
+        }
         this.lastBoardSignature = boardSignature;
         this.applyRankedTimer(snapshot);
         this.syncRankedVisibleTurnState(snapshot);

@@ -8,12 +8,20 @@
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
+import { armorAugmentLabel } from "./augmentLabels";
+import {
+    DEFAULT_SANDBOX_PANEL_EXPANSION,
+    SandboxPanel,
+    SandboxPanelExpansion,
+    fitSandboxPanelExpansion,
+    toggleSandboxPanel,
+} from "./sandboxPanelExpansion";
 
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
@@ -182,7 +190,7 @@ const ArmorToggler = ({
                         <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="No Augment" />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor & Magic Armor`}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_1)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_1 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_1
@@ -190,7 +198,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_2}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor & Magic Armor`}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_2)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_2 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_2
@@ -198,7 +206,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_3}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor & Magic Armor`}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_3)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_3 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_3
@@ -498,14 +506,63 @@ const SandboxToggleContainer = ({
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
 
-    // Two states in this bar and no more: the augment panel, or the artifacts block (both tiers at once).
-    // Opening either closes the other, and at rest neither is open.
-    const [artifactsOpen, setArtifactsOpen] = useState(false);
-    const [augmentsOpen, setAugmentsOpen] = useState(true);
+    // Both tools are useful side by side and no longer form a radio-style accordion. Start with both open,
+    // then use the browser's actual wrapped layout to close Artifacts only when the active team drawer would
+    // overflow vertically. Once the player changes either header, their choice wins over auto-fit.
+    const [panelExpansion, setPanelExpansion] = useState<SandboxPanelExpansion>(() => ({
+        ...DEFAULT_SANDBOX_PANEL_EXPANSION,
+    }));
+    const panelContainerRef = useRef<HTMLDivElement>(null);
+    const userSetPanelExpansion = useRef(false);
+    const autoFitResolved = useRef(false);
+    const { artifactsOpen, augmentsOpen } = panelExpansion;
 
-    const handleAugmentsToggle = () => {
-        setAugmentsOpen((current) => !current);
-        setArtifactsOpen(false);
+    useLayoutEffect(() => {
+        if (!showArtifactPicker || autoFitResolved.current) return;
+
+        const container = panelContainerRef.current;
+        const togglerBody = container?.closest<HTMLElement>('[data-hoc-toggler-body="true"]');
+        const scrollRegion = container?.closest<HTMLElement>('[data-sandbox-scroll-region="true"]');
+        if (!container || !togglerBody || !scrollRegion) return;
+
+        // The parent team drawer animates for 200ms. Debounce its ResizeObserver notifications so the fit
+        // decision sees the final open drawer after the previously open Army/Board drawer has closed.
+        let settleTimer: number | undefined;
+        const measureSettledLayout = () => {
+            settleTimer = undefined;
+            if (autoFitResolved.current || userSetPanelExpansion.current || togglerBody.dataset.open !== "true") {
+                return;
+            }
+
+            autoFitResolved.current = true;
+            setPanelExpansion((current) => fitSandboxPanelExpansion(current, scrollRegion));
+        };
+        const scheduleMeasurement = () => {
+            if (autoFitResolved.current || userSetPanelExpansion.current) return;
+            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(measureSettledLayout, 240);
+        };
+
+        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasurement);
+        observer?.observe(togglerBody);
+        observer?.observe(container);
+        observer?.observe(scrollRegion);
+        togglerBody.addEventListener("transitionend", scheduleMeasurement);
+        window.addEventListener("resize", scheduleMeasurement);
+        scheduleMeasurement();
+
+        return () => {
+            observer?.disconnect();
+            togglerBody.removeEventListener("transitionend", scheduleMeasurement);
+            window.removeEventListener("resize", scheduleMeasurement);
+            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+        };
+    }, [showArtifactPicker]);
+
+    const handlePanelToggle = (panel: SandboxPanel) => {
+        userSetPanelExpansion.current = true;
+        autoFitResolved.current = true;
+        setPanelExpansion((current) => toggleSandboxPanel(current, panel));
     };
     // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
     // change handler carries its category explicitly instead of reading a single-open togglerType.
@@ -525,17 +582,11 @@ const SandboxToggleContainer = ({
     const handleAugmentClick = (type: "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement") => {
         // Second click on the open augment closes it, so the panel is never stuck open.
         setTogglerType((current) => (current === type ? "None" : type));
-        setArtifactsOpen(false);
-    };
-
-    const handleArtifactsToggle = () => {
-        setArtifactsOpen((current) => !current);
-        setAugmentsOpen(false);
-        setTogglerType("None");
     };
 
     return (
         <Box
+            ref={panelContainerRef}
             sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -556,7 +607,8 @@ const SandboxToggleContainer = ({
             <Box
                 component="button"
                 type="button"
-                onClick={handleAugmentsToggle}
+                onClick={() => handlePanelToggle("augments")}
+                aria-expanded={augmentsOpen}
                 sx={{
                     width: "100%",
                     display: "flex",
@@ -756,7 +808,11 @@ const SandboxToggleContainer = ({
                 </>
             )}
             {showArtifactPicker && (
-                <ArtifactToggler teamType={teamType} isOpen={artifactsOpen} onToggle={handleArtifactsToggle} />
+                <ArtifactToggler
+                    teamType={teamType}
+                    isOpen={artifactsOpen}
+                    onToggle={() => handlePanelToggle("artifacts")}
+                />
             )}
         </Box>
     );

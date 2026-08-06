@@ -843,6 +843,20 @@ export class PixiGameManager {
     ): boolean {
         return this.m_scene?.propagateSynergy(teamType, faction, synergyName, synergyLevel) ?? false;
     }
+    /** Sandbox manual synergy picking: choose which of a faction's two synergies this team fields. */
+    public SelectSynergyVariant(teamType: TeamType, factionName: string, synergyName: string): boolean {
+        const scene = this.m_scene;
+        if (scene && "selectSynergyVariant" in scene) {
+            return (
+                scene as { selectSynergyVariant(team: TeamType, faction: string, synergy: string): boolean }
+            ).selectSynergyVariant(teamType, factionName, synergyName);
+        }
+        return false;
+    }
+    /** Applied synergy entries ("Faction:variant:level") for a team, for the sidebar's chosen-state. */
+    public GetAppliedSynergies(teamType: TeamType): string[] {
+        return FightStateManager.getInstance().getFightProperties().getSynergiesPerTeam(teamType);
+    }
     public GetNumberOfUnitsAvailableForPlacement(teamType: TeamType): number {
         return this.m_scene?.getNumberOfUnitsAvailableForPlacement(teamType) ?? HoCConstants.MAX_UNITS_PER_TEAM;
     }

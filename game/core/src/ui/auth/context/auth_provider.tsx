@@ -24,6 +24,8 @@ import { ActionMapType, AuthStateType, AuthUserType } from "./types";
 import { AuthContext } from "./auth_context";
 import { axiosAuthInstance, axiosMMInstance, axiosGameInstance, endpoints } from "../../../api/axios";
 import { buildSiweMessage, type SignMessageFn } from "../../../wallet/siwe";
+import { disableGoogleAutoSelect } from "../googleIdentityServices";
+import type { GoogleAuthStatus } from "./types";
 
 enum Types {
     INITIAL = "INITIAL",
@@ -176,7 +178,7 @@ const walletAddressesFrom = (data: unknown): string[] => {
         .concat(stringArrayFrom(data.wallets));
 };
 
-const tokenFromWalletResponse = (authorization: unknown, data: unknown): string | null => {
+const tokenFromAuthResponse = (authorization: unknown, data: unknown): string | null => {
     const normalizeToken = (token: string): string => {
         return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
     };
@@ -189,6 +191,17 @@ const tokenFromWalletResponse = (authorization: unknown, data: unknown): string 
     }
     const accessToken = data.accessToken ?? data.token;
     return typeof accessToken === "string" && accessToken.length > 0 ? normalizeToken(accessToken) : null;
+};
+
+const googleAuthStatusFrom = (data: unknown): GoogleAuthStatus => {
+    if (!isRecord(data) || typeof data.linked !== "boolean" || typeof data.hasPasswordLogin !== "boolean") {
+        throw new Error("Google account status was not returned by the auth service");
+    }
+    return {
+        linked: data.linked,
+        email: typeof data.email === "string" ? data.email : "",
+        hasPasswordLogin: data.hasPasswordLogin,
+    };
 };
 
 const isE2eLoginEnabled = (): boolean => {
@@ -605,7 +618,7 @@ export function AuthProvider({ children }: Props) {
             const res = await axiosAuthInstance.post(endpoints.auth.walletLogin, proof, {
                 headers: authJsonHeaders(),
             });
-            const accessToken = tokenFromWalletResponse(res.headers.authorization, res.data);
+            const accessToken = tokenFromAuthResponse(res.headers.authorization, res.data);
             if (!accessToken) {
                 throw new Error("Wallet login did not return an access token");
             }
@@ -651,6 +664,49 @@ export function AuthProvider({ children }: Props) {
         },
         [getWallets],
     );
+
+    const loginWithGoogle = useCallback(
+        async (credential: string): Promise<void> => {
+            const res = await axiosAuthInstance.post(
+                endpoints.auth.googleLogin,
+                { credential },
+                { headers: authJsonHeaders() },
+            );
+            const accessToken = tokenFromAuthResponse(res.headers.authorization, res.data);
+            if (!accessToken) {
+                throw new Error("Google login did not return an access token");
+            }
+            setSession(accessToken);
+            await me();
+        },
+        [me],
+    );
+
+    const getGoogleAuthStatus = useCallback(async (): Promise<GoogleAuthStatus> => {
+        const accessToken = getAccessToken();
+        const res = await axiosAuthInstance.get(endpoints.auth.googleStatus, {
+            headers: authJsonHeaders(accessToken),
+        });
+        return googleAuthStatusFrom(res.data);
+    }, []);
+
+    const linkGoogle = useCallback(async (credential: string): Promise<GoogleAuthStatus> => {
+        const accessToken = getAccessToken();
+        const res = await axiosAuthInstance.post(
+            endpoints.auth.googleLink,
+            { credential },
+            { headers: authJsonHeaders(accessToken) },
+        );
+        return googleAuthStatusFrom(res.data);
+    }, []);
+
+    const unlinkGoogle = useCallback(async (): Promise<GoogleAuthStatus> => {
+        const accessToken = getAccessToken();
+        const res = await axiosAuthInstance.post(endpoints.auth.googleUnlink, null, {
+            headers: authJsonHeaders(accessToken),
+        });
+        return googleAuthStatusFrom(res.data);
+    }, []);
 
     const confirmCode = useCallback(
         async (email: string, code: string) => {
@@ -771,6 +827,7 @@ export function AuthProvider({ children }: Props) {
         });
 
         setSession(null);
+        disableGoogleAutoSelect();
         dispatch({
             type: Types.LOGOUT,
         });
@@ -815,6 +872,10 @@ export function AuthProvider({ children }: Props) {
             linkWallet,
             unlinkWallet,
             getWallets,
+            loginWithGoogle,
+            linkGoogle,
+            unlinkGoogle,
+            getGoogleAuthStatus,
         }),
         [
             login,
@@ -842,6 +903,10 @@ export function AuthProvider({ children }: Props) {
             linkWallet,
             unlinkWallet,
             getWallets,
+            loginWithGoogle,
+            linkGoogle,
+            unlinkGoogle,
+            getGoogleAuthStatus,
             state.user,
             status,
         ],

@@ -847,8 +847,8 @@ describe("ranked placement scene state", () => {
 
     test("syncs authoritative movement (Quagmire-class steps changes) without rebuilding the unit", () => {
         const snapshotProperties = (steps: number) =>
-            authoritativeSnapshotToSandboxSceneState(
-                placementSnapshot([
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([
                     unitState({
                         id: "quagmired-wolf",
                         name: "Wolf",
@@ -860,7 +860,8 @@ describe("ranked placement scene state", () => {
                         attackMod: 0,
                     }),
                 ]),
-            ).units[0]!.properties;
+                fightStarted: true,
+            }).units[0]!.properties;
         const effectFactory = new EffectFactory();
         const liveUnit = RenderableUnit.fromBase(
             Unit.createUnit(
@@ -874,13 +875,14 @@ describe("ranked placement scene state", () => {
             ),
             undefined as never,
         );
-        expect(liveUnit.getSteps()).toBe(4);
+        // Steps are a PURE fractional budget since common 640736b — no rounding, ever.
+        expect(liveUnit.getSteps()).toBe(3.7);
 
         // The live case (game 7a2b509d): Quagmire cut the Wolf's steps server-side (3.7 -> 2.8) but the
         // animation-preserving snapshot paths never carried movement, so the client kept previewing
-        // 4-step attacks the server rejected. The reconcile must land the authoritative steps in place.
+        // wider attacks than the server accepted. The reconcile must land the authoritative steps in place.
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(true);
-        expect(liveUnit.getSteps()).toBe(3);
+        expect(liveUnit.getSteps()).toBe(2.8);
 
         // Idempotent: an unchanged snapshot must not report churn.
         expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(2.8))).toBe(false);
@@ -888,8 +890,8 @@ describe("ranked placement scene state", () => {
 
     test("syncs authoritative base armor (Bitter Experience gains) without rebuilding the unit", () => {
         const snapshotProperties = (baseArmor: number) =>
-            authoritativeSnapshotToSandboxSceneState(
-                placementSnapshot([
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([
                     unitState({
                         id: "seasoned-peasant",
                         statModsAuthoritative: true,
@@ -899,7 +901,8 @@ describe("ranked placement scene state", () => {
                         baseAttack: 5,
                     }),
                 ]),
-            ).units[0]!.properties;
+                fightStarted: true,
+            }).units[0]!.properties;
         // The hydrate must land the wire value AND flag it, or adjustBaseStats re-derives the config base.
         const hydrated = snapshotProperties(7);
         expect(hydrated.base_armor).toBe(7);
@@ -986,8 +989,8 @@ describe("ranked placement scene state", () => {
 
     test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
         const snapshotProperties = (attackMod: number, armorMod: number, runeStacks = 0) =>
-            authoritativeSnapshotToSandboxSceneState(
-                placementSnapshot([
+            authoritativeSnapshotToSandboxSceneState({
+                ...placementSnapshot([
                     unitState({
                         id: "enchanted-arbalester",
                         name: "Arbalester",
@@ -1000,7 +1003,8 @@ describe("ranked placement scene state", () => {
                         buffDescriptions: runeStacks ? [`+{} attack;${runeStacks};`, `+{} armor;${runeStacks};`] : [],
                     }),
                 ]),
-            ).units[0]!.properties;
+                fightStarted: true,
+            }).units[0]!.properties;
         const effectFactory = new EffectFactory();
         const liveUnit = RenderableUnit.fromBase(
             Unit.createUnit(

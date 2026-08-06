@@ -262,8 +262,9 @@ export default function RightSideBar({
                 // background clipped to the padding box, so the leather ends where the trim begins.
                 backgroundClip: "padding-box",
                 boxShadow: "inset 1px 0 0 rgba(120,104,80,.22), -6px 0 18px rgba(0,0,0,.7)",
-                // Setup must always fit as one fixed command deck. Combat/ranked screens can still scroll
-                // when their logs or server-provided panels genuinely exceed the viewport.
+                // Keep the Sandbox shell and its footer fixed; FightControlToggler owns the localized scroll
+                // fallback when a player deliberately opens more setup tools than the viewport can hold.
+                // Combat/ranked screens can still scroll here when their server-provided panels exceed it.
                 overflowY: !gameStarted && !rankedPanel ? "hidden" : "auto",
                 overflowX: "hidden", // Prevent horizontal scrolling
                 // Reserve the scrollbar lane even while the short/collapsed layout does not need it.

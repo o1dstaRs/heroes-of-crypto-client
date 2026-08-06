@@ -46,7 +46,13 @@ Env variables:
 # path to the images folder containing the *.webp assets
 HOC_IMAGES_LOC=./path/to/images
 HOC_ANIMATIONS_LOC=./path/to/animations
+
+# Public Google OAuth web client ID. Use the same value in .env and .env.production.
+VITE_GOOGLE_CLIENT_ID=1234567890-example.apps.googleusercontent.com
 ```
+
+The matching auth server must use the same value as `HOC_GOOGLE_CLIENT_ID`. Configure the Google OAuth
+web client with `http://localhost:5173` and `https://beta.heroesofcrypto.io` as authorized JavaScript origins.
 
 Most important commands to execute from the root folder (you need [bun](https://bun.com/) installed):
 

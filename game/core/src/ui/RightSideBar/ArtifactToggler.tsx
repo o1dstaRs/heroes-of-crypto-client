@@ -142,9 +142,8 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
 
 export const ArtifactToggler: React.FC<{
     teamType: TeamType;
-    // Artifacts open and close as ONE block: the header below reveals both tiers together. Owned by
-    // SandboxToggleContainer, because the augment panel and this block are a single accordion — one open at
-    // a time. Left optional so the component still stands alone.
+    // Artifacts open and close as ONE block: the header below reveals both tiers together. Sandbox owns this
+    // state independently from Augments; the optional props keep the component usable on its own.
     isOpen?: boolean;
     onToggle?: () => void;
 }> = ({ teamType, isOpen: isOpenProp, onToggle }) => {
@@ -193,6 +192,7 @@ export const ArtifactToggler: React.FC<{
                 component="button"
                 type="button"
                 onClick={toggle}
+                aria-expanded={isOpen}
                 sx={{
                     width: "100%",
                     display: "flex",
