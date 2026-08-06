@@ -1152,11 +1152,12 @@ const UnitStatsLayout: React.FC<{
                 the turn", and pairing them keeps the plate at seven fixed slots. */}
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
-                // Math.round, NOT floor: it must mirror Unit.getSteps(), which rounds the fractional
-                // balance stat (most creatures carry x.1–x.9 steps — Trent's 3.9 walks 4 cells; a floor
-                // here showed 3 while the board rightly offered 4).
-                value={Math.round(unitProperties.steps + stepsMod)}
-                tooltip="Movement type and number of steps in cells"
+                // OWNER call: show the EXACT fractional stat (Trent's 3.9), one decimal, trailing .0
+                // dropped. Most creatures carry x.1–x.9 steps as a balance knob and the engine's
+                // Unit.getSteps() ROUNDS for actual movement — a rounded (or floored) display hid why
+                // a "3-step" Trent walks 4 cells, and the raw value is what the codex shows too.
+                value={Number((unitProperties.steps + stepsMod).toFixed(1))}
+                tooltip="Movement steps in cells (the board rounds to whole cells)"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
                 secondIcon={<SpeedIcon />}
