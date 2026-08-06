@@ -1,12 +1,14 @@
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
+import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
 
+import { images } from "../../generated/image_imports";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { MatchHistory } from "./MatchHistory";
-import { matchReplayPath } from "./matchHistoryModel";
+import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
 import {
     CreatureIcon,
     creatureName,
@@ -74,6 +76,46 @@ const StatCard: React.FC<{ label: string; value: string | number; color?: string
     </Sheet>
 );
 
+/** Tier-aware artifact lookup for the stats row: name + codex icon, straight from the shared catalog. */
+const artifactInfo = (tier: 1 | 2, artifactId: number): Artifact.ArtifactProperties | undefined =>
+    (tier === 1 ? Artifact.TIER1_ARTIFACT_LIST : Artifact.TIER2_ARTIFACT_LIST).find(
+        (artifact) => artifact.id === artifactId,
+    );
+
+const ArtifactStatRow: React.FC<{ tier: 1 | 2; artifactId: number; games: number; wins: number }> = ({
+    tier,
+    artifactId,
+    games,
+    wins,
+}) => {
+    const info = artifactInfo(tier, artifactId);
+    const src = info ? (images as Record<string, string>)[info.imageKey] : undefined;
+    return (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {src ? (
+                <Box
+                    component="img"
+                    src={src}
+                    alt={info?.name ?? `Artifact ${artifactId}`}
+                    sx={{ width: 28, height: 28, objectFit: "contain", borderRadius: "6px", flexShrink: 0 }}
+                />
+            ) : (
+                <Box sx={{ width: 28, height: 28, flexShrink: 0 }} />
+            )}
+            <Typography level="body-sm" noWrap textColor={hocColors.mutedStrong} sx={{ flex: 1, minWidth: 0 }}>
+                {info?.name ?? `Artifact ${artifactId}`}
+            </Typography>
+            <Typography level="body-xs" textColor={hocColors.muted} sx={{ minWidth: 30, textAlign: "right" }}>
+                T{tier}
+            </Typography>
+            <Typography level="body-xs" textColor={hocColors.muted} sx={{ minWidth: 50, textAlign: "right" }}>
+                {games} g
+            </Typography>
+            <WinRateBar wins={wins} games={games} width={110} />
+        </Box>
+    );
+};
+
 const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }> = ({ creatureIds, games, wins }) => (
     <Sheet
         variant="soft"
@@ -113,9 +155,71 @@ export const PlayerPortalPage: React.FC = () => {
         [combos],
     );
     const mostPlayedCombos = useMemo(() => [...combos].slice(0, 6), [combos]);
-    const creatureStats = (data?.creature_stats ?? []).slice(0, 14);
+    // ALL creatures, best win rate first (ties: more games first) — the list scrolls instead of cutting off.
+    const creatureStats = useMemo(
+        () =>
+            [...(data?.creature_stats ?? [])].sort(
+                (a, b) =>
+                    winRatePct(b.wins ?? 0, b.games ?? 0) - winRatePct(a.wins ?? 0, a.games ?? 0) ||
+                    (b.games ?? 0) - (a.games ?? 0),
+            ),
+        [data],
+    );
     const factionStats = data?.faction_stats ?? [];
     const matches = data?.recent_matches ?? [];
+    // Creature DUOS that win together: every unordered pair inside each recorded line-up inherits that
+    // line-up's games/wins, and a pair recurring across different line-ups accumulates them all — which is
+    // exactly what makes it a better synergy signal than whole-line-up win rate.
+    const strongestPairs = useMemo(() => {
+        const byPair = new Map<string, { a: number; b: number; games: number; wins: number }>();
+        for (const combo of combos) {
+            const games = combo.games ?? 0;
+            if (!games) {
+                continue;
+            }
+            const wins = combo.wins ?? 0;
+            const ids = [...new Set(combo.creature_ids ?? [])].sort((x, y) => x - y);
+            for (let i = 0; i < ids.length; i += 1) {
+                for (let j = i + 1; j < ids.length; j += 1) {
+                    const key = `${ids[i]}:${ids[j]}`;
+                    const entry = byPair.get(key) ?? { a: ids[i], b: ids[j], games: 0, wins: 0 };
+                    entry.games += games;
+                    entry.wins += wins;
+                    byPair.set(key, entry);
+                }
+            }
+        }
+        return [...byPair.values()]
+            .filter((pair) => pair.games >= 3)
+            .sort((x, y) => winRatePct(y.wins, y.games) - winRatePct(x.wins, x.games) || y.games - x.games)
+            .slice(0, 8);
+    }, [combos]);
+    // Artifact win rates across the recent-matches window (draws excluded, empty slots skipped).
+    const artifactStats = useMemo(() => {
+        const byArtifact = new Map<string, { tier: 1 | 2; artifactId: number; games: number; wins: number }>();
+        for (const match of matches) {
+            if (match.draw) {
+                continue;
+            }
+            const setup = normalizeMatchSetup(match.player_setup);
+            for (const [tier, artifactId] of [
+                [1, setup.artifactTier1],
+                [2, setup.artifactTier2],
+            ] as const) {
+                if (!artifactId) {
+                    continue;
+                }
+                const key = `${tier}:${artifactId}`;
+                const entry = byArtifact.get(key) ?? { tier, artifactId, games: 0, wins: 0 };
+                entry.games += 1;
+                entry.wins += match.won ? 1 : 0;
+                byArtifact.set(key, entry);
+            }
+        }
+        return [...byArtifact.values()].sort(
+            (x, y) => winRatePct(y.wins, y.games) - winRatePct(x.wins, x.games) || y.games - x.games,
+        );
+    }, [matches]);
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
 
     return (
@@ -295,10 +399,50 @@ export const PlayerPortalPage: React.FC = () => {
                             </Section>
                         </Box>
 
+                        {/* Pairs & artifacts */}
+                        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
+                            <Section title="Strongest pairs" subtitle="Creature duos that win together (3+ games)">
+                                <Stack spacing={0.75}>
+                                    {strongestPairs.length === 0 && (
+                                        <Typography level="body-sm" textColor={hocColors.muted}>
+                                            Field the same duo a few times to reveal your best pairings.
+                                        </Typography>
+                                    )}
+                                    {strongestPairs.map((pair) => (
+                                        <ComboRow
+                                            key={`pair_${pair.a}_${pair.b}`}
+                                            creatureIds={[pair.a, pair.b]}
+                                            games={pair.games}
+                                            wins={pair.wins}
+                                        />
+                                    ))}
+                                </Stack>
+                            </Section>
+
+                            <Section title="Artifacts" subtitle="Win rate by artifact across your recent matches">
+                                <Stack spacing={0.5} sx={{ maxHeight: 340, overflowY: "auto", pr: 0.5 }}>
+                                    {artifactStats.length === 0 && (
+                                        <Typography level="body-sm" textColor={hocColors.muted}>
+                                            Pick artifacts in ranked drafts to build up artifact stats.
+                                        </Typography>
+                                    )}
+                                    {artifactStats.map((stat) => (
+                                        <ArtifactStatRow
+                                            key={`art_${stat.tier}_${stat.artifactId}`}
+                                            tier={stat.tier}
+                                            artifactId={stat.artifactId}
+                                            games={stat.games}
+                                            wins={stat.wins}
+                                        />
+                                    ))}
+                                </Stack>
+                            </Section>
+                        </Box>
+
                         {/* Creature & faction stats */}
                         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}>
-                            <Section title="Creatures" subtitle="Win rate by creature you field">
-                                <Stack spacing={0.5}>
+                            <Section title="Creatures" subtitle="Win rate by creature you field — best first">
+                                <Stack spacing={0.5} sx={{ maxHeight: 420, overflowY: "auto", pr: 0.5 }}>
                                     {creatureStats.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
                                             No creature stats yet.
