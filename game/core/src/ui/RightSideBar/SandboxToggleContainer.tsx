@@ -14,6 +14,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
+import { armorAugmentLabel } from "./augmentLabels";
 
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
@@ -182,7 +183,7 @@ const ArmorToggler = ({
                         <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="No Augment" />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_1)}% Armor & Magic Armor`}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_1)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_1 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_1
@@ -190,7 +191,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_2}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_2)}% Armor & Magic Armor`}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_2)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_2 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_2
@@ -198,7 +199,7 @@ const ArmorToggler = ({
                         />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_3}
-                            label={`+${Augment.getArmorPower(Augment.ArmorAugment.LEVEL_3)}% Armor & Magic Armor`}
+                            label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_3)}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.ArmorAugment.LEVEL_3 &&
                                 currentSelection !== Augment.ArmorAugment.LEVEL_3
