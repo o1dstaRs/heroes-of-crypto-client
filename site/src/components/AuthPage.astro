@@ -1,5 +1,6 @@
 ---
 import { content, links, localPath, type Language } from "../lib/site-data";
+import "../styles/auth-google.css";
 
 export type AuthMode = "login" | "register" | "verify" | "forgot-password" | "reset-password" | "new-password";
 
@@ -38,6 +39,8 @@ const passwordId = `${normalizedMode}-password`;
 const confirmPasswordId = `${normalizedMode}-confirm-password`;
 const rankedHref = links.rankedApp;
 const sandboxHref = links.sandboxApp;
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
+const supportsGoogle = normalizedMode === "login" || normalizedMode === "register";
 ---
 
 <section class="auth-section">
@@ -72,12 +75,29 @@ const sandboxHref = links.sandboxApp;
             class="auth-form"
             data-auth-action={action}
             data-success-message={successMessages[normalizedMode]}
+            data-google-success-message={auth.successGoogle}
         >
             <div class="auth-form-head">
                 <span>{copy.nav.login}</span>
                 <strong>{titles[normalizedMode]}</strong>
             </div>
             <div class="auth-status" data-auth-status hidden></div>
+
+            {
+                supportsGoogle && (
+                    <>
+                        <div
+                            class="auth-google"
+                            data-google-auth
+                            data-google-client-id={googleClientId}
+                            data-google-unavailable-message={auth.googleUnavailable}
+                        />
+                        <div class="auth-divider" aria-hidden="true">
+                            <span>{auth.orUseEmail}</span>
+                        </div>
+                    </>
+                )
+            }
 
             {
                 normalizedMode === "register" && (

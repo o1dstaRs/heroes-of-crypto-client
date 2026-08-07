@@ -51,8 +51,10 @@ HOC_ANIMATIONS_LOC=./path/to/animations
 VITE_GOOGLE_CLIENT_ID=1234567890-example.apps.googleusercontent.com
 ```
 
-The matching auth server must use the same value as `HOC_GOOGLE_CLIENT_ID`. Configure the Google OAuth
-web client with `http://localhost:5173` and `https://beta.heroesofcrypto.io` as authorized JavaScript origins.
+The matching auth server must use the same value as `HOC_GOOGLE_CLIENT_ID`; the marketing-site production
+build uses it in `site/.env.production` too. Configure the Google OAuth web client with
+`http://localhost:5173`, `https://beta.heroesofcrypto.io`, and `https://heroesofcrypto.io` as authorized
+JavaScript origins. Add `http://localhost:4321` when testing the Astro site locally.
 
 Most important commands to execute from the root folder (you need [bun](https://bun.com/) installed):
 

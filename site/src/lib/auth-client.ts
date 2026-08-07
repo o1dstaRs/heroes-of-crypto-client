@@ -6,6 +6,12 @@ import {
     ResponseMe,
 } from "@heroesofcrypto/common/src/generated/protobuf/v1/messages_reexports";
 
+import {
+    loadGoogleIdentityServices,
+    renderGoogleIdentityButton,
+} from "../../../game/core/src/ui/auth/googleIdentityServices";
+import { exchangeGoogleCredential } from "./google-auth";
+
 type AuthAction = "login" | "register" | "verify" | "forgot-password" | "reset-password";
 
 const sameOrigin = globalThis.location?.origin ?? "";
@@ -340,9 +346,65 @@ function bindResendCode() {
     }
 }
 
+async function submitGoogleCredential(form: HTMLFormElement, credential: string) {
+    const successMessage = form.dataset.googleSuccessMessage || messages.success;
+    setSubmitting(form, true);
+
+    try {
+        const session = await exchangeGoogleCredential({
+            authBaseUrl,
+            credential,
+            isProd,
+            requestId: requestId(),
+        });
+        localStorage.setItem("accessToken", session.token);
+        localStorage.setItem("hocAuthUser", JSON.stringify(session.user));
+        setStatus(form, successMessage, "success");
+        form.dispatchEvent(new CustomEvent("hoc-auth-success", { bubbles: true, detail: { action: "google" } }));
+        redirectAfterAuth("login", session.user.email || "");
+    } catch (error) {
+        setStatus(form, error instanceof Error ? error.message : String(error), "error");
+    } finally {
+        setSubmitting(form, false);
+    }
+}
+
+async function bindGoogleAuth(container: HTMLElement) {
+    const form = container.closest("form");
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const clientId = container.dataset.googleClientId?.trim() ?? "";
+    if (!clientId) {
+        container.textContent = container.dataset.googleUnavailableMessage || "Google sign-in is not configured";
+        container.dataset.kind = "error";
+        return;
+    }
+
+    try {
+        const api = await loadGoogleIdentityServices();
+        renderGoogleIdentityButton(api, container, {
+            clientId,
+            state: `hoc-site-google-${form.dataset.authAction || "login"}`,
+            action: form.dataset.authAction === "register" ? "signup" : "login",
+            width: container.clientWidth || 320,
+            onCredential: (credential) => void submitGoogleCredential(form, credential),
+        });
+    } catch (error) {
+        container.textContent =
+            error instanceof Error
+                ? error.message
+                : container.dataset.googleUnavailableMessage || "Could not load Google sign-in";
+        container.dataset.kind = "error";
+    }
+}
+
 for (const form of document.querySelectorAll<HTMLFormElement>("form[data-auth-action]")) {
     bindAuthForm(form);
 }
 
 bindPasswordToggles();
 bindResendCode();
+
+for (const container of document.querySelectorAll<HTMLElement>("[data-google-auth]")) {
+    void bindGoogleAuth(container);
+}
