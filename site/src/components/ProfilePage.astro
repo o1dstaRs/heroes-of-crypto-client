@@ -17,9 +17,9 @@ const rankedApp = links.rankedApp;
 <section class="profile-page">
     <div class="page-shell profile-shell">
         <header class="profile-head">
-            <p class="eyebrow">{copy.title}</p>
+            <p class="eyebrow" data-profile-eyebrow>{copy.title}</p>
             <h1 class="profile-name" data-profile-name>{copy.title}</h1>
-            <p class="profile-sub">{copy.subtitle}</p>
+            <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
             <div class="profile-meta" data-profile-meta hidden>
                 <span class="profile-streak" data-profile-streak></span>
                 <span class="profile-lastseen" data-profile-lastseen></span>
@@ -35,12 +35,14 @@ const rankedApp = links.rankedApp;
         </div>
 
         <div class="profile-note profile-panel" data-profile-error hidden>
-            <h2>{copy.errorTitle}</h2>
-            <p>{copy.errorBody}</p>
+            <h2 data-profile-error-title>{copy.errorTitle}</h2>
+            <p data-profile-error-body>{copy.errorBody}</p>
             <button type="button" class="profile-btn" data-profile-retry>{copy.retry}</button>
         </div>
 
         <div class="profile-content" data-profile-content hidden>
+            <p class="profile-summary-notice" data-profile-summary-notice hidden>{copy.publicSummaryNotice}</p>
+
             <div class="profile-panel profile-empty" data-profile-empty hidden>
                 <h2>{copy.emptyTitle}</h2>
                 <p>{copy.emptyBody}</p>
@@ -53,7 +55,12 @@ const rankedApp = links.rankedApp;
                     <div class="stat-grid" data-profile-stats></div>
                 </section>
 
-                <div class="profile-columns">
+                <section class="profile-section" data-profile-public-standing hidden>
+                    <h2>{copy.sectionRankedStanding}</h2>
+                    <div class="ranked-standing" data-profile-standing></div>
+                </section>
+
+                <div class="profile-columns" data-profile-self>
                     <section class="profile-section">
                         <h2>{copy.sectionFactions}</h2>
                         <div class="bar-list" data-profile-factions></div>
@@ -64,7 +71,7 @@ const rankedApp = links.rankedApp;
                     </section>
                 </div>
 
-                <section class="profile-section" data-profile-combos-section>
+                <section class="profile-section" data-profile-combos-section data-profile-self>
                     <h2>{copy.sectionCombos}</h2>
                     <div class="combo-list" data-profile-combos></div>
                 </section>
@@ -83,6 +90,14 @@ const rankedApp = links.rankedApp;
 <script>
     import { isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
+    import { gameClientRoot } from "../lib/ranked-arena-client";
+    import {
+        fetchPublicRankedProfile,
+        publicRankedProfileFallbackFromSearchParams,
+        type PublicRankedProfile,
+        type RankedMatchReason,
+        type RankedProfileMatch,
+    } from "../lib/ranked-profile-client";
     import {
         creatureById,
         factionById,
@@ -109,6 +124,18 @@ const rankedApp = links.rankedApp;
     const metaEl = $("meta");
     const streakEl = $("streak");
     const lastSeenEl = $("lastseen");
+    const eyebrowEl = $("eyebrow");
+    const subtitleEl = $("subtitle");
+    const errorTitleEl = $("error-title");
+    const errorBodyEl = $("error-body");
+    const publicStandingEl = $("public-standing");
+    const standingEl = $("standing");
+    const summaryNoticeEl = $("summary-notice");
+    const selfSections = [...document.querySelectorAll<HTMLElement>("[data-profile-self]")];
+    const profileSearchParams = new URL(window.location.href).searchParams;
+    const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
+    const publicMode = profileSearchParams.has("playerId");
+    const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
 
     const escapeHtml = (value: string): string =>
         value.replace(
@@ -141,6 +168,7 @@ const rankedApp = links.rankedApp;
         const n = typeof value === "string" ? Number(value) : (value as number);
         return Number.isFinite(n) ? n : 0;
     };
+    const numberFormatter = new Intl.NumberFormat(language);
 
     function statCard(label: string, value: string, accent?: string): string {
         const style = accent ? ` style="color:${accent}"` : "";
@@ -201,16 +229,156 @@ const rankedApp = links.rankedApp;
             .join("");
         const opponent = escapeHtml(match.opponent_username || "—");
         const when = timeAgo(num(match.finished_time), agoLabels);
+        const replay = match.game_id
+            ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(String(match.game_id))}/replay`)}">▶ ${escapeHtml(copy.matchReplay)}</a>`
+            : "";
         return `
             <div class="match-row">
                 <span class="match-result ${resultClass}">${escapeHtml(resultLabel)}</span>
                 <span class="match-icons">${icons}</span>
                 <span class="match-vs">${escapeHtml(copy.versus)} <strong>${opponent}</strong></span>
                 <span class="match-when">${escapeHtml(when)}</span>
+                ${replay}
             </div>`;
     }
 
+    function leagueLabel(league: number): string {
+        if (!league) return copy.publicUnranked;
+        if (language === "ru") return `${league}-я ${copy.publicLeague.toLowerCase()}`;
+        const mod100 = league % 100;
+        const suffix = mod100 >= 11 && mod100 <= 13 ? "th" : league % 10 === 1 ? "st" : league % 10 === 2 ? "nd" : league % 10 === 3 ? "rd" : "th";
+        return `${league}${suffix} ${copy.publicLeague}`;
+    }
+
+    function publicStateLabel(state: PublicRankedProfile["state"]): string {
+        if (state === "placed") return copy.publicStatePlaced;
+        if (state === "recalibration") return copy.publicStateRecalibration;
+        return copy.publicStateCalibration;
+    }
+
+    function publicReasonLabel(reason: RankedMatchReason): string {
+        if (reason === "concede") return copy.publicReasonConcede;
+        if (reason === "disconnect") return copy.publicReasonDisconnect;
+        if (reason === "double_disconnect") return copy.publicReasonDoubleDisconnect;
+        if (reason === "cancel") return copy.publicReasonCancel;
+        return copy.publicReasonNormal;
+    }
+
+    function opponentProfileHref(playerId: string, username: string): string {
+        const params = new URLSearchParams({ playerId, username });
+        return `${window.location.pathname}?${params.toString()}`;
+    }
+
+    function publicMatchRow(match: RankedProfileMatch): string {
+        const resultLabel =
+            match.result === "win" ? copy.resultWin : match.result === "loss" ? copy.resultLoss : copy.resultDraw;
+        const opponent = match.opponent
+            ? `<a class="match-opponent" href="${escapeHtml(opponentProfileHref(match.opponent.playerId, match.opponent.username))}">${escapeHtml(match.opponent.username)}</a>`
+            : "<strong>—</strong>";
+        const when = timeAgo(match.finishedTime, agoLabels);
+        const delta = match.calibration
+            ? copy.publicCalibrationGame
+            : `${match.mmrDelta > 0 ? "+" : ""}${numberFormatter.format(match.mmrDelta)} MMR`;
+        const deltaClass = match.calibration ? "" : match.mmrDelta > 0 ? "positive" : match.mmrDelta < 0 ? "negative" : "";
+        const replay = match.gameId
+            ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(match.gameId)}/replay`)}">▶ ${escapeHtml(copy.matchReplay)}</a>`
+            : "";
+        return `
+            <div class="match-row match-row--ranked">
+                <span class="match-result ${match.result}">${escapeHtml(resultLabel)}</span>
+                <span class="match-vs">${escapeHtml(copy.versus)} ${opponent}</span>
+                <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
+                <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
+                <span class="match-when">${escapeHtml(when)}</span>
+                ${replay}
+            </div>`;
+    }
+
+    function configureSelfMode(): void {
+        if (eyebrowEl) eyebrowEl.textContent = copy.title;
+        if (subtitleEl) subtitleEl.textContent = copy.subtitle;
+        if (loadingEl) loadingEl.textContent = copy.loading;
+        if (errorTitleEl) errorTitleEl.textContent = copy.errorTitle;
+        if (errorBodyEl) errorBodyEl.textContent = copy.errorBody;
+        if (publicStandingEl) publicStandingEl.hidden = true;
+        if (summaryNoticeEl) summaryNoticeEl.hidden = true;
+        for (const section of selfSections) section.hidden = false;
+    }
+
+    function configurePublicMode(): void {
+        if (eyebrowEl) eyebrowEl.textContent = copy.publicEyebrow;
+        if (subtitleEl) subtitleEl.textContent = copy.publicSubtitle;
+        if (loadingEl) loadingEl.textContent = copy.publicLoading;
+        if (errorTitleEl) errorTitleEl.textContent = copy.publicErrorTitle;
+        if (errorBodyEl) errorBodyEl.textContent = copy.publicErrorBody;
+        if (publicStandingEl) publicStandingEl.hidden = false;
+        for (const section of selfSections) section.hidden = true;
+    }
+
+    function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
+        configurePublicMode();
+        const placed = profile.state === "placed";
+        const currentStreak = profile.winStreak > 0 ? profile.winStreak : profile.lossStreak > 0 ? -profile.lossStreak : 0;
+        const rating = placed ? numberFormatter.format(profile.mmr) : copy.publicRatingHidden;
+        const rank = placed && profile.leaderboardRank ? `#${numberFormatter.format(profile.leaderboardRank)}` : copy.publicUnranked;
+
+        if (nameEl) nameEl.textContent = profile.username;
+        document.title = `${profile.username} · Heroes of Crypto`;
+        if (metaEl) metaEl.hidden = false;
+        if (streakEl) streakEl.textContent = streakLabel(currentStreak, streakLabels);
+        if (lastSeenEl) {
+            const ago = timeAgo(profile.lastRankedGameAt, agoLabels);
+            lastSeenEl.textContent = ago ? `${copy.publicLastBattle} ${ago}` : "";
+        }
+        if (emptyEl) emptyEl.hidden = true;
+        if (sectionsEl) sectionsEl.hidden = false;
+        if (summaryNoticeEl) summaryNoticeEl.hidden = !summaryOnly;
+
+        const statsEl = $("stats");
+        if (statsEl) {
+            statsEl.innerHTML = [
+                statCard(copy.statRating, rating, placed ? "#f2c75d" : undefined),
+                statCard(copy.statLeaderboardRank, rank),
+                statCard(copy.statRecord, `${profile.wins}–${profile.losses}–${profile.draws}`),
+                statCard(copy.statWinRate, profile.totalGames ? `${profile.winRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—", winRateColor(profile.winRatePct)),
+                statCard(copy.statPeakRating, profile.peakMmr ? numberFormatter.format(profile.peakMmr) : "—"),
+                statCard(copy.statGames, numberFormatter.format(profile.totalGames)),
+            ].join("");
+        }
+
+        if (standingEl) {
+            const progress = `${Math.min(profile.calibration.gamesPlayed, profile.calibration.required)} / ${profile.calibration.required}`;
+            const previous = profile.previous
+                ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
+                : copy.publicUnranked;
+            standingEl.innerHTML = `
+                <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
+                    <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
+                    <strong>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
+                    <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
+                </div>
+                <dl class="ranked-standing__facts">
+                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : copy.publicUnranked)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicCalibrationProgress)}</dt><dd>${escapeHtml(progress)}</dd></div>
+                    <div><dt>${escapeHtml(copy.statCurrentStreak)}</dt><dd>${escapeHtml(streakLabel(currentStreak, streakLabels))}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicDisconnectRecord)}</dt><dd>${profile.dcWins}–${profile.dcLosses}</dd></div>
+                    ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
+                </dl>`;
+        }
+
+        const matchesEl = $("matches");
+        if (matchesEl) {
+            matchesEl.innerHTML = summaryOnly
+                ? `<p class="profile-empty-message">${escapeHtml(copy.publicDetailsUnavailable)}</p>`
+                : profile.recentGames.length
+                ? profile.recentGames.map(publicMatchRow).join("")
+                : `<p class="profile-empty-message">${escapeHtml(copy.publicNoMatches)}</p>`;
+        }
+        showState("content");
+    }
+
     function render(portal: any): void {
+        configureSelfMode();
         const wins = num(portal.wins);
         const losses = num(portal.losses);
         const games = num(portal.total_games_played);
@@ -288,6 +456,19 @@ const rankedApp = links.rankedApp;
     }
 
     async function load(): Promise<void> {
+        if (publicMode) {
+            configurePublicMode();
+            showState("loading");
+            try {
+                renderPublicProfile(await fetchPublicRankedProfile(requestedPlayerId));
+            } catch {
+                const fallback = publicRankedProfileFallbackFromSearchParams(profileSearchParams);
+                if (fallback) renderPublicProfile(fallback, true);
+                else showState("error");
+            }
+            return;
+        }
+        configureSelfMode();
         if (!isLoggedIn()) {
             showState("guest");
             return;
@@ -302,7 +483,8 @@ const rankedApp = links.rankedApp;
 
     $("retry")?.addEventListener("click", () => void load());
     // React to login/logout happening in another tab or via the header while this page is open.
-    onAuthStateChange(() => void load());
+    if (publicMode) void load();
+    else onAuthStateChange(() => void load());
 </script>
 
 <style>
@@ -362,11 +544,24 @@ const rankedApp = links.rankedApp;
         color: rgba(251, 244, 232, 0.68);
     }
 
+    .profile-summary-notice {
+        margin: 0 0 22px;
+        padding: 11px 14px;
+        border: 1px solid rgba(242, 199, 93, 0.22);
+        border-radius: 9px;
+        color: rgba(251, 244, 232, 0.66);
+        background: rgba(242, 199, 93, 0.07);
+        font-size: 0.84rem;
+    }
+
     .profile-note[hidden],
+    .profile-summary-notice[hidden],
     .profile-content[hidden],
     .profile-empty[hidden],
     .profile-body[hidden],
-    [data-profile-combos-section][hidden] {
+    [data-profile-combos-section][hidden],
+    [data-profile-public-standing][hidden],
+    [data-profile-self][hidden] {
         display: none;
     }
 
@@ -459,6 +654,112 @@ const rankedApp = links.rankedApp;
         font-weight: 820;
     }
 
+    /* Profile rows are client-rendered, so they do not receive Astro's scope attribute. */
+    .profile-page :global(.stat-card) {
+        display: grid;
+        gap: 4px;
+        padding: 16px 18px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+    }
+
+    .profile-page :global(.stat-card dt) {
+        color: rgba(251, 244, 232, 0.58);
+        font-size: 0.74rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .profile-page :global(.stat-card dd) {
+        margin: 0;
+        color: #fff;
+        font-size: 1.5rem;
+        font-weight: 820;
+    }
+
+    .ranked-standing {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.55fr);
+        gap: 14px;
+    }
+
+    .ranked-standing :global(.ranked-standing__banner) {
+        position: relative;
+        display: grid;
+        align-content: center;
+        min-height: 150px;
+        padding: 22px;
+        overflow: hidden;
+        border: 1px solid rgba(242, 199, 93, 0.34);
+        border-radius: 12px;
+        background:
+            radial-gradient(circle at 88% 12%, rgba(255, 143, 0, 0.2), transparent 40%),
+            linear-gradient(145deg, rgba(70, 41, 17, 0.72), rgba(15, 10, 7, 0.94));
+        box-shadow: inset 0 0 28px rgba(255, 143, 0, 0.05);
+    }
+
+    .ranked-standing :global(.ranked-standing__state) {
+        width: fit-content;
+        margin-bottom: 12px;
+        padding: 4px 9px;
+        border: 1px solid rgba(242, 199, 93, 0.38);
+        border-radius: 999px;
+        background: rgba(242, 199, 93, 0.1);
+        color: var(--gold, #f2c75d);
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .ranked-standing :global(.ranked-standing__banner strong) {
+        color: #fff5df;
+        font-size: clamp(1.35rem, 2vw, 1.85rem);
+        line-height: 1.05;
+    }
+
+    .ranked-standing :global(.ranked-standing__banner small) {
+        margin-top: 7px;
+        color: rgba(251, 244, 232, 0.62);
+        font-size: 0.84rem;
+    }
+
+    .ranked-standing :global(.ranked-standing__facts) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        margin: 0;
+    }
+
+    .ranked-standing :global(.ranked-standing__facts > div) {
+        display: grid;
+        align-content: center;
+        min-height: 68px;
+        padding: 11px 14px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.11));
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .ranked-standing :global(.ranked-standing__facts dt) {
+        color: rgba(251, 244, 232, 0.48);
+        font-size: 0.68rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .ranked-standing :global(.ranked-standing__facts dd) {
+        margin: 4px 0 0;
+        color: rgba(251, 244, 232, 0.92);
+        font-size: 0.94rem;
+        font-weight: 720;
+    }
+
+    .ranked-standing :global(.ranked-standing__previous) {
+        grid-column: 1 / -1;
+    }
+
     .bar-list,
     .combo-list,
     .match-list {
@@ -544,6 +845,16 @@ const rankedApp = links.rankedApp;
         white-space: nowrap;
     }
 
+    .match-replay {
+        margin-left: auto;
+        color: #ffb300;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .match-replay:hover {
+        text-decoration: underline;
+    }
     .match-row {
         display: grid;
         grid-template-columns: 74px minmax(0, auto) minmax(0, 1fr) auto;
@@ -575,6 +886,97 @@ const rankedApp = links.rankedApp;
         color: #ff5a5a;
     }
 
+    .profile-page :global(.match-result.draw) {
+        background: rgba(242, 199, 93, 0.13);
+        color: #f2c75d;
+    }
+
+    .profile-page :global(.match-row--ranked) {
+        display: grid;
+        grid-template-columns: 74px minmax(130px, 1fr) minmax(100px, 0.7fr) minmax(92px, auto) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 9px 12px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .profile-page :global(.match-row--ranked .match-result) {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    .profile-page :global(.match-row--ranked .match-result.win) {
+        color: #46d160;
+        background: rgba(70, 209, 96, 0.16);
+    }
+
+    .profile-page :global(.match-row--ranked .match-result.loss) {
+        color: #ff5a5a;
+        background: rgba(255, 90, 90, 0.16);
+    }
+
+    .profile-page :global(.match-opponent) {
+        color: rgba(251, 244, 232, 0.94);
+        font-weight: 760;
+        text-decoration: none;
+    }
+
+    .profile-page :global(.match-opponent:hover) {
+        color: var(--gold, #f2c75d);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .profile-page :global(.match-row--ranked .match-vs) {
+        overflow: hidden;
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.9rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .profile-page :global(.match-reason) {
+        color: rgba(251, 244, 232, 0.5);
+        font-size: 0.8rem;
+    }
+
+    .profile-page :global(.match-delta) {
+        color: rgba(251, 244, 232, 0.68);
+        font-size: 0.82rem;
+        font-weight: 750;
+        white-space: nowrap;
+    }
+
+    .profile-page :global(.match-delta.positive) {
+        color: #46d160;
+    }
+
+    .profile-page :global(.match-delta.negative) {
+        color: #ff6969;
+    }
+
+    .profile-page :global(.match-row--ranked .match-when) {
+        color: rgba(251, 244, 232, 0.46);
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .profile-page :global(.profile-empty-message) {
+        margin: 0;
+        padding: 18px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+        border-radius: 10px;
+        color: rgba(251, 244, 232, 0.56);
+        background: rgba(255, 255, 255, 0.025);
+    }
+
     .match-vs {
         overflow: hidden;
         color: rgba(251, 244, 232, 0.66);
@@ -598,9 +1000,39 @@ const rankedApp = links.rankedApp;
             grid-template-columns: 1fr;
             gap: 28px;
         }
+
+        .ranked-standing {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-page :global(.match-row--ranked) {
+            grid-template-columns: 72px minmax(0, 1fr) auto;
+        }
+
+        .profile-page :global(.match-row--ranked .match-reason) {
+            grid-column: 2 / 3;
+        }
+
+        .profile-page :global(.match-row--ranked .match-delta) {
+            grid-column: 3;
+            grid-row: 1;
+        }
+
+        .profile-page :global(.match-row--ranked .match-when) {
+            grid-column: 3;
+            grid-row: 2;
+        }
     }
 
     @media (max-width: 560px) {
+        .ranked-standing :global(.ranked-standing__facts) {
+            grid-template-columns: 1fr;
+        }
+
+        .ranked-standing :global(.ranked-standing__previous) {
+            grid-column: auto;
+        }
+
         .bar-row {
             grid-template-columns: 30px minmax(0, 1fr) 40px;
             row-gap: 6px;
@@ -625,6 +1057,16 @@ const rankedApp = links.rankedApp;
 
         .match-when {
             display: none;
+        }
+
+        .profile-page :global(.match-row--ranked) {
+            grid-template-columns: 68px minmax(0, 1fr);
+        }
+
+        .profile-page :global(.match-row--ranked .match-reason),
+        .profile-page :global(.match-row--ranked .match-delta) {
+            grid-column: 2;
+            grid-row: auto;
         }
     }
 </style>
