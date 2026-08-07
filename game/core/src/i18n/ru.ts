@@ -108,4 +108,6 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Wait: "Ждать",
     Abandon: "Сдаться",
     "Play again": "Играть снова",
+    "Back to lobby": "Назад в лобби",
+    "Back to website": "На сайт",
 };

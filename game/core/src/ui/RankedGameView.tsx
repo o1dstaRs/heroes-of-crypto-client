@@ -24,7 +24,7 @@ import {
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
@@ -812,9 +812,24 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         }
         return aiOpponentLabel(aiSeatPlayerId) ?? (isVsAiMatch ? "AI" : undefined);
     }, [aiSeatPlayerId, isVsAiMatch, vsAiDifficulty]);
+    // Where "back" leads depends on how the viewer got here (owner 2026-08-06): a watcher who came
+    // through a lobby room returns to THAT lobby; any other observer (the website's Watch links do a
+    // full page load, so they carry no router state) goes to the website's main page; participants
+    // keep the ranked play screen (or match history for a portal replay).
+    const location = useLocation();
+    const observerOrigin = (location.state ?? null) as { from?: string; lobbyId?: string } | null;
+    const cameFromLobby = observerOrigin?.from === "lobby";
     const handleBackToLobby = useCallback(() => {
+        if (isObserver && !replayOnly) {
+            if (cameFromLobby) {
+                navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
+            } else {
+                window.location.assign("https://heroesofcrypto.io");
+            }
+            return;
+        }
         navigate(replayOnly ? "/portal" : "/play");
-    }, [navigate, replayOnly]);
+    }, [navigate, replayOnly, isObserver, cameFromLobby, observerOrigin]);
     const handlePlayAgainVsAi = useCallback(async () => {
         // Always rematch the default AI (no difficulty tiers) — matches the tier-less "Play vs AI" entry.
         // The just-finished match's result write (game doc -> finished, both players' inGameId released)
@@ -1700,7 +1715,15 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     )}
                     {gameStarted && (
                         <FightFinishedOverlay
-                            backLabel={replayOnly ? "Match History" : undefined}
+                            backLabel={
+                                replayOnly
+                                    ? "Match History"
+                                    : isObserver
+                                      ? cameFromLobby
+                                          ? t("Back to lobby")
+                                          : t("Back to website")
+                                      : undefined
+                            }
                             canReplay={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
                             mode="ranked"
                             opponentLabel={vsAiOpponentLabel}

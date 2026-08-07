@@ -97,7 +97,9 @@ export const LobbyView: React.FC = () => {
     useEffect(() => {
         if (lobby && status === LobbyStatus.LOBBY_STARTED && lobby.game_id && !navigatedRef.current) {
             navigatedRef.current = true;
-            navigate(`/game/${lobby.game_id}`);
+            // Stamp the origin: whoever enters the game THROUGH a lobby room (member or watcher)
+            // gets a "Back to lobby" exit that returns here, instead of the generic destination.
+            navigate(`/game/${lobby.game_id}`, { state: { from: "lobby", lobbyId } });
         }
     }, [lobby, status, navigate]);
 
