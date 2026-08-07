@@ -255,31 +255,37 @@
         z-index: 60;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.4rem 0.55rem;
-        border-radius: 999px;
-        background: rgba(12, 14, 20, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(6px);
-        color: #e8e2d4;
+        gap: 0.4rem;
+        padding: 0.32rem;
+        border: 1px solid rgba(220, 177, 88, 0.46);
+        border-radius: 2px;
+        clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+        background: linear-gradient(145deg, rgba(66, 39, 18, 0.96), rgba(12, 8, 5, 0.97));
+        box-shadow:
+            0 9px 22px rgba(0, 0, 0, 0.46),
+            inset 0 0 12px rgba(255, 143, 0, 0.04);
+        color: var(--hoc-bronze, #cda078);
     }
 
     .theme-music-toggle {
         display: grid;
         place-items: center;
-        width: 2rem;
-        height: 2rem;
+        width: 2.1rem;
+        height: 2.1rem;
         padding: 0;
         border: 0;
-        border-radius: 50%;
-        background: transparent;
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 1px;
+        background: rgba(7, 5, 4, 0.58);
         color: inherit;
         cursor: pointer;
     }
 
     .theme-music-toggle:hover,
     .theme-music-toggle:focus-visible {
-        color: #ffd88a;
+        border-color: rgba(220, 177, 88, 0.72);
+        color: var(--gold-soft, #efd49a);
+        box-shadow: inset 0 0 9px rgba(255, 143, 0, 0.09);
     }
 
     .theme-music-toggle svg {
@@ -288,7 +294,7 @@
     }
 
     .theme-music[data-silent="true"] {
-        color: #8d8778;
+        color: rgba(239, 228, 204, 0.42);
     }
 
     /* The slider stays out of the way until the control is wanted, so it does not sit over the art. On
@@ -304,16 +310,23 @@
         width: 5.5rem;
     }
 
-    @media (hover: none) {
-        .theme-music-slider {
-            width: 5.5rem;
+    .theme-music-slider input {
+        width: 5.5rem;
+        accent-color: var(--gold, #dcb158);
+        cursor: pointer;
+    }
+
+    @media (max-width: 560px) {
+        .theme-music {
+            right: max(0.65rem, env(safe-area-inset-right));
+            bottom: max(0.65rem, env(safe-area-inset-bottom));
         }
     }
 
-    .theme-music-slider input {
-        width: 5.5rem;
-        accent-color: #ffd88a;
-        cursor: pointer;
+    @media (prefers-reduced-motion: reduce) {
+        .theme-music-slider {
+            transition: none;
+        }
     }
 
     .sr-only {

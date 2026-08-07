@@ -10,6 +10,8 @@ const copy = content[lang].profile;
 const isRu = lang === "ru";
 const profilePath = isRu ? "/ru/profile/" : "/profile/";
 const loginHref = `${isRu ? "/ru" : ""}/auth/login/?redirect=${encodeURIComponent(profilePath)}`;
+const arenaHref = isRu ? "/ru/#arena" : "/#arena";
+const arenaLabel = isRu ? "Арена командиров" : "Commander Arena";
 // The ranked redirect page (/play/ranked) forwards into the game app; reuse it for the "play" CTAs.
 const rankedApp = links.rankedApp;
 ---
@@ -17,13 +19,19 @@ const rankedApp = links.rankedApp;
 <section class="profile-page">
     <div class="page-shell profile-shell">
         <header class="profile-head">
-            <p class="eyebrow" data-profile-eyebrow>{copy.title}</p>
-            <h1 class="profile-name" data-profile-name>{copy.title}</h1>
-            <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
-            <div class="profile-meta" data-profile-meta hidden>
-                <span class="profile-streak" data-profile-streak></span>
-                <span class="profile-lastseen" data-profile-lastseen></span>
+            <span class="profile-head-emblem" aria-hidden="true">
+                <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="64" height="64" />
+            </span>
+            <div class="profile-head-copy">
+                <p class="eyebrow" data-profile-eyebrow>{copy.title}</p>
+                <h1 class="profile-name" data-profile-name>{copy.title}</h1>
+                <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
+                <div class="profile-meta" data-profile-meta hidden>
+                    <span class="profile-streak" data-profile-streak></span>
+                    <span class="profile-lastseen" data-profile-lastseen></span>
+                </div>
             </div>
+            <a class="profile-arena-link" href={arenaHref}>← {arenaLabel}</a>
         </header>
 
         <p class="profile-note" data-profile-loading>{copy.loading}</p>
@@ -489,28 +497,119 @@ const rankedApp = links.rankedApp;
 
 <style>
     .profile-page {
+        position: relative;
+        isolation: isolate;
         min-height: calc(100svh - 68px);
-        background: linear-gradient(180deg, #070808, #050606);
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(7, 5, 4, 0.74), rgba(7, 5, 4, 0.97) 520px),
+            center top / 1440px auto no-repeat url("/assets/images/background_dark_old.webp"), #070504;
+        font-family: var(--hoc-font-ui, var(--hoc-font-display, inherit));
+        font-synthesis: none;
+    }
+
+    .profile-page::before {
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(220, 177, 88, 0.018) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(220, 177, 88, 0.018) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(180deg, #000, transparent 76%);
+        content: "";
+        pointer-events: none;
     }
 
     .profile-shell {
-        padding: 56px 0 80px;
+        position: relative;
+        padding: 46px 0 80px;
     }
 
     .profile-head {
-        margin-bottom: 30px;
+        position: relative;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: center;
+        margin-bottom: 28px;
+        padding: 20px 22px;
+        border: 14px solid transparent;
+        border-image-source: url("/assets/images/ui/pick_phase_ember_panel_frame_9slice.webp");
+        border-image-slice: 140 160 fill;
+        border-image-width: 16px;
+        border-image-repeat: stretch;
+        background: rgba(13, 8, 5, 0.96);
+        box-shadow:
+            0 22px 54px rgba(0, 0, 0, 0.5),
+            0 0 24px rgba(255, 143, 0, 0.06);
+    }
+
+    .profile-head-emblem {
+        display: grid;
+        place-items: center;
+        width: 72px;
+        height: 72px;
+        border: 1px solid rgba(220, 177, 88, 0.48);
+        border-radius: 50%;
+        background:
+            radial-gradient(circle, rgba(111, 53, 18, 0.8), rgba(12, 8, 5, 0.96) 68%),
+            #0d0805;
+        box-shadow:
+            inset 0 0 0 3px rgba(0, 0, 0, 0.42),
+            0 0 18px rgba(255, 143, 0, 0.12);
+    }
+
+    .profile-head-emblem img {
+        width: 58px;
+        height: 58px;
+    }
+
+    .profile-head-copy {
+        min-width: 0;
+    }
+
+    .profile-head .eyebrow {
+        margin-bottom: 7px;
     }
 
     .profile-name {
         margin: 6px 0 8px;
-        color: #fff;
-        font-size: clamp(1.8rem, 3vw, 2.6rem);
+        color: var(--hoc-bronze, #cda078);
+        font-size: clamp(1.8rem, 3vw, 2.8rem);
+        font-weight: 400;
+        letter-spacing: 0.07em;
         line-height: 1.05;
     }
 
     .profile-sub {
         max-width: 620px;
-        color: rgba(251, 244, 232, 0.72);
+        margin-bottom: 0;
+        color: var(--muted, rgba(239, 228, 204, 0.66));
+    }
+
+    .profile-arena-link {
+        align-self: start;
+        min-width: 156px;
+        padding: 10px 14px;
+        border: 1px solid rgba(220, 177, 88, 0.38);
+        border-radius: 2px;
+        background: linear-gradient(180deg, rgba(72, 43, 20, 0.86), rgba(20, 12, 7, 0.94));
+        color: var(--gold, #dcb158);
+        font-size: 0.76rem;
+        letter-spacing: 0.07em;
+        text-align: center;
+        text-transform: uppercase;
+        transition:
+            border-color 0.16s ease,
+            color 0.16s ease,
+            transform 0.16s ease;
+    }
+
+    .profile-arena-link:hover {
+        border-color: rgba(220, 177, 88, 0.72);
+        color: var(--gold-soft, #efd49a);
+        transform: translateY(-1px);
     }
 
     .profile-meta {
@@ -527,12 +626,14 @@ const rankedApp = links.rankedApp;
 
     .profile-streak {
         padding: 5px 12px;
-        border: 1px solid rgba(242, 199, 93, 0.32);
-        border-radius: 999px;
-        background: rgba(242, 199, 93, 0.1);
-        color: var(--gold, #f2c75d);
+        border: 1px solid rgba(220, 177, 88, 0.34);
+        border-radius: 2px;
+        background: rgba(76, 45, 22, 0.46);
+        color: var(--gold, #dcb158);
         font-size: 0.82rem;
-        font-weight: 750;
+        font-weight: 400;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
     }
 
     .profile-lastseen {
@@ -544,13 +645,22 @@ const rankedApp = links.rankedApp;
         color: rgba(251, 244, 232, 0.68);
     }
 
+    .profile-note[data-profile-loading] {
+        width: fit-content;
+        padding: 10px 14px;
+        border-left: 2px solid var(--gold, #dcb158);
+        background: linear-gradient(90deg, rgba(76, 45, 22, 0.5), transparent);
+        color: var(--muted, rgba(239, 228, 204, 0.66));
+        letter-spacing: 0.055em;
+    }
+
     .profile-summary-notice {
         margin: 0 0 22px;
         padding: 11px 14px;
-        border: 1px solid rgba(242, 199, 93, 0.22);
-        border-radius: 9px;
-        color: rgba(251, 244, 232, 0.66);
-        background: rgba(242, 199, 93, 0.07);
+        border: 1px solid rgba(220, 177, 88, 0.26);
+        border-radius: 2px;
+        color: var(--muted, rgba(239, 228, 204, 0.66));
+        background: linear-gradient(90deg, rgba(73, 43, 19, 0.52), rgba(13, 8, 5, 0.88));
         font-size: 0.84rem;
     }
 
@@ -572,14 +682,17 @@ const rankedApp = links.rankedApp;
         max-width: 560px;
         margin-top: 16px;
         padding: 24px 26px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.16));
-        border-radius: 12px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025));
+        border: 1px solid var(--line-strong, rgba(220, 177, 88, 0.44));
+        border-radius: 2px;
+        background: linear-gradient(145deg, rgba(52, 31, 15, 0.92), rgba(11, 7, 4, 0.97));
+        box-shadow:
+            inset 0 0 22px rgba(0, 0, 0, 0.38),
+            0 14px 30px rgba(0, 0, 0, 0.28);
     }
 
     .profile-panel h2 {
         margin: 0;
-        color: #fff;
+        color: var(--hoc-bronze, #cda078);
         font-size: 1.3rem;
     }
 
@@ -591,12 +704,20 @@ const rankedApp = links.rankedApp;
     .profile-btn {
         margin-top: 6px;
         padding: 9px 18px;
-        border: 1px solid rgba(242, 199, 93, 0.5);
-        border-radius: 8px;
-        background: rgba(242, 199, 93, 0.12);
-        color: var(--gold, #f2c75d);
-        font-weight: 750;
+        border: 0;
+        border-radius: 0;
+        background-color: transparent;
+        background-image:
+            linear-gradient(rgba(105, 48, 18, 0.48), rgba(105, 48, 18, 0.48)),
+            url("/assets/images/ui/ui_start_button_plate_trimmed.webp");
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+        color: var(--hoc-bronze, #cda078);
+        font-weight: 400;
         font-size: 0.9rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
         cursor: pointer;
         transition:
             border-color 0.18s ease,
@@ -604,25 +725,65 @@ const rankedApp = links.rankedApp;
     }
 
     .profile-btn:hover {
-        border-color: rgba(242, 199, 93, 0.8);
-        background: rgba(242, 199, 93, 0.2);
+        background-color: transparent;
+        filter: brightness(1.1) contrast(1.04) drop-shadow(0 0 7px rgba(224, 83, 34, 0.3));
+        transform: translateY(-1px);
     }
 
     .profile-body {
         display: grid;
-        gap: 30px;
+        gap: 18px;
+    }
+
+    .profile-section {
+        position: relative;
+        min-width: 0;
+        padding: 18px;
+        border: 1px solid rgba(112, 75, 42, 0.54);
+        border-radius: 2px;
+        clip-path: polygon(
+            8px 0,
+            calc(100% - 8px) 0,
+            100% 8px,
+            100% calc(100% - 8px),
+            calc(100% - 8px) 100%,
+            8px 100%,
+            0 calc(100% - 8px),
+            0 8px
+        );
+        background:
+            linear-gradient(180deg, rgba(59, 35, 17, 0.32), rgba(9, 6, 4, 0.72)),
+            rgba(14, 9, 5, 0.9);
+        box-shadow:
+            inset 0 1px rgba(239, 228, 204, 0.04),
+            inset 0 0 22px rgba(0, 0, 0, 0.3);
+    }
+
+    .profile-section::before {
+        position: absolute;
+        top: 0;
+        left: 9%;
+        width: 82%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(220, 177, 88, 0.68), transparent);
+        box-shadow: 0 0 9px rgba(255, 143, 0, 0.22);
+        content: "";
+        pointer-events: none;
     }
 
     .profile-section h2 {
-        margin: 0 0 14px;
-        color: #fff;
-        font-size: 1.24rem;
+        margin: 0 0 15px;
+        color: var(--hoc-bronze, #cda078);
+        font-size: 1.18rem;
+        font-weight: 400;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
     }
 
     .profile-columns {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 30px;
+        gap: 18px;
     }
 
     .stat-grid {
@@ -635,9 +796,9 @@ const rankedApp = links.rankedApp;
         display: grid;
         gap: 4px;
         padding: 16px 18px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
-        border-radius: 10px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+        border: 1px solid rgba(112, 75, 42, 0.52);
+        border-radius: 2px;
+        background: linear-gradient(145deg, rgba(49, 29, 14, 0.88), rgba(10, 7, 4, 0.94));
     }
 
     .stat-card dt {
@@ -649,7 +810,7 @@ const rankedApp = links.rankedApp;
 
     .stat-card dd {
         margin: 0;
-        color: #fff;
+        color: var(--gold, #dcb158);
         font-size: 1.5rem;
         font-weight: 820;
     }
@@ -659,9 +820,10 @@ const rankedApp = links.rankedApp;
         display: grid;
         gap: 4px;
         padding: 16px 18px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
-        border-radius: 10px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+        border: 1px solid rgba(112, 75, 42, 0.52);
+        border-radius: 2px;
+        background: linear-gradient(145deg, rgba(49, 29, 14, 0.88), rgba(10, 7, 4, 0.94));
+        box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.24);
     }
 
     .profile-page :global(.stat-card dt) {
@@ -673,9 +835,10 @@ const rankedApp = links.rankedApp;
 
     .profile-page :global(.stat-card dd) {
         margin: 0;
-        color: #fff;
+        color: var(--gold, #dcb158);
         font-size: 1.5rem;
-        font-weight: 820;
+        font-weight: 400;
+        letter-spacing: 0.045em;
     }
 
     .ranked-standing {
@@ -689,10 +852,14 @@ const rankedApp = links.rankedApp;
         display: grid;
         align-content: center;
         min-height: 150px;
-        padding: 22px;
+        padding: 18px 20px;
         overflow: hidden;
-        border: 1px solid rgba(242, 199, 93, 0.34);
-        border-radius: 12px;
+        border: 11px solid transparent;
+        border-radius: 0;
+        border-image-source: url("/assets/images/ui/pick_phase_ember_panel_frame_9slice.webp");
+        border-image-slice: 140 160 fill;
+        border-image-width: 13px;
+        border-image-repeat: stretch;
         background:
             radial-gradient(circle at 88% 12%, rgba(255, 143, 0, 0.2), transparent 40%),
             linear-gradient(145deg, rgba(70, 41, 17, 0.72), rgba(15, 10, 7, 0.94));
@@ -704,9 +871,9 @@ const rankedApp = links.rankedApp;
         margin-bottom: 12px;
         padding: 4px 9px;
         border: 1px solid rgba(242, 199, 93, 0.38);
-        border-radius: 999px;
-        background: rgba(242, 199, 93, 0.1);
-        color: var(--gold, #f2c75d);
+        border-radius: 2px;
+        background: rgba(76, 45, 22, 0.6);
+        color: var(--gold, #dcb158);
         font-size: 0.7rem;
         font-weight: 800;
         letter-spacing: 0.08em;
@@ -737,9 +904,9 @@ const rankedApp = links.rankedApp;
         align-content: center;
         min-height: 68px;
         padding: 11px 14px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.11));
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(112, 75, 42, 0.48);
+        border-radius: 2px;
+        background: linear-gradient(145deg, rgba(45, 27, 14, 0.76), rgba(9, 6, 4, 0.9));
     }
 
     .ranked-standing :global(.ranked-standing__facts dt) {
@@ -753,7 +920,8 @@ const rankedApp = links.rankedApp;
         margin: 4px 0 0;
         color: rgba(251, 244, 232, 0.92);
         font-size: 0.94rem;
-        font-weight: 720;
+        font-weight: 400;
+        letter-spacing: 0.035em;
     }
 
     .ranked-standing :global(.ranked-standing__previous) {
@@ -767,123 +935,138 @@ const rankedApp = links.rankedApp;
         gap: 8px;
     }
 
-    .bar-row {
+    .profile-page :global(.bar-row) {
         display: grid;
         grid-template-columns: 34px minmax(0, 1fr) minmax(80px, 160px) 42px auto;
         gap: 10px;
         align-items: center;
         padding: 8px 12px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-        border-radius: 9px;
-        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(42, 25, 13, 0.8), rgba(9, 6, 4, 0.88));
     }
 
-    .bar-icon,
-    .combo-icon,
-    .match-icon {
-        border-radius: 22%;
+    .profile-page :global(.bar-icon),
+    .profile-page :global(.combo-icon),
+    .profile-page :global(.match-icon) {
+        border-radius: 2px;
         background: rgba(0, 0, 0, 0.35);
-        border: 1px solid rgba(242, 199, 93, 0.28);
+        border: 1px solid rgba(220, 177, 88, 0.32);
         object-fit: cover;
     }
 
-    .bar-name {
+    .profile-page :global(.bar-name) {
         overflow: hidden;
-        color: rgba(251, 244, 232, 0.9);
-        font-weight: 650;
+        color: var(--ink, #efe4cc);
+        font-weight: 400;
+        letter-spacing: 0.035em;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .bar-track {
+    .profile-page :global(.bar-track) {
         position: relative;
         height: 8px;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.08);
         overflow: hidden;
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 1px;
+        background: rgba(0, 0, 0, 0.36);
     }
 
-    .bar-fill {
+    .profile-page :global(.bar-fill) {
         position: absolute;
         inset: 0;
-        border-radius: 4px;
+        border-radius: 0;
+        box-shadow: 0 0 7px currentColor;
     }
 
-    .bar-pct {
+    .profile-page :global(.bar-pct) {
         font-size: 0.84rem;
-        font-weight: 700;
+        font-weight: 400;
         text-align: right;
     }
 
-    .bar-games {
+    .profile-page :global(.bar-games) {
         color: rgba(251, 244, 232, 0.5);
         font-size: 0.8rem;
         white-space: nowrap;
     }
 
-    .combo-row {
+    .profile-page :global(.combo-row) {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto minmax(80px, 160px) 42px;
         gap: 12px;
         align-items: center;
         padding: 8px 12px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-        border-radius: 9px;
-        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(42, 25, 13, 0.8), rgba(9, 6, 4, 0.88));
     }
 
-    .combo-icons,
-    .match-icons {
+    .profile-page :global(.combo-icons),
+    .profile-page :global(.match-icons) {
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
     }
 
-    .combo-games {
+    .profile-page :global(.combo-games) {
         color: rgba(251, 244, 232, 0.5);
         font-size: 0.8rem;
         white-space: nowrap;
     }
 
-    .match-replay {
+    .profile-page :global(.match-replay) {
         margin-left: auto;
-        color: #ffb300;
-        font-weight: 700;
+        padding: 5px 8px;
+        border: 1px solid rgba(220, 177, 88, 0.36);
+        border-radius: 2px;
+        background: rgba(76, 45, 22, 0.44);
+        color: var(--gold, #dcb158);
+        font-size: 0.72rem;
+        font-weight: 400;
+        letter-spacing: 0.055em;
         text-decoration: none;
+        text-transform: uppercase;
         white-space: nowrap;
     }
-    .match-replay:hover {
-        text-decoration: underline;
+
+    .profile-page :global(.match-replay:hover) {
+        border-color: rgba(220, 177, 88, 0.68);
+        color: var(--gold-soft, #efd49a);
     }
-    .match-row {
+
+    .profile-page :global(.match-row) {
         display: grid;
         grid-template-columns: 74px minmax(0, auto) minmax(0, 1fr) auto;
         gap: 12px;
         align-items: center;
         padding: 8px 12px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-        border-radius: 9px;
-        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(42, 25, 13, 0.8), rgba(9, 6, 4, 0.88));
     }
 
-    .match-result {
+    .profile-page :global(.match-result) {
         padding: 4px 8px;
-        border-radius: 6px;
+        border-radius: 1px;
         font-size: 0.76rem;
-        font-weight: 800;
+        font-weight: 400;
         text-align: center;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.065em;
     }
 
-    .match-result.win {
+    .profile-page :global(.match-result.win) {
+        border: 1px solid rgba(70, 209, 96, 0.36);
         background: rgba(70, 209, 96, 0.16);
         color: #46d160;
     }
 
-    .match-result.loss {
+    .profile-page :global(.match-result.loss) {
+        border: 1px solid rgba(255, 90, 63, 0.36);
         background: rgba(255, 90, 90, 0.16);
-        color: #ff5a5a;
+        color: #ff5a3f;
     }
 
     .profile-page :global(.match-result.draw) {
@@ -897,17 +1080,17 @@ const rankedApp = links.rankedApp;
         gap: 12px;
         align-items: center;
         padding: 9px 12px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-        border-radius: 9px;
-        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(42, 25, 13, 0.8), rgba(9, 6, 4, 0.88));
     }
 
     .profile-page :global(.match-row--ranked .match-result) {
         padding: 4px 8px;
-        border-radius: 6px;
+        border-radius: 1px;
         font-size: 0.76rem;
-        font-weight: 800;
-        letter-spacing: 0.03em;
+        font-weight: 400;
+        letter-spacing: 0.065em;
         text-align: center;
         text-transform: uppercase;
     }
@@ -918,18 +1101,19 @@ const rankedApp = links.rankedApp;
     }
 
     .profile-page :global(.match-row--ranked .match-result.loss) {
-        color: #ff5a5a;
+        color: #ff5a3f;
         background: rgba(255, 90, 90, 0.16);
     }
 
     .profile-page :global(.match-opponent) {
-        color: rgba(251, 244, 232, 0.94);
-        font-weight: 760;
+        color: var(--ink, #efe4cc);
+        font-weight: 400;
+        letter-spacing: 0.035em;
         text-decoration: none;
     }
 
     .profile-page :global(.match-opponent:hover) {
-        color: var(--gold, #f2c75d);
+        color: var(--gold, #dcb158);
         text-decoration: underline;
         text-underline-offset: 3px;
     }
@@ -950,7 +1134,7 @@ const rankedApp = links.rankedApp;
     .profile-page :global(.match-delta) {
         color: rgba(251, 244, 232, 0.68);
         font-size: 0.82rem;
-        font-weight: 750;
+        font-weight: 400;
         white-space: nowrap;
     }
 
@@ -971,13 +1155,13 @@ const rankedApp = links.rankedApp;
     .profile-page :global(.profile-empty-message) {
         margin: 0;
         padding: 18px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
-        border-radius: 10px;
-        color: rgba(251, 244, 232, 0.56);
-        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(112, 75, 42, 0.42);
+        border-radius: 2px;
+        color: var(--muted, rgba(239, 228, 204, 0.66));
+        background: rgba(31, 18, 9, 0.5);
     }
 
-    .match-vs {
+    .profile-page :global(.match-vs) {
         overflow: hidden;
         color: rgba(251, 244, 232, 0.66);
         font-size: 0.9rem;
@@ -985,17 +1169,26 @@ const rankedApp = links.rankedApp;
         white-space: nowrap;
     }
 
-    .match-vs strong {
+    .profile-page :global(.match-vs strong) {
         color: rgba(251, 244, 232, 0.92);
     }
 
-    .match-when {
+    .profile-page :global(.match-when) {
         color: rgba(251, 244, 232, 0.46);
         font-size: 0.82rem;
         white-space: nowrap;
     }
 
     @media (max-width: 820px) {
+        .profile-head {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .profile-arena-link {
+            grid-column: 1 / -1;
+            justify-self: start;
+        }
+
         .profile-columns {
             grid-template-columns: 1fr;
             gap: 28px;
@@ -1025,6 +1218,62 @@ const rankedApp = links.rankedApp;
     }
 
     @media (max-width: 560px) {
+        .profile-shell {
+            padding: 22px 0 54px;
+        }
+
+        .profile-head {
+            gap: 10px;
+            padding: 12px;
+            border-width: 10px;
+            border-image-width: 12px;
+        }
+
+        .profile-head-emblem {
+            width: 54px;
+            height: 54px;
+        }
+
+        .profile-head-emblem img {
+            width: 44px;
+            height: 44px;
+        }
+
+        .profile-name {
+            min-width: 0;
+            margin-block: 3px 6px;
+            overflow-wrap: anywhere;
+            font-size: clamp(1.42rem, 8vw, 2rem);
+        }
+
+        .profile-sub {
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+
+        .profile-arena-link {
+            width: 100%;
+        }
+
+        .profile-section {
+            padding: 13px;
+        }
+
+        .stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+        }
+
+        .profile-page :global(.stat-card) {
+            min-width: 0;
+            padding: 12px;
+        }
+
+        .profile-page :global(.stat-card dd) {
+            overflow-wrap: anywhere;
+            font-size: 1.16rem;
+        }
+
         .ranked-standing :global(.ranked-standing__facts) {
             grid-template-columns: 1fr;
         }
@@ -1033,29 +1282,39 @@ const rankedApp = links.rankedApp;
             grid-column: auto;
         }
 
-        .bar-row {
+        .profile-page :global(.bar-row) {
             grid-template-columns: 30px minmax(0, 1fr) 40px;
             row-gap: 6px;
         }
 
-        .bar-track {
+        .profile-page :global(.bar-track) {
             grid-column: 1 / -1;
             order: 3;
         }
 
-        .bar-games {
+        .profile-page :global(.bar-games) {
             display: none;
         }
 
-        .match-row {
+        .profile-page :global(.combo-row) {
+            grid-template-columns: minmax(0, 1fr) auto 42px;
+            gap: 7px;
+        }
+
+        .profile-page :global(.combo-row .bar-track) {
+            grid-column: 1 / -1;
+            grid-row: 2;
+        }
+
+        .profile-page :global(.match-row) {
             grid-template-columns: 66px minmax(0, 1fr);
         }
 
-        .match-icons {
+        .profile-page :global(.match-icons) {
             grid-column: 1 / -1;
         }
 
-        .match-when {
+        .profile-page :global(.match-when) {
             display: none;
         }
 
@@ -1067,6 +1326,37 @@ const rankedApp = links.rankedApp;
         .profile-page :global(.match-row--ranked .match-delta) {
             grid-column: 2;
             grid-row: auto;
+        }
+
+        .profile-page :global(.match-row--ranked .match-when) {
+            display: none;
+        }
+
+        .profile-page :global(.match-row--ranked .match-replay),
+        .profile-page :global(.match-replay) {
+            grid-column: 1 / -1;
+            justify-self: end;
+            margin-left: 0;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (hover: none) {
+        .profile-arena-link:hover,
+        .profile-btn:hover {
+            transform: none;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .profile-arena-link,
+        .profile-btn {
+            transition: none;
         }
     }
 </style>

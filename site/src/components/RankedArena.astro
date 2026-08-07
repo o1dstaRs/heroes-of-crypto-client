@@ -24,9 +24,14 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     <div class="page-shell ranked-arena__shell">
         <header class="ranked-arena__heading">
             <div class="ranked-arena__intro">
-                <p class="eyebrow">{copy.eyebrow}</p>
-                <h2 id="ranked-arena-title">{copy.title}</h2>
-                <p>{copy.body}</p>
+                <span class="ranked-arena__sigil" aria-hidden="true">
+                    <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="52" height="52" />
+                </span>
+                <div class="ranked-arena__intro-copy">
+                    <p class="eyebrow">{copy.eyebrow}</p>
+                    <h2 id="ranked-arena-title">{copy.title}</h2>
+                    <p>{copy.body}</p>
+                </div>
             </div>
 
             <div class="ranked-arena__connection">
@@ -248,20 +253,66 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__heading {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 36px;
-        align-items: end;
-        margin-bottom: 30px;
+        gap: 24px;
+        align-items: center;
+        margin-bottom: 22px;
+        padding: 16px 18px;
+        border: 1px solid rgba(151, 104, 50, 0.46);
+        border-radius: 2px;
+        clip-path: polygon(
+            10px 0,
+            calc(100% - 10px) 0,
+            100% 10px,
+            100% calc(100% - 10px),
+            calc(100% - 10px) 100%,
+            10px 100%,
+            0 calc(100% - 10px),
+            0 10px
+        );
+        background:
+            linear-gradient(90deg, rgba(70, 40, 18, 0.72), rgba(13, 8, 5, 0.9) 54%),
+            rgba(14, 9, 5, 0.94);
+        box-shadow:
+            inset 0 1px rgba(239, 228, 204, 0.045),
+            inset 0 0 24px rgba(0, 0, 0, 0.36);
     }
 
     .ranked-arena .ranked-arena__intro {
+        display: flex;
+        gap: 15px;
+        align-items: center;
         max-width: 760px;
+        min-width: 0;
+    }
+
+    .ranked-arena .ranked-arena__sigil {
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        width: 62px;
+        height: 62px;
+        border: 1px solid rgba(220, 177, 88, 0.46);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(111, 53, 18, 0.82), rgba(11, 7, 4, 0.98) 70%);
+        box-shadow:
+            inset 0 0 0 3px rgba(0, 0, 0, 0.42),
+            0 0 16px rgba(255, 143, 0, 0.1);
+    }
+
+    .ranked-arena .ranked-arena__sigil img {
+        width: 50px;
+        height: 50px;
+    }
+
+    .ranked-arena .ranked-arena__intro-copy {
+        min-width: 0;
     }
 
     .ranked-arena .ranked-arena__intro h2 {
         margin-bottom: 14px;
     }
 
-    .ranked-arena .ranked-arena__intro > p:last-child {
+    .ranked-arena .ranked-arena__intro-copy > p:last-child {
         max-width: 690px;
         margin-bottom: 0;
         font-size: 1.02rem;
@@ -1855,6 +1906,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         .ranked-arena .ranked-arena__tabs {
             overflow-x: auto;
             width: 100%;
+            mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 18px), transparent 100%);
             scrollbar-width: none;
             scroll-snap-type: x proximity;
         }
@@ -1933,6 +1985,29 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     @media (max-width: 460px) {
+        .ranked-arena .ranked-arena__heading {
+            padding: 13px;
+        }
+
+        .ranked-arena .ranked-arena__intro {
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .ranked-arena .ranked-arena__sigil {
+            width: 48px;
+            height: 48px;
+        }
+
+        .ranked-arena .ranked-arena__sigil img {
+            width: 39px;
+            height: 39px;
+        }
+
+        .ranked-arena .ranked-arena__intro h2 {
+            font-size: clamp(1.52rem, 8vw, 2rem);
+        }
+
         .ranked-arena .ranked-arena__connection {
             align-items: stretch;
         }
@@ -1987,7 +2062,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         }
 
         .ranked-arena .ranked-arena__game-seat > div strong {
-            font-size: 0.84rem;
+            font-size: 0.74rem;
         }
 
         .ranked-arena .ranked-arena__player-detail {
