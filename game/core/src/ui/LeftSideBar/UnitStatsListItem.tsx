@@ -716,9 +716,14 @@ export const SectionTitle: React.FC<{
                 textAlign: "center",
                 clipPath: "polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%)",
                 background: namePlaque
-                    ? "linear-gradient(180deg, rgba(44,37,30,.72), rgba(14,13,12,.735)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box"
+                    ? "linear-gradient(180deg, rgba(44,37,30,.59), rgba(14,13,12,.605))"
                     : "linear-gradient(180deg, rgba(44,37,30,.96), rgba(14,13,12,.98)) padding-box, linear-gradient(90deg, #241a12, #8b6238, #241a12) border-box",
                 border: "1px solid transparent",
+                ...(namePlaque
+                    ? {
+                          borderImage: "linear-gradient(90deg, #241a12, #8b6238, #241a12) 1",
+                      }
+                    : {}),
                 boxShadow: "inset 0 1px 0 rgba(237,190,121,.12), 0 2px 4px rgba(0,0,0,.55)",
             }}
         >
@@ -890,10 +895,17 @@ StatValue.displayName = "StatValue";
 // silhouette and bronze binding; only the cloth colour changes.
 const greenBannerImage = images.ui_banner_green_soft_wide;
 const redBannerImage = images.ui_banner_red_soft_wide;
-// The selected rounded binding is a transparent, three-sided overlay. Keeping it separate from the cloth
-// lets the same pixel-perfect rail serve green, red and neutral banners without recolouring or duplicating
-// the generated asset.
-const bannerBorderImage = images.banner_border_round_c;
+const bannerOrnamentsImage = images.banner_riveted_ornaments;
+const GREEN_BANNER_FILTER = "saturate(1.38) brightness(1.14) contrast(1.1)";
+
+// Neutral selection keeps the cloth monochrome but not the metal. A narrow alpha-only path reveals the
+// original brown/gold binding from the coloured source above the grayscale banner; it does not resurrect
+// the old separate rounded frame overlay or leak team colour back into the fabric.
+const BANNER_FRAME_PATH = "M 20 18 H 1016 V 1145 Q 1016 1180 982 1194 L 518 1294 L 54 1194 Q 20 1180 20 1145 Z";
+const neutralBannerFrameMaskSvg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1036 1309" preserveAspectRatio="none"><path d="${BANNER_FRAME_PATH}" fill="none" stroke="white" stroke-width="24" stroke-linejoin="round"/></svg>`,
+);
+const neutralBannerFrameMask = `url("data:image/svg+xml,${neutralBannerFrameMaskSvg}")`;
 
 /** Where the portrait's top edge lands on the banner, as a share of the art's height — just under the
  *  crossbar's valance, which is the last thing on the cloth now that the crenellated line has been cut out
@@ -1001,15 +1013,6 @@ const teamBannerSx = (layout: ReturnType<typeof bannerLayout>) => {
         willChange: "opacity",
     } as const;
 };
-
-const teamBannerBorderSx = (layout: ReturnType<typeof bannerLayout>) => ({
-    ...teamBannerSx(layout),
-    // The rail already contains its own antialiased curve and must not be clipped a second time.
-    borderRadius: 0,
-    overflow: "visible",
-    transition: "none",
-    willChange: "auto",
-});
 
 const StatItem: React.FC<{
     icon: React.ReactElement<Record<string, unknown>>;
@@ -1313,12 +1316,79 @@ const UnitStatsLayout: React.FC<{
                         sx={{
                             ...teamBannerSx(layout),
                             opacity: shown ? 1 : 0,
-                            // Desaturated rather than a separate asset: the cloth and binding stay identical.
-                            ...(neutral ? { filter: "grayscale(1) brightness(0.92)" } : {}),
+                            // The selected heraldic treatment belongs only to green. Red keeps its original
+                            // colour, while neutral remains grayscale. The metal is restored unfiltered below.
+                            filter: neutral
+                                ? "grayscale(1) brightness(0.92)"
+                                : key === "lower"
+                                  ? GREEN_BANNER_FILTER
+                                  : "none",
                         }}
                     />
                 ))}
-                <Box component="img" src={bannerBorderImage} alt="" aria-hidden sx={teamBannerBorderSx(layout)} />
+                {/* Preserve the source banner's warm metal over every cloth treatment. The upper team owns
+                    the red source; green and neutral share the green source because their binding is identical. */}
+                <Box
+                    component="img"
+                    src={team === TeamVals.UPPER ? redBannerImage : greenBannerImage}
+                    alt=""
+                    aria-hidden
+                    sx={{
+                        ...teamBannerSx(layout),
+                        borderRadius: 0,
+                        opacity: 1,
+                        WebkitMaskImage: neutralBannerFrameMask,
+                        maskImage: neutralBannerFrameMask,
+                        WebkitMaskRepeat: "no-repeat",
+                        maskRepeat: "no-repeat",
+                        WebkitMaskSize: "100% 100%",
+                        maskSize: "100% 100%",
+                    }}
+                />
+                {/* One transparent paired asset keeps the lower reinforcements exactly mirrored. It is
+                    registered to the banner rather than the card, so its slope and centre gap stay fixed at
+                    every responsive size. The portrait paints above this layer and preserves the original
+                    centre finial. */}
+                <Box
+                    aria-hidden
+                    sx={{
+                        ...teamBannerSx(layout),
+                        borderRadius: 0,
+                        overflow: "hidden",
+                        opacity: 1,
+                        transition: "none",
+                    }}
+                >
+                    {[
+                        { key: "left", side: { left: "-0.8%" }, clipPath: "inset(0 50% 0 0)" },
+                        { key: "right", side: { right: "-0.8%" }, clipPath: "inset(0 0 0 50%)" },
+                    ].map(({ key, side, clipPath }) => (
+                        <Box
+                            key={key}
+                            component="img"
+                            src={bannerOrnamentsImage}
+                            alt=""
+                            sx={{
+                                position: "absolute",
+                                ...side,
+                                // A slight drop clears the flag's own hem instead of letting the two metal
+                                // highlights touch. The transparent padding in the asset keeps its lower
+                                // edge safely inside the banner even with this fractional negative offset.
+                                bottom: "-0.15%",
+                                // Another 4% reduction from the previous 77% size. Independent anchors keep
+                                // the outer metal edges aligned while the centre gap grows.
+                                width: "73.9%",
+                                height: "auto",
+                                display: "block",
+                                clipPath,
+                                // Pull the generated copper toward the flag's own blackened antique gold:
+                                // quieter red saturation, deeper recesses and restrained warm highlights.
+                                filter: "saturate(.72) brightness(.83) contrast(1.16) sepia(.10)",
+                                pointerEvents: "none",
+                            }}
+                        />
+                    ))}
+                </Box>
                 <Box
                     sx={{
                         width: "100%",

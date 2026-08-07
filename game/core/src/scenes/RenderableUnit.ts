@@ -33,6 +33,12 @@ import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationT
 import { teamColor as resolveTeamColor } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 export type TexResolver = (name: string) => Texture | undefined;
+const ASH_MOTH_BOARD_TEXTURE = "ash_moth_board_128";
+
+/** Tall board models stand on the lower edge of their tile instead of being centred like portrait chips. */
+function usesTallBoardModel(props: UnitProperties, textureName?: string): boolean {
+    return props.size === 1 && (textureName === ASH_MOTH_BOARD_TEXTURE || props.name === "Ash Moth");
+}
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
@@ -75,6 +81,48 @@ function getDefaultAnimationConfig(
 }
 // Cache textures per atlas to avoid rebuilding frames
 const atlasFramesCache = new Map<string, Texture[]>();
+const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
+const ACTIVE_TURN_FIRE_COLS = 8;
+const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
+const ACTIVE_TURN_FIRE_FRAME_MS = 1000 / 18;
+const ACTIVE_TURN_FIRE_URL = images.active_turn_blue_fire_atlas;
+// Prepared from the blue-fire source video. Keep the implementation/assets ready, but leave the
+// effect visually disabled until the owner asks to restore it.
+const ACTIVE_TURN_FIRE_ENABLED = false;
+let activeTurnFireFramesCache: Texture[] | null | undefined;
+
+/** Ping-pong frame selection keeps the expanding fire cloud seamless at both ends of its loop. */
+export function activeTurnFireFrameForElapsed(elapsedMs: number): number {
+    const cycleFrames = ACTIVE_TURN_FIRE_FRAME_COUNT * 2 - 2;
+    const step = Math.floor(Math.max(0, elapsedMs) / ACTIVE_TURN_FIRE_FRAME_MS) % cycleFrames;
+    return step < ACTIVE_TURN_FIRE_FRAME_COUNT ? step : cycleFrames - step;
+}
+
+function getActiveTurnFireFrames(): Texture[] {
+    if (activeTurnFireFramesCache !== undefined) return activeTurnFireFramesCache ?? [];
+    try {
+        const parentTexture = Texture.from(ACTIVE_TURN_FIRE_URL);
+        const source = parentTexture.source;
+        activeTurnFireFramesCache = Array.from({ length: ACTIVE_TURN_FIRE_FRAME_COUNT }, (_, index) => {
+            const col = index % ACTIVE_TURN_FIRE_COLS;
+            const row = Math.floor(index / ACTIVE_TURN_FIRE_COLS);
+            return new Texture({
+                source,
+                frame: new Rectangle(
+                    col * ACTIVE_TURN_FIRE_FRAME_SIZE,
+                    row * ACTIVE_TURN_FIRE_FRAME_SIZE,
+                    ACTIVE_TURN_FIRE_FRAME_SIZE,
+                    ACTIVE_TURN_FIRE_FRAME_SIZE,
+                ),
+            });
+        });
+    } catch {
+        // Headless tests do not have a browser image decoder. Keep the vector aura as a safe fallback.
+        activeTurnFireFramesCache = null;
+    }
+    return activeTurnFireFramesCache ?? [];
+}
+
 function buildAtlasFrames(meta: AtlasMeta, imageSrc: string, size: number): Texture[] {
     const parentTexture = Texture.from(imageSrc);
     const source = parentTexture.source; // v8-friendly
@@ -346,6 +394,12 @@ export class RenderableUnit extends Unit {
     private visualScaleMultiplier = 1;
     // Animated "light waves" aura shown under the unit whose turn it is.
     private activeAura?: Graphics;
+    // Placement hover reuses the restrained active-turn light waves instead of the old stack of
+    // opaque white circles drawn by HoverManager.
+    private isHoverTurnAura = false;
+    /** Transparent blue-fire atlas layered beneath the active unit and the existing light rings. */
+    private activeTurnFireSprite?: Sprite;
+    private activeTurnFireFrameIndex = -1;
     // Color of the active-turn aura. White by default; the scene tints it (e.g. red) when the
     // active unit is the viewer's enemy so it reads clearly that it is not the viewer's turn.
     private activeAuraColor = 0xffffff;
@@ -413,6 +467,9 @@ export class RenderableUnit extends Unit {
         ru.stackPowerDrawState = undefined;
         ru.rosterCardDrawState = undefined;
         ru.activeAura = undefined;
+        ru.isHoverTurnAura = false;
+        ru.activeTurnFireSprite = undefined;
+        ru.activeTurnFireFrameIndex = -1;
         ru.waterShieldAura = undefined;
         ru.freezeCrust = undefined;
         ru.freezeLight = undefined;
@@ -590,13 +647,14 @@ export class RenderableUnit extends Unit {
         const props = this.getUnitProperties();
         const pos = this.getPosition();
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const tallBoardModel = usesTallBoardModel(props, texName);
         const baseTex = this.texResolver(texName);
         if (!baseTex) return;
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture
             this.sprite = new Sprite(baseTex);
-            this.sprite.anchor.set(0.5);
+            this.sprite.anchor.set(0.5, tallBoardModel ? 1 : 0.5);
             this.sprite.scale.y = -1; // y-up world → flip in Pixi
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             // Dynamic Z: Objects lower on screen (low Y) draw last (high Z).
@@ -613,7 +671,16 @@ export class RenderableUnit extends Unit {
                 worldRoot.addChild(this.sprite);
             }
         }
-        const targetSize = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
+        const spriteAnchorY = tallBoardModel ? 1 : 0.5;
+        if (this.sprite.anchor.x !== 0.5 || this.sprite.anchor.y !== spriteAnchorY) {
+            this.sprite.anchor.set(0.5, spriteAnchorY);
+        }
+        // Legacy portrait chips are authored around the fixed 128px board unit. The new full-body model
+        // instead keys its 128px texture width to the LIVE cell size: with a 128x192 texture that yields
+        // exactly 1.0 cell wide x 1.5 cells high at every viewport/board scale.
+        const targetSize = tallBoardModel
+            ? gs.getCellSize() * this.visualScaleMultiplier
+            : (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const currentTexture = this.sprite.texture;
         const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
         const scale = targetSize / currentWidth;
@@ -622,7 +689,9 @@ export class RenderableUnit extends Unit {
         }
         const recoil = this.currentRecoil();
         const spriteX = pos.x + recoil.x;
-        const spriteY = pos.y + recoil.y;
+        // The 128x192 Ash Moth texture is exactly 1x1.5 cells. Anchor its feet to the tile's lower
+        // edge so the full body grows upward into the free visual space without widening its footprint.
+        const spriteY = pos.y - (tallBoardModel ? targetSize * 0.5 : 0) + recoil.y;
         if (this.sprite.x !== spriteX || this.sprite.y !== spriteY) {
             this.sprite.position.set(spriteX, spriteY);
         }
@@ -651,7 +720,7 @@ export class RenderableUnit extends Unit {
         }
         if (!this.shadow) {
             this.shadow = new Sprite(baseTex);
-            this.shadow.anchor.set(0.5);
+            this.shadow.anchor.set(0.5, spriteAnchorY);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             this.shadow.zIndex = 4000 - pos.y - 0.5; // Slightly below sprite
             worldRoot.addChild(this.shadow);
@@ -662,6 +731,9 @@ export class RenderableUnit extends Unit {
                 worldRoot.addChild(this.shadow);
             }
         }
+        if (this.shadow.anchor.x !== 0.5 || this.shadow.anchor.y !== spriteAnchorY) {
+            this.shadow.anchor.set(0.5, spriteAnchorY);
+        }
         // Silhouette positioning same as before
         if (this.shadow.scale.x !== scale || this.shadow.scale.y !== -scale) {
             this.shadow.scale.set(scale, -scale);
@@ -669,7 +741,7 @@ export class RenderableUnit extends Unit {
         const shadowOffsetX = targetSize * 0.04;
         const shadowOffsetY = targetSize * 0.08;
         const shadowX = pos.x + shadowOffsetX + recoil.x;
-        const shadowY = pos.y + shadowOffsetY + recoil.y;
+        const shadowY = spriteY + shadowOffsetY;
         if (this.shadow.x !== shadowX || this.shadow.y !== shadowY) {
             this.shadow.position.set(shadowX, shadowY);
         }
@@ -740,7 +812,9 @@ export class RenderableUnit extends Unit {
         // layer's coordinate space and z-sorting; fall back to the passed root only if unparented.
         const parent = src.parent ?? worldRoot;
         const ghost = new Sprite(src.texture);
-        ghost.anchor.set(0.5);
+        // Preserve the bottom anchor of tall full-body models; centring their afterimage would make it
+        // jump half a tile during dodge/charge trails.
+        ghost.anchor.copyFrom(src.anchor);
         ghost.x = src.x;
         ghost.y = src.y;
         ghost.scale.set(src.scale.x, src.scale.y);
@@ -872,6 +946,7 @@ export class RenderableUnit extends Unit {
             if (this.hourglassContainer) this.hourglassContainer.visible = false;
             if (this.stunContainer) this.stunContainer.visible = false;
             if (this.respondContainer) this.respondContainer.visible = false;
+            if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
             return;
         }
         this.ensureVisual(worldRoot, gs);
@@ -899,10 +974,12 @@ export class RenderableUnit extends Unit {
         // ownership (5a20846) silently removed the turn cue for plain units, and a per-unit variant
         // read as two different pulse animations. Aura REACH is telegraphed separately by the
         // SandboxDrawer range rings. Suppressed while moving/attacking so the action reads clearly.
-        if (this.isActiveTurn && !this.isDead() && !this.suppressActiveAura) {
+        const showActiveAura = this.isHoverTurnAura || (this.isActiveTurn && !this.suppressActiveAura);
+        if (showActiveAura && !this.isDead()) {
             this.updateActiveAura(worldRoot, gs, pos);
-        } else if (this.activeAura) {
-            this.activeAura.visible = false;
+        } else {
+            if (this.activeAura) this.activeAura.visible = false;
+            if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
         }
 
         // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It keys off
@@ -938,6 +1015,11 @@ export class RenderableUnit extends Unit {
      * frame from a time-based phase so it stays smooth and never stutters.
      */
     private updateActiveAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (ACTIVE_TURN_FIRE_ENABLED) {
+            this.updateActiveTurnFire(worldRoot, gs, pos);
+        } else if (this.activeTurnFireSprite) {
+            this.activeTurnFireSprite.visible = false;
+        }
         if (!this.activeAura) {
             this.activeAura = new Graphics();
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
@@ -977,6 +1059,37 @@ export class RenderableUnit extends Unit {
             const width = 2 + (1 - phase) * 2.5;
             g.circle(pos.x, pos.y, r).stroke({ color: this.activeAuraColor, alpha: a, width });
         }
+    }
+    /** Lightweight transparent sprite-sheet glow for the unit whose turn is currently active. */
+    private updateActiveTurnFire(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        const frames = getActiveTurnFireFrames();
+        if (!frames.length) return;
+
+        if (!this.activeTurnFireSprite) {
+            this.activeTurnFireSprite = new Sprite(frames[0]);
+            this.activeTurnFireSprite.anchor.set(0.5);
+            this.activeTurnFireSprite.blendMode = "add";
+            this.activeTurnFireSprite.alpha = 0.34;
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.activeTurnFireSprite);
+        } else if (this.activeTurnFireSprite.parent !== worldRoot) {
+            worldRoot.addChild(this.activeTurnFireSprite);
+        }
+
+        const frameIndex = activeTurnFireFrameForElapsed(performance.now());
+        if (frameIndex !== this.activeTurnFireFrameIndex) {
+            this.activeTurnFireFrameIndex = frameIndex;
+            this.activeTurnFireSprite.texture = frames[frameIndex];
+        }
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const side = cell * (isLarge ? 2.8 : 1.55);
+        this.activeTurnFireSprite.position.set(pos.x, pos.y);
+        this.activeTurnFireSprite.width = side;
+        this.activeTurnFireSprite.height = side;
+        this.activeTurnFireSprite.zIndex = 4000 - pos.y - 0.7;
+        this.activeTurnFireSprite.visible = true;
     }
     /**
      * Water Shield aura: a light-blue ring with small dots circulating around the unit, emphasizing that its
@@ -1494,6 +1607,11 @@ export class RenderableUnit extends Unit {
             this.activeAura.destroy({ children: true });
             this.activeAura = undefined;
         }
+        if (this.activeTurnFireSprite) {
+            this.activeTurnFireSprite.destroy();
+            this.activeTurnFireSprite = undefined;
+        }
+        this.activeTurnFireFrameIndex = -1;
         if (this.waterShieldAura) {
             this.waterShieldAura.destroy({ children: true });
             this.waterShieldAura = undefined;
@@ -1788,8 +1906,11 @@ export class RenderableUnit extends Unit {
         const margin = Math.max(2, Math.floor(iconSide * 0.045));
         const offsetX = w * 0.5 - margin;
         const offsetY = h * 0.5 - margin;
-        const x = pos.x + offsetX;
-        const y = pos.y + offsetY;
+        // Place the stack flag above Ash Moth's head. Regular portrait units retain the existing
+        // top-right badge position inside their one-cell footprint.
+        const tallBoardModel = usesTallBoardModel(props);
+        const x = tallBoardModel ? pos.x + iconSide * 0.14 : pos.x + offsetX;
+        const y = tallBoardModel ? pos.y + iconSide * 1.08 : pos.y + offsetY;
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (container.scale.x !== this.badgeEmphasisScale || container.scale.y !== this.badgeEmphasisScale) {
             container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
@@ -1981,6 +2102,10 @@ export class RenderableUnit extends Unit {
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
         this.isActiveTurn = active;
+    }
+    /** Reuse the combat turn indicator while inspecting a placed unit before combat starts. */
+    public setHoverTurnAura(hovered: boolean): void {
+        this.isHoverTurnAura = hovered;
     }
     /**
      * Reconcile this unit's remaining stack stats (alive count, top-unit hp, dead count) to an

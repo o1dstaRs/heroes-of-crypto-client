@@ -98,6 +98,14 @@ const UnitInputAndActions = ({
         setUnitCount(value);
     };
 
+    const adjustUnitCount = (delta: 1 | -1) => {
+        const current = Number.parseInt(unitCount, 10);
+        const next = Number.isNaN(current)
+            ? DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT
+            : Math.max(DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT, current + delta);
+        changeUnitCount(next.toString());
+    };
+
     if (selectedUnitCount > 0) {
         if (!changedRef.current) {
             const selectedUnitCountString = selectedUnitCount.toString();
@@ -241,6 +249,70 @@ const UnitInputAndActions = ({
                     onChange={(e) => changeUnitCount(e.target.value)}
                     placeholder="# of units"
                     variant="outlined"
+                    endDecorator={
+                        <Box
+                            sx={{
+                                width: "21.85px",
+                                height: "33.98px",
+                                flex: "0 0 21.85px",
+                                boxSizing: "border-box",
+                                alignSelf: "center",
+                                mr: "-10px",
+                                display: "flex",
+                                flexDirection: "column",
+                                overflow: "hidden",
+                                border: "1px solid rgba(205,160,120,.72)",
+                                borderRadius: "2px",
+                                background: "#100704",
+                                boxShadow:
+                                    "inset 0 0 0 1px rgba(105,48,18,.56), inset 0 1px 4px #000, 0 1px 3px rgba(224,83,34,.2)",
+                            }}
+                        >
+                            {([1, -1] as const).map((delta) => (
+                                <Box
+                                    key={delta}
+                                    component="button"
+                                    type="button"
+                                    aria-label={delta === 1 ? "Increase unit count" : "Decrease unit count"}
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() => adjustUnitCount(delta)}
+                                    sx={{
+                                        appearance: "none",
+                                        opacity: 0.75,
+                                        flex: 1,
+                                        minHeight: 0,
+                                        p: 0,
+                                        display: "grid",
+                                        placeItems: "center",
+                                        border: 0,
+                                        borderBottom: delta === 1 ? "1px solid rgba(205,160,120,.58)" : 0,
+                                        borderRadius: 0,
+                                        background: "linear-gradient(180deg,rgba(105,48,18,.72),rgba(47,18,8,.82))",
+                                        boxShadow: "none",
+                                        "&:hover": {
+                                            background: "linear-gradient(180deg,rgba(125,59,24,.82),rgba(58,22,9,.9))",
+                                        },
+                                        "&:active": {
+                                            background: "linear-gradient(180deg,rgba(86,36,14,.9),rgba(38,13,6,.96))",
+                                        },
+                                    }}
+                                >
+                                    <Box
+                                        sx={{
+                                            width: "8.9px",
+                                            height: "6.47px",
+                                            clipPath:
+                                                delta === 1
+                                                    ? "polygon(50% 0, 100% 100%, 0 100%)"
+                                                    : "polygon(0 0, 100% 0, 50% 100%)",
+                                            background: "linear-gradient(180deg,#d8ab80,#c0784d 58%,#8d4828)",
+                                            filter: "drop-shadow(0 1px 1px rgba(0,0,0,.95))",
+                                        }}
+                                    />
+                                </Box>
+                            ))}
+                        </Box>
+                    }
                     sx={{
                         width: "93%",
                         mx: "auto",
@@ -288,6 +360,11 @@ const UnitInputAndActions = ({
                         "& input": {
                             fontFamily: hocDisplayFontFamily,
                             fontSynthesis: "none",
+                            MozAppearance: "textfield",
+                            "&::-webkit-inner-spin-button, &::-webkit-outer-spin-button": {
+                                WebkitAppearance: "none",
+                                margin: 0,
+                            },
                         },
                         transition: "all 0.2s ease",
                     }}

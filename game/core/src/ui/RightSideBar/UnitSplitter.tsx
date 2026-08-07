@@ -109,11 +109,11 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
 
                 <Slider
                     sx={{
-                        color: "#9a5a26",
+                        color: "#693012",
                         padding: "4px 0",
                         height: 10,
                         "&:hover": {
-                            filter: "brightness(1.5) saturate(1.2)",
+                            filter: "brightness(1.12) saturate(1.02)",
                         },
                         "& .MuiSlider-thumb": {
                             width: 24,
@@ -124,6 +124,7 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                             backgroundRepeat: "no-repeat",
                             backgroundPosition: "center",
                             boxShadow: "none",
+                            filter: "brightness(.9) saturate(.88) drop-shadow(0 0 4px rgba(224,83,34,.24))",
                             "&::before": {
                                 display: "none",
                             },
@@ -132,15 +133,15 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                             height: 6.5,
                             opacity: 1,
                             background:
-                                "linear-gradient(180deg,#1b0d07 0%,#080504 66%,#6b3516 67%,#6b3516 80%,#1b0d07 81%)",
-                            border: "1px solid rgba(147,92,43,.72)",
-                            boxShadow: "inset 0 1px 3px #000, 0 1px 2px rgba(190,117,50,.25)",
+                                "linear-gradient(180deg,#28130a 0%,#080504 62%,#693012 63%,#693012 80%,#28130a 81%)",
+                            border: "1px solid rgba(205,160,120,.58)",
+                            boxShadow: "inset 0 1px 3px #000, 0 1px 2px rgba(224,83,34,.2)",
                         },
                         "& .MuiSlider-track": {
                             height: 6.5,
-                            border: "1px solid rgba(188,111,47,.68)",
-                            background: "linear-gradient(180deg,#9a4e1d,#3a1809 55%,#7a3514)",
-                            boxShadow: "inset 0 1px 2px rgba(255,194,108,.24)",
+                            border: "1px solid rgba(205,160,120,.72)",
+                            background: "linear-gradient(180deg,#87411e,#43190a 55%,#693012)",
+                            boxShadow: "inset 0 1px 2px rgba(216,171,128,.26)",
                         },
                     }}
                     value={hasSelectedUnit ? splitValue : 0}

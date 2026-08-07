@@ -23,6 +23,7 @@ import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../ful
 import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
+import { hocDisplayFontFamily } from "../hocTheme";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { PERK_COPY } from "../perkCopy";
@@ -297,10 +298,20 @@ export const draftShellSx = {
     alignItems: "center",
     justifyContent: "center",
     p: 0,
-    background: "radial-gradient(120% 80% at 50% 0%, #171a23 0%, #0b0d12 60%)",
+    backgroundColor: "#050504",
+    backgroundImage: `url(${images.pick_phase_ember_background_v2})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
     color: "#e9e6df",
     overflow: "hidden",
     position: "relative",
+    fontFamily: hocDisplayFontFamily,
+    // The complete draft surface uses the same carved fantasy face as the sandbox controls. Joy components
+    // (buttons, chips and inputs) declare their own font, so target descendants explicitly as well.
+    "& *, & *::before, & *::after": {
+        fontFamily: `${hocDisplayFontFamily} !important`,
+    },
 } as const;
 
 /** True while the page is in fullscreen — the toggle button reads this to expand or collapse. */
@@ -355,6 +366,9 @@ export const draftBoardSx = (scale: number) =>
         gap: "26px",
         transform: `scale(${scale})`,
         transformOrigin: "center center",
+        px: "22px",
+        py: "12px",
+        boxSizing: "border-box",
     }) as const;
 
 // The title always occupies the same band, so the block under it starts on the same line on every phase.
@@ -377,14 +391,26 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
         <Typography
             sx={{
                 fontSize: "46px",
-                fontWeight: 600,
+                fontWeight: 400,
+                letterSpacing: "0.055em",
                 lineHeight: 1.1,
                 color: "#efe4cc",
                 textAlign: "center",
+                textTransform: "uppercase",
+                textShadow: "0 2px 2px #000, 0 0 14px rgba(210,160,90,.16)",
             }}
         >
             {children}
         </Typography>
+        <Box
+            sx={{
+                width: 520,
+                height: 10,
+                mt: 0.2,
+                background:
+                    "linear-gradient(90deg, transparent 0%, rgba(166,112,54,.8) 18%, #c59a62 49%, rgba(166,112,54,.8) 82%, transparent 100%) center/100% 1px no-repeat",
+            }}
+        />
         {subtitle}
     </Box>
 );
@@ -528,15 +554,20 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                     minWidth: 52,
                                     height: 34,
                                     px: 0.75,
-                                    borderRadius: "12px",
+                                    borderRadius: "2px",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     fontSize: order === "both" || order === "automatic" ? 17 : 13,
                                     fontWeight: 700,
-                                    bgcolor: active ? "#dcb158" : done ? "rgba(78,148,80,0.18)" : "#12151d",
-                                    border: `2px solid ${active ? "#dcb158" : done ? "#4e9450" : "rgba(255,255,255,0.12)"}`,
+                                    bgcolor: active ? "#d5aa53" : done ? "rgba(45,83,44,0.42)" : "#11100f",
+                                    border: `2px solid ${active ? "#f0c66e" : done ? "#6f8e55" : "rgba(174,128,73,0.52)"}`,
                                     color: markerColor,
+                                    boxShadow: active
+                                        ? "inset 0 0 0 2px rgba(75,42,12,.72), 0 0 11px rgba(222,174,77,.28)"
+                                        : "inset 0 0 0 1px rgba(255,220,154,.06), 0 3px 7px rgba(0,0,0,.5)",
+                                    clipPath:
+                                        "polygon(7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px), 0 7px)",
                                 }}
                             >
                                 {done ? "✓" : marker}
@@ -556,7 +587,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                 minWidth: 10,
                                 height: 2,
                                 mt: "13px",
-                                bgcolor: done ? "#4e9450" : "rgba(255,255,255,0.14)",
+                                bgcolor: done ? "#6f8e55" : "rgba(174,128,73,0.42)",
                             }}
                         />
                     )}
@@ -829,27 +860,23 @@ export const PickCommitButton: React.FC<{
                     // A forged plate rather than a glossy pill: flat slate body, a hairline bevel, and the
                     // tone carried by a lit edge + a soft under-glow instead of a full-bleed gradient. Reads
                     // calmer beside the choice frame and lets the label do the talking.
-                    minHeight: 60,
-                    minWidth: "min(520px, 80%)",
+                    minHeight: 72,
+                    width: "min(560px, 84%)",
+                    minWidth: "min(560px, 84%)",
                     mt: 0,
                     position: "relative",
-                    borderRadius: "12px",
-                    border: `1px solid ${
-                        !isYourTurn
-                            ? "rgba(224,120,110,0.75)"
-                            : tone === "gold"
-                              ? "rgba(226,186,110,0.8)"
-                              : "rgba(150,222,150,0.8)"
+                    borderRadius: 0,
+                    border: 0,
+                    outline: 0,
+                    backgroundColor: "transparent",
+                    backgroundImage: `linear-gradient(rgba(25,20,13,.22), rgba(5,5,4,.48)), url(${images.ui_start_button_plate_trimmed})`,
+                    backgroundSize: "100% 100%",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    boxShadow: `inset 0 1px 0 rgba(255,224,176,.1), inset 0 -2px 0 rgba(0,0,0,.65), 0 5px 18px rgba(0,0,0,.52), 0 0 18px ${
+                        armed ? "rgba(183,132,69,.32)" : "rgba(90,62,34,.16)"
                     }`,
-                    background: "linear-gradient(180deg, #1b2029 0%, #12161d 100%)",
-                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 22px ${
-                        !isYourTurn
-                            ? "rgba(190,70,60,0.28)"
-                            : tone === "gold"
-                              ? "rgba(214,164,74,0.3)"
-                              : "rgba(90,190,110,0.3)"
-                    }`,
-                    color: !isYourTurn ? "#ffd9d4" : tone === "gold" ? "#f4dfae" : "#dff5dc",
+                    color: !isYourTurn ? "#d8aaa3" : "#efe4cc",
                     fontSize: "22px",
                     fontWeight: 700,
                     letterSpacing: "0.12em",
@@ -873,19 +900,17 @@ export const PickCommitButton: React.FC<{
                         position: "absolute",
                         left: 14,
                         right: 14,
-                        top: 0,
+                        top: 5,
                         height: "2px",
                         borderRadius: "2px",
                         background: !isYourTurn
-                            ? "linear-gradient(90deg, transparent, #e0786e, transparent)"
-                            : tone === "gold"
-                              ? "linear-gradient(90deg, transparent, #e2ba6e, transparent)"
-                              : "linear-gradient(90deg, transparent, #96de96, transparent)",
+                            ? "linear-gradient(90deg, transparent, #9c4a40, transparent)"
+                            : "linear-gradient(90deg, transparent, #d4a968, transparent)",
                         animation: armed ? "hocCommitBlink 1.6s ease-in-out infinite" : "none",
                     },
                     "&:hover": armed
                         ? {
-                              background: "linear-gradient(180deg, #222836 0%, #161b24 100%)",
+                              filter: "brightness(1.08) contrast(1.04)",
                               transform: "translateY(-1px)",
                               animation: "none",
                               "&::before": { animation: "none" },
@@ -1042,10 +1067,27 @@ const BundlePanel: React.FC<{
                 width: "100%",
                 display: "grid",
                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: "26px",
+                gap: "18px",
                 height: "100%",
                 overflow: "hidden",
                 alignItems: "stretch",
+                position: "relative",
+                "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    zIndex: 12,
+                    pointerEvents: "none",
+                    top: 3,
+                    bottom: 3,
+                    left: "50%",
+                    width: 62,
+                    transform: "translateX(-50%)",
+                    backgroundImage: `url(${images.pick_phase_bundle_divider})`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    backgroundSize: "100% 100%",
+                    filter: "brightness(.9) contrast(1.04) drop-shadow(0 0 5px rgba(0,0,0,.9))",
+                },
             }}
         >
             {bundles.map((bundle, index) => {
@@ -1060,13 +1102,16 @@ const BundlePanel: React.FC<{
                         color="neutral"
                         onClick={disabled ? undefined : () => onSelect(index)}
                         sx={{
+                            position: "relative",
                             width: "100%",
                             height: "100%",
                             overflow: "hidden",
                             cursor: disabled ? "default" : "pointer",
-                            bgcolor: "rgba(0,0,0,0.35)",
-                            border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.12)"}`,
-                            boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                            bgcolor: "transparent",
+                            border: 0,
+                            borderRadius: 0,
+                            boxShadow: isSelected ? "inset 0 0 28px rgba(220,177,88,0.08)" : "none",
+                            transition: "box-shadow 140ms ease",
                         }}
                     >
                         <CardContent
@@ -1121,9 +1166,10 @@ const BundlePanel: React.FC<{
                                     gap: 1.5,
                                     width: "100%",
                                     p: 1.5,
-                                    borderRadius: "14px",
-                                    bgcolor: "rgba(255,255,255,0.04)",
-                                    border: "1px solid rgba(220,177,88,0.28)",
+                                    borderRadius: "7px",
+                                    background: "linear-gradient(180deg, rgba(30,28,24,.78), rgba(13,12,10,.9))",
+                                    border: "2px solid rgba(181,135,73,0.55)",
+                                    boxShadow: "inset 0 1px rgba(255,225,175,.06), 0 2px 8px rgba(0,0,0,.38)",
                                 }}
                             >
                                 {artifactImg && (
@@ -1170,16 +1216,33 @@ const BundlePanel: React.FC<{
 export const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Box
         sx={{
+            position: "relative",
             width: "100%",
             // Exactly the height left over inside the fixed board, so every phase's frame is the same box and
             // its contents shrink to fit instead of scrolling.
             height: "100%",
             minHeight: 0,
             overflow: "hidden",
-            p: "26px 22px",
-            borderRadius: "30px",
-            bgcolor: "rgba(255,255,255,0.025)",
-            border: "2px solid rgba(255,255,255,0.1)",
+            p: "18px 14px",
+            borderRadius: 0,
+            bgcolor: "rgba(5,5,4,0.5)",
+            border: 0,
+            // The same outer frame used by the sandbox's left command deck. It is painted as an overlay
+            // rather than a real border so adding it never steals space from the pick cards or changes the
+            // fixed draft geometry. 9-slicing preserves the authored corners while stretching only rails.
+            "&::after": {
+                content: '""',
+                position: "absolute",
+                inset: 0,
+                zIndex: 10,
+                pointerEvents: "none",
+                boxSizing: "border-box",
+                border: "32px solid transparent",
+                borderImageSource: `url(${images.ui_outer_frame_3_9slice})`,
+                borderImageSlice: "58",
+                borderImageWidth: "32px",
+                borderImageRepeat: "stretch",
+            },
         }}
     >
         {children}
@@ -1642,6 +1705,7 @@ export const MyDraftBar: React.FC<{
             <Sheet
                 variant="soft"
                 sx={{
+                    position: "relative",
                     pointerEvents: "auto",
                     display: "flex",
                     alignItems: "center",
@@ -1653,11 +1717,24 @@ export const MyDraftBar: React.FC<{
                     flexWrap: "nowrap",
                     overflow: "hidden",
                     justifyContent: "center",
-                    borderRadius: "14px",
+                    borderRadius: 0,
                     bgcolor: "#0f2216",
-                    border: "1px solid rgba(60,190,110,0.55)",
+                    border: 0,
                     color: "#e6f5e9",
                     width: "100%",
+                    "&::after": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 10,
+                        pointerEvents: "none",
+                        boxSizing: "border-box",
+                        border: "16px solid transparent",
+                        borderImageSource: `url(${images.ui_container_frame_1_9slice})`,
+                        borderImageSlice: "120",
+                        borderImageWidth: "16px",
+                        borderImageRepeat: "stretch",
+                    },
                 }}
             >
                 {perk > 0 && (
@@ -1839,6 +1916,7 @@ export const OpponentDraftBar: React.FC<{
             <Sheet
                 variant="soft"
                 sx={{
+                    position: "relative",
                     pointerEvents: "auto",
                     display: "flex",
                     alignItems: "center",
@@ -1850,11 +1928,24 @@ export const OpponentDraftBar: React.FC<{
                     flexWrap: "nowrap",
                     overflow: "hidden",
                     justifyContent: "center",
-                    borderRadius: "14px",
+                    borderRadius: 0,
                     bgcolor: "#241416",
-                    border: "1px solid rgba(138,43,43,0.6)",
+                    border: 0,
                     width: "100%",
                     color: "#f0e7e9",
+                    "&::after": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 10,
+                        pointerEvents: "none",
+                        boxSizing: "border-box",
+                        border: "16px solid transparent",
+                        borderImageSource: `url(${images.ui_container_frame_1_9slice})`,
+                        borderImageSlice: "120",
+                        borderImageWidth: "16px",
+                        borderImageRepeat: "stretch",
+                    },
                 }}
             >
                 {/* Only the picks your doctrine reveals count — a hidden slot cannot light a synergy. */}

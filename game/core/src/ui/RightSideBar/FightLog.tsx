@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/joy/Box";
 import { keyframes } from "@emotion/react";
 
-import { fightLogExportLine, groupFightLogEntries } from "./fightLogGrouping";
+import { groupFightLogEntries } from "./fightLogGrouping";
 
 /**
  * FightLog - a custom, animated combat chronicle that replaces the old read-only <Textarea>.
@@ -11,7 +11,7 @@ import { fightLogExportLine, groupFightLogEntries } from "./fightLogGrouping";
  * previous render to find the freshly-prepended lines, give each a stable id, and let CSS animate
  * ONLY the new rows in: they slide down from above, fade up, and flash a warm ember highlight that
  * settles into a thin left accent bar. The panel scrolls (themed thin scrollbar) so the full history
- * is reachable, and a tiny corner button copies the whole log to the clipboard.
+ * remains reachable.
  *
  * The flat list renders GROUPED BY TURN: the scenes emit a marked header line whenever the active
  * unit changes ("⌖ 🟢 Fairy — Lap 2"), and groupFightLogEntries folds the stream into turn cards —
@@ -42,37 +42,12 @@ interface ILogEntry {
 const MAX_ENTRIES = 5000;
 
 const splitLines = (text: string): string[] => (text ? text.split("\n").filter((l) => l.length > 0) : []);
-
-/** Copy text to clipboard, falling back to a hidden textarea if the async Clipboard API is blocked. */
-const copyToClipboard = async (value: string): Promise<void> => {
-    try {
-        if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(value);
-            return;
-        }
-    } catch {
-        // fall through to the legacy path
-    }
-    const ta = document.createElement("textarea");
-    ta.value = value;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try {
-        document.execCommand("copy");
-    } catch {
-        // nothing else we can do; silently ignore
-    }
-    document.body.removeChild(ta);
-};
+const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi, "TO (");
 
 export const FightLog = ({ text }: { text: string }) => {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
-    const [copied, setCopied] = useState(false);
     const prevLinesRef = useRef<string[]>([]);
     const idRef = useRef(0);
-    const copyResetRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => {
         const lines = splitLines(text);
@@ -109,23 +84,6 @@ export const FightLog = ({ text }: { text: string }) => {
         setEntries((curr) => [...fresh, ...curr].slice(0, MAX_ENTRIES));
     }, [text]);
 
-    useEffect(() => () => clearTimeout(copyResetRef.current), []);
-
-    const handleCopy = useCallback(
-        (e: React.MouseEvent) => {
-            e.stopPropagation();
-            // Export oldest-first so a pasted log reads top-to-bottom in chronological order, even
-            // though the panel shows newest-first. Turn headers export as readable dividers.
-            const chronological = splitLines(text).reverse().map(fightLogExportLine).join("\n");
-            if (!chronological) return;
-            void copyToClipboard(chronological);
-            setCopied(true);
-            clearTimeout(copyResetRef.current);
-            copyResetRef.current = setTimeout(() => setCopied(false), 1300);
-        },
-        [text],
-    );
-
     const hasEntries = entries.length > 0;
     const groups = useMemo(() => groupFightLogEntries(entries, (entry) => entry.text), [entries]);
     const newestEntryId = entries[0]?.id;
@@ -143,66 +101,9 @@ export const FightLog = ({ text }: { text: string }) => {
                 minHeight: "168px",
                 display: "flex",
                 flexDirection: "column",
+                textTransform: "uppercase",
             }}
         >
-            {hasEntries && (
-                <Box
-                    component="button"
-                    type="button"
-                    onClick={handleCopy}
-                    title={copied ? "Copied!" : "Copy fight log"}
-                    aria-label="Copy fight log"
-                    sx={{
-                        position: "absolute",
-                        top: "5px",
-                        right: "9px",
-                        zIndex: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: "20px",
-                        height: "20px",
-                        p: 0,
-                        cursor: "pointer",
-                        borderRadius: "5px",
-                        border: `1px solid ${copied ? "rgba(120, 220, 120, 0.7)" : "rgba(255, 143, 0, 0.35)"}`,
-                        backgroundColor: "rgba(8, 6, 4, 0.72)",
-                        color: copied ? "rgb(130, 230, 130)" : "rgba(255, 167, 64, 0.75)",
-                        opacity: 0.55,
-                        transition: "opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease",
-                        "&:hover": {
-                            opacity: 1,
-                            color: copied ? "rgb(150, 240, 150)" : "#FFB347",
-                            borderColor: copied ? "rgba(120, 220, 120, 0.9)" : "rgba(255, 143, 0, 0.7)",
-                        },
-                    }}
-                >
-                    {copied ? (
-                        // check
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path
-                                d="M20 6L9 17l-5-5"
-                                stroke="currentColor"
-                                strokeWidth="2.4"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </svg>
-                    ) : (
-                        // copy
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
-                            <path
-                                d="M5 15V5a2 2 0 0 1 2-2h10"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                    )}
-                </Box>
-            )}
-
             <Box
                 sx={{
                     width: "100%",
@@ -216,22 +117,24 @@ export const FightLog = ({ text }: { text: string }) => {
                     overflowX: "hidden",
                     // Contain wheel scrolling here so it doesn't bubble to the sidebar when over the log.
                     overscrollBehavior: "contain",
-                    borderRadius: 0,
-                    border: "1px solid rgba(255, 143, 0, 0.32)",
-                    // Dark ember well so the warm text glows against it.
-                    background: "linear-gradient(180deg, rgba(20, 12, 6, 0.66) 0%, rgba(10, 7, 4, 0.78) 100%)",
-                    boxShadow: "inset 0 0 18px rgba(0, 0, 0, 0.55)",
-                    py: "4px",
+                    border: "none",
+                    // Near-black worn leather behind the chronicle, matching the selected concept while
+                    // leaving the raised turn plaques and bronze event rail readable at sidebar scale.
+                    background:
+                        "radial-gradient(ellipse at 50% 0%, rgba(62, 37, 16, .14), transparent 52%), linear-gradient(180deg, rgba(10, 8, 6, .92), rgba(5, 5, 4, .96))",
+                    boxShadow: "inset 0 0 22px rgba(0, 0, 0, 0.78)",
+                    py: "5px",
                     // Thin, themed scrollbar (no chunky default, no resize grip).
                     scrollbarWidth: "thin",
-                    scrollbarColor: "rgba(255, 143, 0, 0.35) transparent",
+                    scrollbarColor: "rgba(124, 78, 27, .82) transparent",
                     "&::-webkit-scrollbar": { width: "6px" },
                     "&::-webkit-scrollbar-track": { background: "transparent" },
                     "&::-webkit-scrollbar-thumb": {
-                        backgroundColor: "rgba(255, 143, 0, 0.32)",
+                        backgroundColor: "rgba(124, 78, 27, .82)",
                         borderRadius: "3px",
+                        border: "1px solid rgba(205, 151, 67, .26)",
                     },
-                    "&::-webkit-scrollbar-thumb:hover": { backgroundColor: "rgba(255, 143, 0, 0.55)" },
+                    "&::-webkit-scrollbar-thumb:hover": { backgroundColor: "rgba(158, 101, 35, .9)" },
                 }}
             >
                 {!hasEntries ? (
@@ -252,27 +155,44 @@ export const FightLog = ({ text }: { text: string }) => {
                     groups.map((group, groupIdx) => (
                         <Box
                             key={group.headerEntry?.id ?? group.entries[0]?.id ?? `tail-${groupIdx}`}
-                            sx={{ pb: "1px" }}
+                            sx={{ pb: "4px" }}
                         >
                             {group.headerEntry && (
                                 <Box
                                     sx={{
                                         position: "relative",
-                                        mt: groupIdx === 0 ? 0 : "3px",
+                                        mt: groupIdx === 0 ? 0 : "5px",
+                                        mx: "5px",
                                         px: "10px",
-                                        py: "3px",
+                                        pr: "28px",
+                                        py: "5px",
                                         fontSize: "10.5px",
                                         fontWeight: 700,
                                         lineHeight: 1.3,
                                         letterSpacing: "0.05em",
-                                        color: "#FFC067",
+                                        color: "#d9b36c",
                                         whiteSpace: "normal",
                                         wordBreak: "break-word",
-                                        background:
-                                            "linear-gradient(90deg, rgba(255, 143, 0, 0.14) 0%, rgba(255, 143, 0, 0.03) 70%, transparent 100%)",
-                                        borderTop: "1px solid rgba(255, 143, 0, 0.18)",
-                                        // Same freshness rule as regular rows: only a newly-mounted header animates.
-                                        animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
+                                        // One even leather fill from edge to edge. A horizontal fade made the
+                                        // right half look unpainted beside the richer brown behind the label.
+                                        backgroundColor: "#311d0f",
+                                        backgroundImage: "none",
+                                        border: "1px solid rgba(118, 76, 30, .86)",
+                                        boxShadow:
+                                            "inset 0 1px 0 rgba(220, 177, 88, .13), inset 0 0 12px rgba(0,0,0,.56), 0 1px 3px rgba(0,0,0,.72)",
+                                        "&::after": {
+                                            content: '"⌄"',
+                                            position: "absolute",
+                                            right: "10px",
+                                            top: "50%",
+                                            transform: "translateY(-58%)",
+                                            fontSize: "13px",
+                                            fontWeight: 400,
+                                            color: "rgba(205,151,67,.72)",
+                                        },
+                                        // The plaque keeps its carved shadow after arriving; the regular ember
+                                        // animation replaces box-shadow, so headers use only the drop-in motion.
+                                        animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1)`,
                                     }}
                                 >
                                     {group.headerLabel}
@@ -285,18 +205,35 @@ export const FightLog = ({ text }: { text: string }) => {
                                         position: "relative",
                                         // Turn rows sit indented under their header, hanging off a faint
                                         // rail; the pre-turn block (no header) keeps the flush layout.
-                                        pl: group.headerEntry ? "16px" : "10px",
-                                        ml: group.headerEntry ? "6px" : 0,
-                                        borderLeft: group.headerEntry ? "1px solid rgba(255, 143, 0, 0.16)" : "none",
-                                        // Leave room on the newest row so the copy button never overlaps text.
-                                        pr: entry.id === newestEntryId ? "34px" : "10px",
-                                        py: "2.5px",
+                                        pl: group.headerEntry ? "23px" : "10px",
+                                        ml: group.headerEntry ? "14px" : 0,
+                                        borderLeft: group.headerEntry ? "1px solid rgba(148, 98, 37, .72)" : "none",
+                                        pr: "10px",
+                                        py: "3px",
                                         fontSize: "10.5px",
                                         lineHeight: 1.32,
                                         letterSpacing: "0.015em",
-                                        color: "rgba(255, 167, 64, 0.92)",
+                                        color: "rgba(220, 177, 100, .94)",
                                         whiteSpace: "normal",
                                         wordBreak: "break-word",
+                                        ...(group.headerEntry
+                                            ? {
+                                                  "&::before": {
+                                                      content: '""',
+                                                      position: "absolute",
+                                                      left: "-4px",
+                                                      top: "50%",
+                                                      width: "7px",
+                                                      height: "7px",
+                                                      borderRadius: "50%",
+                                                      border: "1px solid rgba(205,151,67,.78)",
+                                                      background:
+                                                          "radial-gradient(circle, #d6a44b 0 24%, #3c270f 28% 58%, #0c0905 62%)",
+                                                      boxShadow: "0 0 0 1px rgba(0,0,0,.72)",
+                                                      transform: "translateY(-50%)",
+                                                  },
+                                              }
+                                            : {}),
                                         // The very newest line glows a touch hotter than the rest.
                                         ...(entry.id === newestEntryId
                                             ? {
@@ -309,7 +246,7 @@ export const FightLog = ({ text }: { text: string }) => {
                                         animation: `${rowAppear} 280ms cubic-bezier(0.22, 1, 0.36, 1), ${emberFlash} 1200ms ease-out`,
                                     }}
                                 >
-                                    {entry.text}
+                                    {formatFightLogLine(entry.text)}
                                 </Box>
                             ))}
                         </Box>

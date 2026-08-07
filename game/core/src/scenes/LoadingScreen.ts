@@ -8,12 +8,19 @@ const DRAGON_MEDALLION_URL = images.loading_screen_dragon_medallion;
 
 const ART_WIDTH = 1672;
 const ART_HEIGHT = 941;
-const TRACK_X = 510;
+const TRACK_X = 445;
 const TRACK_Y = 744;
-const TRACK_WIDTH = 652;
+const TRACK_WIDTH = 757;
 const TRACK_HEIGHT = 27;
-const MEDALLION_ASSET_SIZE = 100;
+const MEDALLION_ASSET_SIZE = 65;
+const MEDALLION_PATH_START_X = 500;
+const MEDALLION_PATH_END_X = 1200;
 const LABEL_Y = 821;
+
+export function loadingMedallionXForProgress(progress: number): number {
+    const clampedProgress = Math.max(0, Math.min(1, progress));
+    return MEDALLION_PATH_START_X + (MEDALLION_PATH_END_X - MEDALLION_PATH_START_X) * clampedProgress;
+}
 
 export class LoadingScreen extends Container {
     private readonly viewportBackground = new Graphics();
@@ -104,7 +111,7 @@ export class LoadingScreen extends Container {
             this.lavaMask.rect(TRACK_X, TRACK_Y, fillWidth, TRACK_HEIGHT).fill(0xffffff);
         }
 
-        this.dragonMedallion.position.set(TRACK_X + fillWidth, TRACK_Y + TRACK_HEIGHT / 2);
+        this.dragonMedallion.position.set(loadingMedallionXForProgress(this.progress), TRACK_Y + TRACK_HEIGHT / 2);
         this.dragonMedallion.rotation = this.progress * Math.PI * 4;
         this.loadingLabel.text = `FORGING THE BATTLEFIELD   ${Math.round(this.progress * 100)}%`;
     }

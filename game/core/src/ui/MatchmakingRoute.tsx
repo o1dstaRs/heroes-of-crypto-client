@@ -35,7 +35,7 @@ type MatchmakingState = "idle" | "searching" | "confirming" | "accepted" | "star
 const STORAGE_KEY = "accessToken";
 
 const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.events);
-const rankedBackgroundUrl = new URL("../../images/background_dark.webp", import.meta.url).toString();
+const rankedBackgroundUrl = new URL("../../images/pick_phase_obsidian_background.webp", import.meta.url).toString();
 
 /** m:ss for a queue wait (h:mm:ss past the hour, which realistically never happens). */
 const formatQueueDuration = (totalSeconds: number): string => {
@@ -476,11 +476,12 @@ export const MatchmakingRoute: React.FC = () => {
                 position: "fixed",
                 inset: 0,
                 overflowY: "auto",
-                bgcolor: hocColors.black,
+                bgcolor: "#050504",
                 color: hocColors.parchment,
-                backgroundImage: `linear-gradient(105deg, rgba(7,5,4,0.97) 0%, rgba(7,5,4,0.88) 46%, rgba(7,5,4,0.95) 100%), url(${rankedBackgroundUrl})`,
+                backgroundImage: `url(${rankedBackgroundUrl})`,
                 backgroundPosition: "center",
                 backgroundSize: "cover",
+                backgroundRepeat: "no-repeat",
                 "@keyframes arenaPulse": {
                     "0%": { transform: "scale(0.7)", opacity: 0.58 },
                     "70%, 100%": { transform: "scale(1.35)", opacity: 0 },

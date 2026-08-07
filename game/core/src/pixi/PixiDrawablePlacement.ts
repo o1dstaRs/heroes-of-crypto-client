@@ -1,4 +1,4 @@
-import { Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { Graphics, NineSliceSprite, Texture } from "pixi.js";
 import {
     GridSettings,
     SquarePlacement,
@@ -23,16 +23,61 @@ export function setSpawnFlowPhase(phase: number): void {
 
 const SPAWN_COLOR_FRIENDLY = 0x27e34f;
 const SPAWN_COLOR_HOSTILE = 0xff3b30;
-const REFERENCE_CELL_PX = 69;
-
 const spawnColor = (team: TeamType): number => (isFriendlyTeam(team) ? SPAWN_COLOR_FRIENDLY : SPAWN_COLOR_HOSTILE);
+
+interface FrameSizeTuning {
+    fitPlacementBounds: boolean;
+    widthScale: number;
+    heightScale: number;
+    leftInset: number;
+    extendLeft: number;
+    extendTop: number;
+    extendBottom: number;
+}
+
+interface FrameBounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+const FRAME_TUNING_BY_ROWS: Record<number, FrameSizeTuning> = {
+    3: {
+        fitPlacementBounds: false,
+        widthScale: 0.9 * 1.05 * 1.042,
+        heightScale: 0.9,
+        leftInset: 0.003,
+        extendLeft: 0,
+        extendTop: 0,
+        extendBottom: 0,
+    },
+    4: {
+        fitPlacementBounds: true,
+        widthScale: 1,
+        heightScale: 1,
+        leftInset: 0,
+        extendLeft: 0,
+        extendTop: 0,
+        extendBottom: 0,
+    },
+    6: {
+        fitPlacementBounds: true,
+        widthScale: 1,
+        heightScale: 1,
+        leftInset: 0,
+        extendLeft: 0,
+        extendTop: 0,
+        extendBottom: 0,
+    },
+};
 
 function hash2(x: number, y: number): number {
     const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
     return s - Math.floor(s);
 }
 
-/** Draws only the subtle transparent tint inside legal cells. Border light comes exclusively from images. */
+/** Draws only the subtle transparent tint inside legal cells; the strict outer frame is rendered separately. */
 function drawSpawnCellBackgrounds(
     gfx: Graphics,
     step: number,
@@ -64,8 +109,8 @@ function drawSpawnCellBackgrounds(
     }
 }
 
-/** Adds a restrained animated halo centred on the four outer edges without changing internal grid lines. */
-function drawOuterContourGlow(
+/** Draws broad translucent light between cells without a sharp line at the centre of the glow. */
+function drawInnerGridGlow(
     gfx: Graphics,
     step: number,
     xLeft: number,
@@ -74,186 +119,262 @@ function drawOuterContourGlow(
     yUpper: number,
     baseColor: number,
 ): void {
-    const width = xRight - xLeft;
-    const height = yUpper - yLower;
-    const cornerRadius = Math.max(3, step * 0.12);
-    // The four primary perimeter lines sit 15% below their previous opacity, so the deployment boundary
-    // still reads clearly without overpowering the cell grid underneath it.
-    const coreBaseAlpha = 0.16 * 0.85;
+    const columns = Math.round((xRight - xLeft) / step);
+    const rows = Math.round((yUpper - yLower) / step);
 
-    const waveAt = (distance: number, edgePhase: number, layerPhase: number): number => {
-        const cellDistance = distance / step;
-        const slowWave = Math.sin((cellDistance * Math.PI * 2) / 3.4 + spawnFlowPhase * 2.8 + edgePhase + layerPhase);
-        const detailWave = Math.sin(
-            (cellDistance * Math.PI * 2) / 1.55 - spawnFlowPhase * 1.65 + edgePhase * 1.7 - layerPhase,
-        );
-        return (slowWave + detailWave * 0.34) / 1.34;
+    const strokeGlow = (x1: number, y1: number, x2: number, y2: number): void => {
+        // Neither layer is a crisp core: the overlapping soft-width bands read only as emitted light.
+        gfx.moveTo(x1, y1)
+            .lineTo(x2, y2)
+            .stroke({ color: baseColor, width: Math.max(8, step * 0.16), alpha: 0.018 });
+        gfx.moveTo(x1, y1)
+            .lineTo(x2, y2)
+            .stroke({ color: baseColor, width: Math.max(4, step * 0.085), alpha: 0.034 });
     };
 
-    const drawWavyAura = (strokeWidth: number, alpha: number, amplitude: number, layerPhase: number): void => {
-        const horizontalLength = width;
-        const verticalLength = height;
-        const horizontalSegments = Math.max(12, Math.ceil(horizontalLength / Math.max(5, step * 0.12)));
-        const verticalSegments = Math.max(8, Math.ceil(verticalLength / Math.max(5, step * 0.12)));
-
-        const strokeHorizontal = (isBottom: boolean, edgePhase: number): void => {
-            for (let segment = 0; segment <= horizontalSegments; segment++) {
-                const distance = (horizontalLength * segment) / horizontalSegments;
-                const x = xLeft + distance;
-                const wave = waveAt(distance, edgePhase, layerPhase) * amplitude;
-                const y = isBottom ? yUpper - wave : yLower + wave;
-                if (segment === 0) gfx.moveTo(x, y);
-                else gfx.lineTo(x, y);
-            }
-            gfx.stroke({ color: baseColor, width: strokeWidth, alpha });
-        };
-
-        const strokeVertical = (isRight: boolean, edgePhase: number): void => {
-            for (let segment = 0; segment <= verticalSegments; segment++) {
-                const distance = (verticalLength * segment) / verticalSegments;
-                const y = yLower + distance;
-                const wave = waveAt(distance, edgePhase, layerPhase) * amplitude;
-                const x = isRight ? xRight - wave : xLeft + wave;
-                if (segment === 0) gfx.moveTo(x, y);
-                else gfx.lineTo(x, y);
-            }
-            gfx.stroke({ color: baseColor, width: strokeWidth, alpha });
-        };
-
-        strokeHorizontal(false, 0.15);
-        strokeHorizontal(true, 2.35);
-        strokeVertical(false, 1.2);
-        strokeVertical(true, 3.55);
-    };
-
-    const drawInsideStroke = (strokeWidth: number, alpha: number): void => {
-        const inset = strokeWidth * 0.5;
-        gfx.roundRect(
-            xLeft + inset,
-            yLower + inset,
-            width - strokeWidth,
-            height - strokeWidth,
-            Math.max(1, cornerRadius - inset),
-        ).stroke({ color: baseColor, width: strokeWidth, alpha });
-    };
-
-    // Only the background aura moves. Its centre path follows the exact outer boundary, distributing the
-    // unchanged glow envelope equally inside and outside the straight line. The bright core stays flat.
-    drawWavyAura(Math.max(9.36, step * 0.234), 0.0338, step * 0.055, 0);
-    drawWavyAura(Math.max(4.68, step * 0.12285), 0.078, step * 0.034, 1.1);
-    drawInsideStroke(Math.max(1.15, step * 0.022), coreBaseAlpha * 1.1);
+    for (let column = 1; column < columns; column++) {
+        const x = xLeft + column * step;
+        strokeGlow(x, yLower, x, yUpper);
+    }
+    for (let row = 1; row < rows; row++) {
+        const y = yLower + row * step;
+        strokeGlow(xLeft, y, xRight, y);
+    }
 }
 
-/**
- * Every field size is a literal crop of one pre-baked 16×6 master. This keeps line alpha and width identical
- * across placement upgrades while the texture frame provides a hard clip at the legal field boundary.
- */
-function attachReferenceGrid(
-    gfx: Graphics,
-    existingGrid: Sprite | undefined,
+function getReferenceFrameBounds(
     step: number,
+    placementSize: number,
     xLeft: number,
     yLower: number,
     xRight: number,
     yUpper: number,
-    baseColor: number,
-    cropColumn: number,
-    cropRow: number,
-): Sprite {
-    const columns = Math.round((xRight - xLeft) / step);
-    const rows = Math.round((yUpper - yLower) / step);
-    const grid =
-        existingGrid ??
-        new Sprite(
-            new Texture({
-                source: Texture.from(images.deployment_grid_glow_master_16x6).source,
-                frame: new Rectangle(
-                    cropColumn * REFERENCE_CELL_PX,
-                    cropRow * REFERENCE_CELL_PX,
-                    columns * REFERENCE_CELL_PX,
-                    rows * REFERENCE_CELL_PX,
-                ),
-            }),
-        );
+): FrameBounds {
+    const tuning = FRAME_TUNING_BY_ROWS[placementSize] ?? FRAME_TUNING_BY_ROWS[3];
 
-    grid.position.set(xLeft, yLower);
-    grid.scale.set(step / REFERENCE_CELL_PX);
-    grid.tint = baseColor;
-    grid.alpha = 0.96;
-    grid.blendMode = "add";
+    if (tuning.fitPlacementBounds) {
+        return { x: xLeft, y: yLower, width: xRight - xLeft, height: yUpper - yLower };
+    }
 
-    if (grid.parent !== gfx) gfx.addChild(grid);
-    return grid;
+    const pad = step * 0.2;
+    const fullWidth = (xRight - xLeft + pad * 2) * tuning.widthScale;
+    const baseWidth = fullWidth * (1 - tuning.leftInset);
+    const baseHeight = (yUpper - yLower + pad * 2) * tuning.heightScale;
+    const extendLeft = baseWidth * tuning.extendLeft;
+    const extendTop = baseHeight * tuning.extendTop;
+    const extendBottom = baseHeight * tuning.extendBottom;
+    const centerX = (xLeft + xRight) / 2;
+    const centerY = (yLower + yUpper) / 2;
+
+    return {
+        x: centerX - fullWidth / 2 + fullWidth * tuning.leftInset - extendLeft,
+        y: centerY - baseHeight / 2 - extendTop,
+        width: baseWidth + extendLeft,
+        height: baseHeight + extendTop + extendBottom,
+    };
+}
+
+/** Draws a softly moving, irregular aura around the calibrated outer perimeter. */
+function drawOuterFrameGlow(gfx: Graphics, step: number, bounds: FrameBounds, baseColor: number): void {
+    const pulse = 0.9 + ((Math.sin(spawnFlowPhase * 1.18) + 1) / 2) * 0.1;
+    const edges = [
+        { x1: bounds.x, y1: bounds.y, x2: bounds.x + bounds.width, y2: bounds.y, nx: 0, ny: -1 },
+        {
+            x1: bounds.x + bounds.width,
+            y1: bounds.y,
+            x2: bounds.x + bounds.width,
+            y2: bounds.y + bounds.height,
+            nx: 1,
+            ny: 0,
+        },
+        {
+            x1: bounds.x + bounds.width,
+            y1: bounds.y + bounds.height,
+            x2: bounds.x,
+            y2: bounds.y + bounds.height,
+            nx: 0,
+            ny: 1,
+        },
+        { x1: bounds.x, y1: bounds.y + bounds.height, x2: bounds.x, y2: bounds.y, nx: -1, ny: 0 },
+    ];
+    const layers = [
+        { width: Math.max(18, step * 0.34), alpha: 0.022, amplitude: step * 0.027, phase: 0 },
+        { width: Math.max(11, step * 0.22), alpha: 0.034, amplitude: step * 0.02, phase: 1.7 },
+        { width: Math.max(6, step * 0.12), alpha: 0.05, amplitude: step * 0.013, phase: 3.1 },
+    ];
+
+    const traceEdge = (
+        edge: (typeof edges)[number],
+        edgeIndex: number,
+        strokeWidth: number,
+        alpha: number,
+        amplitude: number,
+        layerPhase: number,
+        from = 0,
+        to = 1,
+    ): void => {
+        const dx = edge.x2 - edge.x1;
+        const dy = edge.y2 - edge.y1;
+        const length = Math.hypot(dx, dy);
+        const samples = Math.max(3, Math.ceil(((to - from) * length) / Math.max(8, step * 0.18)));
+
+        for (let sample = 0; sample <= samples; sample++) {
+            const t = from + ((to - from) * sample) / samples;
+            const distance = t * length;
+            const wave =
+                Math.sin(distance / (step * 0.72) + spawnFlowPhase * 1.45 + edgeIndex * 1.9 + layerPhase) * amplitude +
+                Math.sin(distance / (step * 0.31) - spawnFlowPhase * 0.82 + edgeIndex + layerPhase * 0.7) *
+                    amplitude *
+                    0.32;
+            // A 10% outward centre offset gives the requested 60%/40% outer/inner spread.
+            const normalOffset = strokeWidth * 0.1 + wave;
+            const x = edge.x1 + dx * t + edge.nx * normalOffset;
+            const y = edge.y1 + dy * t + edge.ny * normalOffset;
+            if (sample === 0) gfx.moveTo(x, y);
+            else gfx.lineTo(x, y);
+        }
+        gfx.stroke({ color: baseColor, width: strokeWidth, alpha: alpha * pulse });
+    };
+
+    edges.forEach((edge, edgeIndex) => {
+        layers.forEach((layer) => {
+            traceEdge(edge, edgeIndex, layer.width, layer.alpha, layer.amplitude, layer.phase);
+        });
+
+        // Three dim highlights drift at different speeds, breaking up the otherwise even halo.
+        for (let accent = 0; accent < 3; accent++) {
+            const center =
+                (((spawnFlowPhase * (0.035 + accent * 0.009) + accent * 0.31 + edgeIndex * 0.17) % 1) + 1) % 1;
+            const halfLength = 0.035 + accent * 0.012;
+            const from = Math.max(0, center - halfLength);
+            const to = Math.min(1, center + halfLength);
+            traceEdge(
+                edge,
+                edgeIndex,
+                Math.max(9, step * (0.15 + accent * 0.015)),
+                0.022 + accent * 0.005,
+                step * 0.018,
+                accent * 1.4,
+                from,
+                to,
+            );
+        }
+    });
+}
+
+/** Places the literal spectral perimeter extracted from the selected reference screenshot. */
+function attachReferenceFrame(
+    gfx: Graphics,
+    existing: NineSliceSprite | undefined,
+    step: number,
+    placementSize: number,
+    xLeft: number,
+    yLower: number,
+    xRight: number,
+    yUpper: number,
+    friendly: boolean,
+): NineSliceSprite {
+    const thicknessScale = 1;
+    const bounds = getReferenceFrameBounds(step, placementSize, xLeft, yLower, xRight, yUpper);
+    const texture = Texture.from(
+        friendly ? images.deployment_frame_reference_green : images.deployment_frame_reference_red,
+    );
+    const frame =
+        existing ??
+        new NineSliceSprite({
+            texture,
+            leftWidth: 28 * thicknessScale,
+            rightWidth: 28 * thicknessScale,
+            topHeight: 28 * thicknessScale,
+            bottomHeight: 28 * thicknessScale,
+        });
+
+    if (frame.texture !== texture) frame.texture = texture;
+    frame.leftWidth = 28 * thicknessScale;
+    frame.rightWidth = 28 * thicknessScale;
+    frame.topHeight = 28 * thicknessScale;
+    frame.bottomHeight = 28 * thicknessScale;
+
+    frame.position.set(bounds.x, bounds.y);
+    frame.width = bounds.width;
+    frame.height = bounds.height;
+    frame.alpha = 0.92 + ((Math.sin(spawnFlowPhase * 1.35) + 1) / 2) * 0.06;
+    frame.blendMode = "add";
+    frame.eventMode = "none";
+
+    // SandboxDrawer removes transient placement children each frame, so the cached sprite is reattached.
+    if (frame.parent !== gfx) gfx.addChild(frame);
+    return frame;
 }
 
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly step: number;
-    private readonly cropColumn: number;
-    private readonly cropRow: number;
-    private referenceGrid?: Sprite;
+    private referenceFrame?: NineSliceSprite;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
         this.step = gs.getStep();
-        const isLower = pos === PlacementPositionType.LOWER_RIGHT || pos === PlacementPositionType.LOWER_LEFT;
-        const masterYLower = isLower ? gs.getMinY() : gs.getMaxY() - 6 * this.step;
-        this.cropColumn = Math.round((this.xLeft - gs.getMinX()) / this.step);
-        this.cropRow = Math.round((this.yLower - masterYLower) / this.step);
     }
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
-        const fillColor = spawnColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
+        const team = isLower ? TeamVals.LOWER : TeamVals.UPPER;
+        const fillColor = spawnColor(team);
 
         drawSpawnCellBackgrounds(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
-        drawOuterContourGlow(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
-        this.referenceGrid = attachReferenceGrid(
+        drawInnerGridGlow(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+        drawOuterFrameGlow(
             gfx,
-            this.referenceGrid,
             this.step,
+            getReferenceFrameBounds(this.step, this.getSize(), this.xLeft, this.yLower, this.xRight, this.yUpper),
+            fillColor,
+        );
+        this.referenceFrame = attachReferenceFrame(
+            gfx,
+            this.referenceFrame,
+            this.step,
+            this.getSize(),
             this.xLeft,
             this.yLower,
             this.xRight,
             this.yUpper,
-            fillColor,
-            this.cropColumn,
-            this.cropRow,
+            isFriendlyTeam(team),
         );
     }
 }
 
 export class DrawableRectanglePlacement extends RectanglePlacement implements IDrawablePlacement {
     private readonly step: number;
-    private readonly cropColumn: number;
-    private readonly cropRow: number;
-    private referenceGrid?: Sprite;
+    private referenceFrame?: NineSliceSprite;
     public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
         super(gs, pos, size);
         this.step = gs.getStep();
-        const isLower = pos === PlacementPositionType.LOWER_RIGHT || pos === PlacementPositionType.LOWER_LEFT;
-        const masterYLower = isLower ? gs.getMinY() : gs.getMaxY() - 6 * this.step;
-        this.cropColumn = Math.round((this.xLeft - gs.getMinX()) / this.step);
-        this.cropRow = Math.round((this.yLower - masterYLower) / this.step);
     }
     public draw(gfx: Graphics): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
-        const fillColor = spawnColor(isLower ? TeamVals.LOWER : TeamVals.UPPER);
+        const team = isLower ? TeamVals.LOWER : TeamVals.UPPER;
+        const fillColor = spawnColor(team);
 
         drawSpawnCellBackgrounds(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
-        drawOuterContourGlow(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
-        this.referenceGrid = attachReferenceGrid(
+        drawInnerGridGlow(gfx, this.step, this.xLeft, this.yLower, this.xRight, this.yUpper, fillColor);
+        drawOuterFrameGlow(
             gfx,
-            this.referenceGrid,
             this.step,
+            getReferenceFrameBounds(this.step, this.getSize(), this.xLeft, this.yLower, this.xRight, this.yUpper),
+            fillColor,
+        );
+        this.referenceFrame = attachReferenceFrame(
+            gfx,
+            this.referenceFrame,
+            this.step,
+            this.getSize(),
             this.xLeft,
             this.yLower,
             this.xRight,
             this.yUpper,
-            fillColor,
-            this.cropColumn,
-            this.cropRow,
+            isFriendlyTeam(team),
         );
     }
 }

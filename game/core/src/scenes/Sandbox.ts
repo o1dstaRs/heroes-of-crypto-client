@@ -12173,6 +12173,7 @@ export class Sandbox extends PixiScene {
 
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
+            rUnit.setHoverTurnAura(!fightProps.hasFightStarted() && this.hoverManager.hoveredUnitId === rUnit.getId());
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
             // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
             rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());

@@ -94,10 +94,36 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
                     <Box
                         sx={{
                             mt: 0.4,
-                            height: 7,
-                            borderRadius: 4,
-                            backgroundColor: "rgba(255,255,255,0.10)",
-                            overflow: "hidden",
+                            height: 11,
+                            position: "relative",
+                            mx: 0.5,
+                            border: "3px solid #6b3a10",
+                            backgroundColor: "rgba(4,3,2,.72)",
+                            boxShadow: "inset 0 0 0 1px rgba(205,128,35,.18), 0 1px 2px rgba(0,0,0,.65)",
+                            "&::before": {
+                                content: '\"\"',
+                                position: "absolute",
+                                left: -8,
+                                top: "50%",
+                                width: 10,
+                                height: 10,
+                                transform: "translateY(-50%) rotate(45deg)",
+                                backgroundColor: "#17100a",
+                                border: "3px solid #6b3a10",
+                                boxSizing: "border-box",
+                            },
+                            "&::after": {
+                                content: '\"\"',
+                                position: "absolute",
+                                right: -8,
+                                top: "50%",
+                                width: 10,
+                                height: 10,
+                                transform: "translateY(-50%) rotate(45deg)",
+                                backgroundColor: "#17100a",
+                                border: "3px solid #6b3a10",
+                                boxSizing: "border-box",
+                            },
                         }}
                     >
                         <Box
@@ -107,9 +133,10 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
                             transition={{ duration: 0.7, delay: 0.1 + Math.min(index, 12) * 0.04, ease: "easeOut" }}
                             sx={{
                                 height: "100%",
-                                borderRadius: 4,
+                                position: "relative",
+                                zIndex: 1,
                                 backgroundColor: color,
-                                boxShadow: `0 0 6px ${color}`,
+                                boxShadow: `inset 0 1px rgba(255,255,255,.35), 0 0 5px ${color}88`,
                             }}
                         />
                     </Box>

@@ -260,26 +260,19 @@ export class DungeonVisuals {
     /** Cached 2x2 quarter textures of the mountain sprite, built once per source texture. */
     private mountainQuarterTextures?: { source: Texture; quarters: Texture[] };
     /**
-     * The scattered-object art: 8 tombstones in a 4x2 atlas of 64x83 tiles, cut out of their painted ground
-     * so only the stone itself is drawn — the board's own floor shows through around it, which is what makes
-     * one read as an object standing on a cell rather than a square of scenery pasted over it.
-     *
-     * The cut is hand-made. Every automatic matte tried here failed the same way: the stone's dark faces are
-     * exactly as dark as the shadowed floor and its lit tops exactly as warm as the lit floor, so no
-     * threshold on brightness, warmth or distance-to-background separates them without eating the stone.
-     *
-     * Scaling MUST premultiply alpha (see setScatteredMountains' caller): under the transparent pixels the
-     * source still carries floor colour, and a plain resize blends it into the edge as a pale halo.
+     * The scattered-object art: 8 high-resolution tombstones in a 4x2 atlas of 256x332 transparent tiles.
+     * Only the stone is drawn, so the board's own floor and foreground fog show through around every
+     * silhouette. Nine obstacle slots deal all eight tiles once, then repeat one randomly selected tile.
      */
-    private static readonly MOUNTAIN_TILES_KEY = "tombstone_tiles_64_atlas";
+    private static readonly MOUNTAIN_TILES_KEY = "tombstone_tiles_256_atlas";
     /** One cell wide; taller than it is wide, and the surplus is the part that overhangs (see below). */
-    private static readonly MOUNTAIN_TILE_W = 64;
-    private static readonly MOUNTAIN_TILE_H = 83;
+    private static readonly MOUNTAIN_TILE_W = 256;
+    private static readonly MOUNTAIN_TILE_H = 332;
     private static readonly MOUNTAIN_TILE_COLS = 4;
     private static readonly MOUNTAIN_TILE_COUNT = 8;
     private mountainTileTextures?: Texture[];
     /**
-     * How tall the rock is drawn, in cells — and it must match the atlas tile's own aspect (64x83), which is
+     * How tall the rock is drawn, in cells — and it must match the atlas tile's own aspect (256x332), which is
      * where the overhang is baked. Width stays exactly one cell: this is a stretch upward, not a uniform
      * blow-up, because growing both axes fattens the boulder into its neighbours sideways.
      *
@@ -287,9 +280,13 @@ export class DungeonVisuals {
      * tile's square backing went up with it and every mountain read as a tall block sitting in two cells
      * instead of a peak leaning into the one above.
      */
-    private static readonly MOUNTAIN_HEIGHT_CELLS = 83 / 64;
-    /** How far the occupied cell is darkened, under the stone. */
-    private static readonly MOUNTAIN_CELL_SHADE = 0.35;
+    private static readonly MOUNTAIN_HEIGHT_CELLS = 332 / 256;
+    /** Lift the art slightly inside its occupied square, without changing the logical obstacle cell. */
+    private static readonly MOUNTAIN_VERTICAL_OFFSET_CELLS = 0.05;
+    /** Keep the recessed tombstone panel just inside the floor tile's visible grout. */
+    private static readonly MOUNTAIN_CELL_PANEL_SIZE = 0.965;
+    /** Recover the small visual gap on the panel's right edge without moving its other three sides. */
+    private static readonly MOUNTAIN_CELL_PANEL_RIGHT_EXTENSION = 0.02;
     /** One entry per standing mountain: which cell it occupies and which variant it wears. */
     private scatteredMountains: IScatteredMountain[] = [];
     /** Stays true after the final tombstone dies, so the removed classic mountains never become a fallback. */
@@ -297,18 +294,20 @@ export class DungeonVisuals {
     private scatteredMountainSprites: Sprite[] = [];
     /** One shade per occupied cell, drawn under its stone. */
     private scatteredMountainShades: Graphics[] = [];
-    /** White alpha-silhouette rings per stone, exposed only while that stone is targeted. */
+    /** Matte plugs behind intentional cut-outs, preventing animated board/fog from showing through. */
+    private scatteredMountainGapBackings: Graphics[] = [];
+    /** Red alpha-silhouette rings per stone, exposed only while that stone is targeted. */
     private scatteredMountainOutlines: Container[] = [];
-    private tombstoneWhiteFilter?: ColorMatrixFilter;
-    private tombstoneColorFilter?: ColorMatrixFilter;
+    private tombstoneRedFilter?: ColorMatrixFilter;
+    private tombstoneBrightnessFilter?: ColorMatrixFilter;
     /** One single-pip HP rail per tombstone: every scattered stone takes exactly one hit. */
     private scatteredMountainHitBars: Graphics[] = [];
     private narrowingLayers = 0;
     /**
      * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 5s loop at 12fps.
      *
-     * The artwork is one 4x4 block of cells. Its original, softly glowing grout stays inside one sprite;
-     * only the block's outer footprint is inset slightly so it does not touch the surrounding stone rim.
+     * The artwork is one 4x4 block of cells. Its original, softly glowing grout stays inside one sprite,
+     * while the outer footprint reaches the visible seams of the four-by-four obstacle.
      *
      * The loop is closed with a cross-dissolve rather than a hard cut: measured, the wrap now differs by
      * 0.83/255 against 1.63 for an ordinary frame step, so the repeat is less of a change than the
@@ -319,8 +318,10 @@ export class DungeonVisuals {
     private static readonly LAVA_ANIM_COLS = 8;
     private static readonly LAVA_ANIM_FRAMES = 60;
     private static readonly LAVA_ANIM_FPS = 12;
-    /** Slightly inset inside the logical 4x4 obstacle; the atlas's original internal grout is preserved. */
-    private static readonly LAVA_POOL_DRAW_CELLS = 3.86;
+    /** Recover 1% at the right and another 0.5% at the left from the original 3% horizontal inset. */
+    private static readonly LAVA_POOL_DRAW_WIDTH_CELLS = 4 * 0.985;
+    private static readonly LAVA_POOL_DRAW_HEIGHT_CELLS = 4 * 0.99;
+    private static readonly LAVA_POOL_SHIFT_RIGHT_CELLS = 4 * 0.0025;
     private lavaAnimFrames?: Texture[];
     public constructor(context: IDungeonVisualsContext) {
         this.context = context;
@@ -487,6 +488,11 @@ export class DungeonVisuals {
             if (!atlas) {
                 return undefined;
             }
+            // The source art is intentionally much larger than a board cell. Linear mip sampling keeps
+            // its fine stonework stable while the responsive board scales; without it, nearby texels
+            // alternately win from frame to frame and read as a moving highlight on a static tombstone.
+            atlas.source.autoGenerateMipmaps = true;
+            atlas.source.scaleMode = "linear";
             const tileW = DungeonVisuals.MOUNTAIN_TILE_W;
             const tileH = DungeonVisuals.MOUNTAIN_TILE_H;
             const frames: Texture[] = [];
@@ -575,35 +581,39 @@ export class DungeonVisuals {
         for (const shade of this.scatteredMountainShades) {
             shade.destroy();
         }
+        for (const backing of this.scatteredMountainGapBackings) {
+            backing.destroy();
+        }
         this.scatteredMountainSprites = [];
         this.scatteredMountainOutlines = [];
         this.scatteredMountainHitBars = [];
         this.scatteredMountainShades = [];
+        this.scatteredMountainGapBackings = [];
         const tiles = this.mountainTiles();
         if (!tiles?.length || !this.scatteredMountains.length) {
             return;
         }
         const gs = this.context.getGridSettings();
         const cellSize = gs.getCellSize();
-        if (!this.tombstoneWhiteFilter) {
-            this.tombstoneWhiteFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
-            // Replace RGB with warm white while preserving the texture's alpha exactly. Sprite.tint cannot
-            // do this: white tint merely multiplies the original dark stone and therefore stays dark.
-            this.tombstoneWhiteFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.99, 0, 0, 0, 0, 0.95, 0, 0, 0, 1, 0];
+        if (!this.tombstoneRedFilter) {
+            this.tombstoneRedFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
+            // Replace RGB with vivid red while preserving the texture's alpha exactly, producing a clean
+            // silhouette around the selected grave slab rather than tinting its interior.
+            this.tombstoneRedFilter.matrix = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0.06, 0, 0, 0, 0, 0.025, 0, 0, 0, 1, 0];
         }
-        if (!this.tombstoneColorFilter) {
-            this.tombstoneColorFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
-            // ASH treatment: lift the dark atlas into a cool slate-grey range, with progressively more blue
-            // in the shadows and midtones. The steeper response keeps carved recesses and chipped edges crisp
-            // instead of flattening the whole tombstone into one pale value. Alpha remains untouched.
-            this.tombstoneColorFilter.matrix = [
-                1.16, 0.05, 0.02, 0, 0.105, 0.04, 1.17, 0.03, 0, 0.12, 0.03, 0.06, 1.18, 0, 0.15, 0, 0, 0, 1, 0,
+        if (!this.tombstoneBrightnessFilter) {
+            this.tombstoneBrightnessFilter = new ColorMatrixFilter({
+                resolution: "inherit",
+                antialias: "inherit",
+            });
+            this.tombstoneBrightnessFilter.matrix = [
+                1.25, 0, 0, 0, 0, 0, 1.25, 0, 0, 0, 0, 0, 1.25, 0, 0, 0, 0, 0, 1, 0,
             ];
         }
         const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
         // Stand the rock on the cell's floor: the sprite is anchored at its middle, so lifting it by half
         // the surplus puts its base exactly on the cell's bottom edge and every extra pixel above it.
-        const riseUp = (drawnHeight - cellSize) * 0.5;
+        const riseUp = (drawnHeight - cellSize) * 0.5 + cellSize * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS;
         for (const mountain of this.scatteredMountains) {
             const tileIndex = ((mountain.variant % tiles.length) + tiles.length) % tiles.length;
             const tex = tiles[tileIndex];
@@ -614,30 +624,67 @@ export class DungeonVisuals {
                 gs.getHalfStep(),
             );
 
-            // Shade the occupied square before the stone goes on it: an object standing on a cell throws
-            // the cell into shadow, and it also tells the player at a glance which square is taken — the
-            // silhouette alone is ambiguous once it leans into the row above. Sits under every stone (49),
-            // so a nearer stone's overhang still covers a farther cell's shade.
+            // A recessed stone panel replaces the old flat black shade. It fills the visible floor tile up
+            // to its grout, while the two restrained rims make the occupied square read as intentionally
+            // built into the dungeon rather than as a translucent rectangle laid over the board.
             const shade = new Graphics();
-            shade.rect(at.x - cellSize * 0.5, at.y - cellSize * 0.5, cellSize, cellSize);
-            shade.fill({ color: 0x000000, alpha: DungeonVisuals.MOUNTAIN_CELL_SHADE });
+            const panelSize = cellSize * DungeonVisuals.MOUNTAIN_CELL_PANEL_SIZE;
+            const panelWidth = panelSize + cellSize * DungeonVisuals.MOUNTAIN_CELL_PANEL_RIGHT_EXTENSION;
+            const panelLeft = at.x - panelSize * 0.5;
+            const panelBottom = at.y - panelSize * 0.5;
+            const outerRadius = Math.max(1, cellSize * 0.025);
+            const innerInset = Math.max(1.25, cellSize * 0.032);
+            shade
+                .roundRect(panelLeft, panelBottom, panelWidth, panelSize, outerRadius)
+                .fill({ color: 0x2c2e30, alpha: 0.48 })
+                .stroke({ color: 0x020304, alpha: 0.6, width: Math.max(1, cellSize * 0.014) });
+            shade
+                .roundRect(
+                    panelLeft + innerInset,
+                    panelBottom + innerInset,
+                    panelWidth - innerInset * 2,
+                    panelSize - innerInset * 2,
+                    Math.max(0.5, outerRadius * 0.55),
+                )
+                .stroke({ color: 0x343943, alpha: 0.14, width: Math.max(0.75, cellSize * 0.008) });
             this.context.attachToWorldRoot(shade, 49);
             this.scatteredMountainShades.push(shade);
 
             const sprite = new Sprite(tex);
             sprite.anchor.set(0.5);
-            sprite.roundPixels = true;
+            sprite.filters = [this.tombstoneBrightnessFilter];
+            // Do not snap a scaled high-resolution texture to whole screen pixels: the world root already
+            // provides a stable transform, while per-sprite snapping makes the detail visibly shimmer.
+            sprite.roundPixels = false;
             sprite.x = at.x;
             // World Y grows upward (the world root carries the flip), so adding lifts the rock on screen.
             sprite.y = at.y + riseUp;
             // Width stays one cell; only the height is stretched. scale.y is negative because the world
             // root is y-flipped, exactly as the other terrain does.
             sprite.scale.set(cellSize / tex.width, -(drawnHeight / tex.height));
-            sprite.filters = this.tombstoneColorFilter;
             // Depth order: a stone standing lower on the board is NEARER, so its overhanging top must cover
             // the base of the one behind it. Cell y counts upward on screen, so a smaller y sorts in front.
             // The offset stays inside one unit, which keeps every stone below whatever already sits at 51+.
             const depth = (GridConstants.GRID_SIZE - 1 - mountain.y) / GridConstants.GRID_SIZE;
+
+            // The cross contains enclosed negative space. Once fog was added, those holes became tiny
+            // animated windows and made the otherwise static art look as if it were blinking. An opaque
+            // charcoal disc sits behind only its ring; the outer alpha contour stays untouched.
+            const gapBacking = new Graphics();
+            let hasGapBacking = false;
+            if (tileIndex === 1) {
+                // Celtic cross: fill the four openings enclosed by its stone ring.
+                gapBacking.circle(0, -93, 52).fill({ color: 0x111419 });
+                hasGapBacking = true;
+            }
+            if (hasGapBacking) {
+                gapBacking.position.copyFrom(sprite.position);
+                gapBacking.scale.copyFrom(sprite.scale);
+                this.context.attachToWorldRoot(gapBacking, 50 + depth - 0.002);
+                this.scatteredMountainGapBackings.push(gapBacking);
+            } else {
+                gapBacking.destroy();
+            }
             this.context.attachToWorldRoot(sprite, 50 + depth);
             this.scatteredMountainSprites.push(sprite);
 
@@ -665,10 +712,10 @@ export class DungeonVisuals {
                 for (const [dx, dy] of directions) {
                     const edge = new Sprite(tex);
                     edge.anchor.set(0.5);
-                    edge.roundPixels = true;
+                    edge.roundPixels = false;
                     edge.position.set(sprite.x + dx * offset, sprite.y + dy * offset);
                     edge.scale.copyFrom(sprite.scale);
-                    edge.filters = this.tombstoneWhiteFilter;
+                    edge.filters = this.tombstoneRedFilter;
                     edge.alpha = alpha;
                     outline.addChild(edge);
                 }
@@ -685,7 +732,11 @@ export class DungeonVisuals {
             const barW = hitBarLayout.width;
             const barH = hitBarLayout.height;
             const barX = at.x - barW * 0.5;
-            const barY = at.y - hitBarLayout.centerOffset - barH * 0.5;
+            const barY =
+                at.y +
+                cellSize * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS -
+                hitBarLayout.centerOffset -
+                barH * 0.5;
             const frame = hitBarLayout.framePadding;
             const radius = Math.max(1, barH * 0.18);
             hitBar
@@ -734,6 +785,12 @@ export class DungeonVisuals {
         if (this.scatteredMountains.length && !this.scatteredMountainSprites.length) {
             this.rebuildScatteredMountainSprites();
         }
+        // Keep Cemetery grave slabs 25% brighter than their source art. Reset tint explicitly so already
+        // created sprites also shed the previous darkening during local HMR.
+        this.scatteredMountainSprites.forEach((sprite) => {
+            sprite.tint = 0xffffff;
+            if (this.tombstoneBrightnessFilter) sprite.filters = [this.tombstoneBrightnessFilter];
+        });
         const scatteredBarsVisible = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         this.scatteredMountainHitBars.forEach((hitBar, index) => {
             const mountain = this.scatteredMountains[index];
@@ -845,12 +902,12 @@ export class DungeonVisuals {
             this.centerTerrainSpriteB.y = right.y;
             this.centerTerrainSpriteB.visible = rightHits > 0;
         } else {
-            const drawCells =
-                gridType === GridVals.LAVA_CENTER && !this.centerDried ? DungeonVisuals.LAVA_POOL_DRAW_CELLS : 4;
-            const targetW = cellSize * drawCells;
-            const targetH = cellSize * drawCells;
+            const liveLava = gridType === GridVals.LAVA_CENTER && !this.centerDried;
+            const targetW = cellSize * (liveLava ? DungeonVisuals.LAVA_POOL_DRAW_WIDTH_CELLS : 4);
+            const targetH = cellSize * (liveLava ? DungeonVisuals.LAVA_POOL_DRAW_HEIGHT_CELLS : 4);
             this.centerTerrainSprite.scale.set(targetW / texW, -(targetH / texH));
-            this.centerTerrainSprite.x = centerX;
+            this.centerTerrainSprite.x =
+                centerX + (liveLava ? cellSize * DungeonVisuals.LAVA_POOL_SHIFT_RIGHT_CELLS : 0);
             this.centerTerrainSprite.y = centerY;
             this.centerTerrainSprite.visible = true;
         }
@@ -1101,7 +1158,7 @@ export class DungeonVisuals {
         const gs = this.context.getGridSettings();
         const cellSize = gs.getCellSize();
         const drawnHeight = cellSize * DungeonVisuals.MOUNTAIN_HEIGHT_CELLS;
-        const riseUp = (drawnHeight - cellSize) * 0.5;
+        const riseUp = (drawnHeight - cellSize) * 0.5 + cellSize * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS;
         const center = GridMath.getPositionForCell(
             { x: mountain.x, y: mountain.y },
             gs.getMinX(),
@@ -1121,8 +1178,8 @@ export class DungeonVisuals {
                 const sprite = new Sprite(quarters[row * 2 + col]);
                 sprite.anchor.set(0.5);
                 sprite.roundPixels = true;
+                if (this.tombstoneBrightnessFilter) sprite.filters = [this.tombstoneBrightnessFilter];
                 sprite.scale.set(chunkW / (tex.width / 2), -(chunkH / (tex.height / 2)));
-                sprite.filters = this.tombstoneColorFilter;
                 const homeX = center.x + (col === 0 ? -1 : 1) * (chunkW * 0.5);
                 const homeY = center.y + (row === 0 ? 1 : -1) * (chunkH * 0.5);
                 sprite.position.set(homeX, homeY);

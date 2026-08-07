@@ -85,15 +85,30 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
             <Sheet
                 variant="soft"
                 sx={{
+                    position: "relative",
                     display: "grid",
                     placeItems: "center",
                     p: "2px",
                     minHeight: 62,
                     width: 62,
                     flex: "0 0 auto",
-                    borderRadius: "14px",
+                    borderRadius: 0,
                     bgcolor: "#171a23",
-                    border: `1px solid ${display ? accent : "rgba(255,255,255,0.12)"}`,
+                    border: 0,
+                    "&::after": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 10,
+                        pointerEvents: "none",
+                        boxSizing: "border-box",
+                        border: "14px solid transparent",
+                        borderImageSource: `url(${images.ui_container_frame_1_9slice})`,
+                        borderImageSlice: "120",
+                        borderImageWidth: "14px",
+                        borderImageRepeat: "stretch",
+                        filter: display ? `drop-shadow(0 0 2px ${accent})` : "none",
+                    },
                 }}
             >
                 {display ? (

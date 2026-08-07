@@ -1,6 +1,6 @@
 import { Artifact, TeamType } from "@heroesofcrypto/common";
 import React, { useState } from "react";
-import { Box, Divider, IconButton, Tooltip, Typography } from "@mui/joy";
+import { Box, Divider, Tooltip, Typography } from "@mui/joy";
 
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -41,6 +41,7 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
             sx={{
                 display: isOpen ? "flex" : "none",
                 flexWrap: "wrap",
+                justifyContent: "center",
                 gap: 0.5,
                 "@media (max-height: 800px)": { gap: 0.25 },
             }}
@@ -63,18 +64,35 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                         placement="top"
                         arrow
                     >
-                        <IconButton
-                            size="sm"
-                            variant={isSelected ? "solid" : "outlined"}
-                            color={isSelected ? "primary" : "neutral"}
+                        <Box
+                            component="button"
+                            type="button"
+                            aria-pressed={isSelected}
                             // Clicking the selected artifact again clears the slot.
                             onClick={() => onSelect(isSelected ? Artifact.Tier1Artifact.NO_ARTIFACT : artifact.id)}
                             sx={{
+                                appearance: "none",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                // Keep the old IconButton footprint so removing its painted frame does not
+                                // pull the artifact grid inward or change the row/column spacing.
+                                width: 52,
+                                height: 52,
+                                flex: "0 0 52px",
+                                boxSizing: "border-box",
                                 p: 0.25,
-                                borderRadius: "8px",
+                                m: 0,
+                                lineHeight: 0,
+                                borderRadius: 0,
+                                border: "none !important",
+                                backgroundColor: "transparent !important",
+                                boxShadow: "none !important",
+                                outline: "none !important",
                                 cursor: "default !important",
                                 overflow: "visible",
                                 "& img": {
+                                    display: "block",
                                     transition: "transform 0.16s ease, filter 0.16s ease",
                                     transformOrigin: "center",
                                 },
@@ -82,7 +100,18 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                                     transform: "scale(1.05)",
                                     filter: "drop-shadow(0 0 5px rgba(224, 176, 83, 0.72))",
                                 },
-                                "@media (max-height: 800px)": { p: "1px" },
+                                "&:hover, &:active, &:focus, &:focus-visible": {
+                                    backgroundColor: "transparent !important",
+                                    border: "none !important",
+                                    boxShadow: "none !important",
+                                    outline: "none !important",
+                                },
+                                "@media (max-height: 800px)": {
+                                    width: 35,
+                                    height: 35,
+                                    flexBasis: "35px",
+                                    p: "1px",
+                                },
                             }}
                         >
                             {src ? (
@@ -103,7 +132,7 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                             ) : (
                                 <Typography level="body-xs">{artifact.name}</Typography>
                             )}
-                        </IconButton>
+                        </Box>
                     </Tooltip>
                 );
             })}
