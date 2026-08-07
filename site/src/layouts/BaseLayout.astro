@@ -117,18 +117,17 @@ const jsonLd = {
         {tags.map((tag) => <meta property="article:tag" content={tag} />)}
 
         <link rel="preload" as="image" href="/assets/images/preview_game.webp" />
+        <link
+            rel="preload"
+            as="font"
+            type="font/ttf"
+            href="/assets/fonts/hoc-forge/HoCForge-Regular.ttf"
+            crossorigin
+        />
         <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" href="/favicon/favicon-32x32.png" />
         <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-
-        <!-- Fonts: Inter (variable) with preconnect + swap to avoid invisible-text flash. -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap"
-            rel="stylesheet"
-        />
 
         <title>{resolvedTitle}</title>
         <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

@@ -26,10 +26,23 @@ const IS_PROD =
 // Read each var with a LITERAL `import.meta.env.X` so Vite inlines it at build. Fall back to the
 // hard-coded prod origin (never localhost) whenever we're in production, so a missing env var can't
 // silently point the game at a dev API again.
-export const HOST_AUTH_API = import.meta.env.VITE_HOST_AUTH_API || (IS_PROD ? PROD_AUTH_API : DEFAULT_DEV_API);
-export const HOST_MATCHMAKING_API =
-    import.meta.env.VITE_HOST_MATCHMAKING_API || (IS_PROD ? PROD_MATCHMAKING_API : DEFAULT_DEV_API);
-export const HOST_GAME_API = import.meta.env.VITE_HOST_GAME_API || (IS_PROD ? PROD_GAME_API : DEFAULT_DEV_API);
+//
+// The literal value "same-origin" resolves to an EMPTY host: every API call then goes to whatever
+// origin served the client (buildApiUrl falls back to window.location.origin; the axios instances
+// get no baseURL, i.e. relative requests). Single-box rigs — UI and APIs on one port — build with
+// this so the SAME bundle works from a LAN IP, a public hostname, or a tunnel, no rebake needed.
+const resolveHost = (configured: string | undefined, fallback: string): string => {
+    if (configured === "same-origin") {
+        return "";
+    }
+    return configured || fallback;
+};
+export const HOST_AUTH_API = resolveHost(import.meta.env.VITE_HOST_AUTH_API, IS_PROD ? PROD_AUTH_API : DEFAULT_DEV_API);
+export const HOST_MATCHMAKING_API = resolveHost(
+    import.meta.env.VITE_HOST_MATCHMAKING_API,
+    IS_PROD ? PROD_MATCHMAKING_API : DEFAULT_DEV_API,
+);
+export const HOST_GAME_API = resolveHost(import.meta.env.VITE_HOST_GAME_API, IS_PROD ? PROD_GAME_API : DEFAULT_DEV_API);
 
 const isAbsoluteUrl = (url: string): boolean => /^[a-z][a-z\d+\-.]*:\/\//i.test(url) || url.startsWith("//");
 
@@ -202,6 +215,9 @@ export const endpoints = {
         playSnapshot: IS_PROD ? "/v1/play-snapshot" : "/v1/game/play-snapshot",
         playAction: IS_PROD ? "/v1/play-action" : "/v1/game/play-action",
         pickPair: IS_PROD ? "/v1/pick-pair" : "/v1/game/pick-pair",
+        // Public, spoiler-safe draft spectator snapshot (no auth): what each team's OPPONENT already
+        // sees (slot reveals), plus bans and the current phase/deadline.
+        pickObserve: IS_PROD ? "/v1/pick-observe" : "/v1/game/pick-observe",
         perk: IS_PROD ? "/v1/perk" : "/v1/game/perk",
         pick: IS_PROD ? "/v1/pick" : "/v1/game/pick",
         artifact: IS_PROD ? "/v1/artifact" : "/v1/game/artifact",

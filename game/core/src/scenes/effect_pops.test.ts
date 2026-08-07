@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { animatableEffectNames, diffUnitEffects, isAuraEffectName } from "./effect_pops";
+import {
+    animatableEffectNames,
+    diffUnitEffects,
+    dullingDefenseApplicationCount,
+    isAuraEffectName,
+} from "./effect_pops";
+import type { GameEvent } from "@heroesofcrypto/common";
 
 const set = (...names: string[]): Set<string> => new Set(names);
 
@@ -38,6 +44,51 @@ describe("isAuraEffectName / animatableEffectNames", () => {
         expect(isAuraEffectName("Pegasus Light")).toBe(false);
         expect(animatableEffectNames(["Pegasus Light"]).size).toBe(0);
         expect([...animatableEffectNames(["Pegasus Light", "Sadness"])]).toEqual(["Sadness"]);
+    });
+
+    test("Dulling Defense is event-driven instead of appearing from persistent snapshot state", () => {
+        expect([...animatableEffectNames(["Dulling Defense", "Sadness"])]).toEqual(["Sadness"]);
+    });
+});
+
+describe("dullingDefenseApplicationCount", () => {
+    const applied = (applications: Extract<GameEvent, { type: "effects_applied" }>["applications"]): GameEvent => ({
+        type: "effects_applied",
+        applications,
+    });
+
+    test("returns zero before a connecting strike applies the debuff", () => {
+        const miss = {
+            type: "unit_attacked",
+            attackerId: "orc",
+            targetId: "goblin",
+            attackType: "melee",
+            damage: { missed: true },
+        } as unknown as GameEvent;
+        expect(dullingDefenseApplicationCount([miss], "orc")).toBe(0);
+    });
+
+    test("targets only the unit actually dulled by the hit", () => {
+        const events = [
+            applied([
+                { unitId: "orc", name: "Dulling Defense", kind: "debuff", laps: 15 },
+                { unitId: "goblin", name: "Stun", kind: "effect", laps: 1 },
+            ]),
+        ];
+        expect(dullingDefenseApplicationCount(events, "orc")).toBe(1);
+        expect(dullingDefenseApplicationCount(events, "goblin")).toBe(0);
+    });
+
+    test("counts each landed application and ignores resisted or unrelated records", () => {
+        const events = [
+            applied([
+                { unitId: "orc", name: "Dulling Defense", kind: "debuff", laps: 15 },
+                { unitId: "orc", name: "Dulling Defense", kind: "debuff", laps: 15 },
+                { unitId: "orc", name: "Dulling Defense", kind: "debuff", resisted: true },
+                { unitId: "orc", name: "Weakness", kind: "debuff", laps: 2 },
+            ]),
+        ];
+        expect(dullingDefenseApplicationCount(events, "orc")).toBe(2);
     });
 });
 

@@ -73,7 +73,12 @@ import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
 import { PlacementManager } from "./PlacementManager";
-import { animatableEffectNames, diffUnitEffects, type EffectFlash } from "./effect_pops";
+import {
+    animatableEffectNames,
+    diffUnitEffects,
+    dullingDefenseApplicationCount,
+    type EffectFlash,
+} from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { RenderableUnit } from "./RenderableUnit";
 import { PixiRenderableSpell } from "./RenderableSpell";
@@ -3605,6 +3610,7 @@ export class Sandbox extends PixiScene {
         );
         const destroyedUnitIds = new Set(attackEvent.unitIdsDied.filter((unitId) => teardownEventUnitIds.has(unitId)));
         this.showReplayAttackDamage(attacker, target, attackEvent, record);
+        this.popDullingDefenseApplications(record.events, attacker.getId());
         this.spawnAbilityStealVfx(record.events, attacker.getId());
         // Shatter Armor: red wound gashes across the target, at impact (with the damage number).
         this.spawnShatterArmorSlashVfx(attacker, target, attackEvent.damage);
@@ -4368,6 +4374,7 @@ export class Sandbox extends PixiScene {
         const direction = { x: attackerCenter.x - targetCenter.x, y: attackerCenter.y - targetCenter.y };
         const spawnPos = this.offsetReplayDamagePosition(attackerCenter, attacker, direction);
         this.combatVisuals.showFloatingDamage(spawnPos, responseDamage.amount, direction, responseDamage.unitsDied);
+        this.popDullingDefenseApplications(record.events, target.getId());
         spawnResponseAbilitySteal();
         onImpact?.();
 
@@ -7736,6 +7743,26 @@ export class Sandbox extends PixiScene {
             this.popEffectOnUnit(entry.unit, name, stackIndex++, "buff");
         }
     }
+    protected popDullingDefenseApplications(events: readonly GameEvent[] | undefined, unitId: string): void {
+        const count = dullingDefenseApplicationCount(events, unitId);
+        const unit = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
+        if (!count || !unit || unit.isDead()) {
+            return;
+        }
+        for (let index = 0; index < count; index++) {
+            const pop = (): void => {
+                if (!unit.isDead()) {
+                    unit.flashDebuffDarken();
+                    this.popEffectOnUnit(unit, "Dulling Defense", index, "debuff");
+                }
+            };
+            if (index === 0) {
+                pop();
+            } else {
+                setTimeout(pop, index * ATTACK_HIT_STAGGER_MS);
+            }
+        }
+    }
     /**
      * Pop a newly GRANTED ability over a unit (Craft's "Crafted Double Punch" / "Crafted Frozen Sword").
      * Separate from popEffectOnUnit because an ability's icon is resolved through the ability texture
@@ -9145,6 +9172,7 @@ export class Sandbox extends PixiScene {
             // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
             // wounder shows two). Shared helper — the ranked replay fires the same one in showReplayAttackDamage.
             this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds);
+            this.popDullingDefenseApplications(attackActionEvents, attacker.getId());
             // IMPACT (live melee) — same contract as the replay path: pops land with the strike.
             this.flushEffectPops();
         }
@@ -9343,6 +9371,7 @@ export class Sandbox extends PixiScene {
 
         const stackLost = Math.max(0, attackerBefore.amount - attackerAfter.amount);
         const hpLost = attackerBefore.health - attackerAfter.health;
+        this.popDullingDefenseApplications(attackActionEvents, target.getId());
 
         if (stackLost > 0 || hpLost > 0) {
             const maxHp = attacker.getMaxHp();

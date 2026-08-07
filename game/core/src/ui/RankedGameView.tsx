@@ -1986,6 +1986,104 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     );
 };
 
+// Observer HUD: both teams' pre-fight setup (doctrine, artifacts, augments, synergies) read
+// straight off the authoritative snapshot. Participants have richer interactive panels for their
+// own side; spectators get this compact two-column recap instead — values appear exactly when the
+// server reveals them (opponent artifacts at fight start, synergies once the fight begins).
+const observerPerkName = (perkId?: number): string => {
+    if (!perkId) {
+        return "None";
+    }
+    const raw = (Perk.Perk as unknown as Record<number, string>)[perkId] ?? `#${perkId}`;
+    const pretty = raw.replaceAll("_", " ").toLowerCase();
+    return pretty.charAt(0).toUpperCase() + pretty.slice(1);
+};
+
+const observerSynergyLabel = (key: string): string => key.replaceAll(":", " · ");
+
+const ObserverTeamSetup: React.FC<{ label: string; snapshot: PlaySnapshot; side: "lower" | "upper" }> = ({
+    label,
+    snapshot,
+    side,
+}) => {
+    const perkId = side === "lower" ? snapshot.lowerPerk : snapshot.upperPerk;
+    const tier1 = (side === "lower" ? snapshot.lowerArtifactTier1 : snapshot.upperArtifactTier1) ?? 0;
+    const tier2 = (side === "lower" ? snapshot.lowerArtifactTier2 : snapshot.upperArtifactTier2) ?? 0;
+    const synergies = (side === "lower" ? snapshot.lowerSynergies : snapshot.upperSynergies) ?? [];
+    const augments: Array<{ category: string; level: number }> = [
+        {
+            category: "Placement",
+            level: (side === "lower" ? snapshot.lowerAugmentPlacement : snapshot.upperAugmentPlacement) ?? 0,
+        },
+        { category: "Armor", level: (side === "lower" ? snapshot.lowerAugmentArmor : snapshot.upperAugmentArmor) ?? 0 },
+        { category: "Might", level: (side === "lower" ? snapshot.lowerAugmentMight : snapshot.upperAugmentMight) ?? 0 },
+        {
+            category: "Empower",
+            level: (side === "lower" ? snapshot.lowerAugmentEmpower : snapshot.upperAugmentEmpower) ?? 0,
+        },
+        {
+            category: "Sniper",
+            level: (side === "lower" ? snapshot.lowerAugmentSniper : snapshot.upperAugmentSniper) ?? 0,
+        },
+        {
+            category: "Movement",
+            level: (side === "lower" ? snapshot.lowerAugmentMovement : snapshot.upperAugmentMovement) ?? 0,
+        },
+    ].filter((entry) => entry.level > 0);
+
+    return (
+        <Stack spacing={0.5} sx={{ minWidth: 130 }}>
+            <Typography level="body-xs" textColor={hocColors.gold}>
+                {label}
+            </Typography>
+            <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                {`Doctrine: ${observerPerkName(perkId)}`}
+            </Typography>
+            {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
+            {augments.length > 0 && (
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" alignItems="center">
+                    {augments.map(({ category, level }) => {
+                        const imageKey = AUGMENT_SIDEBAR_IMAGES[category];
+                        const src = imageKey ? images[imageKey] : undefined;
+                        return (
+                            <Stack key={category} direction="row" spacing={0.25} alignItems="center">
+                                {src && (
+                                    <Box
+                                        component="img"
+                                        src={src}
+                                        alt={category}
+                                        sx={{ width: 18, height: 18, borderRadius: "4px" }}
+                                    />
+                                )}
+                                <Typography level="body-xs" textColor={hocColors.mutedStrong}>
+                                    {`${category} ${level}`}
+                                </Typography>
+                            </Stack>
+                        );
+                    })}
+                </Stack>
+            )}
+            {synergies.length > 0 && (
+                <Typography level="body-xs" textColor={hocColors.muted}>
+                    {`Synergies: ${synergies.map(observerSynergyLabel).join(", ")}`}
+                </Typography>
+            )}
+        </Stack>
+    );
+};
+
+const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => (
+    <Stack spacing={0.5}>
+        <Typography level="body-sm" textColor={hocColors.parchment}>
+            Army setups
+        </Typography>
+        <Stack direction="row" spacing={2} flexWrap="wrap">
+            <ObserverTeamSetup label={teamLabel(TeamVals.LOWER)} snapshot={snapshot} side="lower" />
+            <ObserverTeamSetup label={teamLabel(TeamVals.UPPER)} snapshot={snapshot} side="upper" />
+        </Stack>
+    </Stack>
+);
+
 // Sidebar art per augment category — the same images the picker overlay and the player portal's
 // match history use, so the recap reads visually instead of as text chips.
 const AUGMENT_SIDEBAR_IMAGES: Record<string, keyof typeof images> = {
@@ -2661,6 +2759,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                         Live observer mode. Controls are disabled; replay is available after the fight ends.
                     </Typography>
                 )}
+                {isObserver && <ObserverSetupPanel snapshot={snapshot} />}
 
                 {busy && (
                     <Stack direction="row" spacing={1} alignItems="center">

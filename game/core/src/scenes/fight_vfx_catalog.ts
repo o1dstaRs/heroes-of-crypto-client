@@ -107,9 +107,9 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
         note: "lap-start Morale/Dismorale pop; renderNewlyAppliedMorale (inline suppressed in ranked)",
     },
     effects_applied: {
-        rendered: false,
-        ranked: "none",
-        note: "scene-log only: names every buff/debuff/effect the action landed (mass casts, on-hit riders, resists) — the buff/debuff POPS ride the snapshot diff (effect_pops), not this event",
+        rendered: true,
+        ranked: "replay",
+        note: "scene-log for every application; Dulling Defense VFX is event-driven at attack/response impact, while other buff/debuff pops ride the snapshot diff",
     },
     poison_ticked: {
         rendered: true,

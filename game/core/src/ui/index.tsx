@@ -38,7 +38,8 @@ import { MatchmakingRoute } from "./MatchmakingRoute";
 import { ThemeMusic } from "./audio/ThemeMusic";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
-import { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
+import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
+import ObserverPickView from "./PickAndBan/ObserverPickView";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
@@ -342,6 +343,10 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const [errorMessage, setErrorMessage] = useState("");
     const [userTeam, setUserTeam] = useState<TeamType>(TeamVals.NO_TEAM as TeamType);
     const [routeMode, setRouteMode] = useState<"checking" | "pick" | "play">("checking");
+    // True when this viewer is a SPECTATOR (not a participant): during the draft it swaps the
+    // interactive pick screen for the read-only observer view; the play route already handles
+    // observers via userTeam === NO_TEAM.
+    const [observerMode, setObserverMode] = useState(false);
 
     // "Iron and Silk" covers everything between the match being found and the first turn: the match check,
     // picks and augments here, then placement inside RankedGameView, which takes over the flag once the
@@ -365,6 +370,7 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
 
     useEffect(() => {
         setPickNearingPlay(false);
+        setObserverMode(false);
     }, [gameId]);
 
     useEffect(() => {
@@ -376,7 +382,21 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             try {
                 const snapshot = await fetchRankedPlaySnapshot(gameId);
                 if (!snapshot) {
-                    // Still drafting — there is no fight to observe yet.
+                    // Still drafting — spectate the draft itself via the public, spoiler-safe
+                    // pick-observe snapshot instead of dead-ending on "not available yet".
+                    try {
+                        const draft = await fetchPickObserveSnapshot(gameId);
+                        if (draft?.stage === "pick") {
+                            setObserverMode(true);
+                            setUserTeam(TeamVals.NO_TEAM as TeamType);
+                            setRouteMode("pick");
+                            setShowOverlay(false);
+                            setErrorMessage("");
+                            return true;
+                        }
+                    } catch (draftErr) {
+                        console.error(draftErr);
+                    }
                     return false;
                 }
                 const e2ePlayerId = readE2ePlayerId();
@@ -528,14 +548,17 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
-                    {routeMode === "pick" && (
-                        <PickAndBanView
-                            windowSize={windowSize}
-                            userTeam={userTeam}
-                            gameId={gameId}
-                            onPickPhaseChange={handlePickPhaseChange}
-                        />
-                    )}
+                    {routeMode === "pick" &&
+                        (observerMode ? (
+                            <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />
+                        ) : (
+                            <PickAndBanView
+                                windowSize={windowSize}
+                                userTeam={userTeam}
+                                gameId={gameId}
+                                onPickPhaseChange={handlePickPhaseChange}
+                            />
+                        ))}
                     {routeMode === "play" && (
                         <RankedGameView windowSize={windowSize} gameId={gameId} userTeam={userTeam} />
                     )}

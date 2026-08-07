@@ -100,6 +100,50 @@ export const fetchRankedPlaySnapshot = async (
     return decodePlaySnapshot(bytes);
 };
 
+// --- Draft (pick-phase) spectating -----------------------------------------------------------------
+
+export interface PickObserveTeam {
+    team: "lower" | "upper";
+    playerId: string;
+    username: string;
+    isBot: boolean;
+    aiVersion: string | null;
+    /** Slot-aligned [L1, L1, L2, L2, L3, L4]; 0 = not yet revealed to the opponent (hidden here too). */
+    revealedCreatureSlots: number[];
+}
+
+export interface PickObserveSnapshot {
+    gameId: string;
+    /** "pick" while drafting; "play"/"finished" tell the spectator flow to hand off. */
+    stage: "pick" | "play" | "finished";
+    abandoned?: boolean;
+    phase?: number;
+    phaseName?: string;
+    phaseSeq?: number;
+    phaseCount?: number;
+    phaseEndsAt?: number;
+    serverTimeMs?: number;
+    bans?: number[];
+    teams?: PickObserveTeam[];
+}
+
+/**
+ * Public spectator snapshot of a drafting game (no auth). Spoiler-safe by construction on the
+ * server: it only ever contains what both participants can already see. Resolves undefined on 404
+ * (unknown/expired game) so callers can fall back to their "not observable" messaging.
+ */
+export const fetchPickObserveSnapshot = async (gameId: string): Promise<PickObserveSnapshot | undefined> => {
+    const url = appendEncodedPath(buildApiUrl(HOST_GAME_API, endpoints.game.pickObserve), gameId);
+    const response = await fetch(url, { cache: "no-store", headers: { "x-request-id": uuidv4() } });
+    if (response.status === 404) {
+        return undefined;
+    }
+    if (!response.ok) {
+        throw new Error(`pick-observe failed: HTTP ${response.status}`);
+    }
+    return (await response.json()) as PickObserveSnapshot;
+};
+
 export const fetchRankedPlayReplay = async (gameId: string): Promise<RankedReplay> => {
     const response = await axiosGameInstance.get<RankedReplayPayload>(playReplayUrl(gameId), {
         headers: authHeaders(),

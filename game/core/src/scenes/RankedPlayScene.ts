@@ -41,6 +41,7 @@ import type {
     SceneGameActionTransport,
 } from "../game_action_transport";
 import { getAbilityDisplayMetadata } from "../abilityDisplay";
+import type { SandboxReplay } from "../replay/sandbox_replay";
 import { buildFightDamageEntries } from "./FightStatsTracker";
 import type { IFightDeathEntry, IFightStatsReport, IFightStatsSample, IVisibleState } from "./VisibleState";
 import { UNIT_ID_TO_NAME } from "../ui/unit_ui_constants";
@@ -1126,6 +1127,10 @@ export const shouldPublishRankedFinish = (
 export class RankedPlayScene extends Sandbox {
     private lastAuthoritativeSequence = -1;
     private lastBoardSignature = "";
+    /** True while playSandboxReplay drives a FULL fight playback (the fight-results Replay button /
+     * replay-only view) — distinct from the shared replayPlaybackActive, which single-record replays
+     * of live actions also set. Gates live snapshot applies out of the playback entirely. */
+    private fullReplayPlaybackActive = false;
     private lastPlacementUnitIdsKey = "";
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
@@ -1563,6 +1568,17 @@ export class RankedPlayScene extends Sandbox {
         snapshot: AuthoritativeGameSnapshot,
         options?: AuthoritativeSnapshotOptions,
     ): void {
+        // FULL replay playback owns the board: a live snapshot poll landing mid-playback describes the
+        // REAL game's terminal state, not the moment being replayed. Letting it through mass-fired the
+        // death "broken mirror" shatter on every replay unit that is dead in the final state (the
+        // mid-animation guard below deliberately shatters snapshot-dead units), and full hydrates
+        // between records tore down and rebuilt the whole board mid-scene — the live "flickers during
+        // replay + all units mirror-break at once" report. Drop live snapshots entirely while the
+        // replay runs; the view re-applies the terminal snapshot with forceBoardRebuild the moment
+        // playback ends. Single-record replays during a LIVE fight keep the tuned guards below.
+        if (this.fullReplayPlaybackActive) {
+            return;
+        }
         // Seed THIS game's synergy variants into the local engine on every apply (idempotent, four keys).
         // The server draws one synergy of each faction's pair from the game id; without this the client's
         // own synergy re-runs (refreshStackPowerForAllUnits etc.) computed against the DEFAULT variants,
@@ -1961,6 +1977,18 @@ export class RankedPlayScene extends Sandbox {
     }
     public override canPlayCurrentSandboxReplay(): boolean {
         return false;
+    }
+    /** Mark FULL fight playback (fight-results Replay / replay-only view) so live snapshot polls are
+     * dropped for its whole duration — see the guard at the top of applyAuthoritativeSnapshot. */
+    public override async playSandboxReplay(replay: SandboxReplay, throughSequence?: number): Promise<boolean> {
+        this.fullReplayPlaybackActive = true;
+        try {
+            return await (throughSequence === undefined
+                ? super.playSandboxReplay(replay)
+                : super.playSandboxReplay(replay, throughSequence));
+        } finally {
+            this.fullReplayPlaybackActive = false;
+        }
     }
     public override playAuthoritativeActionRecord(
         action: GameAction,

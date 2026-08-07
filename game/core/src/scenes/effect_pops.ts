@@ -8,7 +8,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { HoCConfig } from "@heroesofcrypto/common";
+import { HoCConfig, type GameEvent } from "@heroesofcrypto/common";
 
 /**
  * Aura effects (continuous, radius-based) are applied to and removed from a unit as it / its neighbours
@@ -32,6 +32,7 @@ export const isAuraEffectName = (name: string): boolean => HoCConfig.isAuraEffec
  * EFFECT-type ability), hence this explicit list.
  */
 const NON_ANIMATABLE_PASSIVE_EFFECT_NAMES: ReadonlySet<string> = new Set(["Pegasus Light"]);
+const EVENT_DRIVEN_EFFECT_NAMES: ReadonlySet<string> = new Set(["Dulling Defense"]);
 
 /**
  * Morale / Dismorale are lap-scoped SYSTEM effects applied to many units at once at the start of a lap
@@ -54,12 +55,30 @@ export function animatableEffectNames(names: Iterable<string>): Set<string> {
             name &&
             !isAuraEffectName(name) &&
             !isMoraleEffectName(name) &&
-            !NON_ANIMATABLE_PASSIVE_EFFECT_NAMES.has(name)
+            !NON_ANIMATABLE_PASSIVE_EFFECT_NAMES.has(name) &&
+            !EVENT_DRIVEN_EFFECT_NAMES.has(name)
         ) {
             result.add(name);
         }
     }
     return result;
+}
+
+export function dullingDefenseApplicationCount(events: readonly GameEvent[] | undefined, unitId: string): number {
+    let count = 0;
+    for (const event of events ?? []) {
+        if (event.type !== "effects_applied") {
+            continue;
+        }
+        count += event.applications.filter(
+            (application) =>
+                application.unitId === unitId &&
+                application.name === "Dulling Defense" &&
+                application.kind === "debuff" &&
+                !application.resisted,
+        ).length;
+    }
+    return count;
 }
 
 /** Which colour wash to flash on the unit when effects land — a debuff "hit" wins over a buff. */

@@ -2,6 +2,8 @@
 import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/units-data";
+import HeroLeaderboard from "./HeroLeaderboard.astro";
+import RankedArena from "./RankedArena.astro";
 
 interface Props {
     lang: Language;
@@ -12,24 +14,14 @@ const copy = content[lang];
 const homeLabels =
     lang === "ru"
         ? {
-              rosterEyebrow: "Живой ростер",
-              rosterCta: "Все юниты",
               factionRail: "Выберите фракцию",
               units: "юнитов",
-              level: "Ур.",
-              featured: "Готовы к бою",
               gameStats: "Статистика игры",
-              arenaImage: "Сцена боя Heroes of Crypto",
           }
         : {
-              rosterEyebrow: "Live roster",
-              rosterCta: "All units",
               factionRail: "Choose a faction",
               units: "units",
-              level: "Lv.",
-              featured: "Ready to deploy",
               gameStats: "Game stats",
-              arenaImage: "Heroes of Crypto livestream battle scene",
           };
 const heroStats = [
     { value: String(factionUnits.length), label: copy.hero.stats[0]?.label ?? "Factions" },
@@ -110,6 +102,7 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 </a>
             </div>
         </div>
+        <HeroLeaderboard lang={lang} topN={10} />
     </div>
 </section>
 
@@ -126,6 +119,8 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
         <a class="proof-action proof-action-primary" href={playHref}>{copy.progress.cta}</a>
     </div>
 </section>
+
+<RankedArena lang={lang} />
 
 <section class="faction-rail-section" aria-label={homeLabels.factionRail}>
     <div class="page-shell faction-rail">
@@ -147,25 +142,6 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
                 </a>
             ))
         }
-    </div>
-</section>
-
-<section class="section arena-section">
-    <div class="page-shell arena-layout">
-        <div class="arena-copy">
-            <p class="eyebrow">{copy.progress.eyebrow}</p>
-            <h2>{copy.progress.title}</h2>
-            <p>{copy.progress.body}</p>
-            <div class="arena-actions">
-                <a class="button primary" href={playHref}>
-                    <img src="/assets/icons/navbar/joystick.svg" alt="" width="21" height="21" />
-                    {copy.progress.cta}
-                </a>
-            </div>
-        </div>
-        <div class="arena-media">
-            <img src="/assets/images/home/livestream.webp" alt={homeLabels.arenaImage} loading="lazy" width="1792" height="1024" />
-        </div>
     </div>
 </section>
 

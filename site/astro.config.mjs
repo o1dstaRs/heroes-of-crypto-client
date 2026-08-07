@@ -12,6 +12,10 @@ export default defineConfig({
     site: "https://heroesofcrypto.io",
     integrations: [sitemap({ customPages: ["https://heroesofcrypto.io/research/a13/"] })],
     vite: {
+        // The ranked-arena client reads VITE_HOST_* API origins (shared convention with game/core);
+        // Astro's default only exposes PUBLIC_* to client code, which silently dropped those
+        // overrides and pinned every build to the production origins.
+        envPrefix: ["VITE_", "PUBLIC_"],
         build: {
             chunkSizeWarningLimit: 2048,
             rollupOptions: {
