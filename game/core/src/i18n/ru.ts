@@ -1,0 +1,111 @@
+/**
+ * Russian chrome dictionary: English source string -> Russian. Keys must match the literals passed
+ * to t() exactly. Content data (creature/ability/spell descriptions from the config JSONs) is NOT
+ * here — v1 localizes the pick-phase and in-game interface chrome.
+ */
+export const RU_TRANSLATIONS: Record<string, string> = {
+    // ~~~ Shared chrome ~~~
+    Language: "Язык",
+    Choose: "Выбрать",
+    Opponent: "Противник",
+    "Your turn": "Ваш ход",
+    "Opponent's turn": "Ход противника",
+    "Waiting for your opponent…": "Ожидание противника…",
+    "Locked in — waiting for your opponent…": "Выбор сделан — ожидание противника…",
+
+    // ~~~ Pick phase ~~~
+    "Pick phase": "Фаза выбора",
+    "Preparing the draft…": "Подготовка драфта…",
+    "Preparing placement…": "Подготовка расстановки…",
+    "Pick a creature": "Выберите существо",
+    "Pick one creature for your army.": "Выберите одно существо для своей армии.",
+    "Pick an artifact": "Выберите артефакт",
+    "Choose a Tier-2 artifact": "Выберите артефакт 2-го уровня",
+    "Pick one Tier-2 artifact for your whole army.": "Выберите один артефакт 2-го уровня для всей армии.",
+    "Choose one of the three artifacts first.": "Сначала выберите один из трёх артефактов.",
+    "Pick a bundle": "Выберите набор",
+    "Choose your starting bundle": "Выберите стартовый набор",
+    "Pick one starting bundle.": "Выберите один стартовый набор.",
+    "Choose one of the two bundles first.": "Сначала выберите один из двух наборов.",
+    "Confirm bundle": "Подтвердить набор",
+    "Choose your doctrine": "Выберите доктрину",
+    "Pick one doctrine to continue.": "Выберите доктрину, чтобы продолжить.",
+    "Pick rejected — choose another.": "Выбор отклонён — выберите другое.",
+    "Your army": "Ваша армия",
+    "In your army": "В вашей армии",
+    Taken: "Занято",
+    "Taken by your opponent": "Занято противником",
+    Banned: "Забанено",
+    Bundle: "Набор",
+    "Map reveal": "Открытие карты",
+    "Map: ?": "Карта: ?",
+    "Revealed automatically before Level 3": "Откроется автоматически перед 3-м уровнем",
+    "Both players choose at the same time": "Оба игрока выбирают одновременно",
+    "Red (upper) picks first, then green (lower)": "Красный (верхний) выбирает первым, затем зелёный (нижний)",
+    "Open the full How-to-Play guide in a new tab": "Открыть полное руководство в новой вкладке",
+    Fullscreen: "На весь экран",
+    "Exit fullscreen": "Выйти из полноэкранного режима",
+
+    // Stat labels on the creature card.
+    Attack: "Атака",
+    Armor: "Броня",
+    Damage: "Урон",
+    "Hit points": "Здоровье",
+    "Magic resist": "Сопротивление магии",
+    "Movement steps": "Шаги передвижения",
+    Speed: "Скорость",
+    Shots: "Выстрелы",
+    "Shot distance": "Дальность выстрела",
+    "Size on the board": "Размер на поле",
+    Supply: "Запас",
+    Death: "Смерть",
+    "Lvl 1": "Ур. 1",
+    "Lvl 2": "Ур. 2",
+    "Lvl 3": "Ур. 3",
+    "Lvl 4": "Ур. 4",
+
+    // Faction + synergy labels.
+    Life: "Жизнь",
+    Chaos: "Хаос",
+    Might: "Мощь",
+    Nature: "Природа",
+    "Morale & luck": "Мораль и удача",
+    "Board units": "Отряды на поле",
+    "Abilities power": "Сила способностей",
+    "Aura range": "Радиус аур",
+    "Break on attack": "Разлом при атаке",
+    "Flying armor": "Броня летающих",
+    Movement: "Передвижение",
+
+    // Draft stepper + phase hints.
+    "Artifact 2": "Артефакт 2",
+    Place: "Расстановка",
+    "Green (lower) picks first, then red (upper)": "Зелёный (нижний) выбирает первым, затем красный (верхний)",
+    "Choose your scouting doctrine. It lasts the whole draft and decides which of the opponent's army slots you can watch.":
+        "Выберите доктрину разведки. Она действует весь драфт и определяет, какие слоты армии противника вы видите.",
+    "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.":
+        "Каждый набор даёт два существа и артефакт 1-го уровня. Выберите один.",
+    "Greyed portraits are banned. Opponent picks are hidden — if you pick one they already took, you'll re-pick.":
+        "Серые портреты забанены. Выборы противника скрыты — если вы выберете уже занятое существо, придётся выбрать заново.",
+    "One of three. Both players choose at the same time.": "Один из трёх. Оба игрока выбирают одновременно.",
+
+    // ~~~ Placement / in-game chrome ~~~
+    Active: "Активен",
+    Augments: "Усиления",
+    Artifacts: "Артефакты",
+    Synergies: "Синергии",
+    "Choose your augments": "Выберите усиления",
+    Connecting: "Подключение",
+    Connected: "Подключено",
+    Reconnecting: "Переподключение…",
+    "Watching as observer": "Режим наблюдателя",
+    "Fight started!": "Бой начался!",
+    "Preparing replay": "Подготовка повтора",
+    "Loading replay": "Загрузка повтора",
+    Replaying: "Воспроизведение",
+    "Replay complete": "Повтор завершён",
+    Ready: "Готово",
+    Wait: "Ждать",
+    Abandon: "Сдаться",
+    "Play again": "Играть снова",
+};

@@ -44,6 +44,7 @@ import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { images } from "../generated/image_imports";
+import { t, useTranslation } from "../i18n/i18n";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
@@ -325,6 +326,8 @@ type PendingAuthoritativePlayback = {
 };
 
 export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, replayOnly = false }) => {
+    // Re-renders the ranked chrome when the profile's language changes; render sites use the module t().
+    useTranslation();
     const manager = usePixiManager();
     const navigate = useNavigate();
     const localModelConfig = useMemo(() => getLocalModelOpponentConfig(), []);
@@ -2418,14 +2421,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             border: `1px solid ${hocColors.orangeBorder}`,
                         }}
                     >
-                        {status}
+                        {t(status)}
                     </Typography>
                 )}
 
                 {(isObserver || currentUnit) && (
                     <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                        {isObserver ? "Watching as observer" : ""}
-                        {currentUnit ? `Active: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
+                        {isObserver ? t("Watching as observer") : ""}
+                        {currentUnit ? `${t("Active")}: ${currentUnit.name} (${teamLabel(currentUnit.team)})` : ""}
                     </Typography>
                 )}
 
@@ -2468,7 +2471,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 <Box sx={draftBoardSx(draftScale)}>
                                     {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
-                                    <DraftTitle>Choose your augments</DraftTitle>
+                                    <DraftTitle>{t("Choose your augments")}</DraftTitle>
                                     {/* Setup always recaps the player's draft. Opponent visibility follows the
                                     snapshot's explicit policy: normal rail by default, privacy card when set. */}
                                     <Stack
@@ -2516,7 +2519,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                             unit.team !== userTeam && !unit.dead && unit.creatureId > 0,
                                                     )
                                                     .map((unit) => unit.creatureId)}
-                                                opponentLabel="Opponent"
+                                                opponentLabel={t("Opponent")}
                                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                             />
                                         )}

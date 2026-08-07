@@ -18,6 +18,7 @@ import { Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Sheet,
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
+import { t, useTranslation } from "../../i18n/i18n";
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 import { getPreGamePerk } from "../../utils/preGamePerk";
 import { usePickBanEvents } from "../context/PickBanContext";
@@ -194,20 +195,28 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                     gap: "8px",
                 }}
             >
-                <StatChip icon={<HeartIcon />} label="Hit points" value={`${c.hp}/${c.hp}`} />
+                <StatChip icon={<HeartIcon />} label={t("Hit points")} value={`${c.hp}/${c.hp}`} />
                 <StatChip
                     icon={<FistIcon />}
-                    label="Damage"
+                    label={t("Damage")}
                     value={`${c.attack_damage_min} - ${c.attack_damage_max}`}
                 />
-                <StatChip icon={<SwordIcon />} label="Attack" value={c.attack} />
-                <StatChip icon={<ShotRangeIcon />} label="Shot distance" value={isRanged ? c.shot_distance : "—"} />
-                <StatChip icon={<QuiverIcon />} label="Shots" value={isRanged ? c.range_shots : "—"} />
-                <StatChip icon={<ShieldIcon />} label="Armor" value={c.armor} />
-                <StatChip icon={<MagicShieldIcon />} label="Magic resist" value={`${c.magic_resist}%`} />
-                <StatChip icon={<ArrowShieldIcon />} label="Size on the board" value={c.size === 2 ? "2×2" : "1×1"} />
-                <StatChip icon={<SpeedIcon />} label="Speed" value={c.speed} />
-                <StatChip icon={<BootIcon />} label="Movement steps" value={c.steps} />
+                <StatChip icon={<SwordIcon />} label={t("Attack")} value={c.attack} />
+                <StatChip
+                    icon={<ShotRangeIcon />}
+                    label={t("Shot distance")}
+                    value={isRanged ? c.shot_distance : "—"}
+                />
+                <StatChip icon={<QuiverIcon />} label={t("Shots")} value={isRanged ? c.range_shots : "—"} />
+                <StatChip icon={<ShieldIcon />} label={t("Armor")} value={c.armor} />
+                <StatChip icon={<MagicShieldIcon />} label={t("Magic resist")} value={`${c.magic_resist}%`} />
+                <StatChip
+                    icon={<ArrowShieldIcon />}
+                    label={t("Size on the board")}
+                    value={c.size === 2 ? "2×2" : "1×1"}
+                />
+                <StatChip icon={<SpeedIcon />} label={t("Speed")} value={c.speed} />
+                <StatChip icon={<BootIcon />} label={t("Movement steps")} value={c.steps} />
             </Box>
             <>
                 <Divider orientation="vertical" sx={{ display: { xs: "none", lg: "block" } }} />
@@ -400,13 +409,15 @@ const RULES_URL = "https://heroesofcrypto.io/rules";
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {
         case PickPhaseVals.PERK:
-            return "Pick one doctrine to continue.";
+            return t("Pick one doctrine to continue.");
         case PickPhaseVals.INITIAL_PICK:
-            return "Pick one starting bundle.";
+            return t("Pick one starting bundle.");
         case PickPhaseVals.PICK:
-            return level > 0 ? `Pick one Level ${level} creature for your army.` : "Pick one creature for your army.";
+            return level > 0
+                ? `Pick one Level ${level} creature for your army.`
+                : t("Pick one creature for your army.");
         case PickPhaseVals.ARTIFACT_2:
-            return "Pick one Tier-2 artifact for your whole army.";
+            return t("Pick one Tier-2 artifact for your whole army.");
         default:
             return "";
     }
@@ -498,7 +509,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
             return (
                 <React.Fragment key={label}>
                     <Tooltip
-                        title={`${label} — ${STEP_ORDER_HINT[order]}`}
+                        title={`${t(label)} — ${t(STEP_ORDER_HINT[order])}`}
                         variant="soft"
                         placement="top"
                         sx={{ zIndex: 3000 }}
@@ -534,7 +545,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                 level="body-xs"
                                 sx={{ fontSize: 11.5, color: active ? "#efe4cc" : done ? "#8fcd7d" : "#7c8290" }}
                             >
-                                {label}
+                                {t(label)}
                             </Typography>
                         </Box>
                     </Tooltip>
@@ -559,9 +570,9 @@ type PortraitState = "available" | "picked" | "taken" | "banned";
 
 const STATE_HINT: Record<PortraitState, string> = {
     available: "",
-    picked: "In your army",
-    taken: "Taken by your opponent",
-    banned: "Banned",
+    picked: t("In your army"),
+    taken: t("Taken by your opponent"),
+    banned: t("Banned"),
 };
 
 // Lucide-style attack-type glyph drawn inline: sword for melee, bow for ranged, open book for casters.
@@ -1008,7 +1019,7 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                                 sx={{ mt: 0.5 }}
                                 fullWidth
                             >
-                                {isSelected ? "✓ Chosen" : "Choose"}
+                                {isSelected ? "✓ Chosen" : t("Choose")}
                             </Button>
                         </CardContent>
                     </Card>
@@ -1415,7 +1426,7 @@ const ArtifactPanel: React.FC<{
     );
 };
 
-// ---- "Your army" summary bar ---------------------------------------------
+// ---- t("Your army") summary bar ---------------------------------------------
 
 const perkName = (perkId: number): string => Perk.getPerkProperties(perkId as Perk.Perk)?.name ?? "";
 
@@ -1496,7 +1507,7 @@ export const SynergyDots: React.FC<{
                 const shownLevel = previewing ? previewLevel : level;
                 const key = `${faction}:${variant}:${shownLevel || 1}`;
                 const img = SYNERGY_KEY_TO_IMAGE[key as keyof typeof SYNERGY_KEY_TO_IMAGE];
-                const label = SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction;
+                const label = t(SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction);
                 const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
                 const tip = previewing
                     ? `Confirming this pick lights ${faction} — ${label} lvl ${previewLevel}: ${describeSynergy(
@@ -1944,9 +1955,11 @@ export const OpponentDraftBar: React.FC<{
 const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     userTeam,
     gameId,
-    opponentLabel = "Opponent",
+    opponentLabel = t("Opponent"),
     showOpponentRosterDuringAugmentHandoff = true,
 }) => {
+    // Re-renders the whole draft when the profile's language changes; children use the module t().
+    useTranslation();
     const {
         pickPhase,
         isYourTurn,
@@ -2063,7 +2076,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 setCollided((prev) => (prev.includes(id) ? prev : [...prev, id]));
                 setPickError("Already picked by your opponent — choose another.");
             } else {
-                setPickError(msg || "Pick rejected — choose another.");
+                setPickError(msg || t("Pick rejected — choose another."));
             }
         } finally {
             setBusy(false);
@@ -2107,7 +2120,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         return () => window.removeEventListener("keydown", onKey);
     });
     const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
-    const hint = PHASE_HINT[pickPhase] ?? "";
+    const hint = t(PHASE_HINT[pickPhase] ?? "");
     // "Taken" units are the opponent picks we legitimately know about: the ones we've collided on locally
     // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting doctrine /
     // reveal perks. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
@@ -2208,7 +2221,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         panel = (
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
                 <CircularProgress />
-                <Typography level="title-md">Preparing placement…</Typography>
+                <Typography level="title-md">{t("Preparing placement…")}</Typography>
             </Box>
         );
     }
@@ -2218,7 +2231,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
             {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
             <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>
-                <Tooltip title="Open the full How-to-Play guide in a new tab" variant="soft" placement="left">
+                <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="left">
                     <Typography
                         component="a"
                         href={RULES_URL}
@@ -2271,7 +2284,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                         ) : undefined
                                     }
                                 >
-                                    {isPreparing ? "Preparing the draft…" : title(pickPhase, requiredLevel)}
+                                    {isPreparing ? t("Preparing the draft…") : title(pickPhase, requiredLevel)}
                                 </DraftTitle>
                             </Box>
                             <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
@@ -2289,7 +2302,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                 ) : undefined
                             }
                         >
-                            {isPreparing ? "Preparing the draft…" : title(pickPhase, requiredLevel)}
+                            {isPreparing ? t("Preparing the draft…") : title(pickPhase, requiredLevel)}
                         </DraftTitle>
                     )}
                 </Box>
@@ -2302,7 +2315,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     }}
                 >
                     <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                        {isYourTurn ? "Your turn" : `${opponentLabel}'s turn`}
+                        {isYourTurn ? t("Your turn") : `${opponentLabel}'s turn`}
                     </Chip>
                     {upgradePoints > 0 && (
                         <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
@@ -2355,7 +2368,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                 gameId={gameId}
                                 pendingId={pendingPick}
                             />
-                            {/* Reads "Map: ?" until the server reveals the map right before the L3 picks, then
+                            {/* Reads t("Map: ?") until the server reveals the map right before the L3 picks, then
                                 the name — dead centre between the two armies. */}
                             <Box sx={{ flex: "0 0 auto", display: "flex", justifyContent: "center" }}>
                                 <MapBadge mapType={mapType} />
@@ -2397,18 +2410,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             !isYourTurn
                                 ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
                                     ? `Opponent's turn — Lvl ${requiredLevel}`
-                                    : "Opponent's turn"
+                                    : t("Opponent's turn")
                                 : pickPhase === PickPhaseVals.ARTIFACT_2
                                   ? pendingArtifact > 0
                                       ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
-                                      : "Pick an artifact"
+                                      : t("Pick an artifact")
                                   : pickPhase === PickPhaseVals.INITIAL_PICK
                                     ? pendingBundle >= 0
-                                        ? "Confirm bundle"
-                                        : "Pick a bundle"
+                                        ? t("Confirm bundle")
+                                        : t("Pick a bundle")
                                     : pendingPick > 0
                                       ? `Confirm ${creatureName(pendingPick)}`
-                                      : "Pick a creature"
+                                      : t("Pick a creature")
                         }
                         armed={
                             !!isYourTurn &&
@@ -2424,9 +2437,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             !isYourTurn
                                 ? undefined
                                 : pickPhase === PickPhaseVals.ARTIFACT_2
-                                  ? "Choose one of the three artifacts first."
+                                  ? t("Choose one of the three artifacts first.")
                                   : pickPhase === PickPhaseVals.INITIAL_PICK
-                                    ? "Choose one of the two bundles first."
+                                    ? t("Choose one of the two bundles first.")
                                     : "Choose a creature first — click a portrait, then confirm."
                         }
                         seconds={secondsRemaining}
@@ -2456,8 +2469,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         <CircularProgress size="sm" />
                         <Typography level="body-sm">
                             {selectedValue >= 0
-                                ? "Locked in — waiting for your opponent…"
-                                : "Waiting for your opponent…"}
+                                ? t("Locked in — waiting for your opponent…")
+                                : t("Waiting for your opponent…")}
                         </Typography>
                     </Box>
                 )}
@@ -2471,7 +2484,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     <DraftStepper step={currentStep(pickPhase, requiredLevel)} userTeam={userTeam} />
                 </Box>
             </Box>
-            <Tooltip title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} variant="soft" placement="top">
+            <Tooltip title={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")} variant="soft" placement="top">
                 <Box
                     component="button"
                     type="button"
@@ -2518,19 +2531,19 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 };
 
 const PHASE_NAME: Record<number, string> = {
-    [PickPhaseVals.PERK]: "Choose your doctrine",
-    [PickPhaseVals.INITIAL_PICK]: "Choose your starting bundle",
-    [PickPhaseVals.PICK]: "Pick a creature",
-    [PickPhaseVals.ARTIFACT_2]: "Choose a Tier-2 artifact",
-    [PickPhaseVals.AUGMENTS]: "Preparing placement…",
-    [PickPhaseVals.AUGMENTS_SCOUT]: "Preparing placement…",
+    [PickPhaseVals.PERK]: t("Choose your doctrine"),
+    [PickPhaseVals.INITIAL_PICK]: t("Choose your starting bundle"),
+    [PickPhaseVals.PICK]: t("Pick a creature"),
+    [PickPhaseVals.ARTIFACT_2]: t("Choose a Tier-2 artifact"),
+    [PickPhaseVals.AUGMENTS]: t("Preparing placement…"),
+    [PickPhaseVals.AUGMENTS_SCOUT]: t("Preparing placement…"),
 };
 
 function title(phase: number, level = 0): string {
     if (phase === PickPhaseVals.PICK && level >= 1) {
         return `Pick a Level ${level} creature`;
     }
-    return PHASE_NAME[phase] ?? "Pick phase";
+    return PHASE_NAME[phase] ?? t("Pick phase");
 }
 
 export default StainedGlassWindow;

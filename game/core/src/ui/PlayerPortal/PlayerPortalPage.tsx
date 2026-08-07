@@ -1,9 +1,12 @@
+import LanguageRoundedIcon from "@mui/icons-material/LanguageRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
-import { Box, Button, CircularProgress, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, CircularProgress, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
+
+import { SUPPORTED_LANGUAGES, setLanguage, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
@@ -144,6 +147,7 @@ const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }>
 export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
     const { data, loading, error, reload } = usePlayerPortal();
+    const { t, language } = useTranslation();
 
     const combos = data?.combos ?? [];
     const bestCombos = useMemo(
@@ -293,6 +297,26 @@ export const PlayerPortalPage: React.FC = () => {
                             </Box>
                         </Stack>
                         <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "stretch", sm: "center" } }}>
+                            {/* Language of preference (owner 2026-08-06): applies immediately to the
+                                pick phase and the in-game chrome; persisted per browser. */}
+                            <Select
+                                value={language}
+                                onChange={(_event, code) => {
+                                    if (code) {
+                                        setLanguage(code);
+                                    }
+                                }}
+                                variant="soft"
+                                startDecorator={<LanguageRoundedIcon />}
+                                aria-label={t("Language")}
+                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 140 }, whiteSpace: "nowrap" }}
+                            >
+                                {SUPPORTED_LANGUAGES.map(({ code, label }) => (
+                                    <Option key={code} value={code}>
+                                        {label}
+                                    </Option>
+                                ))}
+                            </Select>
                             <Button
                                 fullWidth
                                 variant="soft"
