@@ -16,7 +16,7 @@ export type ImageKey = keyof typeof images;
 `;
 
 const animationAtlasesStub = `/* CI stub — replaced locally by scripts/generate_animation_atlases.js */
-type AtlasMeta = {
+export interface IAtlasAnimationMeta {
     frameWidth: number;
     frameHeight: number;
     atlasWidth: number;
@@ -28,10 +28,10 @@ type AtlasMeta = {
     layout: { cols: number; rows: number };
     loopDurationMs: number;
     pauseMs: number;
-};
-export const animationAtlases = {} as Record<string, Record<string, AtlasMeta>>;
-export type AnimationUnitName = keyof typeof animationAtlases;
-export type AnimationStateName<U extends AnimationUnitName = AnimationUnitName> = keyof typeof animationAtlases[U];
+}
+export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> = {};
+export type AnimationUnitName = string;
+export type AnimationStateName<_U extends AnimationUnitName = AnimationUnitName> = string;
 `;
 
 fs.writeFileSync(path.join(generatedDir, "image_imports.ts"), imageImportsStub);
