@@ -138,28 +138,32 @@ const normalizedPath = currentPath.endsWith("/") && currentPath !== "/" ? curren
         max-width: 160px;
         overflow: hidden;
         color: var(--gold, #f2c75d);
-        font-weight: 700;
+        font-family: var(--hoc-font-display, "HoC Forge", serif);
+        font-synthesis: none;
+        font-weight: 400;
+        letter-spacing: 0.055em;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     .header-logout {
         padding: 6px 10px;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.16));
-        border-radius: 8px;
-        background: transparent;
-        color: inherit;
+        border: 1px solid var(--line, rgba(112, 75, 42, 0.46));
+        border-radius: 2px;
+        background: linear-gradient(180deg, rgba(76, 45, 22, 0.42), rgba(9, 7, 5, 0.78));
+        color: var(--muted, rgba(239, 228, 204, 0.66));
         font: inherit;
         font-size: 0.82rem;
-        cursor: pointer;
+        letter-spacing: 0.055em;
         transition:
             border-color 0.18s ease,
             background 0.18s ease;
     }
 
     .header-logout:hover {
-        border-color: rgba(242, 199, 93, 0.56);
-        background: rgba(242, 199, 93, 0.1);
+        border-color: rgba(220, 177, 88, 0.56);
+        background: linear-gradient(180deg, rgba(105, 48, 18, 0.54), rgba(20, 12, 7, 0.88));
+        color: var(--ink, #efe4cc);
     }
 
     @media (max-width: 720px) {

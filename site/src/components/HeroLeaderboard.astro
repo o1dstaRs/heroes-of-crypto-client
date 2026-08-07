@@ -385,13 +385,14 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked__dossier {
         position: absolute;
         z-index: 5;
-        inset: 3px 0;
+        inset: 3px 0 3px 42%;
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 6px;
         align-items: center;
         padding: 7px 10px;
         border: 1px solid rgba(220, 177, 88, 0.62);
+        clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 calc(100% - 7px), 0 7px);
         background:
             linear-gradient(90deg, rgba(52, 27, 8, 0.98), rgba(9, 7, 5, 0.98)),
             rgba(14, 9, 5, 0.98);
@@ -689,7 +690,6 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
 
     @media (max-width: 460px) {
         .hero-ranked__frame {
-            margin-inline: -6px;
             padding-inline: 12px;
             border-width: 14px;
             border-image-width: 18px;
