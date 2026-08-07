@@ -143,7 +143,7 @@ export const rankedArenaCopy = {
         playRanked: "Play ranked",
         noPlayers: "No ranked players match this search yet.",
         calibratingHeading: "In calibration",
-        calibratingProgress: "Placement {played}/{required}",
+        calibratingProgress: "Calibration {played}/{required}",
         recalibratingBadge: "returning",
         noGames: "No active games match this search right now.",
         noLeagues: "No leagues match this search yet.",
