@@ -31,6 +31,54 @@ export interface RankedProfileMatch {
     opponent: RankedProfileOpponent | null;
 }
 
+export interface PlaystyleCreature {
+    creatureId: number;
+    name: string;
+    faction: string;
+    games: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    winRatePct: number;
+    pickRatePct: number;
+}
+
+export interface PlaystyleCombo {
+    creatureIds: number[];
+    names: string[];
+    games: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    winRatePct: number;
+}
+
+export interface PlaystyleArtifact {
+    artifactId: number;
+    tier: number;
+    name: string;
+    games: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    winRatePct: number;
+    pickRatePct: number;
+}
+
+/** How the player usually plays: favorite creatures, winning combos, artifact habits. */
+export interface PlayerPlaystyle {
+    games: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    winRatePct: number;
+    topCreatures: PlaystyleCreature[];
+    topPairs: PlaystyleCombo[];
+    topTriples: PlaystyleCombo[];
+    artifactsTier1: PlaystyleArtifact[];
+    artifactsTier2: PlaystyleArtifact[];
+}
+
 export interface PublicRankedProfile {
     playerId: string;
     username: string;
@@ -54,6 +102,7 @@ export interface PublicRankedProfile {
     placedAt: number;
     lastRankedGameAt: number;
     recentGames: RankedProfileMatch[];
+    playstyle: PlayerPlaystyle | null;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -115,6 +164,75 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
               }
             : null;
 
+    const numberOr0 = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+    const playstyleRow = row.playstyle && typeof row.playstyle === "object" ? (row.playstyle as UnknownRecord) : null;
+    const normalizeCreature = (value: unknown): PlaystyleCreature | null => {
+        const entry = value && typeof value === "object" ? (value as UnknownRecord) : null;
+        if (!entry) return null;
+        return {
+            creatureId: numberOr0(entry.creatureId),
+            name: typeof entry.name === "string" ? entry.name : "",
+            faction: typeof entry.faction === "string" ? entry.faction : "",
+            games: numberOr0(entry.games),
+            wins: numberOr0(entry.wins),
+            losses: numberOr0(entry.losses),
+            draws: numberOr0(entry.draws),
+            winRatePct: numberOr0(entry.winRatePct),
+            pickRatePct: numberOr0(entry.pickRatePct),
+        };
+    };
+    const normalizeCombo = (value: unknown): PlaystyleCombo | null => {
+        const entry = value && typeof value === "object" ? (value as UnknownRecord) : null;
+        if (!entry) return null;
+        return {
+            creatureIds: Array.isArray(entry.creatureIds) ? entry.creatureIds.map(numberOr0) : [],
+            names: Array.isArray(entry.names) ? entry.names.map((n) => (typeof n === "string" ? n : "")) : [],
+            games: numberOr0(entry.games),
+            wins: numberOr0(entry.wins),
+            losses: numberOr0(entry.losses),
+            draws: numberOr0(entry.draws),
+            winRatePct: numberOr0(entry.winRatePct),
+        };
+    };
+    const normalizeArtifact = (value: unknown): PlaystyleArtifact | null => {
+        const entry = value && typeof value === "object" ? (value as UnknownRecord) : null;
+        if (!entry) return null;
+        return {
+            artifactId: numberOr0(entry.artifactId),
+            tier: numberOr0(entry.tier),
+            name: typeof entry.name === "string" ? entry.name : "",
+            games: numberOr0(entry.games),
+            wins: numberOr0(entry.wins),
+            losses: numberOr0(entry.losses),
+            draws: numberOr0(entry.draws),
+            winRatePct: numberOr0(entry.winRatePct),
+            pickRatePct: numberOr0(entry.pickRatePct),
+        };
+    };
+    const playstyle: PlayerPlaystyle | null = playstyleRow
+        ? {
+              games: numberOr0(playstyleRow.games),
+              wins: numberOr0(playstyleRow.wins),
+              losses: numberOr0(playstyleRow.losses),
+              draws: numberOr0(playstyleRow.draws),
+              winRatePct: numberOr0(playstyleRow.winRatePct),
+              topCreatures: (Array.isArray(playstyleRow.topCreatures) ? playstyleRow.topCreatures : [])
+                  .map(normalizeCreature)
+                  .filter((entry): entry is PlaystyleCreature => entry !== null),
+              topPairs: (Array.isArray(playstyleRow.topPairs) ? playstyleRow.topPairs : [])
+                  .map(normalizeCombo)
+                  .filter((entry): entry is PlaystyleCombo => entry !== null),
+              topTriples: (Array.isArray(playstyleRow.topTriples) ? playstyleRow.topTriples : [])
+                  .map(normalizeCombo)
+                  .filter((entry): entry is PlaystyleCombo => entry !== null),
+              artifactsTier1: (Array.isArray(playstyleRow.artifactsTier1) ? playstyleRow.artifactsTier1 : [])
+                  .map(normalizeArtifact)
+                  .filter((entry): entry is PlaystyleArtifact => entry !== null),
+              artifactsTier2: (Array.isArray(playstyleRow.artifactsTier2) ? playstyleRow.artifactsTier2 : [])
+                  .map(normalizeArtifact)
+                  .filter((entry): entry is PlaystyleArtifact => entry !== null),
+          }
+        : null;
     const recentGames = (Array.isArray(row.recentGames) ? row.recentGames : [])
         .map((value): RankedProfileMatch | null => {
             const match = asRecord(value);
@@ -173,6 +291,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         placedAt: nonNegativeInteger(row.placedAt),
         lastRankedGameAt: nonNegativeInteger(row.lastRankedGameAt),
         recentGames,
+        playstyle,
     };
 }
 
@@ -223,6 +342,7 @@ export function publicRankedProfileFallbackFromSearchParams(params: URLSearchPar
         lossStreak: searchNumber(params, "lossStreak"),
         lastRankedGameAt: searchNumber(params, "lastBattle"),
         recentGames: [],
+        playstyle: null,
     });
 }
 

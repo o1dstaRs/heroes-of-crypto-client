@@ -108,6 +108,9 @@ export interface PickObserveTeam {
     username: string;
     isBot: boolean;
     aiVersion: string | null;
+    /** Selected army-wide artifacts. 0/absent means that tier has not been selected yet. */
+    artifactTier1?: number;
+    artifactTier2?: number;
     /** Slot-aligned [L1, L1, L2, L2, L3, L4]; 0 = not yet revealed to the opponent (hidden here too). */
     revealedCreatureSlots: number[];
 }

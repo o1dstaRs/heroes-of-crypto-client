@@ -107,6 +107,7 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
                     <article
                         class="artifact-card"
                         data-tier={String(artifact.tier)}
+                        data-artifact-name={artifact.name}
                         data-search={searchText(artifact)}
                     >
                         <header class="artifact-card-head">
@@ -138,6 +139,9 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
 </section>
 
 <script>
+    import { decorateArtifactCards } from "../lib/meta-stats-client";
+
+    void decorateArtifactCards();
     const cards = Array.from(document.querySelectorAll<HTMLElement>(".artifact-card"));
     const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".tier-pill"));
     const searchInput = document.querySelector<HTMLInputElement>("[data-artifact-search]");
@@ -456,5 +460,27 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
         .artifacts-grid {
             grid-template-columns: 1fr;
         }
+    }
+
+    .artifacts-grid :global(.meta-badge),
+    .artifact-card :global(.meta-badge) {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 1px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted, #a8b0bc);
+        font-size: 0.68rem;
+        font-weight: 700;
+    }
+
+    .artifact-card :global(.meta-badge[data-trend="strong"]) {
+        background: rgba(96, 190, 120, 0.14);
+        color: #7fd196;
+    }
+
+    .artifact-card :global(.meta-badge[data-trend="weak"]) {
+        background: rgba(214, 92, 92, 0.13);
+        color: #e08a8a;
     }
 </style>

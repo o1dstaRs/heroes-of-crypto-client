@@ -84,6 +84,11 @@ const rankedApp = links.rankedApp;
                     <div class="combo-list" data-profile-combos></div>
                 </section>
 
+                <section class="profile-section" data-profile-playstyle-section hidden>
+                    <h2>{copy.publicPlaystyle}</h2>
+                    <div class="playstyle" data-profile-playstyle></div>
+                </section>
+
                 <section class="profile-section">
                     <h2>{copy.sectionMatches}</h2>
                     <div class="match-list" data-profile-matches></div>
@@ -381,6 +386,38 @@ const rankedApp = links.rankedApp;
                 : profile.recentGames.length
                 ? profile.recentGames.map(publicMatchRow).join("")
                 : `<p class="profile-empty-message">${escapeHtml(copy.publicNoMatches)}</p>`;
+        }
+
+        // Winning strategies: what this player fields and what wins for them (from recorded games).
+        const playstyleSection = document.querySelector<HTMLElement>("[data-profile-playstyle-section]");
+        const playstyleEl = $("playstyle");
+        const style = profile.playstyle;
+        if (playstyleSection && playstyleEl) {
+            const chip = (label: string, winRate: number, games: number): string => {
+                const trend = winRate >= 55 ? "strong" : winRate <= 45 ? "weak" : "even";
+                return `<span class="playstyle-chip" data-trend="${trend}"><b>${escapeHtml(label)}</b> ${winRate
+                    .toFixed(1)
+                    .replace(/\.0$/, "")}% · ${games} ${escapeHtml(copy.publicPlaystyleGames)}</span>`;
+            };
+            const group = (title: string, chips: string[]): string =>
+                chips.length
+                    ? `<div class="playstyle-group"><h3>${escapeHtml(title)}</h3><div class="playstyle-chips">${chips.join("")}</div></div>`
+                    : "";
+            const hasData = !summaryOnly && style && style.games > 0;
+            playstyleSection.hidden = !hasData && !style;
+            playstyleEl.innerHTML = hasData
+                ? [
+                      group(copy.publicPlaystyleCreatures, style.topCreatures.map((c) => chip(c.name, c.winRatePct, c.games))),
+                      group(copy.publicPlaystylePairs, style.topPairs.map((c) => chip(c.names.join(" + "), c.winRatePct, c.games))),
+                      group(copy.publicPlaystyleTriples, style.topTriples.map((c) => chip(c.names.join(" + "), c.winRatePct, c.games))),
+                      group(
+                          copy.publicPlaystyleArtifacts,
+                          [...style.artifactsTier1, ...style.artifactsTier2].map((a) =>
+                              chip(`T${a.tier} ${a.name}`, a.winRatePct, a.games),
+                          ),
+                      ),
+                  ].join("") || `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`
+                : `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`;
         }
         showState("content");
     }
@@ -1358,5 +1395,48 @@ const rankedApp = links.rankedApp;
         .profile-btn {
             transition: none;
         }
+    }
+
+    .playstyle :global(.playstyle-group) {
+        margin-bottom: 14px;
+    }
+
+    .playstyle :global(.playstyle-group h3) {
+        margin: 0 0 6px;
+        color: var(--muted-2, #8b94a3);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .playstyle :global(.playstyle-chips) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .playstyle :global(.playstyle-chip) {
+        padding: 4px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--muted, #a8b0bc);
+        font-size: 0.74rem;
+    }
+
+    .playstyle :global(.playstyle-chip b) {
+        color: var(--ink, #e7e3da);
+        font-weight: 700;
+    }
+
+    .playstyle :global(.playstyle-chip[data-trend="strong"]) {
+        border-color: rgba(96, 190, 120, 0.35);
+        background: rgba(96, 190, 120, 0.1);
+    }
+
+    .playstyle :global(.playstyle-chip[data-trend="weak"]) {
+        border-color: rgba(214, 92, 92, 0.3);
+        background: rgba(214, 92, 92, 0.08);
     }
 </style>

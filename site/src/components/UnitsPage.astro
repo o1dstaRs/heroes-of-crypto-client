@@ -206,6 +206,7 @@ function unitSearchText(unit: Unit) {
                         <button
                             class="unit-card"
                             data-unit={dataIndex}
+                            data-unit-name={unit.name}
                             data-faction={unit.faction}
                             data-alpha-order={alphaOrder.get(dataIndex)}
                             data-faction-order={dataIndex}
@@ -300,6 +301,9 @@ function unitSearchText(unit: Unit) {
 <script type="application/json" id="units-data" data-no-abilities={ui.noAbilities} set:html={serialized} />
 
 <script>
+    import { decorateUnitCards } from "../lib/meta-stats-client";
+
+    void decorateUnitCards();
     type Unit = {
         name: string;
         faction: string;
@@ -1237,5 +1241,27 @@ function unitSearchText(unit: Unit) {
         .unit-stats {
             grid-template-columns: 1fr;
         }
+    }
+
+    .units-grid :global(.meta-badge) {
+        display: inline-block;
+        margin-top: 2px;
+        padding: 1px 7px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted, #a8b0bc);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    .units-grid :global(.meta-badge[data-trend="strong"]) {
+        background: rgba(96, 190, 120, 0.14);
+        color: #7fd196;
+    }
+
+    .units-grid :global(.meta-badge[data-trend="weak"]) {
+        background: rgba(214, 92, 92, 0.13);
+        color: #e08a8a;
     }
 </style>

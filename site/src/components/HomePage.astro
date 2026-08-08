@@ -3,6 +3,7 @@ import { content, contractAddress, links, localPath, type Language } from "../li
 import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/units-data";
 import HeroLeaderboard from "./HeroLeaderboard.astro";
+import MetaSnapshot from "./MetaSnapshot.astro";
 import RankedArena from "./RankedArena.astro";
 
 interface Props {
@@ -11,18 +12,7 @@ interface Props {
 
 const { lang } = Astro.props;
 const copy = content[lang];
-const homeLabels =
-    lang === "ru"
-        ? {
-              factionRail: "Выберите фракцию",
-              units: "юнитов",
-              gameStats: "Статистика игры",
-          }
-        : {
-              factionRail: "Choose a faction",
-              units: "units",
-              gameStats: "Game stats",
-          };
+const homeLabels = lang === "ru" ? { gameStats: "Статистика игры" } : { gameStats: "Game stats" };
 const heroStats = [
     { value: String(factionUnits.length), label: copy.hero.stats[0]?.label ?? "Factions" },
     { value: String(unitCount), label: copy.hero.stats[1]?.label ?? "Combat units" },
@@ -60,10 +50,8 @@ const featureCards = copy.features.items.map((item, index) => ({
     ...item,
     visual: featureVisuals[index] ?? featureVisuals[0],
 }));
-const unitsHref = localPath(lang, "units");
 const rulesHref = localPath(lang, "rules");
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
-const factionUnitsHref = (faction: string) => `${unitsHref}?faction=${encodeURIComponent(faction.toLowerCase())}`;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 ---
 
@@ -122,61 +110,7 @@ const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 
 <RankedArena lang={lang} />
 
-<section class="faction-rail-section" aria-label={homeLabels.factionRail}>
-    <div class="page-shell faction-rail">
-        {
-            factionHighlights.map((faction) => (
-                <a class="faction-quick" href={factionUnitsHref(faction.faction)} style={`--faction: ${faction.color}`}>
-                    <span class="faction-quick-head">
-                        <img src={faction.icon} alt="" width="34" height="34" loading="lazy" />
-                        <span>
-                            <strong>{factionLabel(faction.faction)}</strong>
-                            <em>{faction.unitCount} {homeLabels.units}</em>
-                        </span>
-                    </span>
-                    <span class="faction-mini-units">
-                        {faction.featuredUnits.slice(0, 3).map((unit) => (
-                            <img src={unit.icon} alt="" width="72" height="72" loading="lazy" />
-                        ))}
-                    </span>
-                </a>
-            ))
-        }
-    </div>
-</section>
-
-<section class="section roster-section">
-    <div class="page-shell split">
-        <div class="home-roster-board" aria-label={copy.roster.title}>
-            {
-                factionHighlights.map((faction) => (
-                    <article class="home-faction-panel" style={`--faction: ${faction.color}`}>
-                        <div class="home-faction-title">
-                            <img src={faction.icon} alt="" width="28" height="28" loading="lazy" />
-                            <strong>{factionLabel(faction.faction)}</strong>
-                        </div>
-                        <div class="home-unit-grid">
-                            {faction.featuredUnits.map((unit) => (
-                                <a class="home-unit-tile" href={factionUnitsHref(faction.faction)}>
-                                    <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
-                                    <span>{unit.name}</span>
-                                </a>
-                            ))}
-                        </div>
-                    </article>
-                ))
-            }
-        </div>
-        <div class="section-copy">
-            <p class="eyebrow">{copy.roster.eyebrow}</p>
-            <h2>{copy.roster.title}</h2>
-            <p>{copy.roster.body}</p>
-            <div class="pill-list">
-                {copy.roster.points.map((point) => <span>{point}</span>)}
-            </div>
-        </div>
-    </div>
-</section>
+<MetaSnapshot lang={lang} />
 
 <section class="section feature-section" id="features">
     <div class="page-shell">

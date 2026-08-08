@@ -1,0 +1,398 @@
+---
+import { allUnits } from "../lib/units-data";
+import { artifacts } from "../lib/artifacts-data";
+
+interface Props {
+    lang: "en" | "ru";
+}
+
+const { lang } = Astro.props;
+
+const copyByLang = {
+    en: {
+        eyebrow: "Current meta",
+        title: "What is winning right now",
+        body: "Live winrates from ranked battles — the creatures, combos, and artifacts shaping the ladder.",
+        games: "games",
+        counted: "ranked battles counted",
+        strongest: "Strongest picks",
+        weakest: "Struggling picks",
+        duos: "Best duos",
+        trios: "Best trios",
+        artifactsT1: "Tier 1 artifacts",
+        artifactsT2: "Tier 2 artifacts",
+        collecting: "Collecting battle data — check back soon.",
+        seeUnits: "All units",
+        seeArtifacts: "All artifacts",
+        winRate: "win rate",
+    },
+    ru: {
+        eyebrow: "Текущая мета",
+        title: "Что сейчас побеждает",
+        body: "Живые проценты побед из рейтинговых боёв — существа, связки и артефакты, задающие мету.",
+        games: "игр",
+        counted: "рейтинговых боёв учтено",
+        strongest: "Сильнейшие пики",
+        weakest: "Слабые пики",
+        duos: "Лучшие пары",
+        trios: "Лучшие тройки",
+        artifactsT1: "Артефакты 1 уровня",
+        artifactsT2: "Артефакты 2 уровня",
+        collecting: "Собираем данные боёв — загляните позже.",
+        seeUnits: "Все существа",
+        seeArtifacts: "Все артефакты",
+        winRate: "процент побед",
+    },
+} as const;
+
+const copy = copyByLang[lang];
+const unitsHref = lang === "ru" ? "/ru/units/" : "/units/";
+const artifactsHref = lang === "ru" ? "/ru/artifacts/" : "/artifacts/";
+
+const nameKey = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+const unitIcons: Record<string, string> = {};
+for (const unit of allUnits) {
+    unitIcons[nameKey(unit.name)] = unit.icon;
+}
+const artifactIcons: Record<string, string> = {};
+for (const artifact of artifacts) {
+    artifactIcons[`${artifact.tier}:${nameKey(artifact.name)}`] = artifact.icon;
+}
+const serializedIcons = JSON.stringify({ units: unitIcons, artifacts: artifactIcons });
+---
+
+<section class="meta-snapshot section" id="meta" aria-labelledby="meta-snapshot-title" data-meta-snapshot>
+    <div class="page-shell">
+        <header class="meta-snapshot__heading">
+            <div>
+                <p class="eyebrow">{copy.eyebrow}</p>
+                <h2 id="meta-snapshot-title">{copy.title}</h2>
+                <p class="meta-snapshot__body">{copy.body}</p>
+            </div>
+            <p class="meta-snapshot__counted"><strong data-meta-games>—</strong> {copy.counted}</p>
+        </header>
+
+        <div class="meta-snapshot__grid" data-meta-grid hidden>
+            <article class="meta-snapshot__panel">
+                <h3>{copy.strongest}</h3>
+                <ol class="meta-snapshot__list" data-meta-strongest></ol>
+                <h3 class="meta-snapshot__subhead">{copy.weakest}</h3>
+                <ol class="meta-snapshot__list" data-meta-weakest></ol>
+                <a class="meta-snapshot__more" href={unitsHref}>{copy.seeUnits} →</a>
+            </article>
+
+            <article class="meta-snapshot__panel">
+                <h3>{copy.duos}</h3>
+                <ol class="meta-snapshot__list" data-meta-duos></ol>
+                <h3 class="meta-snapshot__subhead">{copy.trios}</h3>
+                <ol class="meta-snapshot__list" data-meta-trios></ol>
+            </article>
+
+            <article class="meta-snapshot__panel">
+                <h3>{copy.artifactsT1}</h3>
+                <ol class="meta-snapshot__list" data-meta-artifacts-t1></ol>
+                <h3 class="meta-snapshot__subhead">{copy.artifactsT2}</h3>
+                <ol class="meta-snapshot__list" data-meta-artifacts-t2></ol>
+                <a class="meta-snapshot__more" href={artifactsHref}>{copy.seeArtifacts} →</a>
+            </article>
+        </div>
+
+        <p class="meta-snapshot__collecting" data-meta-collecting>{copy.collecting}</p>
+    </div>
+</section>
+
+<script type="application/json" id="meta-snapshot-icons" set:html={serializedIcons} />
+
+<script>
+    import { fetchMetaStats, metaNameKey, type MetaStats } from "../lib/meta-stats-client";
+
+    const root = document.querySelector<HTMLElement>("[data-meta-snapshot]");
+    if (root) {
+        const iconsRaw = document.getElementById("meta-snapshot-icons")?.textContent ?? "{}";
+        const icons = JSON.parse(iconsRaw) as { units: Record<string, string>; artifacts: Record<string, string> };
+        const gamesLabel = root.closest("[data-language]")?.getAttribute("data-language") === "ru" ? "игр" : "games";
+        const gamesEl = root.querySelector<HTMLElement>("[data-meta-games]");
+        const gridEl = root.querySelector<HTMLElement>("[data-meta-grid]");
+        const collectingEl = root.querySelector<HTMLElement>("[data-meta-collecting]");
+
+        const trend = (winRatePct: number): string => (winRatePct >= 55 ? "strong" : winRatePct <= 45 ? "weak" : "even");
+
+        const row = (
+            iconSrcs: string[],
+            label: string,
+            winRatePct: number,
+            games: number,
+        ): HTMLElement => {
+            const item = document.createElement("li");
+            item.className = "meta-row";
+            item.dataset.trend = trend(winRatePct);
+            const iconWrap = document.createElement("span");
+            iconWrap.className = "meta-row__icons";
+            for (const src of iconSrcs.filter(Boolean).slice(0, 3)) {
+                const img = document.createElement("img");
+                img.src = src;
+                img.alt = "";
+                img.loading = "lazy";
+                iconWrap.appendChild(img);
+            }
+            const name = document.createElement("span");
+            name.className = "meta-row__name";
+            name.textContent = label;
+            const rate = document.createElement("span");
+            rate.className = "meta-row__rate";
+            rate.innerHTML = `<b>${winRatePct.toFixed(1).replace(/\.0$/, "")}%</b><small>${games} ${gamesLabel}</small>`;
+            const bar = document.createElement("span");
+            bar.className = "meta-row__bar";
+            const fill = document.createElement("i");
+            fill.style.width = `${Math.max(4, Math.min(100, winRatePct))}%`;
+            bar.appendChild(fill);
+            item.append(iconWrap, name, rate, bar);
+            return item;
+        };
+
+        const fill = (selector: string, rows: HTMLElement[]): void => {
+            const el = root.querySelector<HTMLElement>(selector);
+            if (!el) return;
+            el.replaceChildren(...rows);
+            const heading = el.previousElementSibling;
+            const empty = rows.length === 0;
+            el.toggleAttribute("hidden", empty);
+            if (heading instanceof HTMLElement && (heading.tagName === "H3" || heading.tagName === "H2")) {
+                heading.toggleAttribute("hidden", empty);
+            }
+        };
+
+        const unitIcon = (name: string): string => icons.units[metaNameKey(name)] ?? "";
+        const artifactIcon = (tier: number, name: string): string => icons.artifacts[`${tier}:${metaNameKey(name)}`] ?? "";
+
+        // Rows need a min-games floor so a 1-game 100% doesn't headline the meta; relax it while data is young.
+        const withFloor = <T extends { games: number }>(rows: T[]): T[] => {
+            const floor = rows.some((r) => r.games >= 8) ? 8 : rows.some((r) => r.games >= 3) ? 3 : 1;
+            return rows.filter((r) => r.games >= floor);
+        };
+
+        const render = (stats: MetaStats): void => {
+            if (gamesEl) gamesEl.textContent = String(stats.games);
+            const qualified = withFloor(stats.creatures);
+            const artifactsT1 = withFloor(stats.artifactsTier1);
+            const artifactsT2 = withFloor(stats.artifactsTier2);
+            fill(
+                "[data-meta-strongest]",
+                qualified.slice(0, 6).map((c) => row([unitIcon(c.name)], c.name, c.winRatePct, c.games)),
+            );
+            fill(
+                "[data-meta-weakest]",
+                [...qualified]
+                    .sort((a, b) => a.winRatePct - b.winRatePct || b.games - a.games)
+                    .slice(0, 3)
+                    .map((c) => row([unitIcon(c.name)], c.name, c.winRatePct, c.games)),
+            );
+            fill(
+                "[data-meta-duos]",
+                stats.pairs.slice(0, 4).map((p) => row(p.names.map(unitIcon), p.names.join(" + "), p.winRatePct, p.games)),
+            );
+            fill(
+                "[data-meta-trios]",
+                stats.triples.slice(0, 3).map((p) => row(p.names.map(unitIcon), p.names.join(" + "), p.winRatePct, p.games)),
+            );
+            fill(
+                "[data-meta-artifacts-t1]",
+                artifactsT1.slice(0, 4).map((a) => row([artifactIcon(1, a.name)], a.name, a.winRatePct, a.games)),
+            );
+            fill(
+                "[data-meta-artifacts-t2]",
+                artifactsT2.slice(0, 4).map((a) => row([artifactIcon(2, a.name)], a.name, a.winRatePct, a.games)),
+            );
+            const hasAnything = stats.games > 0;
+            gridEl?.toggleAttribute("hidden", !hasAnything);
+            collectingEl?.toggleAttribute("hidden", hasAnything);
+        };
+
+        const refresh = async (): Promise<void> => {
+            const stats = await fetchMetaStats();
+            if (stats) render(stats);
+        };
+        void refresh();
+        window.setInterval(() => void refresh(), 120_000);
+    }
+</script>
+
+<style>
+    .meta-snapshot {
+        position: relative;
+    }
+
+    .meta-snapshot__heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+    }
+
+    .meta-snapshot__heading h2 {
+        margin: 6px 0 8px;
+    }
+
+    .meta-snapshot__body {
+        max-width: 560px;
+        color: var(--muted, #a8b0bc);
+    }
+
+    .meta-snapshot__counted {
+        color: var(--muted-2, #8b94a3);
+        font-size: 0.85rem;
+    }
+
+    .meta-snapshot__counted strong {
+        color: var(--ink, #e7e3da);
+        font-size: 1.15rem;
+        margin-right: 6px;
+    }
+
+    .meta-snapshot__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+    }
+
+    .meta-snapshot__panel {
+        padding: 18px;
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.09));
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.18);
+    }
+
+    .meta-snapshot__panel h3 {
+        margin: 0 0 12px;
+        color: var(--muted-2, #8b94a3);
+        font-size: 0.72rem;
+        font-weight: 820;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+    }
+
+    .meta-snapshot__subhead {
+        margin-top: 18px !important;
+    }
+
+    .meta-snapshot__list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .meta-snapshot :global(.meta-row) {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas:
+            "icons name rate"
+            "bar bar bar";
+        align-items: center;
+        gap: 4px 10px;
+        padding: 7px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.025);
+    }
+
+    .meta-snapshot :global(.meta-row__icons) {
+        grid-area: icons;
+        display: flex;
+    }
+
+    .meta-snapshot :global(.meta-row__icons img) {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(220, 177, 88, 0.45);
+        background: #14181f;
+    }
+
+    .meta-snapshot :global(.meta-row__icons img + img) {
+        margin-left: -10px;
+    }
+
+    .meta-snapshot :global(.meta-row__name) {
+        grid-area: name;
+        color: var(--ink, #e7e3da);
+        font-size: 0.86rem;
+        font-weight: 650;
+        line-height: 1.2;
+    }
+
+    .meta-snapshot :global(.meta-row__rate) {
+        grid-area: rate;
+        text-align: right;
+        line-height: 1.1;
+    }
+
+    .meta-snapshot :global(.meta-row__rate b) {
+        display: block;
+        font-size: 0.92rem;
+        color: var(--ink, #e7e3da);
+    }
+
+    .meta-snapshot :global(.meta-row__rate small) {
+        color: var(--muted-2, #8b94a3);
+        font-size: 0.68rem;
+    }
+
+    .meta-snapshot :global(.meta-row__bar) {
+        grid-area: bar;
+        display: block;
+        height: 4px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.07);
+        overflow: hidden;
+    }
+
+    .meta-snapshot :global(.meta-row__bar i) {
+        display: block;
+        height: 100%;
+        border-radius: 3px;
+        background: #9aa7b8;
+    }
+
+    .meta-snapshot :global(.meta-row[data-trend="strong"] .meta-row__bar i) {
+        background: #6fbf85;
+    }
+
+    .meta-snapshot :global(.meta-row[data-trend="strong"] .meta-row__rate b) {
+        color: #7fd196;
+    }
+
+    .meta-snapshot :global(.meta-row[data-trend="weak"] .meta-row__bar i) {
+        background: #c96f6f;
+    }
+
+    .meta-snapshot :global(.meta-row[data-trend="weak"] .meta-row__rate b) {
+        color: #e08a8a;
+    }
+
+    .meta-snapshot__more {
+        display: inline-block;
+        margin-top: 14px;
+        color: var(--gold, #dcb158);
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .meta-snapshot__more:hover {
+        text-decoration: underline;
+    }
+
+    .meta-snapshot__collecting {
+        padding: 26px;
+        border: 1px dashed var(--line, rgba(255, 255, 255, 0.12));
+        border-radius: 14px;
+        color: var(--muted-2, #8b94a3);
+        text-align: center;
+    }
+</style>

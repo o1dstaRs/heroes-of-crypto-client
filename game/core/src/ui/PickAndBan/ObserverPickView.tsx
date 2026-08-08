@@ -1,3 +1,4 @@
+import { Artifact } from "@heroesofcrypto/common";
 import Box from "@mui/joy/Box";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
@@ -7,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
 import { images as rawImages } from "../../generated/image_imports";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
 
 const images = rawImages as Record<string, string>;
 
@@ -86,50 +88,136 @@ const CreatureSlot: React.FC<{ creatureId: number; levelLabel: string }> = ({ cr
     );
 };
 
-const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = ({ team, fallbackLabel }) => (
-    <Sheet
-        variant="soft"
-        sx={{
-            p: 2,
-            borderRadius: "18px",
-            bgcolor: "rgba(11,13,18,0.92)",
-            border: "1px solid rgba(159,182,212,0.35)",
-            minWidth: 320,
-        }}
-    >
-        <Stack spacing={1.25} alignItems="center">
-            <Stack direction="row" spacing={1} alignItems="center">
-                <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#efe4cc" }}>
-                    {team?.username ?? fallbackLabel}
+const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) => {
+    const { artifact, tier } = slot;
+    const image = artifact ? images[artifact.imageKey] : undefined;
+    return (
+        <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            title={artifact ? `${artifact.name} — ${Artifact.formatArtifactDescription(artifact)}` : undefined}
+            sx={{ width: 132, minWidth: 0 }}
+        >
+            {image ? (
+                <Box
+                    component="img"
+                    src={image}
+                    alt={artifact?.name ?? `Tier-${tier} artifact`}
+                    sx={{
+                        width: 44,
+                        height: 44,
+                        flex: "0 0 auto",
+                        borderRadius: "9px",
+                        objectFit: "contain",
+                        bgcolor: "rgba(220,177,88,0.08)",
+                        border: "1px solid rgba(220,177,88,0.6)",
+                    }}
+                />
+            ) : (
+                <Box
+                    sx={{
+                        width: 44,
+                        height: 44,
+                        flex: "0 0 auto",
+                        borderRadius: "9px",
+                        border: "1px dashed rgba(159,182,212,0.35)",
+                        display: "grid",
+                        placeItems: "center",
+                        color: "rgba(159,182,212,0.5)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                    }}
+                >
+                    T{tier}
+                </Box>
+            )}
+            <Stack spacing={0.1} sx={{ minWidth: 0 }}>
+                <Typography level="body-xs" sx={{ color: "#dcb158", fontWeight: 700 }}>
+                    Tier {tier}
                 </Typography>
-                {team?.isBot && (
+                <Typography
+                    level="body-xs"
+                    sx={{
+                        color: artifact ? "#efe4cc" : "rgba(159,182,212,0.5)",
+                        lineHeight: 1.1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {artifact?.name ?? "Not selected"}
+                </Typography>
+            </Stack>
+        </Stack>
+    );
+};
+
+const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = ({ team, fallbackLabel }) => {
+    const artifactSlots = observedDraftArtifactSlots(team);
+    return (
+        <Sheet
+            variant="soft"
+            sx={{
+                p: 2,
+                borderRadius: "18px",
+                bgcolor: "rgba(11,13,18,0.92)",
+                border: "1px solid rgba(159,182,212,0.35)",
+                minWidth: 320,
+            }}
+        >
+            <Stack spacing={1.25} alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#efe4cc" }}>
+                        {team?.username ?? fallbackLabel}
+                    </Typography>
+                    {team?.isBot && (
+                        <Typography
+                            level="body-xs"
+                            sx={{
+                                px: 0.75,
+                                py: 0.25,
+                                borderRadius: "8px",
+                                bgcolor: "rgba(220,177,88,0.15)",
+                                border: "1px solid rgba(220,177,88,0.5)",
+                                color: "#dcb158",
+                            }}
+                        >
+                            AI {team.aiVersion ?? ""}
+                        </Typography>
+                    )}
+                </Stack>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.25 }}>
+                    {SLOT_LEVELS.map((levelLabel, index) => (
+                        <CreatureSlot
+                            key={`${levelLabel}-${index}`}
+                            creatureId={team?.revealedCreatureSlots?.[index] ?? 0}
+                            levelLabel={levelLabel}
+                        />
+                    ))}
+                </Box>
+                <Box
+                    sx={{
+                        width: "100%",
+                        pt: 1.1,
+                        borderTop: "1px solid rgba(159,182,212,0.2)",
+                    }}
+                >
                     <Typography
                         level="body-xs"
-                        sx={{
-                            px: 0.75,
-                            py: 0.25,
-                            borderRadius: "8px",
-                            bgcolor: "rgba(220,177,88,0.15)",
-                            border: "1px solid rgba(220,177,88,0.5)",
-                            color: "#dcb158",
-                        }}
+                        sx={{ color: "#9fb6d4", textTransform: "uppercase", letterSpacing: 0.7, mb: 0.75 }}
                     >
-                        AI {team.aiVersion ?? ""}
+                        Selected artifacts
                     </Typography>
-                )}
+                    <Stack direction="row" spacing={1} justifyContent="space-between">
+                        {artifactSlots.map((slot) => (
+                            <ArtifactSlot key={slot.tier} slot={slot} />
+                        ))}
+                    </Stack>
+                </Box>
             </Stack>
-            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.25 }}>
-                {SLOT_LEVELS.map((levelLabel, index) => (
-                    <CreatureSlot
-                        key={`${levelLabel}-${index}`}
-                        creatureId={team?.revealedCreatureSlots?.[index] ?? 0}
-                        levelLabel={levelLabel}
-                    />
-                ))}
-            </Box>
-        </Stack>
-    </Sheet>
-);
+        </Sheet>
+    );
+};
 
 interface IObserverPickViewProps {
     gameId: string;
@@ -228,7 +316,8 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                         )}
                     </Stack>
                     <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.6)" }}>
-                        Spectators see what each side has revealed to its opponent — hidden picks stay hidden.
+                        Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked
+                        in.
                     </Typography>
                 </Stack>
 
