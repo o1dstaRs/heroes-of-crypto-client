@@ -24,7 +24,10 @@ const rankedApp = links.rankedApp;
             </span>
             <div class="profile-head-copy">
                 <p class="eyebrow" data-profile-eyebrow>{copy.title}</p>
-                <h1 class="profile-name" data-profile-name>{copy.title}</h1>
+                <div class="profile-name-row">
+                    <h1 class="profile-name" data-profile-name>{copy.title}</h1>
+                    <span class="profile-gold" data-profile-gold hidden></span>
+                </div>
                 <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
                 <div class="profile-meta" data-profile-meta hidden>
                     <span class="profile-streak" data-profile-streak></span>
@@ -140,6 +143,7 @@ const rankedApp = links.rankedApp;
     const emptyEl = $("empty");
     const sectionsEl = $("sections");
     const nameEl = $("name");
+    const goldEl = $("gold");
     const metaEl = $("meta");
     const streakEl = $("streak");
     const presenceEl = $("presence");
@@ -353,6 +357,10 @@ const rankedApp = links.rankedApp;
         const rank = placed && profile.leaderboardRank ? `#${numberFormatter.format(profile.leaderboardRank)}` : copy.publicUnranked;
 
         if (nameEl) nameEl.textContent = profile.username;
+        if (goldEl) {
+            goldEl.textContent = `${numberFormatter.format(profile.gold)} 🪙`;
+            goldEl.hidden = false;
+        }
         document.title = `${profile.username} · Heroes of Crypto`;
         if (metaEl) metaEl.hidden = false;
         if (streakEl) streakEl.textContent = streakLabel(currentStreak, streakLabels);
@@ -388,7 +396,7 @@ const rankedApp = links.rankedApp;
                 statCard(copy.statPeakRating, profile.peakMmr ? numberFormatter.format(profile.peakMmr) : "—"),
                 statCard(copy.statGames, numberFormatter.format(profile.totalGames)),
                 statCard(copy.statHoursInGame, hoursInGameLabel(profile.secondsInGame)),
-                statCard(copy.statGold, `${numberFormatter.format(profile.gold)} 🪙`, "#f2c75d"),
+                // Gold moved to the header (large, right after the nickname); no duplicate stat card here.
             ].join("");
         }
 
@@ -495,6 +503,8 @@ const rankedApp = links.rankedApp;
         const winRate = winRatePct(wins, games);
 
         if (nameEl) nameEl.textContent = portal.username || copy.title;
+        // The portal payload has no gold field; keep the header badge hidden for this render path.
+        if (goldEl) goldEl.hidden = true;
 
         const currentStreak = num(portal.current_streak);
         if (metaEl) metaEl.hidden = false;
@@ -675,6 +685,13 @@ const rankedApp = links.rankedApp;
         margin-bottom: 7px;
     }
 
+    .profile-name-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 12px 20px;
+    }
+
     .profile-name {
         margin: 6px 0 8px;
         color: var(--hoc-bronze, #cda078);
@@ -682,6 +699,16 @@ const rankedApp = links.rankedApp;
         font-weight: 400;
         letter-spacing: 0.07em;
         line-height: 1.05;
+    }
+
+    /* Gold total, sized to sit large right after the nickname on the same baseline. */
+    .profile-gold {
+        color: var(--gold, #f2c75d);
+        font-size: clamp(1.5rem, 2.6vw, 2.4rem);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        line-height: 1.05;
+        white-space: nowrap;
     }
 
     .profile-sub {
