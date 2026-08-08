@@ -101,6 +101,10 @@ export interface PublicRankedProfile {
     lossStreak: number;
     placedAt: number;
     lastRankedGameAt: number;
+    // Public playtime + presence: total seconds ever spent in games, and online / last-seen state.
+    secondsInGame: number;
+    online: boolean;
+    lastOnlineAt: number;
     recentGames: RankedProfileMatch[];
     playstyle: PlayerPlaystyle | null;
 }
@@ -290,6 +294,9 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         lossStreak: nonNegativeInteger(row.lossStreak),
         placedAt: nonNegativeInteger(row.placedAt),
         lastRankedGameAt: nonNegativeInteger(row.lastRankedGameAt),
+        secondsInGame: nonNegativeInteger(row.secondsInGame),
+        online: row.online === true,
+        lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
         recentGames,
         playstyle,
     };

@@ -28,6 +28,7 @@ const rankedApp = links.rankedApp;
                 <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
                 <div class="profile-meta" data-profile-meta hidden>
                     <span class="profile-streak" data-profile-streak></span>
+                    <span class="profile-presence" data-profile-presence hidden></span>
                     <span class="profile-lastseen" data-profile-lastseen></span>
                 </div>
             </div>
@@ -136,6 +137,7 @@ const rankedApp = links.rankedApp;
     const nameEl = $("name");
     const metaEl = $("meta");
     const streakEl = $("streak");
+    const presenceEl = $("presence");
     const lastSeenEl = $("lastseen");
     const eyebrowEl = $("eyebrow");
     const subtitleEl = $("subtitle");
@@ -186,6 +188,15 @@ const rankedApp = links.rankedApp;
     function statCard(label: string, value: string, accent?: string): string {
         const style = accent ? ` style="color:${accent}"` : "";
         return `<div class="stat-card"><dt>${escapeHtml(label)}</dt><dd${style}>${escapeHtml(value)}</dd></div>`;
+    }
+
+    // Public playtime: "42m" under an hour, "7.5h" under ten, whole hours beyond.
+    function hoursInGameLabel(secondsInGame: number): string {
+        if (!secondsInGame) return "—";
+        const hours = secondsInGame / 3600;
+        if (hours < 1) return `${Math.max(1, Math.round(secondsInGame / 60))}m`;
+        if (hours < 10) return `${hours.toFixed(1).replace(/\.0$/, "")}h`;
+        return `${Math.round(hours)}h`;
     }
 
     // One "icon · name · win-rate bar · games" row, used for both creatures and factions.
@@ -339,6 +350,20 @@ const rankedApp = links.rankedApp;
         document.title = `${profile.username} · Heroes of Crypto`;
         if (metaEl) metaEl.hidden = false;
         if (streakEl) streakEl.textContent = streakLabel(currentStreak, streakLabels);
+        if (presenceEl) {
+            // Live presence: green "Online" while the player has an active session; otherwise how
+            // long ago they were last seen (independent of when their last ranked battle was).
+            if (profile.online) {
+                presenceEl.hidden = false;
+                presenceEl.dataset.online = "true";
+                presenceEl.textContent = copy.publicOnlineNow;
+            } else {
+                const seen = timeAgo(profile.lastOnlineAt, agoLabels);
+                presenceEl.hidden = !seen;
+                delete presenceEl.dataset.online;
+                presenceEl.textContent = seen ? `${copy.publicLastSeen} ${seen}` : "";
+            }
+        }
         if (lastSeenEl) {
             const ago = timeAgo(profile.lastRankedGameAt, agoLabels);
             lastSeenEl.textContent = ago ? `${copy.publicLastBattle} ${ago}` : "";
@@ -356,6 +381,7 @@ const rankedApp = links.rankedApp;
                 statCard(copy.statWinRate, profile.totalGames ? `${profile.winRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—", winRateColor(profile.winRatePct)),
                 statCard(copy.statPeakRating, profile.peakMmr ? numberFormatter.format(profile.peakMmr) : "—"),
                 statCard(copy.statGames, numberFormatter.format(profile.totalGames)),
+                statCard(copy.statHoursInGame, hoursInGameLabel(profile.secondsInGame)),
             ].join("");
         }
 
@@ -676,6 +702,28 @@ const rankedApp = links.rankedApp;
     .profile-lastseen {
         color: rgba(251, 244, 232, 0.5);
         font-size: 0.82rem;
+    }
+
+    .profile-presence {
+        color: rgba(251, 244, 232, 0.5);
+        font-size: 0.82rem;
+    }
+
+    /* Live-session marker: green dot + green text while the player is online right now. */
+    .profile-presence[data-online] {
+        color: #46d160;
+    }
+
+    .profile-presence[data-online]::before {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: #46d160;
+        box-shadow: 0 0 6px rgba(70, 209, 96, 0.8);
+        vertical-align: baseline;
     }
 
     .profile-note {

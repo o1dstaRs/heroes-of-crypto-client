@@ -207,6 +207,19 @@ export const endpoints = {
         // Public ranked profile (username, placed MMR, league) — the observer HUD names each side.
         rankedProfile: IS_PROD ? "/v1/ranked-profile" : "/v1/mm/ranked-profile",
     },
+    // Authenticated social layer: notifications tray, friends/blocks, presence heartbeat.
+    social: {
+        presencePing: IS_PROD ? "/v1/presence-ping" : "/v1/mm/presence-ping",
+        notifications: IS_PROD ? "/v1/notifications" : "/v1/mm/notifications",
+        notificationsSeen: IS_PROD ? "/v1/notifications-seen" : "/v1/mm/notifications-seen",
+        friendRequest: IS_PROD ? "/v1/friend-request" : "/v1/mm/friend-request",
+        friendRespond: IS_PROD ? "/v1/friend-respond" : "/v1/mm/friend-respond",
+        friendRemove: IS_PROD ? "/v1/friend-remove" : "/v1/mm/friend-remove",
+        friendBlock: IS_PROD ? "/v1/friend-block" : "/v1/mm/friend-block",
+        friendUnblock: IS_PROD ? "/v1/friend-unblock" : "/v1/mm/friend-unblock",
+        friends: IS_PROD ? "/v1/friends" : "/v1/mm/friends",
+        playerSearch: IS_PROD ? "/v1/player-search" : "/v1/mm/player-search",
+    },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",
         abandon: IS_PROD ? "/v1/abandon" : "/v1/game/abandon",

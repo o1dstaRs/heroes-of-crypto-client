@@ -36,6 +36,8 @@ import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
 import { ThemeMusic } from "./audio/ThemeMusic";
+import { SocialDock } from "./social/SocialDock";
+import { SocialProvider } from "./social/SocialProvider";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
@@ -691,12 +693,17 @@ const App: React.FC = () => {
 
     return (
         <AuthProvider>
-            <Router>
-                {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
-                    screens does not restart the theme. It decides for itself which routes sing. */}
-                <ThemeMusic />
-                <AuthedRoutes windowSize={windowSize} />
-            </Router>
+            <SocialProvider>
+                <Router>
+                    {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
+                        screens does not restart the theme. It decides for itself which routes sing. */}
+                    <ThemeMusic />
+                    {/* Floating bell + friends dock (hidden during fights); also drives the presence
+                        heartbeat that makes this player show as "online" to their friends. */}
+                    <SocialDock />
+                    <AuthedRoutes windowSize={windowSize} />
+                </Router>
+            </SocialProvider>
         </AuthProvider>
     );
 };
