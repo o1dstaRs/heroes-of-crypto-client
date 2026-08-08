@@ -408,8 +408,7 @@ const rankedApp = links.rankedApp;
                     ${seasonLine}
                 </div>
                 <dl class="ranked-standing__facts">
-                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : copy.publicUnranked)}</dd></div>
-                    <div><dt>${escapeHtml(copy.publicCalibrationProgress)}</dt><dd>${escapeHtml(progress)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
                     <div><dt>${escapeHtml(copy.statCurrentStreak)}</dt><dd>${escapeHtml(streakLabel(currentStreak, streakLabels))}</dd></div>
                     <div><dt>${escapeHtml(copy.publicDisconnectRecord)}</dt><dd>${profile.dcWins}–${profile.dcLosses}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
