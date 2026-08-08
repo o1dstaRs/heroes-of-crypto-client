@@ -47,10 +47,12 @@ export const SidebarFrame: React.FC<{
                 // contexts, but none of them should ever paint over the outer metal rails.
                 zIndex: 9000,
                 boxSizing: "border-box",
-                borderWidth: `${frameRegion}px`,
+                borderTopWidth: `${frameRegion}px`,
                 // The left deck's board-facing rail duplicated the board trim and showed up as a stray
                 // orange line. Keep its outer/top/bottom frame, but leave the board-facing edge clean.
                 borderRightWidth: side === "left" ? 0 : `${frameRegion}px`,
+                borderBottomWidth: `${frameRegion}px`,
+                borderLeftWidth: `${frameRegion}px`,
                 borderStyle: "solid",
                 borderColor: "transparent",
                 borderImageSource: `url(${frame.src})`,

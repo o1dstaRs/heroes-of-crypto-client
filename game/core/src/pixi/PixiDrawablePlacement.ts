@@ -1,4 +1,4 @@
-import { Graphics, NineSliceSprite, Texture } from "pixi.js";
+import { Container, Graphics, NineSliceSprite, Texture } from "pixi.js";
 import {
     GridSettings,
     SquarePlacement,
@@ -13,7 +13,7 @@ import { images } from "../generated/image_imports";
 import { isFriendlyTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
-    draw(gfx: Graphics): void;
+    draw(gfx: Graphics, frameContainer: Container): void;
 }
 
 let spawnFlowPhase = 0;
@@ -264,7 +264,7 @@ function drawOuterFrameGlow(gfx: Graphics, step: number, bounds: FrameBounds, ba
 
 /** Places the literal spectral perimeter extracted from the selected reference screenshot. */
 function attachReferenceFrame(
-    gfx: Graphics,
+    frameContainer: Container,
     existing: NineSliceSprite | undefined,
     step: number,
     placementSize: number,
@@ -302,8 +302,9 @@ function attachReferenceFrame(
     frame.blendMode = "add";
     frame.eventMode = "none";
 
-    // SandboxDrawer removes transient placement children each frame, so the cached sprite is reattached.
-    if (frame.parent !== gfx) gfx.addChild(frame);
+    // Keep display-object children on a real Container. Graphics.addChild is deprecated in Pixi v8 and
+    // will stop working entirely; SandboxDrawer clears this transient layer before every redraw.
+    if (frame.parent !== frameContainer) frameContainer.addChild(frame);
     return frame;
 }
 
@@ -314,7 +315,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
         super(gs, pos, size);
         this.step = gs.getStep();
     }
-    public draw(gfx: Graphics): void {
+    public draw(gfx: Graphics, frameContainer: Container): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
@@ -330,7 +331,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
             fillColor,
         );
         this.referenceFrame = attachReferenceFrame(
-            gfx,
+            frameContainer,
             this.referenceFrame,
             this.step,
             this.getSize(),
@@ -350,7 +351,7 @@ export class DrawableRectanglePlacement extends RectanglePlacement implements ID
         super(gs, pos, size);
         this.step = gs.getStep();
     }
-    public draw(gfx: Graphics): void {
+    public draw(gfx: Graphics, frameContainer: Container): void {
         const isLower =
             this.placementPositionType === PlacementPositionType.LOWER_RIGHT ||
             this.placementPositionType === PlacementPositionType.LOWER_LEFT;
@@ -366,7 +367,7 @@ export class DrawableRectanglePlacement extends RectanglePlacement implements ID
             fillColor,
         );
         this.referenceFrame = attachReferenceFrame(
-            gfx,
+            frameContainer,
             this.referenceFrame,
             this.step,
             this.getSize(),

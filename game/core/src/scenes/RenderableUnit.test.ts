@@ -69,6 +69,18 @@ test("active-turn fire atlas ping-pongs without jumping at either endpoint", () 
     expect(activeTurnFireFrameForElapsed(frameMs * 126)).toBe(0);
 });
 
+test("initializes the active-turn aura color when promoting a base unit", () => {
+    const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+    const worldRoot = new Container();
+    unit.setPosition(0, 1024);
+    unit.setActiveTurn(true);
+
+    // fromBase() bypasses class-field initializers. An uninitialized activeAuraColor reaches Pixi's
+    // Graphics.fill as undefined and aborts every simulation frame as soon as a unit becomes active.
+    expect(() => unit.syncVisual(worldRoot, gridSettings)).not.toThrow();
+    expect(worldRoot.children.some((child) => child instanceof Graphics)).toBe(true);
+});
+
 describe("RenderableUnit runtime spell synchronization", () => {
     test("removes and grants getSpells entries when a castable ability is stolen", () => {
         const queen = createRenderableUnit(TeamVals.LOWER, "Nature", "Arachna Queen", "arachna_queen_512");

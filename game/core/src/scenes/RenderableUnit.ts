@@ -478,6 +478,7 @@ export class RenderableUnit extends Unit {
         ru.isHoverTurnAura = false;
         ru.activeTurnFireSprite = undefined;
         ru.activeTurnFireFrameIndex = -1;
+        ru.activeAuraColor = 0xffffff;
         ru.waterShieldAura = undefined;
         ru.freezeCrust = undefined;
         ru.freezeLight = undefined;

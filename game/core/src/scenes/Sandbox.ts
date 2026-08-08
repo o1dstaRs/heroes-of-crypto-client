@@ -607,6 +607,7 @@ export class Sandbox extends PixiScene {
     private spawnPulsePhase = 0;
     private bgKey = "background_new";
     private placementGraphics?: Graphics;
+    private placementFrameContainer?: Container;
     private placementBenchGraphics?: Graphics;
     private placementBenchToggleSprite?: Sprite;
     private placementBenchToggleFallback?: Graphics;
@@ -2067,6 +2068,7 @@ export class Sandbox extends PixiScene {
     }
     public override CameraChanged(): void {
         this.attachToWorldRoot(this.placementGraphics, 90);
+        this.attachToWorldRoot(this.placementFrameContainer, 90.1);
         this.attachToWorldRoot(this.movementGraphics, 49.5);
         this.attachToWorldRoot(this.gameplayGraphics, 55); // Ranges below units (Units > 100)
         this.dungeonVisuals.attachCenterTerrainSprite();
@@ -2146,7 +2148,9 @@ export class Sandbox extends PixiScene {
     }
     private ensurePlacementGraphicsWorld(): void {
         if (!this.placementGraphics) this.placementGraphics = new Graphics();
+        if (!this.placementFrameContainer) this.placementFrameContainer = new Container();
         this.attachToWorldRoot(this.placementGraphics, 100);
+        this.attachToWorldRoot(this.placementFrameContainer, 100.1);
     }
     private ensureBackgroundSprite(): void {
         this.dungeonVisuals.ensureBackgroundSprite();
@@ -4896,6 +4900,7 @@ export class Sandbox extends PixiScene {
             this.unitsOverlay.onResize(w, h);
             // Placement graphics only used pre-fight
             this.attachToWorldRoot(this.placementGraphics, 100);
+            this.attachToWorldRoot(this.placementFrameContainer, 100.1);
         } else if (fightStarted && this.unitsOverlay) {
             // Make sure it’s gone once fight has started
             this.unitsOverlay.destroy();
@@ -4904,6 +4909,7 @@ export class Sandbox extends PixiScene {
         // Placement zones must stay below unit sprites; otherwise placed units show badges/stack
         // overlays while their actual art is painted over by the pre-fight placement tint.
         this.attachToWorldRoot(this.placementGraphics, 90);
+        this.attachToWorldRoot(this.placementFrameContainer, 90.1);
         // Holes
         this.attachToWorldRoot(this.dungeonVisuals.getHoleContainer(), 20);
         this.attachToWorldRoot(this.movementGraphics, 49.5);
@@ -12011,6 +12017,10 @@ export class Sandbox extends PixiScene {
                 this.placementGraphics.clear();
                 this.placementGraphics.visible = false;
             }
+            if (this.placementFrameContainer?.visible) {
+                this.placementFrameContainer.removeChildren();
+                this.placementFrameContainer.visible = false;
+            }
         }
 
         // 2. Background & Static Elements
@@ -12178,6 +12188,7 @@ export class Sandbox extends PixiScene {
             }
             if (this.placementGraphics) {
                 this.placementGraphics.visible = true;
+                if (this.placementFrameContainer) this.placementFrameContainer.visible = true;
                 this.drawPlacements();
             }
         }
@@ -13585,6 +13596,7 @@ export class Sandbox extends PixiScene {
             placementManager: this.placementManager,
             hoverManager: this.hoverManager,
             placementGraphics: this.placementGraphics,
+            placementFrameContainer: this.placementFrameContainer,
             restrictToTeam: this.getPlacementDrawTeam(),
         });
         this.drawPlacementSplitOverlay();

@@ -1,4 +1,4 @@
-import { Graphics } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import { FightProperties, FightStateManager, GridMath, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
 
 /**
@@ -91,6 +91,7 @@ export interface IPlacementDrawContext {
     placementManager: PlacementManager;
     hoverManager: HoverManager;
     placementGraphics?: Graphics;
+    placementFrameContainer?: Container;
     /**
      * When set, only this team's placement zone is drawn. Ranked play uses it so the viewer
      * never sees the opponent's placement area — revealed enemy units are shown there instead.
@@ -239,15 +240,23 @@ export class SandboxDrawer {
         //    shader over its own dust layer — see scenes/sandbox/SmokeLayer.ts.
     }
     public static drawPlacements(ctx: IPlacementDrawContext): void {
-        const { fightProps, placementManager, hoverManager, placementGraphics, restrictToTeam } = ctx;
-        if (!placementGraphics) return;
+        const {
+            fightProps,
+            placementManager,
+            hoverManager,
+            placementGraphics,
+            placementFrameContainer,
+            restrictToTeam,
+        } = ctx;
+        if (!placementGraphics || !placementFrameContainer) return;
         const g = placementGraphics;
         g.clear();
-        // Remove any transient placement children together with the glow geometry so a hidden or resized
-        // deployment zone can never leave stale light on the board.
-        g.removeChildren();
+        // Remove transient 9-slice frames together with the glow geometry so a hidden or resized
+        // deployment zone can never leave stale light on the board. Frames live in a Container because
+        // Pixi v8 deprecates adding display-object children directly to Graphics.
+        placementFrameContainer.removeChildren();
         if (!fightProps.hasFightStarted()) {
-            placementManager.draw(g, restrictToTeam);
+            placementManager.draw(g, placementFrameContainer, restrictToTeam);
             hoverManager.drawHoverPlacementCell(g);
         }
     }

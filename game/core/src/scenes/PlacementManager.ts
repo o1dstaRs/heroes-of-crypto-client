@@ -1,5 +1,5 @@
 // game/core/src/scenes/PlacementManager.ts
-import { Graphics } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import {
     GridSettings,
     PlacementPositionType,
@@ -97,8 +97,8 @@ export class PlacementManager {
         addHashes(TeamVals.UPPER, this.upperPlacements[1]);
     }
     /** Draw all placements or only for a specific team */
-    public draw(gfx: Graphics, team?: TeamType): void {
-        const drawOne = (p?: IDrawablePlacement) => p && p.draw(gfx);
+    public draw(gfx: Graphics, frameContainer: Container, team?: TeamType): void {
+        const drawOne = (p?: IDrawablePlacement) => p && p.draw(gfx, frameContainer);
 
         if (team === undefined) {
             drawOne(this.lowerPlacements[0]);
