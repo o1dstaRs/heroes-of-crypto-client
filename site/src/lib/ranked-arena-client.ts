@@ -358,6 +358,8 @@ const createPlayerDossier = (
     };
     append(
         dossier,
+        // Season currency first: gold is minted 1:1 with won MMR and never deducted.
+        metric(copy.gold, `${numberFormatter.format(player.gold)} 🪙`),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
         metric(copy.currentStreak, streakText(copy, player)),
@@ -391,6 +393,7 @@ const renderPlayerDetail = (
         el("span", "", copy.rating),
         el("strong", "", numberFormatter.format(player.mmr)),
         player.peakMmr ? el("small", "", `${copy.peakRating} ${numberFormatter.format(player.peakMmr)}`) : null,
+        el("small", "ranked-arena__detail-gold", `${copy.gold}: ${numberFormatter.format(player.gold)} 🪙`),
     );
 
     const stats = el("dl", "ranked-arena__detail-stats");
@@ -401,6 +404,7 @@ const renderPlayerDetail = (
     };
     append(
         stats,
+        stat(copy.gold, `${numberFormatter.format(player.gold)} 🪙`),
         stat(copy.record, `${player.wins}–${player.losses}–${player.draws}`),
         stat(copy.winRate, `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
         stat(copy.currentStreak, streakText(copy, player)),
@@ -519,8 +523,10 @@ const renderPlayers = (
         row.dataset.selected = String(player.playerId === selected!.playerId);
         row.setAttribute(
             "aria-label",
-            `${player.username}, ${localizedLeague(copy, player.league)}, ${player.mmr} ${copy.rating}`,
+            `${player.username}, ${localizedLeague(copy, player.league)}, ${player.mmr} ${copy.rating}, ${player.gold} ${copy.gold}`,
         );
+        // Plain-hover affordance on top of the styled dossier: the balance in a native tooltip.
+        row.title = `${copy.gold}: ${numberFormatter.format(player.gold)}`;
 
         const rank = el("span", "ranked-arena__rank", `#${player.position || player.leaderboardRank || "—"}`);
         const identity = el("span", "ranked-arena__player-identity");
@@ -965,7 +971,15 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         ];
         const newest = Math.max(...timestamps);
         const relative = localizedRelativeTime(copy, newest);
-        updated.textContent = relative ? replaceTemplate(copy.updated, { time: relative }) : "";
+        const updatedText = relative ? replaceTemplate(copy.updated, { time: relative }) : "";
+        // Season badge: "Season 1: First Flame · ends in 12d" ahead of the freshness stamp.
+        const season = state.standings?.season ?? null;
+        let seasonText = "";
+        if (season) {
+            const daysLeft = Math.max(0, Math.ceil((season.endsAt - Date.now()) / 86_400_000));
+            seasonText = `${season.name} · ${replaceTemplate(copy.seasonEndsIn, { days: String(daysLeft) })}`;
+        }
+        updated.textContent = seasonText && updatedText ? `${seasonText} · ${updatedText}` : seasonText || updatedText;
     };
 
     const render = (): void => {

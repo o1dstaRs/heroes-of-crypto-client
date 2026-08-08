@@ -69,6 +69,11 @@ const rankedApp = links.rankedApp;
                     <div class="ranked-standing" data-profile-standing></div>
                 </section>
 
+                <section class="profile-section" data-profile-seasons-section hidden>
+                    <h2>{copy.publicSeasonsTitle}</h2>
+                    <div class="season-history" data-profile-seasons></div>
+                </section>
+
                 <div class="profile-columns" data-profile-self>
                     <section class="profile-section">
                         <h2>{copy.sectionFactions}</h2>
@@ -313,6 +318,7 @@ const rankedApp = links.rankedApp;
                 <span class="match-vs">${escapeHtml(copy.versus)} ${opponent}</span>
                 <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
                 <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
+                <span class="match-gold">${match.goldEarned > 0 ? `+${match.goldEarned} 🪙` : ""}</span>
                 <span class="match-when">${escapeHtml(when)}</span>
                 ${replay}
             </div>`;
@@ -382,6 +388,7 @@ const rankedApp = links.rankedApp;
                 statCard(copy.statPeakRating, profile.peakMmr ? numberFormatter.format(profile.peakMmr) : "—"),
                 statCard(copy.statGames, numberFormatter.format(profile.totalGames)),
                 statCard(copy.statHoursInGame, hoursInGameLabel(profile.secondsInGame)),
+                statCard(copy.statGold, `${numberFormatter.format(profile.gold)} 🪙`, "#f2c75d"),
             ].join("");
         }
 
@@ -390,11 +397,15 @@ const rankedApp = links.rankedApp;
             const previous = profile.previous
                 ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
                 : copy.publicUnranked;
+            const seasonLine = profile.season
+                ? `<small class="ranked-standing__season">${escapeHtml(profile.season.name)}</small>`
+                : "";
             standingEl.innerHTML = `
                 <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
                     <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
                     <strong>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
                     <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
+                    ${seasonLine}
                 </div>
                 <dl class="ranked-standing__facts">
                     <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : copy.publicUnranked)}</dd></div>
@@ -403,6 +414,35 @@ const rankedApp = links.rankedApp;
                     <div><dt>${escapeHtml(copy.publicDisconnectRecord)}</dt><dd>${profile.dcWins}–${profile.dcLosses}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
                 </dl>`;
+        }
+
+        // Previous seasons: the archived final standings (MMR resets each season; this is where the
+        // old numbers live on). Hidden until the player has at least one finished season behind them.
+        const seasonsSection = document.querySelector<HTMLElement>("[data-profile-seasons-section]");
+        const seasonsEl = $("seasons");
+        if (seasonsSection && seasonsEl) {
+            const history = summaryOnly ? [] : profile.seasonHistory;
+            seasonsSection.hidden = history.length === 0;
+            seasonsEl.innerHTML = history
+                .map((entry) => {
+                    const rank = entry.leaderboardRank ? ` · #${entry.leaderboardRank}` : "";
+                    const standing = entry.league > 0 ? `${leagueLabel(entry.league)}${rank}` : copy.publicUnranked;
+                    const mmr = entry.mmr ? `${numberFormatter.format(entry.mmr)} MMR` : "—";
+                    const rate = entry.totalGames
+                        ? `${entry.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
+                        : "—";
+                    return `
+                        <div class="season-row">
+                            <span class="season-name">${escapeHtml(entry.seasonName)}</span>
+                            <span class="season-standing">${escapeHtml(standing)}</span>
+                            <span class="season-mmr">${escapeHtml(mmr)}</span>
+                            <span class="season-gold">${numberFormatter.format(entry.gold)} 🪙</span>
+                            <span class="season-record">${entry.wins}–${entry.losses}–${entry.draws}</span>
+                            <span class="season-rate">${escapeHtml(rate)}</span>
+                            <span class="season-games">${entry.totalGames} ${escapeHtml(copy.gamesLabel)}</span>
+                        </div>`;
+                })
+                .join("");
         }
 
         const matchesEl = $("matches");
@@ -724,6 +764,68 @@ const rankedApp = links.rankedApp;
         background: #46d160;
         box-shadow: 0 0 6px rgba(70, 209, 96, 0.8);
         vertical-align: baseline;
+    }
+
+    /* Previous seasons: one compact archived-standing row per finished season. */
+    .season-history {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .season-row {
+        display: grid;
+        grid-template-columns: minmax(140px, 1.5fr) 1.2fr 1fr 0.9fr 0.9fr 0.6fr 0.8fr;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 14px;
+        border: 1px solid rgba(220, 177, 88, 0.22);
+        border-radius: 3px;
+        background: rgba(20, 13, 8, 0.55);
+        font-size: 0.86rem;
+    }
+
+    .season-row .season-name {
+        color: var(--gold, #dcb158);
+        font-weight: 600;
+    }
+
+    .season-row .season-standing {
+        color: rgba(251, 244, 232, 0.86);
+    }
+
+    .season-row .season-mmr,
+    .season-row .season-record,
+    .season-row .season-rate {
+        color: rgba(251, 244, 232, 0.66);
+    }
+
+    .season-row .season-gold,
+    .match-gold {
+        color: #f2c75d;
+        white-space: nowrap;
+    }
+
+    .season-row .season-games {
+        color: rgba(251, 244, 232, 0.45);
+        text-align: right;
+    }
+
+    .ranked-standing__season {
+        display: block;
+        margin-top: 4px;
+        color: rgba(251, 244, 232, 0.55);
+        letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 720px) {
+        .season-row {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .season-row .season-games {
+            text-align: left;
+        }
     }
 
     .profile-note {

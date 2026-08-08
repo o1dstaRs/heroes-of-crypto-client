@@ -10,7 +10,16 @@ const isKnownDependencyWarning = (log) => {
 
 export default defineConfig({
     site: "https://heroesofcrypto.io",
-    integrations: [sitemap({ customPages: ["https://heroesofcrypto.io/research/a13/"] })],
+    // Blog and Research merged into News (owner 2026-08-08): every old URL keeps working.
+    redirects: {
+        "/blog": "/news",
+        "/blog/[...slug]": "/news/[...slug]",
+        "/ru/blog": "/ru/news",
+        "/ru/blog/[...slug]": "/ru/news/[...slug]",
+        "/research": "/news/research",
+        "/ru/research": "/ru/news/research",
+    },
+    integrations: [sitemap({ customPages: ["https://heroesofcrypto.io/news/research/a13/"] })],
     vite: {
         // The ranked-arena client reads VITE_HOST_* API origins (shared convention with game/core);
         // Astro's default only exposes PUBLIC_* to client code, which silently dropped those

@@ -27,6 +27,7 @@ export interface RankedProfileMatch {
     result: RankedMatchResult;
     reason: RankedMatchReason;
     mmrDelta: number;
+    goldEarned: number;
     calibration: boolean;
     opponent: RankedProfileOpponent | null;
 }
@@ -79,6 +80,31 @@ export interface PlayerPlaystyle {
     artifactsTier2: PlaystyleArtifact[];
 }
 
+export interface SeasonHistoryEntry {
+    seasonSequence: number;
+    seasonName: string;
+    state: RankedProfileState;
+    mmr: number;
+    gold: number;
+    peakMmr: number;
+    league: number;
+    leagueName: string;
+    leaderboardRank: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    totalGames: number;
+    winRatePct: number;
+    archivedAt: number;
+}
+
+export interface ProfileSeason {
+    sequence: number;
+    name: string;
+    startsAt: number;
+    endsAt: number;
+}
+
 export interface PublicRankedProfile {
     playerId: string;
     username: string;
@@ -99,12 +125,18 @@ export interface PublicRankedProfile {
     winRatePct: number;
     winStreak: number;
     lossStreak: number;
+    // Season currency ("Gold"): minted 1:1 with every positive MMR movement, never deducted.
+    gold: number;
     placedAt: number;
     lastRankedGameAt: number;
     // Public playtime + presence: total seconds ever spent in games, and online / last-seen state.
     secondsInGame: number;
     online: boolean;
     lastOnlineAt: number;
+    // The season the live numbers belong to (null = season-less/preseason ladder) and the final
+    // standings of every season this player already finished, newest first.
+    season: ProfileSeason | null;
+    seasonHistory: SeasonHistoryEntry[];
     recentGames: RankedProfileMatch[];
     playstyle: PlayerPlaystyle | null;
 }
@@ -252,6 +284,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
                 result: normalizeResult(match.result),
                 reason: normalizeReason(match.reason),
                 mmrDelta: asInteger(match.mmrDelta),
+                goldEarned: nonNegativeInteger(match.goldEarned),
                 calibration: match.calibration === true,
                 opponent:
                     opponentRow && isPublicRankedPlayerId(opponentId)
@@ -271,6 +304,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         username: asString(row.username, "Unknown player"),
         state: normalizeState(row.state),
         mmr: nonNegativeInteger(row.mmr),
+        gold: nonNegativeInteger(row.gold),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
         leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
@@ -292,13 +326,62 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         winRatePct: Math.max(0, Math.min(100, asNumber(row.winRatePct))),
         winStreak: nonNegativeInteger(row.winStreak),
         lossStreak: nonNegativeInteger(row.lossStreak),
+        gold: nonNegativeInteger(row.gold),
         placedAt: nonNegativeInteger(row.placedAt),
         lastRankedGameAt: nonNegativeInteger(row.lastRankedGameAt),
         secondsInGame: nonNegativeInteger(row.secondsInGame),
         online: row.online === true,
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
+        season: normalizeProfileSeason(row.season),
+        seasonHistory: (Array.isArray(row.seasonHistory) ? row.seasonHistory : [])
+            .map(normalizeSeasonHistoryEntry)
+            .filter((entry): entry is SeasonHistoryEntry => entry !== null)
+            .sort((a, b) => b.seasonSequence - a.seasonSequence),
         recentGames,
         playstyle,
+    };
+}
+
+function normalizeProfileSeason(value: unknown): ProfileSeason | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    const row = asRecord(value);
+    const sequence = nonNegativeInteger(row.sequence);
+    const name = asString(row.name);
+    if (!sequence || !name) {
+        return null;
+    }
+    return {
+        sequence,
+        name,
+        startsAt: nonNegativeInteger(row.startsAt),
+        endsAt: nonNegativeInteger(row.endsAt),
+    };
+}
+
+function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null {
+    const row = asRecord(value);
+    const seasonName = asString(row.seasonName);
+    if (!seasonName) {
+        return null;
+    }
+    const league = nonNegativeInteger(row.league);
+    return {
+        seasonSequence: nonNegativeInteger(row.seasonSequence),
+        seasonName,
+        state: normalizeState(row.state),
+        mmr: nonNegativeInteger(row.mmr),
+        peakMmr: nonNegativeInteger(row.peakMmr),
+        league,
+        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leaderboardRank: nonNegativeInteger(row.leaderboardRank),
+        wins: nonNegativeInteger(row.wins),
+        losses: nonNegativeInteger(row.losses),
+        draws: nonNegativeInteger(row.draws),
+        totalGames: nonNegativeInteger(row.totalGames),
+        winRatePct: Math.max(0, Math.min(100, asNumber(row.winRatePct))),
+        archivedAt: nonNegativeInteger(row.archivedAt),
     };
 }
 

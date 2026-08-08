@@ -1,5 +1,5 @@
 export type ArenaTab = "players" | "games" | "leagues";
-export type PlayerSort = "rank" | "rating" | "winRate" | "wins" | "streak";
+export type PlayerSort = "rank" | "rating" | "winRate" | "wins" | "streak" | "gold";
 export type LiveGameStage = "pick" | "placement" | "fight";
 
 export interface RankedPlayer {
@@ -7,6 +7,8 @@ export interface RankedPlayer {
     playerId: string;
     username: string;
     mmr: number;
+    // Season currency balance ("Gold" on the test season): minted 1:1 with positive MMR movement.
+    gold: number;
     league: number;
     leagueName: string;
     leaderboardRank: number;
@@ -52,10 +54,23 @@ export interface CalibratingPlayer {
     draws: number;
     totalGames: number;
     winRatePct: number;
+    gold: number;
+}
+
+export interface ArenaSeason {
+    sequence: number;
+    name: string;
+    startsAt: number;
+    endsAt: number;
+    status: "upcoming" | "active" | "finished";
+    currency: { name: string; symbol: string };
 }
 
 export interface RankedStandingsResponse {
     computedAt: number;
+    // The active season this ladder belongs to (null = season-less/preseason) and the next one.
+    season: ArenaSeason | null;
+    nextSeason: ArenaSeason | null;
     activeCount: number;
     calibratingCount: number;
     collapsed: boolean;
@@ -127,6 +142,7 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         playerId,
         username: asString(row.username, "Unknown player"),
         mmr: Math.max(0, asInteger(row.mmr)),
+        gold: Math.max(0, asInteger(row.gold)),
         league,
         leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
         leaderboardRank: Math.max(0, asInteger(row.leaderboardRank)),
@@ -202,12 +218,15 @@ export function normalizeStandingsResponse(value: unknown): RankedStandingsRespo
                 draws: Math.max(0, asInteger(row.draws)),
                 totalGames: Math.max(0, asInteger(row.totalGames)),
                 winRatePct: Math.max(0, asNumber(row.winRatePct)),
+                gold: Math.max(0, asInteger(row.gold)),
             };
         })
         .filter((player): player is CalibratingPlayer => player !== null);
 
     return {
         computedAt: Math.max(0, asInteger(response.computedAt)),
+        season: normalizeArenaSeason(response.season),
+        nextSeason: normalizeArenaSeason(response.nextSeason),
         activeCount: Math.max(0, asInteger(response.activeCount)),
         calibratingCount: Math.max(0, asInteger(response.calibratingCount)),
         collapsed: asBoolean(response.collapsed),
@@ -215,6 +234,28 @@ export function normalizeStandingsResponse(value: unknown): RankedStandingsRespo
         inactivityDays: Math.max(0, asInteger(response.inactivityDays)),
         leagues,
         calibrating,
+    };
+}
+
+export function normalizeArenaSeason(value: unknown): ArenaSeason | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    const row = asRecord(value);
+    const sequence = Math.max(0, asInteger(row.sequence));
+    const name = asString(row.name);
+    if (!sequence || !name) {
+        return null;
+    }
+    const status = asString(row.status);
+    const currency = asRecord(row.currency);
+    return {
+        sequence,
+        name,
+        startsAt: Math.max(0, asInteger(row.startsAt)),
+        endsAt: Math.max(0, asInteger(row.endsAt)),
+        status: status === "upcoming" || status === "finished" ? status : "active",
+        currency: { name: asString(currency.name, "Coins"), symbol: asString(currency.symbol, "CN") },
     };
 }
 
@@ -321,6 +362,8 @@ export function filterRankedPlayers(
                 return b.wins - a.wins || byRank(a, b);
             case "streak":
                 return b.winStreak - a.winStreak || a.lossStreak - b.lossStreak || byRank(a, b);
+            case "gold":
+                return b.gold - a.gold || byRank(a, b);
             default:
                 return byRank(a, b);
         }

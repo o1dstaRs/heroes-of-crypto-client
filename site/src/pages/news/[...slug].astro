@@ -57,7 +57,7 @@ const blogPostStructuredData = {
 >
     <article class="blog-post">
         <div class="post-shell">
-            <a href="/blog/" class="back-link">← All posts</a>
+            <a href="/news/" class="back-link">← All posts</a>
 
             <header class="post-header">
                 <div class="post-meta">
@@ -87,7 +87,7 @@ const blogPostStructuredData = {
                 (older || newer) && (
                     <nav class="post-nav" aria-label="More articles">
                         {older ? (
-                            <a href={`/blog/${older.id}/`} class="post-nav-link prev">
+                            <a href={`/news/${older.id}/`} class="post-nav-link prev">
                                 <span class="post-nav-dir">← Previous</span>
                                 <span class="post-nav-title">{older.data.title}</span>
                             </a>
@@ -95,7 +95,7 @@ const blogPostStructuredData = {
                             <span class="post-nav-spacer" />
                         )}
                         {newer ? (
-                            <a href={`/blog/${newer.id}/`} class="post-nav-link next">
+                            <a href={`/news/${newer.id}/`} class="post-nav-link next">
                                 <span class="post-nav-dir">Next →</span>
                                 <span class="post-nav-title">{newer.data.title}</span>
                             </a>
@@ -107,7 +107,7 @@ const blogPostStructuredData = {
             }
 
             <footer class="post-footer">
-                <a href="/blog/" class="back-link">← Back to blog</a>
+                <a href="/news/" class="back-link">← Back to blog</a>
             </footer>
         </div>
     </article>

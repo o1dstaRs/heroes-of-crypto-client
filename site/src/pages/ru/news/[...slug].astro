@@ -59,7 +59,7 @@ const blogPostStructuredData = {
 >
     <article class="blog-post">
         <div class="post-shell">
-            <a href="/ru/blog/" class="back-link">← Все статьи</a>
+            <a href="/ru/news/" class="back-link">← Все статьи</a>
 
             <header class="post-header">
                 <div class="post-meta">
@@ -112,7 +112,7 @@ const blogPostStructuredData = {
                 (older || newer) && (
                     <nav class="post-nav" aria-label="Другие статьи">
                         {older ? (
-                            <a href={`/ru/blog/${older.id}/`} class="post-nav-link prev">
+                            <a href={`/ru/news/${older.id}/`} class="post-nav-link prev">
                                 <span class="post-nav-dir">← Предыдущая</span>
                                 <span class="post-nav-title">{older.title}</span>
                             </a>
@@ -120,7 +120,7 @@ const blogPostStructuredData = {
                             <span class="post-nav-spacer" />
                         )}
                         {newer ? (
-                            <a href={`/ru/blog/${newer.id}/`} class="post-nav-link next">
+                            <a href={`/ru/news/${newer.id}/`} class="post-nav-link next">
                                 <span class="post-nav-dir">Следующая →</span>
                                 <span class="post-nav-title">{newer.title}</span>
                             </a>
@@ -132,7 +132,7 @@ const blogPostStructuredData = {
             }
 
             <footer class="post-footer">
-                <a href="/ru/blog/" class="back-link">← Вернуться в блог</a>
+                <a href="/ru/news/" class="back-link">← Вернуться в блог</a>
             </footer>
         </div>
     </article>

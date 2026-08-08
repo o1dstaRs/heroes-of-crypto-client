@@ -1,0 +1,28 @@
+---
+import ResearchPage from "../../../components/ResearchPage.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { content } from "../../../lib/site-data";
+
+// Research lives inside the News section now (owner 2026-08-08) — same content, one feed.
+// The legacy /ru/research URL 301s here (astro.config redirects).
+const lang = "ru";
+const page = content[lang].pages.research;
+const researchStructuredData = {
+    "@type": "CollectionPage",
+    name: page.title,
+    description: page.description,
+    url: new URL("/ru/news/research/", Astro.site ?? "https://heroesofcrypto.io").toString(),
+    inLanguage: "ru",
+    hasPart: {
+        "@type": "TechArticle",
+        headline: "A13 — внутри ИИ Heroes of Crypto v0.8",
+        url: new URL("/ru/news/research/#a13", Astro.site ?? "https://heroesofcrypto.io").toString(),
+        datePublished: "2026-07-22",
+        inLanguage: "ru",
+    },
+};
+---
+
+<BaseLayout lang={lang} title={page.title} description={page.description} structuredData={researchStructuredData}>
+    <ResearchPage lang={lang} />
+</BaseLayout>

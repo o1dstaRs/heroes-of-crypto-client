@@ -11,25 +11,37 @@ const posts = (await getCollection("blog")).sort(
 
 <BaseLayout
     lang={lang}
-    title="Heroes of Crypto Blog: Player Guides and Stories"
-    description="Read Heroes of Crypto faction guides, positioning tips, board-reading notes, battlefield stories, and community-focused strategy for turn-based tactics players."
+    title="Heroes of Crypto News: Guides, Stories and AI Research"
+    description="Heroes of Crypto news: faction guides, positioning tips, battlefield stories, and source-audited AI research on game simulation and tactical decisions."
 >
     <section class="blog-index">
         <div class="page-shell">
             <header class="blog-head">
-                <p class="eyebrow">Heroes of Crypto Blog</p>
-                <h1>Guides, stories, and battlefield notes</h1>
+                <p class="eyebrow">Heroes of Crypto News</p>
+                <h1>News: guides, stories, and research</h1>
                 <p class="blog-lead">
-                    Faction identity, positioning habits, board-reading tips, and player values for
-                    commanders who want smarter, fairer matches.
+                    Faction identity, positioning habits, board-reading tips, and the AI research
+                    behind the battles — everything in one feed.
                 </p>
             </header>
 
             <ul class="post-list">
+                <li class="post-card post-card--research">
+                    <a href="/news/research/" class="post-card-link">
+                        <div class="post-card-meta">
+                            <span class="post-tag">AI research</span>
+                        </div>
+                        <h2>Inside the Heroes of Crypto AI</h2>
+                        <p>
+                            Source-audited research on game AI, simulation, tactical decisions,
+                            tournament evidence, and engine performance.
+                        </p>
+                    </a>
+                </li>
                 {
                     posts.map((post) => (
                         <li class="post-card">
-                            <a href={`/blog/${post.id}/`} class="post-card-link">
+                            <a href={`/news/${post.id}/`} class="post-card-link">
                                 <div class="post-card-meta">
                                     <time datetime={post.data.date.toISOString()}>
                                         {post.data.date.toLocaleDateString("en-US", {
@@ -79,6 +91,21 @@ const posts = (await getCollection("blog")).sort(
         margin: 0;
         padding: 0;
         border-top: 1px solid rgba(215, 170, 75, 0.24);
+    }
+    .post-card--research {
+        border: 1px solid rgba(255, 143, 0, 0.35);
+        background: linear-gradient(180deg, rgba(40, 24, 8, 0.55), rgba(16, 10, 5, 0.7));
+    }
+    .post-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #ffb300;
+        border: 1px solid rgba(255, 179, 0, 0.4);
     }
     .post-card {
         border-bottom: 1px solid rgba(232, 224, 208, 0.1);

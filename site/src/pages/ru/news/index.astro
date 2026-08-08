@@ -8,14 +8,14 @@ const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new D
 
 <BaseLayout
     lang={lang}
-    title="Блог Heroes of Crypto: гайды и истории для игроков"
-    description="Читайте гайды по фракциям Heroes of Crypto, советы по позиции, разбор чтения доски, истории с поля боя и заметки для сообщества."
+    title="Новости Heroes of Crypto: гайды, истории и исследования ИИ"
+    description="Новости Heroes of Crypto: гайды по фракциям, советы по позиции, истории с поля боя и проверенные по исходникам исследования игрового ИИ."
 >
     <section class="blog-index">
         <div class="page-shell">
             <header class="blog-head">
-                <p class="eyebrow">Блог Heroes of Crypto</p>
-                <h1>Гайды, истории и заметки с поля боя</h1>
+                <p class="eyebrow">Новости Heroes of Crypto</p>
+                <h1>Новости: гайды, истории и исследования</h1>
                 <p class="blog-lead">
                     Характер фракций, позиция, чтение доски и ценности игроков для командиров,
                     которые хотят умнее и честнее выигрывать матчи.
@@ -23,10 +23,22 @@ const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new D
             </header>
 
             <ul class="post-list">
+                <li class="post-card post-card--research">
+                    <a href="/ru/news/research/" class="post-card-link">
+                        <div class="post-card-meta">
+                            <span class="post-tag">Исследования ИИ</span>
+                        </div>
+                        <h2>Внутри ИИ Heroes of Crypto</h2>
+                        <p>
+                            Проверенные по исходникам исследования игрового ИИ: симуляции,
+                            тактические решения, турнирные данные и производительность движка.
+                        </p>
+                    </a>
+                </li>
                 {
                     posts.map((post) => (
                         <li class="post-card">
-                            <a href={`/ru/blog/${post.id}/`} class="post-card-link">
+                            <a href={`/ru/news/${post.id}/`} class="post-card-link">
                                 <div class="post-card-meta">
                                     <time datetime={new Date(post.date).toISOString()}>
                                         {new Date(post.date).toLocaleDateString("ru-RU", {
@@ -76,6 +88,21 @@ const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new D
         margin: 0;
         padding: 0;
         border-top: 1px solid rgba(215, 170, 75, 0.24);
+    }
+    .post-card--research {
+        border: 1px solid rgba(255, 143, 0, 0.35);
+        background: linear-gradient(180deg, rgba(40, 24, 8, 0.55), rgba(16, 10, 5, 0.7));
+    }
+    .post-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #ffb300;
+        border: 1px solid rgba(255, 179, 0, 0.4);
     }
     .post-card {
         border-bottom: 1px solid rgba(232, 224, 208, 0.1);

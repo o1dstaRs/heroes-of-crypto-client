@@ -25,6 +25,8 @@ export interface RankedArenaCopy {
     fightStage: string;
     sortRank: string;
     sortRating: string;
+    sortGold: string;
+    gold: string;
     sortWinRate: string;
     sortWins: string;
     sortStreak: string;
@@ -99,6 +101,7 @@ export const rankedArenaCopy = {
         partial: "Some arena data is unavailable",
         unavailable: "Arena unavailable",
         updated: "Updated {time}",
+        seasonEndsIn: "ends in {days}d",
         refresh: "Refresh arena",
         refreshing: "Refreshing arena",
         playersTab: "Full standings",
@@ -117,6 +120,8 @@ export const rankedArenaCopy = {
         fightStage: "Battle",
         sortRank: "Rank",
         sortRating: "MMR",
+        sortGold: "Gold",
+        gold: "Gold",
         sortWinRate: "Win rate",
         sortWins: "Wins",
         sortStreak: "Streak",
@@ -190,6 +195,7 @@ export const rankedArenaCopy = {
         partial: "Часть данных арены недоступна",
         unavailable: "Арена недоступна",
         updated: "Обновлено {time}",
+        seasonEndsIn: "до конца {days}д",
         refresh: "Обновить арену",
         refreshing: "Обновляем арену",
         playersTab: "Полный рейтинг",
@@ -208,6 +214,8 @@ export const rankedArenaCopy = {
         fightStage: "Бой",
         sortRank: "Место",
         sortRating: "MMR",
+        sortGold: "Золото",
+        gold: "Золото",
         sortWinRate: "Процент побед",
         sortWins: "Победы",
         sortStreak: "Серия",
