@@ -142,10 +142,9 @@ export enum TextureType {
 export const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
     if (textureType === TextureType.LARGE) return `${base}_512`;
-    // Ash Moth is the first creature rendered as a full-body board model instead of a circular portrait.
-    // Keep the regular 512 artwork for cards/sidebar UI, while the battlefield uses a deliberately tall
-    // 128x192 texture (one cell wide, one and a half cells high).
-    if (base === "ash_moth" && unitSize === 1) return "ash_moth_board_128";
+    // OWNER call (2026-08-07): Ash Moth goes BACK to the regular circular chip on the battlefield.
+    // The full-body 128x192 board-model experiment (ash_moth_board_128 + usesTallBoardModel in
+    // RenderableUnit) is parked, not deleted — re-enable both gates together if the art returns.
     if (unitSize === 1) return `${base}_128`;
     return `${base}_256`;
 };

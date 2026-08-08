@@ -33,11 +33,19 @@ import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationT
 import { teamColor as resolveTeamColor } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 export type TexResolver = (name: string) => Texture | undefined;
+// Parked with the tall-board-model experiment (see usesTallBoardModel); kept for the re-enable recipe.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ASH_MOTH_BOARD_TEXTURE = "ash_moth_board_128";
 
 /** Tall board models stand on the lower edge of their tile instead of being centred like portrait chips. */
 function usesTallBoardModel(props: UnitProperties, textureName?: string): boolean {
-    return props.size === 1 && (textureName === ASH_MOTH_BOARD_TEXTURE || props.name === "Ash Moth");
+    // OWNER call (2026-08-07): the Ash Moth full-body board model is parked — the battlefield renders
+    // the regular circular chip again (see unitToTextureName, reverted in the same change). Keep the
+    // tall-model machinery intact and re-enable both gates together if the experiment returns:
+    //   props.size === 1 && (textureName === ASH_MOTH_BOARD_TEXTURE || props.name === "Ash Moth")
+    void props;
+    void textureName;
+    return false;
 }
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
