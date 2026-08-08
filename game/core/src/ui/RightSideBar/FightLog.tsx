@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/joy/Box";
 import { keyframes } from "@emotion/react";
 
-import { groupFightLogEntries } from "./fightLogGrouping";
+import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
+import { useTranslation } from "../../i18n/i18n";
 
 /**
  * FightLog - a custom, animated combat chronicle that replaces the old read-only <Textarea>.
@@ -88,6 +89,45 @@ export const FightLog = ({ text }: { text: string }) => {
     const groups = useMemo(() => groupFightLogEntries(entries, (entry) => entry.text), [entries]);
     const newestEntryId = entries[0]?.id;
 
+    const { t } = useTranslation();
+    const [copied, setCopied] = useState(false);
+    const copyResetRef = useRef<number | undefined>(undefined);
+    useEffect(
+        () => () => {
+            if (copyResetRef.current !== undefined) {
+                window.clearTimeout(copyResetRef.current);
+            }
+        },
+        [],
+    );
+    const copyLog = (): void => {
+        // Chronological export: oldest first, turn headers as "── label ──" dividers — the readable
+        // form for pasting into a bug report or chat, not the panel's newest-first display order.
+        const clipboardText = fightLogClipboardText(entries.map((entry) => entry.text));
+        const markCopied = (): void => {
+            setCopied(true);
+            if (copyResetRef.current !== undefined) {
+                window.clearTimeout(copyResetRef.current);
+            }
+            copyResetRef.current = window.setTimeout(() => setCopied(false), 1500);
+        };
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(clipboardText).then(markCopied, () => {});
+        } else {
+            // Older/embedded browsers: the textarea fallback still works everywhere.
+            const scratch = document.createElement("textarea");
+            scratch.value = clipboardText;
+            document.body.appendChild(scratch);
+            scratch.select();
+            try {
+                document.execCommand("copy");
+                markCopied();
+            } finally {
+                document.body.removeChild(scratch);
+            }
+        }
+    };
+
     return (
         // Grows upward into the bar's spare height, stopping under the button column. The 168px floor lives
         // here rather than on the well inside: put it on the well and a short sidebar hands this box less
@@ -104,6 +144,41 @@ export const FightLog = ({ text }: { text: string }) => {
                 textTransform: "uppercase",
             }}
         >
+            {hasEntries && (
+                <Box
+                    component="button"
+                    type="button"
+                    onClick={copyLog}
+                    title={copied ? t("Copied") : t("Copy battle log")}
+                    aria-label={t("Copy battle log")}
+                    sx={{
+                        position: "absolute",
+                        top: "3px",
+                        right: "10px",
+                        zIndex: 2,
+                        px: "6px",
+                        py: "2px",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.05em",
+                        lineHeight: 1.4,
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                        border: "1px solid rgba(205, 151, 67, 0.35)",
+                        borderRadius: "4px",
+                        color: copied ? "#8fcd7d" : "rgba(217, 179, 108, 0.85)",
+                        background: "rgba(15, 11, 7, 0.85)",
+                        transition: "color 0.2s, border-color 0.2s, background 0.2s",
+                        "&:hover": {
+                            color: copied ? "#8fcd7d" : "#ffcf87",
+                            borderColor: "rgba(205, 151, 67, 0.65)",
+                            background: "rgba(30, 20, 10, 0.92)",
+                        },
+                    }}
+                >
+                    {copied ? `✓ ${t("Copied")}` : `⧉ ${t("Copy")}`}
+                </Box>
+            )}
             <Box
                 sx={{
                     width: "100%",

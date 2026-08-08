@@ -57,4 +57,11 @@ export const fightLogExportLine = (line: string): string => {
     return label === undefined ? line : `── ${label} ──`;
 };
 
+/**
+ * The whole log as clipboard text: the panel stores lines newest-first, but a pasted chronicle should
+ * read top-to-bottom in the order it happened — oldest first, turn headers as dividers.
+ */
+export const fightLogClipboardText = (newestFirstLines: readonly string[]): string =>
+    [...newestFirstLines].reverse().map(fightLogExportLine).join("\n");
+
 export { TURN_LOG_HEADER_PREFIX };

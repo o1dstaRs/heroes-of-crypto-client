@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import { formatTurnLogHeader, parseTurnLogHeaderLabel } from "../../scenes/sceneLogTurnHeaders";
-import { fightLogExportLine, groupFightLogEntries } from "./fightLogGrouping";
+import {
+    fightLogClipboardText,
+    fightLogExportLine,
+    groupFightLogEntries,
+    TURN_LOG_HEADER_PREFIX,
+} from "./fightLogGrouping";
 
 interface Entry {
     id: number;
@@ -68,5 +73,15 @@ describe("fightLogExportLine", () => {
     test("headers export as dividers, other lines verbatim", () => {
         expect(fightLogExportLine(formatTurnLogHeader("🟢", "Fairy", 2))).toBe("── 🟢 Fairy — Lap 2 ──");
         expect(fightLogExportLine("🟢 Fairy ⚔️ Orc (12)")).toBe("🟢 Fairy ⚔️ Orc (12)");
+    });
+});
+
+describe("fightLogClipboardText", () => {
+    test("exports oldest-first with turn headers as dividers", () => {
+        const newestFirst = ["Wolf bit Peasant for 12", `${TURN_LOG_HEADER_PREFIX}🔴 Wolf — Lap 1`, "Fight started!"];
+        expect(fightLogClipboardText(newestFirst)).toBe(
+            ["Fight started!", "── 🔴 Wolf — Lap 1 ──", "Wolf bit Peasant for 12"].join("\n"),
+        );
+        expect(fightLogClipboardText([])).toBe("");
     });
 });
