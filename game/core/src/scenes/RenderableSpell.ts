@@ -334,7 +334,16 @@ export class PixiRenderableSpell extends Spell {
             lines.push("No scrolls left");
         }
         const minimalStackPower = this.getMinimalCasterStackPower();
-        if (ownerStackPower < minimalStackPower) {
+        if (minimalStackPower > 1) {
+            // Always on the card (owner 2026-08-07): the gate used to surface only once the caster was
+            // ALREADY failing it, so players never learned up front why a spell would refuse later. A
+            // trivial requirement of 1 stays silent; an unmet one also states the caster's own power.
+            lines.push(
+                ownerStackPower < minimalStackPower
+                    ? `Requires stack power ${minimalStackPower} — yours is ${ownerStackPower}`
+                    : `Requires stack power ${minimalStackPower}`,
+            );
+        } else if (ownerStackPower < minimalStackPower) {
             lines.push(`Requires stack power ${minimalStackPower}`);
         }
         // Craft's per-ally outcome chances shift with the caster's luck, so show the exact calculated
