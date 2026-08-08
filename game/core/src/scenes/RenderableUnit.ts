@@ -2673,6 +2673,19 @@ export class RenderableUnit extends Unit {
             );
         }
 
+        // Stun Aura (Abomination) — the field's own roll, same stack+luck shape as the Stun ability
+        // below at a lower configured power, so the card shows what enemies actually face.
+        const stunAuraAbility = this.getAbility("Stun Aura");
+        if (stunAuraAbility) {
+            const percentage = Number(
+                this.calculateAbilityApplyChance(stunAuraAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            );
+            this.refreshAbiltyDescription(
+                stunAuraAbility.getName(),
+                stunAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+            );
+        }
+
         // Stun
         const stunAbility = this.getAbility("Stun");
         if (stunAbility) {
