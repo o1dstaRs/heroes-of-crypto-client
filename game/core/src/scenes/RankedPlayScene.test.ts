@@ -461,6 +461,46 @@ describe("ranked placement scene state", () => {
         expect(rangedOf(5)).toBe(4);
     });
 
+    test("syncs authoritative remaining shots without refilling from a legacy snapshot", () => {
+        const snapshotProperties = (rangeShots: number) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "ranked-orc",
+                        team: TeamVals.LOWER,
+                        name: "Orc",
+                        creatureId: CreatureVals.ORC,
+                        rangeShots,
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(7),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(liveUnit.getRangeShots()).toBe(6);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(4))).toBe(true);
+        expect(liveUnit.getRangeShots()).toBe(3);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(4))).toBe(false);
+
+        // Wire 0 means the field was absent on an older server. The mapper retains the base-config value
+        // for hydration compatibility, but an in-place reconcile must not refill locally-spent arrows.
+        liveUnit.decreaseNumberOfShots();
+        expect(liveUnit.getRangeShots()).toBe(2);
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(0))).toBe(false);
+        expect(liveUnit.getRangeShots()).toBe(2);
+    });
+
     test("keeps revealed opponent units visible while hiding unknown opponent placeholders", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([

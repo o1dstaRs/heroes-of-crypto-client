@@ -374,6 +374,17 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
     // Deliberate in-place write into the live properties: this is an authoritative-reconciliation site,
     // so the Readonly guard on getUnitProperties is intentionally bypassed here and nowhere casually.
     const liveProperties = unit.getUnitProperties() as UnitProperties;
+    const rankedProperties = properties as UnitProperties & { range_shots_authoritative?: boolean };
+    // Remaining ammo is snapshot-owned too. Ranged attacks are replayed locally when their journal record
+    // arrives, but a fallback poll can apply the snapshot without that replay, and same-board snapshots
+    // deliberately preserve the existing RenderableUnit. In both cases the live unit must receive the
+    // server's remaining count or its sidebar stays on the quiver size it had at the last full hydrate.
+    // Only trust the value when the mapper saw the 1-based wire field; a legacy/absent field falls back to
+    // creature config and must not refill arrows the local replay already spent.
+    if (rankedProperties.range_shots_authoritative && liveProperties.range_shots !== rankedProperties.range_shots) {
+        liveProperties.range_shots = rankedProperties.range_shots;
+        changed = true;
+    }
     // A same-board snapshot preserves the RenderableUnit so an effect-only action does not restart every
     // animation. That means the full hydrate which normally installs the server's final combat modifiers
     // does not run. Copy them in place before refreshUnits(): otherwise a Weapon/Armor Rune updates its
@@ -712,6 +723,10 @@ const getUnitPropertiesFromAuthoritativeState = (
                     baseProperties.range_shots > 0 && unitState.rangeShots > 0
                         ? unitState.rangeShots - 1
                         : baseProperties.range_shots,
+                // Keep the legacy fallback above distinguishable during animation-preserving reconciles.
+                // The server encodes remaining ammo as count + 1, so every native ranged unit with the
+                // field present has a positive wire value even when it has zero shots left.
+                range_shots_authoritative: baseProperties.range_shots > 0 && unitState.rangeShots > 0,
                 // The server (running the common engine) computes morale and speed authoritatively and
                 // ships them in the snapshot; carry them through instead of falling back to the base
                 // creature config. These survive the client's adjustBaseStats recompute because it

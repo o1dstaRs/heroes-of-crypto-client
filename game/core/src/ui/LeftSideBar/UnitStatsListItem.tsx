@@ -6,7 +6,6 @@ import {
     TeamVals,
     HoCLib,
     AttackType,
-    FactionType,
     TeamType,
     ToFactionName,
     SynergyKeysToPower,
@@ -26,7 +25,7 @@ import React, { useCallback } from "react";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
-import { IVisibleImpact, IVisibleOverallImpact } from "../../scenes/VisibleState";
+import { IVisibleImpact } from "../../scenes/VisibleState";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { ScrollIcon } from "../svg/scroll";
 import { BootIcon } from "../svg/boot";
@@ -53,6 +52,7 @@ import {
 import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
+import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { hocDisplayFontFamily } from "../hocTheme";
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -1562,12 +1562,6 @@ const AbilityStatusOverlay: React.FC<{ isAura?: boolean; label: string; color: s
     </Box>
 );
 
-type UnitStatsListItemProps = {
-    unitProperties: UnitProperties;
-    overallImpact: IVisibleOverallImpact;
-    factionType: FactionType;
-};
-
 const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperties, overallImpact, factionType }) => {
     const metrics = useSidebarMetrics();
     // The game renders dark-only; the light palette is gone, so this is a constant.
@@ -1831,32 +1825,4 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
     return <ListItem nested />;
 };
 
-const arePropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProps) => {
-    if (prev.factionType !== next.factionType) return false;
-    const pUnit = prev.unitProperties;
-    const nUnit = next.unitProperties;
-    if (pUnit === nUnit) return true;
-    if (!pUnit || !nUnit) return false;
-    if (
-        pUnit.id !== nUnit.id ||
-        pUnit.amount_alive !== nUnit.amount_alive ||
-        pUnit.hp !== nUnit.hp ||
-        pUnit.steps !== nUnit.steps ||
-        pUnit.name !== nUnit.name
-    )
-        return false;
-    if (
-        pUnit.attack_mod !== nUnit.attack_mod ||
-        pUnit.attack_multiplier !== nUnit.attack_multiplier ||
-        pUnit.armor_mod !== nUnit.armor_mod ||
-        pUnit.steps_mod !== nUnit.steps_mod ||
-        pUnit.luck_mod !== nUnit.luck_mod ||
-        pUnit.range_shots_mod !== nUnit.range_shots_mod ||
-        pUnit.magic_resist_mod !== nUnit.magic_resist_mod
-    )
-        return false;
-    if (prev.overallImpact !== next.overallImpact) return false;
-    return true;
-};
-
-export const UnitStatsListItem = React.memo(UnitStatsListItemInner, arePropsEqual);
+export const UnitStatsListItem = React.memo(UnitStatsListItemInner, areUnitStatsPropsEqual);
