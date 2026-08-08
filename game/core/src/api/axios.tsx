@@ -204,6 +204,8 @@ export const endpoints = {
         lobbyReady: IS_PROD ? "/v1/lobby-ready" : "/v1/mm/lobby-ready",
         lobbyStart: IS_PROD ? "/v1/lobby-start" : "/v1/mm/lobby-start",
         lobbyLeave: IS_PROD ? "/v1/lobby-leave" : "/v1/mm/lobby-leave",
+        // Public ranked profile (username, placed MMR, league) — the observer HUD names each side.
+        rankedProfile: IS_PROD ? "/v1/ranked-profile" : "/v1/mm/ranked-profile",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",

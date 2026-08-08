@@ -43,6 +43,7 @@ import { PlayActionType, PlayEventKind, PlayPhase, PLAY_MOVE_CONTINUE_TURN_REASO
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protocol";
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
+import { axiosMMInstance, endpoints } from "../api/axios";
 import { images } from "../generated/image_imports";
 import { t, useTranslation } from "../i18n/i18n";
 import { usePixiManager } from "../pixi/PixiGameManager";
@@ -2001,11 +2002,12 @@ const observerPerkName = (perkId?: number): string => {
 
 const observerSynergyLabel = (key: string): string => key.replaceAll(":", " · ");
 
-const ObserverTeamSetup: React.FC<{ label: string; snapshot: PlaySnapshot; side: "lower" | "upper" }> = ({
-    label,
-    snapshot,
-    side,
-}) => {
+const ObserverTeamSetup: React.FC<{
+    label: string;
+    identityLine?: string;
+    snapshot: PlaySnapshot;
+    side: "lower" | "upper";
+}> = ({ label, identityLine, snapshot, side }) => {
     const perkId = side === "lower" ? snapshot.lowerPerk : snapshot.upperPerk;
     const tier1 = (side === "lower" ? snapshot.lowerArtifactTier1 : snapshot.upperArtifactTier1) ?? 0;
     const tier2 = (side === "lower" ? snapshot.lowerArtifactTier2 : snapshot.upperArtifactTier2) ?? 0;
@@ -2036,6 +2038,11 @@ const ObserverTeamSetup: React.FC<{ label: string; snapshot: PlaySnapshot; side:
             <Typography level="body-xs" textColor={hocColors.gold}>
                 {label}
             </Typography>
+            {identityLine && (
+                <Typography level="body-xs" textColor={hocColors.parchment}>
+                    {identityLine}
+                </Typography>
+            )}
             <Typography level="body-xs" textColor={hocColors.mutedStrong}>
                 {`Doctrine: ${observerPerkName(perkId)}`}
             </Typography>
@@ -2072,17 +2079,94 @@ const ObserverTeamSetup: React.FC<{ label: string; snapshot: PlaySnapshot; side:
     );
 };
 
-const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => (
-    <Stack spacing={0.5}>
-        <Typography level="body-sm" textColor={hocColors.parchment}>
-            Army setups
-        </Typography>
-        <Stack direction="row" spacing={2} flexWrap="wrap">
-            <ObserverTeamSetup label={teamLabel(TeamVals.LOWER)} snapshot={snapshot} side="lower" />
-            <ObserverTeamSetup label={teamLabel(TeamVals.UPPER)} snapshot={snapshot} side="upper" />
+// Spectators had no idea WHO was fighting at what rating: the play snapshot carries only player
+// ids, so name + MMR come from the public ranked-profile endpoint (placed MMR only — calibrating
+// players read as "Calibrating", exactly like the public ladder). AI seats without a ranked profile
+// simply show no identity line.
+interface IObserverIdentity {
+    username: string;
+    mmr: number;
+    leagueName: string;
+    placed: boolean;
+}
+
+const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserverIdentity> => {
+    const [identities, setIdentities] = useState<Record<string, IObserverIdentity>>({});
+    const playerIds = snapshot.players
+        .map((player) => player.playerId)
+        .sort()
+        .join(",");
+    useEffect(() => {
+        let cancelled = false;
+        for (const playerId of playerIds.split(",").filter(Boolean)) {
+            axiosMMInstance
+                .get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`)
+                .then((response) => {
+                    if (cancelled || !response.data) {
+                        return;
+                    }
+                    const data = response.data as {
+                        username?: string;
+                        mmr?: number;
+                        leagueName?: string;
+                        state?: string;
+                    };
+                    setIdentities((current) => ({
+                        ...current,
+                        [playerId]: {
+                            username: data.username ?? "",
+                            mmr: data.mmr ?? 0,
+                            leagueName: data.leagueName ?? "",
+                            placed: data.state === "placed",
+                        },
+                    }));
+                })
+                .catch(() => {});
+        }
+        return () => {
+            cancelled = true;
+        };
+    }, [playerIds]);
+    return identities;
+};
+
+const observerIdentityLine = (identity: IObserverIdentity | undefined): string => {
+    if (!identity || !identity.username) {
+        return "";
+    }
+    return identity.placed
+        ? `${identity.username} · ${identity.mmr} MMR (${identity.leagueName})`
+        : `${identity.username} · ${t("Calibrating")}`;
+};
+
+const ObserverSetupPanel: React.FC<{ snapshot: PlaySnapshot }> = ({ snapshot }) => {
+    const identities = useObserverIdentities(snapshot);
+    const identityFor = (team: number): IObserverIdentity | undefined => {
+        const player = snapshot.players.find((candidate) => candidate.team === team);
+        return player ? identities[player.playerId] : undefined;
+    };
+    return (
+        <Stack spacing={0.5}>
+            <Typography level="body-sm" textColor={hocColors.parchment}>
+                Army setups
+            </Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap">
+                <ObserverTeamSetup
+                    label={teamLabel(TeamVals.LOWER)}
+                    identityLine={observerIdentityLine(identityFor(TeamVals.LOWER))}
+                    snapshot={snapshot}
+                    side="lower"
+                />
+                <ObserverTeamSetup
+                    label={teamLabel(TeamVals.UPPER)}
+                    identityLine={observerIdentityLine(identityFor(TeamVals.UPPER))}
+                    snapshot={snapshot}
+                    side="upper"
+                />
+            </Stack>
         </Stack>
-    </Stack>
-);
+    );
+};
 
 // Sidebar art per augment category — the same images the picker overlay and the player portal's
 // match history use, so the recap reads visually instead of as text chips.

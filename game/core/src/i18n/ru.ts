@@ -113,4 +113,5 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Copy: "Копировать",
     Copied: "Скопировано",
     "Copy battle log": "Скопировать журнал боя",
+    Calibrating: "На калибровке",
 };
