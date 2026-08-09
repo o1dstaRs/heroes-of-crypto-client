@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Sheet, Box, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { ArtifactToggler } from "./ArtifactToggler";
+import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
 const augmentMightImg = new URL("../../../images/might_augment_256.webp", import.meta.url).toString();
@@ -161,6 +162,9 @@ const SideToggleContainer = ({
     // Ranked reads this to gate its commit button: fires whenever the remaining augment points change.
     // Sandbox omits it.
     onReadyChange,
+    // Ranked snapshots own the committed build. Rehydrate from it so a refresh/remount does not show a
+    // blank picker with a full budget while the server is still enforcing the already-spent points.
+    authoritativeSelections,
 }: {
     side: string;
     teamType: TeamType;
@@ -168,14 +172,61 @@ const SideToggleContainer = ({
     showArtifactPicker?: boolean;
     budgetPoints?: number;
     onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
+    authoritativeSelections?: AugmentSelections;
 }) => {
-    const [totalPoints, setTotalPoints] = useState(budgetPoints);
-    const [placementSelection, setPlacementSelection] = useState<number | null>(null);
-    const [armorSelection, setArmorSelection] = useState<number | null>(null);
-    const [mightSelection, setMightSelection] = useState<number | null>(null);
-    const [empowerSelection, setEmpowerSelection] = useState<number | null>(null);
-    const [sniperSelection, setSniperSelection] = useState<number | null>(null);
-    const [movementSelection, setMovementSelection] = useState<number | null>(null);
+    const authoritativePlacement = authoritativeSelections?.placement;
+    const authoritativeArmor = authoritativeSelections?.armor;
+    const authoritativeMight = authoritativeSelections?.might;
+    const authoritativeEmpower = authoritativeSelections?.empower;
+    const authoritativeSniper = authoritativeSelections?.sniper;
+    const authoritativeMovement = authoritativeSelections?.movement;
+    const [totalPoints, setTotalPoints] = useState(() =>
+        authoritativeSelections ? remainingAugmentPoints(budgetPoints, authoritativeSelections) : budgetPoints,
+    );
+    const [placementSelection, setPlacementSelection] = useState<number | null>(authoritativePlacement ?? null);
+    const [armorSelection, setArmorSelection] = useState<number | null>(authoritativeArmor ?? null);
+    const [mightSelection, setMightSelection] = useState<number | null>(authoritativeMight ?? null);
+    const [empowerSelection, setEmpowerSelection] = useState<number | null>(authoritativeEmpower ?? null);
+    const [sniperSelection, setSniperSelection] = useState<number | null>(authoritativeSniper ?? null);
+    const [movementSelection, setMovementSelection] = useState<number | null>(authoritativeMovement ?? null);
+
+    useEffect(() => {
+        if (
+            authoritativePlacement === undefined ||
+            authoritativeArmor === undefined ||
+            authoritativeMight === undefined ||
+            authoritativeEmpower === undefined ||
+            authoritativeSniper === undefined ||
+            authoritativeMovement === undefined
+        ) {
+            return;
+        }
+
+        setPlacementSelection(authoritativePlacement);
+        setArmorSelection(authoritativeArmor);
+        setMightSelection(authoritativeMight);
+        setEmpowerSelection(authoritativeEmpower);
+        setSniperSelection(authoritativeSniper);
+        setMovementSelection(authoritativeMovement);
+        setTotalPoints(
+            remainingAugmentPoints(budgetPoints, {
+                placement: authoritativePlacement,
+                armor: authoritativeArmor,
+                might: authoritativeMight,
+                empower: authoritativeEmpower,
+                sniper: authoritativeSniper,
+                movement: authoritativeMovement,
+            }),
+        );
+    }, [
+        authoritativeArmor,
+        authoritativeEmpower,
+        authoritativeMight,
+        authoritativeMovement,
+        authoritativePlacement,
+        authoritativeSniper,
+        budgetPoints,
+    ]);
     const handleLevelChange = (kind: Augment.AugmentType["type"], pointsUsed: number, previousPointsUsed: number) => {
         if (kind === "Placement") {
             setPlacementSelection(pointsUsed);

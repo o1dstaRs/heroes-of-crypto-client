@@ -2749,6 +2749,32 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                 teamType={userTeam}
                                                 showArtifactPicker={false}
                                                 budgetPoints={augmentBudget}
+                                                authoritativeSelections={{
+                                                    placement:
+                                                        (userTeam === TeamVals.LOWER
+                                                            ? snapshot.lowerAugmentPlacement
+                                                            : snapshot.upperAugmentPlacement) ?? 0,
+                                                    armor:
+                                                        (userTeam === TeamVals.LOWER
+                                                            ? snapshot.lowerAugmentArmor
+                                                            : snapshot.upperAugmentArmor) ?? 0,
+                                                    might:
+                                                        (userTeam === TeamVals.LOWER
+                                                            ? snapshot.lowerAugmentMight
+                                                            : snapshot.upperAugmentMight) ?? 0,
+                                                    empower:
+                                                        (userTeam === TeamVals.LOWER
+                                                            ? snapshot.lowerAugmentEmpower
+                                                            : snapshot.upperAugmentEmpower) ?? 0,
+                                                    sniper:
+                                                        (userTeam === TeamVals.LOWER
+                                                            ? snapshot.lowerAugmentSniper
+                                                            : snapshot.upperAugmentSniper) ?? 0,
+                                                    movement:
+                                                        (userTeam === TeamVals.LOWER
+                                                            ? snapshot.lowerAugmentMovement
+                                                            : snapshot.upperAugmentMovement) ?? 0,
+                                                }}
                                                 onReadyChange={setAugmentReady}
                                             />
                                         </Box>
