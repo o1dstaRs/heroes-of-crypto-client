@@ -41,6 +41,7 @@ const makeContext = (over: Partial<ISandboxButtonContext> = {}): { ctx: ISandbox
         isInputLockedByAI: () => false,
         canControlCurrentActiveUnit: () => true,
         hasUnactedTeammateInCurrentLap: () => false,
+        isHourglassDenied: () => false,
         getVisibleState: () => undefined,
         ...over,
     };
@@ -170,6 +171,21 @@ describe("ButtonManager hourglass eligibility", () => {
         activeUnit = makeUnit();
 
         expect(checkHourglass(manager)).toBe(true);
+    });
+
+    it("disables Hourglass while Time Denial is active", () => {
+        FightStateManager.getInstance().reset();
+        FightStateManager.getInstance().getFightProperties().startFight();
+        let activeUnit: Unit | undefined;
+        const { ctx } = makeContext({
+            getCurrentActiveUnit: () => activeUnit,
+            hasUnactedTeammateInCurrentLap: () => true,
+            isHourglassDenied: () => true,
+        });
+        const manager = new ButtonManager(ctx, false);
+        activeUnit = makeUnit();
+
+        expect(checkHourglass(manager)).toBe(false);
     });
 });
 

@@ -1,6 +1,7 @@
 import {
     AI,
     AttackVals,
+    canWaitOnHourglass,
     FightStateManager,
     GridMath,
     SpellHelper,
@@ -782,12 +783,7 @@ export const createLocalModelActions = (options: LocalModelActionOptions): Local
         createMoveAndMeleeActionFromAi(actions, activeUnit, fightProperties, grid, unitsHolder, aiAction);
     }
 
-    if (
-        fightProperties.hasUnactedTeammate(activeUnit.getTeam(), activeUnitId, unitsHolder.getAllUnits()) &&
-        !fightProperties.hourglassIncludes(activeUnitId) &&
-        !fightProperties.hasAlreadyMadeTurn(activeUnitId) &&
-        !fightProperties.hasAlreadyHourglass(activeUnitId)
-    ) {
+    if (canWaitOnHourglass(activeUnit, fightProperties, unitsHolder.getAllUnits())) {
         createAction(
             actions,
             activeUnit,

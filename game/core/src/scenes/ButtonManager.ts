@@ -45,6 +45,8 @@ export interface ISandboxButtonContext {
     canControlCurrentActiveUnit(): boolean;
     /** True when another living teammate still has an uncompleted turn later in the current lap. */
     hasUnactedTeammateInCurrentLap(unit: Unit): boolean;
+    /** True while a live, unbroken holder has the global Time Denial ability. */
+    isHourglassDenied(): boolean;
 
     getVisibleState(): IVisibleState | undefined;
 }
@@ -96,6 +98,9 @@ export class ButtonManager {
 
         // Must have fight started to use hourglass
         if (!fightState.hasFightStarted()) {
+            return false;
+        }
+        if (this.context.isHourglassDenied()) {
             return false;
         }
 

@@ -17,6 +17,7 @@ import {
     Unit,
     UnitsHolder,
     FightStateManager,
+    hasActiveTimeDenial,
 } from "@heroesofcrypto/common";
 import type { AttackHandler, AttackType, GameAction, IWeightedRoute, Spell, TeamType } from "@heroesofcrypto/common";
 import { RenderableUnit } from "./RenderableUnit";
@@ -2071,6 +2072,7 @@ export class AIController {
     private canHourglassWait(unit: Unit): boolean {
         const fp = FightStateManager.getInstance().getFightProperties();
         return (
+            !hasActiveTimeDenial(this.context.getUnitsHolder().getAllUnits().values()) &&
             fp.getTeamUnitsAlive(unit.getTeam()) > 1 &&
             !fp.hourglassIncludes(unit.getId()) &&
             !fp.hasAlreadyMadeTurn(unit.getId()) &&

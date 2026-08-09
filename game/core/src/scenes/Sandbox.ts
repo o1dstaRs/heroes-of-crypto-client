@@ -21,6 +21,7 @@ import {
     SpellPowerType,
     SpellHelper,
     SmokeHelper,
+    hasActiveTimeDenial,
     SCATTERED_MOUNTAIN_BAND_ROWS,
     SCATTERED_MOUNTAIN_COUNT,
     SCATTERED_MOUNTAIN_VARIANTS,
@@ -1068,6 +1069,7 @@ export class Sandbox extends PixiScene {
                     }
                     this.onAiToggleChanged(active);
                 },
+                isHourglassDenied: () => hasActiveTimeDenial(this.unitsHolder.getAllUnits().values()),
                 setSpellBookOverlay: (active) => {
                     this.sc_renderSpellBookOverlay = active;
                     this.spellBookOverlay?.setOpen(active);
