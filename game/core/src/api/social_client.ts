@@ -32,10 +32,11 @@ export interface PresencePingResult {
 
 export interface SocialNotification {
     id: string;
-    type: "friend_request" | "friend_accepted" | "system";
+    type: "friend_request" | "friend_accepted" | "friend_message" | "system";
     fromPlayerId?: string;
     fromUsername?: string;
     requestId?: string;
+    messageId?: string;
     body?: string;
     createdAt: number;
     seenAt: number;
@@ -46,6 +47,24 @@ export interface FriendEntry {
     username: string;
     online: boolean;
     lastOnlineAt: number;
+    muted: boolean;
+    unreadCount: number;
+}
+
+export interface FriendMessage {
+    id: string;
+    conversationId: string;
+    senderId: string;
+    recipientId: string;
+    body: string;
+    createdAt: number;
+    readAt: number;
+}
+
+export interface FriendConversation {
+    friend: FriendEntry;
+    messages: FriendMessage[];
+    hasMore: boolean;
 }
 
 export interface FriendsOverview {
@@ -95,6 +114,23 @@ export const unblockPlayer = (playerId: string): Promise<{ ok: boolean }> =>
     post(endpoints.social.friendUnblock, { playerId });
 
 export const fetchFriends = (): Promise<FriendsOverview> => get(endpoints.social.friends);
+
+export const fetchFriendMessages = (playerId: string, before?: number): Promise<FriendConversation> => {
+    const query = new URLSearchParams({ playerId });
+    if (before) {
+        query.set("before", String(before));
+    }
+    return get(`${endpoints.social.friendMessages}?${query.toString()}`);
+};
+
+export const sendFriendMessage = (playerId: string, message: string): Promise<FriendMessage> =>
+    post(endpoints.social.friendMessage, { playerId, message });
+
+export const markFriendMessagesRead = (playerId: string): Promise<{ ok: boolean }> =>
+    post(endpoints.social.friendMessagesRead, { playerId });
+
+export const setFriendMuted = (playerId: string, muted: boolean): Promise<{ muted: boolean }> =>
+    post(endpoints.social.friendMute, { playerId, muted });
 
 export interface RankedBanPreference {
     creatureId: number;

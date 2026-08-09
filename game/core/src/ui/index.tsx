@@ -698,8 +698,7 @@ const App: React.FC = () => {
                     {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
                         screens does not restart the theme. It decides for itself which routes sing. */}
                     <ThemeMusic />
-                    {/* Floating bell + friends dock (hidden during fights); also drives the presence
-                        heartbeat that makes this player show as "online" to their friends. */}
+                    {/* Floating notifications, friends, and messages; compact during fights. */}
                     <SocialDock />
                     <AuthedRoutes windowSize={windowSize} />
                 </Router>

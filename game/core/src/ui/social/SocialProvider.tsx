@@ -144,6 +144,10 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
         lastUnseenRef.current = 0;
     }, []);
 
+    const refreshNow = useCallback((): void => {
+        void ping();
+    }, [ping]);
+
     const requestNotificationPermission = useCallback((): void => {
         if (typeof Notification !== "undefined" && Notification.permission === "default") {
             void Notification.requestPermission();
@@ -163,7 +167,7 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             dismissPopup,
             respond,
             clearUnseen,
-            refreshNow: () => void ping(),
+            refreshNow,
             requestNotificationPermission,
         }),
         [
@@ -173,7 +177,7 @@ export const SocialProvider: React.FC<{ children?: React.ReactNode }> = ({ child
             dismissPopup,
             respond,
             clearUnseen,
-            ping,
+            refreshNow,
             requestNotificationPermission,
         ],
     );

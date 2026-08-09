@@ -15,6 +15,7 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
+import { ConversationPanel } from "./ConversationPanel";
 import { useSocial } from "./SocialProvider";
 import {
     blockPlayer,
@@ -25,9 +26,11 @@ import {
     removeFriend,
     searchPlayers,
     sendFriendRequest,
+    setFriendMuted,
     socialErrorMessage,
     unblockPlayer,
     type FriendsOverview,
+    type FriendEntry,
     type SocialNotification,
 } from "../../api/social_client";
 import { useAuthContext } from "../auth/context/auth_context";
@@ -42,10 +45,9 @@ import {
 } from "../hocTheme";
 
 /**
- * Floating social dock: notification bell (with unseen badge) + friends panel, mounted once above
- * the router so it's present on every menu screen. Hidden during /game/* — a fight deserves full
- * attention, and the friend-request popup waits until the player is back in the menus (browser
- * notifications still fire meanwhile). Opening the tray marks everything seen: badge to 0, history stays.
+ * Floating social dock: notification bell, friends list, and direct messages mounted once above
+ * the router. During a fight it collapses to smaller controls and suppresses unsolicited request
+ * popups, while leaving conversations available on demand.
  */
 
 const dockButtonSx = {
@@ -66,6 +68,8 @@ const notificationText = (notification: SocialNotification): string => {
             return `${notification.fromUsername ?? "Someone"} sent you a friend request`;
         case "friend_accepted":
             return `${notification.fromUsername ?? "Someone"} accepted your friend request`;
+        case "friend_message":
+            return `${notification.fromUsername ?? "Someone"}: ${notification.body ?? "New message"}`;
         default:
             return notification.body ?? "Notification";
     }
@@ -85,7 +89,13 @@ const OnlineDot: React.FC<{ online: boolean }> = ({ online }) => (
     />
 );
 
-const NotificationsTray: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+interface NotificationsTrayProps {
+    open: boolean;
+    onClose: () => void;
+    onMessage: (friend: FriendEntry) => void;
+}
+
+const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, onMessage }) => {
     const social = useSocial();
     const [items, setItems] = useState<SocialNotification[]>([]);
     const [loading, setLoading] = useState(false);
@@ -145,11 +155,47 @@ const NotificationsTray: React.FC<{ open: boolean; onClose: () => void }> = ({ o
                             return (
                                 <Box
                                     key={notification.id}
+                                    role={notification.type === "friend_message" ? "button" : undefined}
+                                    tabIndex={notification.type === "friend_message" ? 0 : undefined}
+                                    onClick={() => {
+                                        if (notification.type === "friend_message" && notification.fromPlayerId) {
+                                            onMessage({
+                                                playerId: notification.fromPlayerId,
+                                                username: notification.fromUsername ?? "Friend",
+                                                online: false,
+                                                lastOnlineAt: 0,
+                                                muted: false,
+                                                unreadCount: 0,
+                                            });
+                                        }
+                                    }}
+                                    onKeyDown={(event) => {
+                                        if (
+                                            (event.key === "Enter" || event.key === " ") &&
+                                            notification.type === "friend_message" &&
+                                            notification.fromPlayerId
+                                        ) {
+                                            event.preventDefault();
+                                            onMessage({
+                                                playerId: notification.fromPlayerId,
+                                                username: notification.fromUsername ?? "Friend",
+                                                online: false,
+                                                lastOnlineAt: 0,
+                                                muted: false,
+                                                unreadCount: 0,
+                                            });
+                                        }
+                                    }}
                                     sx={{
                                         p: 1.25,
                                         borderRadius: 8,
                                         border: `1px solid ${notification.seenAt === 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.14)"}`,
                                         bgcolor: notification.seenAt === 0 ? hocColors.orangeSoft : "transparent",
+                                        cursor: notification.type === "friend_message" ? "pointer" : "default",
+                                        "&:hover":
+                                            notification.type === "friend_message"
+                                                ? { borderColor: hocColors.orangeBorder }
+                                                : undefined,
                                     }}
                                 >
                                     <Stack
@@ -200,7 +246,13 @@ const NotificationsTray: React.FC<{ open: boolean; onClose: () => void }> = ({ o
     );
 };
 
-const FriendsPanel: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+interface FriendsPanelProps {
+    open: boolean;
+    onClose: () => void;
+    onMessage: (friend: FriendEntry) => void;
+}
+
+const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage }) => {
     const social = useSocial();
     const [overview, setOverview] = useState<FriendsOverview | null>(null);
     const [loading, setLoading] = useState(false);
@@ -283,6 +335,7 @@ const FriendsPanel: React.FC<{ open: boolean; onClose: () => void }> = ({ open, 
         try {
             await action();
             await reload();
+            social.refreshNow();
         } catch (err) {
             setMessage({ kind: "error", text: socialErrorMessage(err, "Action failed") });
         } finally {
@@ -401,43 +454,74 @@ const FriendsPanel: React.FC<{ open: boolean; onClose: () => void }> = ({ open, 
                             </Typography>
                         ) : (
                             overview.friends.map((friend) => (
-                                <Stack key={friend.playerId} direction="row" alignItems="center" spacing={1}>
-                                    <OnlineDot online={friend.online} />
-                                    <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
-                                        {friend.username}
-                                    </Typography>
-                                    <Typography
-                                        level="body-xs"
-                                        sx={{
-                                            color: friend.online ? hocColors.green : hocColors.muted,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt)}
-                                    </Typography>
-                                    <Button
-                                        size="sm"
-                                        variant="outlined"
-                                        sx={hocSoftButtonSx}
-                                        disabled={busy}
-                                        onClick={() => void act(() => removeFriend(friend.playerId))}
-                                    >
-                                        Remove
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outlined"
-                                        sx={{
-                                            ...hocSoftButtonSx,
-                                            borderColor: "rgba(255,90,63,0.5)",
-                                            color: hocColors.danger,
-                                        }}
-                                        disabled={busy}
-                                        onClick={() => void act(() => blockPlayer(friend.playerId))}
-                                    >
-                                        Block
-                                    </Button>
-                                </Stack>
+                                <Box
+                                    key={friend.playerId}
+                                    sx={{
+                                        p: 1,
+                                        borderRadius: 8,
+                                        border: `1px solid ${friend.unreadCount > 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.12)"}`,
+                                        bgcolor: friend.unreadCount > 0 ? hocColors.orangeSoft : "transparent",
+                                    }}
+                                >
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <OnlineDot online={friend.online} />
+                                        <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
+                                            {friend.username}
+                                        </Typography>
+                                        {friend.unreadCount > 0 ? (
+                                            <Chip size="sm" sx={{ bgcolor: hocColors.danger, color: "#fff" }}>
+                                                {friend.unreadCount > 99 ? "99+" : friend.unreadCount}
+                                            </Chip>
+                                        ) : null}
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{
+                                                color: friend.online ? hocColors.green : hocColors.muted,
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt)}
+                                        </Typography>
+                                    </Stack>
+                                    <Stack direction="row" spacing={0.7} sx={{ mt: 0.8, flexWrap: "wrap" }}>
+                                        <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
+                                            Message
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            disabled={busy}
+                                            onClick={() =>
+                                                void act(() => setFriendMuted(friend.playerId, !friend.muted))
+                                            }
+                                        >
+                                            {friend.muted ? "Unmute alerts" : "Mute alerts"}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            disabled={busy}
+                                            onClick={() => void act(() => removeFriend(friend.playerId))}
+                                        >
+                                            Remove
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={{
+                                                ...hocSoftButtonSx,
+                                                borderColor: "rgba(255,90,63,0.5)",
+                                                color: hocColors.danger,
+                                            }}
+                                            disabled={busy}
+                                            onClick={() => void act(() => blockPlayer(friend.playerId))}
+                                        >
+                                            Block
+                                        </Button>
+                                    </Stack>
+                                </Box>
                             ))
                         )}
 
@@ -494,23 +578,42 @@ export const SocialDock: React.FC = () => {
     const location = useLocation();
     const [trayOpen, setTrayOpen] = useState(false);
     const [friendsOpen, setFriendsOpen] = useState(false);
+    const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(null);
 
     const active = authenticated && user?.is_active !== false;
-    // In a fight (or spectating one) the dock and popup stay out of the way entirely.
     const inGame = location.pathname.startsWith("/game/");
-    if (!active || inGame) {
+    if (!active) {
         return null;
     }
 
+    const openConversation = (friend: FriendEntry): void => {
+        setTrayOpen(false);
+        setFriendsOpen(false);
+        setConversationFriend(friend);
+    };
+
     const popup = social.popupRequest;
-    const popupVisible = !!popup && !trayOpen && !friendsOpen;
+    const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !inGame;
 
     return (
         <>
-            <Stack direction="row" spacing={1} sx={{ position: "fixed", bottom: 18, right: 18, zIndex: 1400 }}>
+            <Stack
+                direction="row"
+                spacing={inGame ? 0.6 : 1}
+                sx={{
+                    position: "fixed",
+                    top: inGame ? 10 : "auto",
+                    bottom: inGame ? "auto" : 18,
+                    right: inGame ? 10 : 18,
+                    zIndex: 1400,
+                    opacity: inGame ? 0.82 : 1,
+                    transition: "opacity 150ms ease",
+                    "&:hover": { opacity: 1 },
+                }}
+            >
                 <IconButton
                     aria-label="Friends"
-                    sx={dockButtonSx}
+                    sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
                     onClick={() => {
                         social.requestNotificationPermission();
                         setFriendsOpen(true);
@@ -523,7 +626,7 @@ export const SocialDock: React.FC = () => {
                 <Box sx={{ position: "relative" }}>
                     <IconButton
                         aria-label="Notifications"
-                        sx={dockButtonSx}
+                        sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
                         onClick={() => {
                             social.requestNotificationPermission();
                             setTrayOpen(true);
@@ -559,11 +662,19 @@ export const SocialDock: React.FC = () => {
                 </Box>
             </Stack>
 
-            <NotificationsTray open={trayOpen} onClose={() => setTrayOpen(false)} />
-            <FriendsPanel open={friendsOpen} onClose={() => setFriendsOpen(false)} />
+            <NotificationsTray open={trayOpen} onClose={() => setTrayOpen(false)} onMessage={openConversation} />
+            <FriendsPanel open={friendsOpen} onClose={() => setFriendsOpen(false)} onMessage={openConversation} />
+            <ConversationPanel
+                friend={conversationFriend}
+                onClose={() => setConversationFriend(null)}
+                onActivity={social.refreshNow}
+                onMutedChange={(playerId, muted) =>
+                    setConversationFriend((current) =>
+                        current?.playerId === playerId ? { ...current, muted } : current,
+                    )
+                }
+            />
 
-            {/* Friend-request popup: shown whenever a request is pending and no other social modal is
-                open. Never during a fight — this whole dock is unmounted on /game/*. */}
             <Modal open={popupVisible} onClose={() => popup && social.dismissPopup(popup.requestId)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 380, maxWidth: "92vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>
