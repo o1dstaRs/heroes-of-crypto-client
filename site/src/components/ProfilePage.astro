@@ -99,7 +99,14 @@ const rankedApp = links.rankedApp;
 
                 <section class="profile-section">
                     <h2>{copy.sectionMatches}</h2>
-                    <div class="match-list" data-profile-matches></div>
+                    <div class="match-list" id="profile-match-list" data-profile-matches></div>
+                    <button
+                        type="button"
+                        class="matches-more"
+                        data-profile-matches-more
+                        aria-controls="profile-match-list"
+                        hidden>{copy.matchesShowMore}</button
+                    >
                 </section>
             </div>
         </div>
@@ -150,6 +157,8 @@ const rankedApp = links.rankedApp;
     const publicStandingEl = $("public-standing");
     const standingEl = $("standing");
     const summaryNoticeEl = $("summary-notice");
+    const matchesEl = $("matches");
+    const matchesMoreEl = $<HTMLButtonElement>("matches-more");
     const selfSections = [...document.querySelectorAll<HTMLElement>("[data-profile-self]")];
     const profileSearchParams = new URL(window.location.href).searchParams;
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
@@ -192,6 +201,35 @@ const rankedApp = links.rankedApp;
             ? "Доля рейтинговых боёв, завершённых игроком через выход из боя или длительное отключение."
             : "Ranked battles this player ended by exiting the fight or remaining disconnected.";
     const GOLD_ICON = "/assets/icons/currency/gold.svg";
+    const MATCH_PAGE_SIZE = 10;
+    let matchHistoryRows: unknown[] = [];
+    let matchHistoryRenderer: (match: unknown) => string = () => "";
+    let visibleMatchCount = 0;
+
+    function updateMatchesMoreButton(): void {
+        if (matchesMoreEl) matchesMoreEl.hidden = visibleMatchCount >= matchHistoryRows.length;
+    }
+
+    function renderMatchHistory<T>(matches: T[], renderRow: (match: T) => string, emptyMarkup: string): void {
+        matchHistoryRows = matches;
+        matchHistoryRenderer = (match) => renderRow(match as T);
+        visibleMatchCount = Math.min(MATCH_PAGE_SIZE, matches.length);
+        if (matchesEl) {
+            matchesEl.innerHTML = matches.length
+                ? matches.slice(0, visibleMatchCount).map(renderRow).join("")
+                : emptyMarkup;
+        }
+        updateMatchesMoreButton();
+    }
+
+    matchesMoreEl?.addEventListener("click", () => {
+        if (!matchesEl) return;
+        const nextCount = Math.min(visibleMatchCount + MATCH_PAGE_SIZE, matchHistoryRows.length);
+        const nextRows = matchHistoryRows.slice(visibleMatchCount, nextCount).map(matchHistoryRenderer).join("");
+        matchesEl.insertAdjacentHTML("beforeend", nextRows);
+        visibleMatchCount = nextCount;
+        updateMatchesMoreButton();
+    });
 
     function currencyMarkup(value: number, prefix = ""): string {
         const amount = `${prefix}${numberFormatter.format(Math.max(0, Math.trunc(value)))}`;
@@ -544,14 +582,11 @@ const rankedApp = links.rankedApp;
                 .join("");
         }
 
-        const matchesEl = $("matches");
-        if (matchesEl) {
-            matchesEl.innerHTML = summaryOnly
-                ? `<p class="profile-empty-message">${escapeHtml(copy.publicDetailsUnavailable)}</p>`
-                : profile.recentGames.length
-                ? profile.recentGames.map(publicMatchRow).join("")
-                : `<p class="profile-empty-message">${escapeHtml(copy.publicNoMatches)}</p>`;
-        }
+        renderMatchHistory(
+            summaryOnly ? [] : profile.recentGames,
+            publicMatchRow,
+            `<p class="profile-empty-message">${escapeHtml(summaryOnly ? copy.publicDetailsUnavailable : copy.publicNoMatches)}</p>`,
+        );
 
         // Winning strategies: what this player fields and what wins for them (from recorded games).
         const playstyleSection = document.querySelector<HTMLElement>("[data-profile-playstyle-section]");
@@ -692,10 +727,7 @@ const rankedApp = links.rankedApp;
             if (combosSection) combosSection.hidden = combos.length === 0;
         }
 
-        const matchesEl = $("matches");
-        if (matchesEl) {
-            matchesEl.innerHTML = matches.map((m) => matchRow(m)).join("");
-        }
+        renderMatchHistory(matches, matchRow, "");
 
         showState("content");
     }
@@ -1300,6 +1332,41 @@ const rankedApp = links.rankedApp;
     .match-list {
         display: grid;
         gap: 8px;
+    }
+
+    .matches-more {
+        display: block;
+        min-width: 170px;
+        margin: 14px auto 0;
+        padding: 9px 18px;
+        border: 1px solid rgba(205, 160, 120, 0.48);
+        border-radius: 2px;
+        background: linear-gradient(180deg, rgba(82, 43, 22, 0.9), rgba(31, 17, 10, 0.94));
+        color: var(--hoc-bronze, #cda078);
+        font: inherit;
+        font-size: 0.86rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition:
+            border-color 0.18s ease,
+            color 0.18s ease,
+            filter 0.18s ease;
+    }
+
+    .matches-more:hover {
+        border-color: rgba(224, 177, 113, 0.76);
+        color: #f0c982;
+        filter: brightness(1.12);
+    }
+
+    .matches-more:focus-visible {
+        outline: 2px solid #f0c982;
+        outline-offset: 3px;
+    }
+
+    .matches-more[hidden] {
+        display: none;
     }
 
     .profile-page :global(.bar-row) {
