@@ -1,4 +1,4 @@
-import type { ResponsePlayerPortalObject } from "@heroesofcrypto/common";
+import { PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 
 type PortalMatchBase = NonNullable<ResponsePlayerPortalObject["recent_matches"]>[number];
 
@@ -54,6 +54,11 @@ export type PortalMatchData = PortalMatchBase & {
     player_abandoned?: boolean;
     player_setup?: PortalMatchSetupData;
     opponent_setup?: PortalMatchSetupData;
+    match_kind?: PortalMatchKind;
+    mmr_before?: number;
+    mmr_after?: number;
+    mmr_delta?: number;
+    gold_earned?: number;
 };
 
 export type MatchHistoryFilter = "all" | "wins" | "losses";
@@ -63,6 +68,14 @@ export interface MatchResultPresentation {
     detail: string;
     label: "Defeat" | "Draw" | "Victory";
     tone: MatchResultTone;
+}
+
+export type MatchKindTone = "calibration" | "lobby" | "ranked" | "unknown";
+
+export interface MatchKindPresentation {
+    label: "Calibration" | "Lobby" | "Match" | "Ranked";
+    rated: boolean;
+    tone: MatchKindTone;
 }
 
 const finiteNonNegative = (value: number | undefined): number =>
@@ -111,6 +124,27 @@ export const matchResultPresentation = (match: PortalMatchData): MatchResultPres
         return { detail, label: "Draw", tone: "draw" };
     }
     return match.won ? { detail, label: "Victory", tone: "win" } : { detail, label: "Defeat", tone: "loss" };
+};
+
+export const matchKindPresentation = (match: PortalMatchData): MatchKindPresentation => {
+    switch (match.match_kind) {
+        case PortalMatchKind.RANKED:
+            return { label: "Ranked", rated: true, tone: "ranked" };
+        case PortalMatchKind.CALIBRATION:
+            return { label: "Calibration", rated: true, tone: "calibration" };
+        case PortalMatchKind.LOBBY:
+            return { label: "Lobby", rated: false, tone: "lobby" };
+        default:
+            return { label: "Match", rated: false, tone: "unknown" };
+    }
+};
+
+export const formatSignedMatchValue = (value: number | undefined): string => {
+    if (!Number.isFinite(value)) {
+        return "";
+    }
+    const normalized = Math.round(Number(value));
+    return normalized > 0 ? `+${normalized}` : String(normalized);
 };
 
 export const filterPortalMatches = (

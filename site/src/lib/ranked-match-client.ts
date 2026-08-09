@@ -37,6 +37,8 @@ export interface PublicRankedMatchStats {
     gridType: number;
     lowerDamage: number;
     upperDamage: number;
+    lowerCreatureIds: number[];
+    upperCreatureIds: number[];
     lowerPerformers: RankedMatchUnitPerformance[];
     upperPerformers: RankedMatchUnitPerformance[];
     lowerSetup: RankedMatchTeamSetup;
@@ -48,6 +50,9 @@ export interface PublicRankedMatchStats {
 export interface PublicRankedMatch {
     gameId: string;
     finishedTime: number;
+    durationMs: number;
+    lowerCreatureIds: number[];
+    upperCreatureIds: number[];
     outcome: "win" | "draw";
     reason: RankedMatchReason;
     winnerPlayerId: string;
@@ -113,6 +118,9 @@ const normalizePerformance = (value: unknown): RankedMatchUnitPerformance | null
     return { creatureId, damageDealt: nonNegativeInteger(row.damageDealt) };
 };
 
+const normalizeCreatureIds = (value: unknown): number[] =>
+    (Array.isArray(value) ? value : []).map(nonNegativeInteger).filter((creatureId) => creatureId > 0);
+
 const normalizeSetup = (value: unknown): RankedMatchTeamSetup => {
     const row = asRecord(value) ?? {};
     return {
@@ -148,6 +156,8 @@ const normalizeStats = (value: unknown): PublicRankedMatchStats | null => {
         gridType: nonNegativeInteger(row.gridType),
         lowerDamage: nonNegativeInteger(row.lowerDamage),
         upperDamage: nonNegativeInteger(row.upperDamage),
+        lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
+        upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
         lowerPerformers: performances(row.lowerPerformers),
         upperPerformers: performances(row.upperPerformers),
         lowerSetup: normalizeSetup(row.lowerSetup),
@@ -173,6 +183,9 @@ export function normalizePublicRankedMatch(value: unknown): PublicRankedMatch | 
     return {
         gameId,
         finishedTime: nonNegativeInteger(row.finishedTime),
+        durationMs: nonNegativeInteger(row.durationMs),
+        lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
+        upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
         outcome: row.outcome === "win" ? "win" : "draw",
         reason: normalizeReason(row.reason),
         winnerPlayerId: isPublicRankedPlayerId(winnerPlayerId) ? winnerPlayerId : "",

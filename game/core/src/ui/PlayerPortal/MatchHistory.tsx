@@ -7,7 +7,7 @@ import LoopRoundedIcon from "@mui/icons-material/LoopRounded";
 import MilitaryTechRoundedIcon from "@mui/icons-material/MilitaryTechRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Box, Button, IconButton, Sheet, Stack, ToggleButtonGroup, Tooltip, Typography } from "@mui/joy";
-import React, { useMemo, useState } from "react";
+import React, { useId, useMemo, useState } from "react";
 
 import { images } from "../../generated/image_imports";
 import { t, tf, useTranslation } from "../../i18n/i18n";
@@ -17,11 +17,14 @@ import {
     filterPortalMatches,
     formatMatchDamage,
     formatMatchDuration,
+    formatSignedMatchValue,
+    matchKindPresentation,
     matchResultPresentation,
     normalizeMatchSetup,
     normalizePerformances,
     type MatchAugmentChoice,
     type MatchHistoryFilter,
+    type MatchKindTone,
     type MatchResultTone,
     type MatchTeamSetup,
     type PortalMatchData,
@@ -33,6 +36,17 @@ const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
     loss: hocColors.danger,
     win: "#46d160",
+};
+
+const MATCH_KIND_STYLES: Record<MatchKindTone, { background: string; border: string; color: string }> = {
+    calibration: { background: "rgba(170,156,255,0.07)", border: "rgba(170,156,255,0.34)", color: "#aa9cff" },
+    lobby: { background: "rgba(114,207,194,0.07)", border: "rgba(114,207,194,0.34)", color: "#72cfc2" },
+    ranked: { background: "rgba(220,177,88,0.07)", border: "rgba(220,177,88,0.34)", color: hocColors.gold },
+    unknown: {
+        background: "rgba(239,228,204,0.05)",
+        border: "rgba(239,228,204,0.2)",
+        color: hocColors.mutedStrong,
+    },
 };
 
 // Which side the player fought as, coloured to match the board: team LOWER is green (always the bottom),
@@ -143,6 +157,50 @@ const MetadataItem: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
             {label}
         </Typography>
     </Stack>
+);
+
+const MatchKindBadge: React.FC<{ label: string; tone: MatchKindTone }> = ({ label, tone }) => (
+    <Box
+        component="span"
+        sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            minHeight: 20,
+            px: 0.75,
+            border: `1px solid ${MATCH_KIND_STYLES[tone].border}`,
+            borderRadius: "999px",
+            bgcolor: MATCH_KIND_STYLES[tone].background,
+            color: MATCH_KIND_STYLES[tone].color,
+            fontSize: "0.66rem",
+            fontWeight: 800,
+            lineHeight: 1,
+            letterSpacing: "0.025em",
+            whiteSpace: "nowrap",
+        }}
+    >
+        {label}
+    </Box>
+);
+
+const RewardBadge: React.FC<{ label: string; tone: "gold" | "rating" }> = ({ label, tone }) => (
+    <Box
+        component="span"
+        sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            minHeight: 22,
+            px: 0.75,
+            borderRadius: "6px",
+            bgcolor: tone === "gold" ? "rgba(220,177,88,0.12)" : "rgba(170,156,255,0.1)",
+            color: tone === "gold" ? hocColors.gold : "#c7bfff",
+            fontSize: "0.69rem",
+            fontWeight: 800,
+            lineHeight: 1,
+            whiteSpace: "nowrap",
+        }}
+    >
+        {label}
+    </Box>
 );
 
 const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) => (
@@ -613,8 +671,8 @@ const ReplayIconButton: React.FC<{
                 onClick={onClick}
                 sx={{
                     color: hocColors.gold,
-                    minWidth: compact ? 34 : 42,
-                    minHeight: compact ? 34 : 42,
+                    minWidth: 44,
+                    minHeight: 44,
                     "&:hover": { bgcolor: hocColors.orangeSoft },
                     "&.Mui-disabled": { color: "rgba(239, 228, 204, 0.25)" },
                 }}
@@ -632,8 +690,11 @@ const MatchCard: React.FC<{
     onExpand: () => void;
     onReplay: () => void;
 }> = ({ compact, expanded, match, onExpand, onReplay }) => {
+    const detailsId = useId();
+    const headingId = useId();
     const { language } = useTranslation();
     const result = matchResultPresentation(match);
+    const kind = matchKindPresentation(match);
     const resultColor = RESULT_COLORS[result.tone];
     const side = matchSide(match.team);
     const playerPerformances = normalizePerformances(match.player_top_units);
@@ -643,14 +704,23 @@ const MatchCard: React.FC<{
     const laps = Math.max(0, Number(match.total_laps ?? 0));
     const replayAvailable = !!match.replay_available;
     const opponent = match.opponent_username || t("Unknown opponent");
+    const contextualDetailsLabel = tf(
+        expanded ? "Collapse details: {result} vs {opponent}" : "Expand details: {result} vs {opponent}",
+        { opponent, result: t(result.label) },
+    );
     // Undefined keeps the browser default for English; Russian gets the day-first Russian ordering.
     const exactFinished = match.finished_time
         ? new Date(match.finished_time).toLocaleString(language === "ru" ? "ru-RU" : undefined)
         : t("Unknown");
     const playerSetup = normalizeMatchSetup(match.player_setup);
+    const mmrBefore = Number.isFinite(match.mmr_before) ? Math.round(Number(match.mmr_before)) : 0;
+    const mmrAfter = Number.isFinite(match.mmr_after) ? Math.round(Number(match.mmr_after)) : 0;
+    const mmrDelta = formatSignedMatchValue(match.mmr_delta);
+    const goldEarned = Number.isFinite(match.gold_earned) ? Math.max(0, Math.round(Number(match.gold_earned))) : 0;
 
     return (
         <Sheet
+            aria-labelledby={headingId}
             component="article"
             variant="soft"
             sx={{
@@ -671,13 +741,20 @@ const MatchCard: React.FC<{
             <Box sx={{ p: compact ? 1 : 1.25, pl: compact ? 1.25 : 1.5 }}>
                 <Stack direction="row" spacing={0.75} alignItems="center">
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography level={compact ? "body-xs" : "body-sm"} noWrap sx={{ color: hocColors.parchment }}>
+                        <Typography
+                            id={headingId}
+                            component="h3"
+                            level={compact ? "body-xs" : "body-sm"}
+                            noWrap
+                            sx={{ color: hocColors.parchment }}
+                        >
                             <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
                                 {t(result.label)}
                             </Box>{" "}
                             {t("vs")} {opponent}
                         </Typography>
                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.25, flexWrap: "wrap" }}>
+                            <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
                             {side && (
                                 <Stack
                                     direction="row"
@@ -719,8 +796,9 @@ const MatchCard: React.FC<{
                         variant="soft"
                     >
                         <Button
+                            aria-controls={detailsId}
                             aria-expanded={expanded}
-                            aria-label={expanded ? t("Collapse match details") : t("Expand match details")}
+                            aria-label={contextualDetailsLabel}
                             size={compact ? "sm" : "md"}
                             variant="plain"
                             onClick={onExpand}
@@ -736,7 +814,7 @@ const MatchCard: React.FC<{
                             sx={{
                                 color: hocColors.mutedStrong,
                                 minWidth: compact ? 68 : 76,
-                                minHeight: compact ? 34 : 42,
+                                minHeight: 44,
                                 px: compact ? 0.75 : 1,
                                 borderRadius: "6px",
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
@@ -766,6 +844,10 @@ const MatchCard: React.FC<{
                             </Typography>
                         </Stack>
                     )}
+                    {kind.rated && mmrDelta && (
+                        <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
+                    )}
+                    {kind.rated && <RewardBadge label={tf("Gold +{amount}", { amount: goldEarned })} tone="gold" />}
                 </Stack>
 
                 <Box
@@ -792,6 +874,9 @@ const MatchCard: React.FC<{
 
             {expanded && (
                 <Box
+                    id={detailsId}
+                    aria-labelledby={headingId}
+                    role="region"
                     sx={{
                         borderTop: "1px solid rgba(255,255,255,0.08)",
                         px: compact ? 1.25 : 1.5,
@@ -803,12 +888,19 @@ const MatchCard: React.FC<{
                             display: "grid",
                             gridTemplateColumns: compact
                                 ? "repeat(2, minmax(0, 1fr))"
-                                : { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" },
+                                : "repeat(auto-fit, minmax(min(100%, 120px), 1fr))",
                             gap: 1.25,
                         }}
                     >
-                        <Metric label={t("Duration")} value={duration || t("Unknown")} />
+                        <Metric label={t("Battle duration")} value={duration || t("Unknown")} />
                         <Metric label={t("Laps")} value={laps > 0 ? String(laps) : t("Unknown")} />
+                        {kind.rated && (
+                            <>
+                                <Metric label={t("MMR rating")} value={`${mmrBefore} → ${mmrAfter}`} />
+                                <Metric label={t("MMR change")} value={mmrDelta || "0"} />
+                                <Metric label={t("Gold earned")} value={`+${goldEarned}`} />
+                            </>
+                        )}
                         <Metric label={t("Your damage")} value={formatMatchDamage(match.player_damage)} />
                         <Metric label={t("Opponent damage")} value={formatMatchDamage(match.opponent_damage)} />
                     </Box>

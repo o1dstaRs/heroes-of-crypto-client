@@ -1,4 +1,4 @@
-import { Artifact, getFactionOf, Perk, type CreatureId, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
+import { Artifact, Perk, PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import type { PortalMatchData, PortalMatchSetupData, PortalUnitPerformanceData } from "./matchHistoryModel";
@@ -151,7 +151,6 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
     const comboTally = new Map<string, Tally>();
     const comboCreatures = new Map<string, number[]>();
     const creatureTally = new Map<number, Tally>();
-    const factionTally = new Map<number, Tally>();
 
     for (let i = 0; i < TOTAL; i++) {
         const base = baseLineups[Math.floor(rng() * baseLineups.length)];
@@ -171,6 +170,10 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
                 .sort((a, b) => (b.damage_dealt ?? 0) - (a.damage_dealt ?? 0));
         const playerPerformance = makePerformance(lineup);
         const opponentPerformance = makePerformance(opponentLineup);
+        const matchKind =
+            i % 7 === 6 ? PortalMatchKind.LOBBY : i % 5 === 0 ? PortalMatchKind.CALIBRATION : PortalMatchKind.RANKED;
+        const mmrBefore = matchKind === PortalMatchKind.LOBBY ? 0 : 790 + ((i * 19) % 240);
+        const mmrDelta = matchKind === PortalMatchKind.LOBBY || draw ? 0 : won ? 15 + (i % 22) : -(14 + (i % 19));
 
         matches.push({
             game_id: `mock-${i}`,
@@ -190,6 +193,11 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             replay_available: i % 6 !== 5,
             player_top_units: playerPerformance.slice(0, 3),
             opponent_top_units: opponentPerformance.slice(0, 3),
+            match_kind: matchKind,
+            mmr_before: mmrBefore,
+            mmr_after: mmrBefore + mmrDelta,
+            mmr_delta: mmrDelta,
+            gold_earned: matchKind !== PortalMatchKind.LOBBY && won ? 12 + (i % 11) : 0,
             // Exercise both partial historical setup and matches that predate setup tracking entirely.
             player_setup: i % 12 === 11 ? undefined : i % 8 === 7 ? historicalSetupPreset(i) : setupPreset(i),
             opponent_setup: i % 12 === 11 ? undefined : i % 8 === 7 ? historicalSetupPreset(i + 1) : setupPreset(i + 1),
@@ -198,19 +206,8 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
         const comboKey = lineup.join(",");
         bump(comboTally, comboKey, won);
         comboCreatures.set(comboKey, lineup);
-        const seenFactions = new Set<number>();
         for (const id of lineup) {
             bump(creatureTally, id, won);
-            let faction = 0;
-            try {
-                faction = getFactionOf(id as CreatureId) as unknown as number;
-            } catch {
-                faction = 0;
-            }
-            if (faction > 0 && !seenFactions.has(faction)) {
-                seenFactions.add(faction);
-                bump(factionTally, faction, won);
-            }
         }
     }
 
@@ -243,6 +240,7 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
         wins,
         losses,
         total_games_played: matches.length,
+        gold: 147,
         current_streak: currentStreak,
         best_win_streak: bestWinStreak,
         last_login: now - 3 * 3600_000,
@@ -253,8 +251,5 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
         creature_stats: [...creatureTally.entries()]
             .sort((a, b) => b[1].games - a[1].games)
             .map(([creatureId, t]) => ({ creature_id: creatureId, games: t.games, wins: t.wins })),
-        faction_stats: [...factionTally.entries()]
-            .sort((a, b) => b[1].games - a[1].games)
-            .map(([faction, t]) => ({ faction, games: t.games, wins: t.wins })),
     };
 };

@@ -1,4 +1,5 @@
 import LanguageRoundedIcon from "@mui/icons-material/LanguageRounded";
+import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { Box, Button, CircularProgress, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
@@ -6,22 +7,13 @@ import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
 
-import { SUPPORTED_LANGUAGES, setLanguage, tf, useTranslation } from "../../i18n/i18n";
+import { SUPPORTED_LANGUAGES, setLanguage, t, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
-import {
-    CreatureIcon,
-    creatureName,
-    factionName,
-    streakLabel,
-    timeAgo,
-    winRateColor,
-    winRatePct,
-    WinRateBar,
-} from "./portalFormat";
+import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct, WinRateBar } from "./portalFormat";
 import { usePlayerPortal } from "./usePlayerPortal";
 
 const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
@@ -115,6 +107,76 @@ const StatCard: React.FC<{ label: string; value: string | number; color?: string
     </Sheet>
 );
 
+type RecentFormMatch = { draw?: boolean; won?: boolean };
+type RecentFormResult = "draw" | "empty" | "loss" | "win";
+
+const RecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ matches }) => {
+    const results: RecentFormResult[] = matches
+        .slice(0, 10)
+        .map((match) => (match.draw ? "draw" : match.won ? "win" : "loss"))
+        .reverse();
+    const padded: RecentFormResult[] = [
+        ...Array<RecentFormResult>(Math.max(0, 10 - results.length)).fill("empty"),
+        ...results,
+    ];
+    const wins = results.filter((result) => result === "win").length;
+    const draws = results.filter((result) => result === "draw").length;
+    const losses = results.filter((result) => result === "loss").length;
+    const labels: Record<RecentFormResult, string> = {
+        draw: t("Draw"),
+        empty: t("No result"),
+        loss: t("Defeat"),
+        win: t("Victory"),
+    };
+    const colors: Record<RecentFormResult, { background: string; border: string; shadow?: string }> = {
+        draw: { background: "#8f99a4", border: "rgba(174,181,190,0.72)" },
+        empty: { background: "rgba(239,228,204,0.08)", border: "rgba(239,228,204,0.2)" },
+        loss: { background: "#ff5a5a", border: "rgba(255,90,90,0.8)", shadow: "0 0 7px rgba(255,90,90,0.24)" },
+        win: { background: "#46d160", border: "rgba(70,209,96,0.78)", shadow: "0 0 7px rgba(70,209,96,0.28)" },
+    };
+
+    return (
+        <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={{ xs: 0.25, sm: 0.85 }}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            sx={{ mt: 0.7, minWidth: 0 }}
+        >
+            <Typography level="body-xs" textColor={hocColors.muted} sx={{ flexShrink: 0 }}>
+                {t("Recent form")}
+            </Typography>
+            <Stack
+                component="span"
+                role="img"
+                aria-label={`${t("Recent form")}: ${wins} ${t("Wins")}, ${draws} ${t("Draw")}, ${losses} ${t("Losses")}`}
+                direction="row"
+                spacing={0.65}
+                alignItems="center"
+                sx={{ minHeight: 22 }}
+            >
+                {padded.map((result, index) => (
+                    <Box
+                        component="i"
+                        key={`${index}:${result}`}
+                        title={labels[result]}
+                        aria-hidden="true"
+                        sx={{
+                            display: "block",
+                            width: 12,
+                            height: 12,
+                            flexShrink: 0,
+                            border: `1px solid ${colors[result].border}`,
+                            borderRadius: "50%",
+                            bgcolor: colors[result].background,
+                            boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
+                        }}
+                    />
+                ))}
+            </Stack>
+        </Stack>
+    );
+};
+
 /** Tier-aware artifact lookup for the stats row: name + codex icon, straight from the shared catalog. */
 const artifactInfo = (tier: 1 | 2, artifactId: number): Artifact.ArtifactProperties | undefined =>
     (tier === 1 ? Artifact.TIER1_ARTIFACT_LIST : Artifact.TIER2_ARTIFACT_LIST).find(
@@ -207,8 +269,8 @@ export const PlayerPortalPage: React.FC = () => {
             ),
         [data],
     );
-    const factionStats = data?.faction_stats ?? [];
     const matches = data?.recent_matches ?? [];
+    const totalGold = Math.max(0, Number(data?.gold ?? 0));
     // Creature DUOS that win together: every unordered pair inside each recorded line-up inherits that
     // line-up's games/wins, and a pair recurring across different line-ups accumulates them all — which is
     // exactly what makes it a better synergy signal than whole-line-up win rate.
@@ -323,24 +385,49 @@ export const PlayerPortalPage: React.FC = () => {
                                 >
                                     {t("COMMANDER PROFILE")}
                                 </Typography>
-                                <Typography
-                                    level="h2"
-                                    sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
-                                >
-                                    {data?.username || t("Player Profile")}
-                                </Typography>
-                                <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
-                                    {streakLabel(data?.current_streak ?? 0)}
-                                    {data?.best_win_streak
-                                        ? ` · ${tf("best win streak {count}", { count: data.best_win_streak })}`
-                                        : ""}
-                                    {data?.last_login
-                                        ? ` · ${tf("last seen {when}", { when: timeAgo(data.last_login) })}`
-                                        : ""}
-                                </Typography>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
+                                    <Typography
+                                        level="h2"
+                                        sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
+                                    >
+                                        {data?.username || t("Player Profile")}
+                                    </Typography>
+                                    {data ? (
+                                        <Sheet
+                                            variant="soft"
+                                            aria-label={`${t("Gold balance")}: ${totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}`}
+                                            sx={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 0.45,
+                                                px: 0.8,
+                                                py: 0.3,
+                                                border: "1px solid rgba(220,177,88,0.28)",
+                                                borderRadius: "999px",
+                                                bgcolor: "rgba(220,177,88,0.08)",
+                                                color: hocColors.gold,
+                                            }}
+                                        >
+                                            <PaidRoundedIcon sx={{ fontSize: 17 }} aria-hidden="true" />
+                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
+                                                {totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}
+                                            </Typography>
+                                        </Sheet>
+                                    ) : null}
+                                </Stack>
+                                {data?.last_login ? (
+                                    <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
+                                        {tf("last seen {when}", { when: timeAgo(data.last_login) })}
+                                    </Typography>
+                                ) : null}
+                                <RecentForm matches={matches} />
                             </Box>
                         </Stack>
-                        <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "stretch", sm: "center" } }}>
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            sx={{ alignSelf: { xs: "stretch", sm: "center" } }}
+                        >
                             {/* Language of preference (owner 2026-08-06): applies immediately to this
                                 profile, the pick phase and the in-game chrome; persisted per browser. */}
                             <Select
@@ -405,7 +492,7 @@ export const PlayerPortalPage: React.FC = () => {
                                 gridTemplateColumns: {
                                     xs: "repeat(2, minmax(0, 1fr))",
                                     sm: "repeat(3, minmax(0, 1fr))",
-                                    lg: "repeat(6, minmax(0, 1fr))",
+                                    lg: "repeat(4, minmax(0, 1fr))",
                                 },
                                 gap: 1.25,
                             }}
@@ -414,16 +501,6 @@ export const PlayerPortalPage: React.FC = () => {
                             <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
                             <StatCard label={t("Win rate")} value={`${overallPct}%`} color={winRateColor(overallPct)} />
                             <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
-                            <StatCard
-                                label={t("Current streak")}
-                                value={Math.abs(data.current_streak ?? 0)}
-                                color={(data.current_streak ?? 0) >= 0 ? "#46d160" : "#ff5a5a"}
-                            />
-                            <StatCard
-                                label={t("Best streak")}
-                                value={data.best_win_streak ?? 0}
-                                color={hocColors.gold}
-                            />
                         </Box>
 
                         {/* Combos & strategies */}
@@ -523,77 +600,42 @@ export const PlayerPortalPage: React.FC = () => {
                             </Section>
                         </Box>
 
-                        {/* Creature & faction stats */}
-                        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}>
-                            <Section title={t("Creatures")} subtitle={t("Win rate by creature you field — best first")}>
-                                <Stack
-                                    spacing={0.5}
-                                    role="region"
-                                    aria-label={t("Creature statistics")}
-                                    tabIndex={0}
-                                    sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
-                                >
-                                    {creatureStats.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("No creature stats yet.")}
-                                        </Typography>
-                                    )}
-                                    {creatureStats.map((stat) => (
-                                        <Box
-                                            key={stat.creature_id}
-                                            sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                        <Section title={t("Creatures")} subtitle={t("Win rate by creature you field — best first")}>
+                            <Stack
+                                spacing={0.5}
+                                role="region"
+                                aria-label={t("Creature statistics")}
+                                tabIndex={0}
+                                sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
+                            >
+                                {creatureStats.length === 0 && (
+                                    <Typography level="body-sm" textColor={hocColors.muted}>
+                                        {t("No creature stats yet.")}
+                                    </Typography>
+                                )}
+                                {creatureStats.map((stat) => (
+                                    <Box key={stat.creature_id} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <CreatureIcon creatureId={stat.creature_id ?? 0} size={28} />
+                                        <Typography
+                                            level="body-sm"
+                                            noWrap
+                                            textColor={hocColors.mutedStrong}
+                                            sx={{ flex: 1, minWidth: 0 }}
                                         >
-                                            <CreatureIcon creatureId={stat.creature_id ?? 0} size={28} />
-                                            <Typography
-                                                level="body-sm"
-                                                noWrap
-                                                textColor={hocColors.mutedStrong}
-                                                sx={{ flex: 1, minWidth: 0 }}
-                                            >
-                                                {creatureName(stat.creature_id ?? 0)}
-                                            </Typography>
-                                            <Typography
-                                                level="body-xs"
-                                                textColor={hocColors.muted}
-                                                sx={{ minWidth: 50, textAlign: "right" }}
-                                            >
-                                                {tf("{count} g", { count: stat.games ?? 0 })}
-                                            </Typography>
-                                            <WinRateBar wins={stat.wins ?? 0} games={stat.games ?? 0} width={120} />
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            </Section>
-
-                            <Section title={t("Factions")} subtitle={t("Win rate by faction fielded")}>
-                                <Stack spacing={0.5}>
-                                    {factionStats.length === 0 && (
-                                        <Typography level="body-sm" textColor={hocColors.muted}>
-                                            {t("No faction stats yet.")}
+                                            {creatureName(stat.creature_id ?? 0)}
                                         </Typography>
-                                    )}
-                                    {factionStats.map((stat) => (
-                                        <Box key={stat.faction} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                            <Typography
-                                                level="body-sm"
-                                                textColor={hocColors.mutedStrong}
-                                                sx={{ flex: 1 }}
-                                            >
-                                                {factionName(stat.faction ?? 0)}
-                                            </Typography>
-                                            <Typography
-                                                level="body-xs"
-                                                textColor={hocColors.muted}
-                                                sx={{ minWidth: 50, textAlign: "right" }}
-                                            >
-                                                {tf("{count} g", { count: stat.games ?? 0 })}
-                                            </Typography>
-                                            <WinRateBar wins={stat.wins ?? 0} games={stat.games ?? 0} width={110} />
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            </Section>
-                        </Box>
+                                        <Typography
+                                            level="body-xs"
+                                            textColor={hocColors.muted}
+                                            sx={{ minWidth: 50, textAlign: "right" }}
+                                        >
+                                            {tf("{count} g", { count: stat.games ?? 0 })}
+                                        </Typography>
+                                        <WinRateBar wins={stat.wins ?? 0} games={stat.games ?? 0} width={120} />
+                                    </Box>
+                                ))}
+                            </Stack>
+                        </Section>
 
                         {/* Match history */}
                         <Section

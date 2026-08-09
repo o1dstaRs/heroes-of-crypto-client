@@ -1,9 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import { PortalMatchKind } from "@heroesofcrypto/common";
 
 import {
     filterPortalMatches,
     formatMatchDamage,
     formatMatchDuration,
+    formatSignedMatchValue,
+    matchKindPresentation,
     matchReplayPath,
     matchResultPresentation,
     normalizeMatchSetup,
@@ -66,6 +69,38 @@ describe("match history model", () => {
             label: "Victory",
             tone: "win",
         });
+    });
+
+    it("presents explicit match modes without inferring from rating values", () => {
+        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.RANKED, mmr_delta: 0 }))).toEqual({
+            label: "Ranked",
+            rated: true,
+            tone: "ranked",
+        });
+        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION }))).toEqual({
+            label: "Calibration",
+            rated: true,
+            tone: "calibration",
+        });
+        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.LOBBY, mmr_delta: 42 }))).toEqual({
+            label: "Lobby",
+            rated: false,
+            tone: "lobby",
+        });
+        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.UNKNOWN }))).toEqual({
+            label: "Match",
+            rated: false,
+            tone: "unknown",
+        });
+        expect(matchKindPresentation(match())).toEqual({ label: "Match", rated: false, tone: "unknown" });
+    });
+
+    it("formats signed rating and reward values", () => {
+        expect(formatSignedMatchValue(undefined)).toBe("");
+        expect(formatSignedMatchValue(Number.NaN)).toBe("");
+        expect(formatSignedMatchValue(18)).toBe("+18");
+        expect(formatSignedMatchValue(0)).toBe("0");
+        expect(formatSignedMatchValue(-40.4)).toBe("-40");
     });
 
     it("normalizes and sorts top performers", () => {

@@ -9,6 +9,9 @@ const upperId = "22222222-2222-4222-8222-222222222222";
 const response = {
     gameId,
     finishedTime: 123456,
+    durationMs: 60_456,
+    lowerCreatureIds: [1, 2, -1],
+    upperCreatureIds: [3, 4],
     outcome: "win",
     reason: "normal",
     winnerPlayerId: lowerId,
@@ -42,6 +45,8 @@ const response = {
         gridType: 4,
         lowerDamage: 940,
         upperDamage: 710,
+        lowerCreatureIds: [4, 5, 0, -1],
+        upperCreatureIds: [8, 9],
         lowerPerformers: [
             { creatureId: 5, damageDealt: 100 },
             { creatureId: 4, damageDealt: 500 },
@@ -59,6 +64,11 @@ describe("public ranked match normalization", () => {
         const match = normalizePublicRankedMatch(response);
         expect(match).not.toBeNull();
         expect(match?.players.map((player) => player.side)).toEqual(["lower", "upper"]);
+        expect(match?.durationMs).toBe(60_456);
+        expect(match?.lowerCreatureIds).toEqual([1, 2]);
+        expect(match?.upperCreatureIds).toEqual([3, 4]);
+        expect(match?.stats?.lowerCreatureIds).toEqual([4, 5]);
+        expect(match?.stats?.upperCreatureIds).toEqual([8, 9]);
         expect(match?.stats?.lowerPerformers).toEqual([
             { creatureId: 4, damageDealt: 500 },
             { creatureId: 5, damageDealt: 100 },
@@ -67,7 +77,10 @@ describe("public ranked match normalization", () => {
     });
 
     test("keeps a ranked result usable when an older match has no report", () => {
-        expect(normalizePublicRankedMatch({ ...response, stats: null })?.stats).toBeNull();
+        const legacy = normalizePublicRankedMatch({ ...response, durationMs: undefined, stats: null });
+        expect(legacy?.durationMs).toBe(0);
+        expect(legacy?.lowerCreatureIds).toEqual([1, 2]);
+        expect(legacy?.stats).toBeNull();
     });
 
     test("rejects malformed game identities and incomplete seat pairs", () => {

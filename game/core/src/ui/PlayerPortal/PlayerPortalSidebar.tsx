@@ -1,7 +1,7 @@
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
-import MilitaryTechRoundedIcon from "@mui/icons-material/MilitaryTechRounded";
+import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Avatar, Box, Button, CircularProgress, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
@@ -15,7 +15,7 @@ import {
     type MatchResultTone,
     type PortalMatchData,
 } from "./matchHistoryModel";
-import { CreatureIcon, streakLabel, timeAgo, winRateColor, winRatePct } from "./portalFormat";
+import { CreatureIcon, timeAgo, winRateColor, winRatePct } from "./portalFormat";
 import { usePlayerPortal } from "./usePlayerPortal";
 
 const RESULT_COLORS: Record<MatchResultTone, string> = {
@@ -52,6 +52,72 @@ const playerInitials = (username: string): string => {
         return `${words[0][0]}${words[1][0]}`.toUpperCase();
     }
     return username.slice(0, 2).toUpperCase() || "HC";
+};
+
+type RecentFormMatch = { draw?: boolean; won?: boolean };
+type RecentFormResult = "draw" | "empty" | "loss" | "win";
+
+const SidebarRecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ matches }) => {
+    // Portal history is newest-first. Reverse the ten real results so the latest sits at the right,
+    // with empty positions padded on the left for commanders who have played fewer than ten games.
+    const results: RecentFormResult[] = matches
+        .map((match) => (match.draw ? "draw" : match.won ? "win" : "loss"))
+        .reverse();
+    const padded: RecentFormResult[] = [
+        ...Array<RecentFormResult>(Math.max(0, 10 - results.length)).fill("empty"),
+        ...results,
+    ];
+    const wins = results.filter((result) => result === "win").length;
+    const draws = results.filter((result) => result === "draw").length;
+    const losses = results.filter((result) => result === "loss").length;
+    const labels: Record<RecentFormResult, string> = {
+        draw: t("Draw"),
+        empty: t("No result"),
+        loss: t("Defeat"),
+        win: t("Victory"),
+    };
+    const colors: Record<RecentFormResult, { background: string; border: string; shadow?: string }> = {
+        draw: { background: "#8f99a4", border: "rgba(174,181,190,0.72)" },
+        empty: { background: "rgba(239,228,204,0.08)", border: "rgba(239,228,204,0.2)" },
+        loss: { background: "#ff5a5a", border: "rgba(255,90,90,0.8)", shadow: "0 0 6px rgba(255,90,90,0.22)" },
+        win: { background: "#55d878", border: "rgba(85,216,120,0.78)", shadow: "0 0 6px rgba(85,216,120,0.26)" },
+    };
+
+    return (
+        <Box sx={{ mt: 0.55, minWidth: 0 }}>
+            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                {t("Recent form")}
+            </Typography>
+            <Stack
+                component="span"
+                role="img"
+                aria-label={`${t("Recent form")}: ${wins} ${t("Wins")}, ${draws} ${t("Draw")}, ${losses} ${t("Losses")}`}
+                direction="row"
+                spacing={0.45}
+                alignItems="center"
+                sx={{ minHeight: 18, mt: 0.15 }}
+            >
+                {padded.map((result, index) => (
+                    <Box
+                        component="i"
+                        key={`${index}:${result}`}
+                        title={labels[result]}
+                        aria-hidden="true"
+                        sx={{
+                            display: "block",
+                            width: 10,
+                            height: 10,
+                            flexShrink: 0,
+                            border: `1px solid ${colors[result].border}`,
+                            borderRadius: "50%",
+                            bgcolor: colors[result].background,
+                            boxShadow: colors[result].shadow ?? "inset 0 0 0 2px rgba(0,0,0,0.18)",
+                        }}
+                    />
+                ))}
+            </Stack>
+        </Box>
+    );
 };
 
 const RecentMatchRow: React.FC<{
@@ -171,11 +237,15 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     const navigate = useNavigate();
     const { data, loading, error, reload } = usePlayerPortal();
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
-    useTranslation();
+    const { language } = useTranslation();
 
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
     const recent = (data?.recent_matches ?? []).slice(0, 3);
+    const recentFormMatches = (data?.recent_matches ?? []).slice(0, 10);
     const displayName = data?.username || t("Your Profile");
+    const rawGold = Number(data?.gold ?? 0);
+    const gold = Number.isFinite(rawGold) ? Math.max(0, Math.trunc(rawGold)) : 0;
+    const localizedGold = gold.toLocaleString(language === "ru" ? "ru-RU" : "en-US");
 
     return (
         <Sheet
@@ -229,18 +299,27 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                         <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
                             {t("COMMANDER PROFILE")}
                         </Typography>
-                        <Typography level="title-lg" noWrap sx={{ color: hocColors.parchment, mt: 0.2 }}>
-                            {displayName}
-                        </Typography>
-                        <Stack direction="row" spacing={0.6} alignItems="center" sx={{ mt: 0.35 }}>
-                            <MilitaryTechRoundedIcon sx={{ color: hocColors.gold, fontSize: 15 }} />
-                            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                {streakLabel(data?.current_streak ?? 0)}
-                                {data?.best_win_streak
-                                    ? ` · ${tf("best {count}W", { count: data.best_win_streak })}`
-                                    : ""}
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0, mt: 0.2 }}>
+                            <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
+                                {displayName}
                             </Typography>
+                            {data && (
+                                <Stack
+                                    component="span"
+                                    direction="row"
+                                    spacing={0.3}
+                                    alignItems="center"
+                                    aria-label={`${t("Gold balance")}: ${localizedGold}`}
+                                    sx={{ flexShrink: 0, color: hocColors.gold }}
+                                >
+                                    <PaidRoundedIcon sx={{ fontSize: 14 }} aria-hidden="true" />
+                                    <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
+                                        {localizedGold}
+                                    </Typography>
+                                </Stack>
+                            )}
                         </Stack>
+                        <SidebarRecentForm matches={recentFormMatches} />
                     </Box>
                     <Tooltip
                         title={
@@ -355,7 +434,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 >
                                     <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 28 }} />
                                     <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
-                                        {t("Your finished ranked matches will appear here.")}
+                                        {t("Your finished matches will appear here.")}
                                     </Typography>
                                 </Sheet>
                             )}

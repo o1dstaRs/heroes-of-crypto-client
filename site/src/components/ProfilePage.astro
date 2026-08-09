@@ -63,7 +63,7 @@ const rankedApp = links.rankedApp;
             <div class="profile-body" data-profile-sections>
                 <section class="profile-section">
                     <h2>{copy.sectionOverview}</h2>
-                    <div class="stat-grid" data-profile-stats></div>
+                    <dl class="stat-grid" data-profile-stats></dl>
                 </section>
 
                 <section class="profile-section" data-profile-public-standing hidden>
@@ -76,16 +76,10 @@ const rankedApp = links.rankedApp;
                     <div class="season-history" data-profile-seasons></div>
                 </section>
 
-                <div class="profile-columns" data-profile-self>
-                    <section class="profile-section">
-                        <h2>{copy.sectionFactions}</h2>
-                        <div class="bar-list" data-profile-factions></div>
-                    </section>
-                    <section class="profile-section">
-                        <h2>{copy.sectionCreatures}</h2>
-                        <div class="bar-list" data-profile-creatures></div>
-                    </section>
-                </div>
+                <section class="profile-section" data-profile-self>
+                    <h2>{copy.sectionCreatures}</h2>
+                    <div class="bar-list" data-profile-creatures></div>
+                </section>
 
                 <section class="profile-section" data-profile-combos-section data-profile-self>
                     <h2>{copy.sectionCombos}</h2>
@@ -116,11 +110,27 @@ const rankedApp = links.rankedApp;
 </section>
 
 <script>
+    import {
+        TIER1_ARTIFACTS,
+        TIER2_ARTIFACTS,
+        type ArtifactProperties,
+        type Tier1Artifact,
+        type Tier2Artifact,
+    } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+
     import { isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
-    import { buildRankedMatchPagePath } from "../lib/ranked-match-client";
+    import {
+        buildRankedMatchPagePath,
+        fetchPublicRankedMatch,
+        type PublicRankedMatch,
+        type RankedMatchSide,
+        type RankedMatchTeamSetup,
+        type RankedMatchUnitPerformance,
+    } from "../lib/ranked-match-client";
     import {
         fetchPublicRankedProfile,
         publicRankedProfileFallbackFromSearchParams,
@@ -132,7 +142,7 @@ const rankedApp = links.rankedApp;
         type RankedMatchResult,
         type RankedProfileMatch,
     } from "../lib/ranked-profile-client";
-    import { creatureById, factionById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
+    import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
 
     type Copy = Record<string, string>;
     const copyEl = document.querySelector<HTMLElement>("[data-profile-copy]");
@@ -207,6 +217,16 @@ const rankedApp = links.rankedApp;
     let matchHistoryRows: unknown[] = [];
     let matchHistoryRenderer: (match: unknown) => string = () => "";
     let visibleMatchCount = 0;
+    const matchHistoryById = new Map<string, unknown>();
+    const publicMatchDetails = new Map<string, PublicRankedMatch>();
+    let expandedMatchId = "";
+
+    const matchGameId = (match: unknown): string => {
+        if (!match || typeof match !== "object") return "";
+        const row = match as Record<string, unknown>;
+        const value = row.gameId ?? row.game_id;
+        return typeof value === "string" ? value : "";
+    };
 
     function updateMatchesMoreButton(): void {
         if (matchesMoreEl) matchesMoreEl.hidden = visibleMatchCount >= matchHistoryRows.length;
@@ -215,6 +235,12 @@ const rankedApp = links.rankedApp;
     function renderMatchHistory<T>(matches: T[], renderRow: (match: T) => string, emptyMarkup: string): void {
         matchHistoryRows = matches;
         matchHistoryRenderer = (match) => renderRow(match as T);
+        matchHistoryById.clear();
+        for (const match of matches) {
+            const gameId = matchGameId(match);
+            if (gameId) matchHistoryById.set(gameId, match);
+        }
+        expandedMatchId = "";
         visibleMatchCount = Math.min(MATCH_PAGE_SIZE, matches.length);
         if (matchesEl) {
             matchesEl.innerHTML = matches.length
@@ -291,32 +317,294 @@ const rankedApp = links.rankedApp;
             </div>`;
     }
 
-    function matchRow(match: any): string {
-        const won = !!match.won;
-        const abandoned = !!match.abandoned;
-        const resultLabel = abandoned ? copy.resultAbandoned : won ? copy.resultWin : copy.resultLoss;
-        const resultClass = won ? "win" : "loss";
-        const icons = (match.creature_ids ?? [])
-            .map((id: number) => {
-                const c = creatureById(id);
-                return `<img class="match-icon" src="${c.image}" alt="${escapeHtml(c.name)}" title="${escapeHtml(
-                    c.name,
-                )}" width="26" height="26" loading="lazy" ${imgFallback} />`;
+    type MatchMode = "calibration" | "lobby" | "ranked" | "unknown";
+
+    interface MatchSetupView {
+        artifactTier1: number;
+        artifactTier2: number;
+        perk: number;
+        augments: Array<{ kind: string; level: number; slug: string }>;
+        synergies: string[];
+        available: boolean;
+        complete: boolean;
+    }
+
+    interface RichPublicMatchStats {
+        durationMs?: number;
+        duration_ms?: number;
+        lowerCreatureIds?: number[];
+        lower_creature_ids?: number[];
+        upperCreatureIds?: number[];
+        upper_creature_ids?: number[];
+    }
+
+    interface RichPublicMatch {
+        durationMs?: number;
+        duration_ms?: number;
+        lowerCreatureIds?: number[];
+        lower_creature_ids?: number[];
+        upperCreatureIds?: number[];
+        upper_creature_ids?: number[];
+    }
+
+    const dateFormatter = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" });
+
+    function formatDuration(durationMs: unknown): string {
+        const totalSeconds = Math.floor(Math.max(0, num(durationMs)) / 1000);
+        if (!totalSeconds) return "—";
+        if (totalSeconds < 60) return `${totalSeconds}s`;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+    }
+
+    function formatDamage(value: unknown): string {
+        const damage = Math.max(0, Math.round(num(value)));
+        return damage ? numberFormatter.format(damage) : "—";
+    }
+
+    function matchModeLabel(mode: MatchMode): string {
+        if (mode === "ranked") return copy.matchModeRanked;
+        if (mode === "calibration") return copy.matchModeCalibration;
+        if (mode === "lobby") return copy.matchModeLobby;
+        return copy.matchModeUnknown;
+    }
+
+    function portalMatchMode(match: Record<string, unknown>): MatchMode {
+        const raw =
+            match.match_kind ??
+            match.matchKind ??
+            match.match_type ??
+            match.matchType ??
+            match.match_mode ??
+            match.matchMode ??
+            match.mode;
+        if (typeof raw === "number") {
+            if (raw === 1) return "ranked";
+            if (raw === 2) return "calibration";
+            if (raw === 3) return "lobby";
+        }
+        if (typeof raw === "string") {
+            const normalized = raw.trim().toLowerCase();
+            if (normalized.includes("calibrat")) return "calibration";
+            if (normalized.includes("lobby") || normalized.includes("casual")) return "lobby";
+            if (normalized.includes("rank")) return "ranked";
+        }
+        if (match.calibration === true || match.is_calibration === true) return "calibration";
+        if (match.casual === true || match.lobby === true) return "lobby";
+        if (match.ranked === true || match.is_ranked === true) return "ranked";
+        return "unknown";
+    }
+
+    function matchIds(gameId: string, source: "portal" | "public"): { button: string; panel: string } {
+        const safeId = gameId.replace(/[^a-zA-Z0-9_-]/g, "-");
+        return {
+            button: `profile-match-toggle-${source}-${safeId}`,
+            panel: `profile-match-details-${source}-${safeId}`,
+        };
+    }
+
+    function modeBadge(mode: MatchMode): string {
+        return `<span class="match-mode" data-mode="${mode}">${escapeHtml(matchModeLabel(mode))}</span>`;
+    }
+
+    function matchToggle(gameId: string, source: "portal" | "public", context: string): string {
+        const ids = matchIds(gameId, source);
+        return `<button class="match-details-toggle" type="button" id="${ids.button}" data-match-toggle data-match-source="${source}" data-match-context="${escapeHtml(context)}" data-game-id="${escapeHtml(gameId)}" aria-label="${escapeHtml(`${copy.matchDetails}: ${context}`)}" aria-expanded="false" aria-controls="${ids.panel}"><span data-match-toggle-label>${escapeHtml(copy.matchDetails)}</span><span class="match-details-chevron" aria-hidden="true">⌄</span></button>`;
+    }
+
+    function matchDetailsRegion(gameId: string, source: "portal" | "public"): string {
+        const ids = matchIds(gameId, source);
+        return `<div class="match-details-panel" id="${ids.panel}" role="region" aria-labelledby="${ids.button}" hidden></div>`;
+    }
+
+    function rosterMarkup(creatureIds: unknown, label: string): string {
+        const ids = Array.isArray(creatureIds)
+            ? creatureIds.map(num).filter((id) => id > 0)
+            : [];
+        const icons = ids
+            .map((id) => {
+                const creature = creatureById(id);
+                return `<img class="match-roster-icon" src="${escapeHtml(creature.image)}" alt="${escapeHtml(creature.name)}" title="${escapeHtml(creature.name)}" width="32" height="32" loading="lazy" ${imgFallback} />`;
             })
             .join("");
-        const opponent = escapeHtml(match.opponent_username || "—");
+        return `<section class="match-roster"><h4>${escapeHtml(label)}</h4><div>${icons || `<span class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</span>`}</div></section>`;
+    }
+
+    function matchMetric(label: string, value: string, tone = ""): string {
+        return `<div class="match-detail-metric"><dt>${escapeHtml(label)}</dt><dd${tone ? ` class="${tone}"` : ""}>${value}</dd></div>`;
+    }
+
+    function performanceMarkup(
+        performances: Array<{ creatureId: number; damageDealt: number }>,
+        label: string,
+    ): string {
+        const rows = performances
+            .slice()
+            .sort((a, b) => b.damageDealt - a.damageDealt)
+            .slice(0, 3)
+            .map((performance) => {
+                const creature = creatureById(performance.creatureId);
+                return `<div class="match-performance-row"><img src="${escapeHtml(creature.image)}" alt="" width="32" height="32" loading="lazy" ${imgFallback} /><span>${escapeHtml(creature.name)}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
+            })
+            .join("");
+        return `<section class="match-performance"><h4>${escapeHtml(label)}</h4>${rows || `<p>${escapeHtml(copy.matchNoDamage)}</p>`}</section>`;
+    }
+
+    function artifactProperties(tier: 1 | 2, artifactId: number): ArtifactProperties | undefined {
+        return tier === 1
+            ? TIER1_ARTIFACTS[artifactId as Tier1Artifact]
+            : TIER2_ARTIFACTS[artifactId as Tier2Artifact];
+    }
+
+    function artifactChoice(tier: 1 | 2, artifactId: number): string {
+        const artifact = artifactId > 0 ? artifactProperties(tier, artifactId) : undefined;
+        if (!artifact) return "";
+        const image = `/assets/images/artifacts/artifact_t${tier}_${artifact.slug}_256.webp`;
+        return `<span class="match-choice" title="${escapeHtml(artifact.description)}"><img src="${escapeHtml(image)}" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(artifact.name)}</span><b>T${tier}</b></span>`;
+    }
+
+    function synergyChoice(key: string): string {
+        const [faction = "", variant = "", level = "0"] = key.split(":");
+        const names: Record<string, [string, string]> =
+            language === "ru"
+                ? {
+                      Life: ["Глубокие резервы", "Боевой дух"],
+                      Nature: ["Расширенные ряды", "Броня крылатых"],
+                      Chaos: ["Стремительный натиск", "Сокрушающие удары"],
+                      Might: ["Мастерство аур", "Мастерство способностей"],
+                  }
+                : {
+                      Life: ["Deep reserves", "High spirits"],
+                      Nature: ["Expanded ranks", "Winged armor"],
+                      Chaos: ["Rapid advance", "Disrupting strikes"],
+                      Might: ["Aura mastery", "Ability mastery"],
+                  };
+        const name = names[faction]?.[Math.max(0, Number(variant) - 1)] ?? (faction || copy.matchSynergies);
+        return `<span class="match-choice"><span>${escapeHtml(name)}</span><b>L${Math.max(0, num(level))}</b></span>`;
+    }
+
+    function portalSetup(setup: unknown): MatchSetupView {
+        const row = setup && typeof setup === "object" ? (setup as Record<string, unknown>) : null;
+        const complete = row?.complete === true;
+        const augments = [
+            { kind: language === "ru" ? "Расстановка" : "Placement", level: Math.min(2, num(row?.augment_placement)) + 1, slug: "board" },
+            { kind: language === "ru" ? "Броня" : "Armor", level: num(row?.augment_armor), slug: "armor" },
+            { kind: language === "ru" ? "Сила" : "Might", level: num(row?.augment_might), slug: "might" },
+            { kind: language === "ru" ? "Магия" : "Empower", level: num(row?.augment_empower), slug: "empower" },
+            { kind: language === "ru" ? "Снайпер" : "Sniper", level: num(row?.augment_sniper), slug: "sniper" },
+            { kind: language === "ru" ? "Движение" : "Movement", level: num(row?.augment_movement), slug: "movement" },
+        ];
+        return {
+            artifactTier1: num(row?.artifact_tier_1),
+            artifactTier2: num(row?.artifact_tier_2),
+            perk: num(row?.perk),
+            augments: complete ? augments.filter((augment, index) => index === 0 || augment.level > 0) : [],
+            synergies: complete && Array.isArray(row?.synergies) ? row.synergies.filter((entry): entry is string => typeof entry === "string") : [],
+            available: !!row,
+            complete,
+        };
+    }
+
+    function publicSetup(setup: RankedMatchTeamSetup, available: boolean): MatchSetupView {
+        const augments = [
+            { kind: language === "ru" ? "Расстановка" : "Placement", level: setup.augmentPlacement + 1, slug: "board" },
+            { kind: language === "ru" ? "Броня" : "Armor", level: setup.augmentArmor, slug: "armor" },
+            { kind: language === "ru" ? "Сила" : "Might", level: setup.augmentMight, slug: "might" },
+            { kind: language === "ru" ? "Магия" : "Empower", level: setup.augmentEmpower, slug: "empower" },
+            { kind: language === "ru" ? "Снайпер" : "Sniper", level: setup.augmentSniper, slug: "sniper" },
+            { kind: language === "ru" ? "Движение" : "Movement", level: setup.augmentMovement, slug: "movement" },
+        ];
+        return {
+            artifactTier1: setup.artifactTier1,
+            artifactTier2: setup.artifactTier2,
+            perk: setup.perk,
+            augments: available ? augments.filter((augment, index) => index === 0 || augment.level > 0) : [],
+            synergies: available ? setup.synergies : [],
+            available,
+            complete: available,
+        };
+    }
+
+    function buildMarkup(setup: MatchSetupView, label: string): string {
+        if (!setup.available) {
+            return `<section class="match-build"><h4>${escapeHtml(label)}</h4><p class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</p></section>`;
+        }
+        const artifactsMarkup = `${artifactChoice(1, setup.artifactTier1)}${artifactChoice(2, setup.artifactTier2)}`;
+        let perkMarkup = "";
+        try {
+            const perk = getPerkProperties(setup.perk as Perk);
+            if (perk?.name) perkMarkup = `<span class="match-choice"><span>${escapeHtml(perk.name)}</span></span>`;
+        } catch {
+            perkMarkup = "";
+        }
+        const augmentsMarkup = setup.augments
+            .map(
+                (augment) =>
+                    `<span class="match-choice"><img src="/assets/images/units/abilities/${augment.slug}_augment_256.webp" alt="" width="30" height="30" loading="lazy" /><span>${escapeHtml(augment.kind)}</span><b>L${augment.level}</b></span>`,
+            )
+            .join("");
+        const synergiesMarkup = setup.synergies.map(synergyChoice).join("");
+        const choiceRow = (title: string, value: string): string =>
+            `<div><dt>${escapeHtml(title)}</dt><dd>${value || `<span class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</span>`}</dd></div>`;
+        return `<section class="match-build"><h4>${escapeHtml(label)}</h4><dl>${choiceRow(copy.matchPerk, perkMarkup)}${choiceRow(copy.matchArtifacts, artifactsMarkup)}${choiceRow(copy.matchAugments, setup.complete ? augmentsMarkup : "")}${choiceRow(copy.matchSynergies, setup.complete ? synergiesMarkup : "")}</dl></section>`;
+    }
+
+    function portalPerformances(value: unknown): Array<{ creatureId: number; damageDealt: number }> {
+        return Array.isArray(value)
+            ? value
+                  .map((entry) => (entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {}))
+                  .map((entry) => ({ creatureId: num(entry.creature_id), damageDealt: num(entry.damage_dealt) }))
+                  .filter((entry) => entry.creatureId > 0)
+            : [];
+    }
+
+    function matchRow(match: Record<string, unknown>): string {
+        const won = match.won === true;
+        const draw = match.draw === true;
+        const abandoned = match.abandoned === true;
+        const resultLabel = draw ? copy.resultDraw : won ? copy.resultWin : copy.resultLoss;
+        const resultClass = draw ? "draw" : won ? "win" : "loss";
+        const opponentName = typeof match.opponent_username === "string" ? match.opponent_username : "—";
+        const opponent = escapeHtml(opponentName);
+        const matchContext = `${resultLabel} ${copy.versus} ${opponentName}`;
+        const abandonmentDetail = abandoned
+            ? match.player_abandoned === true
+                ? copy.matchYouLeft
+                : copy.matchOpponentLeft
+            : "";
         const when = timeAgo(num(match.finished_time), agoLabels);
-        const replay = match.game_id
-            ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(String(match.game_id))}/replay`)}">▶ ${escapeHtml(copy.matchReplay)}</a>`
+        const gameId = typeof match.game_id === "string" ? match.game_id : "";
+        const mode = portalMatchMode(match);
+        const ratedMode = mode === "ranked" || mode === "calibration";
+        const duration = formatDuration(match.duration_ms);
+        const laps = Math.max(0, num(match.total_laps));
+        const delta = num(match.mmr_delta ?? match.mmrDelta ?? match.delta);
+        const hasDelta = match.mmr_delta !== undefined || match.mmrDelta !== undefined || match.delta !== undefined;
+        const gold = Math.max(0, num(match.gold_earned ?? match.goldEarned));
+        const hasGold = match.gold_earned !== undefined || match.goldEarned !== undefined;
+        const replay = gameId && match.replay_available === true
+            ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(gameId)}/replay`)}">↻ ${escapeHtml(copy.matchReplay)}</a>`
+            : "";
+        const rewards = ratedMode && (hasDelta || hasGold)
+            ? `<div class="match-rewards">${hasDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+")}</span>` : ""}</div>`
             : "";
         return `
-            <div class="match-row">
-                <span class="match-result ${resultClass}">${escapeHtml(resultLabel)}</span>
-                <span class="match-icons">${icons}</span>
-                <span class="match-vs">${escapeHtml(copy.versus)} <strong>${opponent}</strong></span>
-                <span class="match-when">${escapeHtml(when)}</span>
-                ${replay}
-            </div>`;
+            <article class="match-row match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
+                <div class="match-card-summary">
+                    <div class="match-main">
+                        <div class="match-title"><strong class="match-result ${resultClass}">${escapeHtml(resultLabel)}</strong><span>${escapeHtml(copy.versus)}</span><strong>${opponent}</strong></div>
+                        <div class="match-meta">${modeBadge(mode)}<span class="match-when">${escapeHtml(when)}</span>${abandonmentDetail ? `<span class="match-abandonment">${escapeHtml(abandonmentDetail)}</span>` : ""}${duration !== "—" ? `<span>${escapeHtml(duration)}</span>` : ""}${laps ? `<span>${laps} ${escapeHtml(copy.matchLaps.toLowerCase())}</span>` : ""}</div>
+                    </div>
+                    ${rewards}
+                    <div class="match-card-actions">${replay}${gameId ? matchToggle(gameId, "portal", matchContext) : ""}</div>
+                </div>
+                <div class="match-rosters">${rosterMarkup(match.creature_ids, copy.matchYourArmy)}${rosterMarkup(match.opponent_creature_ids, copy.matchOpponentArmy)}</div>
+                ${gameId ? matchDetailsRegion(gameId, "portal") : ""}
+            </article>`;
     }
 
     function leagueLabel(league: number): string {
@@ -341,13 +629,10 @@ const rankedApp = links.rankedApp;
         return copy.publicReasonNormal;
     }
 
-    function recentForm(matches: RankedProfileMatch[]): string {
-        // The API is newest-first. Show the form chronologically, with the latest result on the right,
-        // and keep the strip at exactly ten positions even for a new commander.
-        const results = matches
-            .slice(0, 10)
-            .map((match) => match.result)
-            .reverse();
+    function recentForm(outcomes: RankedMatchResult[]): string {
+        // Both profile APIs are newest-first. Show the form chronologically, with the latest result on
+        // the right, and keep the strip at exactly ten positions even for a new commander.
+        const results = outcomes.slice(0, 10).reverse();
         const padded: Array<RankedMatchResult | "empty"> = [
             ...Array<"empty">(Math.max(0, 10 - results.length)).fill("empty"),
             ...results,
@@ -369,6 +654,10 @@ const rankedApp = links.rankedApp;
                     `<i class="result-form__dot ${result}" title="${escapeHtml(labels[result])}" aria-hidden="true"></i>`,
             )
             .join("")}</span>`;
+    }
+
+    function recentFormCard(outcomes: RankedMatchResult[]): string {
+        return `<div class="stat-card stat-card--form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(outcomes)}</dd></div>`;
     }
 
     interface StrategyArtwork {
@@ -420,40 +709,238 @@ const rankedApp = links.rankedApp;
     function publicMatchRow(match: RankedProfileMatch): string {
         const resultLabel =
             match.result === "win" ? copy.resultWin : match.result === "loss" ? copy.resultLoss : copy.resultDraw;
+        const opponentName = match.opponent?.username ?? "—";
+        const matchContext = `${resultLabel} ${copy.versus} ${opponentName}`;
         const opponent = match.opponent
             ? `<a class="match-opponent" href="${escapeHtml(opponentProfileHref(match.opponent.playerId, match.opponent.username))}">${escapeHtml(match.opponent.username)}</a>`
             : "<strong>—</strong>";
         const when = timeAgo(match.finishedTime, agoLabels);
-        const delta = match.calibration
-            ? copy.publicCalibrationGame
-            : `${match.mmrDelta > 0 ? "+" : ""}${numberFormatter.format(match.mmrDelta)} MMR`;
-        const deltaClass = match.calibration ? "" : match.mmrDelta > 0 ? "positive" : match.mmrDelta < 0 ? "negative" : "";
-        const replay = match.gameId
-            ? `<a class="match-replay" aria-label="${escapeHtml(copy.matchReplay)}" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(match.gameId)}/replay`)}"><span aria-hidden="true">↻</span> ${escapeHtml(copy.matchReplay)}</a>`
-            : "";
-        const detailsHref = buildRankedMatchPagePath(match.gameId, requestedPlayerId, language);
+        const delta = `${match.mmrDelta > 0 ? "+" : ""}${numberFormatter.format(match.mmrDelta)} MMR`;
+        const deltaClass = match.mmrDelta > 0 ? "positive" : match.mmrDelta < 0 ? "negative" : "";
+        const mode: MatchMode = match.calibration ? "calibration" : "ranked";
         return `
-            <article class="match-row match-row--ranked ${match.result}">
-                <a class="match-card-link" href="${escapeHtml(detailsHref)}" aria-label="${escapeHtml(`${copy.sectionMatches}: ${resultLabel}`)}"></a>
-                <div class="match-main">
-                    <div class="match-title">
-                        <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
-                        <span>${escapeHtml(copy.versus)}</span>
-                        ${opponent}
+            <article class="match-row match-row--ranked match-card--expandable ${match.result}" aria-label="${escapeHtml(matchContext)}">
+                <div class="match-card-summary">
+                    <div class="match-main">
+                        <div class="match-title">
+                            <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
+                            <span>${escapeHtml(copy.versus)}</span>
+                            ${opponent}
+                        </div>
+                        <div class="match-meta">
+                            ${modeBadge(mode)}
+                            <span class="match-when">${escapeHtml(when)}</span>
+                            <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
+                        </div>
                     </div>
-                    <div class="match-meta">
-                        <span class="match-when">${escapeHtml(when)}</span>
-                        <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
+                    <div class="match-rewards">
+                        <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
+                        <span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>
+                    </div>
+                    <div class="match-card-actions">
+                        ${matchToggle(match.gameId, "public", matchContext)}
                     </div>
                 </div>
-                <div class="match-rewards">
-                    <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
-                    ${match.goldEarned > 0 ? `<span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>` : ""}
-                </div>
-                <span class="match-details-hint" aria-hidden="true">›</span>
-                ${replay}
+                ${matchDetailsRegion(match.gameId, "public")}
             </article>`;
     }
+
+    function publicDurationMs(match: PublicRankedMatch): number {
+        const richMatch = match as PublicRankedMatch & RichPublicMatch;
+        const richStats = match.stats as (PublicRankedMatch["stats"] & RichPublicMatchStats) | null;
+        return num(richStats?.durationMs ?? richStats?.duration_ms ?? richMatch.durationMs ?? richMatch.duration_ms);
+    }
+
+    function publicRoster(match: PublicRankedMatch, side: RankedMatchSide): number[] {
+        const richMatch = match as PublicRankedMatch & RichPublicMatch;
+        const richStats = match.stats as (PublicRankedMatch["stats"] & RichPublicMatchStats) | null;
+        const value =
+            side === "lower"
+                ? richStats?.lowerCreatureIds ??
+                  richStats?.lower_creature_ids ??
+                  richMatch.lowerCreatureIds ??
+                  richMatch.lower_creature_ids
+                : richStats?.upperCreatureIds ??
+                  richStats?.upper_creature_ids ??
+                  richMatch.upperCreatureIds ??
+                  richMatch.upper_creature_ids;
+        return Array.isArray(value) ? value.map(num).filter((id) => id > 0) : [];
+    }
+
+    function publicPerformances(
+        performances: RankedMatchUnitPerformance[],
+    ): Array<{ creatureId: number; damageDealt: number }> {
+        return performances.map((entry) => ({ creatureId: entry.creatureId, damageDealt: entry.damageDealt }));
+    }
+
+    function detailFooter(gameId: string, finishedTime: number, fullReport: boolean, replayAvailable: boolean): string {
+        const finished = finishedTime ? dateFormatter.format(new Date(finishedTime)) : "—";
+        const reportHref = buildRankedMatchPagePath(gameId, requestedPlayerId, language);
+        const replayHref = `${gameClientRoot}/game/${encodeURIComponent(gameId)}/replay`;
+        return `<footer class="match-detail-footer"><span>${escapeHtml(copy.matchFinished)} ${escapeHtml(finished)}</span><div>${fullReport ? `<a class="match-detail-link" href="${escapeHtml(reportHref)}">${escapeHtml(copy.matchFullReport)}</a>` : ""}${replayAvailable ? `<a class="match-detail-link" href="${escapeHtml(replayHref)}">↻ ${escapeHtml(copy.matchReplay)}</a>` : ""}</div></footer>`;
+    }
+
+    function publicDetailsMarkup(match: PublicRankedMatch): string {
+        const viewer = match.players.find((player) => player.playerId === requestedPlayerId) ?? match.players[0];
+        const opponent = match.players.find((player) => player.playerId !== viewer.playerId) ?? match.players[1];
+        const stats = match.stats;
+        const side = viewer.side;
+        const opponentSide: RankedMatchSide = side === "lower" ? "upper" : "lower";
+        const duration = formatDuration(publicDurationMs(match));
+        const laps = stats?.totalLaps ?? 0;
+        const playerDamage = side === "lower" ? (stats?.lowerDamage ?? 0) : (stats?.upperDamage ?? 0);
+        const opponentDamage = side === "lower" ? (stats?.upperDamage ?? 0) : (stats?.lowerDamage ?? 0);
+        const playerPerformances = publicPerformances(
+            side === "lower" ? (stats?.lowerPerformers ?? []) : (stats?.upperPerformers ?? []),
+        );
+        const opponentPerformances = publicPerformances(
+            side === "lower" ? (stats?.upperPerformers ?? []) : (stats?.lowerPerformers ?? []),
+        );
+        const signedDelta = `${viewer.delta > 0 ? "+" : ""}${numberFormatter.format(viewer.delta)}`;
+        const mmr = viewer.calibration
+            ? `<span class="${viewer.delta > 0 ? "positive" : viewer.delta < 0 ? "negative" : ""}">${signedDelta} MMR</span>`
+            : `${numberFormatter.format(viewer.mmrBefore)} → ${numberFormatter.format(viewer.mmrAfter)} <span class="${viewer.delta > 0 ? "positive" : viewer.delta < 0 ? "negative" : ""}">(${signedDelta})</span>`;
+        const playerSetup = stats
+            ? publicSetup(side === "lower" ? stats.lowerSetup : stats.upperSetup, stats.setupRecorded)
+            : null;
+        const opponentSetup = stats
+            ? publicSetup(opponentSide === "lower" ? stats.lowerSetup : stats.upperSetup, stats.setupRecorded)
+            : null;
+        return `
+            <dl class="match-detail-metrics">
+                ${matchMetric(copy.matchDuration, duration)}
+                ${matchMetric(copy.matchLaps, laps > 0 ? numberFormatter.format(laps) : "—")}
+                ${matchMetric(copy.matchMmr, mmr)}
+                ${matchMetric(copy.matchGoldGain, currencyMarkup(viewer.goldEarned, "+"))}
+                ${matchMetric(copy.matchYourDamage, formatDamage(playerDamage))}
+                ${matchMetric(copy.matchOpponentDamage, formatDamage(opponentDamage))}
+            </dl>
+            <div class="match-rosters">${rosterMarkup(publicRoster(match, side), copy.matchYourArmy)}${rosterMarkup(publicRoster(match, opponentSide), copy.matchOpponentArmy)}</div>
+            <div class="match-performance-grid">${performanceMarkup(playerPerformances, copy.matchYourDamage)}${performanceMarkup(opponentPerformances, `${opponent.username} · ${copy.matchOpponentDamage}`)}</div>
+            <div class="match-build-grid">${playerSetup ? buildMarkup(playerSetup, copy.matchYourBuild) : buildMarkup(portalSetup(null), copy.matchYourBuild)}${opponentSetup ? buildMarkup(opponentSetup, copy.matchOpponentBuild) : buildMarkup(portalSetup(null), copy.matchOpponentBuild)}</div>
+            ${detailFooter(match.gameId, match.finishedTime, true, stats?.replayAvailable === true)}
+        `;
+    }
+
+    function portalDetailsMarkup(match: Record<string, unknown>): string {
+        const gameId = typeof match.game_id === "string" ? match.game_id : "";
+        const opponent = typeof match.opponent_username === "string" && match.opponent_username
+            ? match.opponent_username
+            : "—";
+        const mode = portalMatchMode(match);
+        const ratedMode = mode === "ranked" || mode === "calibration";
+        const duration = formatDuration(match.duration_ms);
+        const laps = Math.max(0, num(match.total_laps));
+        const playerDamage = num(match.player_damage);
+        const opponentDamage = num(match.opponent_damage);
+        const delta = num(match.mmr_delta ?? match.mmrDelta ?? match.delta);
+        const before = num(match.mmr_before ?? match.mmrBefore);
+        const after = num(match.mmr_after ?? match.mmrAfter);
+        const hasRating =
+            ratedMode &&
+            (match.mmr_delta !== undefined ||
+                match.mmrDelta !== undefined ||
+                match.delta !== undefined ||
+                match.mmr_before !== undefined ||
+                match.mmrBefore !== undefined);
+        const mmr = hasRating
+            ? `${numberFormatter.format(before)} → ${numberFormatter.format(after)} <span class="${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">(${delta > 0 ? "+" : ""}${numberFormatter.format(delta)})</span>`
+            : "—";
+        const goldValue = match.gold_earned ?? match.goldEarned;
+        const gold = !ratedMode || goldValue === undefined ? "—" : currencyMarkup(Math.max(0, num(goldValue)), "+");
+        const playerPerformances = portalPerformances(match.player_top_units);
+        const opponentPerformances = portalPerformances(match.opponent_top_units);
+        return `
+            <dl class="match-detail-metrics">
+                ${matchMetric(copy.matchDuration, duration)}
+                ${matchMetric(copy.matchLaps, laps > 0 ? numberFormatter.format(laps) : "—")}
+                ${matchMetric(copy.matchMmr, mmr)}
+                ${matchMetric(copy.matchGoldGain, gold)}
+                ${matchMetric(copy.matchYourDamage, formatDamage(playerDamage))}
+                ${matchMetric(copy.matchOpponentDamage, formatDamage(opponentDamage))}
+            </dl>
+            <div class="match-performance-grid">${performanceMarkup(playerPerformances, copy.matchYourDamage)}${performanceMarkup(opponentPerformances, `${opponent} · ${copy.matchOpponentDamage}`)}</div>
+            <div class="match-build-grid">${buildMarkup(portalSetup(match.player_setup), copy.matchYourBuild)}${buildMarkup(portalSetup(match.opponent_setup), copy.matchOpponentBuild)}</div>
+            ${detailFooter(gameId, num(match.finished_time), ratedMode, match.replay_available === true)}
+        `;
+    }
+
+    function collapseExpandedMatch(): void {
+        if (!expandedMatchId) return;
+        const panel = document.getElementById(expandedMatchId);
+        const buttonId = panel?.getAttribute("aria-labelledby") ?? "";
+        const button = buttonId ? document.getElementById(buttonId) : null;
+        if (panel) panel.hidden = true;
+        if (button instanceof HTMLButtonElement) {
+            button.setAttribute("aria-expanded", "false");
+            const context = button.dataset.matchContext;
+            button.setAttribute("aria-label", context ? `${copy.matchDetails}: ${context}` : copy.matchDetails);
+            const label = button.querySelector<HTMLElement>("[data-match-toggle-label]");
+            if (label) label.textContent = copy.matchDetails;
+        }
+        expandedMatchId = "";
+    }
+
+    async function loadPublicMatchDetails(gameId: string, panel: HTMLElement): Promise<void> {
+        const cached = publicMatchDetails.get(gameId);
+        if (cached) {
+            panel.innerHTML = publicDetailsMarkup(cached);
+            panel.removeAttribute("aria-busy");
+            return;
+        }
+        panel.setAttribute("aria-busy", "true");
+        panel.innerHTML = `<p class="match-details-status" role="status">${escapeHtml(copy.matchLoadingDetails)}</p>`;
+        try {
+            const details = await fetchPublicRankedMatch(gameId);
+            publicMatchDetails.set(gameId, details);
+            panel.innerHTML = publicDetailsMarkup(details);
+            panel.removeAttribute("aria-busy");
+        } catch {
+            panel.innerHTML = `<div class="match-details-error" role="alert"><p>${escapeHtml(copy.matchDetailsError)}</p><button type="button" data-match-details-retry data-game-id="${escapeHtml(gameId)}">${escapeHtml(copy.matchRetryDetails)}</button></div>`;
+            panel.removeAttribute("aria-busy");
+        }
+    }
+
+    async function toggleMatchDetails(button: HTMLButtonElement): Promise<void> {
+        const panelId = button.getAttribute("aria-controls") ?? "";
+        const panel = panelId ? document.getElementById(panelId) : null;
+        const gameId = button.dataset.gameId ?? "";
+        if (!panel || !gameId) return;
+        if (button.getAttribute("aria-expanded") === "true") {
+            collapseExpandedMatch();
+            return;
+        }
+        collapseExpandedMatch();
+        expandedMatchId = panelId;
+        button.setAttribute("aria-expanded", "true");
+        const context = button.dataset.matchContext;
+        button.setAttribute("aria-label", context ? `${copy.matchCollapse}: ${context}` : copy.matchCollapse);
+        const label = button.querySelector<HTMLElement>("[data-match-toggle-label]");
+        if (label) label.textContent = copy.matchCollapse;
+        panel.hidden = false;
+        if (button.dataset.matchSource === "public") {
+            await loadPublicMatchDetails(gameId, panel);
+        } else {
+            const match = matchHistoryById.get(gameId);
+            panel.innerHTML = match && typeof match === "object"
+                ? portalDetailsMarkup(match as Record<string, unknown>)
+                : `<p class="match-details-status">${escapeHtml(copy.matchDetailsError)}</p>`;
+        }
+    }
+
+    matchesEl?.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const retry = target.closest<HTMLButtonElement>("[data-match-details-retry]");
+        if (retry) {
+            const gameId = retry.dataset.gameId ?? "";
+            const panel = retry.closest<HTMLElement>(".match-details-panel");
+            if (gameId && panel) void loadPublicMatchDetails(gameId, panel);
+            return;
+        }
+        const button = target.closest<HTMLButtonElement>("[data-match-toggle]");
+        if (button) void toggleMatchDetails(button);
+    });
 
     function configureSelfMode(): void {
         if (eyebrowEl) eyebrowEl.textContent = copy.title;
@@ -548,7 +1035,7 @@ const rankedApp = links.rankedApp;
                 </div>
                 <dl class="ranked-standing__facts">
                     <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
-                    <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames)}</dd></div>
+                    <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
                     <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : "—")}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
@@ -702,8 +1189,12 @@ const rankedApp = links.rankedApp;
         const winRate = winRatePct(wins, games);
 
         if (nameEl) nameEl.textContent = portal.username || copy.title;
-        // The portal payload has no gold field; keep the header badge hidden for this render path.
-        if (goldEl) goldEl.hidden = true;
+        if (goldEl) {
+            const gold = Math.max(0, num(portal.gold));
+            goldEl.innerHTML = currencyMarkup(gold);
+            goldEl.setAttribute("aria-label", `${copy.statGold}: ${numberFormatter.format(gold)}`);
+            goldEl.hidden = false;
+        }
 
         if (metaEl) metaEl.hidden = false;
         const lastLogin = num(portal.last_login);
@@ -714,8 +1205,10 @@ const rankedApp = links.rankedApp;
 
         const matches = (portal.recent_matches ?? []) as any[];
         const creatures = (portal.creature_stats ?? []) as any[];
-        const factions = (portal.faction_stats ?? []) as any[];
         const combos = (portal.combos ?? []) as any[];
+        const recentOutcomes: RankedMatchResult[] = matches.map((match) =>
+            match.draw === true ? "draw" : match.won === true ? "win" : "loss",
+        );
 
         const noData = games <= 0 && matches.length === 0 && creatures.length === 0;
         if (emptyEl) emptyEl.hidden = !noData;
@@ -728,20 +1221,8 @@ const rankedApp = links.rankedApp;
                 statCard(copy.statLosses, String(losses), "#ff5a5a"),
                 statCard(copy.statWinRate, `${winRate}%`, winRateColor(winRate)),
                 statCard(copy.statGames, String(games)),
-                statCard(copy.statBestStreak, String(num(portal.best_win_streak))),
+                recentFormCard(recentOutcomes),
             ].join("");
-        }
-
-        const factionsEl = $("factions");
-        if (factionsEl) {
-            factionsEl.innerHTML = factions
-                .slice()
-                .sort((a, b) => num(b.games) - num(a.games))
-                .map((f) => {
-                    const info = factionById(num(f.faction));
-                    return barRow(info.image, info.name, num(f.wins), num(f.games));
-                })
-                .join("");
         }
 
         const creaturesEl = $("creatures");
@@ -807,8 +1288,8 @@ const rankedApp = links.rankedApp;
         min-height: calc(100svh - 68px);
         overflow: hidden;
         background:
-            linear-gradient(180deg, rgba(7, 5, 4, 0.74), rgba(7, 5, 4, 0.97) 520px),
-            center top / 1440px auto no-repeat url("/assets/images/background_dark_old.webp"), #070504;
+            linear-gradient(112deg, rgba(7, 5, 4, 0.95), rgba(7, 5, 4, 0.86) 52%, rgba(7, 5, 4, 0.96)),
+            center top / cover fixed no-repeat url("/assets/images/background_dark_old.webp"), #070504;
         font-family: var(--hoc-font-ui, var(--hoc-font-display, inherit));
         font-synthesis: none;
     }
@@ -828,7 +1309,8 @@ const rankedApp = links.rankedApp;
 
     .profile-shell {
         position: relative;
-        padding: 46px 0 80px;
+        width: min(1480px, calc(100vw - 48px));
+        padding: 24px 0 72px;
     }
 
     .profile-head {
@@ -837,37 +1319,27 @@ const rankedApp = links.rankedApp;
         grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 18px;
         align-items: center;
-        margin-bottom: 28px;
-        padding: 20px 22px;
-        border: 14px solid transparent;
-        border-image-source: url("/assets/images/ui/pick_phase_ember_panel_frame_9slice.webp");
-        border-image-slice: 140 160 fill;
-        border-image-width: 16px;
-        border-image-repeat: stretch;
-        background: rgba(13, 8, 5, 0.96);
-        box-shadow:
-            0 22px 54px rgba(0, 0, 0, 0.5),
-            0 0 24px rgba(255, 143, 0, 0.06);
+        margin-bottom: 18px;
+        padding: 18px 20px;
+        border: 1px solid rgba(255, 143, 0, 0.25);
+        border-radius: 18px;
+        background: rgba(9, 6, 4, 0.85);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(16px);
     }
 
     .profile-head-emblem {
         display: grid;
         place-items: center;
-        width: 72px;
-        height: 72px;
-        border: 1px solid rgba(220, 177, 88, 0.48);
+        width: 58px;
+        height: 58px;
         border-radius: 50%;
-        background:
-            radial-gradient(circle, rgba(111, 53, 18, 0.8), rgba(12, 8, 5, 0.96) 68%),
-            #0d0805;
-        box-shadow:
-            inset 0 0 0 3px rgba(0, 0, 0, 0.42),
-            0 0 18px rgba(255, 143, 0, 0.12);
+        filter: drop-shadow(0 0 10px rgba(255, 143, 0, 0.33));
     }
 
     .profile-head-emblem img {
-        width: 58px;
-        height: 58px;
+        width: 56px;
+        height: 56px;
     }
 
     .profile-head-copy {
@@ -887,8 +1359,8 @@ const rankedApp = links.rankedApp;
 
     .profile-name {
         margin: 6px 0 8px;
-        color: var(--hoc-bronze, #cda078);
-        font-size: clamp(1.8rem, 3vw, 2.8rem);
+        color: var(--ink, #efe4cc);
+        font-size: clamp(1.75rem, 3vw, 2.55rem);
         font-weight: 400;
         letter-spacing: 0.07em;
         line-height: 1.05;
@@ -917,10 +1389,10 @@ const rankedApp = links.rankedApp;
         align-self: start;
         min-width: 156px;
         padding: 10px 14px;
-        border: 1px solid rgba(220, 177, 88, 0.38);
-        border-radius: 2px;
-        background: linear-gradient(180deg, rgba(72, 43, 20, 0.86), rgba(20, 12, 7, 0.94));
-        color: var(--gold, #dcb158);
+        border: 1px solid rgba(255, 143, 0, 0.42);
+        border-radius: 7px;
+        background: rgba(255, 143, 0, 0.16);
+        color: var(--ink, #efe4cc);
         font-size: 0.76rem;
         letter-spacing: 0.07em;
         text-align: center;
@@ -990,8 +1462,8 @@ const rankedApp = links.rankedApp;
         align-items: center;
         padding: 10px 14px;
         border: 1px solid rgba(220, 177, 88, 0.22);
-        border-radius: 3px;
-        background: rgba(20, 13, 8, 0.55);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.24);
         font-size: 0.86rem;
     }
 
@@ -1055,7 +1527,7 @@ const rankedApp = links.rankedApp;
         margin: 0 0 22px;
         padding: 11px 14px;
         border: 1px solid rgba(220, 177, 88, 0.26);
-        border-radius: 2px;
+        border-radius: 10px;
         color: var(--muted, rgba(239, 228, 204, 0.66));
         background: linear-gradient(90deg, rgba(73, 43, 19, 0.52), rgba(13, 8, 5, 0.88));
         font-size: 0.84rem;
@@ -1079,12 +1551,11 @@ const rankedApp = links.rankedApp;
         max-width: 560px;
         margin-top: 16px;
         padding: 24px 26px;
-        border: 1px solid var(--line-strong, rgba(220, 177, 88, 0.44));
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(52, 31, 15, 0.92), rgba(11, 7, 4, 0.97));
-        box-shadow:
-            inset 0 0 22px rgba(0, 0, 0, 0.38),
-            0 14px 30px rgba(0, 0, 0, 0.28);
+        border: 1px solid rgba(255, 143, 0, 0.27);
+        border-radius: 16px;
+        background: rgba(12, 8, 5, 0.91);
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(14px);
     }
 
     .profile-panel h2 {
@@ -1129,52 +1600,31 @@ const rankedApp = links.rankedApp;
 
     .profile-body {
         display: grid;
-        gap: 18px;
+        gap: 16px;
     }
 
     .profile-section {
         position: relative;
         min-width: 0;
-        padding: 18px;
-        border: 1px solid rgba(112, 75, 42, 0.54);
-        border-radius: 2px;
-        clip-path: polygon(
-            8px 0,
-            calc(100% - 8px) 0,
-            100% 8px,
-            100% calc(100% - 8px),
-            calc(100% - 8px) 100%,
-            8px 100%,
-            0 calc(100% - 8px),
-            0 8px
-        );
-        background:
-            linear-gradient(180deg, rgba(59, 35, 17, 0.32), rgba(9, 6, 4, 0.72)),
-            rgba(14, 9, 5, 0.9);
-        box-shadow:
-            inset 0 1px rgba(239, 228, 204, 0.04),
-            inset 0 0 22px rgba(0, 0, 0, 0.3);
+        padding: clamp(16px, 2vw, 22px);
+        border: 1px solid rgba(255, 143, 0, 0.27);
+        border-radius: 16px;
+        background: rgba(12, 8, 5, 0.91);
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(14px);
     }
 
     .profile-section::before {
-        position: absolute;
-        top: 0;
-        left: 9%;
-        width: 82%;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(220, 177, 88, 0.68), transparent);
-        box-shadow: 0 0 9px rgba(255, 143, 0, 0.22);
-        content: "";
-        pointer-events: none;
+        display: none;
     }
 
     .profile-section h2 {
         margin: 0 0 15px;
-        color: var(--hoc-bronze, #cda078);
-        font-size: 1.18rem;
+        color: var(--gold, #dcb158);
+        font-size: 1rem;
         font-weight: 400;
-        letter-spacing: 0.075em;
-        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        text-transform: none;
     }
 
     .profile-columns {
@@ -1187,15 +1637,17 @@ const rankedApp = links.rankedApp;
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 12px;
+        margin: 0;
     }
 
     .stat-card {
         display: grid;
         gap: 4px;
         padding: 16px 18px;
-        border: 1px solid rgba(112, 75, 42, 0.52);
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(49, 29, 14, 0.88), rgba(10, 7, 4, 0.94));
+        border: 1px solid rgba(239, 228, 204, 0.08);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        text-align: center;
     }
 
     .stat-card dt {
@@ -1217,10 +1669,10 @@ const rankedApp = links.rankedApp;
         display: grid;
         gap: 4px;
         padding: 16px 18px;
-        border: 1px solid rgba(112, 75, 42, 0.52);
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(49, 29, 14, 0.88), rgba(10, 7, 4, 0.94));
-        box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.24);
+        border: 1px solid rgba(239, 228, 204, 0.08);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        text-align: center;
     }
 
     .profile-page :global(.stat-card dt) {
@@ -1238,6 +1690,17 @@ const rankedApp = links.rankedApp;
         letter-spacing: 0.045em;
     }
 
+    .profile-page :global(.stat-card--form) {
+        grid-column: span 2;
+        text-align: left;
+    }
+
+    .profile-page :global(.stat-card--form dd) {
+        display: flex;
+        align-items: center;
+        min-height: 32px;
+    }
+
     .ranked-standing {
         display: grid;
         grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.55fr);
@@ -1251,12 +1714,8 @@ const rankedApp = links.rankedApp;
         min-height: 150px;
         padding: 18px 20px;
         overflow: hidden;
-        border: 11px solid transparent;
-        border-radius: 0;
-        border-image-source: url("/assets/images/ui/pick_phase_ember_panel_frame_9slice.webp");
-        border-image-slice: 140 160 fill;
-        border-image-width: 13px;
-        border-image-repeat: stretch;
+        border: 1px solid rgba(255, 143, 0, 0.3);
+        border-radius: 12px;
         background:
             radial-gradient(circle at 88% 12%, rgba(255, 143, 0, 0.2), transparent 40%),
             linear-gradient(145deg, rgba(70, 41, 17, 0.72), rgba(15, 10, 7, 0.94));
@@ -1268,7 +1727,7 @@ const rankedApp = links.rankedApp;
         margin-bottom: 12px;
         padding: 4px 9px;
         border: 1px solid rgba(242, 199, 93, 0.38);
-        border-radius: 2px;
+        border-radius: 8px;
         background: rgba(76, 45, 22, 0.6);
         color: var(--gold, #dcb158);
         font-size: 0.7rem;
@@ -1301,9 +1760,9 @@ const rankedApp = links.rankedApp;
         align-content: center;
         min-height: 68px;
         padding: 11px 14px;
-        border: 1px solid rgba(112, 75, 42, 0.48);
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(45, 27, 14, 0.76), rgba(9, 6, 4, 0.9));
+        border: 1px solid rgba(239, 228, 204, 0.08);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.28);
     }
 
     .ranked-standing :global(.ranked-standing__facts dt) {
@@ -1325,14 +1784,14 @@ const rankedApp = links.rankedApp;
         grid-column: 1 / -1;
     }
 
-    .ranked-standing :global(.result-form) {
+    .profile-page :global(.result-form) {
         display: flex;
         gap: clamp(5px, 0.8vw, 9px);
         align-items: center;
         min-height: 22px;
     }
 
-    .ranked-standing :global(.result-form__dot) {
+    .profile-page :global(.result-form__dot) {
         display: block;
         width: 12px;
         height: 12px;
@@ -1342,18 +1801,18 @@ const rankedApp = links.rankedApp;
         box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.18);
     }
 
-    .ranked-standing :global(.result-form__dot.win) {
+    .profile-page :global(.result-form__dot.win) {
         border-color: rgba(70, 209, 96, 0.78);
         background: #46d160;
         box-shadow: 0 0 7px rgba(70, 209, 96, 0.28);
     }
 
-    .ranked-standing :global(.result-form__dot.draw) {
+    .profile-page :global(.result-form__dot.draw) {
         border-color: rgba(174, 181, 190, 0.72);
         background: #8f99a4;
     }
 
-    .ranked-standing :global(.result-form__dot.loss) {
+    .profile-page :global(.result-form__dot.loss) {
         border-color: rgba(255, 90, 90, 0.78);
         background: #ff5a5a;
         box-shadow: 0 0 7px rgba(255, 90, 90, 0.22);
@@ -1376,7 +1835,7 @@ const rankedApp = links.rankedApp;
         margin: 14px auto 0;
         padding: 9px 18px;
         border: 1px solid rgba(205, 160, 120, 0.48);
-        border-radius: 2px;
+        border-radius: 7px;
         background: linear-gradient(180deg, rgba(82, 43, 22, 0.9), rgba(31, 17, 10, 0.94));
         color: var(--hoc-bronze, #cda078);
         font: inherit;
@@ -1742,17 +2201,8 @@ const rankedApp = links.rankedApp;
             justify-self: start;
         }
 
-        .profile-columns {
-            grid-template-columns: 1fr;
-            gap: 28px;
-        }
-
         .ranked-standing {
             grid-template-columns: 1fr;
-        }
-
-        .profile-page :global(.match-row--ranked) {
-            grid-template-columns: minmax(0, 1fr) auto auto;
         }
     }
 
@@ -1764,8 +2214,6 @@ const rankedApp = links.rankedApp;
         .profile-head {
             gap: 10px;
             padding: 12px;
-            border-width: 10px;
-            border-image-width: 12px;
         }
 
         .profile-head-emblem {
@@ -1813,6 +2261,10 @@ const rankedApp = links.rankedApp;
             font-size: 1.16rem;
         }
 
+        .profile-page :global(.stat-card--form) {
+            grid-column: 1 / -1;
+        }
+
         .ranked-standing :global(.ranked-standing__facts) {
             grid-template-columns: 1fr;
         }
@@ -1845,41 +2297,8 @@ const rankedApp = links.rankedApp;
             grid-row: 2;
         }
 
-        .profile-page :global(.match-row) {
-            grid-template-columns: 66px minmax(0, 1fr);
-        }
-
         .profile-page :global(.match-icons) {
             grid-column: 1 / -1;
-        }
-
-        .profile-page :global(.match-when) {
-            display: none;
-        }
-
-        .profile-page :global(.match-row--ranked) {
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 8px 12px;
-            padding-block: 10px;
-        }
-
-        .profile-page :global(.match-row--ranked .match-when) {
-            display: inline;
-        }
-
-        .profile-page :global(.match-row--ranked .match-replay) {
-            grid-column: 2;
-            grid-row: 1;
-            margin-left: 0;
-        }
-
-        .profile-page :global(.match-row--ranked .match-rewards) {
-            grid-column: 1 / -1;
-            grid-row: 2;
-            grid-auto-flow: column;
-            justify-content: start;
-            justify-items: start;
-            min-width: 0;
         }
     }
 
@@ -2038,6 +2457,428 @@ const rankedApp = links.rankedApp;
 
         .playstyle :global(.strategy-artwork img + img) {
             margin-left: -27px;
+        }
+    }
+
+    /* Match history intentionally mirrors the game Portal: a quiet dark card, a result rail, and one
+       keyboard-operable details control. The report/replay links remain independent interactive targets. */
+    .profile-page :global(.match-card--expandable) {
+        position: relative;
+        display: block;
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.27);
+        transition:
+            border-color 150ms ease,
+            background-color 150ms ease;
+    }
+
+    .profile-page :global(.match-card--expandable:hover),
+    .profile-page :global(.match-card--expandable:has(.match-details-toggle[aria-expanded="true"])) {
+        border-color: rgba(255, 143, 0, 0.42);
+        background: rgba(25, 15, 8, 0.84);
+    }
+
+    .profile-page :global(.match-card--expandable::before) {
+        position: absolute;
+        z-index: 1;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: #8f99a4;
+        content: "";
+    }
+
+    .profile-page :global(.match-card--expandable .match-result) {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        font-size: 0.92rem;
+        font-weight: 800;
+        letter-spacing: 0.025em;
+        text-transform: none;
+    }
+
+    .profile-page :global(.match-card--expandable .match-result.win) {
+        color: #46d160;
+        background: transparent;
+    }
+
+    .profile-page :global(.match-card--expandable .match-result.loss) {
+        color: #ff5a5a;
+        background: transparent;
+    }
+
+    .profile-page :global(.match-card--expandable .match-result.draw) {
+        color: #b2bac4;
+        background: transparent;
+    }
+
+    .profile-page :global(.match-card--expandable .match-when) {
+        display: inline;
+    }
+
+    .profile-page :global(.match-card--expandable.win::before) {
+        background: #46d160;
+    }
+
+    .profile-page :global(.match-card--expandable.loss::before) {
+        background: #ff5a5a;
+    }
+
+    .profile-page :global(.match-card-summary) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 13px 10px 17px;
+    }
+
+    .profile-page :global(.match-card-actions) {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .profile-page :global(.match-card-actions .match-replay) {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        margin-left: 0;
+        border-radius: 7px;
+    }
+
+    .profile-page :global(.match-details-toggle),
+    .profile-page :global(.match-detail-link),
+    .profile-page :global(.match-details-error button) {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 6px 10px;
+        border: 1px solid rgba(255, 143, 0, 0.34);
+        border-radius: 7px;
+        background: rgba(255, 143, 0, 0.11);
+        color: rgba(239, 228, 204, 0.8);
+        font: inherit;
+        font-size: 0.72rem;
+        letter-spacing: 0.035em;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .profile-page :global(.match-details-toggle:hover),
+    .profile-page :global(.match-detail-link:hover),
+    .profile-page :global(.match-details-error button:hover) {
+        border-color: rgba(255, 143, 0, 0.68);
+        background: rgba(255, 143, 0, 0.2);
+        color: var(--ink, #efe4cc);
+    }
+
+    .profile-page :global(.match-details-toggle[aria-expanded="true"] .match-details-chevron) {
+        transform: rotate(180deg);
+    }
+
+    .profile-page :global(.match-details-chevron) {
+        font-size: 1rem;
+        line-height: 1;
+        transition: transform 150ms ease;
+    }
+
+    .profile-page :global(.match-mode) {
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        padding: 2px 7px;
+        border: 1px solid rgba(220, 177, 88, 0.3);
+        border-radius: 999px;
+        background: rgba(220, 177, 88, 0.08);
+        color: var(--gold, #dcb158);
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .profile-page :global(.match-mode[data-mode="calibration"]) {
+        border-color: rgba(103, 174, 246, 0.38);
+        background: rgba(103, 174, 246, 0.09);
+        color: #8bc4ff;
+    }
+
+    .profile-page :global(.match-mode[data-mode="lobby"]) {
+        border-color: rgba(239, 228, 204, 0.22);
+        background: rgba(239, 228, 204, 0.06);
+        color: rgba(239, 228, 204, 0.72);
+    }
+
+    .profile-page :global(.match-rosters) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        padding: 0 13px 12px 17px;
+    }
+
+    .profile-page :global(.match-details-panel .match-rosters) {
+        padding: 0;
+    }
+
+    .profile-page :global(.match-roster) {
+        min-width: 0;
+    }
+
+    .profile-page :global(.match-roster h4),
+    .profile-page :global(.match-performance h4),
+    .profile-page :global(.match-build h4) {
+        margin: 0 0 6px;
+        color: rgba(239, 228, 204, 0.58);
+        font-size: 0.68rem;
+        font-weight: 400;
+        letter-spacing: 0.035em;
+    }
+
+    .profile-page :global(.match-roster > div) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        min-height: 32px;
+    }
+
+    .profile-page :global(.match-roster-icon),
+    .profile-page :global(.match-performance-row img) {
+        border: 1px solid rgba(220, 177, 88, 0.34);
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.3);
+        object-fit: cover;
+    }
+
+    .profile-page :global(.match-details-panel) {
+        padding: 14px 16px 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .profile-page :global(.match-details-panel[hidden]) {
+        display: none;
+    }
+
+    .profile-page :global(.match-detail-metrics) {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 9px;
+        margin: 0;
+    }
+
+    .profile-page :global(.match-detail-metric) {
+        min-width: 0;
+        padding: 9px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.24);
+    }
+
+    .profile-page :global(.match-detail-metric dt),
+    .profile-page :global(.match-build dt) {
+        color: rgba(239, 228, 204, 0.48);
+        font-size: 0.64rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .profile-page :global(.match-detail-metric dd) {
+        margin: 3px 0 0;
+        overflow-wrap: anywhere;
+        color: rgba(239, 228, 204, 0.9);
+        font-size: 0.84rem;
+    }
+
+    .profile-page :global(.positive) {
+        color: #46d160;
+    }
+
+    .profile-page :global(.negative) {
+        color: #ff6969;
+    }
+
+    .profile-page :global(.match-performance-grid),
+    .profile-page :global(.match-build-grid) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+    }
+
+    .profile-page :global(.match-performance),
+    .profile-page :global(.match-build) {
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.2);
+    }
+
+    .profile-page :global(.match-performance-row) {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        padding-block: 4px;
+        color: rgba(239, 228, 204, 0.78);
+        font-size: 0.75rem;
+    }
+
+    .profile-page :global(.match-performance-row strong) {
+        color: var(--gold, #dcb158);
+    }
+
+    .profile-page :global(.match-performance p),
+    .profile-page :global(.match-unavailable),
+    .profile-page :global(.match-details-status),
+    .profile-page :global(.match-details-error p) {
+        margin: 0;
+        color: rgba(239, 228, 204, 0.5);
+        font-size: 0.74rem;
+    }
+
+    .profile-page :global(.match-build dl) {
+        display: grid;
+        gap: 9px;
+        margin: 0;
+    }
+
+    .profile-page :global(.match-build dd) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 4px 0 0;
+    }
+
+    .profile-page :global(.match-choice) {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        min-width: 0;
+        min-height: 32px;
+        padding: 2px 7px 2px 3px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.035);
+        color: rgba(239, 228, 204, 0.8);
+        font-size: 0.7rem;
+    }
+
+    .profile-page :global(.match-choice img) {
+        border-radius: 5px;
+        object-fit: contain;
+    }
+
+    .profile-page :global(.match-choice b) {
+        color: var(--gold, #dcb158);
+        font-size: 0.62rem;
+    }
+
+    .profile-page :global(.match-detail-footer) {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(239, 228, 204, 0.48);
+        font-size: 0.7rem;
+    }
+
+    .profile-page :global(.match-detail-footer > div),
+    .profile-page :global(.match-details-error) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    @media (max-width: 900px) {
+        .profile-page :global(.match-detail-metrics) {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 640px) {
+        .profile-shell {
+            width: min(1480px, calc(100vw - 24px));
+        }
+
+        .profile-page :global(.match-card-summary) {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .profile-page :global(.match-card-summary .match-rewards) {
+            grid-column: 1;
+            grid-row: 2;
+            grid-auto-flow: column;
+            justify-content: start;
+            justify-items: start;
+        }
+
+        .profile-page :global(.match-card-actions) {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .profile-page :global(.match-replay),
+        .profile-page :global(.match-details-toggle) {
+            margin-left: 0;
+        }
+
+        .profile-page :global(.match-detail-metrics) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .profile-page :global(.match-performance-grid),
+        .profile-page :global(.match-build-grid) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 460px) {
+        .profile-page :global(.match-card-summary) {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-page :global(.match-card-summary .match-rewards),
+        .profile-page :global(.match-card-actions) {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        .profile-page :global(.match-card-actions) {
+            flex-direction: row;
+            justify-content: flex-start;
+        }
+
+        .profile-page :global(.match-rosters) {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-page :global(.match-detail-footer) {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .profile-page :global(.match-card--expandable),
+        .profile-page :global(.match-details-chevron) {
+            transition: none;
         }
     }
 </style>
