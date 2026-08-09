@@ -33,20 +33,6 @@ import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationT
 import { teamColor as resolveTeamColor } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 export type TexResolver = (name: string) => Texture | undefined;
-// Parked with the tall-board-model experiment (see usesTallBoardModel); kept for the re-enable recipe.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const ASH_MOTH_BOARD_TEXTURE = "ash_moth_board_128";
-
-/** Tall board models stand on the lower edge of their tile instead of being centred like portrait chips. */
-function usesTallBoardModel(props: UnitProperties, textureName?: string): boolean {
-    // OWNER call (2026-08-07): the Ash Moth full-body board model is parked — the battlefield renders
-    // the regular circular chip again (see unitToTextureName, reverted in the same change). Keep the
-    // tall-model machinery intact and re-enable both gates together if the experiment returns:
-    //   props.size === 1 && (textureName === ASH_MOTH_BOARD_TEXTURE || props.name === "Ash Moth")
-    void props;
-    void textureName;
-    return false;
-}
 // --- Atlas helpers (same logic as UnitChip) ---
 type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
@@ -656,14 +642,13 @@ export class RenderableUnit extends Unit {
         const props = this.getUnitProperties();
         const pos = this.getPosition();
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tallBoardModel = usesTallBoardModel(props, texName);
         const baseTex = this.texResolver(texName);
         if (!baseTex) return;
         // --- sprite ---
         if (!this.sprite) {
             // first time: use base texture
             this.sprite = new Sprite(baseTex);
-            this.sprite.anchor.set(0.5, tallBoardModel ? 1 : 0.5);
+            this.sprite.anchor.set(0.5);
             this.sprite.scale.y = -1; // y-up world → flip in Pixi
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             // Dynamic Z: Objects lower on screen (low Y) draw last (high Z).
@@ -680,16 +665,11 @@ export class RenderableUnit extends Unit {
                 worldRoot.addChild(this.sprite);
             }
         }
-        const spriteAnchorY = tallBoardModel ? 1 : 0.5;
-        if (this.sprite.anchor.x !== 0.5 || this.sprite.anchor.y !== spriteAnchorY) {
-            this.sprite.anchor.set(0.5, spriteAnchorY);
+        if (this.sprite.anchor.x !== 0.5 || this.sprite.anchor.y !== 0.5) {
+            this.sprite.anchor.set(0.5);
         }
-        // Legacy portrait chips are authored around the fixed 128px board unit. The new full-body model
-        // instead keys its 128px texture width to the LIVE cell size: with a 128x192 texture that yields
-        // exactly 1.0 cell wide x 1.5 cells high at every viewport/board scale.
-        const targetSize = tallBoardModel
-            ? gs.getCellSize() * this.visualScaleMultiplier
-            : (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
+        // Portrait chips are authored around the fixed 128px board unit.
+        const targetSize = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
         const currentTexture = this.sprite.texture;
         const currentWidth = currentTexture && currentTexture.width > 1 ? currentTexture.width : baseTex.width || 1;
         const scale = targetSize / currentWidth;
@@ -698,9 +678,7 @@ export class RenderableUnit extends Unit {
         }
         const recoil = this.currentRecoil();
         const spriteX = pos.x + recoil.x;
-        // The 128x192 Ash Moth texture is exactly 1x1.5 cells. Anchor its feet to the tile's lower
-        // edge so the full body grows upward into the free visual space without widening its footprint.
-        const spriteY = pos.y - (tallBoardModel ? targetSize * 0.5 : 0) + recoil.y;
+        const spriteY = pos.y + recoil.y;
         if (this.sprite.x !== spriteX || this.sprite.y !== spriteY) {
             this.sprite.position.set(spriteX, spriteY);
         }
@@ -729,7 +707,7 @@ export class RenderableUnit extends Unit {
         }
         if (!this.shadow) {
             this.shadow = new Sprite(baseTex);
-            this.shadow.anchor.set(0.5, spriteAnchorY);
+            this.shadow.anchor.set(0.5);
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             this.shadow.zIndex = 4000 - pos.y - 0.5; // Slightly below sprite
             worldRoot.addChild(this.shadow);
@@ -740,8 +718,8 @@ export class RenderableUnit extends Unit {
                 worldRoot.addChild(this.shadow);
             }
         }
-        if (this.shadow.anchor.x !== 0.5 || this.shadow.anchor.y !== spriteAnchorY) {
-            this.shadow.anchor.set(0.5, spriteAnchorY);
+        if (this.shadow.anchor.x !== 0.5 || this.shadow.anchor.y !== 0.5) {
+            this.shadow.anchor.set(0.5);
         }
         // Silhouette positioning same as before
         if (this.shadow.scale.x !== scale || this.shadow.scale.y !== -scale) {
@@ -1915,11 +1893,8 @@ export class RenderableUnit extends Unit {
         const margin = Math.max(2, Math.floor(iconSide * 0.045));
         const offsetX = w * 0.5 - margin;
         const offsetY = h * 0.5 - margin;
-        // Place the stack flag above Ash Moth's head. Regular portrait units retain the existing
-        // top-right badge position inside their one-cell footprint.
-        const tallBoardModel = usesTallBoardModel(props);
-        const x = tallBoardModel ? pos.x + iconSide * 0.14 : pos.x + offsetX;
-        const y = tallBoardModel ? pos.y + iconSide * 1.08 : pos.y + offsetY;
+        const x = pos.x + offsetX;
+        const y = pos.y + offsetY;
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (container.scale.x !== this.badgeEmphasisScale || container.scale.y !== this.badgeEmphasisScale) {
             container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
