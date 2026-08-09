@@ -44,10 +44,12 @@ test("a reconciled live unit invalidates through its rebuilt impact", () => {
     ).toBe(false);
 });
 
-test("sidebar stats preserve tenths and omit a trailing zero for whole values", () => {
+test("sidebar stats preserve meaningful decimals and omit trailing zeroes", () => {
     expect(formatSidebarStat(2.1)).toBe("2.1");
     expect(formatSidebarStat(2.4)).toBe("2.4");
     expect(formatSidebarStat(4)).toBe("4");
-    expect(formatSidebarStat(9.5)).toBe("9.5");
-    expect(formatSidebarStat(10.04)).toBe("10");
+    expect(formatSidebarStat(2.93)).toBe("2.93");
+    expect(formatSidebarStat(7.75)).toBe("7.75");
+    expect(formatSidebarStat(10.04)).toBe("10.04");
+    expect(formatSidebarStat(2.4000000953674316)).toBe("2.4");
 });

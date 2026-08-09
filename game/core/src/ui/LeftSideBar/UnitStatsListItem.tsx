@@ -1155,8 +1155,8 @@ const UnitStatsLayout: React.FC<{
                 the turn", and pairing them keeps the plate at seven fixed slots. */}
             <StatItem
                 icon={unitProperties.movement_type === MovementVals.FLY ? <WingIcon /> : <BootIcon />}
-                // OWNER call: show the EXACT fractional stat (Trent's 3.9), one decimal, trailing .0
-                // dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
+                // OWNER call: show the exact fractional stat (Elf's 2.93), with insignificant trailing
+                // zeroes dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
                 // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
                 // the board can no longer disagree.
                 value={formatSidebarStat(unitProperties.steps + stepsMod)}
@@ -1173,12 +1173,12 @@ const UnitStatsLayout: React.FC<{
                 fourth row otherwise, which moved everything below the plate. */}
             <StatItem
                 icon={<MoraleIcon />}
-                value={formatSidebarStat(unitProperties.morale)}
+                value={formatSidebarStat(Math.round(unitProperties.morale))}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
                 secondIcon={<LuckIcon />}
-                secondValue={formatSidebarStat(unitProperties.luck + unitProperties.luck_mod)}
+                secondValue={formatSidebarStat(Math.round(unitProperties.luck + unitProperties.luck_mod))}
                 secondColor="#ff4040"
                 secondTooltip="Luck raises damage rolls and the power of abilities"
             />
@@ -1734,7 +1734,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
 
     if (unitProperties && Object.keys(unitProperties).length) {
         const damageRange = `${formatSidebarStat(unitProperties.attack_damage_min)} - ${formatSidebarStat(unitProperties.attack_damage_max)}`;
-        const stepsMod = Number(unitProperties.steps_mod.toFixed(1));
+        const stepsMod = unitProperties.steps_mod;
         const attackTypeSelected = unitProperties.attack_type_selected;
 
         let attackDamage = (unitProperties.base_attack + unitProperties.attack_mod) * unitProperties.attack_multiplier;

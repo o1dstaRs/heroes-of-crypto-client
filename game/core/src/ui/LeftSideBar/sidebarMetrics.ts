@@ -71,8 +71,8 @@ export interface ISidebarMetrics {
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
-/** Preserve gameplay precision to tenths without adding a meaningless trailing zero to whole stats. */
-export const formatSidebarStat = (value: number): string => Number(value.toFixed(1)).toString();
+/** Preserve gameplay precision to hundredths without adding meaningless trailing zeroes. */
+export const formatSidebarStat = (value: number): string => Number(value.toFixed(2)).toString();
 
 /**
  * The left frame rail is narrow, while the board-facing side has no matching inner ornament. Keep only
