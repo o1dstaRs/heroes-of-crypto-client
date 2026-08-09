@@ -2,14 +2,18 @@ import { describe, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { TIER1_ARTIFACT_LIST, TIER2_ARTIFACT_LIST } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+import {
+    formatArtifactDescription,
+    TIER1_ARTIFACT_LIST,
+    TIER2_ARTIFACT_LIST,
+} from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 
 import { artifacts } from "./artifacts-data";
 
-// The codex mirrors the game's artifact_properties.ts by hand, so an artifact added to the game can quietly
-// go missing here. The check runs ONE way on purpose — every game artifact must have a codex entry, but a
-// codex entry is allowed to run ahead of the pinned common submodule, which is exactly the state between
-// "the artifact lands in common" and "the client bumps its pin".
+// The codex is DERIVED from the game's artifact_properties.ts (it used to be a hand-written mirror, and it
+// went stale: Rime Charm advertised 30% for a whole balance patch after the game moved it to 60%). These
+// checks therefore guard the derivation rather than a copy — that every game artifact reaches the page, and
+// that the effect text arrives with its numbers actually substituted.
 const gameArtifacts = [...TIER1_ARTIFACT_LIST, ...TIER2_ARTIFACT_LIST];
 
 describe("artifact codex", () => {
@@ -40,7 +44,10 @@ describe("artifact codex", () => {
                 const codexName = codexNames.get(`${props.tier}:${props.slug}`);
                 return codexName !== undefined && normalize(codexName) !== normalize(props.name);
             })
-            .map((props) => `${props.slug}: game "${props.name}" vs codex "${codexNames.get(`${props.tier}:${props.slug}`)}"`);
+            .map(
+                (props) =>
+                    `${props.slug}: game "${props.name}" vs codex "${codexNames.get(`${props.tier}:${props.slug}`)}"`,
+            );
 
         expect(mismatched).toEqual([]);
     });
@@ -63,6 +70,46 @@ describe("artifact codex", () => {
             .filter(Boolean);
 
         expect(broken).toEqual([]);
+    });
+
+    // The failure mode that survives a derived codex: a new artifact missing from ARTIFACT_DESCRIPTION_VALUES
+    // renders its raw template, so the page advertises "{}% chance" instead of a number.
+    test("substitutes every power placeholder, leaving no template markers on the page", () => {
+        const unsubstituted = artifacts
+            .filter((artifact) => /\{\}|\[\]|<>/.test(artifact.description))
+            .map((artifact) => `${artifact.slug}: ${artifact.description}`);
+
+        expect(unsubstituted).toEqual([]);
+        expect(artifacts.every((artifact) => artifact.description.trim().length > 0)).toBe(true);
+    });
+
+    // The numbers themselves come from the game, so a rebalance needs no edit here at all. This is the check
+    // that would have caught the 30%-vs-60% drift the day it happened.
+    test("states the same effect the game does, numbers included", () => {
+        const codex = new Map(artifacts.map((artifact) => [`${artifact.tier}:${artifact.slug}`, artifact.description]));
+        const wrong = gameArtifacts
+            .map((props) => {
+                const shown = codex.get(`${props.tier}:${props.slug}`);
+                if (shown === undefined) {
+                    return undefined;
+                }
+                // The page drops the "Artifact." marker and the "Lasts till the end of the fight." line that
+                // is true of every artifact; everything else must match the game verbatim.
+                const expected = formatArtifactDescription(props)
+                    .replace(/^Artifact\.\s*/, "")
+                    .replace(/\s*Lasts till the end of the fight\.\s*$/, "")
+                    .trim();
+                return shown === expected ? undefined : `${props.slug}: codex "${shown}" vs game "${expected}"`;
+            })
+            .filter(Boolean);
+
+        expect(wrong).toEqual([]);
+    });
+
+    test("tags exactly the artifacts whose effect declares a downside", () => {
+        const cursed = artifacts.filter((artifact) => artifact.cursed).map((artifact) => artifact.slug);
+
+        expect(cursed).toEqual(["cursed_ward", "pendant_of_vitality", "berserkers_bond"]);
     });
 
     test("has no duplicate entries", () => {
