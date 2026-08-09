@@ -811,8 +811,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__games {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+        gap: 10px 14px;
     }
 
     .ranked-arena .ranked-arena__leagues {
@@ -840,10 +840,13 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         position: relative;
         z-index: 0;
         overflow: visible;
-        border-left: 2px solid var(--game-stage);
+        border: 0;
+        border-left: 2px solid color-mix(in srgb, var(--game-stage) 78%, transparent);
+        border-radius: 0 3px 3px 0;
         background:
-            linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 6%, transparent), transparent 42%),
-            linear-gradient(145deg, rgba(45, 27, 14, 0.94), rgba(11, 7, 4, 0.98)), #0d0805;
+            linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 7%, transparent), transparent 48%),
+            rgba(15, 10, 7, 0.72);
+        box-shadow: inset 0 -1px rgba(151, 104, 50, 0.24);
     }
 
     .ranked-arena .ranked-arena__game-card[data-stage="fight"] {
@@ -859,7 +862,17 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         z-index: 6;
     }
 
-    .ranked-arena .ranked-arena__game-card:hover,
+    .ranked-arena .ranked-arena__game-card:hover {
+        border-left-color: var(--game-stage);
+        background:
+            linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 11%, transparent), transparent 52%),
+            rgba(20, 13, 8, 0.84);
+        box-shadow:
+            inset 0 -1px rgba(220, 177, 88, 0.32),
+            0 8px 22px rgba(0, 0, 0, 0.26);
+        transform: translateY(-1px);
+    }
+
     .ranked-arena .ranked-arena__league-card:hover {
         border-color: rgba(220, 177, 88, 0.62);
         box-shadow:
@@ -869,17 +882,16 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__versus {
-        display: grid;
-        place-items: center;
-        width: 25px;
-        height: 25px;
-        border: 1px solid rgba(220, 177, 88, 0.48);
-        border-radius: 0;
-        background: linear-gradient(145deg, rgba(92, 56, 24, 0.92), rgba(28, 16, 8, 0.96));
-        clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-        color: var(--gold-soft);
-        font-size: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        border: 0;
+        background: transparent;
+        color: rgba(239, 212, 154, 0.62);
+        font-size: 0.48rem;
         font-weight: 400;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
     }
 
@@ -1347,8 +1359,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__games-live-count {
         gap: 6px;
-        color: var(--muted-2);
-        font-size: 0.7rem;
+        color: var(--muted);
+        font-size: 0.72rem;
         font-weight: 400;
         letter-spacing: 0.065em;
         text-transform: uppercase;
@@ -1376,15 +1388,17 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__stage-count {
+        --stage-color: var(--gold);
         gap: 5px;
-        min-height: 30px;
-        padding: 4px 8px;
-        border: 1px solid rgba(151, 104, 50, 0.42);
-        border-radius: 1px;
-        background: rgba(35, 21, 11, 0.62);
-        color: var(--muted-2);
+        min-height: 36px;
+        padding: 4px 7px;
+        border: 0;
+        border-bottom: 1px solid transparent;
+        border-radius: 2px 2px 0 0;
+        background: transparent;
+        color: var(--muted);
         font: inherit;
-        font-size: 0.64rem;
+        font-size: 0.7rem;
         cursor: pointer;
         transition:
             border-color 0.15s ease,
@@ -1396,31 +1410,30 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: var(--gold);
+        background: var(--stage-color);
     }
 
-    .ranked-arena .ranked-arena__stage-count[data-stage="fight"] i {
-        background: var(--green);
+    .ranked-arena .ranked-arena__stage-count[data-stage="fight"] {
+        --stage-color: var(--green);
     }
 
-    .ranked-arena .ranked-arena__stage-count[data-stage="pick"] i {
-        background: var(--blue);
+    .ranked-arena .ranked-arena__stage-count[data-stage="pick"] {
+        --stage-color: var(--blue);
     }
 
     .ranked-arena .ranked-arena__stage-count:hover,
     .ranked-arena .ranked-arena__stage-count[aria-pressed="true"] {
-        border-color: rgba(220, 177, 88, 0.62);
-        background: linear-gradient(180deg, rgba(85, 52, 22, 0.8), rgba(29, 17, 8, 0.88));
+        border-bottom-color: color-mix(in srgb, var(--stage-color) 74%, transparent);
+        background: color-mix(in srgb, var(--stage-color) 7%, transparent);
         color: var(--gold-soft);
     }
 
     .ranked-arena .ranked-arena__stage-count strong {
         min-width: 18px;
-        padding: 1px 5px;
-        border-radius: 1px;
-        background: rgba(6, 4, 3, 0.52);
+        padding: 0 2px;
+        background: transparent;
         color: var(--ink);
-        font-size: 0.62rem;
+        font-size: 0.7rem;
         text-align: center;
     }
 
@@ -1430,16 +1443,16 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         gap: 7px;
         align-items: center;
         min-width: 0;
-        min-height: 32px;
-        padding: 5px 7px;
-        border-bottom: 1px solid rgba(151, 104, 50, 0.32);
-        background: rgba(7, 4, 2, 0.38);
+        min-height: 35px;
+        padding: 7px 9px 2px;
+        border: 0;
+        background: transparent;
     }
 
     .ranked-arena .ranked-arena__game-live {
         gap: 5px;
-        color: var(--muted-2);
-        font-size: 0.63rem;
+        color: var(--muted);
+        font-size: 0.7rem;
         white-space: nowrap;
     }
 
@@ -1451,8 +1464,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__watch-waiting {
         overflow: hidden;
         max-width: 82px;
-        color: var(--muted-2);
-        font-size: 0.6rem;
+        color: var(--muted);
+        font-size: 0.7rem;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -1467,7 +1480,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__game-badges .ranked-arena__badge {
         min-height: 18px;
         padding: 1px 5px;
-        font-size: 0.54rem;
+        border: 0;
+        border-radius: 2px;
+        font-size: 0.68rem;
     }
 
     .ranked-arena .ranked-arena__badge--fight {
@@ -1497,24 +1512,24 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__matchup {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-        gap: 6px;
+        gap: 5px;
         align-items: center;
-        min-height: 62px;
-        padding: 6px;
+        min-height: 66px;
+        padding: 5px 9px 9px;
     }
 
     .ranked-arena .ranked-arena__game-seat {
         position: relative;
         display: grid;
-        grid-template-columns: 32px minmax(0, 1fr);
+        grid-template-columns: 34px minmax(0, 1fr);
         gap: 7px;
         align-items: center;
         min-width: 0;
-        min-height: 42px;
-        padding: 4px;
-        border: 1px solid color-mix(in srgb, var(--seat-color, var(--game-stage)) 32%, transparent);
-        border-radius: 2px;
-        background: color-mix(in srgb, var(--seat-color, var(--game-stage)) 5%, rgba(9, 6, 4, 0.72));
+        min-height: 44px;
+        padding: 5px;
+        border: 0;
+        border-radius: 3px;
+        background: transparent;
         color: inherit;
         text-align: left;
         transition:
@@ -1524,8 +1539,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__game-seat:hover,
     .ranked-arena .ranked-arena__game-seat:focus-visible {
-        border-color: color-mix(in srgb, var(--seat-color, var(--game-stage)) 62%, transparent);
-        background: color-mix(in srgb, var(--seat-color, var(--game-stage)) 10%, rgba(9, 6, 4, 0.76));
+        background: color-mix(in srgb, var(--seat-color, var(--game-stage)) 9%, transparent);
     }
 
     .ranked-arena .ranked-arena__game-seat:first-child {
@@ -1537,16 +1551,16 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__game-seat .ranked-arena__avatar {
-        width: 32px;
-        height: 32px;
-        border-color: color-mix(in srgb, var(--seat-color, var(--game-stage)) 55%, rgba(151, 104, 50, 0.46));
-        border-radius: 1px;
+        width: 34px;
+        height: 34px;
+        border-color: color-mix(in srgb, var(--seat-color, var(--game-stage)) 48%, rgba(151, 104, 50, 0.36));
+        border-radius: 50%;
         background: linear-gradient(
             145deg,
-            color-mix(in srgb, var(--seat-color, var(--game-stage)) 19%, #3a2312),
+            color-mix(in srgb, var(--seat-color, var(--game-stage)) 15%, #3a2312),
             #100a06
         );
-        font-size: 0.58rem;
+        font-size: 0.62rem;
     }
 
     .ranked-arena .ranked-arena__game-seat > div {
@@ -1564,13 +1578,13 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__game-seat > div strong {
         color: var(--ink);
-        font-size: 0.74rem;
+        font-size: 0.78rem;
         line-height: 1.2;
     }
 
     .ranked-arena .ranked-arena__game-seat > div span {
-        color: var(--muted-2);
-        font-size: 0.58rem;
+        color: var(--muted);
+        font-size: 0.68rem;
         line-height: 1.3;
     }
 
@@ -1623,8 +1637,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__game-dossier small {
-        color: var(--muted-2);
-        font-size: 0.54rem;
+        color: var(--muted);
+        font-size: 0.64rem;
         font-weight: 780;
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -1632,16 +1646,24 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__game-dossier strong {
         color: var(--gold-soft);
-        font-size: 0.7rem;
+        font-size: 0.72rem;
     }
 
     .ranked-arena .ranked-arena__watch {
         gap: 4px;
-        min-height: 27px;
-        padding: 4px 7px;
-        border-radius: 1px;
-        font-size: 0.63rem;
+        min-height: 36px;
+        padding: 4px 1px 4px 6px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        font-size: 0.7rem;
         white-space: nowrap;
+    }
+
+    .ranked-arena .ranked-arena__watch:hover {
+        border-color: transparent;
+        background: transparent;
+        color: var(--ink-strong);
     }
 
     .ranked-arena .ranked-arena__watch span {
@@ -1890,12 +1912,6 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         }
     }
 
-    @media (min-width: 1240px) {
-        .ranked-arena .ranked-arena__games {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-    }
-
     @media (max-width: 900px) {
         .ranked-arena .ranked-arena__heading {
             grid-template-columns: 1fr;
@@ -1995,17 +2011,13 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
         .ranked-arena .ranked-arena__games-overview {
             align-items: flex-start;
+            flex-wrap: wrap;
         }
 
         .ranked-arena .ranked-arena__stage-counts {
-            overflow-x: auto;
+            flex-wrap: wrap;
+            width: 100%;
             max-width: 100%;
-            padding-bottom: 2px;
-            scrollbar-width: none;
-        }
-
-        .ranked-arena .ranked-arena__stage-counts::-webkit-scrollbar {
-            display: none;
         }
 
         .ranked-arena .ranked-arena__loading {
