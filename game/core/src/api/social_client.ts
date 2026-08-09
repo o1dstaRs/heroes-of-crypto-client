@@ -32,11 +32,12 @@ export interface PresencePingResult {
 
 export interface SocialNotification {
     id: string;
-    type: "friend_request" | "friend_accepted" | "friend_message" | "system";
+    type: "friend_request" | "friend_accepted" | "friend_message" | "lobby_invite" | "system";
     fromPlayerId?: string;
     fromUsername?: string;
     requestId?: string;
     messageId?: string;
+    lobbyId?: string;
     body?: string;
     createdAt: number;
     seenAt: number;
@@ -106,6 +107,11 @@ export const respondFriendRequest = (requestId: string, accept: boolean): Promis
 
 export const removeFriend = (playerId: string): Promise<{ ok: boolean }> =>
     post(endpoints.social.friendRemove, { playerId });
+
+/** Invite a friend into the lobby you're currently in; it lands in their notification tray. */
+export const sendLobbyInvite = async (toPlayerId: string, lobbyId: string): Promise<void> => {
+    await post(endpoints.social.friendInvite, { toPlayerId, lobbyId });
+};
 
 export const blockPlayer = (playerId: string): Promise<{ ok: boolean }> =>
     post(endpoints.social.friendBlock, { playerId });

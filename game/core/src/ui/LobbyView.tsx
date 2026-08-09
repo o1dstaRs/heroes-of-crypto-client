@@ -13,6 +13,7 @@ import {
 } from "../api/lobby_client";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { useCurrentLobby } from "./social/CurrentLobbyContext";
 
 const PlayerCard: React.FC<{ player?: LobbyPlayerObject; placeholder: string; isYou: boolean }> = ({
     player,
@@ -55,6 +56,13 @@ export const LobbyView: React.FC = () => {
     const [nowMs, setNowMs] = useState(() => Date.now());
     const autoJoinedRef = useRef(false);
     const navigatedRef = useRef(false);
+    const { setLobbyId } = useCurrentLobby();
+
+    // Tell the app-wide SocialDock which lobby we're in so friends can be invited; clear on unmount.
+    useEffect(() => {
+        setLobbyId(lobbyId ?? null);
+        return () => setLobbyId(null);
+    }, [lobbyId, setLobbyId]);
 
     // Load initial state + subscribe to live updates.
     useEffect(() => {
@@ -93,15 +101,23 @@ export const LobbyView: React.FC = () => {
     const bothReady = !!lobby?.host?.ready && !!lobby?.guest?.ready;
     const status = lobby?.status ?? LobbyStatus.LOBBY_OPEN;
 
-    // Navigate into the game once the server has created it.
+    // Carry the two PLAYERS into their game the moment the server creates it. A non-member watcher is
+    // deliberately NOT auto-navigated — they get an explicit "Spectate" button below so opening a shared
+    // link to a running game doesn't yank them straight into a fight they only meant to watch.
     useEffect(() => {
-        if (lobby && status === LobbyStatus.LOBBY_STARTED && lobby.game_id && !navigatedRef.current) {
+        if (lobby && status === LobbyStatus.LOBBY_STARTED && lobby.game_id && isMember && !navigatedRef.current) {
             navigatedRef.current = true;
-            // Stamp the origin: whoever enters the game THROUGH a lobby room (member or watcher)
-            // gets a "Back to lobby" exit that returns here, instead of the generic destination.
+            // Stamp the origin: entering the game THROUGH a lobby room gives a "Back to lobby" exit.
             navigate(`/game/${lobby.game_id}`, { state: { from: "lobby", lobbyId } });
         }
-    }, [lobby, status, navigate]);
+    }, [lobby, status, isMember, navigate]);
+
+    // Watch a running lobby game (any public game is observable). Reuses the game route's observer mode.
+    const spectate = useCallback(() => {
+        if (lobby?.game_id) {
+            navigate(`/game/${lobby.game_id}`, { state: { from: "lobby", lobbyId } });
+        }
+    }, [lobby?.game_id, lobbyId, navigate]);
 
     // Auto-join public lobbies the moment we arrive (private ones prompt for a PIN below).
     useEffect(() => {
@@ -278,6 +294,28 @@ export const LobbyView: React.FC = () => {
                     </Sheet>
                 ) : null}
 
+                {!isMember && status === LobbyStatus.LOBBY_STARTED && lobby.game_id ? (
+                    <Sheet sx={{ ...hocPanelSx, p: 2 }}>
+                        <Typography sx={{ color: hocColors.parchment, mb: 1 }}>
+                            This game is already in progress — the lobby is full.
+                        </Typography>
+                        <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1.5 }}>
+                            Every game is public, so you can watch it live.
+                        </Typography>
+                        <Button sx={hocPrimaryButtonSx} onClick={spectate}>
+                            Spectate live
+                        </Button>
+                    </Sheet>
+                ) : null}
+
+                {!isMember && (status === LobbyStatus.LOBBY_FULL || status === LobbyStatus.LOBBY_STARTING) ? (
+                    <Sheet sx={{ ...hocPanelSx, p: 2 }}>
+                        <Typography sx={{ color: hocColors.muted }}>
+                            This lobby is full — you can watch here once the game starts.
+                        </Typography>
+                    </Sheet>
+                ) : null}
+
                 {isMember && status === LobbyStatus.LOBBY_FULL ? (
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <Button sx={hocSoftButtonSx} loading={busy} onClick={() => void toggleReady()}>
@@ -293,7 +331,7 @@ export const LobbyView: React.FC = () => {
                     </Stack>
                 ) : null}
 
-                {status === LobbyStatus.LOBBY_STARTING ? (
+                {isMember && status === LobbyStatus.LOBBY_STARTING ? (
                     <Box
                         sx={{
                             position: "fixed",

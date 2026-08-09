@@ -36,6 +36,7 @@ import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
 import { ThemeMusic } from "./audio/ThemeMusic";
+import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
@@ -694,14 +695,18 @@ const App: React.FC = () => {
     return (
         <AuthProvider>
             <SocialProvider>
-                <Router>
-                    {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
-                        screens does not restart the theme. It decides for itself which routes sing. */}
-                    <ThemeMusic />
-                    {/* Floating notifications, friends, and messages; compact during fights. */}
-                    <SocialDock />
-                    <AuthedRoutes windowSize={windowSize} />
-                </Router>
+                {/* Tracks which lobby room the player is currently in so the SocialDock can offer
+                    "Invite" and the routed LobbyView can publish/clear the current lobby id. */}
+                <CurrentLobbyProvider>
+                    <Router>
+                        {/* Above the routes on purpose: one long-lived <audio> means walking between the menu
+                            screens does not restart the theme. It decides for itself which routes sing. */}
+                        <ThemeMusic />
+                        {/* Floating notifications, friends, and messages; compact during fights. */}
+                        <SocialDock />
+                        <AuthedRoutes windowSize={windowSize} />
+                    </Router>
+                </CurrentLobbyProvider>
             </SocialProvider>
         </AuthProvider>
     );

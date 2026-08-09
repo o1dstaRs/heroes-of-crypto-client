@@ -215,6 +215,7 @@ export const endpoints = {
         friendRequest: IS_PROD ? "/v1/friend-request" : "/v1/mm/friend-request",
         friendRespond: IS_PROD ? "/v1/friend-respond" : "/v1/mm/friend-respond",
         friendRemove: IS_PROD ? "/v1/friend-remove" : "/v1/mm/friend-remove",
+        friendInvite: IS_PROD ? "/v1/friend-invite" : "/v1/mm/friend-invite",
         friendBlock: IS_PROD ? "/v1/friend-block" : "/v1/mm/friend-block",
         friendUnblock: IS_PROD ? "/v1/friend-unblock" : "/v1/mm/friend-unblock",
         friendMessages: IS_PROD ? "/v1/friend-messages" : "/v1/mm/friend-messages",

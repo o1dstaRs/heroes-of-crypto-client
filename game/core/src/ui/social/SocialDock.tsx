@@ -13,9 +13,10 @@ import {
     Typography,
 } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { ConversationPanel } from "./ConversationPanel";
+import { useCurrentLobby } from "./CurrentLobbyContext";
 import { useSocial } from "./SocialProvider";
 import {
     blockPlayer,
@@ -26,6 +27,7 @@ import {
     removeFriend,
     searchPlayers,
     sendFriendRequest,
+    sendLobbyInvite,
     setFriendMuted,
     socialErrorMessage,
     unblockPlayer,
@@ -70,6 +72,8 @@ const notificationText = (notification: SocialNotification): string => {
             return `${notification.fromUsername ?? "Someone"} accepted your friend request`;
         case "friend_message":
             return `${notification.fromUsername ?? "Someone"}: ${notification.body ?? "New message"}`;
+        case "lobby_invite":
+            return `${notification.fromUsername ?? "Someone"} invited you to a lobby`;
         default:
             return notification.body ?? "Notification";
     }
@@ -97,8 +101,31 @@ interface NotificationsTrayProps {
 
 const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, onMessage }) => {
     const social = useSocial();
+    const navigate = useNavigate();
     const [items, setItems] = useState<SocialNotification[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // Which tray entries do something when clicked, and what that is. Messages open the conversation;
+    // lobby invites route straight into the lobby room.
+    const isClickable = (notification: SocialNotification): boolean =>
+        (notification.type === "friend_message" && !!notification.fromPlayerId) ||
+        (notification.type === "lobby_invite" && !!notification.lobbyId);
+
+    const activate = (notification: SocialNotification): void => {
+        if (notification.type === "friend_message" && notification.fromPlayerId) {
+            onMessage({
+                playerId: notification.fromPlayerId,
+                username: notification.fromUsername ?? "Friend",
+                online: false,
+                lastOnlineAt: 0,
+                muted: false,
+                unreadCount: 0,
+            });
+        } else if (notification.type === "lobby_invite" && notification.lobbyId) {
+            onClose();
+            navigate(`/lobby/${notification.lobbyId}`);
+        }
+    };
 
     useEffect(() => {
         if (!open) {
@@ -152,38 +179,21 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                                 notification.type === "friend_request" &&
                                 !!notification.requestId &&
                                 pendingIds.has(notification.requestId);
+                            const clickable = isClickable(notification);
                             return (
                                 <Box
                                     key={notification.id}
-                                    role={notification.type === "friend_message" ? "button" : undefined}
-                                    tabIndex={notification.type === "friend_message" ? 0 : undefined}
+                                    role={clickable ? "button" : undefined}
+                                    tabIndex={clickable ? 0 : undefined}
                                     onClick={() => {
-                                        if (notification.type === "friend_message" && notification.fromPlayerId) {
-                                            onMessage({
-                                                playerId: notification.fromPlayerId,
-                                                username: notification.fromUsername ?? "Friend",
-                                                online: false,
-                                                lastOnlineAt: 0,
-                                                muted: false,
-                                                unreadCount: 0,
-                                            });
+                                        if (clickable) {
+                                            activate(notification);
                                         }
                                     }}
                                     onKeyDown={(event) => {
-                                        if (
-                                            (event.key === "Enter" || event.key === " ") &&
-                                            notification.type === "friend_message" &&
-                                            notification.fromPlayerId
-                                        ) {
+                                        if ((event.key === "Enter" || event.key === " ") && clickable) {
                                             event.preventDefault();
-                                            onMessage({
-                                                playerId: notification.fromPlayerId,
-                                                username: notification.fromUsername ?? "Friend",
-                                                online: false,
-                                                lastOnlineAt: 0,
-                                                muted: false,
-                                                unreadCount: 0,
-                                            });
+                                            activate(notification);
                                         }
                                     }}
                                     sx={{
@@ -191,11 +201,8 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                                         borderRadius: 8,
                                         border: `1px solid ${notification.seenAt === 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.14)"}`,
                                         bgcolor: notification.seenAt === 0 ? hocColors.orangeSoft : "transparent",
-                                        cursor: notification.type === "friend_message" ? "pointer" : "default",
-                                        "&:hover":
-                                            notification.type === "friend_message"
-                                                ? { borderColor: hocColors.orangeBorder }
-                                                : undefined,
+                                        cursor: clickable ? "pointer" : "default",
+                                        "&:hover": clickable ? { borderColor: hocColors.orangeBorder } : undefined,
                                     }}
                                 >
                                     <Stack
@@ -254,6 +261,7 @@ interface FriendsPanelProps {
 
 const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage }) => {
     const social = useSocial();
+    const { lobbyId: currentLobbyId } = useCurrentLobby();
     const [overview, setOverview] = useState<FriendsOverview | null>(null);
     const [loading, setLoading] = useState(false);
     const [query, setQuery] = useState("");
@@ -321,6 +329,23 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
             await reload();
         } catch (err) {
             setMessage({ kind: "error", text: socialErrorMessage(err, "Could not send the friend request") });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    // Only offered while the player is actually in a lobby room (currentLobbyId set by LobbyView).
+    const invite = async (friend: FriendEntry): Promise<void> => {
+        if (!currentLobbyId || busy) {
+            return;
+        }
+        setBusy(true);
+        setMessage(null);
+        try {
+            await sendLobbyInvite(friend.playerId, currentLobbyId);
+            setMessage({ kind: "ok", text: `Lobby invite sent to ${friend.username}` });
+        } catch (err) {
+            setMessage({ kind: "error", text: socialErrorMessage(err, "Could not send the lobby invite") });
         } finally {
             setBusy(false);
         }
@@ -487,6 +512,17 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                         <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
                                             Message
                                         </Button>
+                                        {currentLobbyId ? (
+                                            <Button
+                                                size="sm"
+                                                variant="outlined"
+                                                sx={hocSoftButtonSx}
+                                                disabled={busy}
+                                                onClick={() => void invite(friend)}
+                                            >
+                                                Invite
+                                            </Button>
+                                        ) : null}
                                         <Button
                                             size="sm"
                                             variant="outlined"
