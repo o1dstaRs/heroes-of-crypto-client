@@ -3,7 +3,23 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { ruBlogPosts } from "../../../lib/blog-ru";
 
 const lang = "ru";
-const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf());
+const posts = [
+    {
+        href: "/news/research/a13/",
+        title: "A13 — внутри ИИ Heroes of Crypto v0.8",
+        date: "2026-07-22",
+        tags: ["исследование ИИ"],
+        excerpt:
+            "Интерактивный разбор правил, поиска и обученной функции ценности в основе ИИ Heroes of Crypto (на английском).",
+    },
+    ...ruBlogPosts.map((post) => ({
+        href: `/ru/news/${post.id}/`,
+        title: post.title,
+        date: post.date,
+        tags: post.tags,
+        excerpt: post.excerpt,
+    })),
+].sort((a, b) => new Date(b.date).valueOf() - new Date(a.date).valueOf());
 ---
 
 <BaseLayout
@@ -23,22 +39,10 @@ const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new D
             </header>
 
             <ul class="post-list">
-                <li class="post-card post-card--research">
-                    <a href="/ru/news/research/" class="post-card-link">
-                        <div class="post-card-meta">
-                            <span class="post-tag">Исследования ИИ</span>
-                        </div>
-                        <h2>Внутри ИИ Heroes of Crypto</h2>
-                        <p>
-                            Проверенные по исходникам исследования игрового ИИ: симуляции,
-                            тактические решения, турнирные данные и производительность движка.
-                        </p>
-                    </a>
-                </li>
                 {
                     posts.map((post) => (
                         <li class="post-card">
-                            <a href={`/ru/news/${post.id}/`} class="post-card-link">
+                            <a href={post.href} class="post-card-link">
                                 <div class="post-card-meta">
                                     <time datetime={new Date(post.date).toISOString()}>
                                         {new Date(post.date).toLocaleDateString("ru-RU", {
@@ -88,10 +92,6 @@ const posts = [...ruBlogPosts].sort((a, b) => new Date(b.date).valueOf() - new D
         margin: 0;
         padding: 0;
         border-top: 1px solid rgba(215, 170, 75, 0.24);
-    }
-    .post-card--research {
-        border: 1px solid rgba(255, 143, 0, 0.35);
-        background: linear-gradient(180deg, rgba(40, 24, 8, 0.55), rgba(16, 10, 5, 0.7));
     }
     .post-tag {
         display: inline-block;

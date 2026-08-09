@@ -16,8 +16,10 @@ export default defineConfig({
         "/blog/[...slug]": "/news/[...slug]",
         "/ru/blog": "/ru/news",
         "/ru/blog/[...slug]": "/ru/news/[...slug]",
-        "/research": "/news/research",
-        "/ru/research": "/ru/news/research",
+        "/research": "/news/research/a13",
+        "/ru/research": "/news/research/a13",
+        "/news/research": "/news/research/a13",
+        "/ru/news/research": "/news/research/a13",
     },
     integrations: [sitemap({ customPages: ["https://heroesofcrypto.io/news/research/a13/"] })],
     vite: {
