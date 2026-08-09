@@ -66,7 +66,20 @@ export interface PlaystyleArtifact {
     pickRatePct: number;
 }
 
-/** How the player usually plays: favorite creatures, winning combos, artifact habits. */
+/** A habitual combat-augment choice: a kind (1..6) at a display level (1..3), with its record. */
+export interface PlaystyleAugment {
+    kind: number;
+    level: number;
+    name: string;
+    games: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    winRatePct: number;
+    pickRatePct: number;
+}
+
+/** How the player usually plays: favorite creatures, winning combos, artifact + augment habits. */
 export interface PlayerPlaystyle {
     games: number;
     wins: number;
@@ -78,6 +91,7 @@ export interface PlayerPlaystyle {
     topTriples: PlaystyleCombo[];
     artifactsTier1: PlaystyleArtifact[];
     artifactsTier2: PlaystyleArtifact[];
+    augments: PlaystyleAugment[];
 }
 
 export interface SeasonHistoryEntry {
@@ -254,6 +268,21 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
             pickRatePct: numberOr0(entry.pickRatePct),
         };
     };
+    const normalizeAugment = (value: unknown): PlaystyleAugment | null => {
+        const entry = value && typeof value === "object" ? (value as UnknownRecord) : null;
+        if (!entry) return null;
+        return {
+            kind: numberOr0(entry.kind),
+            level: numberOr0(entry.level),
+            name: typeof entry.name === "string" ? entry.name : "",
+            games: numberOr0(entry.games),
+            wins: numberOr0(entry.wins),
+            losses: numberOr0(entry.losses),
+            draws: numberOr0(entry.draws),
+            winRatePct: numberOr0(entry.winRatePct),
+            pickRatePct: numberOr0(entry.pickRatePct),
+        };
+    };
     const playstyle: PlayerPlaystyle | null = playstyleRow
         ? {
               games: numberOr0(playstyleRow.games),
@@ -276,6 +305,9 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
               artifactsTier2: (Array.isArray(playstyleRow.artifactsTier2) ? playstyleRow.artifactsTier2 : [])
                   .map(normalizeArtifact)
                   .filter((entry): entry is PlaystyleArtifact => entry !== null),
+              augments: (Array.isArray(playstyleRow.augments) ? playstyleRow.augments : [])
+                  .map(normalizeAugment)
+                  .filter((entry): entry is PlaystyleAugment => entry !== null),
           }
         : null;
     const recentGames = (Array.isArray(row.recentGames) ? row.recentGames : [])

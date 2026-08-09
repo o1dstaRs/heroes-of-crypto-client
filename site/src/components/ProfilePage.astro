@@ -125,6 +125,8 @@ const rankedApp = links.rankedApp;
         fetchPublicRankedProfile,
         publicRankedProfileFallbackFromSearchParams,
         rankedExitRatePct,
+        type PlaystyleArtifact,
+        type PlaystyleAugment,
         type PublicRankedProfile,
         type RankedMatchReason,
         type RankedMatchResult,
@@ -597,6 +599,55 @@ const rankedApp = links.rankedApp;
                 cards.length
                     ? `<section class="playstyle-group"><h3>${escapeHtml(title)}</h3><div class="strategy-list">${cards.join("")}</div></section>`
                     : "";
+            // Tier 1 and Tier 2 artifacts are separate habits (a player picks one of each per game), so they
+            // read as two lists rather than one merged "Artifact habits" pile.
+            const artifactCards = (list: PlaystyleArtifact[]): string[] =>
+                list
+                    .slice()
+                    .sort((a, b) => b.games - a.games)
+                    .slice(0, 6)
+                    .map((artifact) => {
+                        const catalogEntry = artifacts.find(
+                            (entry) => entry.tier === artifact.tier && entry.name === artifact.name,
+                        );
+                        return strategyCard(
+                            artifact.name,
+                            artifact.winRatePct,
+                            artifact.games,
+                            catalogEntry ? [{ src: catalogEntry.icon, alt: catalogEntry.name }] : [],
+                            `Tier ${artifact.tier}`,
+                        );
+                    });
+            // Combat augments: six kinds, each shown at its display level. Localized names + icons live here,
+            // parallel to the match page's augment chips.
+            const augmentMeta: Record<number, { slug: string; en: string; ru: string }> = {
+                1: { slug: "board", en: "Placement", ru: "Расстановка" },
+                2: { slug: "armor", en: "Armor", ru: "Броня" },
+                3: { slug: "might", en: "Might", ru: "Сила" },
+                4: { slug: "sniper", en: "Sniper", ru: "Снайпер" },
+                5: { slug: "movement", en: "Movement", ru: "Движение" },
+                6: { slug: "empower", en: "Empower", ru: "Магия" },
+            };
+            const augmentCards = (list: PlaystyleAugment[]): string[] =>
+                list
+                    .slice()
+                    .sort((a, b) => b.games - a.games)
+                    .slice(0, 6)
+                    .map((augment) => {
+                        const meta = augmentMeta[augment.kind];
+                        const name = meta ? (language === "ru" ? meta.ru : meta.en) : augment.name;
+                        const artwork = meta
+                            ? [{ src: `/assets/images/units/abilities/${meta.slug}_augment_256.webp`, alt: name }]
+                            : [];
+                        const levelWord = language === "ru" ? "Ур." : "Lv";
+                        return strategyCard(
+                            name,
+                            augment.winRatePct,
+                            augment.games,
+                            artwork,
+                            `${levelWord} ${augment.level}`,
+                        );
+                    });
             const hasData = !summaryOnly && style && style.games > 0;
             playstyleSection.hidden = !hasData && !style;
             playstyleEl.innerHTML = hasData
@@ -634,24 +685,9 @@ const rankedApp = links.rankedApp;
                               ),
                           ),
                       ),
-                      group(
-                          copy.publicPlaystyleArtifacts,
-                          [...style.artifactsTier1, ...style.artifactsTier2]
-                              .sort((a, b) => b.games - a.games)
-                              .slice(0, 6)
-                              .map((artifact) => {
-                                  const catalogEntry = artifacts.find(
-                                      (entry) => entry.tier === artifact.tier && entry.name === artifact.name,
-                                  );
-                                  return strategyCard(
-                                      artifact.name,
-                                      artifact.winRatePct,
-                                      artifact.games,
-                                      catalogEntry ? [{ src: catalogEntry.icon, alt: catalogEntry.name }] : [],
-                                      `Tier ${artifact.tier}`,
-                                  );
-                              }),
-                      ),
+                      group(copy.publicPlaystyleArtifactsTier1, artifactCards(style.artifactsTier1)),
+                      group(copy.publicPlaystyleArtifactsTier2, artifactCards(style.artifactsTier2)),
+                      group(copy.publicPlaystyleAugments, augmentCards(style.augments)),
                   ].join("") || `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`
                 : `<p class="profile-empty-message">${escapeHtml(copy.publicPlaystyleEmpty)}</p>`;
         }
