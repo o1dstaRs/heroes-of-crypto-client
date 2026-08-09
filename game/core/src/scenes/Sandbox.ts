@@ -61,7 +61,6 @@ import {
     GameActionEngine,
     TurnEngine,
     GameEvent,
-    hasActiveTimeDenial,
     isThrownOffensiveSpell,
     isOffensiveSpellMultiplier,
     offensiveSpellDamageAgainstTarget,
@@ -1057,7 +1056,6 @@ export class Sandbox extends PixiScene {
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
                 canControlCurrentActiveUnit: () => this.canControlCurrentActiveUnit(),
                 hasUnactedTeammateInCurrentLap: (unit) => this.hasUnactedTeammateInCurrentLap(unit),
-                isHourglassDenied: () => hasActiveTimeDenial(this.unitsHolder.getAllUnits().values()),
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
                     this.sc_buttonGroupUpdated = updated;
