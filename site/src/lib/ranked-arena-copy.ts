@@ -29,6 +29,19 @@ export interface RankedArenaCopy {
     gold: string;
     bansLabel: string;
     bansNone: string;
+    marketTitle: string;
+    marketBets: string;
+    marketPredict: string;
+    marketPlace: string;
+    marketPlacing: string;
+    marketCancel: string;
+    marketAmountPlaceholder: string;
+    marketPreview: string;
+    marketPreviewHint: string;
+    marketRules: string;
+    marketYourBet: string;
+    marketToReturn: string;
+    marketSignIn: string;
     sortWinRate: string;
     sortWins: string;
     sortStreak: string;
@@ -126,6 +139,19 @@ export const rankedArenaCopy = {
         gold: "Gold",
         bansLabel: "Bans",
         bansNone: "—",
+        marketTitle: "Prediction market",
+        marketBets: "{n} bets",
+        marketPredict: "Predict",
+        marketPlace: "Place bet",
+        marketPlacing: "Placing…",
+        marketCancel: "Cancel",
+        marketAmountPlaceholder: "Gold to stake",
+        marketPreview: "{stake} 🪙 on {side} returns {total} 🪙 (+{profit} profit) at the current pools.",
+        marketPreviewHint: "Pick a side and a stake to see the payout.",
+        marketRules: "One bet per game, final once placed. No commission — winners split the losing pool. A draw burns every stake.",
+        marketYourBet: "Your bet: {amount} 🪙 on {side}",
+        marketToReturn: "Returns {amount} 🪙",
+        marketSignIn: "Sign in to predict",
         sortWinRate: "Win rate",
         sortWins: "Wins",
         sortStreak: "Streak",
@@ -222,6 +248,19 @@ export const rankedArenaCopy = {
         gold: "Золото",
         bansLabel: "Бан",
         bansNone: "—",
+        marketTitle: "Рынок прогнозов",
+        marketBets: "ставок: {n}",
+        marketPredict: "Прогноз",
+        marketPlace: "Сделать ставку",
+        marketPlacing: "Ставим…",
+        marketCancel: "Отмена",
+        marketAmountPlaceholder: "Сколько золота",
+        marketPreview: "{stake} 🪙 на {side} вернёт {total} 🪙 (+{profit} прибыли) при текущих пулах.",
+        marketPreviewHint: "Выберите сторону и размер ставки, чтобы увидеть выплату.",
+        marketRules: "Одна ставка на игру, изменить нельзя. Без комиссии — победители делят проигравший пул. При ничьей всё золото сгорает.",
+        marketYourBet: "Ваша ставка: {amount} 🪙 на {side}",
+        marketToReturn: "Вернёт {amount} 🪙",
+        marketSignIn: "Войдите, чтобы делать прогнозы",
         sortWinRate: "Процент побед",
         sortWins: "Победы",
         sortStreak: "Серия",

@@ -102,10 +102,56 @@ describe("ranked arena response normalization", () => {
         });
 
         expect(response.count).toBe(2);
-        expect(response.games.map((game) => game.gameId)).toEqual(["game-new", "game-old"]);
-        expect(response.games[0].players).toHaveLength(2);
-        expect(response.games[0].players[0].ranked?.state).toBe("placed");
-        expect(response.games[0].players[1].aiVersion).toBe("v0.8");
+        // Open prediction markets (pick phase) outrank every later stage regardless of age.
+        expect(response.games.map((game) => game.gameId)).toEqual(["game-old", "game-new"]);
+        const fight = response.games.find((game) => game.gameId === "game-new")!;
+        expect(fight.players).toHaveLength(2);
+        expect(fight.players[0].ranked?.state).toBe("placed");
+        expect(fight.players[1].aiVersion).toBe("v0.8");
+    });
+
+    test("orders live games by open market first, then pool size, then recency", () => {
+        const response = normalizeLiveGamesResponse({
+            games: [
+                { gameId: "fight-newest", stage: "fight", initTime: 900, predictionPool: 9999 },
+                { gameId: "pick-small", stage: "pick", initTime: 800, predictionPool: 10 },
+                { gameId: "pick-rich", stage: "pick", initTime: 100, predictionPool: 500 },
+                { gameId: "pick-empty-new", stage: "pick", initTime: 700 },
+                { gameId: "pick-empty-old", stage: "pick", initTime: 200 },
+            ],
+        });
+
+        expect(response.games.map((game) => game.gameId)).toEqual([
+            "pick-rich",
+            "pick-small",
+            "pick-empty-new",
+            "pick-empty-old",
+            // A fight cannot be predicted, so even the biggest historical pool sinks below every draft.
+            "fight-newest",
+        ]);
+    });
+
+    test("carries prediction pools per seat and per game", () => {
+        const response = normalizeLiveGamesResponse({
+            games: [
+                {
+                    gameId: "market-game",
+                    stage: "pick",
+                    initTime: 10,
+                    predictionPool: 250,
+                    predictionBets: 4,
+                    players: [
+                        { playerId: "p1", username: "One", predictionPool: 200 },
+                        { playerId: "p2", username: "Two", predictionPool: 50 },
+                    ],
+                },
+            ],
+        });
+
+        const game = response.games[0];
+        expect(game.predictionPool).toBe(250);
+        expect(game.predictionBets).toBe(4);
+        expect(game.players.map((player) => player.predictionPool)).toEqual([200, 50]);
     });
 
     test("keeps a calibrated ranked bot placed in active games", () => {

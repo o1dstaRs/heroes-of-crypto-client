@@ -853,6 +853,209 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         --game-stage: var(--green);
     }
 
+    /* ---- prediction market ---- */
+    .ranked-arena .ranked-arena__market {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-top: 0.55rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(151, 104, 50, 0.28);
+    }
+
+    .ranked-arena .ranked-arena__market-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .ranked-arena .ranked-arena__market-title {
+        font-size: 0.66rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--gold) 78%, transparent);
+    }
+
+    .ranked-arena .ranked-arena__market-total {
+        font-size: 0.72rem;
+        color: var(--parchment-dim, rgba(228, 208, 175, 0.72));
+    }
+
+    .ranked-arena .ranked-arena__market-bar {
+        display: flex;
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.4);
+    }
+
+    .ranked-arena .ranked-arena__market-fill {
+        display: block;
+        min-width: 2px;
+        transition: width 240ms ease;
+    }
+
+    .ranked-arena .ranked-arena__market-fill--lower {
+        background: color-mix(in srgb, var(--green) 76%, transparent);
+    }
+
+    .ranked-arena .ranked-arena__market-fill--upper {
+        background: color-mix(in srgb, var(--red, #ff5a3f) 72%, transparent);
+    }
+
+    .ranked-arena .ranked-arena__market-legend {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.72rem;
+    }
+
+    .ranked-arena .ranked-arena__market-legend-item {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 0.05rem;
+    }
+
+    .ranked-arena .ranked-arena__market-legend-item strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ranked-arena .ranked-arena__market-legend-item--upper {
+        text-align: right;
+    }
+
+    .ranked-arena .ranked-arena__market-legend-item--lower strong {
+        color: color-mix(in srgb, var(--green) 88%, white);
+    }
+
+    .ranked-arena .ranked-arena__market-legend-item--upper strong {
+        color: color-mix(in srgb, var(--red, #ff5a3f) 88%, white);
+    }
+
+    .ranked-arena .ranked-arena__market-predict,
+    .ranked-arena .ranked-arena__market-confirm,
+    .ranked-arena .ranked-arena__market-side,
+    .ranked-arena .ranked-arena__market-cancel,
+    .ranked-arena .ranked-arena__market-signin {
+        cursor: pointer;
+        border: 1px solid rgba(151, 104, 50, 0.45);
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.32);
+        color: var(--parchment, #e4d0af);
+        font: inherit;
+        font-size: 0.74rem;
+        padding: 0.32rem 0.6rem;
+        transition:
+            border-color 160ms ease,
+            background 160ms ease;
+    }
+
+    .ranked-arena .ranked-arena__market-predict {
+        align-self: flex-start;
+        border-color: color-mix(in srgb, var(--gold) 62%, transparent);
+        color: var(--gold);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .ranked-arena .ranked-arena__market-predict:hover,
+    .ranked-arena .ranked-arena__market-confirm:not(:disabled):hover,
+    .ranked-arena .ranked-arena__market-side:hover,
+    .ranked-arena .ranked-arena__market-signin:hover {
+        border-color: var(--gold);
+        background: rgba(255, 143, 0, 0.12);
+    }
+
+    .ranked-arena .ranked-arena__market-signin {
+        align-self: flex-start;
+        text-decoration: none;
+    }
+
+    .ranked-arena .ranked-arena__market-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .ranked-arena .ranked-arena__market-sides {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem;
+    }
+
+    .ranked-arena .ranked-arena__market-side[aria-pressed="true"] {
+        border-color: var(--gold);
+        background: rgba(255, 143, 0, 0.18);
+        color: var(--gold);
+    }
+
+    .ranked-arena .ranked-arena__market-amount {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.35rem;
+    }
+
+    .ranked-arena .ranked-arena__market-input {
+        min-width: 0;
+        border: 1px solid rgba(151, 104, 50, 0.45);
+        border-radius: 3px;
+        background: rgba(0, 0, 0, 0.42);
+        color: var(--parchment, #e4d0af);
+        font: inherit;
+        font-size: 0.78rem;
+        padding: 0.3rem 0.5rem;
+    }
+
+    .ranked-arena .ranked-arena__market-confirm:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    .ranked-arena .ranked-arena__market-preview,
+    .ranked-arena .ranked-arena__market-rules,
+    .ranked-arena .ranked-arena__market-error,
+    .ranked-arena .ranked-arena__market-mine {
+        margin: 0;
+        font-size: 0.72rem;
+        line-height: 1.35;
+    }
+
+    .ranked-arena .ranked-arena__market-preview {
+        color: color-mix(in srgb, var(--gold) 82%, white);
+    }
+
+    .ranked-arena .ranked-arena__market-rules {
+        color: rgba(228, 208, 175, 0.55);
+    }
+
+    .ranked-arena .ranked-arena__market-error {
+        color: var(--red, #ff5a3f);
+    }
+
+    .ranked-arena .ranked-arena__market-mine {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        color: var(--parchment-dim, rgba(228, 208, 175, 0.72));
+    }
+
+    .ranked-arena .ranked-arena__market-mine strong {
+        color: color-mix(in srgb, var(--gold) 86%, white);
+        white-space: nowrap;
+    }
+
+    .ranked-arena .ranked-arena__market-cancel {
+        align-self: flex-start;
+        border-color: transparent;
+        background: transparent;
+        color: rgba(228, 208, 175, 0.6);
+    }
+
     .ranked-arena .ranked-arena__game-card[data-stage="pick"] {
         --game-stage: var(--blue);
     }

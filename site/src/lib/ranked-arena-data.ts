@@ -90,6 +90,8 @@ export interface LiveGamePlayer {
     isBot: boolean;
     aiVersion: string | null;
     rankedBot: boolean;
+    /** Gold staked on THIS seat in the prediction market (0 outside a pick-phase ranked game). */
+    predictionPool: number;
     ranked: {
         state: string;
         mmr: number;
@@ -108,6 +110,9 @@ export interface LiveGame {
     pickEndTime: number;
     boardStartTime: number;
     players: LiveGamePlayer[];
+    /** Total gold staked across both seats, and how many bets make it up. */
+    predictionPool: number;
+    predictionBets: number;
 }
 
 export interface LiveGamesResponse {
@@ -284,6 +289,7 @@ const normalizeLivePlayer = (value: unknown): LiveGamePlayer | null => {
         isBot: asBoolean(player.isBot),
         aiVersion: player.aiVersion === null ? null : asString(player.aiVersion) || null,
         rankedBot: asBoolean(player.rankedBot),
+        predictionPool: Math.max(0, asInteger(player.predictionPool)),
         ranked: hasRanked
             ? {
                   // Older live-game payloads omitted `state`. A visible MMR/league is conclusive
@@ -322,10 +328,19 @@ export function normalizeLiveGamesResponse(value: unknown): LiveGamesResponse {
                     .map(normalizeLivePlayer)
                     .filter((player): player is LiveGamePlayer => player !== null)
                     .slice(0, 2),
+                predictionPool: Math.max(0, asInteger(game.predictionPool)),
+                predictionBets: Math.max(0, asInteger(game.predictionBets)),
             };
         })
         .filter((game): game is LiveGame => game !== null)
-        .sort((a, b) => b.initTime - a.initTime);
+        // Betting order: open markets (pick phase) first, then the biggest pool, then the newest.
+        // Anything past the draft can no longer be predicted, so it sinks below every open market.
+        .sort(
+            (a, b) =>
+                Number(b.stage === "pick") - Number(a.stage === "pick") ||
+                b.predictionPool - a.predictionPool ||
+                b.initTime - a.initTime,
+        );
 
     return {
         computedAt: Math.max(0, asInteger(response.computedAt)),

@@ -23,6 +23,8 @@ import {
     type RankedStandingsResponse,
     type RankedTopResponse,
 } from "./ranked-arena-data";
+import { isLoggedIn } from "./auth-state";
+import { fetchMyBets, impliedShare, placeBet, proposedReturn, type PredictionBet } from "./prediction-client";
 import { rankedArenaCopy } from "./ranked-arena-copy";
 import { initHeroLeaderboard, type HeroLeaderboardController } from "./hero-leaderboard-client";
 
@@ -36,6 +38,14 @@ interface ArenaState {
     sortDirection: PlayerSortDirection;
     selectedPlayerId: string;
     visibleGames: number;
+    /** The viewer's own bets keyed by gameId (empty when signed out). */
+    myBets: Map<string, PredictionBet>;
+    /** gameId whose stake form is expanded, and the seat it is aimed at. */
+    predictOpenGameId: string;
+    predictSide: string;
+    predictAmount: number;
+    predictError: string;
+    predictBusy: boolean;
     top?: RankedTopResponse;
     standings?: RankedStandingsResponse;
     games?: LiveGamesResponse;
@@ -117,6 +127,12 @@ const endpointByResource: Record<ArenaResource, string> = {
     top: `${matchmakingBaseUrl}${isProduction ? "/v1/ranked-top?n=100" : "/v1/mm/ranked-top?n=100"}`,
     standings: `${matchmakingBaseUrl}${isProduction ? "/v1/ranked-standings" : "/v1/mm/ranked-standings"}`,
     games: `${gameApiBaseUrl}${isProduction ? "/v1/games-live" : "/v1/game/games-live"}`,
+};
+
+// Betting endpoints live on the matchmaking host alongside the rest of the authed player APIs.
+const predictionEndpoints = {
+    bet: `${matchmakingBaseUrl}${isProduction ? "/v1/prediction-bet" : "/v1/mm/prediction-bet"}`,
+    bets: `${matchmakingBaseUrl}${isProduction ? "/v1/prediction-bets" : "/v1/mm/prediction-bets"}`,
 };
 
 const normalizeByResource = {
@@ -602,6 +618,158 @@ const renderPlayers = (
     return layout;
 };
 
+/**
+ * Prediction market panel for one pick-phase game: the two pools as a proportion bar, the viewer's
+ * existing bet (if any), and — while the draft is open — a Predict button that expands into a stake
+ * form previewing the exact payout the current pools would produce.
+ */
+const renderPredictionPanel = (
+    game: LiveGame,
+    state: ArenaState,
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+): HTMLElement | null => {
+    if (game.stage !== "pick" || game.casual || game.players.length < 2) {
+        return null;
+    }
+    const [lower, upper] = game.players;
+    const panel = el("div", "ranked-arena__market");
+
+    // ---- pools + proportion bar ----
+    const header = el("div", "ranked-arena__market-header");
+    append(
+        header,
+        el("span", "ranked-arena__market-title", copy.marketTitle),
+        el(
+            "span",
+            "ranked-arena__market-total",
+            `${numberFormatter.format(game.predictionPool)} 🪙 · ${replaceTemplate(copy.marketBets, {
+                n: game.predictionBets,
+            })}`,
+        ),
+    );
+
+    const lowerShare = impliedShare(lower.predictionPool, upper.predictionPool);
+    const bar = el("div", "ranked-arena__market-bar");
+    const lowerFill = el("span", "ranked-arena__market-fill ranked-arena__market-fill--lower");
+    lowerFill.style.width = `${Math.round(lowerShare * 100)}%`;
+    const upperFill = el("span", "ranked-arena__market-fill ranked-arena__market-fill--upper");
+    upperFill.style.width = `${Math.round((1 - lowerShare) * 100)}%`;
+    append(bar, lowerFill, upperFill);
+
+    const legend = el("div", "ranked-arena__market-legend");
+    const legendSide = (player: LiveGame["players"][number], share: number, side: "lower" | "upper"): HTMLElement => {
+        const item = el("span", `ranked-arena__market-legend-item ranked-arena__market-legend-item--${side}`);
+        append(
+            item,
+            el("strong", "", player.username),
+            el(
+                "span",
+                "",
+                `${numberFormatter.format(player.predictionPool)} 🪙 · ${Math.round(share * 100)}%`,
+            ),
+        );
+        return item;
+    };
+    append(legend, legendSide(lower, lowerShare, "lower"), legendSide(upper, 1 - lowerShare, "upper"));
+    append(panel, header, bar, legend);
+
+    // ---- the viewer's own position, or the way in ----
+    const mine = state.myBets.get(game.gameId);
+    if (mine) {
+        const side = game.players.find((player) => player.playerId === mine.predictedPlayerId);
+        const other = game.players.find((player) => player.playerId !== mine.predictedPlayerId);
+        const placed = el("div", "ranked-arena__market-mine");
+        append(
+            placed,
+            el("span", "", replaceTemplate(copy.marketYourBet, {
+                amount: numberFormatter.format(mine.amount),
+                side: side?.username ?? "—",
+            })),
+            el(
+                "strong",
+                "",
+                replaceTemplate(copy.marketToReturn, {
+                    amount: numberFormatter.format(
+                        // Their stake is already inside the side pool, so price the share it holds.
+                        proposedReturn(mine.amount, Math.max(0, (side?.predictionPool ?? 0) - mine.amount), other?.predictionPool ?? 0),
+                    ),
+                }),
+            ),
+        );
+        append(panel, placed);
+        return panel;
+    }
+
+    if (!isLoggedIn()) {
+        const signIn = el("a", "ranked-arena__market-signin", copy.marketSignIn);
+        signIn.href = "/auth/login/";
+        append(panel, signIn);
+        return panel;
+    }
+
+    const isOpen = state.predictOpenGameId === game.gameId;
+    if (!isOpen) {
+        const predict = el("button", "ranked-arena__market-predict", copy.marketPredict);
+        predict.type = "button";
+        predict.dataset.predictOpen = game.gameId;
+        append(panel, predict);
+        return panel;
+    }
+
+    // ---- expanded stake form ----
+    const form = el("div", "ranked-arena__market-form");
+    const sides = el("div", "ranked-arena__market-sides");
+    for (const player of game.players) {
+        const choice = el("button", "ranked-arena__market-side", player.username);
+        choice.type = "button";
+        choice.dataset.predictSide = player.playerId;
+        choice.setAttribute("aria-pressed", String(state.predictSide === player.playerId));
+        append(sides, choice);
+    }
+
+    const amountRow = el("div", "ranked-arena__market-amount");
+    const input = el("input", "ranked-arena__market-input");
+    input.type = "number";
+    input.min = "1";
+    input.step = "1";
+    input.value = state.predictAmount > 0 ? String(state.predictAmount) : "";
+    input.placeholder = copy.marketAmountPlaceholder;
+    input.dataset.predictAmount = "";
+    input.setAttribute("aria-label", copy.marketAmountPlaceholder);
+    const confirm = el("button", "ranked-arena__market-confirm", state.predictBusy ? copy.marketPlacing : copy.marketPlace);
+    confirm.type = "button";
+    confirm.dataset.predictConfirm = game.gameId;
+    confirm.disabled = state.predictBusy || !state.predictSide || state.predictAmount < 1;
+    append(amountRow, input, confirm);
+
+    const chosen = game.players.find((player) => player.playerId === state.predictSide);
+    const against = game.players.find((player) => player.playerId !== state.predictSide);
+    const preview = el("p", "ranked-arena__market-preview");
+    if (chosen && state.predictAmount > 0) {
+        const total = proposedReturn(state.predictAmount, chosen.predictionPool, against?.predictionPool ?? 0);
+        preview.textContent = replaceTemplate(copy.marketPreview, {
+            stake: numberFormatter.format(state.predictAmount),
+            side: chosen.username,
+            total: numberFormatter.format(total),
+            profit: numberFormatter.format(total - state.predictAmount),
+        });
+    } else {
+        preview.textContent = copy.marketPreviewHint;
+    }
+
+    const rules = el("p", "ranked-arena__market-rules", copy.marketRules);
+    append(form, sides, amountRow, preview, rules);
+    if (state.predictError) {
+        append(form, el("p", "ranked-arena__market-error", state.predictError));
+    }
+    const cancel = el("button", "ranked-arena__market-cancel", copy.marketCancel);
+    cancel.type = "button";
+    cancel.dataset.predictCancel = "";
+    append(form, cancel);
+    append(panel, form);
+    return panel;
+};
+
 const renderGameSeat = (
     game: LiveGame,
     index: number,
@@ -689,12 +857,16 @@ const renderGames = (
     }
 
     const stageFilter = state.filters.games as LiveGameStage | "all";
-    const stagePriority: Record<LiveGameStage, number> = { fight: 0, placement: 1, pick: 2 };
+    // Betting order: drafts (the only stage you can still predict) come first, biggest market first
+    // within them, then everything else by stage and recency. This deliberately outranks the old
+    // "fights first" ordering — an open market is the actionable card.
+    const stagePriority: Record<LiveGameStage, number> = { pick: 0, fight: 1, placement: 2 };
     const queryMatches = filterLiveGames(state.games.games, { query: state.query, stage: "all" });
     const games = filterLiveGames(queryMatches, { stage: stageFilter }).sort(
         (a, b) =>
-            Number(b.observable) - Number(a.observable) ||
             stagePriority[a.stage] - stagePriority[b.stage] ||
+            (a.stage === "pick" ? b.predictionPool - a.predictionPool : 0) ||
+            Number(b.observable) - Number(a.observable) ||
             b.initTime - a.initTime,
     );
     if (!games.length) {
@@ -767,7 +939,12 @@ const renderGames = (
             el("span", "ranked-arena__versus", copy.versus),
             renderGameSeat(game, 1, copy, lang, gameIndex, ladderRanks.get(game.players[1]?.playerId ?? "") ?? 0),
         );
-        append(card, header, matchup, el("span", "sr-only", game.gameId));
+        const market = renderPredictionPanel(game, state, copy);
+        append(card, header, matchup);
+        if (market) {
+            append(card, market);
+        }
+        append(card, el("span", "sr-only", game.gameId));
         append(grid, card);
     }
 
@@ -923,6 +1100,12 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         sortDirection: defaultPlayerSortDirection("rank"),
         selectedPlayerId: "",
         visibleGames: gamesPageSize(),
+        myBets: new Map(),
+        predictOpenGameId: "",
+        predictSide: "",
+        predictAmount: 0,
+        predictError: "",
+        predictBusy: false,
         cached: new Set(),
         errors: new Set(),
         loading: new Set(),
@@ -1086,7 +1269,49 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
     const refreshAll = (): void => {
         void Promise.allSettled([fetchResource("top"), fetchResource("standings"), fetchResource("games")]).then(() => {
             if (announcer) announcer.textContent = status.textContent ?? "";
+            void refreshMyBets();
         });
+    };
+
+    /** Pull the viewer's own bets for the games currently on screen (no-op when signed out). */
+    const refreshMyBets = async (): Promise<void> => {
+        const games = state.games?.games ?? [];
+        if (!games.length || !isLoggedIn()) {
+            return;
+        }
+        try {
+            const bets = await fetchMyBets(
+                predictionEndpoints,
+                games.map((game) => game.gameId),
+            );
+            state.myBets = new Map(bets.map((bet) => [bet.gameId, bet]));
+            render();
+        } catch {
+            // A failed bets read just leaves the Predict buttons up; placing one re-checks server-side.
+        }
+    };
+
+    const submitPrediction = async (gameId: string): Promise<void> => {
+        if (state.predictBusy || !state.predictSide || state.predictAmount < 1) {
+            return;
+        }
+        state.predictBusy = true;
+        state.predictError = "";
+        render();
+        try {
+            const bet = await placeBet(predictionEndpoints, gameId, state.predictSide, state.predictAmount);
+            state.myBets.set(gameId, bet);
+            state.predictOpenGameId = "";
+            state.predictSide = "";
+            state.predictAmount = 0;
+            // Re-read the live feed so the pools (and every other viewer's proportions) include it.
+            void fetchResource("games");
+        } catch (err) {
+            state.predictError = (err as Error).message;
+        } finally {
+            state.predictBusy = false;
+            render();
+        }
     };
 
     const selectTab = (tab: ArenaTab, focus = false): void => {
@@ -1189,8 +1414,72 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
             });
             return;
         }
+        const predictOpen = target.closest<HTMLButtonElement>("[data-predict-open]");
+        if (predictOpen?.dataset.predictOpen) {
+            state.predictOpenGameId = predictOpen.dataset.predictOpen;
+            state.predictSide = "";
+            state.predictAmount = 0;
+            state.predictError = "";
+            render();
+            return;
+        }
+        const predictSide = target.closest<HTMLButtonElement>("[data-predict-side]");
+        if (predictSide?.dataset.predictSide) {
+            state.predictSide = predictSide.dataset.predictSide;
+            state.predictError = "";
+            render();
+            return;
+        }
+        if (target.closest("[data-predict-cancel]")) {
+            state.predictOpenGameId = "";
+            state.predictSide = "";
+            state.predictAmount = 0;
+            state.predictError = "";
+            render();
+            return;
+        }
+        const predictConfirm = target.closest<HTMLButtonElement>("[data-predict-confirm]");
+        if (predictConfirm?.dataset.predictConfirm) {
+            void submitPrediction(predictConfirm.dataset.predictConfirm);
+            return;
+        }
         if (target.closest("[data-arena-retry]")) {
             refreshAll();
+        }
+    });
+
+    // The stake input is re-rendered on every state change, so read it through delegation and keep
+    // the DOM value rather than re-rendering the whole card on each keystroke (that would steal focus).
+    panel.addEventListener("input", (event) => {
+        const input = (event.target as HTMLElement).closest<HTMLInputElement>("[data-predict-amount]");
+        if (!input) {
+            return;
+        }
+        const parsed = Math.floor(Number(input.value));
+        state.predictAmount = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        // Refresh only the preview + confirm button in place.
+        const card = input.closest(".ranked-arena__game-card");
+        const preview = card?.querySelector<HTMLElement>(".ranked-arena__market-preview");
+        const confirm = card?.querySelector<HTMLButtonElement>("[data-predict-confirm]");
+        const game = state.games?.games.find((candidate) => candidate.gameId === state.predictOpenGameId);
+        const chosen = game?.players.find((player) => player.playerId === state.predictSide);
+        const against = game?.players.find((player) => player.playerId !== state.predictSide);
+        const copy = rankedArenaCopy[lang];
+        if (preview) {
+            if (chosen && state.predictAmount > 0) {
+                const total = proposedReturn(state.predictAmount, chosen.predictionPool, against?.predictionPool ?? 0);
+                preview.textContent = replaceTemplate(copy.marketPreview, {
+                    stake: numberFormatter.format(state.predictAmount),
+                    side: chosen.username,
+                    total: numberFormatter.format(total),
+                    profit: numberFormatter.format(total - state.predictAmount),
+                });
+            } else {
+                preview.textContent = copy.marketPreviewHint;
+            }
+        }
+        if (confirm) {
+            confirm.disabled = state.predictBusy || !state.predictSide || state.predictAmount < 1;
         }
     });
 
