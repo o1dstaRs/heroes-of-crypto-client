@@ -38,7 +38,7 @@ import { MoraleIcon } from "../svg/morale";
 import { QuiverIcon } from "../svg/quiver";
 import { ShieldIcon } from "../svg/shield";
 import { ShotRangeIcon } from "../svg/shot_range";
-import { SpeedIcon } from "../svg/speed";
+import { InitiativeIcon } from "../svg/initiative";
 import { SwordIcon } from "../svg/sword";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
@@ -1163,10 +1163,10 @@ const UnitStatsLayout: React.FC<{
                 tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
-                secondIcon={<SpeedIcon />}
-                secondValue={Math.round(unitProperties.speed)}
+                secondIcon={<InitiativeIcon />}
+                secondValue={Math.round(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
-                secondTooltip="Units with higher speed turn first"
+                secondTooltip="Units with higher initiative turn first"
             />
             {/* Morale and luck share one cell. They are the two smallest, most closely related numbers, and
                 pairing them buys back a slot — a ranged creature carries enough extra stats to spill onto a

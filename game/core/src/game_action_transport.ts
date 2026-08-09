@@ -18,7 +18,7 @@ export interface AuthoritativeUnitState {
     size: number;
     baseCell: AuthoritativeCell;
     cells: AuthoritativeCell[];
-    speed: number;
+    initiative: number;
     morale: number;
     dead: boolean;
     placed: boolean;
@@ -135,7 +135,7 @@ export interface AuthoritativeGameSnapshot {
      * (older server / game persisted before scattered ranked shipped). */
     scatteredStandingCells?: number[];
     scatteredStandingCount?: number;
-    /** Cumulative server movement penalty used with unit morale when calculating effective speed. */
+    /** Cumulative server movement penalty used with unit morale when calculating effective initiative. */
     stepsMoraleMultiplier?: number;
     units: AuthoritativeUnitState[];
     upNext?: string[];

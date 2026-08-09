@@ -35,7 +35,7 @@ import { MagicShieldIcon } from "../svg/magic_shield";
 import { QuiverIcon } from "../svg/quiver";
 import { ShieldIcon } from "../svg/shield";
 import { ShotRangeIcon } from "../svg/shot_range";
-import { SpeedIcon } from "../svg/speed";
+import { InitiativeIcon } from "../svg/initiative";
 import { SwordIcon } from "../svg/sword";
 import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
@@ -55,7 +55,7 @@ interface CreatureFullConfig {
     attack_damage_min: number;
     attack_damage_max: number;
     armor: number;
-    speed: number;
+    initiative: number;
     steps: number;
     magic_resist: number;
     attack_type: string;
@@ -216,7 +216,7 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                     label={t("Size on the board")}
                     value={c.size === 2 ? "2×2" : "1×1"}
                 />
-                <StatChip icon={<SpeedIcon />} label={t("Speed")} value={c.speed} />
+                <StatChip icon={<InitiativeIcon />} label={t("Initiative")} value={c.initiative} />
                 <StatChip icon={<BootIcon />} label={t("Movement steps")} value={c.steps} />
             </Box>
             <>

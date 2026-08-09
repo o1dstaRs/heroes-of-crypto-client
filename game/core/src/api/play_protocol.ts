@@ -82,7 +82,7 @@ export interface PlayUnitState {
     size: number;
     baseCell: PlayCell;
     cells: PlayCell[];
-    speed: number;
+    initiative: number;
     morale: number;
     dead: boolean;
     placed: boolean;
@@ -896,7 +896,7 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         size: 0,
         baseCell: { x: 0, y: 0 },
         cells: [],
-        speed: 0,
+        initiative: 0,
         morale: 0,
         dead: false,
         placed: false,
@@ -934,7 +934,7 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         } else if (field === 12) {
             unit.cells.push(decodeCell(reader.bytesValue()));
         } else if (field === 13) {
-            unit.speed = wireType === 5 ? reader.float32() : reader.varintNumber();
+            unit.initiative = wireType === 5 ? reader.float32() : reader.varintNumber();
         } else if (field === 14) {
             unit.morale = reader.signedVarintNumber();
         } else if (field === 15) {

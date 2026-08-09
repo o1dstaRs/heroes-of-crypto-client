@@ -276,7 +276,7 @@ function unitSearchText(unit: Unit) {
                 <div><dt>{s.armor}</dt><dd data-stat="armor"></dd></div>
                 <div><dt>{s.attack}</dt><dd data-stat="attack"></dd></div>
                 <div><dt>{s.damage}</dt><dd data-stat="damage"></dd></div>
-                <div><dt>{s.speed}</dt><dd data-stat="speed"></dd></div>
+                <div><dt>{s.initiative}</dt><dd data-stat="initiative"></dd></div>
                 <div><dt>{s.steps}</dt><dd data-stat="steps"></dd></div>
                 <div><dt>{s.rangeShots}</dt><dd data-stat="rangeShots"></dd></div>
                 <div><dt>{s.magicResist}</dt><dd data-stat="magicResist"></dd></div>
@@ -317,7 +317,7 @@ function unitSearchText(unit: Unit) {
         attackType: string;
         damageMin: number;
         damageMax: number;
-        speed: number;
+        initiative: number;
         steps: number;
         rangeShots: number;
         shotDistance: number;
@@ -407,7 +407,7 @@ function unitSearchText(unit: Unit) {
             statEls.armor.textContent = String(unit.armor);
             statEls.attack.textContent = String(unit.attack);
             statEls.damage.textContent = `${unit.damageMin}–${unit.damageMax}`;
-            statEls.speed.textContent = String(unit.speed);
+            statEls.initiative.textContent = String(unit.initiative);
             statEls.steps.textContent = String(unit.steps);
             statEls.rangeShots.textContent = unit.rangeShots > 0 ? String(unit.rangeShots) : "—";
             statEls.magicResist.textContent = unit.magicResist > 0 ? `${unit.magicResist}%` : "—";

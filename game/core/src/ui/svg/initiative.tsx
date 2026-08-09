@@ -1,7 +1,7 @@
 import React from "react";
 import SvgIcon, { SvgIconProps } from "@mui/material/SvgIcon";
 
-export const SpeedIcon = React.forwardRef<SVGSVGElement, SvgIconProps>((props, ref) => {
+export const InitiativeIcon = React.forwardRef<SVGSVGElement, SvgIconProps>((props, ref) => {
     return (
         <SvgIcon viewBox="0 0 16 16" ref={ref} {...props}>
             <path d="m 6.5 14 c -0.277344 0 -0.5 -0.222656 -0.5 -0.5 v -1 c 0 -0.277344 0.222656 -0.5 0.5 -0.5 h 5 c 0.277344 0 0.5 0.222656 0.5 0.5 v 1 c 0 0.277344 -0.222656 0.5 -0.5 0.5 z m 0 -3 c -0.277344 0 -0.5 -0.222656 -0.5 -0.5 v -1 c 0 -0.277344 0.222656 -0.5 0.5 -0.5 h 7 c 0.277344 0 0.5 0.222656 0.5 0.5 v 1 c 0 0.277344 -0.222656 0.5 -0.5 0.5 z m 0 -3 c -0.277344 0 -0.5 -0.222656 -0.5 -0.5 v -1 c 0 -0.277344 0.222656 -0.5 0.5 -0.5 h 9 c 0.277344 0 0.5 0.222656 0.5 0.5 v 1 c 0 0.277344 -0.222656 0.5 -0.5 0.5 z m 0 0" />
@@ -10,6 +10,6 @@ export const SpeedIcon = React.forwardRef<SVGSVGElement, SvgIconProps>((props, r
     );
 });
 
-SpeedIcon.displayName = "SpeedIcon";
+InitiativeIcon.displayName = "InitiativeIcon";
 
-export default SpeedIcon;
+export default InitiativeIcon;

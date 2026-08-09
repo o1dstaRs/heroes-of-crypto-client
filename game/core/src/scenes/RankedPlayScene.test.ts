@@ -58,7 +58,7 @@ const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUni
     size: 1,
     baseCell: { x: 0, y: 0 },
     cells: [],
-    speed: 0,
+    initiative: 0,
     morale: 0,
     dead: false,
     placed: false,
@@ -193,15 +193,15 @@ describe("ranked placement scene state", () => {
         ).toBe(true);
     });
 
-    test("carries server-computed morale and speed onto reconstructed units", () => {
+    test("carries server-computed morale and initiative onto reconstructed units", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
-            placementSnapshot([unitState({ id: "own", team: TeamVals.LOWER, morale: 9, speed: 7 })]),
+            placementSnapshot([unitState({ id: "own", team: TeamVals.LOWER, morale: 9, initiative: 7 })]),
         );
         const own = state.units.find((unit) => unit.properties.id === "own");
         // The server (common engine) computes these and ships them in the snapshot; the client must
         // not reset them to base creature config.
         expect(own?.properties.morale).toBe(9);
-        expect(own?.properties.speed).toBe(7);
+        expect(own?.properties.initiative).toBe(7);
     });
 
     test("carries the server hasHourglassed flag onto reconstructed units (drives ranked canHourglass sync)", () => {

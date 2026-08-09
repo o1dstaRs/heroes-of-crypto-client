@@ -80,7 +80,7 @@ describe("play protobuf decoder", () => {
         expect(Array.from(encodeDevCreatePlayGameRequest({}))).toEqual([]);
     });
 
-    test("decodes unit speed from protobuf float fields", () => {
+    test("decodes unit initiative from protobuf float fields", () => {
         const unit = [...stringField(1, "unit-1"), ...floatField(13, 2.5)];
         const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
 
@@ -88,7 +88,7 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.gameId).toBe("game-1");
         expect(decoded.units[0]?.id).toBe("unit-1");
-        expect(decoded.units[0]?.speed).toBe(2.5);
+        expect(decoded.units[0]?.initiative).toBe(2.5);
     });
 
     test("decodes the live range shots and effective luck (proto fields 20 and 21)", () => {

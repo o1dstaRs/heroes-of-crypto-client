@@ -89,7 +89,7 @@ export interface LocalModelFightStateSummary {
         maxHp: number;
         amountAlive: number;
         amountDied: number;
-        speed: number;
+        initiative: number;
         rangeShots: number;
         abilities: string[];
         spells: Array<{ name: string; remaining: number }>;
@@ -195,7 +195,7 @@ export const createLocalModelFightStateSummary = (
             maxHp: unit.getMaxHp(),
             amountAlive: unit.getAmountAlive(),
             amountDied: unit.getAmountDied(),
-            speed: unit.getSpeed(),
+            initiative: unit.getInitiative(),
             rangeShots: unit.getRangeShots(),
             abilities: unit.getAbilities().map((ability) => ability.getName()),
             spells: unit.getSpells().map((spell) => ({ name: spell.getName(), remaining: spell.getAmount() })),
@@ -318,7 +318,7 @@ const estimateUnitValue = (unit: Unit): number =>
     Math.round(
         unit.getStackPower() +
             unit.getLevel() * 12 +
-            unit.getSpeed() * 4 +
+            unit.getInitiative() * 4 +
             unit.getAttack() * 0.5 +
             unit.getAttackDamageMax() * 2 +
             unit.getRangeShots() * 2 +
@@ -825,7 +825,7 @@ export const createLocalModelActions = (options: LocalModelActionOptions): Local
 const unitLine = (unit: Unit, activeUnitId: string): string =>
     `${teamName(unit.getTeam())}${unit.getId() === activeUnitId ? " ACTIVE" : ""} ${unit.getName()} ` +
     `hp ${unit.getHp()}/${unit.getMaxHp()} alive ${unit.getAmountAlive()} ` +
-    `speed ${unit.getSpeed()} shots ${unit.getRangeShots()} at ${unit
+    `initiative ${unit.getInitiative()} shots ${unit.getRangeShots()} at ${unit
         .getCells()
         .map((cell) => `${cell.x},${cell.y}`)
         .join(";")} abilities ${

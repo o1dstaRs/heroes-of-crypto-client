@@ -281,7 +281,7 @@ const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Pa
         .sort((a, b) => {
             if (a.size !== b.size) return b.size - a.size;
             if (isRangedSnapshotUnit(a) !== isRangedSnapshotUnit(b)) return isRangedSnapshotUnit(a) ? 1 : -1;
-            return b.speed - a.speed;
+            return b.initiative - a.initiative;
         });
 
     const actions: Partial<PlayAction>[] = [];

@@ -59,7 +59,6 @@ import type { RenderableUnit } from "./RenderableUnit";
 import type { UnitsOverlay } from "./UnitsOverlay";
 import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
-import { setViewerTeamForColors } from "./teamColors";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 
@@ -739,7 +738,7 @@ const getUnitPropertiesFromAuthoritativeState = (
                 // The server encodes remaining ammo as count + 1, so every native ranged unit with the
                 // field present has a positive wire value even when it has zero shots left.
                 range_shots_authoritative: baseProperties.range_shots > 0 && unitState.rangeShots > 0,
-                // The server (running the common engine) computes morale and speed authoritatively and
+                // The server (running the common engine) computes morale and initiative authoritatively and
                 // ships them in the snapshot; carry them through instead of falling back to the base
                 // creature config. These survive the client's adjustBaseStats recompute because it
                 // preserves initialUnitProperties.morale/speed (synergy bonus is re-derived on top).
@@ -754,7 +753,7 @@ const getUnitPropertiesFromAuthoritativeState = (
                 // this flag adjustBaseStats boosted the already-boosted cap again (200-base Arachna Queen
                 // read 250/313: "army never at full HP").
                 max_hp_authoritative: statsAuthoritative,
-                speed: unitState.speed || baseProperties.speed,
+                initiative: unitState.initiative || baseProperties.initiative,
                 // Luck is the server's already-rolled effective value (incl. the per-turn spread and
                 // auras like Leprechaun's Luck Aura). luck_authoritative tells adjustBaseStats to keep
                 // it verbatim rather than re-rolling a divergent client-side spread on top.
@@ -1486,16 +1485,16 @@ export class RankedPlayScene extends Sandbox {
     }
     private applyRankedSnapshotMetadata(snapshot: AuthoritativeGameSnapshot): void {
         // This affects reachability without changing the board, so restore it before the board-signature
-        // early return. Otherwise the ranked AI keeps planning with base speed after no-progress laps.
+        // early return. Otherwise the ranked AI keeps planning with base initiative after no-progress laps.
         if (restoreRankedStepsMoraleMultiplier(snapshot.stepsMoraleMultiplier)) {
             // Unit movement is cached in steps_mod by adjustBaseStats; refresh it immediately so AI
             // reachability consumes the new multiplier even when no unit/board field changed.
             this.refreshUnits();
         }
+        // The seat drives OWNERSHIP (whose turn, which units this viewer may drive, which placement zone is
+        // theirs) — never colour. Board colours are team-fixed (LOWER green/bottom, UPPER red/top) for every
+        // seat, so an UPPER player plays the red army at the top and is not recoloured green.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
-        // Board colours are relative to whoever is watching: their own side is green, the opponent red,
-        // on both screens. The renderer is not React, so the seat is handed to the colour resolver here.
-        setViewerTeamForColors(this.viewerTeam);
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );

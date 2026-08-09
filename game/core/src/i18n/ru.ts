@@ -53,7 +53,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Hit points": "Здоровье",
     "Magic resist": "Сопротивление магии",
     "Movement steps": "Шаги передвижения",
-    Speed: "Скорость",
+    Initiative: "Инициатива",
     Shots: "Выстрелы",
     "Shot distance": "Дальность выстрела",
     "Size on the board": "Размер на поле",

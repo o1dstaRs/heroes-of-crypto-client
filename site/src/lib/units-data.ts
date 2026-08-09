@@ -17,7 +17,7 @@ interface RawCreature {
     name: string;
     hp: number;
     steps: number;
-    speed: number;
+    initiative: number;
     armor: number;
     attack_type: string;
     attack: number;
@@ -288,7 +288,7 @@ export interface Unit {
     attackType: string;
     damageMin: number;
     damageMax: number;
-    speed: number;
+    initiative: number;
     steps: number;
     rangeShots: number;
     shotDistance: number;
@@ -360,7 +360,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         attackType: raw.attack_type,
         damageMin: raw.attack_damage_min,
         damageMax: raw.attack_damage_max,
-        speed: raw.speed,
+        initiative: raw.initiative,
         steps: raw.steps,
         rangeShots: raw.range_shots,
         shotDistance: raw.shot_distance,
