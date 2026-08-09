@@ -71,6 +71,9 @@ export interface ISidebarMetrics {
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
+/** Initiative is tuned in tenths; keep that precision visible even when the value happens to be whole. */
+export const formatInitiative = (initiative: number): string => initiative.toFixed(1);
+
 /**
  * The left frame rail is narrow, while the board-facing side has no matching inner ornament. Keep only
  * enough room to clear that rail: the card deliberately grows leftwards and keeps its right edge fixed.

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import { FactionVals, type UnitProperties } from "@heroesofcrypto/common";
 
+import { formatInitiative } from "./sidebarMetrics";
 import { areUnitStatsPropsEqual } from "./unitStatsMemo";
 import type { IVisibleOverallImpact } from "../../scenes/VisibleState";
 
@@ -41,4 +42,10 @@ test("a reconciled live unit invalidates through its rebuilt impact", () => {
             { unitProperties: liveUnit, overallImpact: impact(), factionType: FactionVals.NO_FACTION },
         ),
     ).toBe(false);
+});
+
+test("initiative always keeps one visible decimal without rounding away tenths", () => {
+    expect(formatInitiative(2.1)).toBe("2.1");
+    expect(formatInitiative(2.4)).toBe("2.4");
+    expect(formatInitiative(4)).toBe("4.0");
 });

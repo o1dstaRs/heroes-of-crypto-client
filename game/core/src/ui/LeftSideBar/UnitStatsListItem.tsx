@@ -49,7 +49,7 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import { useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
+import { formatInitiative, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
@@ -1164,7 +1164,7 @@ const UnitStatsLayout: React.FC<{
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
                 secondIcon={<InitiativeIcon />}
-                secondValue={Math.round(unitProperties.initiative)}
+                secondValue={formatInitiative(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
                 secondTooltip="Units with higher initiative turn first"
             />
