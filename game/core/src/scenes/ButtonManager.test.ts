@@ -9,6 +9,10 @@ const makeUnit = (opts: { aiDriven?: boolean } = {}): Unit =>
     ({
         getId: () => "u1",
         hasAbilityActive: (name: string) => name === "AI Driven" && !!opts.aiDriven,
+        getSpellsCount: () => 0,
+        getCanCastSpells: () => false,
+        getAttackTypeSelectionIndex: () => [-1, 0],
+        getAttackTypeSelection: () => 0,
     }) as unknown as Unit;
 
 interface Recorder {
@@ -177,15 +181,26 @@ describe("ButtonManager hourglass eligibility", () => {
         FightStateManager.getInstance().reset();
         FightStateManager.getInstance().getFightProperties().startFight();
         let activeUnit: Unit | undefined;
+        let rendered: IVisibleButton[] = [];
         const { ctx } = makeContext({
             getCurrentActiveUnit: () => activeUnit,
             hasUnactedTeammateInCurrentLap: () => true,
             isHourglassDenied: () => true,
+            setVisibleButtons: (buttons) => {
+                rendered = buttons;
+            },
         });
         const manager = new ButtonManager(ctx, false);
         activeUnit = makeUnit();
 
         expect(checkHourglass(manager)).toBe(false);
+        manager.refreshButtons(true);
+        const denial = rendered.find((button) => button.name === "TimeDenial");
+        expect(denial).toMatchObject({
+            isDisabled: true,
+            text: "Time Denial — an active holder prevents either side from using Hourglass.",
+        });
+        expect(rendered.some((button) => button.name === "Hourglass")).toBe(false);
     });
 });
 

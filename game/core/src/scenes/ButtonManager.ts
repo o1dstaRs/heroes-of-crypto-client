@@ -14,6 +14,8 @@ import type { GameAction } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { VisibleButtonState, IVisibleButton, IVisibleState } from "./VisibleState";
 
+const TIME_DENIAL_BUTTON_TEXT = "Time Denial — an active holder prevents either side from using Hourglass.";
+
 export interface ISandboxButtonContext {
     getCurrentActiveUnit(): Unit | undefined;
     getSceneLog(): ISceneLog;
@@ -155,7 +157,12 @@ export class ButtonManager {
         };
 
         // 1. Base Button Definitions
-        const baseHourglass: IVisibleButton = { ...this.hourglassButton, isDisabled: false };
+        // Keep the Hourglass slot stable while making the global denial immediately legible. Normalize the
+        // regular button's identity here because pushAll stores the currently rendered slot (which may have
+        // been Time Denial on the previous refresh).
+        const baseHourglass: IVisibleButton = this.context.isHourglassDenied()
+            ? this.createBaseButton("TimeDenial", TIME_DENIAL_BUTTON_TEXT)
+            : { ...this.hourglassButton, name: "Hourglass", text: "Wait", isDisabled: false };
         const baseShield: IVisibleButton = { ...this.shieldButton, isDisabled: false };
         const baseNext: IVisibleButton = { ...this.nextButton, isDisabled: false };
         const baseAI: IVisibleButton = {

@@ -7,6 +7,7 @@ import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 
 const spellbookIconImage = images.combat_toolbar_ember_spellbook;
 const hourglassIconImage = images.combat_toolbar_ember_hourglass;
+const timeDenialIconImage = images.time_denial_256;
 const swordIconImage = images.combat_toolbar_ember_sword;
 const bowIconImage = images.combat_toolbar_ember_bow;
 const scepterIconImage = images.combat_toolbar_ember_scepter;
@@ -25,6 +26,7 @@ let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
 const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
     [`Hourglass${VisibleButtonState.FIRST}`]: hourglassIconImage,
+    [`TimeDenial${VisibleButtonState.FIRST}`]: timeDenialIconImage,
     [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
     [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
     [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
@@ -43,6 +45,7 @@ const GLYPH_CROP_DEFAULT = { zoom: 100, inset: 0 };
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
     [hourglassIconImage]: true,
+    [timeDenialIconImage]: false,
     [swordIconImage]: false,
     [scepterIconImage]: false,
     [aiIconImage]: false,
@@ -287,30 +290,36 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                 }}
             >
                 <Tooltip title={text} placement="top">
-                    <StyledIconButton
-                        onClick={handleClick}
-                        disabled={isDisabled}
-                        rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
-                        clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
-                        style={
-                            {
-                                // The complete medallion reaches the ::before layer through a custom
-                                // property, keeping hover and rotation effects off the surrounding panel.
-                                "--hoc-glyph": `url(${iconImage})`,
-                                "--hoc-glyph-zoom": `${glyphCrop.zoom}%`,
-                                "--hoc-glyph-inset": `${glyphCrop.inset}%`,
-                                width: 57 * SCREEN_RATIO,
-                                height: 57 * SCREEN_RATIO,
-                                ...(transfusionEffect
-                                    ? {
-                                          animation: "transfusion 1.5s linear",
-                                          boxShadow: `0 0 ${14 * SCREEN_RATIO}px rgba(243, 212, 136, 0.7)`,
-                                      }
-                                    : {}),
-                            } as React.CSSProperties
-                        }
-                        data-clickeffectneeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
-                    />
+                    {/* A disabled native button does not emit hover events. Keep the descriptive wrapper so
+                        Time Denial (and every other disabled combat control) still explains itself. */}
+                    <Box component="span" sx={{ display: "inline-flex" }}>
+                        <StyledIconButton
+                            onClick={handleClick}
+                            disabled={isDisabled}
+                            rotationDegrees={isHourglass ? rotationDegrees : initialRotation}
+                            clickEffectNeeded={iconImage !== spellbookIconImage && iconImage !== hourglassIconImage}
+                            style={
+                                {
+                                    // The complete medallion reaches the ::before layer through a custom
+                                    // property, keeping hover and rotation effects off the surrounding panel.
+                                    "--hoc-glyph": `url(${iconImage})`,
+                                    "--hoc-glyph-zoom": `${glyphCrop.zoom}%`,
+                                    "--hoc-glyph-inset": `${glyphCrop.inset}%`,
+                                    width: 57 * SCREEN_RATIO,
+                                    height: 57 * SCREEN_RATIO,
+                                    ...(transfusionEffect
+                                        ? {
+                                              animation: "transfusion 1.5s linear",
+                                              boxShadow: `0 0 ${14 * SCREEN_RATIO}px rgba(243,212,136,.7)`,
+                                          }
+                                        : {}),
+                                } as React.CSSProperties
+                            }
+                            data-clickeffectneeded={
+                                iconImage !== spellbookIconImage && iconImage !== hourglassIconImage
+                            }
+                        />
+                    </Box>
                 </Tooltip>
                 {showOnBadge && (
                     // Sits over the medallion rather than replacing it, so the AI button keeps one face and
@@ -468,7 +477,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                     <ButtonComponent
                         key={button.name}
                         iconImage={getButtonIcon(button)}
-                        text={button.name}
+                        text={button.text}
                         isVisible={button.isVisible}
                         isDisabled={button.isDisabled}
                         onClick={() => propagateClick(button.name, button.state)}
