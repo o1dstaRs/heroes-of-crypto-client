@@ -107,7 +107,14 @@ import {
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
-import { isTargetedSpellReachable, targetedSpellBlockerCell, targetedSpellBlockerId } from "./spell_targeting";
+import {
+    alliesAreTransparent,
+    isTargetedSpellReachable,
+    targetedSpellBlockerCell,
+    targetedSpellBlockerId,
+    thrownSpellImpact,
+    type TransparencyPredicate,
+} from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
@@ -6760,10 +6767,17 @@ export class Sandbox extends PixiScene {
      * interceptor is a third body two cells away — so name the blocker when there is one.
      */
     private describeSpellRefusal(spell: Spell, targetUnit: Unit): string {
-        const casterCell = this.currentActiveUnit?.getBaseCell();
+        const caster = this.currentActiveUnit;
+        const casterCell = caster?.getBaseCell();
         const targetCell = targetUnit.getBaseCell();
-        if (casterCell && targetCell) {
-            const blockerId = targetedSpellBlockerId(spell.getName(), this.grid, casterCell, targetCell);
+        if (caster && casterCell && targetCell) {
+            const blockerId = targetedSpellBlockerId(
+                spell.getName(),
+                this.grid,
+                casterCell,
+                targetCell,
+                this.throwTransparency(spell.getName(), caster),
+            );
             if (blockerId) {
                 const blockerName = this.unitsHolder.getAllUnits().get(blockerId)?.getName();
                 return `${spell.getName()} is blocked by ${blockerName ?? "an obstacle"}`;
@@ -6777,7 +6791,15 @@ export class Sandbox extends PixiScene {
         if (!spell || !caster) {
             return false;
         }
-        if (!isTargetedSpellReachable(spell.getName(), this.grid, caster.getBaseCell(), targetUnit.getBaseCell())) {
+        if (
+            !isTargetedSpellReachable(
+                spell.getName(),
+                this.grid,
+                caster.getBaseCell(),
+                targetUnit.getBaseCell(),
+                this.throwTransparency(spell.getName(), caster),
+            )
+        ) {
             return false;
         }
 
@@ -7646,7 +7668,13 @@ export class Sandbox extends PixiScene {
      * includes Vine Throw despite its non-damaging status multiplier and lets called-down spells pass.
      */
     private hasTargetedSpellLineOfSight(spell: Spell, caster: Unit, target: Unit): boolean {
-        return isTargetedSpellReachable(spell.getName(), this.grid, caster.getBaseCell(), target.getBaseCell());
+        return isTargetedSpellReachable(
+            spell.getName(),
+            this.grid,
+            caster.getBaseCell(),
+            target.getBaseCell(),
+            this.throwTransparency(spell.getName(), caster),
+        );
     }
     /**
      * Where to start a Magic Mirror rebound beam: the holder's CURRENT visual center when it is still on the
@@ -10361,18 +10389,22 @@ export class Sandbox extends PixiScene {
                     // aim point instead — the same "something happens here, but not damage" cue Castling
                     // uses — and the red highlights below are then exactly the units that will take a hit.
                     const sparesTarget = this.spellSparesItsTarget(spell);
-                    this.hoverManager.addTargetHighlight(hoveredUnit, sparesTarget ? 0xb8860b : spellColor);
-                    const rTarget = hoveredUnit as RenderableUnit;
+                    // An intercepted throw burns the creature IN the line, not the one under the cursor, so
+                    // the red highlight, the damage number and the kill count all have to name that creature.
+                    // Leaving them on the aimed unit would contradict the trajectory drawn right beside them.
+                    const impactUnit = this.thrownSpellVictim(spell, caster, hoveredUnit);
+                    this.hoverManager.addTargetHighlight(impactUnit, sparesTarget ? 0xb8860b : spellColor);
+                    const rTarget = impactUnit as RenderableUnit;
                     targetCenter =
                         typeof rTarget.getVisualCenter === "function"
                             ? rTarget.getVisualCenter(gs2)
-                            : hoveredUnit.getPosition();
+                            : impactUnit.getPosition();
 
                     // Offensive spells preview their damage exactly like an attack hover does, so the player
                     // chooses a target on a number rather than on the spellbook's generic card text.
-                    const spellDamage = this.previewSpellDamage(spell, caster, hoveredUnit);
+                    const spellDamage = this.previewSpellDamage(spell, caster, impactUnit);
                     if (spellDamage !== undefined) {
-                        const kills = sparesTarget ? 0 : hoveredUnit.calculatePossibleLosses(spellDamage);
+                        const kills = sparesTarget ? 0 : impactUnit.calculatePossibleLosses(spellDamage);
                         // The spared target gets no number at all: printing one — even a 0 — next to a red
                         // ring reads as "this takes damage too", which is the exact confusion to avoid.
                         if (!sparesTarget) {
@@ -10380,14 +10412,14 @@ export class Sandbox extends PixiScene {
                                 `${spellDamage}`,
                                 kills > 0 ? `${kills}` : undefined,
                                 targetCenter,
-                                !hoveredUnit.isSmallSize(),
+                                !impactUnit.isSmallSize(),
                                 kills > 0 ? images.skull_white : undefined,
                             );
                         }
                         // Everything the splash also catches gets its own number, the way the Area Throw
                         // preview labels each unit under the 3x3. Same damage on each — a spell does not
                         // fall off across its own blast.
-                        for (const splashed of this.splashedSpellTargets(spell, caster, hoveredUnit)) {
+                        for (const splashed of this.splashedSpellTargets(spell, caster, impactUnit)) {
                             const splashDamage = this.previewSpellDamage(spell, caster, splashed) ?? 0;
                             const labelPos =
                                 splashed instanceof RenderableUnit
@@ -12405,6 +12437,8 @@ export class Sandbox extends PixiScene {
         this.drawCraftAim(g);
         // Vine Throw (ANY_ENEMY) aim preview: highlight the lane the vine would cover.
         this.drawVineThrowAim(g);
+        // Fire Strike (ANY_ENEMY) aim preview: the projectile's trajectory and who it actually burns.
+        this.drawFireStrikeAim(g);
         // "Shift to rotate" under an armed Fire Wall, alongside its footprint preview.
         this.updateFireWallRotateHint();
     }
@@ -12430,6 +12464,147 @@ export class Sandbox extends PixiScene {
      * rejected. Legality comes from the shared targeted-spell predicate and the lane comes from the engine's
      * own vinePathCells walk, so the preview cannot promise something vineThrowCast will refuse.
      */
+    /**
+     * Bodies a throw flies OVER rather than into. Only Fire Strike arcs over the caster's own troops; Vine
+     * Throw and Ring of Fire are stopped by ANY body, friend or foe. This mirrors the engine exactly — a
+     * client that disagreed would either refuse a cast the server accepts or preview the wrong victim.
+     */
+    private throwTransparency(spellName: string, caster: Unit): TransparencyPredicate | undefined {
+        if (spellName !== "Fire Strike") {
+            return undefined;
+        }
+        return alliesAreTransparent(this.unitsHolder.getAllUnits(), caster.getTeam());
+    }
+    /**
+     * The enemy under the cursor for an armed ANY_ENEMY throw, with the caster that would throw it. Both aim
+     * previews measure to the target's BASE cell — the cell the engine throws at, which for a large creature
+     * is not the one the cursor happens to be over.
+     */
+    private hoveredThrowTarget(
+        spellName: string,
+    ): { caster: Unit; from: HoCMath.XY; target: Unit; to: HoCMath.XY } | undefined {
+        if (this.currentActiveSpell?.getName() !== spellName) {
+            return undefined;
+        }
+        const caster = this.currentActiveUnit;
+        const from = caster?.getBaseCell();
+        if (!caster || !from) {
+            return undefined;
+        }
+        const hovered = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), this.sc_mouseWorld);
+        if (!hovered) {
+            return undefined;
+        }
+        const occupantId = this.grid.getOccupantUnitId(hovered);
+        const target = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
+        const to = target?.getBaseCell();
+        if (!target || !to || target.isDead() || target.getTeam() === caster.getTeam()) {
+            return undefined;
+        }
+        return { caster, from, target, to };
+    }
+    /**
+     * Fire Strike aim preview: the projectile's trajectory, and a ring around the creature it actually burns.
+     *
+     * Fire Strike is thrown, not called down, so a body standing in the line takes it instead of the unit the
+     * cursor is over (owner 2026-08-09 — it behaves like an archer's shot). That makes "who does this hit?"
+     * genuinely ambiguous on a crowded board, which is exactly what this draws: a hot line from the mage to
+     * the point of impact, the victim ringed, and — when the throw is intercepted — the rest of the way to
+     * the aimed target left faint, so it reads as "this one, not that one" rather than as a mis-click.
+     *
+     * Terrain is the one thing that still refuses the cast, and that draws cold red and stops at the rock.
+     */
+    /**
+     * Which creature a thrown spell actually hits when `aimed` is the one under the cursor. Normally that is
+     * the aimed creature itself; for Fire Strike a body standing in the line intercepts the throw and takes
+     * it instead. Terrain-blocked and non-thrown spells fall back to the aimed unit — the cast is refused in
+     * that case anyway, so there is no victim to redirect to.
+     */
+    private thrownSpellVictim(spell: Spell, caster: Unit, aimed: Unit): Unit {
+        const from = caster.getBaseCell();
+        const to = aimed.getBaseCell();
+        if (!from || !to) {
+            return aimed;
+        }
+        const impact = thrownSpellImpact(
+            spell.getName(),
+            this.grid,
+            from,
+            to,
+            this.throwTransparency(spell.getName(), caster),
+        );
+        if (!impact.interceptedBy) {
+            return aimed;
+        }
+        const interceptor = this.unitsHolder.getAllUnits().get(impact.interceptedBy);
+        return interceptor && !interceptor.isDead() ? interceptor : aimed;
+    }
+    private drawFireStrikeAim(g: Graphics): void {
+        const aim = this.hoveredThrowTarget("Fire Strike");
+        if (!aim) {
+            return;
+        }
+        const { caster, from, target, to } = aim;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cellPos = (cell: HoCMath.XY) =>
+            GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+
+        const impact = thrownSpellImpact(
+            "Fire Strike",
+            this.grid,
+            from,
+            to,
+            this.throwTransparency("Fire Strike", caster),
+        );
+        const victim = impact.blockedByTerrain
+            ? undefined
+            : impact.interceptedBy
+              ? this.unitsHolder.getAllUnits().get(impact.interceptedBy)
+              : target;
+
+        // Origin is the mage's VISUAL centre (a large caster's base cell sits in its corner); the far end is
+        // the victim's centre, or the blocking terrain cell when there is no victim.
+        const origin = caster.getPosition();
+        const end = victim?.getPosition() ?? cellPos(impact.cell);
+        const aimedEnd = target.getPosition();
+        if (!origin || !end || !aimedEnd) {
+            return;
+        }
+
+        const size = gs.getCellSize();
+        const half = size / 2;
+        const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
+        const refused = impact.blockedByTerrain;
+
+        // The stretch the projectile never covers, drawn first so the live trajectory sits on top of it.
+        if (refused || victim !== target) {
+            g.moveTo(end.x, end.y)
+                .lineTo(aimedEnd.x, aimedEnd.y)
+                .stroke({ width: 2, color: 0x8a8a8a, alpha: 0.25, cap: "round" });
+        }
+
+        const trailColor = refused ? 0xff5a5a : 0xff8a2b;
+        g.moveTo(origin.x, origin.y)
+            .lineTo(end.x, end.y)
+            .stroke({ width: 5, color: refused ? 0x7a1010 : 0xb03000, alpha: 0.35 + 0.2 * pulse, cap: "round" });
+        g.moveTo(origin.x, origin.y)
+            .lineTo(end.x, end.y)
+            .stroke({ width: 2, color: trailColor, alpha: 0.7 + 0.25 * pulse, cap: "round" });
+
+        // The impact itself: a filled square on the struck cell under a ring, so the answer to "who burns"
+        // survives even when the victim's own sprite is busy with other highlights.
+        const impactPos = victim?.getPosition() ?? cellPos(impact.cell);
+        if (impactPos) {
+            g.rect(impactPos.x - half + 1, impactPos.y - half + 1, size - 2, size - 2)
+                .fill({ color: refused ? 0x8f3a3a : 0xb03000, alpha: 0.28 + 0.16 * pulse })
+                .stroke({ width: 2, color: refused ? 0xff9a9a : 0xffd04a, alpha: 0.85 });
+            g.circle(impactPos.x, impactPos.y, half * (0.72 + 0.1 * pulse)).stroke({
+                width: 2,
+                color: trailColor,
+                alpha: 0.6 + 0.3 * pulse,
+            });
+        }
+    }
     private drawVineThrowAim(g: Graphics): void {
         const spell = this.currentActiveSpell;
         if (spell?.getName() !== "Vine Throw") {

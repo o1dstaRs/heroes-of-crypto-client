@@ -35,7 +35,7 @@ import {
     type LocalModelLegalAction,
     type LocalModelOpponentConfig,
 } from "./LocalModelOpponent";
-import { isTargetedSpellReachable } from "./spell_targeting";
+import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
 
 /**
  * Simple log interface for scene logging.
@@ -1248,11 +1248,15 @@ export class AIController {
                 enemiesInRange,
             ) &&
             (!target ||
-                isTargetedSpellReachable(
+                // Must LAND on this target: an intercepted Fire Strike burns the screen, not the aimed unit.
+                thrownSpellReachesTarget(
                     spell.getName(),
                     this.context.getGrid(),
                     caster.getBaseCell(),
                     target.getBaseCell(),
+                    spell.getName() === "Fire Strike"
+                        ? alliesAreTransparent(this.context.getUnitsHolder().getAllUnits(), caster.getTeam())
+                        : undefined,
                 ));
 
         let best: { spellName: string; targetUnitId?: string; targetCell?: HoCMath.XY } | undefined;

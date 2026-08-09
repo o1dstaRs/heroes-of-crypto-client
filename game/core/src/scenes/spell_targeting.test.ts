@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 
 import type { Grid } from "@heroesofcrypto/common";
 
-import { isTargetedSpellReachable, targetedSpellBlockerCell, targetedSpellBlockerId } from "./spell_targeting";
+import {
+    alliesAreTransparent,
+    isTargetedSpellReachable,
+    targetedSpellBlockerCell,
+    targetedSpellBlockerId,
+    thrownSpellImpact,
+    thrownSpellReachesTarget,
+} from "./spell_targeting";
 
 const sightGrid = (blocked: boolean): Pick<Grid, "getOccupantUnitId" | "getSettings"> =>
     ({
@@ -44,6 +51,56 @@ describe("client targeted-spell reachability", () => {
         }
         // Fire Strike still obeys the archer's rule, so the same rock stops it.
         expect(targetedSpellBlockerId("Fire Strike", terrainGrid("B"), FROM, TO)).toBe("B");
+    });
+
+    /*
+     * Owner 2026-08-09: Fire Strike is thrown like an arrow, not called down. A body in the line no longer
+     * refuses it — it INTERCEPTS it and takes the burn — so the client has to preview the real victim rather
+     * than grey the target out. Terrain is the only thing that still refuses the cast.
+     */
+    describe("Fire Strike interception", () => {
+        const LOWER_TEAM = 2;
+        const UPPER_TEAM = 1;
+        const teams = new Map<string, { getTeam: () => number }>([["blocking-unit", { getTeam: () => UPPER_TEAM }]]);
+
+        test("is castable through a body, and reports that body as the impact", () => {
+            expect(isTargetedSpellReachable("Fire Strike", sightGrid(true), FROM, TO)).toBe(true);
+            const impact = thrownSpellImpact("Fire Strike", sightGrid(true), FROM, TO);
+            expect(impact.interceptedBy).toBe("blocking-unit");
+            expect(impact.cell).toEqual({ x: 2, y: 1 });
+            expect(impact.blockedByTerrain).toBe(false);
+        });
+
+        test("lands on the aimed target when the lane is clear", () => {
+            const impact = thrownSpellImpact("Fire Strike", sightGrid(false), FROM, TO);
+            expect(impact.interceptedBy).toBeUndefined();
+            expect(impact.cell).toEqual(TO);
+        });
+
+        test("is still refused by terrain, which is reported as a block rather than a victim", () => {
+            expect(isTargetedSpellReachable("Fire Strike", terrainGrid("B"), FROM, TO)).toBe(false);
+            const impact = thrownSpellImpact("Fire Strike", terrainGrid("B"), FROM, TO);
+            expect(impact.blockedByTerrain).toBe(true);
+            expect(impact.interceptedBy).toBeUndefined();
+        });
+
+        test("arcs over a FRIENDLY body, so the aimed target is the one that burns", () => {
+            const friendly = alliesAreTransparent(
+                new Map([["blocking-unit", { getTeam: () => LOWER_TEAM }]]),
+                LOWER_TEAM,
+            );
+            const impact = thrownSpellImpact("Fire Strike", sightGrid(true), FROM, TO, friendly);
+            expect(impact.interceptedBy).toBeUndefined();
+            expect(impact.cell).toEqual(TO);
+        });
+
+        // The AI gate is the strict one: an intercepted throw does not REACH the unit being scored, so it
+        // must not be proposed against it — the interceptor is enumerated as its own target instead.
+        test("does not count as reaching a target it would be intercepted before", () => {
+            const enemyScreen = alliesAreTransparent(teams, LOWER_TEAM);
+            expect(thrownSpellReachesTarget("Fire Strike", sightGrid(true), FROM, TO, enemyScreen)).toBe(false);
+            expect(thrownSpellReachesTarget("Fire Strike", sightGrid(false), FROM, TO, enemyScreen)).toBe(true);
+        });
     });
 
     test("reports the screening creature's cell so the preview can stop the lane there", () => {

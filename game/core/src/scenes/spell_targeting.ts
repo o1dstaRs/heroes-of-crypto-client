@@ -3,6 +3,18 @@ import { GridMath, SpellHelper, type Grid, type HoCMath } from "@heroesofcrypto/
 type ClientSpellSightGrid = Pick<Grid, "getOccupantUnitId" | "getSettings">;
 
 /**
+ * Bodies a throw flies OVER rather than into. The engine treats the caster's own troops as transparent —
+ * a mage arcs a fireball over their front line instead of frying it — so every client surface has to be
+ * handed the same predicate or the preview will promise a different victim than the cast produces.
+ */
+export type TransparencyPredicate = (unitId: string) => boolean;
+
+export const alliesAreTransparent =
+    (units: ReadonlyMap<string, { getTeam: () => number }>, casterTeam: number): TransparencyPredicate =>
+    (unitId: string) =>
+        units.get(unitId)?.getTeam() === casterTeam;
+
+/**
  * Client-side target reachability for unit-targeted spells.
  *
  * The shared helper owns which spells travel across the board (Vine Throw, Fire Strike, Ring of Fire)
@@ -14,6 +26,7 @@ export const isTargetedSpellReachable = (
     grid: ClientSpellSightGrid,
     from: HoCMath.XY,
     to: HoCMath.XY,
+    isTransparentUnit?: TransparencyPredicate,
 ): boolean => {
     const settings = grid.getSettings();
     return SpellHelper.isTargetedSpellLineOfSightClear(
@@ -22,6 +35,50 @@ export const isTargetedSpellReachable = (
         (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
         from,
         to,
+        isTransparentUnit,
+    );
+};
+
+/**
+ * Where a thrown spell actually lands, so the aim preview can name the real victim.
+ *
+ * Fire Strike is no longer refused by a body in the way: like an archer's shot it burns whoever stands in
+ * the line, and only terrain stops it. `interceptedBy` is that unit when it is not the one aimed at.
+ */
+export const thrownSpellImpact = (
+    spellName: string,
+    grid: ClientSpellSightGrid,
+    from: HoCMath.XY,
+    to: HoCMath.XY,
+    isTransparentUnit?: TransparencyPredicate,
+): SpellHelper.IThrownSpellImpact => {
+    const settings = grid.getSettings();
+    return SpellHelper.resolveThrownSpellImpact(
+        spellName,
+        grid,
+        (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
+        from,
+        to,
+        isTransparentUnit,
+    );
+};
+
+/** Strict gate for the client-side AIs: does the throw REACH the unit being scored, or land on a screen? */
+export const thrownSpellReachesTarget = (
+    spellName: string,
+    grid: ClientSpellSightGrid,
+    from: HoCMath.XY,
+    to: HoCMath.XY,
+    isTransparentUnit?: TransparencyPredicate,
+): boolean => {
+    const settings = grid.getSettings();
+    return SpellHelper.thrownSpellReachesAimedTarget(
+        spellName,
+        grid,
+        (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
+        from,
+        to,
+        isTransparentUnit,
     );
 };
 
@@ -34,6 +91,7 @@ export const targetedSpellBlockerId = (
     grid: ClientSpellSightGrid,
     from: HoCMath.XY,
     to: HoCMath.XY,
+    isTransparentUnit?: TransparencyPredicate,
 ): string | undefined => {
     if (!SpellHelper.targetedSpellRequiresLineOfSight(spellName)) {
         return undefined;
@@ -45,6 +103,7 @@ export const targetedSpellBlockerId = (
         (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
         from,
         to,
+        isTransparentUnit,
     )?.occupantId;
 };
 
@@ -54,6 +113,7 @@ export const targetedSpellBlockerCell = (
     grid: ClientSpellSightGrid,
     from: HoCMath.XY,
     to: HoCMath.XY,
+    isTransparentUnit?: TransparencyPredicate,
 ): HoCMath.XY | undefined => {
     if (!SpellHelper.targetedSpellRequiresLineOfSight(spellName)) {
         return undefined;
@@ -65,5 +125,6 @@ export const targetedSpellBlockerCell = (
         (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
         from,
         to,
+        isTransparentUnit,
     )?.cell;
 };

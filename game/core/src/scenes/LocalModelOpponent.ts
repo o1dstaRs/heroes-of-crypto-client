@@ -19,7 +19,7 @@ import {
     type Unit,
     type UnitsHolder,
 } from "@heroesofcrypto/common";
-import { isTargetedSpellReachable } from "./spell_targeting";
+import { alliesAreTransparent, thrownSpellReachesTarget } from "./spell_targeting";
 
 export interface LocalModelLegalAction {
     id: string;
@@ -665,7 +665,17 @@ const createSpellActions = (options: LocalModelActionOptions, actions: LocalMode
                     target.canBeHealed(),
                     movementRangeEnemies,
                 ) &&
-                isTargetedSpellReachable(spellName, grid, activeUnit.getBaseCell(), target.getBaseCell())
+                // Must LAND on this target, not merely be legal: a screening enemy takes an intercepted
+                // Fire Strike instead, so proposing the far target would score damage nobody receives.
+                thrownSpellReachesTarget(
+                    spellName,
+                    grid,
+                    activeUnit.getBaseCell(),
+                    target.getBaseCell(),
+                    spellName === "Fire Strike"
+                        ? alliesAreTransparent(unitsHolder.getAllUnits(), activeUnit.getTeam())
+                        : undefined,
+                )
             ) {
                 createAction(
                     actions,
