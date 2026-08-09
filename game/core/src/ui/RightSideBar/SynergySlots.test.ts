@@ -12,7 +12,8 @@ describe("synergy sidebar helpers", () => {
         expect(substitutedSynergyDescription("Chaos:2:3")).toBe(
             "17% chance to apply Break on attack which disables enemy abilities for 1 turn",
         );
-        expect(substitutedSynergyDescription("Nature:1:2")).toBe("Team can place 2 more units on the board");
+        // Nature:1:2 is [3] since the board-slot rebalance (+2/+3/+4, common 451e4cf).
+        expect(substitutedSynergyDescription("Nature:1:2")).toBe("Team can place 3 more units on the board");
         // No leftover placeholders in ANY level of any synergy.
         for (const faction of ["Life", "Chaos", "Might", "Nature"]) {
             for (const variant of [1, 2]) {

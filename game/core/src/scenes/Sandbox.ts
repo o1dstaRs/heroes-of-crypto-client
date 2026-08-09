@@ -16,6 +16,7 @@ import {
     HoCLib,
     AttackType,
     Spell,
+    SpellMultiplierType,
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
@@ -59,8 +60,7 @@ import {
     GameEvent,
     isThrownOffensiveSpell,
     isOffensiveSpellMultiplier,
-    applyMagicResistToSpellDamage,
-    calculateStackPoweredSpellDamage,
+    offensiveSpellDamageAgainstTarget,
     elementalSpellMultiplier,
     type IGameActionResult,
 } from "@heroesofcrypto/common";
@@ -120,10 +120,16 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
 /**
- * Client-side aim preview for a stack-powered offensive spell. Kept as a pure helper so the hover card,
- * aim overlay and authoritative engine can be regression-checked against the same five inputs.
+ * Client-side aim projection for an offensive spell: what ONE target actually takes.
+ *
+ * Delegates to common so the number a player is shown and the number the cast deals come out of the same
+ * arithmetic. It used to hard-code the stack-powered shape, which multiplied the Battle Mage's flat
+ * per-caster book (Fire Strike, Meteorite) by its stack power and projected up to 5x the real damage; the
+ * Magic Dragon's book is stack-powered, so it read correctly and hid the bug. Passing the spell's own
+ * multiplier is the fix, and it keeps a future spell in either shape honest for free.
  */
-export const stackPoweredSpellPreviewDamage = (
+export const offensiveSpellPreviewDamage = (
+    multiplierType: SpellMultiplierType,
     spellPower: number,
     casterAmountAlive: number,
     casterStackPower: number,
@@ -134,26 +140,15 @@ export const stackPoweredSpellPreviewDamage = (
     // as much. Defaulted so every non-elemental caller reads the same number it always did.
     elementMultiplier = 1,
 ): number =>
-    elementMultiplier <= 0
-        ? 0
-        : applyMagicResistToSpellDamage(
-              elementMultiplier === 1
-                  ? calculateStackPoweredSpellDamage(
-                        spellPower,
-                        casterAmountAlive,
-                        casterStackPower,
-                        casterMagicDamageBonusPercentage,
-                    )
-                  : Math.floor(
-                        calculateStackPoweredSpellDamage(
-                            spellPower,
-                            casterAmountAlive,
-                            casterStackPower,
-                            casterMagicDamageBonusPercentage,
-                        ) * elementMultiplier,
-                    ),
-              targetMagicResist,
-          );
+    offensiveSpellDamageAgainstTarget(
+        multiplierType,
+        spellPower,
+        casterAmountAlive,
+        casterStackPower,
+        casterMagicDamageBonusPercentage,
+        targetMagicResist,
+        elementMultiplier,
+    );
 
 /**
  * Spell Flesh Shield damage was added to GameEvent after the original client event union. The structural
@@ -7609,7 +7604,8 @@ export class Sandbox extends PixiScene {
         if (!isOffensiveSpellMultiplier(spell.getMultiplierType())) {
             return undefined;
         }
-        return stackPoweredSpellPreviewDamage(
+        return offensiveSpellPreviewDamage(
+            spell.getMultiplierType(),
             spell.getPower(),
             caster.getAmountAlive(),
             caster.getStackPower(),

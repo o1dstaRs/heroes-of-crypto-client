@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { GameEvent } from "@heroesofcrypto/common";
 
-import { cellTargetedSpellBlockCells, spellCastSecondaryDamage, stackPoweredSpellPreviewDamage } from "./Sandbox";
+import { SpellMultiplierType } from "@heroesofcrypto/common";
+
+import { cellTargetedSpellBlockCells, offensiveSpellPreviewDamage, spellCastSecondaryDamage } from "./Sandbox";
 
 const key = (c: { x: number; y: number }) => `${c.x},${c.y}`;
 
@@ -49,19 +51,34 @@ describe("spell damage preview parity", () => {
     test("includes every caster magic-damage bonus before applying target resistance", () => {
         // Lightning Strike: 30 * 2 creatures * 5 stack = 300. A combined +15% from
         // Empower/Sylvan raises it to 345; 20% magic resistance then lands exactly 276.
-        expect(stackPoweredSpellPreviewDamage(30, 2, 5, 15, 20)).toBe(276);
-        expect(stackPoweredSpellPreviewDamage(30, 2, 5, 0, 20)).toBe(240);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 30, 2, 5, 15, 20)).toBe(276);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 30, 2, 5, 0, 20)).toBe(240);
+    });
+
+    // The regression this projection was rebuilt for: the Battle Mage's book is UNIT_AMOUNT_DAMAGE (flat per
+    // caster), and pricing it with the stack-powered shape showed up to 5x the damage the cast would deal.
+    test("prices the Battle Mage's flat-per-caster book without the caster's stack power", () => {
+        // Fire Strike, power 6, 50 casters -> 300 whatever the stack power is.
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 6, 50, 5, 0, 0)).toBe(300);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 6, 50, 1, 0, 0)).toBe(300);
+        // Meteorite, power 4, 50 casters -> 200, and the target's resistance still applies on top.
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 4, 50, 5, 0, 0)).toBe(200);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_DAMAGE, 4, 50, 5, 0, 50)).toBe(100);
+        // The Magic Dragon's stack-powered shape is unchanged, which is why this bug stayed invisible there.
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 6, 50, 5, 0, 0)).toBe(1500);
     });
 
     test("prices the target's element before its resistance, and leaves elementless spells alone", () => {
         // Ring of Fire at 24: 24 * 1 creature * 5 stack = 120 against an elementless target.
-        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0)).toBe(120);
-        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0, 1)).toBe(120);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0)).toBe(120);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0, 1)).toBe(120);
         // A Fire Element previews as nothing at all rather than as a number the cast will never deal.
-        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0, 0)).toBe(0);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0, 0)).toBe(0);
         // A Water Element takes fire half again as hard, and only then resists it: 120 * 1.5 = 180, less 20%.
-        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 0, 1.5)).toBe(180);
-        expect(stackPoweredSpellPreviewDamage(24, 1, 5, 0, 20, 1.5)).toBe(144);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 0, 1.5)).toBe(180);
+        expect(offensiveSpellPreviewDamage(SpellMultiplierType.UNIT_AMOUNT_STACK_POWER, 24, 1, 5, 0, 20, 1.5)).toBe(
+            144,
+        );
     });
 
     test("reads spell Flesh Shield transfers even when no primary damage remains", () => {
