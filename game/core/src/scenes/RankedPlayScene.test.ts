@@ -1027,6 +1027,48 @@ describe("ranked placement scene state", () => {
         expect(liveUnit.getUnitProperties().applied_debuffs_powers).toEqual([]);
     });
 
+    test("syncs the accumulated Miner armor loss into the ranked debuff display", () => {
+        const snapshotProperties = (totalMined?: number) =>
+            authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "mined-defender",
+                        debuffs: totalMined === undefined ? [] : ["Miner"],
+                        debuffLaps: totalMined === undefined ? [] : [15],
+                        debuffDescriptions:
+                            totalMined === undefined ? [] : [`Base armor permanently reduced by {}.;${totalMined};`],
+                    }),
+                ]),
+            ).units[0]!.properties;
+        const effectFactory = new EffectFactory();
+        const liveUnit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                snapshotProperties(),
+                new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
+                TeamVals.LOWER,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(0.6))).toBe(true);
+        expect(liveUnit.getUnitProperties().applied_debuffs).toEqual(["Miner"]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_laps).toEqual([15]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([
+            "Base armor permanently reduced by {}.;0.6;",
+        ]);
+
+        // Repeated hits update the one authoritative row instead of accumulating duplicate icons.
+        expect(applyRankedUnitSnapshotStats(liveUnit, snapshotProperties(1.2))).toBe(true);
+        expect(liveUnit.getUnitProperties().applied_debuffs).toEqual(["Miner"]);
+        expect(liveUnit.getUnitProperties().applied_debuffs_descriptions).toEqual([
+            "Base armor permanently reduced by {}.;1.2;",
+        ]);
+    });
+
     test("syncs authoritative rune attack and armor modifiers without rebuilding the ranked unit", () => {
         const snapshotProperties = (attackMod: number, armorMod: number, runeStacks = 0) =>
             authoritativeSnapshotToSandboxSceneState({

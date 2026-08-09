@@ -3316,21 +3316,6 @@ export class RenderableUnit extends Unit {
         // they drifted before, and only the sandbox showed the live number.
         super.refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease);
 
-        // Miner
-        const minerAbility = this.getAbility("Miner");
-        if (minerAbility) {
-            this.refreshAbiltyDescription(
-                minerAbility.getName(),
-                minerAbility
-                    .getDesc()
-                    .join("\n")
-                    .replace(
-                        /\{\}/g,
-                        this.calculateAbilityCount(minerAbility, _synergyAbilityPowerIncrease).toString(),
-                    ),
-            );
-        }
-
         // Chain Lightning
         const chainLightningAbility = this.getAbility("Chain Lightning");
         if (chainLightningAbility) {
