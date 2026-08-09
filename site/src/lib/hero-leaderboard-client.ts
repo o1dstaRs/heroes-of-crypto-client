@@ -24,6 +24,17 @@ const append = <T extends ParentNode>(parent: T, ...children: Array<Node | null 
     return parent;
 };
 
+const currencyAmount = (amount: number, formatter: Intl.NumberFormat): HTMLElement => {
+    const node = el("span", "currency-amount");
+    const icon = el("img", "currency-icon");
+    icon.src = "/assets/icons/currency/gold.svg";
+    icon.alt = "";
+    icon.setAttribute("aria-hidden", "true");
+    icon.width = 20;
+    icon.height = 20;
+    return append(node, icon, document.createTextNode(formatter.format(Math.max(0, Math.trunc(amount)))));
+};
+
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
     Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), template);
 
@@ -141,18 +152,17 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         dossier.id = dossierId;
         dossier.setAttribute("role", "tooltip");
         row.setAttribute("aria-describedby", dossierId);
-        const metric = (label: string, value: string, modifier = ""): HTMLElement => {
-            const node = el("span", `hero-ranked__dossier-stat${modifier ? ` is-${modifier}` : ""}`);
-            return append(node, el("small", "", label), el("strong", "", value));
+        const metric = (label: string, value: string | Node): HTMLElement => {
+            const node = el("span", "hero-ranked__dossier-stat");
+            const valueNode = el("strong");
+            append(valueNode, typeof value === "string" ? document.createTextNode(value) : value);
+            return append(node, el("small", "", label), valueNode);
         };
-        const streak =
-            player.winStreak > 0 ? `+${player.winStreak}` : player.lossStreak > 0 ? `−${player.lossStreak}` : "—";
         append(
             dossier,
-            metric(copy.record, `${player.wins}–${player.losses}–${player.draws}`),
-            metric(copy.winRate, `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
+            metric(copy.rating, numberFormatter.format(player.mmr)),
             metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
-            metric(copy.currentStreak, streak, player.winStreak > 0 ? "win" : player.lossStreak > 0 ? "loss" : ""),
+            metric(copy.gold, currencyAmount(player.gold, numberFormatter)),
         );
         append(row, rankNode, avatar, identity, rating, dossier);
         return append(item, row);

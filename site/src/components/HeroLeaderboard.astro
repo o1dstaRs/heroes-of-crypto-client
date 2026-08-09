@@ -387,7 +387,7 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         z-index: 5;
         inset: 3px 0 3px 42%;
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;
         align-items: center;
         padding: 7px 10px;
@@ -446,12 +446,14 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         line-height: 1.25;
     }
 
-    .hero-ranked__dossier-stat.is-win strong {
-        color: #72d589;
+    .hero-ranked__dossier-stat .currency-amount {
+        justify-content: center;
+        gap: 0.25em;
     }
 
-    .hero-ranked__dossier-stat.is-loss strong {
-        color: #ff7964;
+    .hero-ranked__dossier-stat .currency-icon {
+        width: 1.1em;
+        height: 1.1em;
     }
 
     .hero-ranked__footer {
