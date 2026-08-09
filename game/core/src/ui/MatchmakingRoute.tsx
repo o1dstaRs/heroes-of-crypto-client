@@ -17,6 +17,7 @@ import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
+import { RankedBanPicker } from "./RankedBanPicker";
 import { Perk } from "@heroesofcrypto/common";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
@@ -1045,6 +1046,10 @@ export const MatchmakingRoute: React.FC = () => {
                                         );
                                     })}
                                 </Stack>
+                            )}
+
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
+                                <RankedBanPicker />
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (

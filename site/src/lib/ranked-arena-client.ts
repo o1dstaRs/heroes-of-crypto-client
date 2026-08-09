@@ -1,7 +1,9 @@
 import {
+    defaultPlayerSortDirection,
     filterLeagues,
     filterLiveGames,
     filterRankedPlayers,
+    livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
     normalizeTopResponse,
@@ -15,6 +17,7 @@ import {
     type LiveGamesResponse,
     type LiveGameStage,
     type PlayerSort,
+    type PlayerSortDirection,
     type RankedLeague,
     type RankedPlayer,
     type RankedStandingsResponse,
@@ -30,6 +33,7 @@ interface ArenaState {
     query: string;
     filters: Record<ArenaTab, string>;
     sort: PlayerSort;
+    sortDirection: PlayerSortDirection;
     selectedPlayerId: string;
     visibleGames: number;
     top?: RankedTopResponse;
@@ -335,13 +339,13 @@ const calibratingPlayerProfileHref = (lang: "en" | "ru", player: CalibratingPlay
         calibrationRequired: player.gamesRequired,
     });
 
-const livePlayerProfileHref = (lang: "en" | "ru", player: LiveGamePlayer): string =>
+const livePlayerProfileHref = (lang: "en" | "ru", player: LiveGamePlayer, ladderRank = 0): string =>
     playerProfileHref(lang, player.playerId, {
         username: player.username,
-        state: player.ranked?.state ?? (player.rankedBot ? "calibration" : undefined),
+        state: player.ranked ? livePlayerRankedState(player) : undefined,
         mmr: player.ranked?.mmr,
         league: player.ranked?.league,
-        rank: player.ranked?.leaderboardRank,
+        rank: player.ranked?.leaderboardRank || ladderRank,
     });
 
 const createPlayerDossier = (
@@ -360,6 +364,7 @@ const createPlayerDossier = (
         dossier,
         // Season currency first: gold is minted 1:1 with won MMR and never deducted.
         metric(copy.gold, `${numberFormatter.format(player.gold)} 🪙`),
+        metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
         metric(copy.currentStreak, streakText(copy, player)),
@@ -405,6 +410,7 @@ const renderPlayerDetail = (
     append(
         stats,
         stat(copy.gold, `${numberFormatter.format(player.gold)} 🪙`),
+        stat(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         stat(copy.record, `${player.wins}–${player.losses}–${player.draws}`),
         stat(copy.winRate, `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
         stat(copy.currentStreak, streakText(copy, player)),
@@ -449,6 +455,7 @@ const renderCalibratingSection = (
             el("span", "ranked-arena__rank", "…"),
             identity,
             el("strong", "ranked-arena__row-rating", "—"),
+            el("strong", "ranked-arena__row-gold", `${numberFormatter.format(player.gold)} 🪙`),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el(
                 "span",
@@ -460,6 +467,22 @@ const renderCalibratingSection = (
     }
     append(section, heading, list);
     return section;
+};
+
+const createSortableHeading = (
+    label: string,
+    sort: PlayerSort,
+    activeSort: PlayerSort,
+    direction: PlayerSortDirection,
+): HTMLElement => {
+    const cell = el("span", "ranked-arena__table-heading-cell");
+    cell.setAttribute("role", "columnheader");
+    cell.setAttribute("aria-sort", sort === activeSort ? (direction === "asc" ? "ascending" : "descending") : "none");
+    const button = el("button", "ranked-arena__column-sort", label);
+    button.type = "button";
+    button.dataset.arenaColumnSort = sort;
+    append(cell, button);
+    return cell;
 };
 
 const renderPlayers = (
@@ -485,7 +508,12 @@ const renderPlayers = (
     }
 
     const players = source.length
-        ? filterRankedPlayers(source, { query: state.query, league: leagueFilter, sort: state.sort })
+        ? filterRankedPlayers(source, {
+              query: state.query,
+              league: leagueFilter,
+              sort: state.sort,
+              direction: state.sortDirection,
+          })
         : [];
     if (!players.length && !calibrating.length) {
         return createEmptyState(copy.noPlayers);
@@ -506,13 +534,15 @@ const renderPlayers = (
         return layout;
     }
     const heading = el("div", "ranked-arena__table-heading");
+    heading.setAttribute("role", "row");
     append(
         heading,
-        el("span", "", copy.position),
-        el("span", "", copy.player),
-        el("span", "", copy.rating),
-        el("span", "", copy.record),
-        el("span", "", copy.winRate),
+        createSortableHeading(copy.position, "rank", state.sort, state.sortDirection),
+        createSortableHeading(copy.player, "player", state.sort, state.sortDirection),
+        createSortableHeading(copy.rating, "rating", state.sort, state.sortDirection),
+        createSortableHeading(copy.gold, "gold", state.sort, state.sortDirection),
+        createSortableHeading(copy.record, "wins", state.sort, state.sortDirection),
+        createSortableHeading(copy.winRate, "winRate", state.sort, state.sortDirection),
     );
     const list = el("div", "ranked-arena__player-list");
 
@@ -531,11 +561,7 @@ const renderPlayers = (
         const rank = el("span", "ranked-arena__rank", `#${player.position || player.leaderboardRank || "—"}`);
         const identity = el("span", "ranked-arena__player-identity");
         const identityText = el("span");
-        append(
-            identityText,
-            el("strong", "", player.username),
-            el("small", "", localizedLeague(copy, player.league)),
-        );
+        append(identityText, el("strong", "", player.username), el("small", "", localizedLeague(copy, player.league)));
         append(identity, createAvatar(player.username, player.league), identityText);
         const dossierId = `ranked-arena-dossier-${index + 1}`;
         row.setAttribute("aria-describedby", dossierId);
@@ -544,6 +570,7 @@ const renderPlayers = (
             rank,
             identity,
             el("strong", "ranked-arena__row-rating", numberFormatter.format(player.mmr)),
+            el("strong", "ranked-arena__row-gold", `${numberFormatter.format(player.gold)} 🪙`),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el("span", "ranked-arena__row-rate", `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
             createPlayerDossier(player, copy, dossierId),
@@ -565,6 +592,7 @@ const renderGameSeat = (
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
     lang: "en" | "ru",
     gameIndex: number,
+    fallbackLadderRank: number,
 ): HTMLElement => {
     const player = game.players[index];
     if (!player) {
@@ -574,16 +602,18 @@ const renderGameSeat = (
     }
 
     const seat = el("a", "ranked-arena__game-seat");
-    seat.href = livePlayerProfileHref(lang, player);
+    const ranked = player.ranked;
+    const ladderRank = ranked?.leaderboardRank || fallbackLadderRank;
+    seat.href = livePlayerProfileHref(lang, player, ladderRank);
     seat.title = copy.viewProfile;
     seat.setAttribute("aria-label", `${copy.viewProfile}: ${player.username}`);
     const identity = el("div");
-    const ranked = player.ranked;
     const aiLabel = replaceTemplate(copy.aiLabel, { version: player.aiVersion ?? "" }).trim();
+    const rankedState = livePlayerRankedState(player);
     const stateLabel =
-        ranked?.state === "recalibration"
+        rankedState === "recalibration"
             ? copy.recalibratingBadge
-            : ranked?.state === "calibration" || player.rankedBot
+            : rankedState === "calibration"
               ? copy.calibratingHeading
               : ranked?.league
                 ? localizedLeague(copy, ranked.league)
@@ -591,7 +621,7 @@ const renderGameSeat = (
                   ? aiLabel
                   : copy.unranked;
     const meta = ranked?.mmr
-        ? `${ranked.leaderboardRank ? `#${ranked.leaderboardRank} · ` : ""}${numberFormatter.format(ranked.mmr)} MMR`
+        ? `${ladderRank ? `#${ladderRank} · ` : ""}${numberFormatter.format(ranked.mmr)} MMR`
         : player.isBot && player.aiVersion
           ? `${stateLabel} · ${player.aiVersion}`
           : stateLabel;
@@ -610,12 +640,12 @@ const renderGameSeat = (
     append(
         dossier,
         metric(copy.rating, ranked?.mmr ? numberFormatter.format(ranked.mmr) : "—"),
-        metric(copy.ladderRank, ranked?.leaderboardRank ? `#${ranked.leaderboardRank}` : "—"),
+        metric(copy.ladderRank, ladderRank ? `#${ladderRank}` : "—"),
         metric(
             labelFromTemplate(copy.leagueTemplate, "n"),
             ranked?.league ? localizedLeague(copy, ranked.league) : "—",
         ),
-        metric(copy.rankedStatus, player.isBot && !ranked?.league ? aiLabel : stateLabel),
+        metric(copy.rankedStatus, stateLabel),
     );
     append(seat, dossier);
     return seat;
@@ -678,6 +708,9 @@ const renderGames = (
     append(overview, liveCount, stageCounts);
 
     const grid = el("div", "ranked-arena__games");
+    const ladderRanks = new Map(
+        allRankedPlayers(state).map((player) => [player.playerId, player.position || player.leaderboardRank] as const),
+    );
     const visibleGames = games.slice(0, state.visibleGames);
     for (const [gameIndex, game] of visibleGames.entries()) {
         const card = el("article", "ranked-arena__game-card");
@@ -714,9 +747,9 @@ const renderGames = (
         const matchup = el("div", "ranked-arena__matchup");
         append(
             matchup,
-            renderGameSeat(game, 0, copy, lang, gameIndex),
+            renderGameSeat(game, 0, copy, lang, gameIndex, ladderRanks.get(game.players[0]?.playerId ?? "") ?? 0),
             el("span", "ranked-arena__versus", copy.versus),
-            renderGameSeat(game, 1, copy, lang, gameIndex),
+            renderGameSeat(game, 1, copy, lang, gameIndex, ladderRanks.get(game.players[1]?.playerId ?? "") ?? 0),
         );
         append(card, header, matchup, el("span", "sr-only", game.gameId));
         append(grid, card);
@@ -833,7 +866,6 @@ const renderLeagues = (
             ),
         );
 
-
         const leaguePlayers = playersInLeague(league).slice(0, 3);
         const playerList = el("ol", "ranked-arena__league-players");
         for (const [index, player] of leaguePlayers.entries()) {
@@ -872,6 +904,7 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         query: "",
         filters: { players: "0", games: "all", leagues: "0" },
         sort: "rank",
+        sortDirection: defaultPlayerSortDirection("rank"),
         selectedPlayerId: "",
         visibleGames: gamesPageSize(),
         cached: new Set(),
@@ -917,6 +950,7 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         }
         const sortField = sort.closest<HTMLElement>("[data-arena-sort-field]") ?? sort.parentElement;
         if (sortField) sortField.hidden = state.tab !== "players";
+        sort.value = state.sort;
         const filterField = filter.closest<HTMLElement>("[data-arena-filter-field]") ?? filter.parentElement;
         if (filterField) filterField.hidden = false;
     };
@@ -1081,6 +1115,7 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
     });
     sort.addEventListener("change", () => {
         state.sort = sort.value as PlayerSort;
+        state.sortDirection = defaultPlayerSortDirection(state.sort);
         render();
     });
     refresh.addEventListener("click", refreshAll);
@@ -1102,6 +1137,20 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
     });
     panel.addEventListener("click", (event) => {
         const target = event.target as HTMLElement;
+        const columnSort = target.closest<HTMLButtonElement>("[data-arena-column-sort]");
+        if (columnSort?.dataset.arenaColumnSort) {
+            const nextSort = columnSort.dataset.arenaColumnSort as PlayerSort;
+            state.sortDirection =
+                state.sort === nextSort
+                    ? state.sortDirection === "asc"
+                        ? "desc"
+                        : "asc"
+                    : defaultPlayerSortDirection(nextSort);
+            state.sort = nextSort;
+            sort.value = nextSort;
+            render();
+            return;
+        }
         const stageFilter = target.closest<HTMLButtonElement>("[data-game-stage-filter]");
         if (stageFilter?.dataset.gameStageFilter) {
             const stage = stageFilter.dataset.gameStageFilter as LiveGameStage;

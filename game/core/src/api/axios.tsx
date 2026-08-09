@@ -219,6 +219,7 @@ export const endpoints = {
         friendUnblock: IS_PROD ? "/v1/friend-unblock" : "/v1/mm/friend-unblock",
         friends: IS_PROD ? "/v1/friends" : "/v1/mm/friends",
         playerSearch: IS_PROD ? "/v1/player-search" : "/v1/mm/player-search",
+        rankedBan: IS_PROD ? "/v1/ranked-ban" : "/v1/mm/ranked-ban",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",

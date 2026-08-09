@@ -1,5 +1,6 @@
 export type ArenaTab = "players" | "games" | "leagues";
-export type PlayerSort = "rank" | "rating" | "winRate" | "wins" | "streak" | "gold";
+export type PlayerSort = "rank" | "player" | "rating" | "winRate" | "wins" | "streak" | "gold";
+export type PlayerSortDirection = "asc" | "desc";
 export type LiveGameStage = "pick" | "placement" | "fight";
 
 export interface RankedPlayer {
@@ -23,6 +24,9 @@ export interface RankedPlayer {
     lossStreak: number;
     peakMmr: number;
     lastRankedGameAt: number;
+    // The player's stored pre-game ban preference (0/"" = none).
+    bannedCreatureId: number;
+    bannedCreatureName: string;
 }
 
 export interface RankedTopResponse {
@@ -112,6 +116,8 @@ export interface LiveGamesResponse {
     games: LiveGame[];
 }
 
+export type LivePlayerRankedState = "placed" | "calibration" | "recalibration" | "unranked";
+
 type UnknownRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): UnknownRecord =>
@@ -157,6 +163,8 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         lossStreak: Math.max(0, asInteger(row.lossStreak)),
         peakMmr: Math.max(0, asInteger(row.peakMmr)),
         lastRankedGameAt: Math.max(0, asInteger(row.lastRankedGameAt)),
+        bannedCreatureId: Math.max(0, asInteger(row.bannedCreatureId)),
+        bannedCreatureName: asString(row.bannedCreatureName),
     };
 };
 
@@ -267,6 +275,9 @@ const normalizeLivePlayer = (value: unknown): LiveGamePlayer | null => {
     }
     const rawRanked = player.ranked === null ? null : asRecord(player.ranked);
     const hasRanked = rawRanked !== null && Object.keys(rawRanked).length > 0;
+    const rankedMmr = Math.max(0, asInteger(rawRanked?.mmr));
+    const rankedLeague = Math.max(0, asInteger(rawRanked?.league));
+    const rankedState = asString(rawRanked?.state);
     return {
         playerId,
         username: asString(player.username, "Unknown player"),
@@ -275,9 +286,11 @@ const normalizeLivePlayer = (value: unknown): LiveGamePlayer | null => {
         rankedBot: asBoolean(player.rankedBot),
         ranked: hasRanked
             ? {
-                  state: asString(rawRanked.state, "unranked"),
-                  mmr: Math.max(0, asInteger(rawRanked.mmr)),
-                  league: Math.max(0, asInteger(rawRanked.league)),
+                  // Older live-game payloads omitted `state`. A visible MMR/league is conclusive
+                  // placed-player data and must never be presented as calibration.
+                  state: rankedState || (rankedMmr > 0 || rankedLeague > 0 ? "placed" : "unranked"),
+                  mmr: rankedMmr,
+                  league: rankedLeague,
                   leaderboardRank: Math.max(0, asInteger(rawRanked.leaderboardRank)),
               }
             : null,
@@ -321,6 +334,14 @@ export function normalizeLiveGamesResponse(value: unknown): LiveGamesResponse {
     };
 }
 
+export function livePlayerRankedState(player: LiveGamePlayer): LivePlayerRankedState {
+    const state = player.ranked?.state;
+    if (state === "placed" || state === "calibration" || state === "recalibration") {
+        return state;
+    }
+    return player.ranked && (player.ranked.mmr > 0 || player.ranked.league > 0) ? "placed" : "unranked";
+}
+
 const searchable = (value: string): string =>
     value
         .normalize("NFKD")
@@ -336,7 +357,7 @@ const matchesQuery = (haystack: string, query: string): boolean => {
 
 export function filterRankedPlayers(
     players: RankedPlayer[],
-    options: { query?: string; league?: number; sort?: PlayerSort } = {},
+    options: { query?: string; league?: number; sort?: PlayerSort; direction?: PlayerSortDirection } = {},
 ): RankedPlayer[] {
     const query = options.query ?? "";
     const league = options.league ?? 0;
@@ -352,22 +373,33 @@ export function filterRankedPlayers(
         return aRank - bRank || b.mmr - a.mmr || a.username.localeCompare(b.username);
     };
 
+    const sort = options.sort ?? "rank";
+    const direction = options.direction ?? defaultPlayerSortDirection(sort);
+    const directed = (comparison: number): number => (direction === "asc" ? comparison : -comparison);
+    const streakScore = (player: RankedPlayer): number => player.winStreak || -player.lossStreak;
+
     return filtered.sort((a, b) => {
-        switch (options.sort ?? "rank") {
+        switch (sort) {
+            case "player":
+                return directed(a.username.localeCompare(b.username)) || byRank(a, b);
             case "rating":
-                return b.mmr - a.mmr || byRank(a, b);
+                return directed(a.mmr - b.mmr) || byRank(a, b);
             case "winRate":
-                return b.winRatePct - a.winRatePct || b.totalGames - a.totalGames || byRank(a, b);
+                return directed(a.winRatePct - b.winRatePct) || directed(a.totalGames - b.totalGames) || byRank(a, b);
             case "wins":
-                return b.wins - a.wins || byRank(a, b);
+                return directed(a.wins - b.wins) || byRank(a, b);
             case "streak":
-                return b.winStreak - a.winStreak || a.lossStreak - b.lossStreak || byRank(a, b);
+                return directed(streakScore(a) - streakScore(b)) || byRank(a, b);
             case "gold":
-                return b.gold - a.gold || byRank(a, b);
+                return directed(a.gold - b.gold) || byRank(a, b);
             default:
-                return byRank(a, b);
+                return direction === "asc" ? byRank(a, b) : -byRank(a, b);
         }
     });
+}
+
+export function defaultPlayerSortDirection(sort: PlayerSort): PlayerSortDirection {
+    return sort === "rank" || sort === "player" ? "asc" : "desc";
 }
 
 export function filterLiveGames(
@@ -395,9 +427,7 @@ export function filterLeagues(leagues: RankedLeague[], query = ""): RankedLeague
     return leagues.filter((league) => {
         const players = playersInLeague(league);
         return matchesQuery(
-            `${league.name} League ${league.league} ${players
-                .map((player) => player.username)
-                .join(" ")}`,
+            `${league.name} League ${league.league} ${players.map((player) => player.username).join(" ")}`,
             query,
         );
     });

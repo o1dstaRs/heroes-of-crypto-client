@@ -96,6 +96,18 @@ export const unblockPlayer = (playerId: string): Promise<{ ok: boolean }> =>
 
 export const fetchFriends = (): Promise<FriendsOverview> => get(endpoints.social.friends);
 
+export interface RankedBanPreference {
+    creatureId: number;
+    creatureName: string;
+}
+
+/** The player's stored ranked pre-game ban ("the ONE unit I never want in my drafts"). */
+export const fetchRankedBan = (): Promise<RankedBanPreference> => get(endpoints.social.rankedBan);
+
+/** Set (or clear with 0) the ranked pre-game ban preference. */
+export const setRankedBan = (creatureId: number): Promise<RankedBanPreference> =>
+    post(endpoints.social.rankedBan, { creatureId });
+
 export const searchPlayers = async (query: string): Promise<PlayerSearchHit[]> => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {

@@ -27,6 +27,8 @@ export interface RankedArenaCopy {
     sortRating: string;
     sortGold: string;
     gold: string;
+    bansLabel: string;
+    bansNone: string;
     sortWinRate: string;
     sortWins: string;
     sortStreak: string;
@@ -122,6 +124,8 @@ export const rankedArenaCopy = {
         sortRating: "MMR",
         sortGold: "Gold",
         gold: "Gold",
+        bansLabel: "Bans",
+        bansNone: "—",
         sortWinRate: "Win rate",
         sortWins: "Wins",
         sortStreak: "Streak",
@@ -216,6 +220,8 @@ export const rankedArenaCopy = {
         sortRating: "MMR",
         sortGold: "Золото",
         gold: "Золото",
+        bansLabel: "Бан",
+        bansNone: "—",
         sortWinRate: "Процент побед",
         sortWins: "Победы",
         sortStreak: "Серия",

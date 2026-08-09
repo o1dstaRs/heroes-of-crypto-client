@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { TeamVals, type TeamType } from "@heroesofcrypto/common";
+import { FactionVals, TeamVals, type TeamType } from "@heroesofcrypto/common";
 
-import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
+import { syncPlacementSynergyUnitCounts, syncRankedSnapshotSynergies } from "./rankedSynergySync";
 
 const placementSnapshot = (gameId: string) => ({
     gameId,
@@ -66,5 +66,51 @@ describe("ranked synergy snapshot sync", () => {
         expect(store.values.get(TeamVals.LOWER)).toEqual(["Might:1:3"]);
         expect(store.values.get(TeamVals.UPPER)).toEqual(["Chaos:2:2"]);
         expect(store.calls).toHaveLength(2);
+    });
+});
+
+describe("placement synergy unit counts", () => {
+    const unit = (team: TeamType, faction: number) => ({
+        getTeam: () => team,
+        getFaction: () => faction,
+    });
+
+    const createCountsStore = () => {
+        const calls: Array<{ team: TeamType; life: number; chaos: number; might: number; nature: number }> = [];
+        return {
+            calls,
+            setSynergyUnitsPerFactions(team: TeamType, life: number, chaos: number, might: number, nature: number) {
+                calls.push({ team, life, chaos, might, nature });
+            },
+        };
+    };
+
+    test("counts every faction per team during placement (Nature board-units becomes reachable)", () => {
+        const store = createCountsStore();
+        // Lower fields 3 Nature (level 1 board-units synergy) + 1 Life; upper fields 2 Chaos.
+        syncPlacementSynergyUnitCounts(
+            store,
+            [
+                unit(TeamVals.LOWER, FactionVals.NATURE),
+                unit(TeamVals.LOWER, FactionVals.NATURE),
+                unit(TeamVals.LOWER, FactionVals.NATURE),
+                unit(TeamVals.LOWER, FactionVals.LIFE),
+                unit(TeamVals.UPPER, FactionVals.CHAOS),
+                unit(TeamVals.UPPER, FactionVals.CHAOS),
+                unit(TeamVals.NO_TEAM as TeamType, FactionVals.MIGHT),
+            ],
+            false,
+        );
+        const lower = store.calls.find((call) => call.team === TeamVals.LOWER);
+        const upper = store.calls.find((call) => call.team === TeamVals.UPPER);
+        expect(lower).toMatchObject({ nature: 3, life: 1, chaos: 0, might: 0 });
+        expect(upper).toMatchObject({ chaos: 2, nature: 0 });
+        expect(store.calls).toHaveLength(2);
+    });
+
+    test("never recounts once the fight is live — authoritative lists own the fight", () => {
+        const store = createCountsStore();
+        syncPlacementSynergyUnitCounts(store, [unit(TeamVals.LOWER, FactionVals.NATURE)], true);
+        expect(store.calls).toHaveLength(0);
     });
 });

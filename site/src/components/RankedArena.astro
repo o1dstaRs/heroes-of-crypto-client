@@ -153,6 +153,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
                     <span class="ranked-arena__field ranked-arena__select-field">
                         <select id="ranked-arena-sort" data-arena-sort>
                             <option value="rank">{copy.sortRank}</option>
+                            <option value="player">{copy.player}</option>
                             <option value="rating">{copy.sortRating}</option>
                             <option value="gold">{copy.sortGold}</option>
                             <option value="winRate">{copy.sortWinRate}</option>
@@ -970,10 +971,10 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__table-heading,
     .ranked-arena .ranked-arena__player-row {
         display: grid;
-        grid-template-columns: 58px minmax(200px, 1fr) 86px 92px 72px;
+        grid-template-columns: 58px minmax(185px, 1fr) 82px 90px 92px 72px;
         gap: 8px;
         align-items: center;
-        min-width: 670px;
+        min-width: 730px;
     }
 
     .ranked-arena .ranked-arena__table-heading {
@@ -991,7 +992,51 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__player-list {
-        min-width: 670px;
+        min-width: 730px;
+    }
+
+    .ranked-arena .ranked-arena__table-heading-cell {
+        min-width: 0;
+    }
+
+    .ranked-arena .ranked-arena__column-sort {
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        max-width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        letter-spacing: inherit;
+        text-align: left;
+        text-transform: inherit;
+        cursor: pointer;
+        transition: color 0.14s ease;
+    }
+
+    .ranked-arena .ranked-arena__column-sort::after {
+        color: rgba(242, 199, 93, 0.38);
+        font-size: 0.72rem;
+        content: "↕";
+    }
+
+    .ranked-arena .ranked-arena__table-heading-cell[aria-sort="ascending"] .ranked-arena__column-sort,
+    .ranked-arena .ranked-arena__table-heading-cell[aria-sort="descending"] .ranked-arena__column-sort,
+    .ranked-arena .ranked-arena__column-sort:hover,
+    .ranked-arena .ranked-arena__column-sort:focus-visible {
+        color: var(--gold-soft);
+    }
+
+    .ranked-arena .ranked-arena__table-heading-cell[aria-sort="ascending"] .ranked-arena__column-sort::after {
+        color: var(--gold);
+        content: "↑";
+    }
+
+    .ranked-arena .ranked-arena__table-heading-cell[aria-sort="descending"] .ranked-arena__column-sort::after {
+        color: var(--gold);
+        content: "↓";
     }
 
     .ranked-arena .ranked-arena__player-row {
@@ -1081,9 +1126,14 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__row-rating,
+    .ranked-arena .ranked-arena__row-gold,
     .ranked-arena .ranked-arena__row-rate {
         color: var(--ink);
         font-weight: 790;
+    }
+
+    .ranked-arena .ranked-arena__row-gold {
+        white-space: nowrap;
     }
 
     .ranked-arena .ranked-arena__row-record {
@@ -1979,6 +2029,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
         .ranked-arena .ranked-arena__table-heading > span:nth-child(n + 3),
         .ranked-arena .ranked-arena__row-rating,
+        .ranked-arena .ranked-arena__row-gold,
         .ranked-arena .ranked-arena__row-record,
         .ranked-arena .ranked-arena__row-rate {
             display: none;

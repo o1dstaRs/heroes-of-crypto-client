@@ -133,6 +133,8 @@ export interface PublicRankedProfile {
     secondsInGame: number;
     online: boolean;
     lastOnlineAt: number;
+    // The player's pre-game ban preference: the ONE unit they never want offered in their drafts.
+    rankedBan: { creatureId: number; name: string } | null;
     // The season the live numbers belong to (null = season-less/preseason ladder) and the final
     // standings of every season this player already finished, newest first.
     season: ProfileSeason | null;
@@ -332,6 +334,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         secondsInGame: nonNegativeInteger(row.secondsInGame),
         online: row.online === true,
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
+        rankedBan: normalizeRankedBan(row.rankedBan),
         season: normalizeProfileSeason(row.season),
         seasonHistory: (Array.isArray(row.seasonHistory) ? row.seasonHistory : [])
             .map(normalizeSeasonHistoryEntry)
@@ -340,6 +343,16 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         recentGames,
         playstyle,
     };
+}
+
+function normalizeRankedBan(value: unknown): { creatureId: number; name: string } | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    const row = asRecord(value);
+    const creatureId = nonNegativeInteger(row.creatureId);
+    const name = asString(row.name);
+    return creatureId > 0 && name ? { creatureId, name } : null;
 }
 
 function normalizeProfileSeason(value: unknown): ProfileSeason | null {

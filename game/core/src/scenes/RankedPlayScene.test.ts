@@ -29,6 +29,7 @@ import {
     rankedUnitAliveHealth,
     rankedSecondarySceneLogLines,
     rankedSpellPrimaryDamageSummary,
+    rankedSystemMoveSceneLogLine,
     rankedUnitStartAmount,
     rankedUnitStartHealth,
     multiHitSceneLogLines,
@@ -83,6 +84,31 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
     centerDried: false,
     units,
     upNext: [],
+});
+
+describe("ranked system movement log", () => {
+    test("includes the narrowing destination cell instead of exposing the world position", () => {
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const destination = { x: 10, y: 8 };
+        const worldPosition = GridMath.getPositionForCell(
+            destination,
+            gridSettings.getMinX(),
+            gridSettings.getStep(),
+            gridSettings.getHalfStep(),
+        );
+
+        expect(rankedSystemMoveSceneLogLine("Arbalester", "narrowing", worldPosition, gridSettings)).toBe(
+            "Arbalester moved by narrowing to(10, 8)",
+        );
+    });
 });
 
 describe("ranked placement scene state", () => {

@@ -4,6 +4,7 @@ import {
     filterLeagues,
     filterLiveGames,
     filterRankedPlayers,
+    livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
     normalizeTopResponse,
@@ -19,6 +20,7 @@ const player = (overrides: Partial<RankedPlayer> = {}): RankedPlayer => ({
     playerId: "11111111-1111-4111-8111-111111111111",
     username: "Artemis",
     mmr: 1800,
+    gold: 420,
     league: 5,
     leagueName: "5th League",
     leaderboardRank: 1,
@@ -102,7 +104,36 @@ describe("ranked arena response normalization", () => {
         expect(response.count).toBe(2);
         expect(response.games.map((game) => game.gameId)).toEqual(["game-new", "game-old"]);
         expect(response.games[0].players).toHaveLength(2);
+        expect(response.games[0].players[0].ranked?.state).toBe("placed");
         expect(response.games[0].players[1].aiVersion).toBe("v0.8");
+    });
+
+    test("keeps a calibrated ranked bot placed in active games", () => {
+        const response = normalizeLiveGamesResponse({
+            games: [
+                {
+                    gameId: "ranked-bot-game",
+                    stage: "fight",
+                    players: [
+                        {
+                            playerId: "ai:v0.2:rb03:00000000000000000000000",
+                            username: "AI v0.2 #03",
+                            isBot: true,
+                            rankedBot: true,
+                            ranked: { state: "placed", mmr: 803, league: 1, leaderboardRank: 17 },
+                        },
+                    ],
+                },
+            ],
+        });
+
+        expect(response.games[0].players[0].ranked).toEqual({
+            state: "placed",
+            mmr: 803,
+            league: 1,
+            leaderboardRank: 17,
+        });
+        expect(livePlayerRankedState(response.games[0].players[0])).toBe("placed");
     });
 });
 
@@ -118,6 +149,7 @@ describe("ranked arena discovery", () => {
             leagueName: "4th League",
             wins: 22,
             totalGames: 40,
+            gold: 700,
             winRatePct: 55,
             winStreak: 0,
             lossStreak: 2,
@@ -131,6 +163,7 @@ describe("ranked arena discovery", () => {
             leagueName: "4th League",
             wins: 18,
             totalGames: 20,
+            gold: 50,
             winRatePct: 90,
             winStreak: 7,
         }),
@@ -144,6 +177,9 @@ describe("ranked arena discovery", () => {
         expect(filterRankedPlayers(players, { sort: "wins" })[0].username).toBe("Green Knight");
         expect(filterRankedPlayers(players, { sort: "winRate" })[0].username).toBe("Árcher Queen");
         expect(filterRankedPlayers(players, { sort: "streak" })[0].username).toBe("Árcher Queen");
+        expect(filterRankedPlayers(players, { sort: "gold" })[0].username).toBe("Green Knight");
+        expect(filterRankedPlayers(players, { sort: "player" })[0].username).toBe("Árcher Queen");
+        expect(filterRankedPlayers(players, { sort: "rank", direction: "desc" })[0].username).toBe("Árcher Queen");
     });
 
     test("searches active games across both seats and filters their stage", () => {

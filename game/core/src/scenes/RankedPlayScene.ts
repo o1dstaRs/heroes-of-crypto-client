@@ -61,6 +61,7 @@ import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { setViewerTeamForColors } from "./teamColors";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
+import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -76,6 +77,17 @@ export const isRankedAuthoritativeRecordAlreadyApplied = (
         latestSequence >= 0 &&
         latestSequence <= lastAppliedSequence
     );
+};
+
+/** Convert an authoritative system-move world position back to the destination cell shown in the fight log. */
+export const rankedSystemMoveSceneLogLine = (
+    unitName: string,
+    reason: Extract<GameEvent, { type: "unit_moved_by_system" }>["reason"],
+    position: HoCMath.XY,
+    gridSettings: Parameters<typeof GridMath.getCellForPosition>[0],
+): string => {
+    const cell = GridMath.getCellForPosition(gridSettings, position);
+    return `${unitName} moved by ${reason} to(${cell.x}, ${cell.y})`;
 };
 
 export const authoritativeUnitToSandboxUnitState = (
@@ -2831,7 +2843,12 @@ export class RankedPlayScene extends Sandbox {
             case "narrowing_applied":
                 return "Map narrowed";
             case "unit_moved_by_system":
-                return `${nameOf(event.unitId)} moved by ${event.reason}`;
+                return rankedSystemMoveSceneLogLine(
+                    nameOf(event.unitId),
+                    event.reason,
+                    event.position,
+                    this.sc_sceneSettings.getGridSettings(),
+                );
             case "unit_destroyed":
                 return `${nameOf(event.unitId)} ${
                     event.reason === "dead_cleanup"
@@ -3712,6 +3729,17 @@ export class RankedPlayScene extends Sandbox {
     private authoritativeHiddenIds = new Set<string>();
     private authoritativeRangeNullIds = new Set<string>();
     private reconcileAuraEffectsFromSnapshot(snapshot: AuthoritativeGameSnapshot): void {
+        // PLACEMENT ONLY: feed the local engine the per-faction unit counts synergy levels derive
+        // from (2/4/6 -> level 1/2/3). The client's own placement gate reads them through
+        // getNumberOfUnitsAvailableForPlacement — never set in ranked, Nature's INCREASE_BOARD_UNITS
+        // stayed level 0 locally and the extra board slot the server allows was unreachable. Once
+        // the fight is live the helper no-ops: the authoritative synergy lists own the fight and a
+        // survivor recount would strip synergies on deaths (the server freezes a baseline for this).
+        syncPlacementSynergyUnitCounts(
+            FightStateManager.getInstance().getFightProperties(),
+            this.unitsHolder.getAllUnits().values(),
+            snapshot.fightStarted,
+        );
         this.authoritativeHiddenIds = new Set(
             snapshot.units.filter((u) => (u.buffs ?? []).includes("Hidden")).map((u) => u.id),
         );
@@ -3740,15 +3768,11 @@ export class RankedPlayScene extends Sandbox {
             (unit as RenderableUnit | undefined)?.setSkipping(snapUnit.skipping ?? false);
             // New snapshots encode each remaining cast as a duplicate spell entry, so sync by spell NAME.
             // Positional amounts cannot survive an earlier spell being exhausted or a SPELLBOOK transfer.
+            // syncAuthoritativeSpellEntries also rewrites unitProperties.spells itself: the sidebar's
+            // scroll count reads that raw list, and with only the Spell objects synced it froze at the
+            // base count after every ranked cast (sandbox splices the list via the local engine).
             if (unit && snapUnit.spellEntriesAuthoritative) {
-                const remainingByName = new Map<string, number>();
-                for (const entry of snapUnit.spellEntries ?? []) {
-                    const name = entry.substring(entry.indexOf(":") + 1);
-                    remainingByName.set(name, (remainingByName.get(name) ?? 0) + 1);
-                }
-                for (const spell of unit.getSpells()) {
-                    spell.setAmount(remainingByName.get(spell.getName()) ?? 0);
-                }
+                unit.syncAuthoritativeSpellEntries(snapUnit.spellEntries ?? []);
             } else if (unit && snapUnit.spellAmounts) {
                 const spells = unit.getSpells();
                 for (let i = 0; i < spells.length && i < snapUnit.spellAmounts.length; i++) {
