@@ -284,6 +284,7 @@ describe("RenderableUnit steady-state overlays", () => {
         hourglassContainer?: Container;
         stunContainer?: Container;
         respondContainer?: Container;
+        whirlpoolAura?: Graphics;
     };
 
     test("reuses static badge and stack geometry without allocating inactive status icons", () => {
@@ -336,6 +337,41 @@ describe("RenderableUnit steady-state overlays", () => {
         } finally {
             restores.forEach((restore) => restore());
         }
+    });
+
+    test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {
+        const sandboxUnit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        sandboxUnit.setPosition(0, 1024);
+        sandboxUnit.applyDebuff(
+            new Spell({ spellProperties: HoCConfig.getSpellConfig("Nature", "Whirlpool"), amount: 1 }),
+        );
+        const sandboxRoot = new Container();
+        sandboxUnit.syncVisual(sandboxRoot, gridSettings);
+        const sandboxVortex = (sandboxUnit as unknown as OverlayInternals).whirlpoolAura;
+        expect(sandboxVortex).toBeDefined();
+        expect(sandboxVortex?.visible).toBe(true);
+        expect(sandboxVortex?.getLocalBounds().width).toBeGreaterThan(gridSettings.getCellSize());
+
+        // Ranked deliberately has no AppliedSpell object: its server snapshot fills only the parallel
+        // display arrays. The shared status predicate must still create the exact same board VFX.
+        const rankedUnit = createRenderableUnit(TeamVals.UPPER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        rankedUnit.setPosition(0, 1024);
+        const rankedProperties = rankedUnit.getUnitProperties();
+        rankedProperties.applied_debuffs.push("Whirlpool");
+        rankedProperties.applied_debuffs_laps.push(1);
+        rankedProperties.applied_debuffs_descriptions.push("Trapped in a churning vortex");
+        rankedProperties.applied_debuffs_powers.push(0);
+        const rankedRoot = new Container();
+        rankedUnit.syncVisual(rankedRoot, gridSettings);
+        const rankedVortex = (rankedUnit as unknown as OverlayInternals).whirlpoolAura;
+        expect(rankedVortex).toBeDefined();
+        expect(rankedVortex?.visible).toBe(true);
+        expect(rankedVortex?.getLocalBounds().width).toBeGreaterThan(gridSettings.getCellSize());
+
+        // Once the authoritative status clears, the persistent vortex clears on the same visual sync.
+        rankedProperties.applied_debuffs.length = 0;
+        rankedUnit.syncVisual(rankedRoot, gridSettings);
+        expect(rankedVortex?.visible).toBe(false);
     });
 });
 

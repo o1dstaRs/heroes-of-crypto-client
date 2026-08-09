@@ -403,6 +403,9 @@ export class RenderableUnit extends Unit {
     // Light-blue circulating ring + small orbiting dots shown around a unit while its Water Shield buff is
     // active (the once-per-battle absorb). Created lazily; hidden the frame the shield breaks.
     private waterShieldAura?: Graphics;
+    // Animated water vortex under a unit trapped by Whirlpool. It keys off the shared status predicate so
+    // the live Sandbox debuff object and Ranked's authoritative applied_debuffs snapshot render identically.
+    private whirlpoolAura?: Graphics;
     // Ice "crust" encasing a unit under the "Freeze" status (drawn over the sprite, above the icy tint).
     private freezeCrust?: Graphics;
     // Additive light layer over the ice crust: a sheen raking across + caustic sparks drifting inside the
@@ -466,6 +469,7 @@ export class RenderableUnit extends Unit {
         ru.activeTurnFireFrameIndex = -1;
         ru.activeAuraColor = 0xffffff;
         ru.waterShieldAura = undefined;
+        ru.whirlpoolAura = undefined;
         ru.freezeCrust = undefined;
         ru.freezeLight = undefined;
         ru.waterShieldBreakGfx = undefined;
@@ -934,6 +938,7 @@ export class RenderableUnit extends Unit {
             if (this.stunContainer) this.stunContainer.visible = false;
             if (this.respondContainer) this.respondContainer.visible = false;
             if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
+            if (this.whirlpoolAura) this.whirlpoolAura.visible = false;
             return;
         }
         this.ensureVisual(worldRoot, gs);
@@ -977,6 +982,15 @@ export class RenderableUnit extends Unit {
             this.updateWaterShieldAura(worldRoot, gs, pos);
         } else if (this.waterShieldAura) {
             this.waterShieldAura.visible = false;
+        }
+
+        // Whirlpool is a one-lap movement/turn lock. Keep its vortex visible for exactly as long as the
+        // authoritative status is applied, rather than guessing from a cast event that may predate a ranked
+        // reconnect. hasStatusEffect reads the live object in Sandbox and applied_debuffs in Ranked.
+        if (!this.isDead() && this.hasStatusEffect("Whirlpool")) {
+            this.updateWhirlpoolAura(worldRoot, gs, pos);
+        } else if (this.whirlpoolAura) {
+            this.whirlpoolAura.visible = false;
         }
 
         // Freeze (Blacksmith's "Freeze" status): an ice crust encasing the unit, over the icy tint.
@@ -1125,6 +1139,76 @@ export class RenderableUnit extends Unit {
             const a = (i / innerCount) * Math.PI * 2 - t * 1.0;
             const r = ringR * 0.72;
             g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
+        }
+    }
+    /**
+     * Whirlpool status VFX: a dark water funnel with bright spiral currents and orbiting foam beneath the
+     * trapped creature. Pure vector graphics keep it available in every client build without an atlas, and
+     * the time-based redraw makes the water continuously churn until the authoritative debuff disappears.
+     */
+    private updateWhirlpoolAura(worldRoot: Container, gs: GridSettings, pos: HoCMath.XY): void {
+        if (!this.whirlpoolAura) {
+            this.whirlpoolAura = new Graphics();
+            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+            worldRoot.addChild(this.whirlpoolAura);
+        } else if (this.whirlpoolAura.parent !== worldRoot) {
+            worldRoot.addChild(this.whirlpoolAura);
+        }
+        // Layer the pool beneath the shadow/unit while leaving its bright outer water visible around the feet.
+        this.whirlpoolAura.zIndex = 4000 - pos.y - 0.58;
+        this.whirlpoolAura.visible = true;
+
+        const cell = gs.getCellSize();
+        const isLarge = this.getUnitProperties().size === 2;
+        const radius = cell * (isLarge ? 1.12 : 0.66);
+        const squash = 0.42;
+        const time = performance.now() / 1000;
+        const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
+        const g = this.whirlpoolAura;
+        g.clear();
+
+        // Deep centre + translucent water shelf: the dark eye makes the inward spiral read as a funnel.
+        g.ellipse(pos.x, pos.y, radius, radius * squash).fill({ color: 0x063b5c, alpha: 0.28 + pulse * 0.06 });
+        g.ellipse(pos.x, pos.y, radius * 0.32, radius * squash * 0.34).fill({
+            color: 0x021b35,
+            alpha: 0.72,
+        });
+        g.ellipse(pos.x, pos.y, radius * (0.95 + pulse * 0.03), radius * squash).stroke({
+            color: 0x42d7ff,
+            alpha: 0.46,
+            width: Math.max(1.5, cell * 0.025),
+        });
+
+        // Four curved currents coil from the rim into the eye. Rotating the whole construction clockwise
+        // sells the pull without rotating a container (which would turn the ground ellipse upright).
+        const arms = 4;
+        const points = 18;
+        for (let arm = 0; arm < arms; arm++) {
+            for (let point = 0; point < points; point++) {
+                const progress = point / (points - 1);
+                const r = radius * (0.94 - progress * 0.7);
+                const angle = -time * 3.25 + (arm / arms) * Math.PI * 2 + progress * Math.PI * 1.7;
+                const x = pos.x + Math.cos(angle) * r;
+                const y = pos.y + Math.sin(angle) * r * squash;
+                if (point === 0) g.moveTo(x, y);
+                else g.lineTo(x, y);
+            }
+            g.stroke({
+                color: arm % 2 === 0 ? 0x8cecff : 0x28bde9,
+                alpha: 0.58,
+                width: Math.max(1.5, cell * (arm % 2 === 0 ? 0.035 : 0.026)),
+            });
+        }
+
+        // Foam and droplets race around the rim at different radii, breaking up the perfect geometry.
+        for (let i = 0; i < 12; i++) {
+            const angle = -time * (3.6 + (i % 3) * 0.25) + (i / 12) * Math.PI * 2;
+            const orbit = radius * (0.72 + (i % 4) * 0.07);
+            const size = cell * (0.018 + (i % 3) * 0.008);
+            g.circle(pos.x + Math.cos(angle) * orbit, pos.y + Math.sin(angle) * orbit * squash, size).fill({
+                color: i % 3 === 0 ? 0xd9f8ff : 0x64dcff,
+                alpha: 0.62 + (i % 2) * 0.2,
+            });
         }
     }
     /** An ice crust encasing a "Freeze"-status unit: a frosted pane with soft buildup and branching veins. */
@@ -1602,6 +1686,10 @@ export class RenderableUnit extends Unit {
         if (this.waterShieldAura) {
             this.waterShieldAura.destroy({ children: true });
             this.waterShieldAura = undefined;
+        }
+        if (this.whirlpoolAura) {
+            this.whirlpoolAura.destroy({ children: true });
+            this.whirlpoolAura = undefined;
         }
         if (this.freezeCrust) {
             this.freezeCrust.destroy({ children: true });

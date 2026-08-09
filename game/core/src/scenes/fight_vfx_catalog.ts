@@ -81,7 +81,9 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
             "the shard back into the caster, with a cyan damage number so it never reads as the caster's own hit. " +
             "Wild Regeneration's authoritative abilityTransfers[] drives spawnAbilityTransferVfx in both " +
             "castSpellOnTarget (live sandbox) and playReplayCastSpellAction (ranked/replay): a green ability " +
-            "card flies caster->recipient and resolves as GIFTED or COPIED without inferring snapshot diffs",
+            "card flies caster->recipient and resolves as GIFTED or COPIED without inferring snapshot diffs. " +
+            "Whirlpool's persistent water vortex is status-driven in RenderableUnit: hasStatusEffect reads " +
+            "the live Sandbox debuff object or Ranked's authoritative applied_debuffs snapshot",
     },
     unit_moved: { rendered: true, ranked: "replay", note: "move slide; playReplayMoveRecord" },
     unit_summoned: {
