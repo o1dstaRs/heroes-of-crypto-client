@@ -352,6 +352,9 @@ export class RenderableUnit extends Unit {
     private stackPowerContainer?: Container;
     private stackPowerPips: Graphics[] = [];
     private stackPowerDrawState?: StackPowerDrawState;
+    // Placement split preview only. Keep the projected pips visual so hovering never changes spell gates,
+    // abilities, or any other gameplay logic that reads Unit.getStackPower().
+    private projectedStackPower?: number;
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
     /** Stun/skip indicator (shown when the unit is skipping its turn) — shares the hourglass corner. */
@@ -462,6 +465,7 @@ export class RenderableUnit extends Unit {
         ru.badgeAmountOverride = undefined;
         ru.badgeDrawState = undefined;
         ru.stackPowerDrawState = undefined;
+        ru.projectedStackPower = undefined;
         ru.rosterCardDrawState = undefined;
         ru.activeAura = undefined;
         ru.isHoverTurnAura = false;
@@ -1727,6 +1731,12 @@ export class RenderableUnit extends Unit {
         this.badgeEmphasisScale = 1;
         this.badgeAmountOverride = undefined;
     }
+    public setProjectedStackPower(power: number): void {
+        this.projectedStackPower = Math.max(1, Math.min(HoCConstants.MAX_UNIT_STACK_POWER, Math.round(power)));
+    }
+    public clearProjectedStackPower(): void {
+        this.projectedStackPower = undefined;
+    }
     /**
      * The card behind a "revealed" unit — ranked placement shows the opponent's known army as a row of
      * B&W silhouettes, and without a frame they read as enemies already deployed on the board. A dark
@@ -2556,7 +2566,7 @@ export class RenderableUnit extends Unit {
         props: UnitProperties,
         pos: HoCMath.XY,
     ): void {
-        const power = this.getStackPower();
+        const power = this.projectedStackPower ?? this.getStackPower();
 
         // Hide if 0 (or remove this check if you want to see the empty bar always)
         if (power <= 0) {

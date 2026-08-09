@@ -281,6 +281,7 @@ describe("RenderableUnit steady-state overlays", () => {
     type OverlayInternals = {
         badgeFlag?: Graphics;
         stackPowerPips: Graphics[];
+        stackPowerDrawState?: { power: number };
         hourglassContainer?: Container;
         stunContainer?: Container;
         respondContainer?: Container;
@@ -337,6 +338,25 @@ describe("RenderableUnit steady-state overlays", () => {
         } finally {
             restores.forEach((restore) => restore());
         }
+    });
+
+    test("previews stack power without changing the unit's mechanical value", () => {
+        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        unit.setPosition(0, 1024);
+        unit.setStackPower(5);
+        const worldRoot = new Container();
+
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect((unit as unknown as OverlayInternals).stackPowerDrawState?.power).toBe(5);
+
+        unit.setProjectedStackPower(2);
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect(unit.getStackPower()).toBe(5);
+        expect((unit as unknown as OverlayInternals).stackPowerDrawState?.power).toBe(2);
+
+        unit.clearProjectedStackPower();
+        unit.ensureVisual(worldRoot, gridSettings);
+        expect((unit as unknown as OverlayInternals).stackPowerDrawState?.power).toBe(5);
     });
 
     test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {

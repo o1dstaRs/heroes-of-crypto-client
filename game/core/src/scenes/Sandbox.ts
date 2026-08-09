@@ -81,6 +81,7 @@ import {
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { RenderableUnit } from "./RenderableUnit";
+import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
 import { HoverManager, meleeSwordTargetPoint } from "./HoverManager";
@@ -11714,6 +11715,31 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const alive = source.getAmountAlive();
         const peel = this.splitDragAmount;
+        const units = [...this.unitsHolder.getAllUnits().values()];
+        const projection = projectPlacementSplitStackPowers(
+            units
+                .filter((unit) => GridMath.isPositionWithinGrid(gs, unit.getPosition()))
+                .map((unit) => ({
+                    id: unit.getId(),
+                    experience: unit.getExp(),
+                    amount: unit.getAmountAlive(),
+                })),
+            source.getId(),
+            peel,
+        );
+        // Splitting the strongest stack changes the global denominator, so every known allied stack may gain
+        // projected pips. Never decorate the opponent's ranked roster: its amounts are deliberately hidden.
+        // These overrides are visual only; live spell/ability gates keep reading real power.
+        for (const unit of units) {
+            if (!(unit instanceof RenderableUnit)) continue;
+            if (unit.getTeam() !== source.getTeam()) {
+                unit.clearProjectedStackPower();
+                continue;
+            }
+            const power = projection?.unitPowers.get(unit.getId());
+            if (power === undefined) unit.clearProjectedStackPower();
+            else unit.setProjectedStackPower(power);
+        }
         // Emphasise the SOURCE's real team flag, showing its projected remaining count (N-k).
         if (source instanceof RenderableUnit) {
             source.setBadgeEmphasis(1.6, Math.max(0, alive - peel));
@@ -11730,6 +11756,9 @@ export class Sandbox extends PixiScene {
             const preview = this.placementSplitPreviewUnit;
             if (preview) {
                 preview.setAmountAlive(peel);
+                const power = projection?.splitPower;
+                if (power === undefined) preview.clearProjectedStackPower();
+                else preview.setProjectedStackPower(power);
                 preview.setBadgeEmphasis(1.6);
                 preview.setPosition(center.x, center.y);
                 preview.ensureVisual(this.drawer.getUnitsContainer(), gs);
@@ -11800,7 +11829,11 @@ export class Sandbox extends PixiScene {
     private cancelPlacementSplit(): void {
         const source = this.splitDragSourceId ? this.unitsHolder.getAllUnits().get(this.splitDragSourceId) : undefined;
         if (source instanceof RenderableUnit) source.clearBadgeEmphasis();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (unit instanceof RenderableUnit) unit.clearProjectedStackPower();
+        }
         if (this.placementSplitPreviewUnit) {
+            this.placementSplitPreviewUnit.clearProjectedStackPower();
             this.placementSplitPreviewUnit.destroyVisuals();
             this.placementSplitPreviewUnit = undefined;
         }
