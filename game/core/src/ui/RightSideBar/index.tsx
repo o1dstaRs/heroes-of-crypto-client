@@ -12,6 +12,7 @@ import Typography from "@mui/joy/Typography";
 import React, { useEffect, useState, useCallback, useLayoutEffect, useRef } from "react";
 import Button from "@mui/joy/Button";
 import { useNavigate } from "react-router";
+import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import { hocColors, hocDisplayFontFamily, hocSidebarImageButtonSx, hocSidebarSectionSx } from "../hocTheme";
@@ -54,6 +55,7 @@ export default function RightSideBar({
     showWallet?: boolean;
 }) {
     const navigate = useNavigate();
+    const { authenticated } = useAuthContext();
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
@@ -474,7 +476,16 @@ export default function RightSideBar({
                             <Button
                                 variant="soft"
                                 color="danger"
-                                onClick={() => navigate("/play")}
+                                // Sandbox exit: an anonymous player has nothing behind /play but the login
+                                // gate, so leaving the fight just resets the sandbox to a fresh placement
+                                // (start over). A signed-in player keeps the trip to the play hub.
+                                onClick={() => {
+                                    if (authenticated) {
+                                        navigate("/play");
+                                    } else {
+                                        manager.StartOver();
+                                    }
+                                }}
                                 sx={{
                                     ...hocSidebarImageButtonSx("danger"),
                                     justifySelf: "center",
