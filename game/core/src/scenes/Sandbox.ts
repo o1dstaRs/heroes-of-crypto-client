@@ -11996,6 +11996,10 @@ export class Sandbox extends PixiScene {
         return false;
     }
     public override Destroy(): void {
+        // DungeonVisuals owns stage/world-root children that sit outside PixiDrawer's containers.
+        // Dispose them before replacing the scene so a New Battle cannot inherit the prior board's
+        // narrowing holes, terrain, or screen-space floor.
+        this.dungeonVisuals?.destroy();
         super.Destroy();
         // Floating damage numbers are parented to the shared worldRoot; destroy them so
         // they don't linger after the scene is replaced (e.g. on "New Battle").

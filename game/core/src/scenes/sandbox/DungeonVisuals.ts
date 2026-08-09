@@ -333,7 +333,9 @@ export class DungeonVisuals {
         return this.holeContainer;
     }
     public clearHoleLayers(): void {
-        this.holeContainer.removeChildren();
+        for (const child of this.holeContainer.removeChildren()) {
+            child.destroy({ children: true });
+        }
     }
     public updateDungeonAtmosphere(started: boolean, alpha: number): void {
         const stage = this.context.getStage();
@@ -1553,6 +1555,52 @@ export class DungeonVisuals {
             this.lightOverlay = undefined;
             this.lightBuilt = false;
         }
+    }
+    /**
+     * Tear down every display object this helper attached outside PixiDrawer's scene containers.
+     *
+     * Sandbox "New Battle" reuses the Pixi application and replaces only the scene. Most dungeon
+     * objects are attached directly to the shared world root or stage, so PixiDrawer.destroy() cannot
+     * remove them. In particular, a finished fight's black narrowing holes would otherwise remain over
+     * the freshly-created board. Keep this ownership cleanup here so every dungeon visual follows the
+     * same scene lifetime.
+     */
+    public destroy(): void {
+        this.clearHoleLayers();
+        this.holeContainer.destroy({ children: true });
+
+        if (this.lightOverlay) this.lightOverlay.filters = [];
+        this.dungeonOverlay?.destroy({ children: true });
+        this.bgSprite?.destroy();
+        this.lavaFireLight?.destroy({ children: true });
+        this.centerTerrainSprite?.destroy();
+        this.centerTerrainSpriteB?.destroy();
+        this.centerHitBar?.destroy();
+
+        for (const sprite of this.scatteredMountainSprites) sprite.destroy();
+        for (const shade of this.scatteredMountainShades) shade.destroy();
+        for (const backing of this.scatteredMountainGapBackings) backing.destroy();
+        for (const outline of this.scatteredMountainOutlines) outline.destroy({ children: true });
+        for (const hitBar of this.scatteredMountainHitBars) hitBar.destroy();
+        for (const collapse of this.activeCollapses) collapse.container.destroy({ children: true });
+
+        for (const texture of this.lavaAnimFrames ?? []) texture.destroy(false);
+        for (const texture of this.mountainTileTextures ?? []) texture.destroy(false);
+        for (const texture of this.mountainQuarterTextures?.quarters ?? []) texture.destroy(false);
+        this.lightFilter?.destroy();
+        this.tombstoneRedFilter?.destroy();
+        this.tombstoneBrightnessFilter?.destroy();
+
+        this.scatteredMountainSprites = [];
+        this.scatteredMountainShades = [];
+        this.scatteredMountainGapBackings = [];
+        this.scatteredMountainOutlines = [];
+        this.scatteredMountainHitBars = [];
+        this.activeCollapses = [];
+        this.lavaAnimFrames = undefined;
+        this.mountainTileTextures = undefined;
+        this.mountainQuarterTextures = undefined;
+        this.narrowingLayers = 0;
     }
     public attachCenterTerrainSprite(): void {
         if (this.centerTerrainSprite) {
