@@ -32,13 +32,13 @@ import { BootIcon } from "../svg/boot";
 import { BowIcon } from "../svg/bow";
 import { FistIcon } from "../svg/fist";
 import { HeartIcon } from "../svg/heart";
+import { HourglassIcon } from "../svg/hourglass";
 import { LuckIcon } from "../svg/luck";
 import { MagicShieldIcon } from "../svg/magic_shield";
 import { MoraleIcon } from "../svg/morale";
 import { QuiverIcon } from "../svg/quiver";
 import { ShieldIcon } from "../svg/shield";
 import { ShotRangeIcon } from "../svg/shot_range";
-import { InitiativeIcon } from "../svg/initiative";
 import { SwordIcon } from "../svg/sword";
 import { WingIcon } from "../svg/wing";
 import Toggler from "../Toggler";
@@ -1163,7 +1163,7 @@ const UnitStatsLayout: React.FC<{
                 tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
-                secondIcon={<InitiativeIcon />}
+                secondIcon={<HourglassIcon />}
                 secondValue={formatSidebarStat(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
                 secondTooltip="Units with higher initiative turn first"
