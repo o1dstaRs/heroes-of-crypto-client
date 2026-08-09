@@ -658,6 +658,65 @@ const copy = isRu
           ],
       };
 
+const SectionTitle = embedded ? "h3" : "h2";
+const ItemTitle = embedded ? "h4" : "h3";
+const augmentDescriptions = new Map(copy.upgrades.map((upgrade) => [upgrade.icon, upgrade.text]));
+const guideNavigation = isRu
+    ? [
+          {
+              label: "Начало",
+              items: [
+                  { href: "#rule-loop", label: "Ход матча" },
+                  { href: "#rule-victory", label: "Условие победы" },
+              ],
+          },
+          {
+              label: "Соберите армию",
+              items: [
+                  { href: "#rule-draft", label: "Драфт" },
+                  { href: "#rule-unit-stats", label: "Характеристики" },
+                  { href: "#rule-augments", label: "Апгрейды" },
+                  { href: "#rule-synergies", label: "Синергии" },
+                  { href: "#rule-placement", label: "Расстановка" },
+              ],
+          },
+          {
+              label: "Выиграйте бой",
+              items: [
+                  { href: "#rule-mechanics", label: "Ходы и атаки" },
+                  { href: "#rule-morale", label: "Мораль и удача" },
+                  { href: "#rule-map", label: "Карта и Армагеддон" },
+              ],
+          },
+      ]
+    : [
+          {
+              label: "Start here",
+              items: [
+                  { href: "#rule-loop", label: "Match flow" },
+                  { href: "#rule-victory", label: "Winning" },
+              ],
+          },
+          {
+              label: "Build your army",
+              items: [
+                  { href: "#rule-draft", label: "Draft" },
+                  { href: "#rule-unit-stats", label: "Unit statistics" },
+                  { href: "#rule-augments", label: "Augments" },
+                  { href: "#rule-synergies", label: "Synergies" },
+                  { href: "#rule-placement", label: "Placement" },
+              ],
+          },
+          {
+              label: "Win the fight",
+              items: [
+                  { href: "#rule-mechanics", label: "Turns and attacks" },
+                  { href: "#rule-morale", label: "Morale and luck" },
+                  { href: "#rule-map", label: "Map and Armageddon" },
+              ],
+          },
+      ];
+
 const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     en: {
         Chaos: "Disruption, fire pressure, nasty ranged tricks, and Break plans.",
@@ -736,91 +795,127 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>}
 
-<section class="rules-stat-strip" aria-label={copy.eyebrow}>
-    <div class="page-shell rules-stats">
-        {copy.stats.map((stat) => <div><strong>{stat.value}</strong><span>{stat.label}</span></div>)}
-    </div>
-</section>
-
-<section class="section rules-section" id="rule-loop" tabindex="-1">
-    <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{isRu ? "Цикл боя" : "Fight loop"}</p>
-            <h2>{copy.loopTitle}</h2>
-            <p>{copy.loopIntro}</p>
+<div class:list={["rules-guide", { "is-embedded": embedded }]}>
+    {!embedded && <section class="rules-stat-strip" aria-label={copy.eyebrow}>
+        <div class="page-shell rules-stats">
+            {copy.stats.map((stat) => <div><strong>{stat.value}</strong><span>{stat.label}</span></div>)}
         </div>
-        <div class="rules-phase-grid">
-            {copy.phases.map((phase) => <article class="rules-card"><h3>{phase.title}</h3><p>{phase.text}</p></article>)}
-        </div>
+    </section>}
 
-        <div class="rules-facts" aria-label={isRu ? "Ключевые числа" : "Key numbers"}>
-            {
-                quickFacts.map((fact) => (
-                    <div class="rules-fact" tabindex="0">
-                        <strong>{fact.value}</strong>
-                        <span>{fact.label}</span>
-                        <span class="rules-fact-tip" role="tooltip">
-                            {fact.tip}
-                        </span>
+    <nav class="rules-guide-nav" aria-labelledby="rules-guide-nav-title">
+        <div class="page-shell rules-guide-nav-layout">
+            <div class="rules-guide-nav-intro">
+                <p class="eyebrow">{isRu ? "Навигация" : "Guide navigation"}</p>
+                <strong id="rules-guide-nav-title">{isRu ? "Правила по порядку" : "Read the rules in order"}</strong>
+                <p>{isRu ? "Начните с основ или сразу откройте нужную механику." : "Start with the essentials or jump straight to the mechanic you need."}</p>
+            </div>
+            <div class="rules-guide-nav-groups">
+                {guideNavigation.map((group) => (
+                    <div>
+                        <strong>{group.label}</strong>
+                        <ol>
+                            {group.items.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+                        </ol>
                     </div>
-                ))
-            }
-        </div>
-    </div>
-</section>
-
-<section class="section rules-band" id="rule-victory" tabindex="-1">
-    <div class="page-shell rules-two-col">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Победа" : "Victory"}</p>
-            <h2>{copy.winTitle}</h2>
-            {copy.winParagraphs.map((paragraph) => <p>{paragraph}</p>)}
-        </div>
-        <div class="rules-note-list">
-            {copy.readBoard.map((item) => <p>{item}</p>)}
-        </div>
-    </div>
-</section>
-
-<section class="section rules-section" id="rule-draft" tabindex="-1">
-    <div class="page-shell rules-two-col wide">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Драфт" : "Draft"}</p>
-            <h2>{copy.draftTitle}</h2>
-            {copy.draftParagraphs.map((paragraph) => <p>{paragraph}</p>)}
-            <div class="rules-action-grid">
-                {
-                    copy.draftSteps.map((step) => (
-                        <article class="rules-card compact">
-                            <h3>{step.title}</h3>
-                            <p>{step.text}</p>
-                        </article>
-                    ))
-                }
+                ))}
             </div>
-            <ul class="rules-clean-list">
-                {copy.draftNotes.map((note) => <li>{note}</li>)}
-            </ul>
-            <div class="rules-level-table" aria-label={isRu ? "Драфт по уровням" : "Draft by level"}>
-                <div class="rules-level-row rules-level-head">
-                    <span>{isRu ? "Уровень" : "Level"}</span>
-                    <span>{isRu ? "Берёте" : "You draft"}</span>
-                    <span>{isRu ? "В пуле" : "In pool"}</span>
+        </div>
+    </nav>
+
+    <section class="section rules-section" id="rule-loop" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Цикл боя" : "Fight loop"}</p>
+                <SectionTitle class="rules-section-title">{copy.loopTitle}</SectionTitle>
+                <p>{copy.loopIntro}</p>
+            </div>
+            <ol class="rules-phase-grid">
+                {copy.phases.map((phase, index) => (
+                    <li class="rules-card rules-step">
+                        <span class="rules-step-number" aria-hidden="true">{index + 1}</span>
+                        <ItemTitle>{phase.title.replace(/^\d+\.\s*/, "")}</ItemTitle>
+                        <p>{phase.text}</p>
+                    </li>
+                ))}
+            </ol>
+
+            <section class="rules-reference" aria-labelledby="rules-reference-title">
+                <div class="rules-reference-heading">
+                    <p class="eyebrow">{isRu ? "Краткий справочник" : "Quick reference"}</p>
+                    <ItemTitle id="rules-reference-title">{isRu ? "Ключевые числа и их смысл" : "Key numbers and why they matter"}</ItemTitle>
                 </div>
-                {
-                    levelRows.map((row) => (
-                        <div class="rules-level-row">
-                            <span>{isRu ? "Ур." : "Lv"} {row.level}</span>
-                            <span>×{row.draft}</span>
-                            <span>{row.available}</span>
+                <dl class="rules-facts">
+                    {quickFacts.map((fact) => (
+                        <div class="rules-fact">
+                            <dt><strong>{fact.value}</strong><span>{fact.label}</span></dt>
+                            <dd>{fact.tip}</dd>
                         </div>
-                    ))
-                }
-            </div>
+                    ))}
+                </dl>
+            </section>
         </div>
-        <div class="rules-faction-grid">
-            {
-                factionUnits.map((faction) => (
+    </section>
+
+    <section class="section rules-band" id="rule-victory" tabindex="-1">
+        <div class="page-shell rules-two-col">
+            <div class="rules-copy-block">
+                <p class="eyebrow">{isRu ? "Победа" : "Victory"}</p>
+                <SectionTitle class="rules-section-title">{copy.winTitle}</SectionTitle>
+                {copy.winParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+            </div>
+            <ul class="rules-note-list" aria-label={isRu ? "На что смотреть" : "What to watch"}>
+                {copy.readBoard.map((item) => <li>{item}</li>)}
+            </ul>
+        </div>
+    </section>
+
+    <section class="section rules-section" id="rule-draft" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Драфт" : "Draft"}</p>
+                <SectionTitle class="rules-section-title">{copy.draftTitle}</SectionTitle>
+                {copy.draftParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+            </div>
+            <ol class="rules-action-grid rules-draft-steps">
+                {copy.draftSteps.map((step, index) => (
+                    <li class="rules-card compact rules-step">
+                        <span class="rules-step-number" aria-hidden="true">{index + 1}</span>
+                        <ItemTitle>{step.title}</ItemTitle>
+                        <p>{step.text}</p>
+                    </li>
+                ))}
+            </ol>
+            <div class="rules-draft-reference">
+                <div>
+                    <ItemTitle>{isRu ? "Что важно помнить" : "What to remember"}</ItemTitle>
+                    <ul class="rules-clean-list">
+                        {copy.draftNotes.map((note) => <li>{note}</li>)}
+                    </ul>
+                </div>
+                <div class="rules-table-scroll">
+                    <table class="rules-level-table">
+                        <caption>{isRu ? "Состав армии по уровням" : "Army composition by level"}</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">{isRu ? "Уровень" : "Level"}</th>
+                                <th scope="col">{isRu ? "Берёте" : "You draft"}</th>
+                                <th scope="col">{isRu ? "В пуле" : "In pool"}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {levelRows.map((row) => (
+                                <tr>
+                                    <th scope="row">{isRu ? "Ур." : "Lv"} {row.level}</th>
+                                    <td>×{row.draft}</td>
+                                    <td>{row.available}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="rules-faction-grid" aria-label={isRu ? "Фракции" : "Factions"}>
+                {factionUnits.map((faction) => (
                     <a
                         href={knowledgePath(lang, { section: "units", faction: faction.faction })}
                         class="rules-faction"
@@ -833,22 +928,20 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                         </span>
                         <span>{factionDescriptions[lang][faction.faction]}</span>
                     </a>
-                ))
-            }
+                ))}
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="section rules-band" id="rule-unit-stats" tabindex="-1">
-    <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{isRu ? "Карточка юнита" : "Unit card"}</p>
-            <h2>{copy.unitsTitle}</h2>
-        </div>
-        <div class="rules-unit-reader">
-            <div class="rules-example-units">
-                {
-                    exampleUnits.map((unit) => (
+    <section class="section rules-band" id="rule-unit-stats" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Карточка юнита" : "Unit card"}</p>
+                <SectionTitle class="rules-section-title">{copy.unitsTitle}</SectionTitle>
+            </div>
+            <div class="rules-unit-reader">
+                <div class="rules-example-units">
+                    {exampleUnits.map((unit) => (
                         <a
                             href={knowledgePath(lang, { section: "units", entry: unit.name, faction: unit.faction })}
                             class="rules-example-unit"
@@ -863,233 +956,197 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                                 </em>
                             </span>
                         </a>
-                    ))
-                }
-            </div>
-            <div class="rules-stat-reader">
-                {copy.unitStats.map((stat) => <div><strong>{stat.label}</strong><p>{stat.text}</p></div>)}
-                <div class="rules-role-row">
-                    {
-                        Object.entries(roleCounts).map(([role, count]) => (
-                            <span>
-                                <strong>{count}</strong>
-                                {attackLabels[role as keyof typeof attackLabels] ?? role}
-                            </span>
-                        ))
-                    }
+                    ))}
                 </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section class="section rules-section" id="rule-augments" tabindex="-1">
-    <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{isRu ? "Апгрейды" : "Augments"}</p>
-            <h2>{copy.upgradesTitle}</h2>
-            <p>{copy.upgradesIntro}</p>
-        </div>
-        <div class="rules-aug-table" aria-label={isRu ? "Уровни апгрейдов" : "Augment tiers"}>
-            <div class="rules-aug-row rules-aug-head">
-                <span>{isRu ? "Апгрейд" : "Augment"}</span>
-                <span>{isRu ? "Ур. 1" : "Tier 1"}</span>
-                <span>{isRu ? "Ур. 2" : "Tier 2"}</span>
-                <span>{isRu ? "Ур. 3" : "Tier 3"}</span>
-            </div>
-            {
-                augmentTable.map((aug) => (
-                    <div class="rules-aug-row">
-                        <span class="rules-aug-name">
-                            <img src={aug.icon} alt="" width="256" height="256" loading="lazy" />
-                            <span>
-                                <strong>{aug.name}</strong>
-                                <em>{aug.note}</em>
-                            </span>
-                        </span>
-                        {aug.tiers.map((tier) => <span class="rules-aug-tier">{tier}</span>)}
+                <dl class="rules-stat-reader">
+                    {copy.unitStats.map((stat) => <div><dt>{stat.label}</dt><dd>{stat.text}</dd></div>)}
+                    <div class="rules-role-row">
+                        <dt class="sr-only">{isRu ? "Типы атак" : "Attack types"}</dt>
+                        <dd>
+                            {Object.entries(roleCounts).map(([role, count]) => (
+                                <span><strong>{count}</strong>{attackLabels[role as keyof typeof attackLabels] ?? role}</span>
+                            ))}
+                        </dd>
                     </div>
-                ))
-            }
+                </dl>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="section rules-band" id="rule-synergies" tabindex="-1">
-    <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{isRu ? "Синергии" : "Synergies"}</p>
-            <h2>{copy.synergiesTitle}</h2>
-            <p>{copy.synergiesIntro}</p>
+    <section class="section rules-section" id="rule-augments" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Апгрейды" : "Augments"}</p>
+                <SectionTitle class="rules-section-title">{copy.upgradesTitle}</SectionTitle>
+                <p>{copy.upgradesIntro}</p>
+            </div>
+            <div class="rules-table-scroll">
+                <table class="rules-aug-table">
+                    <caption>{isRu ? "Эффекты апгрейдов по уровням" : "Augment effects by tier"}</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">{isRu ? "Апгрейд" : "Augment"}</th>
+                            <th scope="col">{isRu ? "Ур. 1" : "Tier 1"}</th>
+                            <th scope="col">{isRu ? "Ур. 2" : "Tier 2"}</th>
+                            <th scope="col">{isRu ? "Ур. 3" : "Tier 3"}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {augmentTable.map((aug) => (
+                            <tr>
+                                <th scope="row" class="rules-aug-name">
+                                    <img src={aug.icon} alt="" width="256" height="256" loading="lazy" />
+                                    <div>
+                                        <strong>{aug.name}</strong>
+                                        <em>{aug.note}</em>
+                                        <p>{augmentDescriptions.get(aug.icon)}</p>
+                                    </div>
+                                </th>
+                                {aug.tiers.map((tier) => <td class="rules-aug-tier">{tier}</td>)}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="rules-synergy-grid">
-            {
-                copy.synergies.map((synergy) => (
-                    <article
-                        class="rules-synergy"
-                        style={`--faction: ${factionColors[synergy.faction as FactionName]}`}
-                    >
+    </section>
+
+    <section class="section rules-band" id="rule-synergies" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Синергии" : "Synergies"}</p>
+                <SectionTitle class="rules-section-title">{copy.synergiesTitle}</SectionTitle>
+                <p>{copy.synergiesIntro}</p>
+            </div>
+            <div class="rules-synergy-grid">
+                {copy.synergies.map((synergy) => (
+                    <article class="rules-synergy" style={`--faction: ${factionColors[synergy.faction as FactionName]}`}>
                         <div class="rules-synergy-head">
                             <img src={synergy.icon} alt="" width="128" height="128" loading="lazy" />
                             <div>
-                                <h3>{factionLabel(synergy.faction)}</h3>
+                                <ItemTitle>{factionLabel(synergy.faction)}</ItemTitle>
                                 <span>{copy.synergyLevels}: 2 / 4 / 6</span>
                             </div>
                         </div>
-                        <ul>
-                            {synergy.options.map((option) => <li>{option}</li>)}
-                        </ul>
+                        <ul>{synergy.options.map((option) => <li>{option}</li>)}</ul>
                     </article>
-                ))
-            }
-        </div>
-    </div>
-</section>
-
-<section class="section rules-section" id="rule-placement" tabindex="-1">
-    <div class="page-shell rules-two-col">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Расстановка" : "Placement"}</p>
-            <h2>{copy.placementTitle}</h2>
-            {copy.placementParagraphs.map((paragraph) => <p>{paragraph}</p>)}
-        </div>
-        <div class="rules-board-diagram" aria-hidden="true">
-            <div class="rules-board-grid">
-                {Array.from({ length: 64 }).map((_, i) => <span class:list={[{ "is-hole": i < 8 || i > 55, "is-center": i === 27 || i === 28 || i === 35 || i === 36 }]}></span>)}
+                ))}
             </div>
-            <img class="rules-board-unit one" src="/assets/images/units/units/black_dragon_512.webp" alt="" width="512" height="512" loading="lazy" />
-            <img class="rules-board-unit two" src="/assets/images/units/units/arbalester_512.webp" alt="" width="512" height="512" loading="lazy" />
-            <img class="rules-board-unit three" src="/assets/images/units/units/pegasus_512.webp" alt="" width="512" height="512" loading="lazy" />
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="section rules-band rules-deep" id="rule-mechanics" tabindex="-1">
-    <div class="page-shell">
-        <div class="section-heading">
-            <p class="eyebrow">{isRu ? "Глубже" : "Deep dive"}</p>
-            <h2>{isRu ? "Механики в деталях" : "The mechanics in detail"}</h2>
-            <p>{isRu ? "Откройте нужный раздел — без бесконечной прокрутки." : "Open just the part you need — no endless scrolling."}</p>
+    <section class="section rules-section" id="rule-placement" tabindex="-1">
+        <div class="page-shell rules-two-col">
+            <div class="rules-copy-block">
+                <p class="eyebrow">{isRu ? "Расстановка" : "Placement"}</p>
+                <SectionTitle class="rules-section-title">{copy.placementTitle}</SectionTitle>
+                {copy.placementParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+            </div>
+            <div class="rules-board-diagram" aria-hidden="true">
+                <div class="rules-board-grid">
+                    {Array.from({ length: 64 }).map((_, i) => <span class:list={[{ "is-hole": i < 8 || i > 55, "is-center": i === 27 || i === 28 || i === 35 || i === 36 }]}></span>)}
+                </div>
+                <img class="rules-board-unit one" src="/assets/images/units/units/black_dragon_512.webp" alt="" width="512" height="512" loading="lazy" />
+                <img class="rules-board-unit two" src="/assets/images/units/units/arbalester_512.webp" alt="" width="512" height="512" loading="lazy" />
+                <img class="rules-board-unit three" src="/assets/images/units/units/pegasus_512.webp" alt="" width="512" height="512" loading="lazy" />
+            </div>
         </div>
-        <div class="rules-accordion">
-            <details class="rules-acc" open>
-                <summary>
-                    <span class="rules-acc-title">{copy.turnsTitle}</span>
-                    <span class="rules-acc-tag">{isRu ? "Ход" : "Turn"}</span>
-                </summary>
-                <div class="rules-acc-body">
-                    <div class="rules-action-grid">
-                        {
-                            copy.turnActions.map((action) => (
-                                <article class="rules-card compact">
-                                    <h3>{action.title}</h3>
-                                    <p>{action.text}</p>
-                                </article>
-                            ))
-                        }
-                    </div>
-                </div>
-            </details>
+    </section>
 
-            <details class="rules-acc">
-                <summary>
-                    <span class="rules-acc-title">{copy.combatTitle}</span>
-                    <span class="rules-acc-tag">{isRu ? "Бой" : "Combat"}</span>
-                </summary>
-                <div class="rules-acc-body rules-two-col">
-                    <div class="rules-copy-block">{copy.combatParagraphs.map((paragraph) => <p>{paragraph}</p>)}</div>
-                    <div class="rules-ability-wall">
-                        {
-                            [
-                                "/assets/images/units/abilities/lucky_strike_256.webp",
-                                "/assets/images/units/abilities/stun_256.webp",
-                                "/assets/images/units/abilities/petrifying_gaze_256.webp",
-                                "/assets/images/units/abilities/fire_shield_256.webp",
-                                "/assets/images/units/abilities/range_null_field_aura_256.webp",
-                                "/assets/images/units/abilities/chain_lightning_256.webp",
-                                "/assets/images/units/abilities/resurrection_256.webp",
-                                "/assets/images/units/abilities/break_256.webp",
-                            ].map((icon) => <img src={icon} alt="" width="256" height="256" loading="lazy" />)
-                        }
-                    </div>
+    <section class="section rules-band" id="rule-mechanics" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Бой" : "Fight"}</p>
+                <SectionTitle class="rules-section-title">{isRu ? "Ходы и атаки" : "Turns and attacks"}</SectionTitle>
+                <p>{copy.turnsTitle}</p>
+            </div>
+            <div class="rules-mechanics-block">
+                <ItemTitle>{isRu ? "Что можно сделать в ход" : "What you can do on a turn"}</ItemTitle>
+                <div class="rules-action-grid">
+                    {copy.turnActions.map((action) => (
+                        <article class="rules-card compact">
+                            <ItemTitle>{action.title}</ItemTitle>
+                            <p>{action.text}</p>
+                        </article>
+                    ))}
                 </div>
-            </details>
+            </div>
+            <div class="rules-mechanics-block rules-reading-width">
+                <ItemTitle>{copy.combatTitle}</ItemTitle>
+                <div class="rules-copy-block">{copy.combatParagraphs.map((paragraph) => <p>{paragraph}</p>)}</div>
+            </div>
+        </div>
+    </section>
 
-            <details class="rules-acc" id="rule-morale">
-                <summary>
-                    <span class="rules-acc-title">{copy.moraleTitle}</span>
-                    <span class="rules-acc-tag">{isRu ? "Темп" : "Tempo"}</span>
-                </summary>
-                <div class="rules-acc-body">
-                    <div class="rules-note-list large">{copy.moraleItems.map((item) => <p>{item}</p>)}</div>
-                    <div class="rules-morale-breakdown">
-                        <h4>{copy.moraleBreakdownTitle}</h4>
+    <section class="section rules-section" id="rule-morale" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Темп" : "Tempo"}</p>
+                <SectionTitle class="rules-section-title">{copy.moraleTitle}</SectionTitle>
+            </div>
+            <div class="rules-morale-layout">
+                <div class="rules-note-list large">{copy.moraleItems.map((item) => <p>{item}</p>)}</div>
+                <div class="rules-morale-breakdown">
+                    <ItemTitle>{copy.moraleBreakdownTitle}</ItemTitle>
+                    <div class="rules-table-scroll">
                         <table class="rules-morale-table">
+                            <caption class="sr-only">{copy.moraleBreakdownTitle}</caption>
                             <tbody>
-                                {
-                                    copy.moraleBreakdown.map((row) => (
-                                        <tr>
-                                            <td
-                                                class:list={[
-                                                    "rules-morale-delta",
-                                                    row.change.startsWith("-")
-                                                        ? "neg"
-                                                        : row.change.startsWith("+")
-                                                          ? "pos"
-                                                          : "cap",
-                                                ]}
-                                            >
-                                                {row.change}
-                                            </td>
-                                            <td>{row.text}</td>
-                                        </tr>
-                                    ))
-                                }
+                                {copy.moraleBreakdown.map((row) => (
+                                    <tr>
+                                        <th
+                                            scope="row"
+                                            class:list={[
+                                                "rules-morale-delta",
+                                                row.change.startsWith("-") ? "neg" : row.change.startsWith("+") ? "pos" : "cap",
+                                            ]}
+                                        >{row.change}</th>
+                                        <td>{row.text}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
-                        <p class="rules-morale-note">{copy.moraleBreakdownNote}</p>
                     </div>
+                    <p class="rules-morale-note">{copy.moraleBreakdownNote}</p>
                 </div>
-            </details>
-
-            <details class="rules-acc" id="rule-map">
-                <summary>
-                    <span class="rules-acc-title">{copy.mapTitle}</span>
-                    <span class="rules-acc-tag">{isRu ? "Карта" : "Map"}</span>
-                </summary>
-                <div class="rules-acc-body rules-two-col">
-                    <div class="rules-copy-block">{copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}</div>
-                    <div class="rules-map-visual" aria-hidden="true">
-                        <img src="/assets/images/preview_game.webp" alt="" width="1200" height="630" loading="lazy" />
-                        <span class="map-ring one"></span>
-                        <span class="map-ring two"></span>
-                        <span class="map-ring three"></span>
-                    </div>
-                </div>
-            </details>
-        </div>
-    </div>
-</section>
-
-<section class="section rules-band">
-    <div class="page-shell rules-two-col">
-        <div class="rules-copy-block">
-            <p class="eyebrow">{isRu ? "Роли" : "Roles"}</p>
-            <h2>{copy.examplesTitle}</h2>
-            <ul class="rules-clean-list">
-                {copy.examples.map((example) => <li>{example}</li>)}
-            </ul>
-        </div>
-        <div class="rules-final-list">
-            <h3>{copy.finalTitle}</h3>
-            {copy.finalItems.map((item) => <p>{item}</p>)}
-            <div class="rules-final-actions">
-                <a class="button primary" href={playHref}>{copy.primaryCta}</a>
-                <a class="button secondary" href={unitsHref}>{copy.secondaryCta}</a>
             </div>
         </div>
-    </div>
-</section>
+    </section>
+
+    <section class="section rules-band" id="rule-map" tabindex="-1">
+        <div class="page-shell rules-two-col">
+            <div class="rules-copy-block">
+                <p class="eyebrow">{isRu ? "Карта" : "Map"}</p>
+                <SectionTitle class="rules-section-title">{copy.mapTitle}</SectionTitle>
+                {copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+            </div>
+            <div class="rules-map-visual" aria-hidden="true">
+                <img src="/assets/images/preview_game.webp" alt="" width="1200" height="630" loading="lazy" />
+                <span class="map-ring one"></span>
+                <span class="map-ring two"></span>
+                <span class="map-ring three"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="section rules-section rules-closing">
+        <div class="page-shell rules-two-col">
+            <div class="rules-copy-block">
+                <p class="eyebrow">{isRu ? "Роли" : "Roles"}</p>
+                <SectionTitle class="rules-section-title">{copy.examplesTitle}</SectionTitle>
+                <ul class="rules-clean-list">{copy.examples.map((example) => <li>{example}</li>)}</ul>
+            </div>
+            <div class="rules-final-list">
+                <ItemTitle>{copy.finalTitle}</ItemTitle>
+                <ul>{copy.finalItems.map((item) => <li>{item}</li>)}</ul>
+                <div class="rules-final-actions">
+                    <a class="button primary" href={playHref}>{copy.primaryCta}</a>
+                    <a class="button secondary" href={unitsHref}>{copy.secondaryCta}</a>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
 
 <style>
     .rules-hero {
