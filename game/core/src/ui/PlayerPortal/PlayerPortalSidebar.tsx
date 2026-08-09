@@ -7,6 +7,7 @@ import { Avatar, Box, Button, CircularProgress, IconButton, Sheet, Stack, Toolti
 import React from "react";
 import { useNavigate } from "react-router";
 
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 import {
     matchReplayPath,
@@ -62,6 +63,9 @@ const RecentMatchRow: React.FC<{
     const color = RESULT_COLORS[result.tone];
     const roster = (match.creature_ids ?? []).slice(0, 5);
     const replayAvailable = !!match.replay_available;
+    // The model keeps its result labels in English as the stable key; localize at the render edge.
+    const resultLabel = t(result.label);
+    const opponentName = match.opponent_username || t("Unknown rival");
 
     return (
         <Sheet
@@ -87,20 +91,20 @@ const RecentMatchRow: React.FC<{
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography level="body-sm" noWrap sx={{ color: hocColors.parchment, fontWeight: 650 }}>
                         <Box component="span" sx={{ color, fontWeight: 850 }}>
-                            {result.label}
+                            {resultLabel}
                         </Box>{" "}
                         <Box component="span" sx={{ color: hocColors.muted }}>
-                            vs
+                            {t("vs")}
                         </Box>{" "}
-                        {match.opponent_username || "Unknown rival"}
+                        {opponentName}
                     </Typography>
                     <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mt: 0.2 }}>
                         <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                            {timeAgo(match.finished_time ?? 0) || "Recently"}
+                            {timeAgo(match.finished_time ?? 0) || t("Recently")}
                         </Typography>
                         {result.detail && (
                             <Typography level="body-xs" sx={{ color }}>
-                                · {result.detail}
+                                · {t(result.detail)}
                             </Typography>
                         )}
                     </Stack>
@@ -108,17 +112,20 @@ const RecentMatchRow: React.FC<{
                 <Tooltip
                     title={
                         navigationDisabled
-                            ? "Leave matchmaking before opening a replay"
+                            ? t("Leave matchmaking before opening a replay")
                             : replayAvailable
-                              ? "Watch replay"
-                              : "Replay unavailable"
+                              ? t("Watch replay")
+                              : t("Replay unavailable")
                     }
                     size="sm"
                     variant="soft"
                 >
                     <span style={{ display: "inline-flex" }}>
                         <IconButton
-                            aria-label={`Replay ${result.label.toLowerCase()} against ${match.opponent_username || "opponent"}`}
+                            aria-label={tf("Replay {result} against {opponent}", {
+                                result: resultLabel.toLowerCase(),
+                                opponent: match.opponent_username || t("opponent"),
+                            })}
                             size="sm"
                             variant="plain"
                             disabled={navigationDisabled || !replayAvailable}
@@ -163,15 +170,17 @@ export interface PlayerPortalSidebarProps {
 export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ navigationDisabled = false }) => {
     const navigate = useNavigate();
     const { data, loading, error, reload } = usePlayerPortal();
+    // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
+    useTranslation();
 
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
     const recent = (data?.recent_matches ?? []).slice(0, 3);
-    const displayName = data?.username || "Your Profile";
+    const displayName = data?.username || t("Your Profile");
 
     return (
         <Sheet
             component="aside"
-            aria-label="Player profile summary"
+            aria-label={t("Player profile summary")}
             variant="outlined"
             sx={{
                 position: { lg: "sticky" },
@@ -218,7 +227,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                     </Avatar>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
-                            COMMANDER PROFILE
+                            {t("COMMANDER PROFILE")}
                         </Typography>
                         <Typography level="title-lg" noWrap sx={{ color: hocColors.parchment, mt: 0.2 }}>
                             {displayName}
@@ -227,20 +236,24 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             <MilitaryTechRoundedIcon sx={{ color: hocColors.gold, fontSize: 15 }} />
                             <Typography level="body-xs" sx={{ color: hocColors.muted }}>
                                 {streakLabel(data?.current_streak ?? 0)}
-                                {data?.best_win_streak ? ` · best ${data.best_win_streak}W` : ""}
+                                {data?.best_win_streak
+                                    ? ` · ${tf("best {count}W", { count: data.best_win_streak })}`
+                                    : ""}
                             </Typography>
                         </Stack>
                     </Box>
                     <Tooltip
                         title={
-                            navigationDisabled ? "Leave matchmaking before opening your profile" : "Open full profile"
+                            navigationDisabled
+                                ? t("Leave matchmaking before opening your profile")
+                                : t("Open full profile")
                         }
                         size="sm"
                         variant="soft"
                     >
                         <span style={{ display: "inline-flex" }}>
                             <IconButton
-                                aria-label="Open full profile"
+                                aria-label={t("Open full profile")}
                                 variant="soft"
                                 disabled={navigationDisabled}
                                 onClick={() => navigate("/portal")}
@@ -264,7 +277,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             }}
                         />
                         <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                            Loading your battle record…
+                            {t("Loading your battle record…")}
                         </Typography>
                     </Stack>
                 )}
@@ -276,7 +289,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             {error}
                         </Typography>
                         <Button size="sm" variant="soft" sx={hocSoftButtonSx} onClick={reload}>
-                            Try again
+                            {t("Try again")}
                         </Button>
                     </Stack>
                 )}
@@ -290,9 +303,13 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 gap: 0.8,
                             }}
                         >
-                            <StatBlock label="Wins" value={data.wins ?? 0} color="#55d878" />
-                            <StatBlock label="Losses" value={data.losses ?? 0} color={hocColors.danger} />
-                            <StatBlock label="Win rate" value={`${overallPct}%`} color={winRateColor(overallPct)} />
+                            <StatBlock label={t("Wins")} value={data.wins ?? 0} color="#55d878" />
+                            <StatBlock label={t("Losses")} value={data.losses ?? 0} color={hocColors.danger} />
+                            <StatBlock
+                                label={t("Win rate")}
+                                value={`${overallPct}%`}
+                                color={winRateColor(overallPct)}
+                            />
                         </Box>
 
                         <Box sx={{ minWidth: 0 }}>
@@ -306,11 +323,11 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 <Stack direction="row" spacing={0.75} alignItems="center">
                                     <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 18 }} />
                                     <Typography level="title-sm" sx={{ color: hocColors.parchment }}>
-                                        Recent battles
+                                        {t("Recent battles")}
                                     </Typography>
                                 </Stack>
                                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                    Last {recent.length}
+                                    {tf("Last {count}", { count: recent.length })}
                                 </Typography>
                             </Stack>
 
@@ -338,7 +355,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                 >
                                     <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 28 }} />
                                     <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
-                                        Your finished ranked matches will appear here.
+                                        {t("Your finished ranked matches will appear here.")}
                                     </Typography>
                                 </Sheet>
                             )}
@@ -351,10 +368,10 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                             disabled={navigationDisabled}
                             onClick={() => navigate("/portal")}
                             endDecorator={<ArrowForwardRoundedIcon />}
-                            title={navigationDisabled ? "Leave matchmaking before opening your profile" : undefined}
+                            title={navigationDisabled ? t("Leave matchmaking before opening your profile") : undefined}
                             sx={{ ...hocSoftButtonSx, minHeight: 48 }}
                         >
-                            View full profile
+                            {t("View full profile")}
                         </Button>
                     </>
                 )}

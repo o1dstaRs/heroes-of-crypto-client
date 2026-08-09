@@ -599,12 +599,16 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
 
 type PortraitState = "available" | "picked" | "taken" | "banned";
 
+// English keys only — resolved through t() at render time. Translating here would freeze the hints at
+// whatever language was active when this module first loaded, so a mid-session switch never reached them.
 const STATE_HINT: Record<PortraitState, string> = {
     available: "",
-    picked: t("In your army"),
-    taken: t("Taken by your opponent"),
-    banned: t("Banned"),
+    picked: "In your army",
+    taken: "Taken by your opponent",
+    banned: "Banned",
 };
+
+const stateHint = (state: PortraitState): string => (STATE_HINT[state] ? t(STATE_HINT[state]) : "");
 
 // Lucide-style attack-type glyph drawn inline: sword for melee, bow for ranged, open book for casters.
 const AttackTypeIcon: React.FC<{ attackType: string }> = ({ attackType }) => {
@@ -671,7 +675,8 @@ const CreaturePortrait: React.FC<{
           : state === "banned" || state === "taken"
             ? "#8a2b2b"
             : "rgba(255,255,255,0.18)";
-    const tip = STATE_HINT[state] ? `${creatureName(creatureId)} — ${STATE_HINT[state]}` : creatureName(creatureId);
+    const hint = stateHint(state);
+    const tip = hint ? `${creatureName(creatureId)} — ${hint}` : creatureName(creatureId);
     const config = creatureFullConfig(creatureId)?.config;
     const portrait = (
         <Tooltip title={tip} variant="soft" placement="top">

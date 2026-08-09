@@ -6,7 +6,7 @@ import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
 
-import { SUPPORTED_LANGUAGES, setLanguage, useTranslation } from "../../i18n/i18n";
+import { SUPPORTED_LANGUAGES, setLanguage, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
@@ -129,26 +129,28 @@ const ArtifactStatRow: React.FC<{ tier: 1 | 2; artifactId: number; games: number
 }) => {
     const info = artifactInfo(tier, artifactId);
     const src = info ? (images as Record<string, string>)[info.imageKey] : undefined;
+    // Artifact names come from the shared catalog and stay in English, like creature names do.
+    const label = info?.name ?? tf("Artifact {id}", { id: artifactId });
     return (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {src ? (
                 <Box
                     component="img"
                     src={src}
-                    alt={info?.name ?? `Artifact ${artifactId}`}
+                    alt={label}
                     sx={{ width: 28, height: 28, objectFit: "contain", borderRadius: "6px", flexShrink: 0 }}
                 />
             ) : (
                 <Box sx={{ width: 28, height: 28, flexShrink: 0 }} />
             )}
             <Typography level="body-sm" noWrap textColor={hocColors.mutedStrong} sx={{ flex: 1, minWidth: 0 }}>
-                {info?.name ?? `Artifact ${artifactId}`}
+                {label}
             </Typography>
             <Typography level="body-xs" textColor={hocColors.muted} sx={{ minWidth: 30, textAlign: "right" }}>
                 T{tier}
             </Typography>
             <Typography level="body-xs" textColor={hocColors.muted} sx={{ minWidth: 50, textAlign: "right" }}>
-                {games} g
+                {tf("{count} g", { count: games })}
             </Typography>
             <WinRateBar wins={wins} games={games} width={110} />
         </Box>
@@ -174,7 +176,7 @@ const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }>
             ))}
         </Stack>
         <Typography level="body-xs" textColor={hocColors.muted} sx={{ minWidth: 56, textAlign: "right" }}>
-            {games} game{games === 1 ? "" : "s"}
+            {games === 1 ? tf("{count} game", { count: games }) : tf("{count} games", { count: games })}
         </Typography>
         <WinRateBar wins={wins} games={games} width={110} />
     </Sheet>
@@ -319,24 +321,28 @@ export const PlayerPortalPage: React.FC = () => {
                                     level="body-xs"
                                     sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.16em" }}
                                 >
-                                    COMMANDER PROFILE
+                                    {t("COMMANDER PROFILE")}
                                 </Typography>
                                 <Typography
                                     level="h2"
                                     sx={{ color: hocColors.parchment, overflowWrap: "anywhere", lineHeight: 1.05 }}
                                 >
-                                    {data?.username || "Player Profile"}
+                                    {data?.username || t("Player Profile")}
                                 </Typography>
                                 <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
                                     {streakLabel(data?.current_streak ?? 0)}
-                                    {data?.best_win_streak ? ` · best win streak ${data.best_win_streak}` : ""}
-                                    {data?.last_login ? ` · last seen ${timeAgo(data.last_login)}` : ""}
+                                    {data?.best_win_streak
+                                        ? ` · ${tf("best win streak {count}", { count: data.best_win_streak })}`
+                                        : ""}
+                                    {data?.last_login
+                                        ? ` · ${tf("last seen {when}", { when: timeAgo(data.last_login) })}`
+                                        : ""}
                                 </Typography>
                             </Box>
                         </Stack>
                         <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: "stretch", sm: "center" } }}>
-                            {/* Language of preference (owner 2026-08-06): applies immediately to the
-                                pick phase and the in-game chrome; persisted per browser. */}
+                            {/* Language of preference (owner 2026-08-06): applies immediately to this
+                                profile, the pick phase and the in-game chrome; persisted per browser. */}
                             <Select
                                 value={language}
                                 onChange={(_event, code) => {
@@ -363,7 +369,7 @@ export const PlayerPortalPage: React.FC = () => {
                                 onClick={reload}
                                 disabled={loading}
                             >
-                                Refresh
+                                {t("Refresh")}
                             </Button>
                             <Button
                                 fullWidth
@@ -372,7 +378,7 @@ export const PlayerPortalPage: React.FC = () => {
                                 sx={{ ...hocPrimaryButtonSx, minWidth: { sm: 154 }, whiteSpace: "nowrap" }}
                                 onClick={() => navigate("/play")}
                             >
-                                Ranked arena
+                                {t("Ranked arena")}
                             </Button>
                         </Stack>
                     </Stack>
@@ -381,7 +387,7 @@ export const PlayerPortalPage: React.FC = () => {
                 {loading && (
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 6, justifyContent: "center" }}>
                         <CircularProgress />
-                        <Typography textColor={hocColors.muted}>Loading your profile…</Typography>
+                        <Typography textColor={hocColors.muted}>{t("Loading your profile…")}</Typography>
                     </Stack>
                 )}
                 {!loading && error && (
@@ -404,16 +410,20 @@ export const PlayerPortalPage: React.FC = () => {
                                 gap: 1.25,
                             }}
                         >
-                            <StatCard label="Wins" value={data.wins ?? 0} color="#46d160" />
-                            <StatCard label="Losses" value={data.losses ?? 0} color="#ff5a5a" />
-                            <StatCard label="Win rate" value={`${overallPct}%`} color={winRateColor(overallPct)} />
-                            <StatCard label="Games" value={data.total_games_played ?? 0} />
+                            <StatCard label={t("Wins")} value={data.wins ?? 0} color="#46d160" />
+                            <StatCard label={t("Losses")} value={data.losses ?? 0} color="#ff5a5a" />
+                            <StatCard label={t("Win rate")} value={`${overallPct}%`} color={winRateColor(overallPct)} />
+                            <StatCard label={t("Games")} value={data.total_games_played ?? 0} />
                             <StatCard
-                                label="Current streak"
+                                label={t("Current streak")}
                                 value={Math.abs(data.current_streak ?? 0)}
                                 color={(data.current_streak ?? 0) >= 0 ? "#46d160" : "#ff5a5a"}
                             />
-                            <StatCard label="Best streak" value={data.best_win_streak ?? 0} color={hocColors.gold} />
+                            <StatCard
+                                label={t("Best streak")}
+                                value={data.best_win_streak ?? 0}
+                                color={hocColors.gold}
+                            />
                         </Box>
 
                         {/* Combos & strategies */}
@@ -424,11 +434,11 @@ export const PlayerPortalPage: React.FC = () => {
                                 gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
                             }}
                         >
-                            <Section title="Favourite combos" subtitle="Your most-played creature line-ups">
+                            <Section title={t("Favourite combos")} subtitle={t("Your most-played creature line-ups")}>
                                 <Stack spacing={0.75}>
                                     {mostPlayedCombos.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
-                                            Play a few matches to build up combo stats.
+                                            {t("Play a few matches to build up combo stats.")}
                                         </Typography>
                                     )}
                                     {mostPlayedCombos.map((c, i) => (
@@ -442,11 +452,11 @@ export const PlayerPortalPage: React.FC = () => {
                                 </Stack>
                             </Section>
 
-                            <Section title="Best winning strategies" subtitle="Highest win rate (2+ games)">
+                            <Section title={t("Best winning strategies")} subtitle={t("Highest win rate (2+ games)")}>
                                 <Stack spacing={0.75}>
                                     {bestCombos.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
-                                            Not enough repeated line-ups yet.
+                                            {t("Not enough repeated line-ups yet.")}
                                         </Typography>
                                     )}
                                     {bestCombos.map((c, i) => (
@@ -463,11 +473,14 @@ export const PlayerPortalPage: React.FC = () => {
 
                         {/* Pairs & artifacts */}
                         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
-                            <Section title="Strongest pairs" subtitle="Creature duos that win together (3+ games)">
+                            <Section
+                                title={t("Strongest pairs")}
+                                subtitle={t("Creature duos that win together (3+ games)")}
+                            >
                                 <Stack spacing={0.75}>
                                     {strongestPairs.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
-                                            Field the same duo a few times to reveal your best pairings.
+                                            {t("Field the same duo a few times to reveal your best pairings.")}
                                         </Typography>
                                     )}
                                     {strongestPairs.map((pair) => (
@@ -481,17 +494,20 @@ export const PlayerPortalPage: React.FC = () => {
                                 </Stack>
                             </Section>
 
-                            <Section title="Artifacts" subtitle="Win rate by artifact across your recent matches">
+                            <Section
+                                title={t("Artifacts")}
+                                subtitle={t("Win rate by artifact across your recent matches")}
+                            >
                                 <Stack
                                     spacing={0.5}
                                     role="region"
-                                    aria-label="Artifact statistics"
+                                    aria-label={t("Artifact statistics")}
                                     tabIndex={0}
                                     sx={{ maxHeight: 340, overflowY: "auto", ...nestedPortalScrollSx }}
                                 >
                                     {artifactStats.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
-                                            Pick artifacts in ranked drafts to build up artifact stats.
+                                            {t("Pick artifacts in ranked drafts to build up artifact stats.")}
                                         </Typography>
                                     )}
                                     {artifactStats.map((stat) => (
@@ -509,17 +525,17 @@ export const PlayerPortalPage: React.FC = () => {
 
                         {/* Creature & faction stats */}
                         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}>
-                            <Section title="Creatures" subtitle="Win rate by creature you field — best first">
+                            <Section title={t("Creatures")} subtitle={t("Win rate by creature you field — best first")}>
                                 <Stack
                                     spacing={0.5}
                                     role="region"
-                                    aria-label="Creature statistics"
+                                    aria-label={t("Creature statistics")}
                                     tabIndex={0}
                                     sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
                                 >
                                     {creatureStats.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
-                                            No creature stats yet.
+                                            {t("No creature stats yet.")}
                                         </Typography>
                                     )}
                                     {creatureStats.map((stat) => (
@@ -541,7 +557,7 @@ export const PlayerPortalPage: React.FC = () => {
                                                 textColor={hocColors.muted}
                                                 sx={{ minWidth: 50, textAlign: "right" }}
                                             >
-                                                {stat.games ?? 0} g
+                                                {tf("{count} g", { count: stat.games ?? 0 })}
                                             </Typography>
                                             <WinRateBar wins={stat.wins ?? 0} games={stat.games ?? 0} width={120} />
                                         </Box>
@@ -549,11 +565,11 @@ export const PlayerPortalPage: React.FC = () => {
                                 </Stack>
                             </Section>
 
-                            <Section title="Factions" subtitle="Win rate by faction fielded">
+                            <Section title={t("Factions")} subtitle={t("Win rate by faction fielded")}>
                                 <Stack spacing={0.5}>
                                     {factionStats.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
-                                            No faction stats yet.
+                                            {t("No faction stats yet.")}
                                         </Typography>
                                     )}
                                     {factionStats.map((stat) => (
@@ -570,7 +586,7 @@ export const PlayerPortalPage: React.FC = () => {
                                                 textColor={hocColors.muted}
                                                 sx={{ minWidth: 50, textAlign: "right" }}
                                             >
-                                                {stat.games ?? 0} g
+                                                {tf("{count} g", { count: stat.games ?? 0 })}
                                             </Typography>
                                             <WinRateBar wins={stat.wins ?? 0} games={stat.games ?? 0} width={110} />
                                         </Box>
@@ -580,7 +596,10 @@ export const PlayerPortalPage: React.FC = () => {
                         </Box>
 
                         {/* Match history */}
-                        <Section title="Match history" subtitle={`${matches.length} most recent finished matches`}>
+                        <Section
+                            title={t("Match history")}
+                            subtitle={tf("{count} most recent finished matches", { count: matches.length })}
+                        >
                             <MatchHistory
                                 filterable
                                 matches={matches}

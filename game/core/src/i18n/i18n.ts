@@ -74,6 +74,15 @@ export const t = (english: string): string => {
     return dictionary?.[english] ?? english;
 };
 
+/**
+ * Translate a template carrying `{slot}` placeholders, then fill them. The English template stays the
+ * dictionary KEY (same contract as `t`), which lets a translation reorder the slots — Russian routinely
+ * needs "партий: {count}" where English says "{count} games". Unfilled slots render verbatim so a typo
+ * in a key shows up as `{count}` on screen instead of silently vanishing.
+ */
+export const tf = (english: string, params: Record<string, string | number>): string =>
+    t(english).replace(/\{(\w+)\}/g, (slot, name: string) => (name in params ? String(params[name]) : slot));
+
 /** React binding: re-renders the caller when the language changes and returns the live `t`. */
 export const useTranslation = (): { t: (english: string) => string; language: string } => {
     const language = useSyncExternalStore(subscribe, getLanguage, () => DEFAULT_LANGUAGE);

@@ -2,6 +2,7 @@ import { type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchPlayerPortal } from "../../api/player_portal_client";
+import { t } from "../../i18n/i18n";
 import { buildMockPortal, isMockPortalEnabled } from "./mockPortal";
 
 export interface PlayerPortalState {
@@ -40,7 +41,8 @@ export const usePlayerPortal = (): PlayerPortalState => {
             })
             .catch((err: unknown) => {
                 if (!cancelled) {
-                    setError((err as Error)?.message ?? "Unable to load profile");
+                    // Server/network messages arrive already worded; only our own fallback is localizable.
+                    setError((err as Error)?.message ?? t("Unable to load profile"));
                 }
             })
             .finally(() => {

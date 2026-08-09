@@ -2,16 +2,19 @@ import { ToFactionName } from "@heroesofcrypto/common";
 import { Avatar, Box, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
+import { t, tf } from "../../i18n/i18n";
 import { resolveUnitImage } from "../unitImage";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { hocColors } from "../hocTheme";
 
+// Creature names stay in English on purpose: they are content data from the shared configs, and the
+// pick phase already shows them untranslated. Only the chrome around them is localized.
 export const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`;
 
 export const creatureIcon = (creatureId: number): string | undefined =>
     resolveUnitImage(undefined, UNIT_ID_TO_NAME[creatureId]);
 
-export const factionName = (faction: number): string => ToFactionName[faction] || "Neutral";
+export const factionName = (faction: number): string => t(ToFactionName[faction] || "Neutral");
 
 export const winRatePct = (wins: number, games: number): number => (games > 0 ? Math.round((wins / games) * 100) : 0);
 
@@ -28,12 +31,12 @@ export const winRateColor = (pct: number): string => {
 
 export const streakLabel = (currentStreak: number): string => {
     if (currentStreak > 0) {
-        return `${currentStreak}W streak`;
+        return tf("{count}W streak", { count: currentStreak });
     }
     if (currentStreak < 0) {
-        return `${-currentStreak}L streak`;
+        return tf("{count}L streak", { count: -currentStreak });
     }
-    return "No streak";
+    return t("No streak");
 };
 
 export const timeAgo = (ms: number): string => {
@@ -42,25 +45,27 @@ export const timeAgo = (ms: number): string => {
     }
     const diff = Date.now() - ms;
     if (diff < 0) {
-        return "just now";
+        return t("just now");
     }
     const mins = Math.floor(diff / 60000);
     if (mins < 1) {
-        return "just now";
+        return t("just now");
     }
     if (mins < 60) {
-        return `${mins}m ago`;
+        return tf("{count}m ago", { count: mins });
     }
     const hours = Math.floor(mins / 60);
     if (hours < 24) {
-        return `${hours}h ago`;
+        return tf("{count}h ago", { count: hours });
     }
     const days = Math.floor(hours / 24);
     if (days < 30) {
-        return `${days}d ago`;
+        return tf("{count}d ago", { count: days });
     }
     const months = Math.floor(days / 30);
-    return months < 12 ? `${months}mo ago` : `${Math.floor(months / 12)}y ago`;
+    return months < 12
+        ? tf("{count}mo ago", { count: months })
+        : tf("{count}y ago", { count: Math.floor(months / 12) });
 };
 
 /** A small creature portrait with a name tooltip. */

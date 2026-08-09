@@ -10,6 +10,7 @@ import { Box, Button, IconButton, Sheet, Stack, ToggleButtonGroup, Tooltip, Typo
 import React, { useMemo, useState } from "react";
 
 import { images } from "../../generated/image_imports";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
 import {
@@ -68,7 +69,8 @@ const SYNERGY_NAMES: Record<string, string> = {
 
 const synergyName = (key: string): string => {
     const [faction, id] = key.split(":");
-    return SYNERGY_NAMES[`${faction}:${id}`] ?? `${faction || "Unknown"} synergy`;
+    const name = SYNERGY_NAMES[`${faction}:${id}`];
+    return name ? t(name) : tf("{faction} synergy", { faction: faction ? t(faction) : t("Unknown") });
 };
 
 const synergyLevel = (key: string): number => {
@@ -127,7 +129,7 @@ const RosterStrip: React.FC<RosterStripProps> = ({ compact, creatureIds, label, 
             ))}
             {creatureIds.length === 0 && (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    Unknown roster
+                    {t("Unknown roster")}
                 </Typography>
             )}
         </Stack>
@@ -186,14 +188,14 @@ const PerformanceList: React.FC<{
                             {creatureName(creatureId)}
                         </Typography>
                         <Typography level="body-xs" sx={{ color: index === 0 ? hocColors.gold : hocColors.muted }}>
-                            {formatMatchDamage(performance.damage_dealt)} dmg
+                            {tf("{amount} dmg", { amount: formatMatchDamage(performance.damage_dealt) })}
                         </Typography>
                     </Stack>
                 );
             })}
             {performances.length === 0 && (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    No damage data
+                    {t("No damage data")}
                 </Typography>
             )}
         </Stack>
@@ -346,7 +348,7 @@ const SetupSummary: React.FC<{
     if (!setup.available) {
         return (
             <Typography level="body-xs" textColor={hocColors.muted} sx={{ mt: 0.75 }}>
-                Build data unavailable
+                {t("Build data unavailable")}
             </Typography>
         );
     }
@@ -359,10 +361,10 @@ const SetupSummary: React.FC<{
                 level="body-xs"
                 sx={{ color: hocColors.mutedStrong, mb: 0.45, fontSize: compact ? "0.6rem" : "0.66rem" }}
             >
-                Your build
+                {t("Your build")}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: compact ? 0.7 : 0.9 }}>
-                <SetupSummaryGroup compact={compact} label="Perk">
+                <SetupSummaryGroup compact={compact} label={t("Perk")}>
                     <SetupSummaryIcon
                         badge={`${perk.upgradePoints}`}
                         compact={compact}
@@ -371,7 +373,7 @@ const SetupSummary: React.FC<{
                     />
                 </SetupSummaryGroup>
                 {artifacts.length > 0 && (
-                    <SetupSummaryGroup compact={compact} label="Artifacts">
+                    <SetupSummaryGroup compact={compact} label={t("Artifacts")}>
                         {artifacts.map((artifact) => (
                             <SetupSummaryIcon
                                 key={`${artifact.tier}_${artifact.id}`}
@@ -385,21 +387,24 @@ const SetupSummary: React.FC<{
                     </SetupSummaryGroup>
                 )}
                 {setup.complete && setup.augments.length > 0 && (
-                    <SetupSummaryGroup compact={compact} label="Augments">
+                    <SetupSummaryGroup compact={compact} label={t("Augments")}>
                         {setup.augments.map((augment) => (
                             <SetupSummaryIcon
                                 key={augment.kind}
-                                alt={`${augment.kind} augment`}
+                                alt={tf("{kind} augment", { kind: t(augment.kind) })}
                                 badge={`L${augment.level}`}
                                 compact={compact}
-                                detail={`${augment.kind} augment, level ${augment.level}`}
+                                detail={tf("{kind} augment, level {level}", {
+                                    kind: t(augment.kind),
+                                    level: augment.level,
+                                })}
                                 image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
                             />
                         ))}
                     </SetupSummaryGroup>
                 )}
                 {setup.complete && setup.synergies.length > 0 && (
-                    <SetupSummaryGroup compact={compact} label="Synergies">
+                    <SetupSummaryGroup compact={compact} label={t("Synergies")}>
                         {setup.synergies.map((synergy) => {
                             const name = synergyName(synergy);
                             const level = synergyLevel(synergy);
@@ -409,7 +414,11 @@ const SetupSummary: React.FC<{
                                     alt={name}
                                     badge={`L${level}`}
                                     compact={compact}
-                                    detail={`${name}, level ${level}: ${synergyDescription(synergy)}`}
+                                    detail={tf("{name}, level {level}: {description}", {
+                                        name,
+                                        level,
+                                        description: synergyDescription(synergy),
+                                    })}
                                     fallback={<AutoAwesomeRoundedIcon />}
                                     image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                 />
@@ -419,7 +428,7 @@ const SetupSummary: React.FC<{
                 )}
                 {!setup.complete && (
                     <Typography level="body-xs" textColor={hocColors.muted} sx={{ alignSelf: "center" }}>
-                        Combat setup not recorded
+                        {t("Combat setup not recorded")}
                     </Typography>
                 )}
             </Box>
@@ -448,7 +457,7 @@ const TeamBuildChoices: React.FC<{
                     {label}
                 </Typography>
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    Build choices were not recorded for this match.
+                    {t("Build choices were not recorded for this match.")}
                 </Typography>
             </Box>
         );
@@ -463,16 +472,16 @@ const TeamBuildChoices: React.FC<{
                 {label}
             </Typography>
 
-            <SetupRow label="Perk">
+            <SetupRow label={t("Perk")}>
                 <SetupChoice
                     detail={perk.description}
                     fallback={<ExploreRoundedIcon />}
                     name={perk.name}
-                    badge={`${perk.upgradePoints} pts`}
+                    badge={tf("{count} pts", { count: perk.upgradePoints })}
                 />
             </SetupRow>
 
-            <SetupRow label="Artifacts">
+            <SetupRow label={t("Artifacts")}>
                 {artifacts.map((artifact) => (
                     <SetupChoice
                         key={`${artifact.tier}_${artifact.id}`}
@@ -485,27 +494,30 @@ const TeamBuildChoices: React.FC<{
                 ))}
                 {artifacts.length === 0 && (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        None recorded
+                        {t("None recorded")}
                     </Typography>
                 )}
             </SetupRow>
 
             {setup.complete ? (
                 <>
-                    <SetupRow label="Augments">
+                    <SetupRow label={t("Augments")}>
                         {setup.augments.map((augment) => (
                             <SetupChoice
                                 key={augment.kind}
-                                alt={`${augment.kind} augment`}
-                                detail={`${augment.kind} augment, level ${augment.level}`}
+                                alt={tf("{kind} augment", { kind: t(augment.kind) })}
+                                detail={tf("{kind} augment, level {level}", {
+                                    kind: t(augment.kind),
+                                    level: augment.level,
+                                })}
                                 image={images[AUGMENT_IMAGE_KEY[augment.kind]]}
-                                name={augment.kind}
+                                name={t(augment.kind)}
                                 badge={`L${augment.level}`}
                             />
                         ))}
                     </SetupRow>
 
-                    <SetupRow label="Synergies">
+                    <SetupRow label={t("Synergies")}>
                         {setup.synergies.map((synergy) => {
                             const name = synergyName(synergy);
                             const level = synergyLevel(synergy);
@@ -513,7 +525,10 @@ const TeamBuildChoices: React.FC<{
                                 <SetupChoice
                                     key={synergy}
                                     alt={name}
-                                    detail={`Level ${level}: ${synergyDescription(synergy)}`}
+                                    detail={tf("Level {level}: {description}", {
+                                        level,
+                                        description: synergyDescription(synergy),
+                                    })}
                                     image={SYNERGY_KEY_TO_IMAGE[synergy as keyof typeof SYNERGY_KEY_TO_IMAGE]}
                                     name={name}
                                     badge={`L${level}`}
@@ -522,7 +537,7 @@ const TeamBuildChoices: React.FC<{
                         })}
                         {setup.synergies.length === 0 && (
                             <Typography level="body-xs" textColor={hocColors.muted}>
-                                None recorded
+                                {t("None recorded")}
                             </Typography>
                         )}
                     </SetupRow>
@@ -533,7 +548,7 @@ const TeamBuildChoices: React.FC<{
                     textColor={hocColors.muted}
                     sx={{ borderTop: "1px solid rgba(255,255,255,0.08)", pt: 0.9 }}
                 >
-                    Augments and synergies were not recorded for this historical match.
+                    {t("Augments and synergies were not recorded for this historical match.")}
                 </Typography>
             )}
         </Stack>
@@ -553,7 +568,7 @@ const BuildChoices: React.FC<{
             <Stack direction="row" spacing={0.65} alignItems="center" sx={{ mb: 1.15 }}>
                 <AutoAwesomeRoundedIcon sx={{ color: hocColors.gold, fontSize: 17 }} />
                 <Typography level="title-sm" textColor={hocColors.parchment}>
-                    Build choices
+                    {t("Build choices")}
                 </Typography>
             </Stack>
             <Box
@@ -572,8 +587,12 @@ const BuildChoices: React.FC<{
                     "& > *:first-of-type": compact ? undefined : { pr: { xs: 0, sm: 1.5 } },
                 }}
             >
-                <TeamBuildChoices label="Your build" setup={playerSetup} tone="player" />
-                <TeamBuildChoices label={`${opponent}'s build`} setup={opponentSetup} tone="opponent" />
+                <TeamBuildChoices label={t("Your build")} setup={playerSetup} tone="player" />
+                <TeamBuildChoices
+                    label={tf("{opponent}'s build", { opponent })}
+                    setup={opponentSetup}
+                    tone="opponent"
+                />
             </Box>
         </Box>
     );
@@ -584,10 +603,10 @@ const ReplayIconButton: React.FC<{
     compact: boolean;
     onClick: () => void;
 }> = ({ available, compact, onClick }) => (
-    <Tooltip title={available ? "Replay match" : "Replay unavailable for this match"} size="sm" variant="soft">
+    <Tooltip title={available ? t("Replay match") : t("Replay unavailable for this match")} size="sm" variant="soft">
         <span style={{ display: "inline-flex" }}>
             <IconButton
-                aria-label={available ? "Replay match" : "Replay unavailable"}
+                aria-label={available ? t("Replay match") : t("Replay unavailable")}
                 disabled={!available}
                 size={compact ? "sm" : "md"}
                 variant="plain"
@@ -613,6 +632,7 @@ const MatchCard: React.FC<{
     onExpand: () => void;
     onReplay: () => void;
 }> = ({ compact, expanded, match, onExpand, onReplay }) => {
+    const { language } = useTranslation();
     const result = matchResultPresentation(match);
     const resultColor = RESULT_COLORS[result.tone];
     const side = matchSide(match.team);
@@ -622,8 +642,11 @@ const MatchCard: React.FC<{
     const duration = formatMatchDuration(match.duration_ms);
     const laps = Math.max(0, Number(match.total_laps ?? 0));
     const replayAvailable = !!match.replay_available;
-    const opponent = match.opponent_username || "Unknown opponent";
-    const exactFinished = match.finished_time ? new Date(match.finished_time).toLocaleString() : "Unknown";
+    const opponent = match.opponent_username || t("Unknown opponent");
+    // Undefined keeps the browser default for English; Russian gets the day-first Russian ordering.
+    const exactFinished = match.finished_time
+        ? new Date(match.finished_time).toLocaleString(language === "ru" ? "ru-RU" : undefined)
+        : t("Unknown");
     const playerSetup = normalizeMatchSetup(match.player_setup);
 
     return (
@@ -650,9 +673,9 @@ const MatchCard: React.FC<{
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography level={compact ? "body-xs" : "body-sm"} noWrap sx={{ color: hocColors.parchment }}>
                             <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
-                                {result.label}
+                                {t(result.label)}
                             </Box>{" "}
-                            vs {opponent}
+                            {t("vs")} {opponent}
                         </Typography>
                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.25, flexWrap: "wrap" }}>
                             {side && (
@@ -675,7 +698,7 @@ const MatchCard: React.FC<{
                                         level="body-xs"
                                         sx={{ color: SIDE_PRESENTATION[side].color, fontWeight: 700 }}
                                     >
-                                        {SIDE_PRESENTATION[side].label}
+                                        {t(SIDE_PRESENTATION[side].label)}
                                     </Typography>
                                 </Stack>
                             )}
@@ -684,20 +707,20 @@ const MatchCard: React.FC<{
                             </Typography>
                             {result.detail && (
                                 <Typography level="body-xs" sx={{ color: resultColor, whiteSpace: "nowrap" }}>
-                                    {result.detail}
+                                    {t(result.detail)}
                                 </Typography>
                             )}
                         </Stack>
                     </Box>
                     <ReplayIconButton available={replayAvailable} compact={compact} onClick={onReplay} />
                     <Tooltip
-                        title={expanded ? "Collapse match details" : "Expand match details"}
+                        title={expanded ? t("Collapse match details") : t("Expand match details")}
                         size="sm"
                         variant="soft"
                     >
                         <Button
                             aria-expanded={expanded}
-                            aria-label={expanded ? "Collapse match details" : "Expand match details"}
+                            aria-label={expanded ? t("Collapse match details") : t("Expand match details")}
                             size={compact ? "sm" : "md"}
                             variant="plain"
                             onClick={onExpand}
@@ -719,7 +742,7 @@ const MatchCard: React.FC<{
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
                             }}
                         >
-                            Details
+                            {t("Details")}
                         </Button>
                     </Tooltip>
                 </Stack>
@@ -727,14 +750,19 @@ const MatchCard: React.FC<{
                 <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mt: 0.75, flexWrap: "wrap" }}>
                     {duration && <MetadataItem icon={<AccessTimeRoundedIcon />} label={duration} />}
                     {laps > 0 && (
-                        <MetadataItem icon={<LoopRoundedIcon />} label={`${laps} ${laps === 1 ? "lap" : "laps"}`} />
+                        <MetadataItem
+                            icon={<LoopRoundedIcon />}
+                            label={
+                                laps === 1 ? tf("{count} lap", { count: laps }) : tf("{count} laps", { count: laps })
+                            }
+                        />
                     )}
                     {topPlayer && (
                         <Stack direction="row" spacing={0.45} alignItems="center" sx={{ minWidth: 0 }}>
                             <MilitaryTechRoundedIcon sx={{ color: hocColors.gold, fontSize: 15 }} />
                             <CreatureIcon creatureId={topPlayer.creature_id ?? 0} size={20} />
                             <Typography level="body-xs" sx={{ color: hocColors.gold, whiteSpace: "nowrap" }}>
-                                {formatMatchDamage(topPlayer.damage_dealt)} dmg
+                                {tf("{amount} dmg", { amount: formatMatchDamage(topPlayer.damage_dealt) })}
                             </Typography>
                         </Stack>
                     )}
@@ -750,11 +778,11 @@ const MatchCard: React.FC<{
                         mt: 0.9,
                     }}
                 >
-                    <RosterStrip compact={compact} creatureIds={match.creature_ids ?? []} label="Your army" />
+                    <RosterStrip compact={compact} creatureIds={match.creature_ids ?? []} label={t("Your army")} />
                     <RosterStrip
                         compact={compact}
                         creatureIds={match.opponent_creature_ids ?? []}
-                        label={`${opponent}'s army`}
+                        label={tf("{opponent}'s army", { opponent })}
                         muted
                     />
                 </Box>
@@ -779,10 +807,10 @@ const MatchCard: React.FC<{
                             gap: 1.25,
                         }}
                     >
-                        <Metric label="Duration" value={duration || "Unknown"} />
-                        <Metric label="Laps" value={laps > 0 ? String(laps) : "Unknown"} />
-                        <Metric label="Your damage" value={formatMatchDamage(match.player_damage)} />
-                        <Metric label="Opponent damage" value={formatMatchDamage(match.opponent_damage)} />
+                        <Metric label={t("Duration")} value={duration || t("Unknown")} />
+                        <Metric label={t("Laps")} value={laps > 0 ? String(laps) : t("Unknown")} />
+                        <Metric label={t("Your damage")} value={formatMatchDamage(match.player_damage)} />
+                        <Metric label={t("Opponent damage")} value={formatMatchDamage(match.opponent_damage)} />
                     </Box>
 
                     <Box
@@ -793,8 +821,11 @@ const MatchCard: React.FC<{
                             mt: 1.5,
                         }}
                     >
-                        <PerformanceList label="Your top damage" performances={playerPerformances} />
-                        <PerformanceList label={`${opponent}'s top damage`} performances={opponentPerformances} />
+                        <PerformanceList label={t("Your top damage")} performances={playerPerformances} />
+                        <PerformanceList
+                            label={tf("{opponent}'s top damage", { opponent })}
+                            performances={opponentPerformances}
+                        />
                     </Box>
 
                     <BuildChoices compact={compact} match={match} opponent={opponent} />
@@ -807,10 +838,10 @@ const MatchCard: React.FC<{
                         sx={{ mt: 1.5 }}
                     >
                         <Typography level="body-xs" textColor={hocColors.muted}>
-                            Finished {exactFinished}
+                            {tf("Finished {when}", { when: exactFinished })}
                         </Typography>
                         <Button
-                            aria-label="Replay match"
+                            aria-label={t("Replay match")}
                             disabled={!replayAvailable}
                             size="sm"
                             variant="soft"
@@ -824,7 +855,7 @@ const MatchCard: React.FC<{
                                 "&:hover": { bgcolor: "rgba(255, 143, 0, 0.24)" },
                             }}
                         >
-                            {replayAvailable ? "Replay match" : "Replay unavailable"}
+                            {replayAvailable ? t("Replay match") : t("Replay unavailable")}
                         </Button>
                     </Stack>
                 </Box>
@@ -841,6 +872,8 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
 }) => {
     const [filter, setFilter] = useState<MatchHistoryFilter>("all");
     const [expandedGameId, setExpandedGameId] = useState<string>();
+    // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
+    useTranslation();
     const filteredMatches = useMemo(() => filterPortalMatches(matches, filter), [filter, matches]);
     const wins = useMemo(() => filterPortalMatches(matches, "wins").length, [matches]);
     const losses = useMemo(() => filterPortalMatches(matches, "losses").length, [matches]);
@@ -849,7 +882,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
         <Stack spacing={1} sx={{ width: "100%", maxWidth: "100%", minWidth: 0, overflow: "hidden" }}>
             {filterable && matches.length > 0 && (
                 <ToggleButtonGroup
-                    aria-label="Filter match history"
+                    aria-label={t("Filter match history")}
                     size="sm"
                     buttonFlex={1}
                     value={filter}
@@ -876,15 +909,19 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                         },
                     }}
                 >
-                    <Button value="all">All {matches.length}</Button>
-                    <Button value="wins">Wins {wins}</Button>
-                    <Button value="losses">Losses {losses}</Button>
+                    <Button value="all">{tf("All {count}", { count: matches.length })}</Button>
+                    <Button value="wins">{tf("Wins {count}", { count: wins })}</Button>
+                    <Button value="losses">{tf("Losses {count}", { count: losses })}</Button>
                 </ToggleButtonGroup>
             )}
 
             {filteredMatches.length === 0 && (
                 <Typography level={compact ? "body-xs" : "body-sm"} textColor={hocColors.muted}>
-                    {matches.length === 0 ? "No finished matches yet." : `No ${filter} in recent matches.`}
+                    {matches.length === 0
+                        ? t("No finished matches yet.")
+                        : filter === "wins"
+                          ? t("No wins in recent matches.")
+                          : t("No losses in recent matches.")}
                 </Typography>
             )}
 
