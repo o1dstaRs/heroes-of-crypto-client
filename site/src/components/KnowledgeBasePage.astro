@@ -551,9 +551,10 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             const details = target.matches("details") ? target : target.closest("details");
             if (details instanceof HTMLDetailsElement) details.open = true;
             target.classList.add("kb-target-highlight");
+            const isRuleTarget = targetId.startsWith("rule-");
             target.scrollIntoView({
-                behavior: "smooth",
-                block: targetId.startsWith("rule-") ? "start" : "center",
+                behavior: isRuleTarget ? "instant" : "smooth",
+                block: isRuleTarget ? "start" : "center",
             });
             const isNaturallyFocusable = target.matches(
                 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]',
