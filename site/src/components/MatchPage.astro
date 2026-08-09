@@ -170,6 +170,7 @@ const copy = isRu
     const requestedPlayerId = params.get("playerId")?.trim() ?? "";
     const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
     const numberFormatter = new Intl.NumberFormat(language);
+    const goldIcon = "/assets/icons/currency/gold.svg";
     const dateFormatter = new Intl.DateTimeFormat(language, {
         dateStyle: "medium",
         timeStyle: "short",
@@ -294,6 +295,9 @@ const copy = isRu
         return `<span>${numberFormatter.format(player.mmrBefore)} → ${numberFormatter.format(player.mmrAfter)}</span><strong class="${tone}">${delta} MMR</strong>`;
     };
 
+    const currencyAmount = (amount: number, prefix = ""): string =>
+        `<span class="currency-amount"><img class="currency-icon" src="${goldIcon}" alt="" aria-hidden="true" width="20" height="20" /><span>${prefix}${numberFormatter.format(Math.max(0, Math.trunc(amount)))}</span></span>`;
+
     const playerCard = (player: PublicRankedMatchPlayer, match: PublicRankedMatch): string => {
         const damage = damageFor(match, player.side);
         const won = player.result === "win";
@@ -307,7 +311,7 @@ const copy = isRu
                 <dl>
                     <div><dt>${escapeHtml(text("rating"))}</dt><dd>${ratingBlock(player)}</dd></div>
                     <div><dt>${escapeHtml(text("damage"))}</dt><dd><strong>${numberFormatter.format(damage)}</strong></dd></div>
-                    <div><dt>${escapeHtml(text("seasonCurrency"))}</dt><dd>${player.goldEarned > 0 ? `+${numberFormatter.format(player.goldEarned)} 🪙` : "—"}</dd></div>
+                    <div><dt>${escapeHtml(text("seasonCurrency"))}</dt><dd>${player.goldEarned > 0 ? currencyAmount(player.goldEarned, "+") : "—"}</dd></div>
                 </dl>
                 ${won ? '<span class="winner-flare" aria-hidden="true">✦</span>' : ""}
             </article>`;
