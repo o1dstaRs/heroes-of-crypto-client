@@ -26,6 +26,42 @@ import { usePlayerPortal } from "./usePlayerPortal";
 
 const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
 const logoUrl = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
+const portalScrollSx = {
+    scrollbarWidth: "thin",
+    scrollbarColor: "rgba(220,177,88,0.68) rgba(7,5,4,0.72)",
+    "&::-webkit-scrollbar": {
+        width: "8px",
+        height: "8px",
+    },
+    "&::-webkit-scrollbar-track": {
+        borderRadius: "999px",
+        background: "rgba(7,5,4,0.72)",
+    },
+    "&::-webkit-scrollbar-thumb": {
+        border: "2px solid rgba(7,5,4,0.9)",
+        borderRadius: "999px",
+        background: "rgba(220,177,88,0.68)",
+    },
+    "&::-webkit-scrollbar-thumb:hover": {
+        background: "rgba(239,212,154,0.84)",
+    },
+    "&::-webkit-scrollbar-corner": {
+        background: "transparent",
+    },
+    "@media (forced-colors: active)": {
+        scrollbarColor: "auto",
+    },
+} as const;
+
+const nestedPortalScrollSx = {
+    ...portalScrollSx,
+    overflowX: "hidden",
+    pr: 0.5,
+    "&:focus-visible": {
+        outline: `2px solid ${hocColors.gold}`,
+        outlineOffset: "3px",
+    },
+} as const;
 
 const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
     title,
@@ -233,6 +269,8 @@ export const PlayerPortalPage: React.FC = () => {
                 inset: 0,
                 bgcolor: hocColors.black,
                 overflowY: "auto",
+                overflowX: "hidden",
+                ...portalScrollSx,
                 px: { xs: 1.5, md: 3 },
                 py: { xs: 1.5, md: 2.5 },
                 backgroundImage: `linear-gradient(112deg, rgba(7,5,4,0.97), rgba(7,5,4,0.89) 52%, rgba(7,5,4,0.96)), url(${profileBackgroundUrl})`,
@@ -444,7 +482,13 @@ export const PlayerPortalPage: React.FC = () => {
                             </Section>
 
                             <Section title="Artifacts" subtitle="Win rate by artifact across your recent matches">
-                                <Stack spacing={0.5} sx={{ maxHeight: 340, overflowY: "auto", pr: 0.5 }}>
+                                <Stack
+                                    spacing={0.5}
+                                    role="region"
+                                    aria-label="Artifact statistics"
+                                    tabIndex={0}
+                                    sx={{ maxHeight: 340, overflowY: "auto", ...nestedPortalScrollSx }}
+                                >
                                     {artifactStats.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
                                             Pick artifacts in ranked drafts to build up artifact stats.
@@ -466,7 +510,13 @@ export const PlayerPortalPage: React.FC = () => {
                         {/* Creature & faction stats */}
                         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}>
                             <Section title="Creatures" subtitle="Win rate by creature you field — best first">
-                                <Stack spacing={0.5} sx={{ maxHeight: 420, overflowY: "auto", pr: 0.5 }}>
+                                <Stack
+                                    spacing={0.5}
+                                    role="region"
+                                    aria-label="Creature statistics"
+                                    tabIndex={0}
+                                    sx={{ maxHeight: 420, overflowY: "auto", ...nestedPortalScrollSx }}
+                                >
                                     {creatureStats.length === 0 && (
                                         <Typography level="body-sm" textColor={hocColors.muted}>
                                             No creature stats yet.
