@@ -39,10 +39,31 @@ export const targetedSpellBlockerId = (
         return undefined;
     }
     const settings = grid.getSettings();
-    return SpellHelper.firstSpellSightBlocker(
+    return SpellHelper.firstTargetedSpellSightBlocker(
+        spellName,
         grid,
         (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
         from,
         to,
     )?.occupantId;
+};
+
+/** The blocking CELL (not just who stands on it), so the aim preview can draw the lane up to it. */
+export const targetedSpellBlockerCell = (
+    spellName: string,
+    grid: ClientSpellSightGrid,
+    from: HoCMath.XY,
+    to: HoCMath.XY,
+): HoCMath.XY | undefined => {
+    if (!SpellHelper.targetedSpellRequiresLineOfSight(spellName)) {
+        return undefined;
+    }
+    const settings = grid.getSettings();
+    return SpellHelper.firstTargetedSpellSightBlocker(
+        spellName,
+        grid,
+        (cell: HoCMath.XY) => GridMath.isCellWithinGrid(settings, cell),
+        from,
+        to,
+    )?.cell;
 };

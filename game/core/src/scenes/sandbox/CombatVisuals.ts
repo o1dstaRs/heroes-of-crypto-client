@@ -884,6 +884,28 @@ export class CombatVisuals {
         this.enqueueFloatingContainer(container, pos, direction);
     }
     /**
+     * Magic armor shrugged a snare off (Vine Throw): an arcane-blue "RESISTED" over the saved unit —
+     * the MISS label's magical counterpart, same floating lifecycle. The vine still lands on the ground,
+     * so without this the throw looked identical whether or not the target's magic armor held.
+     */
+    public showResistLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
+        const container = new Container();
+        const label = new PixiText({
+            text: "RESISTED",
+            style: new TextStyle({
+                fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
+                fontSize: 28,
+                fontWeight: "900",
+                fill: "#8fd4ff",
+                stroke: { color: "#123a5c", width: 5 },
+                dropShadow: { color: "#000000", blur: 4, angle: Math.PI / 6, distance: 2 },
+            }),
+        });
+        label.anchor.set(0.5);
+        container.addChild(label);
+        this.enqueueFloatingContainer(container, pos, direction);
+    }
+    /**
      * Lucky Strike proc: a gold "LUCKY!" that rises over the STRIKER (the MISS label's counterpart —
      * same floating lifecycle, luck-gold styling so it reads as a positive roll, not damage).
      */

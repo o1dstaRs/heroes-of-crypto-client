@@ -107,7 +107,7 @@ import {
     resolveRangeProjectilePlaybackPosition,
 } from "./sandbox/range_projectile_impact";
 import { createSummonedUnitProperties } from "./summonedUnitProperties";
-import { isTargetedSpellReachable, targetedSpellBlockerId } from "./spell_targeting";
+import { isTargetedSpellReachable, targetedSpellBlockerCell, targetedSpellBlockerId } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
@@ -3504,6 +3504,26 @@ export class Sandbox extends PixiScene {
         // dodge itself.
         const below = { x: vCenter.x, y: vCenter.y - (victim.isSmallSize() ? cell * 0.85 : cell * 1.25) };
         this.combatVisuals.showMissLabel(below, dir);
+    }
+    /**
+     * A snare shrugged off by magic armor (Vine Throw): pop "RESISTED" over the saved creature and give it
+     * the same arcane flash a resisted spell gets. Drifts away from the caster when that position is known,
+     * so the label reads as the throw glancing off. Shared by the live and ranked paths per the ABILITY VFX
+     * CONTRACT — ranked replays the identical vine_placed event.
+     */
+    protected showSnareResistedVfx(targetId: string, casterPosition?: HoCMath.XY): void {
+        const target = this.unitsHolder.getAllUnits().get(targetId) as RenderableUnit | undefined;
+        if (!target) {
+            return;
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const center = typeof target.getVisualCenter === "function" ? target.getVisualCenter(gs) : target.getPosition();
+        const above = { x: center.x, y: center.y + (target.isSmallSize() ? cell * 0.75 : cell * 1.15) };
+        const direction = casterPosition
+            ? { x: center.x - casterPosition.x, y: center.y - casterPosition.y }
+            : undefined;
+        this.combatVisuals.showResistLabel(above, direction);
     }
     /**
      * Lucky Strike proc VFX: gold "LUCKY!" + gold flash over each unit whose Lucky Strike fired this
@@ -12418,24 +12438,33 @@ export class Sandbox extends PixiScene {
             return;
         }
         // The same target-specific predicate gates fallback AI, local-model choices, hover and the click.
-        if (!isTargetedSpellReachable(spell.getName(), this.grid, from, to)) {
-            return;
-        }
+        // The projection is drawn EITHER WAY (owner 2026-08-08): a blocked throw shows the lane in red up
+        // to the creature intercepting it, because "nothing is drawn" reads as a broken preview rather
+        // than as an explanation. Only a creature can block now, so this is always a body the player sees.
+        const blockedAt = targetedSpellBlockerCell(spell.getName(), this.grid, from, to);
+        const blockedIndex = blockedAt
+            ? pathCells.findIndex((cell) => cell.x === blockedAt.x && cell.y === blockedAt.y)
+            : -1;
+        const lastDrawnIndex = blockedIndex >= 0 ? blockedIndex : pathCells.length - 1;
 
         const size = gs.getCellSize();
         const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
-        for (let i = 0; i < pathCells.length; i += 1) {
+        for (let i = 0; i <= lastDrawnIndex; i += 1) {
             const pos = GridMath.getPositionForCell(pathCells[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
             if (!pos) {
                 continue;
             }
             // The struck creature's cell reads brightest — it takes the snare debuff on top of the vine.
-            const isTargetCell = i === pathCells.length - 1;
-            const fillAlpha = (isTargetCell ? 0.3 : 0.18) + 0.14 * pulse;
+            // On a blocked lane the interceptor's cell is the bright one instead: that is the answer to
+            // "why can't I hit them", and the lane behind it is never reached.
+            const isEndCell = i === lastDrawnIndex;
+            const fillAlpha = (isEndCell ? 0.3 : 0.18) + 0.14 * pulse;
+            const fillColor = blockedIndex >= 0 ? 0x8f3a3a : 0x3f8f3a;
+            const strokeColor = blockedIndex >= 0 ? (isEndCell ? 0xff9a9a : 0xd16a6a) : isEndCell ? 0xbff59a : 0x86d16a;
             g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
-                .fill({ color: 0x3f8f3a, alpha: fillAlpha })
-                .stroke({ width: 2, color: isTargetCell ? 0xbff59a : 0x86d16a, alpha: 0.75 });
+                .fill({ color: fillColor, alpha: fillAlpha })
+                .stroke({ width: 2, color: strokeColor, alpha: 0.75 });
         }
     }
     /**
@@ -13039,6 +13068,12 @@ export class Sandbox extends PixiScene {
                         : undefined;
                     if (from && to) {
                         void this.rangedProjectiles.fire({ from, to, big: false, vine: true });
+                    }
+                    // Magic armor shrugged the snare off: the vine still painted the ground, so the save
+                    // needs its own tell or the throw looks identical either way. ABILITY VFX CONTRACT:
+                    // this handler serves the live sandbox AND the ranked journal replay.
+                    if (event.snareResisted) {
+                        this.showSnareResistedVfx(event.targetId, from);
                     }
                     shouldRefreshVisibleState = true;
                     break;
