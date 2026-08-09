@@ -1,7 +1,17 @@
-// Army-wide artifacts chosen during the pick phase (one Tier 1 + one Tier 2 per team). Mirrors the
-// game's game/heroes-of-crypto-common/src/artifacts/artifact_properties.ts — names, tiers, slugs and
-// images are kept in sync with it; descriptions here have the {} / [] / <> power placeholders already
-// filled with the ARTIFACT_POWER values so the codex reads cleanly.
+// Army-wide artifacts chosen during the pick phase (one Tier 1 + one Tier 2 per team).
+//
+// DERIVED from the game, not mirrored by hand. This file used to carry its own copy of every effect string
+// with the numbers already written in, and it silently went stale: a balance pass moved Rime Charm's proc
+// 30% -> 60%, Helm of Focus 25% -> 35%, Giant's Maul 35% -> 40% and Iron Plate 0.7 -> 1, and the codex kept
+// advertising the old figures. Reading the same ARTIFACT_POWER table the engine reads means the site cannot
+// disagree with the game again, and a rebalance needs no edit here at all.
+
+import {
+    formatArtifactDescription,
+    TIER1_ARTIFACT_LIST,
+    TIER2_ARTIFACT_LIST,
+    type ArtifactProperties,
+} from "@heroesofcrypto/common/src/artifacts/artifact_properties";
 
 export type ArtifactTier = 1 | 2;
 
@@ -17,67 +27,33 @@ export interface Artifact {
 
 const icon = (tier: ArtifactTier, slug: string) => `/assets/images/artifacts/artifact_t${tier}_${slug}_256.webp`;
 
-const t1 = (slug: string, name: string, description: string, cursed = false): Artifact => ({
-    tier: 1,
-    slug,
-    name,
-    icon: icon(1, slug),
-    description,
-    cursed,
+/**
+ * The codex prints the effect on its own, so it drops the "Artifact." marker the in-game tooltip needs to
+ * distinguish an artifact buff from a spell, and the trailing "Lasts till the end of the fight." line that
+ * is true of every artifact and therefore says nothing on a page that lists only artifacts.
+ */
+const codexDescription = (props: ArtifactProperties): string =>
+    formatArtifactDescription(props)
+        .replace(/^Artifact\.\s*/, "")
+        .replace(/\s*Lasts till the end of the fight\.\s*$/, "")
+        .trim();
+
+const toArtifact = (tier: ArtifactTier) => (props: ArtifactProperties) => ({
+    tier,
+    slug: props.slug,
+    name: props.name,
+    icon: icon(tier, props.slug),
+    description: codexDescription(props),
+    // The downside is stated by the effect text itself, so the tag follows it rather than being a second
+    // fact to keep in sync.
+    cursed: props.description.startsWith("Cursed:") || undefined,
 });
 
-const t2 = (slug: string, name: string, description: string, cursed = false): Artifact => ({
-    tier: 2,
-    slug,
-    name,
-    icon: icon(2, slug),
-    description,
-    cursed,
-});
-
+// Both lists already exclude NO_ARTIFACT and anything disabled, so the codex shows exactly what a player
+// can actually be offered in the pick phase.
 export const artifacts: Artifact[] = [
-    // Tier 1
-    t1("veteran_helm", "Veteran Helm", "Boosts the entire army's defense by an additional 4%."),
-    t1("amulet_of_resolve", "Amulet of Resolve", "Increases the army's status resistance by 25%."),
-    t1("keen_blade", "Keen Blade", "Increases the army's base attack (both ranged and melee) by 0.7."),
-    t1("iron_plate", "Iron Plate", "Increases the army's base armor by 0.7."),
-    t1("swift_boots", "Swift Boots", "Increases melee units' movement by 25% of their base steps."),
-    t1("winged_boots", "Winged Boots", "Grants +1 base movement distance and +1 armor to all flying units."),
-    t1("dual_strike_charm", "Dual Strike Charm", "A unit's second attack deals 50% extra damage."),
-    t1(
-        "wounding_charm",
-        "Wounding Charm",
-        "Grants the whole army Deep Wounds Level 1: each attack or response stacks +6% damage amplification on the target.",
-    ),
-    t1("cursed_ward", "Cursed Ward", "Cursed: +3 luck but -6 morale for the whole army.", true),
-    t1("hunters_longbow", "Hunter's Longbow", "Ranged units gain +1 attack for each ranged unit in the army."),
-    t1("helm_of_focus", "Helm of Focus", "Increases the army's mind resistance by 25%."),
-    t1("mages_ring", "Mage's Ring", "Increases all magic damage the army deals by 10%."),
-    // Tier 2
-    t2("warlords_edge", "Warlord's Edge", "Grants the whole army an additional 12% attack."),
-    t2("titan_plate", "Titan Plate", "Grants the whole army an additional 12% defense (melee and ranged)."),
-    t2("clover_of_fortune", "Clover of Fortune", "Increases the army's luck by 10."),
-    t2("crown_of_command", "Crown of Command", "Grants +1 movement, +8 morale, and +1 armor to the whole army."),
-    t2(
-        "giants_maul",
-        "Giant's Maul",
-        "Increases non-magical (physical) AOE damage by 35% at impact, then reduced by the target's status resistance.",
-    ),
-    t2("pendant_of_vitality", "Pendant of Vitality", "Cursed: +25% HP but -12.5% attack for the whole army.", true),
-    t2("farsight_quiver", "Farsight Quiver", "Extends all allied archers' basic shot range by an additional 50%."),
-    t2("berserkers_bond", "Berserker's Bond", "Cursed: +3 attack but -2 defense for the whole army.", true),
-    t2(
-        "tome_of_amplification",
-        "Tome of Amplification",
-        "Increases the power of non-healing castable buffs allied units apply to allies by 50%. Does not affect healing, resurrection, augments, artifacts, auras, or passive effects.",
-    ),
-    t2("rime_charm", "Rime Charm", "30% chance for any attack to slow the target for 3 laps."),
-    t2(
-        "lava_striders",
-        "Lava Striders",
-        "All army units may move over and stand in lava; while on central lava they gain Made of Fire (+10% to all stats and abilities).",
-    ),
-    t2("archmages_ring", "Archmage's Ring", "Increases all magic damage the army deals by 20%."),
+    ...TIER1_ARTIFACT_LIST.map(toArtifact(1)),
+    ...TIER2_ARTIFACT_LIST.map(toArtifact(2)),
 ];
 
 export const artifactsCount = artifacts.length;
