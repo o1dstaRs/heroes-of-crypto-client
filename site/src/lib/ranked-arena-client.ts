@@ -380,7 +380,6 @@ const createPlayerDossier = (
         metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
-        metric(copy.currentStreak, streakText(copy, player)),
         metric(copy.lastBattle, player.lastRankedGameAt ? localizedRelativeTime(copy, player.lastRankedGameAt) : "—"),
     );
     return dossier;
