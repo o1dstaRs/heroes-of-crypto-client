@@ -21,6 +21,9 @@ import {
     SpellPowerType,
     SpellHelper,
     SmokeHelper,
+    SCATTERED_MOUNTAIN_BAND_ROWS,
+    SCATTERED_MOUNTAIN_COUNT,
+    SCATTERED_MOUNTAIN_VARIANTS,
     VineHelper,
     FireWallHelper,
     RayTraversal,
@@ -58,6 +61,7 @@ import {
     GameActionEngine,
     TurnEngine,
     GameEvent,
+    hasActiveTimeDenial,
     isThrownOffensiveSpell,
     isOffensiveSpellMultiplier,
     offensiveSpellDamageAgainstTarget,
@@ -411,15 +415,10 @@ interface PlacementBenchHitBox {
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
 
-/** How many single-cell mountains the Mountains board scatters over the neutral band. */
-const SCATTERED_MOUNTAIN_COUNT = 9;
-/** Height of that band, in rows, centred on the board: a 16-wide by 4-tall strip down the middle. */
-const SCATTERED_MOUNTAIN_BAND_ROWS = 4;
-/**
- * How many distinct pieces the scattered-object atlas holds. Nine slots are filled from eight variants,
- * so exactly one of them repeats each roll.
- */
-const SCATTERED_MOUNTAIN_VARIANTS = 8;
+// Count, band height and art-variant count come from common (scattered_mountains.ts) rather than being
+// restated here. Sandbox rolls its own layout because it has no game id to seed from, but it must scatter
+// the SAME number of stones over the SAME band as ranked — these were local copies, so a ranked-side change
+// would have quietly left the sandbox board on the old count.
 
 /**
  * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
@@ -1058,6 +1057,7 @@ export class Sandbox extends PixiScene {
                 isInputLockedByAI: () => this.isBoardInputLockedByAI(),
                 canControlCurrentActiveUnit: () => this.canControlCurrentActiveUnit(),
                 hasUnactedTeammateInCurrentLap: (unit) => this.hasUnactedTeammateInCurrentLap(unit),
+                isHourglassDenied: () => hasActiveTimeDenial(this.unitsHolder.getAllUnits().values()),
                 setVisibleButtons: (buttons, updated) => {
                     this.sc_visibleButtonGroup = buttons;
                     this.sc_buttonGroupUpdated = updated;
@@ -5822,7 +5822,7 @@ export class Sandbox extends PixiScene {
         this.grid.setScatteredMountains(chosen);
         // Every variant appears once, and the surplus slots are filled by random repeats. Drawing each slot
         // independently at random would routinely show the same stone three times and leave others unused —
-        // with nine slots for eight variants, dealing the full set first is what guarantees the spread.
+        // with more slots than variants, dealing the full set first is what guarantees the spread.
         const deck: number[] = [];
         for (let v = 0; v < SCATTERED_MOUNTAIN_VARIANTS; v++) {
             deck.push(v);

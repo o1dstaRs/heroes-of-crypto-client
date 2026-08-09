@@ -262,7 +262,8 @@ export class DungeonVisuals {
     /**
      * The scattered-object art: 8 high-resolution tombstones in a 4x2 atlas of 256x332 transparent tiles.
      * Only the stone is drawn, so the board's own floor and foreground fog show through around every
-     * silhouette. Nine obstacle slots deal all eight tiles once, then repeat one randomly selected tile.
+     * silhouette. There are more obstacle slots than tiles, so a roll deals all eight once and then repeats
+     * randomly selected tiles for the remainder (see SCATTERED_MOUNTAIN_COUNT / _VARIANTS in common).
      */
     private static readonly MOUNTAIN_TILES_KEY = "tombstone_tiles_256_atlas";
     /** One cell wide; taller than it is wide, and the surplus is the part that overhangs (see below). */
@@ -514,7 +515,8 @@ export class DungeonVisuals {
      * Install the scattered-mountain layout to draw. Pass an empty array to go back to the classic pair.
      *
      * Sprites are rebuilt from scratch rather than diffed: this runs when the board type is picked or a
-     * mountain is destroyed, never per frame, and nine sprites are far cheaper to recreate than to reconcile.
+     * mountain is destroyed, never per frame, and a dozen sprites are far cheaper to recreate than to
+     * reconcile.
      */
     public setScatteredMountains(mountains: IScatteredMountain[], scatteredMode?: boolean): void {
         // scatteredMode override: a ranked game whose EVERY stone is already destroyed reinstalls an empty

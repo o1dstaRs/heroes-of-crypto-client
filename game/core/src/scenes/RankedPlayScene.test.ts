@@ -15,6 +15,8 @@ import {
     UnitVals,
     UnitsHolder,
     scatteredMountainsForSeed,
+    SCATTERED_MOUNTAIN_BAND_ROWS,
+    SCATTERED_MOUNTAIN_COUNT,
     type GameEvent,
 } from "@heroesofcrypto/common";
 
@@ -1649,6 +1651,20 @@ describe("ranked ability-transfer scene log", () => {
             } as GameEvent),
         ).toBe("");
         expect(spellAbilityTransferSceneLogSuffix({ type: "unit_waited", unitId: "ally" } as GameEvent)).toBe("");
+    });
+});
+
+// Ranked derives its stones from the game id and the sandbox rolls its own, so the COUNT is the one thing
+// both boards must share. Sandbox.ts used to restate it locally, which meant a ranked-side change left the
+// sandbox scattering the old number — the whole point of importing it from common now.
+describe("cemetery stone count", () => {
+    test("is twelve, and ranked derives exactly that many", () => {
+        expect(SCATTERED_MOUNTAIN_COUNT).toBe(12);
+        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(12);
+    });
+
+    test("fits the neutral band with room to spare", () => {
+        expect(SCATTERED_MOUNTAIN_COUNT).toBeLessThanOrEqual(GridConstants.GRID_SIZE * SCATTERED_MOUNTAIN_BAND_ROWS);
     });
 });
 
