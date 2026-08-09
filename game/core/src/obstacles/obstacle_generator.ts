@@ -82,7 +82,12 @@ export class PixiObstacleGenerator {
     }
     /** Lava center */
     public generateLava(position: HoCMath.XY, sizeX: number, sizeY: number): Obstacle {
-        const tex = this.textures.lava_256; // Texture directly
+        // The lava-centre art was reworked to an animated atlas (lava_center_anim_atlas) and the old static
+        // `lava_256` was dropped from the image source, so it is no longer a key on PreloadedPixiTextures.
+        // Tolerate its absence the way switchLavaToFrozen guards its own texture: the centre renders
+        // untextured until `lava_256` is restored (or the animated atlas is wired in). This keeps a clean
+        // build regardless of which lava assets the pipeline currently ships.
+        const tex = (this.textures as Record<string, Texture | undefined>).lava_256; // may be absent now
         const light = tex ? new PixiSpriteAdapter(this.terrainBack, tex) : undefined;
         const dark = tex ? new PixiSpriteAdapter(this.terrainBack, tex) : undefined;
 
