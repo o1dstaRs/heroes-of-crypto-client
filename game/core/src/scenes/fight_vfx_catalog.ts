@@ -180,7 +180,10 @@ export const FIGHT_EVENT_VFX: Record<GameEvent["type"], FightEventVfx> = {
     vine_placed: {
         rendered: true,
         ranked: "snapshot-diff",
-        note: "cells gain creeping vines; VineLayer reconciles from fightProperties.vines, like smoke",
+        note:
+            "cells gain creeping vines; VineLayer reconciles from fightProperties.vines, like smoke. " +
+            "A snareResisted save also pops RESISTED over the target — rendered from the authoritative " +
+            "record in replay (renderSnareResistVfx), since the local re-apply re-rolls that save",
     },
     vine_expired: {
         rendered: true,

@@ -3511,6 +3511,26 @@ export class Sandbox extends PixiScene {
      * so the label reads as the throw glancing off. Shared by the live and ranked paths per the ABILITY VFX
      * CONTRACT — ranked replays the identical vine_placed event.
      */
+    /**
+     * Snare saves the SERVER resolved, taken off a replayed cast record. Ranked replays every Vine Throw
+     * (including the local player's own), and the local re-apply beside it re-rolls the magic-armor save —
+     * so the pop has to come from the record or the two clients would disagree about who shrugged it off.
+     * Same reasoning as renderHealVfx / renderCastOutcomes right next to it.
+     */
+    protected renderSnareResistVfx(events: readonly GameEvent[]): void {
+        for (const event of events) {
+            if (event.type !== "vine_placed" || !event.snareResisted) {
+                continue;
+            }
+            const caster = this.unitsHolder.getAllUnits().get(event.casterId) as RenderableUnit | undefined;
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const casterPosition =
+                caster && typeof caster.getVisualCenter === "function"
+                    ? caster.getVisualCenter(gs)
+                    : caster?.getPosition();
+            this.showSnareResistedVfx(event.targetId, casterPosition);
+        }
+    }
     protected showSnareResistedVfx(targetId: string, casterPosition?: HoCMath.XY): void {
         const target = this.unitsHolder.getAllUnits().get(targetId) as RenderableUnit | undefined;
         if (!target) {
@@ -4644,6 +4664,7 @@ export class Sandbox extends PixiScene {
             this.renderHealVfx(record.events);
             this.renderSpellDamageVfx(record.events, craftCasterPos);
             this.renderCastOutcomes(record.events);
+            this.renderSnareResistVfx(record.events);
             for (const summon of authoritativeSummons) {
                 this.sc_sceneLog.updateLog(`${caster.getName()} summoned ${summon.amount} x ${summon.unitName}`);
             }
@@ -4683,6 +4704,8 @@ export class Sandbox extends PixiScene {
             // Rune success/failure and any other stated roll; no forge to wait on.
             this.renderCastOutcomes(record.events);
         }
+        // The magic-armor save on a Vine Throw is exactly such a stated roll.
+        this.renderSnareResistVfx(record.events);
         if (result.completed) {
             this.cleanupAfterSpell(result.events, unitSnapshot);
         } else {
@@ -13070,9 +13093,11 @@ export class Sandbox extends PixiScene {
                         void this.rangedProjectiles.fire({ from, to, big: false, vine: true });
                     }
                     // Magic armor shrugged the snare off: the vine still painted the ground, so the save
-                    // needs its own tell or the throw looks identical either way. ABILITY VFX CONTRACT:
-                    // this handler serves the live sandbox AND the ranked journal replay.
-                    if (event.snareResisted) {
+                    // needs its own tell or the throw looks identical either way. LIVE path only — during
+                    // replay these events come from the best-effort local re-apply, which RE-ROLLS the
+                    // save, so a pop from here would show each player a different outcome. The replay
+                    // renders it from the authoritative record instead (renderSnareResistVfx).
+                    if (event.snareResisted && !this.replayPlaybackActive) {
                         this.showSnareResistedVfx(event.targetId, from);
                     }
                     shouldRefreshVisibleState = true;
