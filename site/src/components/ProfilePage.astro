@@ -116,6 +116,7 @@ const rankedApp = links.rankedApp;
     import {
         fetchPublicRankedProfile,
         publicRankedProfileFallbackFromSearchParams,
+        rankedExitRatePct,
         type PublicRankedProfile,
         type RankedMatchReason,
         type RankedMatchResult,
@@ -184,6 +185,17 @@ const rankedApp = links.rankedApp;
         return Number.isFinite(n) ? n : 0;
     };
     const numberFormatter = new Intl.NumberFormat(language);
+    const exitRateLabel = language === "ru" ? "Отключения / выходы" : "Disconnect / exit rate";
+    const exitRateTitle =
+        language === "ru"
+            ? "Доля рейтинговых боёв, завершённых игроком через выход из боя или длительное отключение."
+            : "Ranked battles this player ended by exiting the fight or remaining disconnected.";
+    const GOLD_ICON = "/assets/icons/currency/gold.svg";
+
+    function currencyMarkup(value: number, prefix = ""): string {
+        const amount = `${prefix}${numberFormatter.format(Math.max(0, Math.trunc(value)))}`;
+        return `<span class="currency-amount"><img class="currency-icon" src="${GOLD_ICON}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(amount)}</span></span>`;
+    }
 
     function statCard(label: string, value: string, accent?: string): string {
         const style = accent ? ` style="color:${accent}"` : "";
@@ -393,7 +405,7 @@ const rankedApp = links.rankedApp;
                 </div>
                 <div class="match-rewards">
                     <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
-                    ${match.goldEarned > 0 ? `<span class="match-gold">+${match.goldEarned} 🪙</span>` : ""}
+                    ${match.goldEarned > 0 ? `<span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>` : ""}
                 </div>
                 ${replay}
             </article>`;
@@ -429,7 +441,7 @@ const rankedApp = links.rankedApp;
         if (nameEl) nameEl.textContent = profile.username;
         if (goldEl) {
             const gold = numberFormatter.format(profile.gold);
-            goldEl.innerHTML = `<span class="profile-gold__coin" aria-hidden="true">G</span><span>${escapeHtml(gold)}</span>`;
+            goldEl.innerHTML = currencyMarkup(profile.gold);
             goldEl.setAttribute("aria-label", `${copy.statGold}: ${gold}`);
             goldEl.hidden = false;
         }
@@ -473,6 +485,10 @@ const rankedApp = links.rankedApp;
 
         if (standingEl) {
             const progress = `${Math.min(profile.calibration.gamesPlayed, profile.calibration.required)} / ${profile.calibration.required}`;
+            const exitRate = rankedExitRatePct(profile.dcLosses, profile.totalGames);
+            const exitRateValue = profile.totalGames
+                ? `${exitRate.toFixed(1).replace(/\.0$/, "")}% · ${profile.dcLosses}/${profile.totalGames}`
+                : "— · 0/0";
             const previous = profile.previous
                 ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
                 : copy.publicUnranked;
@@ -489,7 +505,7 @@ const rankedApp = links.rankedApp;
                 <dl class="ranked-standing__facts">
                     <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames)}</dd></div>
-                    <div><dt>${escapeHtml(copy.publicDisconnectRecord)}</dt><dd>${profile.dcWins}–${profile.dcLosses}</dd></div>
+                    <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
                     <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : "—")}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
                 </dl>`;
@@ -515,7 +531,7 @@ const rankedApp = links.rankedApp;
                             <span class="season-name">${escapeHtml(entry.seasonName)}</span>
                             <span class="season-standing">${escapeHtml(standing)}</span>
                             <span class="season-mmr">${escapeHtml(mmr)}</span>
-                            <span class="season-gold">${numberFormatter.format(entry.gold)} 🪙</span>
+                            <span class="season-gold">${currencyMarkup(entry.gold)}</span>
                             <span class="season-record">${entry.wins}–${entry.losses}–${entry.draws}</span>
                             <span class="season-rate">${escapeHtml(rate)}</span>
                             <span class="season-games">${entry.totalGames} ${escapeHtml(copy.gamesLabel)}</span>
@@ -817,23 +833,6 @@ const rankedApp = links.rankedApp;
         letter-spacing: 0.04em;
         line-height: 1.05;
         white-space: nowrap;
-    }
-
-    .profile-gold :global(.profile-gold__coin) {
-        display: grid;
-        place-items: center;
-        width: 1.45em;
-        height: 1.45em;
-        border: 1px solid rgba(242, 199, 93, 0.72);
-        border-radius: 50%;
-        background: radial-gradient(circle at 36% 30%, #ffe7a2, #b87920 68%, #6f3f0d);
-        color: #422207;
-        font-size: 0.56em;
-        font-weight: 900;
-        text-shadow: 0 1px rgba(255, 244, 194, 0.44);
-        box-shadow:
-            inset 0 0 0 2px rgba(78, 39, 4, 0.28),
-            0 0 8px rgba(242, 199, 93, 0.18);
     }
 
     .profile-sub {

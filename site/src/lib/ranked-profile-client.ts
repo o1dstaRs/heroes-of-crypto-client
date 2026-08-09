@@ -143,6 +143,13 @@ export interface PublicRankedProfile {
     playstyle: PlayerPlaystyle | null;
 }
 
+/** Percentage of settled ranked games the player personally ended through an exit/disconnect. */
+export const rankedExitRatePct = (exitCount: number, totalGames: number): number => {
+    const exits = Number.isFinite(exitCount) ? Math.max(0, exitCount) : 0;
+    const games = Number.isFinite(totalGames) ? Math.max(0, totalGames) : 0;
+    return games > 0 ? Math.min(100, (exits / games) * 100) : 0;
+};
+
 type UnknownRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): UnknownRecord =>

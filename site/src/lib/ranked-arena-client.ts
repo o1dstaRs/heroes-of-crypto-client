@@ -143,6 +143,17 @@ const append = <T extends ParentNode>(parent: T, ...children: Array<Node | null 
     return parent;
 };
 
+const currencyAmount = (amount: number, className = ""): HTMLElement => {
+    const node = el("span", ["currency-amount", className].filter(Boolean).join(" "));
+    const icon = el("img", "currency-icon");
+    icon.src = "/assets/icons/currency/gold.svg";
+    icon.alt = "";
+    icon.setAttribute("aria-hidden", "true");
+    icon.width = 20;
+    icon.height = 20;
+    return append(node, icon, document.createTextNode(numberFormatter.format(Math.max(0, Math.trunc(amount)))));
+};
+
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
     Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), template);
 
@@ -356,14 +367,16 @@ const createPlayerDossier = (
     const dossier = el("span", "ranked-arena__player-dossier");
     dossier.id = dossierId;
     dossier.setAttribute("role", "tooltip");
-    const metric = (label: string, value: string): HTMLElement => {
+    const metric = (label: string, value: string | Node): HTMLElement => {
         const node = el("span");
-        return append(node, el("small", "", label), el("strong", "", value));
+        const strong = el("strong");
+        append(strong, typeof value === "string" ? document.createTextNode(value) : value);
+        return append(node, el("small", "", label), strong);
     };
     append(
         dossier,
         // Season currency first: gold is minted 1:1 with won MMR and never deducted.
-        metric(copy.gold, `${numberFormatter.format(player.gold)} 🪙`),
+        metric(copy.gold, currencyAmount(player.gold)),
         metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
@@ -393,23 +406,27 @@ const renderPlayerDetail = (
     append(identity, createAvatar(player.username, player.league), name);
 
     const rating = el("div", "ranked-arena__detail-rating");
+    const detailGold = el("small", "ranked-arena__detail-gold");
+    append(detailGold, document.createTextNode(`${copy.gold}: `), currencyAmount(player.gold));
     append(
         rating,
         el("span", "", copy.rating),
         el("strong", "", numberFormatter.format(player.mmr)),
         player.peakMmr ? el("small", "", `${copy.peakRating} ${numberFormatter.format(player.peakMmr)}`) : null,
-        el("small", "ranked-arena__detail-gold", `${copy.gold}: ${numberFormatter.format(player.gold)} 🪙`),
+        detailGold,
     );
 
     const stats = el("dl", "ranked-arena__detail-stats");
-    const stat = (label: string, value: string): HTMLElement => {
+    const stat = (label: string, value: string | Node): HTMLElement => {
         const row = el("div");
-        append(row, el("dt", "", label), el("dd", "", value));
+        const valueNode = el("dd");
+        append(valueNode, typeof value === "string" ? document.createTextNode(value) : value);
+        append(row, el("dt", "", label), valueNode);
         return row;
     };
     append(
         stats,
-        stat(copy.gold, `${numberFormatter.format(player.gold)} 🪙`),
+        stat(copy.gold, currencyAmount(player.gold)),
         stat(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         stat(copy.record, `${player.wins}–${player.losses}–${player.draws}`),
         stat(copy.winRate, `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
@@ -455,7 +472,7 @@ const renderCalibratingSection = (
             el("span", "ranked-arena__rank", "…"),
             identity,
             el("strong", "ranked-arena__row-rating", "—"),
-            el("strong", "ranked-arena__row-gold", `${numberFormatter.format(player.gold)} 🪙`),
+            currencyAmount(player.gold, "ranked-arena__row-gold"),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el(
                 "span",
@@ -570,7 +587,7 @@ const renderPlayers = (
             rank,
             identity,
             el("strong", "ranked-arena__row-rating", numberFormatter.format(player.mmr)),
-            el("strong", "ranked-arena__row-gold", `${numberFormatter.format(player.gold)} 🪙`),
+            currencyAmount(player.gold, "ranked-arena__row-gold"),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el("span", "ranked-arena__row-rate", `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
             createPlayerDossier(player, copy, dossierId),

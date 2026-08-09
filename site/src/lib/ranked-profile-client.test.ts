@@ -5,6 +5,7 @@ import {
     isPublicRankedPlayerId,
     normalizePublicRankedProfile,
     publicRankedProfileFallbackFromSearchParams,
+    rankedExitRatePct,
 } from "./ranked-profile-client";
 
 const PLAYER_ID = "11111111-1111-4111-8111-111111111111";
@@ -79,6 +80,13 @@ describe("public ranked profile normalization", () => {
         expect(profile?.wins).toBe(0);
         expect(profile?.winRatePct).toBe(100);
         expect(profile?.calibration.required).toBe(5);
+    });
+
+    test("reports the player's own harmful exits as a bounded rate", () => {
+        expect(rankedExitRatePct(2, 20)).toBe(10);
+        expect(rankedExitRatePct(0, 0)).toBe(0);
+        expect(rankedExitRatePct(-1, 10)).toBe(0);
+        expect(rankedExitRatePct(12, 10)).toBe(100);
     });
 });
 
