@@ -49,7 +49,7 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import { formatInitiative, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
+import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
@@ -1110,7 +1110,7 @@ const UnitStatsLayout: React.FC<{
         <>
             <StatItem
                 icon={<HeartIcon />}
-                value={`${Math.round(unitProperties.hp)}/${Math.round(unitProperties.max_hp)}`}
+                value={`${formatSidebarStat(unitProperties.hp)}/${formatSidebarStat(unitProperties.max_hp)}`}
                 tooltip="Current/max Health Points"
                 color="#ff4d4d"
                 metrics={metrics}
@@ -1124,14 +1124,14 @@ const UnitStatsLayout: React.FC<{
             />
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
-                value={Math.round(attackDamage)}
+                value={formatSidebarStat(attackDamage)}
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
             />
             <StatItem
                 icon={<ShieldIcon />}
-                value={Math.round(meleeArmor)}
+                value={formatSidebarStat(meleeArmor)}
                 tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
@@ -1140,13 +1140,13 @@ const UnitStatsLayout: React.FC<{
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
                 // only existed for some creatures, which shifted every stat after it.
                 secondIcon={hasDifferentRangeArmor ? <ArrowShieldIcon /> : undefined}
-                secondValue={hasDifferentRangeArmor ? Math.round(rangeArmor) : undefined}
+                secondValue={hasDifferentRangeArmor ? formatSidebarStat(rangeArmor) : undefined}
                 secondColor="#f4a460"
                 secondTooltip="Armor against ranged attacks"
             />
             <StatItem
                 icon={<MagicShieldIcon />}
-                value={`${Math.round(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
+                value={`${formatSidebarStat(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
                 tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
@@ -1159,12 +1159,12 @@ const UnitStatsLayout: React.FC<{
                 // dropped — and since 2026-08-06 the ENGINE moves on the same pure fraction (no rounding:
                 // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
                 // the board can no longer disagree.
-                value={Number((unitProperties.steps + stepsMod).toFixed(1))}
+                value={formatSidebarStat(unitProperties.steps + stepsMod)}
                 tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
                 secondIcon={<InitiativeIcon />}
-                secondValue={formatInitiative(unitProperties.initiative)}
+                secondValue={formatSidebarStat(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
                 secondTooltip="Units with higher initiative turn first"
             />
@@ -1173,12 +1173,12 @@ const UnitStatsLayout: React.FC<{
                 fourth row otherwise, which moved everything below the plate. */}
             <StatItem
                 icon={<MoraleIcon />}
-                value={Math.round(unitProperties.morale)}
+                value={formatSidebarStat(unitProperties.morale)}
                 tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
                 secondIcon={<LuckIcon />}
-                secondValue={Math.round(unitProperties.luck + unitProperties.luck_mod)}
+                secondValue={formatSidebarStat(unitProperties.luck + unitProperties.luck_mod)}
                 secondColor="#ff4040"
                 secondTooltip="Luck raises damage rolls and the power of abilities"
             />
@@ -1187,7 +1187,7 @@ const UnitStatsLayout: React.FC<{
             {unitProperties.can_cast_spells && (
                 <StatItem
                     icon={<ScrollIcon />}
-                    value={unitProperties.spells.length}
+                    value={formatSidebarStat(unitProperties.spells.length)}
                     tooltip="Magic scrolls left to cast"
                     color="#add8e6"
                     metrics={metrics}
@@ -1196,7 +1196,7 @@ const UnitStatsLayout: React.FC<{
             {showRangedStats && (
                 <StatItem
                     icon={<ShotRangeIcon />}
-                    value={Math.round(unitProperties.shot_distance)}
+                    value={formatSidebarStat(unitProperties.shot_distance)}
                     tooltip="Ranged shot distance in cells"
                     color="#ffff00"
                     metrics={metrics}
@@ -1205,7 +1205,7 @@ const UnitStatsLayout: React.FC<{
             {showRangedStats && !!(unitProperties.range_shots_mod || unitProperties.range_shots) && (
                 <StatItem
                     icon={<QuiverIcon />}
-                    value={unitProperties.range_shots_mod || unitProperties.range_shots}
+                    value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
                     tooltip="Number of ranged shots"
                     color="#cd5c5c"
                     metrics={metrics}
@@ -1733,7 +1733,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
     }
 
     if (unitProperties && Object.keys(unitProperties).length) {
-        const damageRange = `${Math.round(unitProperties.attack_damage_min)} - ${Math.round(unitProperties.attack_damage_max)}`;
+        const damageRange = `${formatSidebarStat(unitProperties.attack_damage_min)} - ${formatSidebarStat(unitProperties.attack_damage_max)}`;
         const stepsMod = Number(unitProperties.steps_mod.toFixed(1));
         const attackTypeSelected = unitProperties.attack_type_selected;
 

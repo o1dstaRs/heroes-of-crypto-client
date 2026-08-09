@@ -71,8 +71,8 @@ export interface ISidebarMetrics {
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
-/** Initiative is tuned in tenths; keep that precision visible even when the value happens to be whole. */
-export const formatInitiative = (initiative: number): string => initiative.toFixed(1);
+/** Preserve gameplay precision to tenths without adding a meaningless trailing zero to whole stats. */
+export const formatSidebarStat = (value: number): string => Number(value.toFixed(1)).toString();
 
 /**
  * The left frame rail is narrow, while the board-facing side has no matching inner ornament. Keep only
