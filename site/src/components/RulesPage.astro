@@ -246,12 +246,16 @@ const copy = isRu
                   text: "Вам предлагают два бандла, вы берете один. В каждом сразу существо 1 уровня, существо 2 уровня и артефакт 1 тира — нужный артефакт может стоить вам нужного существа.",
               },
               {
-                  title: "3-5, 7. Пики по уровням",
-                  text: "По одному существу на уровень, первый ход чередуется: вы начинаете на 1 и 3 уровнях, соперник — на 2 и 4. Серые портреты забанены. Если доктрина не вскрывает пики соперника, вы их не видите: возьмете уже занятое — просто выберете заново.",
+                  title: "3–5. Пики 1–3 уровней",
+                  text: "По одному существу на уровень, первый ход чередуется: вы начинаете на 1 и 3 уровнях, соперник — на 2. Серые портреты забанены. Если доктрина не вскрывает пики соперника, вы их не видите: возьмете уже занятое — просто выберете заново.",
               },
               {
                   title: "6. Артефакт 2 тира",
                   text: "Вам предлагают три артефакта 2 тира; выбираете один на всю армию. Это происходит до пика 4 уровня, поэтому последнее существо можно подобрать под него.",
+              },
+              {
+                  title: "7. Пик 4 уровня",
+                  text: "Соперник выбирает первым, затем вы закрываете состав последним существом. Подберите его под уже выбранные синергии, артефакты и апгрейды — или закройте явную слабость армии.",
               },
           ],
           draftNotes: [
@@ -482,12 +486,16 @@ const copy = isRu
                   text: "You are offered two bundles and take one. Each is a level-1 creature, a level-2 creature, and a Tier-1 artifact together, so the artifact you want may cost you the creature you wanted.",
               },
               {
-                  title: "3-5, 7. Level picks",
-                  text: "One creature per level, alternating who picks first: you lead on levels 1 and 3, your opponent leads on levels 2 and 4. Greyed portraits are banned. Unless your doctrine reveals it, you cannot see what the opponent has taken — pick something they already own and you simply pick again.",
+                  title: "3–5. Level 1–3 picks",
+                  text: "Take one creature at each level, alternating who picks first: you lead at levels 1 and 3, while your opponent leads at level 2. Greyed portraits are banned. Unless your doctrine reveals a pick, choosing an already-taken creature simply sends you back to choose again.",
               },
               {
                   title: "6. Tier-2 artifact",
                   text: "Three Tier-2 artifacts are offered to you; choose one for the whole army. It lands before the level-4 pick, so your last creature can be chosen to suit it.",
+              },
+              {
+                  title: "7. Level-4 pick",
+                  text: "Your opponent chooses first, then you close the roster with your final creature. Fit it to the synergies, artifacts, and augments you already own — or use it to cover an obvious weakness.",
               },
           ],
           draftNotes: [
@@ -877,9 +885,8 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 {copy.draftParagraphs.map((paragraph) => <p>{paragraph}</p>)}
             </div>
             <ol class="rules-action-grid rules-draft-steps">
-                {copy.draftSteps.map((step, index) => (
-                    <li class="rules-card compact rules-step">
-                        <span class="rules-step-number" aria-hidden="true">{index + 1}</span>
+                {copy.draftSteps.map((step) => (
+                    <li class="rules-card compact">
                         <ItemTitle>{step.title}</ItemTitle>
                         <p>{step.text}</p>
                     </li>
@@ -980,9 +987,9 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <SectionTitle class="rules-section-title">{copy.upgradesTitle}</SectionTitle>
                 <p>{copy.upgradesIntro}</p>
             </div>
-            <div class="rules-table-scroll">
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-augment-table-title" tabindex="0">
                 <table class="rules-aug-table">
-                    <caption>{isRu ? "Эффекты апгрейдов по уровням" : "Augment effects by tier"}</caption>
+                    <caption id="rules-augment-table-title">{isRu ? "Эффекты апгрейдов по уровням" : "Augment effects by tier"}</caption>
                     <thead>
                         <tr>
                             <th scope="col">{isRu ? "Апгрейд" : "Augment"}</th>
@@ -1121,7 +1128,14 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 {copy.mapParagraphs.map((paragraph) => <p>{paragraph}</p>)}
             </div>
             <div class="rules-map-visual" aria-hidden="true">
-                <img src="/assets/images/preview_game.webp" alt="" width="1200" height="630" loading="lazy" />
+                <div class="rules-map-grid">
+                    {Array.from({ length: 64 }).map((_, index) => {
+                        const row = Math.floor(index / 8);
+                        const column = index % 8;
+                        const edgeDistance = Math.min(row, column, 7 - row, 7 - column);
+                        return <span class:list={{ "is-outer": edgeDistance === 0, "is-next": edgeDistance === 1, "is-core": edgeDistance >= 3 }}></span>;
+                    })}
+                </div>
                 <span class="map-ring one"></span>
                 <span class="map-ring two"></span>
                 <span class="map-ring three"></span>
@@ -1337,6 +1351,20 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         white-space: nowrap;
     }
 
+    .rules-guide {
+        container: rules-guide / inline-size;
+        background: #090d10;
+        color: var(--ink);
+    }
+
+    .rules-guide :is(p, li, dd, td) {
+        line-height: 1.68;
+    }
+
+    .rules-guide > section[id] {
+        scroll-margin-top: 92px;
+    }
+
     .rules-stat-strip {
         border-block: 1px solid var(--line);
         background: #10161b;
@@ -1349,8 +1377,8 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     }
 
     .rules-stats div {
-        min-height: 104px;
-        padding: 22px 24px;
+        min-height: 96px;
+        padding: 20px 24px;
         background: rgba(255, 255, 255, 0.035);
     }
 
@@ -1366,195 +1394,453 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         margin-top: 8px;
         color: rgba(251, 244, 232, 0.72);
         font-size: 0.9rem;
-        font-weight: 760;
+    }
+
+    .rules-guide-nav {
+        padding-block: clamp(26px, 4cqi, 40px);
+        border-bottom: 1px solid rgba(220, 177, 88, 0.24);
+        background:
+            linear-gradient(90deg, rgba(220, 177, 88, 0.055), transparent 46%),
+            #0d1216;
+    }
+
+    .rules-guide-nav-layout {
+        display: grid;
+        grid-template-columns: minmax(190px, 0.62fr) minmax(0, 1.5fr);
+        gap: clamp(28px, 5cqi, 56px);
+        align-items: start;
+    }
+
+    .rules-guide-nav-intro > strong {
+        display: block;
+        color: var(--ink-strong);
+        font-family: var(--hoc-font-display);
+        font-size: 1.22rem;
+        letter-spacing: 0.045em;
+    }
+
+    .rules-guide-nav-intro > p:last-child {
+        max-width: 32ch;
+        margin: 8px 0 0;
+        font-size: 0.9rem;
+    }
+
+    .rules-guide-nav-groups {
+        display: grid;
+        grid-template-columns: 0.72fr 1.25fr 1fr;
+        gap: clamp(18px, 4cqi, 38px);
+    }
+
+    .rules-guide-nav-groups > div > strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--gold);
+        font-size: 0.75rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    .rules-guide-nav-groups ol {
+        display: grid;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: rule-link;
+    }
+
+    .rules-guide-nav-groups li {
+        counter-increment: rule-link;
+    }
+
+    .rules-guide-nav-groups a {
+        display: grid;
+        grid-template-columns: 1.8em minmax(0, 1fr);
+        gap: 7px;
+        align-items: baseline;
+        min-height: 30px;
+        padding: 3px 0;
+        color: rgba(251, 244, 232, 0.78);
+        font-size: 0.88rem;
+        line-height: 1.35;
+        text-decoration: none;
+    }
+
+    .rules-guide-nav-groups a::before {
+        color: rgba(220, 177, 88, 0.58);
+        font-variant-numeric: tabular-nums;
+        content: counter(rule-link, decimal-leading-zero);
+    }
+
+    .rules-guide-nav-groups a:hover {
+        color: var(--gold-soft);
+    }
+
+    .rules-section,
+    .rules-band {
+        padding-block: clamp(44px, 6cqi, 68px);
+        border-top: 1px solid rgba(255, 255, 255, 0.045);
     }
 
     .rules-section {
-        background: #080a0c;
+        background: #090d10;
     }
 
     .rules-band {
-        background: #10151a;
+        background: #0e1419;
+    }
+
+    .rules-reading-width,
+    .rules-copy-block {
+        max-width: 72ch;
+    }
+
+    .rules-section-title {
+        margin-bottom: 18px;
+        font-size: clamp(1.7rem, 5cqi, 2.55rem);
+        line-height: 1.08;
+    }
+
+    .rules-guide .section-heading {
+        margin-bottom: 30px;
+    }
+
+    .rules-guide .section-heading > p:last-child,
+    .rules-copy-block p {
+        color: rgba(251, 244, 232, 0.78);
+        font-size: 1rem;
     }
 
     .rules-phase-grid,
     .rules-action-grid,
-    .rules-synergy-grid,
-    .rules-upgrade-grid {
+    .rules-synergy-grid {
         display: grid;
-        gap: 14px;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
     }
 
     .rules-phase-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
+        list-style: none;
     }
 
     .rules-action-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .rules-upgrade-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+    .rules-draft-steps {
+        list-style: none;
     }
 
     .rules-synergy-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .rules-card,
-    .rules-upgrade,
-    .rules-synergy,
-    .rules-note-list p,
-    .rules-stat-reader div,
-    .rules-final-list {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035));
-    }
-
     .rules-card {
         min-width: 0;
-        padding: 22px;
+        padding: 19px 20px;
+        border-left: 2px solid rgba(220, 177, 88, 0.56);
+        background: linear-gradient(90deg, rgba(220, 177, 88, 0.075), rgba(255, 255, 255, 0.02));
     }
 
-    .rules-card.compact {
-        min-height: 174px;
-    }
-
-    .rules-card h3,
-    .rules-upgrade h3,
-    .rules-synergy h3 {
+    .rules-card :is(h3, h4),
+    .rules-synergy :is(h3, h4),
+    .rules-mechanics-block > :is(h3, h4),
+    .rules-reference-heading :is(h3, h4),
+    .rules-morale-breakdown > :is(h3, h4),
+    .rules-final-list > :is(h3, h4) {
+        margin-bottom: 9px;
         color: var(--gold);
+        font-size: 1.06rem;
     }
 
     .rules-card p,
-    .rules-upgrade p,
     .rules-synergy li,
-    .rules-note-list p,
-    .rules-stat-reader p,
-    .rules-final-list p {
+    .rules-final-list li {
         margin-bottom: 0;
+    }
+
+    .rules-step {
+        position: relative;
+        padding-left: 58px;
+    }
+
+    .rules-step-number {
+        position: absolute;
+        top: 18px;
+        left: 17px;
+        display: grid;
+        width: 27px;
+        height: 27px;
+        place-items: center;
+        color: #161006;
+        border-radius: 50%;
+        background: var(--gold);
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .rules-reference {
+        margin-top: 38px;
+        padding-top: 28px;
+        border-top: 1px solid rgba(220, 177, 88, 0.25);
+    }
+
+    .rules-reference-heading {
+        max-width: 72ch;
+        margin-bottom: 12px;
+    }
+
+    .rules-facts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: 0;
+    }
+
+    .rules-fact {
+        display: grid;
+        grid-template-columns: minmax(105px, 0.65fr) minmax(0, 1.35fr);
+        gap: 16px;
+        min-width: 0;
+        padding: 18px 18px 18px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.075);
+    }
+
+    .rules-fact:nth-child(odd) {
+        padding-right: 24px;
+        border-right: 1px solid rgba(255, 255, 255, 0.075);
+    }
+
+    .rules-fact:nth-child(even) {
+        padding-left: 24px;
+    }
+
+    .rules-fact dt,
+    .rules-fact dd {
+        min-width: 0;
+        margin: 0;
+    }
+
+    .rules-fact dt strong,
+    .rules-fact dt span {
+        display: block;
+    }
+
+    .rules-fact dt strong {
+        color: var(--gold);
+        font-size: 1.18rem;
+        line-height: 1.05;
+    }
+
+    .rules-fact dt span {
+        margin-top: 5px;
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+
+    .rules-fact dd {
+        color: rgba(251, 244, 232, 0.76);
+        font-size: 0.88rem;
     }
 
     .rules-two-col {
         display: grid;
-        grid-template-columns: minmax(0, 0.86fr) minmax(360px, 1fr);
-        gap: 46px;
+        grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1fr);
+        gap: clamp(30px, 5cqi, 50px);
         align-items: center;
-    }
-
-    .rules-two-col.wide {
-        grid-template-columns: minmax(0, 0.76fr) minmax(420px, 1fr);
-    }
-
-    .rules-copy-block {
-        max-width: 680px;
-    }
-
-    .rules-copy-block p {
-        color: rgba(251, 244, 232, 0.78);
-        font-size: 1.02rem;
     }
 
     .rules-note-list {
         display: grid;
-        gap: 12px;
+        gap: 0;
+        margin: 0;
+        padding: 0;
+        list-style: none;
     }
 
+    .rules-note-list li,
     .rules-note-list p {
-        padding: 18px 20px;
+        position: relative;
+        margin: 0;
+        padding: 14px 12px 14px 29px;
         color: rgba(251, 244, 232, 0.82);
-        font-weight: 700;
+        border-top: 1px solid rgba(255, 255, 255, 0.075);
+    }
+
+    .rules-note-list li::before,
+    .rules-note-list p::before {
+        position: absolute;
+        top: 15px;
+        left: 4px;
+        color: var(--gold);
+        content: "◆";
     }
 
     .rules-note-list.large p {
-        font-weight: 620;
+        padding-block: 17px;
+        font-size: 0.95rem;
     }
 
-    .rules-morale-breakdown {
-        margin-top: 22px;
+    .rules-draft-reference {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.75fr);
+        gap: 30px;
+        align-items: start;
+        margin-top: 32px;
     }
 
-    .rules-morale-breakdown h4 {
-        margin: 0 0 12px;
+    .rules-draft-reference > div > :is(h3, h4) {
         color: var(--gold);
-        font-size: 1.02rem;
-    }
-
-    .rules-morale-table {
-        width: 100%;
-        border-collapse: collapse;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        overflow: hidden;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035));
-    }
-
-    .rules-morale-table td {
-        padding: 11px 16px;
-        border-top: 1px solid var(--line);
-        color: rgba(251, 244, 232, 0.82);
-        font-size: 0.98rem;
-        vertical-align: top;
-    }
-
-    .rules-morale-table tr:first-child td {
-        border-top: none;
-    }
-
-    .rules-morale-delta {
-        width: 62px;
-        font-weight: 800;
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-    }
-
-    .rules-morale-delta.pos {
-        color: #7bd88f;
-    }
-
-    .rules-morale-delta.neg {
-        color: #e78a7a;
-    }
-
-    .rules-morale-delta.cap {
-        color: var(--gold);
-    }
-
-    .rules-morale-note {
-        margin: 14px 2px 0;
-        color: var(--muted);
-        font-size: 0.96rem;
+        font-size: 1.05rem;
     }
 
     .rules-clean-list {
         display: grid;
-        gap: 10px;
-        margin: 24px 0 0;
+        gap: 9px;
+        margin: 14px 0 0;
         padding-left: 20px;
         color: var(--muted);
     }
 
-    .rules-clean-list li {
-        padding-left: 4px;
+    .rules-table-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-color: rgba(220, 177, 88, 0.42) rgba(255, 255, 255, 0.035);
+        scrollbar-width: thin;
+    }
+
+    .rules-table-scroll::-webkit-scrollbar {
+        height: 7px;
+    }
+
+    .rules-table-scroll::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .rules-table-scroll::-webkit-scrollbar-thumb {
+        border: 2px solid #0b1014;
+        border-radius: 999px;
+        background: rgba(220, 177, 88, 0.52);
+    }
+
+    .rules-level-table,
+    .rules-aug-table,
+    .rules-morale-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: rgba(255, 255, 255, 0.018);
+    }
+
+    :is(.rules-level-table, .rules-aug-table, .rules-morale-table) caption {
+        padding: 12px 14px;
+        color: var(--ink-strong);
+        border-block: 1px solid rgba(220, 177, 88, 0.22);
+        background: rgba(220, 177, 88, 0.065);
+        font-size: 0.9rem;
+        text-align: left;
+    }
+
+    :is(.rules-level-table, .rules-aug-table) thead th {
+        padding: 10px 14px;
+        color: rgba(251, 244, 232, 0.72);
+        border-bottom: 1px solid var(--line);
+        font-size: 0.74rem;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    :is(.rules-level-table, .rules-aug-table) tbody :is(th, td),
+    .rules-morale-table :is(th, td) {
+        padding: 11px 14px;
+        color: rgba(251, 244, 232, 0.82);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+        font-size: 0.9rem;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    .rules-level-table :is(th, td):not(:first-child),
+    .rules-aug-table :is(th, td):not(:first-child) {
+        text-align: center;
+    }
+
+    .rules-level-table tbody td,
+    .rules-aug-tier {
+        color: var(--gold-soft);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .rules-aug-table {
+        min-width: 680px;
+    }
+
+    .rules-aug-table thead th:first-child {
+        width: 55%;
+    }
+
+    .rules-aug-name {
+        display: flex;
+        gap: 13px;
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .rules-aug-name img {
+        flex: 0 0 auto;
+        width: 44px;
+        height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #090b0d;
+    }
+
+    .rules-aug-name > div {
+        display: grid;
+        min-width: 0;
+    }
+
+    .rules-aug-name strong {
+        color: var(--ink-strong);
+    }
+
+    .rules-aug-name em {
+        color: var(--gold);
+        font-size: 0.76rem;
+        font-style: normal;
+    }
+
+    .rules-aug-name p {
+        max-width: 65ch;
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-weight: 400;
     }
 
     .rules-faction-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
+        margin-top: 30px;
     }
 
     .rules-faction {
         display: grid;
-        gap: 12px;
+        gap: 9px;
         min-width: 0;
-        padding: 16px;
-        border: 1px solid color-mix(in srgb, var(--faction) 38%, var(--line));
-        border-radius: 8px;
+        padding: 15px 16px;
+        border-left: 2px solid var(--faction);
         background:
-            linear-gradient(135deg, color-mix(in srgb, var(--faction) 16%, transparent), transparent),
-            rgba(255, 255, 255, 0.04);
+            linear-gradient(90deg, color-mix(in srgb, var(--faction) 13%, transparent), transparent),
+            rgba(255, 255, 255, 0.02);
+        text-decoration: none;
+    }
+
+    .rules-faction:hover {
+        background: color-mix(in srgb, var(--faction) 10%, rgba(255, 255, 255, 0.025));
     }
 
     .rules-faction-head {
@@ -1564,10 +1850,14 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         align-items: center;
     }
 
+    .rules-faction-head img {
+        width: 30px;
+        height: 30px;
+    }
+
     .rules-faction-head strong {
         overflow: hidden;
         color: var(--ink);
-        font-weight: 860;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -1575,12 +1865,11 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     .rules-faction-head em {
         color: var(--gold);
         font-style: normal;
-        font-weight: 840;
     }
 
-    .rules-faction span:last-child {
-        color: rgba(251, 244, 232, 0.72);
-        font-size: 0.9rem;
+    .rules-faction > span:last-child {
+        color: rgba(251, 244, 232, 0.7);
+        font-size: 0.88rem;
     }
 
     .rules-unit-reader {
@@ -1593,53 +1882,51 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     .rules-example-units {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        gap: 8px;
     }
 
     .rules-example-unit {
         position: relative;
-        min-height: 184px;
+        min-height: 170px;
         isolation: isolate;
     }
 
     .rules-example-unit img {
         position: absolute;
-        inset: 0;
         z-index: -1;
+        inset: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
         object-position: center 16%;
-        opacity: 0.88;
+        opacity: 0.86;
     }
 
     .rules-example-unit::after {
         position: absolute;
-        inset: 0;
         z-index: -1;
+        inset: 0;
         content: "";
-        background: linear-gradient(180deg, rgba(5, 6, 6, 0.02), rgba(5, 6, 6, 0.9));
+        background: linear-gradient(180deg, rgba(5, 6, 6, 0.02), rgba(5, 6, 6, 0.92));
     }
 
-    .rules-example-unit span {
+    .rules-example-unit > span {
         align-self: end;
         display: grid;
         gap: 3px;
         min-width: 0;
-        padding: 14px;
+        padding: 13px;
     }
 
     .rules-example-unit strong {
         color: #fff;
-        line-height: 1.08;
     }
 
     .rules-example-unit em {
         overflow: hidden;
         color: color-mix(in srgb, var(--faction) 80%, #fff);
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         font-style: normal;
-        font-weight: 820;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -1647,90 +1934,76 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     .rules-stat-reader {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        gap: 0 18px;
+        margin: 0;
     }
 
-    .rules-stat-reader div {
+    .rules-stat-reader > div {
         min-width: 0;
-        padding: 16px;
+        padding: 13px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.075);
     }
 
-    .rules-stat-reader strong {
+    .rules-stat-reader dt {
         color: var(--gold);
-        font-size: 0.9rem;
+        font-size: 0.87rem;
     }
 
-    .rules-stat-reader p {
-        margin-top: 6px;
-        font-size: 0.92rem;
+    .rules-stat-reader dd {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.88rem;
     }
 
     .rules-role-row {
         grid-column: 1 / -1;
+    }
+
+    .rules-role-row dd {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
+        gap: 7px 14px;
+        margin: 0;
     }
 
     .rules-role-row span {
-        color: rgba(251, 244, 232, 0.78);
-        font-size: 0.88rem;
-        font-weight: 760;
+        color: rgba(251, 244, 232, 0.74);
+        font-size: 0.84rem;
     }
 
-    .rules-role-row span + span {
-        padding-left: 9px;
-        border-left: 1px solid var(--line);
-    }
-
-    .rules-upgrade {
-        min-width: 0;
-        padding: 18px;
-    }
-
-    .rules-upgrade img {
-        width: 54px;
-        height: 54px;
-        margin-bottom: 16px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #090b0d;
-    }
-
-    .rules-upgrade p {
-        font-size: 0.9rem;
+    .rules-role-row span strong {
+        margin-right: 5px;
+        color: var(--gold);
     }
 
     .rules-synergy {
         min-width: 0;
-        padding: 20px;
-        border-color: color-mix(in srgb, var(--faction) 40%, var(--line));
+        padding: 18px 20px;
+        border-left: 2px solid var(--faction);
         background:
-            linear-gradient(135deg, color-mix(in srgb, var(--faction) 14%, transparent), transparent),
-            rgba(255, 255, 255, 0.04);
+            linear-gradient(90deg, color-mix(in srgb, var(--faction) 12%, transparent), transparent),
+            rgba(255, 255, 255, 0.02);
     }
 
     .rules-synergy-head {
         display: flex;
         gap: 12px;
         align-items: center;
-        margin-bottom: 14px;
+        margin-bottom: 13px;
     }
 
     .rules-synergy-head img {
-        width: 42px;
-        height: 42px;
+        width: 40px;
+        height: 40px;
     }
 
-    .rules-synergy-head h3 {
+    .rules-synergy-head :is(h3, h4) {
         margin: 0;
     }
 
     .rules-synergy-head span {
-        color: rgba(251, 244, 232, 0.65);
-        font-size: 0.84rem;
-        font-weight: 740;
+        color: rgba(251, 244, 232, 0.64);
+        font-size: 0.8rem;
     }
 
     .rules-synergy ul {
@@ -1742,14 +2015,13 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
     .rules-board-diagram {
         position: relative;
-        min-height: 420px;
+        min-height: 400px;
         overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 8px;
+        border: 1px solid rgba(220, 177, 88, 0.25);
+        border-radius: 6px;
         background:
             linear-gradient(135deg, rgba(103, 174, 246, 0.12), rgba(99, 210, 138, 0.1)),
             #090b0d;
-        box-shadow: var(--shadow);
     }
 
     .rules-board-grid {
@@ -1789,58 +2061,96 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     }
 
     .rules-board-unit.two {
-        left: 10%;
         bottom: 22%;
+        left: 10%;
         width: 30%;
     }
 
     .rules-board-unit.three {
-        left: 36%;
         top: 6%;
+        left: 36%;
         width: 34%;
     }
 
-    .rules-ability-wall {
+    .rules-mechanics-block + .rules-mechanics-block {
+        margin-top: 34px;
+        padding-top: 28px;
+        border-top: 1px solid rgba(220, 177, 88, 0.22);
+    }
+
+    .rules-morale-layout {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        padding: 20px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background:
-            radial-gradient(circle at 50% 42%, rgba(239, 74, 63, 0.22), transparent 45%),
-            linear-gradient(135deg, rgba(242, 199, 93, 0.12), rgba(103, 174, 246, 0.12)),
-            #090b0d;
+        grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+        gap: 34px;
+        align-items: start;
     }
 
-    .rules-ability-wall img {
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 8px;
-        background: rgba(5, 6, 6, 0.44);
-        object-fit: cover;
+    .rules-morale-breakdown {
+        min-width: 0;
     }
 
-    .map-pressure {
-        background: #090b0d;
+    .rules-morale-delta {
+        width: 62px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .rules-morale-delta.pos {
+        color: #7bd88f;
+    }
+
+    .rules-morale-delta.neg {
+        color: #e78a7a;
+    }
+
+    .rules-morale-delta.cap {
+        color: var(--gold);
+    }
+
+    .rules-morale-note {
+        margin: 13px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
     }
 
     .rules-map-visual {
         position: relative;
         overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 8px;
+        border: 1px solid rgba(220, 177, 88, 0.25);
+        border-radius: 6px;
         aspect-ratio: 16 / 10;
         background: #060708;
-        box-shadow: var(--shadow);
     }
 
-    .rules-map-visual img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 0.74;
+    .rules-map-grid {
+        position: absolute;
+        inset: 7%;
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 3px;
+        padding: 6%;
+        background:
+            radial-gradient(circle at center, rgba(99, 210, 138, 0.16), transparent 42%),
+            linear-gradient(135deg, rgba(103, 174, 246, 0.08), rgba(220, 177, 88, 0.08));
+        transform: perspective(900px) rotateX(46deg) rotateZ(-10deg);
+    }
+
+    .rules-map-grid span {
+        aspect-ratio: 1;
+        border: 1px solid rgba(251, 244, 232, 0.13);
+        background: rgba(251, 244, 232, 0.08);
+    }
+
+    .rules-map-grid span.is-outer {
+        background: rgba(239, 74, 63, 0.22);
+    }
+
+    .rules-map-grid span.is-next {
+        background: rgba(242, 199, 93, 0.16);
+    }
+
+    .rules-map-grid span.is-core {
+        background: rgba(99, 210, 138, 0.18);
     }
 
     .map-ring {
@@ -1864,337 +2174,92 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     }
 
     .rules-final-list {
+        padding: 22px 24px;
+        border-left: 2px solid rgba(220, 177, 88, 0.62);
+        background: linear-gradient(90deg, rgba(220, 177, 88, 0.075), rgba(255, 255, 255, 0.02));
+    }
+
+    .rules-final-list ul {
         display: grid;
-        gap: 12px;
-        padding: 24px;
-    }
-
-    .rules-final-list h3 {
-        margin-bottom: 4px;
-        color: var(--gold);
-        font-size: 1.35rem;
-    }
-
-    /* Denser vertical rhythm so a data-heavy page does not scroll forever. */
-    .rules-section,
-    .rules-band {
-        padding-block: clamp(40px, 4.6vw, 68px);
-    }
-
-    /* Verified quick-reference numbers — hover/focus a card for what it means in a fight. */
-    .rules-facts {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 8px;
-        margin-top: 30px;
-    }
-
-    .rules-fact {
-        position: relative;
-        padding: 14px 15px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
-        cursor: help;
-        transition:
-            border-color 0.15s ease,
-            background 0.15s ease;
-    }
-
-    .rules-fact:hover,
-    .rules-fact:focus-visible {
-        border-color: rgba(242, 199, 93, 0.5);
-        background: linear-gradient(180deg, rgba(242, 199, 93, 0.1), rgba(255, 255, 255, 0.03));
-        outline: none;
-    }
-
-    .rules-fact strong {
-        display: block;
-        color: var(--gold);
-        font-size: 1.14rem;
-        font-weight: 860;
-        line-height: 1.05;
-        letter-spacing: -0.01em;
-    }
-
-    .rules-fact > span:not(.rules-fact-tip) {
-        display: block;
-        margin-top: 5px;
-        color: rgba(251, 244, 232, 0.7);
-        font-size: 0.77rem;
-        font-weight: 700;
-        line-height: 1.2;
-    }
-
-    /* The explanation bubble. Hidden until the card is hovered or focused (keyboard/tap). */
-    .rules-fact-tip {
-        position: absolute;
-        bottom: calc(100% + 9px);
-        left: 50%;
-        z-index: 6;
-        width: max-content;
-        max-width: 230px;
-        padding: 10px 12px;
-        border: 1px solid var(--line-strong);
-        border-radius: 9px;
-        background: #131a20;
-        color: var(--ink);
-        font-size: 0.78rem;
-        font-weight: 600;
-        line-height: 1.4;
-        letter-spacing: 0;
-        text-align: left;
-        text-transform: none;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-        opacity: 0;
-        visibility: hidden;
-        transform: translate(-50%, 4px);
-        transition:
-            opacity 0.16s ease,
-            transform 0.16s ease;
-        pointer-events: none;
-    }
-
-    .rules-fact-tip::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        margin-left: -6px;
-        border: 6px solid transparent;
-        border-top-color: var(--line-strong);
-    }
-
-    .rules-fact:hover .rules-fact-tip,
-    .rules-fact:focus-visible .rules-fact-tip,
-    .rules-fact:focus-within .rules-fact-tip {
-        opacity: 1;
-        visibility: visible;
-        transform: translate(-50%, 0);
-    }
-
-    /* Real roster pool by level. */
-    .rules-level-table {
-        margin-top: 22px;
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-    }
-
-    .rules-level-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 8px;
-        padding: 9px 15px;
-        background: rgba(255, 255, 255, 0.035);
-    }
-
-    .rules-level-row + .rules-level-row {
-        border-top: 1px solid var(--line);
-    }
-
-    .rules-level-row span {
-        color: var(--ink);
-        font-weight: 780;
-    }
-
-    .rules-level-row span:not(:first-child) {
-        text-align: right;
-        color: var(--gold);
-    }
-
-    .rules-level-head {
-        background: rgba(242, 199, 93, 0.08);
-    }
-
-    .rules-level-head span,
-    .rules-level-head span:not(:first-child) {
-        color: var(--muted-2);
-        font-size: 0.78rem;
-        font-weight: 820;
-        text-transform: uppercase;
-    }
-
-    /* Augment tiers as a compact table. */
-    .rules-aug-table {
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-    }
-
-    .rules-aug-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1.7fr) repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(255, 255, 255, 0.035);
-    }
-
-    .rules-aug-row + .rules-aug-row {
-        border-top: 1px solid var(--line);
-    }
-
-    .rules-aug-head {
-        background: rgba(242, 199, 93, 0.08);
-        color: var(--muted-2);
-        font-size: 0.78rem;
-        font-weight: 820;
-        text-transform: uppercase;
-    }
-
-    .rules-aug-head span:not(:first-child),
-    .rules-aug-tier {
-        text-align: center;
-    }
-
-    .rules-aug-name {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-width: 0;
-    }
-
-    .rules-aug-name img {
-        width: 38px;
-        height: 38px;
-        flex: 0 0 auto;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #090b0d;
-    }
-
-    .rules-aug-name > span {
-        display: grid;
-        min-width: 0;
-    }
-
-    .rules-aug-name strong {
-        color: var(--ink);
-        font-weight: 840;
-    }
-
-    .rules-aug-name em {
-        overflow: hidden;
+        gap: 9px;
+        margin: 0;
+        padding-left: 19px;
         color: var(--muted);
-        font-size: 0.8rem;
-        font-style: normal;
-        font-weight: 680;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
-    .rules-aug-tier {
-        color: var(--gold);
-        font-weight: 840;
-    }
-
-    /* Deep-dive accordion — collapses the long-form sections. */
-    .rules-accordion {
-        display: grid;
-        gap: 12px;
-    }
-
-    .rules-acc {
-        overflow: hidden;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
-    }
-
-    .rules-acc > summary {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 16px 20px;
-        list-style: none;
-        color: var(--ink-strong);
-        font-size: 1.1rem;
-        font-weight: 820;
-        cursor: pointer;
-    }
-
-    .rules-acc > summary::-webkit-details-marker {
-        display: none;
-    }
-
-    .rules-acc-title {
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-
-    .rules-acc-tag {
-        flex: 0 0 auto;
-        padding: 5px 9px;
-        border: 1px solid rgba(242, 199, 93, 0.28);
-        border-radius: 999px;
-        background: rgba(242, 199, 93, 0.1);
-        color: var(--gold);
-        font-size: 0.7rem;
-        font-weight: 820;
-        text-transform: uppercase;
-    }
-
-    .rules-acc > summary::after {
-        content: "";
-        flex: 0 0 auto;
-        width: 11px;
-        height: 11px;
-        border-right: 2px solid var(--muted);
-        border-bottom: 2px solid var(--muted);
-        transform: rotate(45deg);
-        transition: transform 0.2s ease;
-    }
-
-    .rules-acc[open] > summary::after {
-        transform: rotate(-135deg);
-    }
-
-    .rules-acc > summary:hover {
-        background: rgba(242, 199, 93, 0.06);
-    }
-
-    .rules-acc-body {
-        padding: 2px 20px 22px;
-    }
-
-    .rules-acc-body.rules-two-col {
-        align-items: start;
-        gap: 28px;
-    }
-
-    .rules-acc-body .rules-action-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .rules-acc-body .rules-card.compact {
-        min-height: 0;
-    }
-
-    @media (max-width: 1080px) {
-        .rules-hero-shell,
+    @container rules-guide (max-width: 1080px) {
         .rules-two-col,
-        .rules-two-col.wide,
         .rules-unit-reader {
             grid-template-columns: 1fr;
         }
 
-        .rules-hero-shell {
-            min-height: auto;
-        }
-
         .rules-phase-grid,
-        .rules-upgrade-grid {
+        .rules-action-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .rules-action-grid,
-        .rules-acc-body .rules-action-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+        .rules-example-units {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @container rules-guide (max-width: 760px) {
+        .rules-guide-nav-layout,
+        .rules-draft-reference,
+        .rules-morale-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .rules-guide-nav-groups {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .rules-facts {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: 1fr;
+        }
+
+        .rules-fact:nth-child(n) {
+            padding-inline: 0;
+            border-right: 0;
+        }
+    }
+
+    @container rules-guide (max-width: 560px) {
+        .rules-guide-nav-groups,
+        .rules-phase-grid,
+        .rules-action-grid,
+        .rules-synergy-grid,
+        .rules-faction-grid,
+        .rules-stat-reader {
+            grid-template-columns: 1fr;
+        }
+
+        .rules-example-units {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .rules-fact {
+            grid-template-columns: minmax(94px, 0.55fr) minmax(0, 1.45fr);
+        }
+
+        .rules-role-row {
+            grid-column: auto;
+        }
+
+        .rules-board-diagram {
+            min-height: 300px;
+        }
+
+        .rules-board-grid {
+            inset: 16px;
+            transform: perspective(800px) rotateX(52deg) rotateZ(-38deg) translate(-10px, 28px);
+        }
+    }
+
+    @media (max-width: 1080px) {
+        .rules-hero-shell {
+            grid-template-columns: 1fr;
+            min-height: auto;
         }
     }
 
@@ -2204,54 +2269,9 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             padding: 44px 0 38px;
         }
 
-        .rules-hero-copy p {
-            font-size: 1rem;
-        }
-
         .rules-unit-line,
-        .rules-stats,
-        .rules-phase-grid,
-        .rules-action-grid,
-        .rules-acc-body .rules-action-grid,
-        .rules-upgrade-grid,
-        .rules-synergy-grid,
-        .rules-faction-grid,
-        .rules-example-units,
-        .rules-stat-reader {
+        .rules-stats {
             grid-template-columns: 1fr;
-        }
-
-        .rules-facts {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .rules-aug-row {
-            gap: 7px;
-            padding: 11px 12px;
-            font-size: 0.9rem;
-        }
-
-        .rules-aug-name {
-            gap: 9px;
-        }
-
-        .rules-aug-name img {
-            width: 32px;
-            height: 32px;
-        }
-
-        .rules-acc > summary {
-            padding: 14px 16px;
-            font-size: 1.02rem;
-        }
-
-        .rules-acc-body {
-            padding: 2px 16px 18px;
-        }
-
-        .rules-stats div {
-            min-height: 84px;
-            padding: 18px;
         }
 
         .rules-hero-unit {
@@ -2270,47 +2290,6 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 
         .rules-hero-board {
             min-height: 260px;
-        }
-
-        .rules-hero-board-grid {
-            inset: 9% 6%;
-            gap: 3px;
-            transform: perspective(820px) rotateX(50deg) rotateZ(-38deg) translate(-2%, 8%);
-        }
-
-        .rules-hero-piece.dragon {
-            right: 6%;
-            bottom: 10%;
-        }
-
-        .rules-hero-piece.angel {
-            left: 39%;
-            top: 4%;
-        }
-
-        .rules-board-diagram {
-            min-height: 310px;
-        }
-
-        .rules-board-grid {
-            inset: 16px;
-            transform: perspective(800px) rotateX(52deg) rotateZ(-38deg) translate(-10px, 28px);
-        }
-
-        .rules-board-unit.one {
-            width: 46%;
-        }
-
-        .rules-board-unit.two {
-            width: 36%;
-        }
-
-        .rules-board-unit.three {
-            width: 40%;
-        }
-
-        .rules-ability-wall {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
     }
 </style>
