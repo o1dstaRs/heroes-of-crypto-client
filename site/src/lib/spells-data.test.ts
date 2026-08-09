@@ -11,6 +11,7 @@
  */
 
 import abilitiesJson from "@heroesofcrypto/common/src/configuration/abilities.json";
+import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
 import { describe, expect, test } from "bun:test";
 
 import { spells } from "./spells-data";
@@ -21,6 +22,37 @@ const castableAbilityNames = Object.values(abilitiesJson as Record<string, { nam
     .sort();
 
 describe("spell codex", () => {
+    test("labels offensive magic as damage rather than debuffs", () => {
+        for (const name of [
+            "Fire Strike",
+            "Fire Wall",
+            "Lightning Strike",
+            "Meteorite",
+            "Meteor Shower",
+            "Ring of Fire",
+        ]) {
+            const spell = spells.find((entry) => entry.name === name);
+            expect(spell, `${name} should be present`).toBeDefined();
+            expect(spell?.polarity, `${name} should be damage`).toBe("damage");
+        }
+    });
+
+    test("files Empower under Order while retaining its Nightmare caster", () => {
+        const empower = spells.find((entry) => entry.name === "Empower");
+
+        expect(empower?.book).toBe("Order");
+        expect(empower?.casters.map((caster) => caster.name)).toContain("Nightmare");
+    });
+
+    test("omits every artifact effect, including retired Holy Cross", () => {
+        const rawArtifactNames = Object.values(spellsJson.System)
+            .filter((entry) => entry.desc.some((line) => /^Artifact\./i.test(line.trim())))
+            .map((entry) => entry.name);
+
+        expect(spells.find((entry) => entry.name === "Holy Cross")).toBeUndefined();
+        expect(spells.filter((entry) => rawArtifactNames.includes(entry.name))).toEqual([]);
+    });
+
     test("files every castable ability as an ability-cast spell, not a passive effect", () => {
         for (const name of castableAbilityNames) {
             const spell = spells.find((entry) => entry.name === name);

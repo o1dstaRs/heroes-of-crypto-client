@@ -52,6 +52,7 @@ const labels =
               conflicts: "Конфликтует с",
               buff: "Бафф",
               debuff: "Дебафф",
+              damage: "Урон",
               giftable: "Можно подарить",
               selfCast: "На себя",
               wholeFight: "Весь бой",
@@ -84,6 +85,7 @@ const labels =
               conflicts: "Conflicts with",
               buff: "Buff",
               debuff: "Debuff",
+              damage: "Damage",
               giftable: "Giftable",
               selfCast: "Self-cast",
               wholeFight: "Whole fight",
@@ -147,7 +149,13 @@ const scrollsLabel = (count: number) => {
 };
 
 const polarityLabel = (spell: Spell) =>
-    spell.polarity === "buff" ? labels.buff : spell.polarity === "debuff" ? labels.debuff : null;
+    spell.polarity === "buff"
+        ? labels.buff
+        : spell.polarity === "debuff"
+          ? labels.debuff
+          : spell.polarity === "damage"
+            ? labels.damage
+            : null;
 
 const description = (spell: Spell) => (lang === "ru" ? spell.descriptionRu : spell.description);
 
@@ -655,6 +663,11 @@ const metaRows = (spell: Spell) => {
     .spell-polarity.debuff {
         background: rgba(198, 61, 51, 0.18);
         color: #f0938b;
+    }
+
+    .spell-polarity.damage {
+        background: rgba(230, 119, 46, 0.2);
+        color: #ffb06d;
     }
 
     .spell-flag {

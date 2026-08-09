@@ -10,7 +10,7 @@ import {
 } from "@heroesofcrypto/common";
 
 import { images } from "../generated/image_imports";
-import { isFriendlyTeam } from "../scenes/teamColors";
+import { isGreenTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
     draw(gfx: Graphics, frameContainer: Container): void;
@@ -21,9 +21,11 @@ export function setSpawnFlowPhase(phase: number): void {
     spawnFlowPhase = phase;
 }
 
-const SPAWN_COLOR_FRIENDLY = 0x27e34f;
-const SPAWN_COLOR_HOSTILE = 0xff3b30;
-const spawnColor = (team: TeamType): number => (isFriendlyTeam(team) ? SPAWN_COLOR_FRIENDLY : SPAWN_COLOR_HOSTILE);
+// Placement zones are coloured by TEAM, not by viewer: LOWER's zone (bottom) is green, UPPER's zone (top) is
+// red, on both screens. An UPPER player's own zone therefore reads red — see scenes/teamColors.ts.
+const SPAWN_COLOR_GREEN = 0x27e34f;
+const SPAWN_COLOR_RED = 0xff3b30;
+const spawnColor = (team: TeamType): number => (isGreenTeam(team) ? SPAWN_COLOR_GREEN : SPAWN_COLOR_RED);
 
 interface FrameSizeTuning {
     fitPlacementBounds: boolean;
@@ -339,7 +341,7 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
             this.yLower,
             this.xRight,
             this.yUpper,
-            isFriendlyTeam(team),
+            isGreenTeam(team),
         );
     }
 }
@@ -375,7 +377,7 @@ export class DrawableRectanglePlacement extends RectanglePlacement implements ID
             this.yLower,
             this.xRight,
             this.yUpper,
-            isFriendlyTeam(team),
+            isGreenTeam(team),
         );
     }
 }

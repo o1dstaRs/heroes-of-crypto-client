@@ -1,4 +1,4 @@
-import { Artifact, Perk, SynergyKeysToPower } from "@heroesofcrypto/common";
+import { Artifact, Perk, SynergyKeysToPower, TeamVals } from "@heroesofcrypto/common";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
@@ -32,6 +32,18 @@ const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
     loss: hocColors.danger,
     win: "#46d160",
+};
+
+// Which side the player fought as, coloured to match the board: team LOWER is green (always the bottom),
+// team UPPER is red (always the top). Team-fixed, never viewer-relative — see scenes/teamColors.ts.
+const SIDE_PRESENTATION: Record<"green" | "red", { label: string; color: string }> = {
+    green: { label: "Green", color: "#46d160" },
+    red: { label: "Red", color: "#ff5a5a" },
+};
+const matchSide = (team: number | undefined): "green" | "red" | undefined => {
+    if (team === TeamVals.LOWER) return "green";
+    if (team === TeamVals.UPPER) return "red";
+    return undefined;
 };
 
 const AUGMENT_IMAGE_KEY: Record<MatchAugmentChoice["kind"], keyof typeof images> = {
@@ -603,6 +615,7 @@ const MatchCard: React.FC<{
 }> = ({ compact, expanded, match, onExpand, onReplay }) => {
     const result = matchResultPresentation(match);
     const resultColor = RESULT_COLORS[result.tone];
+    const side = matchSide(match.team);
     const playerPerformances = normalizePerformances(match.player_top_units);
     const opponentPerformances = normalizePerformances(match.opponent_top_units);
     const topPlayer = playerPerformances[0];
@@ -642,6 +655,30 @@ const MatchCard: React.FC<{
                             vs {opponent}
                         </Typography>
                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.25, flexWrap: "wrap" }}>
+                            {side && (
+                                <Stack
+                                    direction="row"
+                                    spacing={0.375}
+                                    alignItems="center"
+                                    sx={{ whiteSpace: "nowrap" }}
+                                >
+                                    <Box
+                                        sx={{
+                                            width: 7,
+                                            height: 7,
+                                            borderRadius: "50%",
+                                            bgcolor: SIDE_PRESENTATION[side].color,
+                                            boxShadow: `0 0 4px ${SIDE_PRESENTATION[side].color}`,
+                                        }}
+                                    />
+                                    <Typography
+                                        level="body-xs"
+                                        sx={{ color: SIDE_PRESENTATION[side].color, fontWeight: 700 }}
+                                    >
+                                        {SIDE_PRESENTATION[side].label}
+                                    </Typography>
+                                </Stack>
+                            )}
                             <Typography level="body-xs" textColor={hocColors.muted} sx={{ whiteSpace: "nowrap" }}>
                                 {timeAgo(match.finished_time ?? 0)}
                             </Typography>

@@ -1,0 +1,928 @@
+---
+import type { Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const isRu = lang === "ru";
+const profilePath = isRu ? "/ru/profile/" : "/profile/";
+const copy = isRu
+    ? {
+          eyebrow: "Архив рейтинговых боёв",
+          title: "Статистика матча",
+          subtitle: "Полный послематчевый отчёт: рейтинг, урон, состав и подготовка армий.",
+          back: "Назад к профилю",
+          loading: "Загрузка отчёта…",
+          errorTitle: "Отчёт недоступен",
+          errorBody: "Не удалось загрузить статистику этого матча.",
+          retry: "Повторить",
+          victory: "Победа",
+          defeat: "Поражение",
+          draw: "Ничья",
+          defeated: "побеждает",
+          versus: "против",
+          battleOverview: "Обзор боя",
+          map: "Карта",
+          laps: "Раунды",
+          totalDamage: "Общий урон",
+          finished: "Завершён",
+          finishReason: "Причина завершения",
+          season: "Сезон",
+          gameId: "ID матча",
+          rating: "Рейтинг",
+          calibration: "Калибровочный матч",
+          seasonCurrency: "Сезонная валюта",
+          damage: "Урон",
+          damageBreakdown: "Урон по юнитам",
+          noDamage: "Нет сохранённой статистики урона.",
+          armySetup: "Подготовка армий",
+          artifacts: "Артефакты",
+          perk: "Доктрина",
+          augments: "Усиления",
+          synergies: "Синергии",
+          noSetup: "Подготовка этой армии не была сохранена в старом отчёте.",
+          noStats: "Для этого старого матча подробная боевая статистика ещё не сохранялась.",
+          replay: "Повтор боя",
+          lower: "Нижняя армия",
+          upper: "Верхняя армия",
+          normal: "Бой завершён",
+          concede: "Сдача",
+          disconnect: "Отключение",
+          doubleDisconnect: "Оба игрока отключились",
+          cancel: "Отмена",
+          maps: ["Неизвестная", "Обычная", "Водный центр", "Лавовый центр", "Горный центр"],
+          noArtifact: "Не выбран",
+          level: "ур.",
+      }
+    : {
+          eyebrow: "Ranked battle archive",
+          title: "Match statistics",
+          subtitle: "The complete post-game report: rating, damage, armies, and setup choices.",
+          back: "Back to profile",
+          loading: "Loading battle report…",
+          errorTitle: "Report unavailable",
+          errorBody: "This match's statistics could not be loaded.",
+          retry: "Try again",
+          victory: "Victory",
+          defeat: "Defeat",
+          draw: "Draw",
+          defeated: "defeated",
+          versus: "versus",
+          battleOverview: "Battle overview",
+          map: "Map",
+          laps: "Laps",
+          totalDamage: "Total damage",
+          finished: "Finished",
+          finishReason: "Finish reason",
+          season: "Season",
+          gameId: "Match ID",
+          rating: "Rating",
+          calibration: "Calibration game",
+          seasonCurrency: "Season currency",
+          damage: "Damage",
+          damageBreakdown: "Unit damage",
+          noDamage: "No unit damage was recorded.",
+          armySetup: "Army setup",
+          artifacts: "Artifacts",
+          perk: "Doctrine",
+          augments: "Augments",
+          synergies: "Synergies",
+          noSetup: "This army's setup was not recorded for the older report.",
+          noStats: "Detailed battle statistics were not recorded for this older match.",
+          replay: "Watch replay",
+          lower: "Lower army",
+          upper: "Upper army",
+          normal: "Battle completed",
+          concede: "Concede",
+          disconnect: "Disconnect",
+          doubleDisconnect: "Both players disconnected",
+          cancel: "Cancelled",
+          maps: ["Unknown", "Normal", "Water center", "Lava center", "Mountain center"],
+          noArtifact: "Not selected",
+          level: "Lv.",
+      };
+---
+
+<section class="match-page">
+    <div class="page-shell match-shell">
+        <header class="match-page-head">
+            <div>
+                <p class="eyebrow">{copy.eyebrow}</p>
+                <h1>{copy.title}</h1>
+                <p>{copy.subtitle}</p>
+            </div>
+            <a class="match-back" href={profilePath} data-match-back>← {copy.back}</a>
+        </header>
+
+        <p class="match-state" data-match-loading>{copy.loading}</p>
+
+        <section class="match-state match-state--error" data-match-error hidden>
+            <h2>{copy.errorTitle}</h2>
+            <p data-match-error-message>{copy.errorBody}</p>
+            <button type="button" data-match-retry>{copy.retry}</button>
+        </section>
+
+        <div data-match-content hidden></div>
+    </div>
+    <script type="application/json" data-match-copy set:html={JSON.stringify(copy)}></script>
+</section>
+
+<script>
+    import {
+        TIER1_ARTIFACTS,
+        TIER2_ARTIFACTS,
+        type ArtifactProperties,
+        type Tier1Artifact,
+        type Tier2Artifact,
+    } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
+    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+
+    import { gameClientRoot } from "../lib/ranked-arena-client";
+    import {
+        fetchPublicRankedMatch,
+        isPublicRankedGameId,
+        type PublicRankedMatch,
+        type PublicRankedMatchPlayer,
+        type RankedMatchSide,
+        type RankedMatchTeamSetup,
+        type RankedMatchUnitPerformance,
+    } from "../lib/ranked-match-client";
+    import { isPublicRankedPlayerId, type RankedMatchReason } from "../lib/ranked-profile-client";
+    import { creatureById } from "../lib/portal-data";
+
+    type Copy = {
+        [key: string]: string | string[];
+        maps: string[];
+    };
+
+    const copyElement = document.querySelector<HTMLElement>("[data-match-copy]");
+    const copy = JSON.parse(copyElement?.textContent || "{}") as Copy;
+    const loadingElement = document.querySelector<HTMLElement>("[data-match-loading]");
+    const errorElement = document.querySelector<HTMLElement>("[data-match-error]");
+    const errorMessageElement = document.querySelector<HTMLElement>("[data-match-error-message]");
+    const contentElement = document.querySelector<HTMLElement>("[data-match-content]");
+    const retryElement = document.querySelector<HTMLButtonElement>("[data-match-retry]");
+    const backElement = document.querySelector<HTMLAnchorElement>("[data-match-back]");
+    const params = new URL(window.location.href).searchParams;
+    const gameId = params.get("gameId")?.trim() ?? "";
+    const requestedPlayerId = params.get("playerId")?.trim() ?? "";
+    const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+    const numberFormatter = new Intl.NumberFormat(language);
+    const dateFormatter = new Intl.DateTimeFormat(language, {
+        dateStyle: "medium",
+        timeStyle: "short",
+    });
+
+    const text = (key: string): string => (typeof copy[key] === "string" ? copy[key] : "");
+    const escapeHtml = (value: string): string =>
+        value.replace(
+            /[&<>"']/g,
+            (character) =>
+                ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!,
+        );
+
+    const profileHref = (player: PublicRankedMatchPlayer): string => {
+        const query = new URLSearchParams({ playerId: player.playerId, username: player.username });
+        return `${language === "ru" ? "/ru" : ""}/profile/?${query.toString()}`;
+    };
+
+    const reasonLabel = (reason: RankedMatchReason): string => {
+        if (reason === "concede") return text("concede");
+        if (reason === "disconnect") return text("disconnect");
+        if (reason === "double_disconnect") return text("doubleDisconnect");
+        if (reason === "cancel") return text("cancel");
+        return text("normal");
+    };
+
+    const resultLabel = (result: PublicRankedMatchPlayer["result"]): string =>
+        result === "win" ? text("victory") : result === "loss" ? text("defeat") : text("draw");
+
+    const mapLabel = (gridType: number): string => copy.maps[gridType] || copy.maps[0] || "—";
+
+    const sideLabel = (side: RankedMatchSide): string => text(side);
+
+    const damageFor = (match: PublicRankedMatch, side: RankedMatchSide): number =>
+        side === "lower" ? (match.stats?.lowerDamage ?? 0) : (match.stats?.upperDamage ?? 0);
+
+    const performanceFor = (match: PublicRankedMatch, side: RankedMatchSide): RankedMatchUnitPerformance[] =>
+        side === "lower" ? (match.stats?.lowerPerformers ?? []) : (match.stats?.upperPerformers ?? []);
+
+    const setupFor = (match: PublicRankedMatch, side: RankedMatchSide): RankedMatchTeamSetup | null => {
+        if (!match.stats?.setupRecorded) return null;
+        return side === "lower" ? match.stats.lowerSetup : match.stats.upperSetup;
+    };
+
+    const artifactFor = (tier: 1 | 2, id: number): ArtifactProperties | undefined =>
+        tier === 1 ? TIER1_ARTIFACTS[id as Tier1Artifact] : TIER2_ARTIFACTS[id as Tier2Artifact];
+
+    const artifactCard = (tier: 1 | 2, id: number): string => {
+        const artifact = id > 0 ? artifactFor(tier, id) : undefined;
+        if (!artifact || artifact.slug === "none") {
+            return `<span class="setup-empty">${escapeHtml(text("noArtifact"))}</span>`;
+        }
+        const image = `/assets/images/artifacts/artifact_t${tier}_${artifact.slug}_256.webp`;
+        return `<span class="artifact-chip"><img src="${escapeHtml(image)}" alt="" width="40" height="40" /><span><small>Tier ${tier}</small><strong>${escapeHtml(artifact.name)}</strong></span></span>`;
+    };
+
+    const perkName = (id: number): string => {
+        const fallback = getPerkProperties(id as Perk).name;
+        if (language !== "ru") return fallback;
+        return ({ Scout: "Разведчик", Spymaster: "Шпион", "Blind Fury": "Слепая ярость", None: "Нет" } as Record<
+            string,
+            string
+        >)[fallback] ?? fallback;
+    };
+
+    const augmentEntries = (setup: RankedMatchTeamSetup): Array<[string, number, string]> => {
+        const labels =
+            language === "ru"
+                ? {
+                      Placement: "Расстановка",
+                      Armor: "Броня",
+                      Might: "Сила",
+                      Empower: "Магия",
+                      Sniper: "Снайпер",
+                      Movement: "Движение",
+                  }
+                : {
+                      Placement: "Placement",
+                      Armor: "Armor",
+                      Might: "Might",
+                      Empower: "Empower",
+                      Sniper: "Sniper",
+                      Movement: "Movement",
+                  };
+        return [
+            [labels.Placement, setup.augmentPlacement + 1, "board"],
+            [labels.Armor, setup.augmentArmor, "armor"],
+            [labels.Might, setup.augmentMight, "might"],
+            [labels.Empower, setup.augmentEmpower, "empower"],
+            [labels.Sniper, setup.augmentSniper, "sniper"],
+            [labels.Movement, setup.augmentMovement, "movement"],
+        ].filter(([, level]) => Number(level) > 0) as Array<[string, number, string]>;
+    };
+
+    const synergyLabel = (key: string): string => {
+        const [faction = "", variant = "", level = "0"] = key.split(":");
+        const names: Record<string, [string, string]> =
+            language === "ru"
+                ? {
+                      Life: ["Запас", "Мораль и удача"],
+                      Nature: ["Юниты на поле", "Броня летающих"],
+                      Chaos: ["Движение", "Пробой при атаке"],
+                      Might: ["Радиус аур", "Сила способностей"],
+                  }
+                : {
+                      Life: ["Supply", "Morale & luck"],
+                      Nature: ["Board units", "Flying armor"],
+                      Chaos: ["Movement", "Break on attack"],
+                      Might: ["Aura range", "Ability power"],
+                  };
+        const index = Math.max(0, Number(variant) - 1);
+        const name = names[faction]?.[index] ?? `${faction} synergy`;
+        return `${name} · ${text("level")} ${Math.max(0, Number(level) || 0)}`;
+    };
+
+    const ratingBlock = (player: PublicRankedMatchPlayer): string => {
+        if (player.calibration) {
+            return `<span class="rating-calibration">${escapeHtml(text("calibration"))}</span>`;
+        }
+        const delta = `${player.delta > 0 ? "+" : ""}${numberFormatter.format(player.delta)}`;
+        const tone = player.delta > 0 ? "positive" : player.delta < 0 ? "negative" : "";
+        return `<span>${numberFormatter.format(player.mmrBefore)} → ${numberFormatter.format(player.mmrAfter)}</span><strong class="${tone}">${delta} MMR</strong>`;
+    };
+
+    const playerCard = (player: PublicRankedMatchPlayer, match: PublicRankedMatch): string => {
+        const damage = damageFor(match, player.side);
+        const won = player.result === "win";
+        return `
+            <article class="player-card ${player.result}">
+                <header>
+                    <span class="side-mark ${player.side}">${escapeHtml(sideLabel(player.side))}</span>
+                    <span class="result-badge ${player.result}">${escapeHtml(resultLabel(player.result))}</span>
+                </header>
+                <a class="player-name" href="${escapeHtml(profileHref(player))}">${escapeHtml(player.username)}</a>
+                <dl>
+                    <div><dt>${escapeHtml(text("rating"))}</dt><dd>${ratingBlock(player)}</dd></div>
+                    <div><dt>${escapeHtml(text("damage"))}</dt><dd><strong>${numberFormatter.format(damage)}</strong></dd></div>
+                    <div><dt>${escapeHtml(text("seasonCurrency"))}</dt><dd>${player.goldEarned > 0 ? `+${numberFormatter.format(player.goldEarned)} 🪙` : "—"}</dd></div>
+                </dl>
+                ${won ? '<span class="winner-flare" aria-hidden="true">✦</span>' : ""}
+            </article>`;
+    };
+
+    const performancePanel = (player: PublicRankedMatchPlayer, match: PublicRankedMatch): string => {
+        const performances = performanceFor(match, player.side);
+        const highest = Math.max(1, ...performances.map((entry) => entry.damageDealt));
+        const rows = performances.length
+            ? performances
+                  .map((entry) => {
+                      const creature = creatureById(entry.creatureId);
+                      const width = Math.max(3, (entry.damageDealt / highest) * 100);
+                      return `<div class="damage-row"><img src="${escapeHtml(creature.image)}" alt="" width="46" height="46" /><span class="damage-unit"><strong>${escapeHtml(creature.name)}</strong><span class="damage-track"><i style="width:${width}%"></i></span></span><b>${numberFormatter.format(entry.damageDealt)}</b></div>`;
+                  })
+                  .join("")
+            : `<p class="empty-copy">${escapeHtml(text("noDamage"))}</p>`;
+        return `<article class="performance-panel"><h3>${escapeHtml(player.username)}</h3>${rows}</article>`;
+    };
+
+    const setupPanel = (player: PublicRankedMatchPlayer, match: PublicRankedMatch): string => {
+        const setup = setupFor(match, player.side);
+        if (!setup) {
+            return `<article class="setup-panel"><h3>${escapeHtml(player.username)}</h3><p class="empty-copy">${escapeHtml(text("noSetup"))}</p></article>`;
+        }
+        const augments = augmentEntries(setup)
+            .map(
+                ([name, level, slug]) =>
+                    `<span class="augment-chip"><img src="/assets/images/units/abilities/${slug}_augment_256.webp" alt="" width="32" height="32" /><span>${escapeHtml(name)} <b>${text("level")} ${level}</b></span></span>`,
+            )
+            .join("");
+        const synergies = setup.synergies.length
+            ? setup.synergies.map((synergy) => `<span class="synergy-chip">${escapeHtml(synergyLabel(synergy))}</span>`).join("")
+            : `<span class="setup-empty">—</span>`;
+        return `
+            <article class="setup-panel">
+                <h3>${escapeHtml(player.username)}</h3>
+                <dl class="setup-list">
+                    <div><dt>${escapeHtml(text("artifacts"))}</dt><dd class="artifact-list">${artifactCard(1, setup.artifactTier1)}${artifactCard(2, setup.artifactTier2)}</dd></div>
+                    <div><dt>${escapeHtml(text("perk"))}</dt><dd><span class="perk-chip">◈ ${escapeHtml(perkName(setup.perk))}</span></dd></div>
+                    <div><dt>${escapeHtml(text("augments"))}</dt><dd class="augment-list">${augments || '<span class="setup-empty">—</span>'}</dd></div>
+                    <div><dt>${escapeHtml(text("synergies"))}</dt><dd class="synergy-list">${synergies}</dd></div>
+                </dl>
+            </article>`;
+    };
+
+    const render = (match: PublicRankedMatch): void => {
+        if (!contentElement) return;
+        const viewer = isPublicRankedPlayerId(requestedPlayerId)
+            ? match.players.find((player) => player.playerId === requestedPlayerId)
+            : undefined;
+        const orderedPlayers: [PublicRankedMatchPlayer, PublicRankedMatchPlayer] = viewer
+            ? [viewer, match.players.find((player) => player.playerId !== viewer.playerId)!]
+            : match.players;
+        const headline =
+            match.outcome === "draw"
+                ? text("draw")
+                : viewer
+                  ? resultLabel(viewer.result)
+                  : `${orderedPlayers[0].username} ${text("defeated")} ${orderedPlayers[1].username}`;
+        const tone = match.outcome === "draw" ? "draw" : viewer?.result ?? "win";
+        const totalDamage = (match.stats?.lowerDamage ?? 0) + (match.stats?.upperDamage ?? 0);
+        const finished = match.finishedTime ? dateFormatter.format(new Date(match.finishedTime)) : "—";
+        const replay = `${gameClientRoot}/game/${encodeURIComponent(match.gameId)}/replay`;
+        const stats = match.stats
+            ? `
+                <section class="match-section">
+                    <div class="section-heading"><p>${escapeHtml(text("battleOverview"))}</p></div>
+                    <div class="overview-grid">
+                        <div><span>${escapeHtml(text("map"))}</span><strong>${escapeHtml(mapLabel(match.stats.gridType))}</strong></div>
+                        <div><span>${escapeHtml(text("laps"))}</span><strong>${numberFormatter.format(match.stats.totalLaps)}</strong></div>
+                        <div><span>${escapeHtml(text("totalDamage"))}</span><strong>${numberFormatter.format(totalDamage)}</strong></div>
+                        <div><span>${escapeHtml(text("finishReason"))}</span><strong>${escapeHtml(reasonLabel(match.reason))}</strong></div>
+                    </div>
+                </section>
+                <section class="match-section">
+                    <div class="section-heading"><p>${escapeHtml(text("damageBreakdown"))}</p></div>
+                    <div class="two-column">${orderedPlayers.map((player) => performancePanel(player, match)).join("")}</div>
+                </section>
+                <section class="match-section">
+                    <div class="section-heading"><p>${escapeHtml(text("armySetup"))}</p></div>
+                    <div class="two-column">${orderedPlayers.map((player) => setupPanel(player, match)).join("")}</div>
+                </section>`
+            : `<section class="match-section legacy-report"><p>${escapeHtml(text("noStats"))}</p></section>`;
+
+        contentElement.innerHTML = `
+            <section class="match-hero ${tone}">
+                <div>
+                    <p>${escapeHtml(text("gameId"))} · <code>${escapeHtml(match.gameId)}</code></p>
+                    <h2>${escapeHtml(headline)}</h2>
+                    <span>${escapeHtml(orderedPlayers[0].username)} ${escapeHtml(text("versus"))} ${escapeHtml(orderedPlayers[1].username)}</span>
+                </div>
+                <a class="replay-button" href="${escapeHtml(replay)}">↻ ${escapeHtml(text("replay"))}</a>
+            </section>
+            <div class="match-facts">
+                <span><b>${escapeHtml(text("finished"))}</b>${escapeHtml(finished)}</span>
+                ${match.seasonSequence > 0 ? `<span><b>${escapeHtml(text("season"))}</b>#${match.seasonSequence}</span>` : ""}
+            </div>
+            <section class="matchup">${orderedPlayers.map((player) => playerCard(player, match)).join('<span class="versus-mark">VS</span>')}</section>
+            ${stats}`;
+        loadingElement?.setAttribute("hidden", "");
+        errorElement?.setAttribute("hidden", "");
+        contentElement.hidden = false;
+        if (backElement && viewer) backElement.href = profileHref(viewer);
+    };
+
+    const showError = (message: string): void => {
+        loadingElement?.setAttribute("hidden", "");
+        contentElement?.setAttribute("hidden", "");
+        if (errorMessageElement) errorMessageElement.textContent = message || text("errorBody");
+        if (errorElement) errorElement.hidden = false;
+    };
+
+    const load = async (): Promise<void> => {
+        if (!isPublicRankedGameId(gameId)) {
+            showError(text("errorBody"));
+            return;
+        }
+        if (loadingElement) loadingElement.hidden = false;
+        if (errorElement) errorElement.hidden = true;
+        try {
+            render(await fetchPublicRankedMatch(gameId));
+        } catch {
+            showError(text("errorBody"));
+        }
+    };
+
+    retryElement?.addEventListener("click", () => void load());
+    void load();
+</script>
+
+<style>
+    .match-page {
+        min-height: 100vh;
+        padding: clamp(2rem, 5vw, 4.5rem) 0 6rem;
+        background:
+            radial-gradient(circle at 8% 12%, rgba(100, 64, 22, 0.18), transparent 30rem),
+            radial-gradient(circle at 90% 24%, rgba(76, 114, 83, 0.11), transparent 34rem), #070604;
+    }
+
+    .match-shell {
+        width: min(1260px, calc(100% - 2rem));
+        margin: 0 auto;
+    }
+
+    .match-page-head,
+    .match-hero,
+    .matchup,
+    .two-column,
+    .overview-grid {
+        display: grid;
+    }
+
+    .match-page-head {
+        grid-template-columns: 1fr auto;
+        gap: 2rem;
+        align-items: end;
+        margin-bottom: 2rem;
+    }
+
+    .match-page-head h1 {
+        margin: 0.25rem 0 0.55rem;
+        color: #f3dfbb;
+        font-size: clamp(2.3rem, 5vw, 4.7rem);
+        letter-spacing: 0.035em;
+    }
+
+    .match-page-head p:last-child {
+        max-width: 48rem;
+        margin: 0;
+        color: #a99d8d;
+    }
+
+    .match-back,
+    .replay-button,
+    .match-state--error button {
+        border: 1px solid rgba(208, 151, 66, 0.48);
+        border-radius: 3px;
+        background: rgba(50, 31, 13, 0.56);
+        color: #e2b765;
+        padding: 0.75rem 1rem;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .match-state {
+        padding: 2rem;
+        border: 1px solid rgba(166, 124, 62, 0.22);
+        background: rgba(16, 12, 8, 0.8);
+        color: #b7aa98;
+    }
+
+    .match-state--error h2 {
+        color: #f0d4a7;
+        margin-top: 0;
+    }
+
+    .match-hero {
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 1.5rem;
+        padding: clamp(1.4rem, 4vw, 2.6rem);
+        border: 1px solid rgba(201, 149, 68, 0.35);
+        border-top: 3px solid #c59142;
+        background: linear-gradient(120deg, rgba(38, 25, 13, 0.94), rgba(11, 9, 7, 0.94));
+        box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    .match-hero.win {
+        border-top-color: #48d875;
+    }
+
+    .match-hero.loss {
+        border-top-color: #ff5c60;
+    }
+
+    .match-hero.draw {
+        border-top-color: #a7a29b;
+    }
+
+    .match-hero p,
+    .match-hero span {
+        color: #918678;
+    }
+
+    .match-hero p {
+        margin: 0 0 0.55rem;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+
+    .match-hero code {
+        text-transform: none;
+        letter-spacing: 0.02em;
+    }
+
+    .match-hero h2 {
+        margin: 0 0 0.4rem;
+        color: #f5e4c7;
+        font-size: clamp(1.8rem, 4vw, 3.3rem);
+    }
+
+    .match-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        padding: 0.85rem 1.1rem;
+        border: 1px solid rgba(166, 124, 62, 0.18);
+        border-top: 0;
+        color: #9f9587;
+        font-size: 0.86rem;
+    }
+
+    .match-facts span {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .match-facts b {
+        color: #d8c3a0;
+    }
+
+    .matchup {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: stretch;
+        gap: 1rem;
+        margin: 1.25rem 0 2rem;
+    }
+
+    .versus-mark {
+        align-self: center;
+        color: #756859;
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+    }
+
+    .match-page :global(.player-card),
+    .match-page :global(.performance-panel),
+    .match-page :global(.setup-panel) {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(166, 124, 62, 0.23);
+        background: rgba(13, 10, 7, 0.9);
+    }
+
+    .match-page :global(.player-card) {
+        padding: 1.25rem;
+    }
+
+    .match-page :global(.player-card.win) {
+        border-color: rgba(72, 216, 117, 0.42);
+    }
+
+    .match-page :global(.player-card.loss) {
+        border-color: rgba(255, 92, 96, 0.34);
+    }
+
+    .match-page :global(.player-card header) {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .match-page :global(.side-mark),
+    .match-page :global(.result-badge) {
+        color: #8e8375;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.11em;
+    }
+
+    /* Team-fixed side colours matching the board: LOWER is green (always the bottom), UPPER is red (top). */
+    .match-page :global(.side-mark.lower) {
+        color: #46d160;
+    }
+
+    .match-page :global(.side-mark.upper) {
+        color: #ff5a5a;
+    }
+
+    .match-page :global(.result-badge.win),
+    .match-page :global(.positive) {
+        color: #4fe07d;
+    }
+
+    .match-page :global(.result-badge.loss),
+    .match-page :global(.negative) {
+        color: #ff666a;
+    }
+
+    .match-page :global(.player-name) {
+        display: inline-block;
+        margin-bottom: 1rem;
+        color: #f1ddba;
+        font-size: 1.45rem;
+        text-decoration-color: rgba(226, 183, 101, 0.4);
+        text-underline-offset: 0.2rem;
+    }
+
+    .match-page :global(.player-card dl),
+    .match-page :global(.setup-list) {
+        margin: 0;
+    }
+
+    .match-page :global(.player-card dl div) {
+        display: grid;
+        grid-template-columns: minmax(7rem, 0.55fr) 1fr;
+        gap: 1rem;
+        padding: 0.55rem 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.055);
+    }
+
+    .match-page :global(dt) {
+        color: #81776c;
+    }
+
+    .match-page :global(dd) {
+        margin: 0;
+        color: #d7c9b4;
+    }
+
+    .match-page :global(.player-card dd) {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.7rem;
+    }
+
+    .match-page :global(.winner-flare) {
+        position: absolute;
+        right: -1.2rem;
+        bottom: -2.3rem;
+        color: rgba(72, 216, 117, 0.09);
+        font-size: 8rem;
+        pointer-events: none;
+    }
+
+    .match-section {
+        margin-top: 2.4rem;
+    }
+
+    .section-heading {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .section-heading::after {
+        content: "";
+        height: 1px;
+        flex: 1;
+        background: linear-gradient(90deg, rgba(192, 140, 62, 0.35), transparent);
+    }
+
+    .section-heading p {
+        margin: 0;
+        color: #d7b782;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+    }
+
+    .overview-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.8rem;
+    }
+
+    .overview-grid > div {
+        padding: 1.15rem;
+        border: 1px solid rgba(166, 124, 62, 0.2);
+        background: rgba(14, 11, 8, 0.82);
+    }
+
+    .overview-grid span,
+    .overview-grid strong {
+        display: block;
+    }
+
+    .overview-grid span {
+        margin-bottom: 0.45rem;
+        color: #81776c;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .overview-grid strong {
+        color: #ead8b8;
+        font-size: 1.15rem;
+    }
+
+    .two-column {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .match-page :global(.performance-panel),
+    .match-page :global(.setup-panel) {
+        padding: 1.2rem;
+    }
+
+    .match-page :global(.performance-panel h3),
+    .match-page :global(.setup-panel h3) {
+        margin: 0 0 1rem;
+        color: #ead5b2;
+        font-size: 1.15rem;
+    }
+
+    .match-page :global(.damage-row) {
+        display: grid;
+        grid-template-columns: 46px minmax(0, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.45rem 0;
+    }
+
+    .match-page :global(.damage-row img) {
+        border: 1px solid rgba(202, 154, 80, 0.25);
+        border-radius: 4px;
+        object-fit: cover;
+        background: #090806;
+    }
+
+    .match-page :global(.damage-unit strong) {
+        display: block;
+        overflow: hidden;
+        margin-bottom: 0.35rem;
+        color: #cfc0aa;
+        font-size: 0.84rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .match-page :global(.damage-track) {
+        display: block;
+        height: 4px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .match-page :global(.damage-track i) {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #8e5e29, #d59a46);
+    }
+
+    .match-page :global(.damage-row b) {
+        color: #e4cc9e;
+        font-size: 0.85rem;
+    }
+
+    .match-page :global(.setup-list > div) {
+        padding: 0.8rem 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.055);
+    }
+
+    .match-page :global(.setup-list dt) {
+        margin-bottom: 0.55rem;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+    }
+
+    .match-page :global(.artifact-list),
+    .match-page :global(.augment-list),
+    .match-page :global(.synergy-list) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .match-page :global(.artifact-chip),
+    .match-page :global(.augment-chip),
+    .match-page :global(.perk-chip),
+    .match-page :global(.synergy-chip) {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        min-height: 2.2rem;
+        border: 1px solid rgba(183, 134, 61, 0.25);
+        background: rgba(38, 26, 14, 0.58);
+        color: #cdbb9f;
+        padding: 0.35rem 0.55rem;
+        font-size: 0.78rem;
+    }
+
+    .match-page :global(.artifact-chip img),
+    .match-page :global(.augment-chip img) {
+        object-fit: contain;
+    }
+
+    .match-page :global(.artifact-chip small),
+    .match-page :global(.artifact-chip strong) {
+        display: block;
+    }
+
+    .match-page :global(.artifact-chip small) {
+        color: #81776c;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+    }
+
+    .match-page :global(.artifact-chip strong) {
+        color: #dfcba8;
+        font-size: 0.76rem;
+    }
+
+    .match-page :global(.augment-chip b) {
+        color: #dfb766;
+    }
+
+    .match-page :global(.setup-empty),
+    .match-page :global(.empty-copy),
+    .legacy-report {
+        color: #7e7468;
+    }
+
+    .legacy-report {
+        padding: 1.5rem;
+        border: 1px solid rgba(166, 124, 62, 0.2);
+        background: rgba(14, 11, 8, 0.82);
+    }
+
+    @media (max-width: 820px) {
+        .match-page-head,
+        .match-hero {
+            grid-template-columns: 1fr;
+            align-items: start;
+        }
+
+        .match-back,
+        .replay-button {
+            width: fit-content;
+        }
+
+        .overview-grid,
+        .two-column {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .matchup {
+            grid-template-columns: 1fr;
+        }
+
+        .versus-mark {
+            justify-self: center;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .match-shell {
+            width: min(100% - 1rem, 1260px);
+        }
+
+        .overview-grid,
+        .two-column {
+            grid-template-columns: 1fr;
+        }
+
+        .match-page :global(.player-card dl div) {
+            grid-template-columns: 1fr;
+            gap: 0.3rem;
+        }
+
+        .match-page :global(.player-card dd) {
+            justify-content: flex-start;
+        }
+
+        .match-facts {
+            display: grid;
+            gap: 0.45rem;
+        }
+    }
+</style>

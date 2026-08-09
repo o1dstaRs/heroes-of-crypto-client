@@ -618,6 +618,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         if (!snapshot || !pixiReady) {
             return;
         }
+        // Replay page, mid-playback: the sandbox replay engine owns the scene. This effect's `snapshot`
+        // is still the PRE-FIGHT one it was seeded with, and playback changes the selected unit on every
+        // action — each selection re-ran this effect and re-applied that stale placement snapshot over the
+        // running playback. The two pipelines interleaved re-created the opponent's placement roster again
+        // and again: the prod replay "wall of duplicated units on one side" (game b3f81f5c). Playback's own
+        // finally-clause applies the final snapshot after setReplayPlaybackActive(false), so skipping here
+        // still leaves the board settled on the end state.
+        if (replayOnly && replayPlaybackActive) {
+            return;
+        }
         let cancelled = false;
         void (async () => {
             const playedPendingRecords = await drainPendingAuthoritativeRecords(snapshot);
@@ -638,7 +648,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         return () => {
             cancelled = true;
         };
-    }, [drainPendingAuthoritativeRecords, manager, pixiReady, selectedUnitId, snapshot, toSceneSnapshot]);
+    }, [
+        drainPendingAuthoritativeRecords,
+        manager,
+        pixiReady,
+        replayOnly,
+        replayPlaybackActive,
+        selectedUnitId,
+        snapshot,
+        toSceneSnapshot,
+    ]);
 
     useEffect(() => {
         if (replayOnly) {

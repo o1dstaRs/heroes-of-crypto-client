@@ -113,6 +113,7 @@ const rankedApp = links.rankedApp;
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
+    import { buildRankedMatchPagePath } from "../lib/ranked-match-client";
     import {
         fetchPublicRankedProfile,
         publicRankedProfileFallbackFromSearchParams,
@@ -390,8 +391,10 @@ const rankedApp = links.rankedApp;
         const replay = match.gameId
             ? `<a class="match-replay" aria-label="${escapeHtml(copy.matchReplay)}" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(match.gameId)}/replay`)}"><span aria-hidden="true">↻</span> ${escapeHtml(copy.matchReplay)}</a>`
             : "";
+        const detailsHref = buildRankedMatchPagePath(match.gameId, requestedPlayerId, language);
         return `
             <article class="match-row match-row--ranked ${match.result}">
+                <a class="match-card-link" href="${escapeHtml(detailsHref)}" aria-label="${escapeHtml(`${copy.sectionMatches}: ${resultLabel}`)}"></a>
                 <div class="match-main">
                     <div class="match-title">
                         <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
@@ -407,6 +410,7 @@ const rankedApp = links.rankedApp;
                     <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
                     ${match.goldEarned > 0 ? `<span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>` : ""}
                 </div>
+                <span class="match-details-hint" aria-hidden="true">›</span>
                 ${replay}
             </article>`;
     }
@@ -1457,6 +1461,35 @@ const rankedApp = links.rankedApp;
     .profile-page :global(.match-row--ranked:hover) {
         border-color: rgba(220, 177, 88, 0.28);
         background: rgba(25, 15, 8, 0.72);
+    }
+
+    .profile-page :global(.match-card-link) {
+        position: absolute;
+        z-index: 1;
+        inset: 0;
+        border-radius: inherit;
+    }
+
+    .profile-page :global(.match-card-link:focus-visible) {
+        outline: 2px solid var(--gold, #dcb158);
+        outline-offset: -3px;
+    }
+
+    .profile-page :global(.match-row--ranked .match-opponent),
+    .profile-page :global(.match-row--ranked .match-replay) {
+        position: relative;
+        z-index: 2;
+    }
+
+    .profile-page :global(.match-details-hint) {
+        position: absolute;
+        z-index: 2;
+        right: 7px;
+        bottom: 1px;
+        color: rgba(220, 177, 88, 0.5);
+        font-size: 1.15rem;
+        line-height: 1;
+        pointer-events: none;
     }
 
     .profile-page :global(.match-row--ranked::before) {

@@ -2409,14 +2409,29 @@ export class Sandbox extends PixiScene {
         this.rangedProjectiles.clear();
 
         const existingUnits = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
+        // Computed BEFORE the preserve pass below (and reused by the render loop): which units THIS
+        // snapshot renders as revealed-opponent ghosts.
+        const revealedOpponentPositions = this.getRevealedOpponentUnitPositions(snapshot.units);
         // During placement, KEEP already-drawn revealed opponent units alive across snapshot rebuilds instead
         // of destroying + recreating them each tick (which makes them flicker / play their spawn animation
         // repeatedly while the player drags their own units). They are non-interactive ghosts with no grid
         // occupancy, so preserving them is safe; their positions are re-applied below if they changed.
+        //
+        // ONLY units that are STILL ghosts in THIS snapshot may be preserved. A unit that graduated from
+        // ghost to placed (terminal replays disclose the opponent's real cells, so their whole roster does
+        // this on the first placement checkpoint) must be destroyed and rebuilt like everyone else: its id
+        // staying in revealedOpponentUnitIds both shielded the stale instance from the destroy pass below
+        // AND made addUnit() evict it from the holder without destroyVisuals() — orphaning its sprites in
+        // the units container on EVERY placement-era hydrate. Replaying a fight hydrates dozens of times,
+        // so the opponent's army piled up as a wall of duplicated sprites (prod replay b3f81f5c).
         const preservedRevealedOpponentUnitIds = new Set<string>();
         const preservedRevealedOpponentUnits = new Map<string, RenderableUnit>();
         if (!snapshot.fightStarted) {
             for (const id of this.revealedOpponentUnitIds) {
+                if (!revealedOpponentPositions.has(id)) {
+                    this.revealedOpponentUnitIds.delete(id);
+                    continue;
+                }
                 preservedRevealedOpponentUnitIds.add(id);
                 const u = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
                 if (u) {
@@ -2442,7 +2457,6 @@ export class Sandbox extends PixiScene {
 
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitsContainer = this.drawer.getUnitsContainer();
-        const revealedOpponentPositions = this.getRevealedOpponentUnitPositions(snapshot.units);
         const benchPositions = new Map<string, HoCMath.XY>();
         const benchPositionsByGroup = new Map<string, HoCMath.XY[]>();
         if (!snapshot.fightStarted) {
@@ -7701,6 +7715,23 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             const secondary = spellCastSecondaryDamage(event);
+            // Ring of Fire is the exception among thrown spells: it bursts AROUND the aimed cell, catching
+            // everything that touches it, so it gets one circle of flame centred on the target cell (and no
+            // per-victim sweeps below). Draw that circle BEFORE the damage guard — a ring aimed at a lone
+            // enemy catches no one and carries no damage, but the cast still happened and the player must see
+            // the flame. Centre on the aimed CELL, not a victim, so a large target's off-centre sprite does
+            // not shift it.
+            const isRing = event.spellName === "Ring of Fire";
+            if (isRing && event.targetCell) {
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const ringCenter = GridMath.getPositionForCell(
+                    event.targetCell,
+                    gs.getMinX(),
+                    gs.getStep(),
+                    gs.getHalfStep(),
+                );
+                this.combatVisuals.spawnFireRing(ringCenter, cellSize);
+            }
             if (!event.damaged?.length && !secondary?.length) {
                 continue;
             }
@@ -7709,25 +7740,9 @@ export class Sandbox extends PixiScene {
             this.showFleshShieldAbsorbedDamage(secondary, casterPosition);
             this.showWaterShieldAbsorbs(secondary, casterPosition);
             // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
-            // Strike, Meteor Shower) have nothing to travel and just burst where they land.
-            //
-            // Ring of Fire is the exception among the thrown ones. It bursts AROUND the aimed cell, catching
-            // everything that touches it, so a sweep drawn to each victim separately read as a volley of fire
-            // arrows — the wrong shape entirely, and it hid the ring that is the whole point of the spell.
-            // It gets one circle of flame centred on the target cell instead, and no per-victim sweeps.
-            const isRing = event.spellName === "Ring of Fire";
+            // Strike, Meteor Shower) have nothing to travel and just burst where they land. Ring of Fire is
+            // excluded from the per-victim sweep (its flame is the circle drawn above).
             const isThrown = isThrownOffensiveSpell(event.spellName);
-            if (isRing) {
-                // Centre on the aimed CELL, not on a victim — the ring is laid about the target's cell even
-                // when the creature standing there is large and its sprite centre sits elsewhere.
-                const gs = this.sc_sceneSettings.getGridSettings();
-                const ringCenter = event.targetCell
-                    ? GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
-                    : undefined;
-                if (ringCenter) {
-                    this.combatVisuals.spawnFireRing(ringCenter, cellSize);
-                }
-            }
             for (const hit of event.damaged ?? []) {
                 // A Magic Reflection sent part of the spell back: the caster's own entry gets the mirror
                 // treatment instead of the spell's fire — a pane of glass flashing on the holder and a shard

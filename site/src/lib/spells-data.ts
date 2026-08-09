@@ -10,7 +10,6 @@
 
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
 
-import { artifacts } from "./artifacts-data";
 import { allUnits, factionColors, type FactionName } from "./units-data";
 
 export type SpellBook = "System" | "Life" | "Nature" | "Chaos" | "Death" | "Order";
@@ -32,11 +31,11 @@ export type SpellKind = "spellbook" | "ability" | "effect";
 export type SpellDuration = { kind: "laps"; laps: number } | { kind: "fight" } | { kind: "broken" } | null;
 
 /**
- * Whether the spell leaves a buff or a debuff on a unit. `null` for spells that do neither — a summon
- * puts new units on the board and Castling swaps two positions, so tagging them from the raw `is_buff`
- * flag (false for both) would label them "Debuff", which they are not.
+ * The spell's player-facing combat category. The raw configuration stores only `is_buff`, so direct
+ * damage spells need an explicit category instead of falling through to the misleading "Debuff" label.
+ * `null` is reserved for spells such as summons and position changes that fit none of these categories.
  */
-export type SpellPolarity = "buff" | "debuff" | null;
+export type SpellPolarity = "buff" | "debuff" | "damage" | null;
 
 interface RawSpell {
     name: string;
@@ -91,12 +90,20 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
 
-// "Hunter's Longbow" (artifact) and "Hunters Longbow" (its System spell) are the same thing.
-const normalizeName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-
-const artifactSpellNames = new Set(artifacts.map((artifact) => normalizeName(artifact.name)));
-
 const bookOrder: SpellBook[] = ["Life", "Nature", "Chaos", "Death", "Order", "System"];
+
+const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
+    "Chaos:Empower": "Order",
+};
+
+const damageSpells = new Set([
+    "Fire Strike",
+    "Fire Wall",
+    "Lightning Strike",
+    "Meteorite",
+    "Meteor Shower",
+    "Ring of Fire",
+]);
 
 export const bookColors: Record<SpellBook, string> = {
     Life: "#4ea36e",
@@ -301,6 +308,9 @@ function russianDescription(book: SpellBook, raw: RawSpell, english: string): st
 }
 
 function spellPolarity(raw: RawSpell): SpellPolarity {
+    if (damageSpells.has(raw.name)) {
+        return "damage";
+    }
     if (raw.power_type === "POSITION_CHANGE" || raw.target === "RANDOM_CLOSE_TO_CASTER") {
         return null;
     }
@@ -337,20 +347,23 @@ const castersBySpell = (() => {
 
 const rawBooks = spellsJson as unknown as { version: number } & Record<SpellBook, Record<string, RawSpell>>;
 
+const isArtifactSpell = (raw: RawSpell): boolean => raw.desc.some((line) => /^Artifact\./i.test(line.trim()));
+
 export const spells: Spell[] = bookOrder
     .filter((book) => rawBooks[book])
     .flatMap((book) =>
         Object.values(rawBooks[book])
-            .filter((raw) => !artifactSpellNames.has(normalizeName(raw.name)) && !augmentSpells.has(raw.name))
+            .filter((raw) => !isArtifactSpell(raw) && !augmentSpells.has(raw.name))
             .map((raw) => {
                 const casters = (castersBySpell.get(`${book}:${raw.name}`) ?? []).sort((a, b) =>
                     a.name.localeCompare(b.name),
                 );
                 const description = englishDescription(book, raw);
+                const displayBook = spellBookOverrides[`${book}:${raw.name}`] ?? book;
 
                 return {
                     name: raw.name,
-                    book,
+                    book: displayBook,
                     kind: spellKind(book, raw, casters.length),
                     level: raw.level,
                     icon: `/assets/images/spells/${slug(raw.name)}_256.webp`,

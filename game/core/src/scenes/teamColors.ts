@@ -10,37 +10,22 @@
 import { TeamType, TeamVals } from "@heroesofcrypto/common";
 
 /**
- * Board colours are VIEWER-relative: whoever is playing is green, their opponent is red — on both screens.
+ * Board colours are TEAM-FIXED, never viewer-relative: team LOWER is ALWAYS green and is always drawn at the
+ * BOTTOM of the board; team UPPER is ALWAYS red and always at the TOP — on every screen, for both players and
+ * every observer. The engine calls the sides LOWER and UPPER and a match can be seated from either side; the
+ * player who spawns in the UPPER seat plays the RED army at the top and is NOT recoloured green (owner
+ * 2026-08-08). This deliberately reverted the old "whoever is playing is green" perspective flip, which drew
+ * the same match in opposite colours on the two screens.
  *
- * The engine keeps calling the sides LOWER and UPPER, and a match is drawn from either seat, so a fixed
- * "lower is green" mapping meant half the players learned the board upside down. Everything that paints a
- * team (unit frames, stack pips, roster cards, placement zones) resolves its colour through here instead.
- *
- * The renderer is not React, so the viewer is kept as module state and set once per scene mount. An
- * observer (or the sandbox, which has no seat) leaves it unset and gets the classic lower=green board.
+ * Colour is one question; OWNERSHIP is a different one. Whose turn it is, which units the viewer may drive,
+ * and which placement zone is the viewer's own are answered by the scene's viewerTeam
+ * (RankedPlayScene.getViewerTeam) — NEVER by these colour helpers. Do not reintroduce a viewer argument here.
  */
-export const TEAM_COLOR_FRIENDLY = 0x00d200;
-export const TEAM_COLOR_HOSTILE = 0xff0000;
+export const TEAM_COLOR_GREEN = 0x00d200;
+export const TEAM_COLOR_RED = 0xff0000;
 
-let viewerTeam: TeamType | undefined;
+/** The colour a team is ALWAYS drawn in: LOWER green, UPPER red, from every seat. */
+export const teamColor = (team: TeamType): number => (team === TeamVals.LOWER ? TEAM_COLOR_GREEN : TEAM_COLOR_RED);
 
-export const setViewerTeamForColors = (team: TeamType | undefined): void => {
-    viewerTeam = team === TeamVals.NO_TEAM ? undefined : team;
-};
-
-export const getViewerTeamForColors = (): TeamType | undefined => viewerTeam;
-
-/**
- * The colour a team is drawn in from the current viewer's seat. Falls back to the historical
- * lower=green / upper=red when there is no seat to be relative to.
- */
-export const teamColor = (team: TeamType): number => {
-    if (viewerTeam === undefined) {
-        return team === TeamVals.LOWER ? TEAM_COLOR_FRIENDLY : TEAM_COLOR_HOSTILE;
-    }
-    return team === viewerTeam ? TEAM_COLOR_FRIENDLY : TEAM_COLOR_HOSTILE;
-};
-
-/** True when this team should read as "mine" in the UI (green side). */
-export const isFriendlyTeam = (team: TeamType): boolean =>
-    viewerTeam === undefined ? team === TeamVals.LOWER : team === viewerTeam;
+/** True for the GREEN side (team LOWER). A purely visual/colour question — NOT "is this unit mine". */
+export const isGreenTeam = (team: TeamType): boolean => team === TeamVals.LOWER;

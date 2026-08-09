@@ -48,7 +48,7 @@ describe("public codex assets", () => {
     });
 
     test("uses the approved distinct Empower spell art", async () => {
-        const empower = spells.find((spell) => spell.book === "Chaos" && spell.name === "Empower");
+        const empower = spells.find((spell) => spell.name === "Empower");
         expect(empower?.icon).toBe("/assets/images/spells/empower_256.webp");
 
         const asset = Bun.file(publicAssetPath(empower!.icon));

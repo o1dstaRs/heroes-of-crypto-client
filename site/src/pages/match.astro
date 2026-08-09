@@ -1,0 +1,16 @@
+---
+import MatchPage from "../components/MatchPage.astro";
+import ThemeMusic from "../components/ThemeMusic.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const lang = "en";
+---
+
+<BaseLayout
+    lang={lang}
+    title="Match statistics · Heroes of Crypto"
+    description="Complete ranked match statistics, army setup, damage, rating changes, and replay."
+>
+    <MatchPage lang={lang} />
+    <ThemeMusic />
+</BaseLayout>
