@@ -1,5 +1,6 @@
 {
     "name": "heroes-of-crypto-client",
+    "version": "0.1.5",
     "private": true,
     "description": "The web3 turn-based strategy game for the browser",
     "keywords": [
