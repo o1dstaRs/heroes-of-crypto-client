@@ -50,7 +50,7 @@ export class PixiApp {
         // --- World containers ---
         this.camera = new Container(); // we pan/zoom this one
         this.worldRoot = new Container(); // we flip Y here ONCE to get y-up
-        this.worldRoot.scale.set(1, -1); // y-up like Box2D
+        this.worldRoot.scale.set(1, -1); // flip once so world coords are y-up
 
         // Layers go under worldRoot (so they inherit y-up + camera transforms)
         this.backgroundContainer = new Container();

@@ -1,7 +1,7 @@
 /*
  * -----------------------------------------------------------------------------
  * Pixi-only UnitsFactory
- *  - No Box2D, no WebGL shader/Sprite wrappers.
+ *  - No physics engine, no WebGL shader/Sprite wrappers.
  *  - Creates PixiUnit/Hero, positions them on the grid, and registers them
  *    with PixiSceneManager.
  * -----------------------------------------------------------------------------

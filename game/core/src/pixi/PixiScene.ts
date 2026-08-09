@@ -161,7 +161,7 @@ export abstract class PixiScene {
     public sc_calculatingPlacement = true;
     public sc_stepCount: HoCLib.RefNumber = new HoCLib.RefNumber(0);
     public sc_fps = MAX_FPS;
-    // Previously Box2D objects — keep flexible but typed.
+    // Kept flexible but typed: the concrete body shape varies by scene.
     public sc_selectedBody: BodyLike | undefined;
     public sc_selectedUnitProperties?: Readonly<UnitProperties>;
     public sc_selectedFactionType?: FactionType;
@@ -688,7 +688,7 @@ export abstract class PixiScene {
     public addStatistic(label: string, value: string | number | boolean): void {
         this.sc_statisticLines.push([label, `${value}`]);
     }
-    /** Main per-frame scene update (no Box2D). */
+    /** Main per-frame scene update. */
     public Step(timeStep: number): void {
         if (timeStep > 0) this.sc_stepCount.increment();
 

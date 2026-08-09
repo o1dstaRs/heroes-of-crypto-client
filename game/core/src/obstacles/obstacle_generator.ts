@@ -54,7 +54,7 @@ export class PixiObstacleGenerator {
     }
     /**
      * BLOCK “hole” without physics (keeps parity with old size logic).
-     * Old version created a Box2D body; here we only return the Obstacle for rendering/hitbar.
+     * Returns the Obstacle for rendering/hitbar only.
      */
     public generateHole(position: HoCMath.XY, sizePixels: number, _sizeCells: number): Obstacle {
         // No sprites (pure blocking area). Obstacle will still be able to render hitbar if asked.

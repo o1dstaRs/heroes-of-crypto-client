@@ -5175,31 +5175,7 @@ export class Sandbox extends PixiScene {
                 // 2) Cleanup grid occupancy (we still have the Unit instance `utd`)
                 this.grid.cleanupAll(unitId, utd.getAttackRange(), utd.isSmallSize());
 
-                // 3) Cleanup Physics Body (if exists) - logic matching test_heroes.ts
-                /*
-                 * Even though Sandbox.ts might be moving away from direct Box2D usage for everything,
-                 * if units have bodies, they must be destroyed to prevent "ghost" obstacles.
-                 */
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const context = this as any; // Cast to access inherited/mixed properties if needed, or assume this is the same context.
-                // Accessing physics world from GLScene if present
-                if (context.sc_world) {
-                    // We need to look up the body. test_heroes uses unitsFactory.getUnitBody(id).
-                    // We need to check if we can access unitsFactory.
-                    try {
-                        if (context.unitsFactory) {
-                            const unitBody = context.unitsFactory.getUnitBody(unitId);
-                            if (unitBody) {
-                                context.sc_world.DestroyBody(unitBody);
-                            }
-                            context.unitsFactory.deleteUnitBody(unitId);
-                        }
-                    } catch (e) {
-                        console.error("Error destroying physics body for unit " + unitId, e);
-                    }
-                }
-
-                // 4) Remove Pixi visuals + selection
+                // 3) Remove Pixi visuals + selection
                 // Spawn the "broken mirror" shatter from the unit's current sprite before tearing it
                 // down (only for real deaths — not placement/force cleanup or resurrections).
                 if (isDead) {
