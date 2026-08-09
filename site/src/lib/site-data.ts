@@ -8,11 +8,7 @@ export type Language = (typeof supportedLanguages)[number];
 
 export const pageSlugs = [
     "game",
-    "rules",
-    "units",
-    "abilities",
-    "spells",
-    "artifacts",
+    "knowledge-base",
     "token",
     "patches",
     "faq",
@@ -80,6 +76,7 @@ export const content = {
         },
         nav: {
             game: "Game",
+            knowledgeBase: "Knowledge Base",
             rules: "Rules",
             news: "News",
             units: "Units",
@@ -266,6 +263,12 @@ export const content = {
                 eyebrow: "Browser strategy game",
                 description:
                     "Free-to-play tactical battles with factions, spells, abilities, and community-shaped development.",
+            },
+            "knowledge-base": {
+                title: "Heroes of Crypto Knowledge Base",
+                eyebrow: "Rules and game data",
+                description:
+                    "Search one complete guide to Heroes of Crypto rules, units, abilities, spells, and artifacts, with clear explanations and live game data.",
             },
             rules: {
                 title: "How to Play Heroes of Crypto",
@@ -704,6 +707,7 @@ export const content = {
         },
         nav: {
             game: "Игра",
+            knowledgeBase: "База знаний",
             rules: "Правила",
             news: "Новости",
             units: "Юниты",
@@ -891,6 +895,12 @@ export const content = {
                 eyebrow: "Браузерная стратегия",
                 description:
                     "Бесплатные тактические бои с фракциями, заклинаниями, способностями и развитием вместе с сообществом.",
+            },
+            "knowledge-base": {
+                title: "База знаний Heroes of Crypto",
+                eyebrow: "Правила и игровые данные",
+                description:
+                    "Единый справочник по правилам, юнитам, способностям, заклинаниям и артефактам Heroes of Crypto с удобным поиском, понятными объяснениями и актуальными игровыми данными.",
             },
             rules: {
                 title: "Как играть в Heroes of Crypto",

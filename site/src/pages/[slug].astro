@@ -1,11 +1,7 @@
 ---
-import AbilitiesPage from "../components/AbilitiesPage.astro";
-import ArtifactsPage from "../components/ArtifactsPage.astro";
 import ContentPage from "../components/ContentPage.astro";
 import HomePage from "../components/HomePage.astro";
-import RulesPage from "../components/RulesPage.astro";
-import SpellsPage from "../components/SpellsPage.astro";
-import UnitsPage from "../components/UnitsPage.astro";
+import KnowledgeBasePage from "../components/KnowledgeBasePage.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { content, pageSlugs, type PageSlug } from "../lib/site-data";
 
@@ -26,16 +22,8 @@ const page = copy.pages[slug];
     {
         slug === "game" ? (
             <HomePage lang={lang} />
-        ) : slug === "rules" ? (
-            <RulesPage lang={lang} />
-        ) : slug === "units" ? (
-            <UnitsPage lang={lang} />
-        ) : slug === "abilities" ? (
-            <AbilitiesPage lang={lang} />
-        ) : slug === "spells" ? (
-            <SpellsPage lang={lang} />
-        ) : slug === "artifacts" ? (
-            <ArtifactsPage lang={lang} />
+        ) : slug === "knowledge-base" ? (
+            <KnowledgeBasePage lang={lang} />
         ) : (
             <ContentPage lang={lang} slug={slug} />
         )

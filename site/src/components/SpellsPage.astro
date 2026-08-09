@@ -1,6 +1,7 @@
 ---
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
+import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
 import {
     bookColors,
     buffCount,
@@ -18,13 +19,12 @@ import {
 
 interface Props {
     lang: Language;
+    embedded?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, embedded = false } = Astro.props;
 const copy = content[lang];
 const page = copy.pages.spells;
-const unitsHref = lang === "ru" ? "/ru/units/" : "/units/";
-const abilitiesHref = lang === "ru" ? "/ru/abilities/" : "/abilities/";
 
 const labels =
     lang === "ru"
@@ -206,27 +206,29 @@ const metaRows = (spell: Spell) => {
 };
 ---
 
-<section class="subhero spells-subhero">
-    <div class="page-shell spells-hero-shell">
-        <div class="spells-hero-copy">
-            <p class="eyebrow">{page.eyebrow}</p>
-            <h1>{page.title}</h1>
-            <p>{page.description}</p>
-        </div>
-        <div class="spells-summary" aria-label={labels.eyebrow}>
-            {
-                summaryStats.map((item) => (
-                    <div>
-                        <strong>{item.value}</strong>
-                        <span>{item.label}</span>
-                    </div>
-                ))
-            }
-        </div>
-    </div>
-</section>
+{
+    !embedded && (
+        <section class="subhero spells-subhero">
+            <div class="page-shell spells-hero-shell">
+                <div class="spells-hero-copy">
+                    <p class="eyebrow">{page.eyebrow}</p>
+                    <h1>{page.title}</h1>
+                    <p>{page.description}</p>
+                </div>
+                <div class="spells-summary" aria-label={labels.eyebrow}>
+                    {summaryStats.map((item) => (
+                        <div>
+                            <strong>{item.value}</strong>
+                            <span>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    )
+}
 
-<section class="section spells-section">
+<section class="section spells-section" data-spells-catalog>
     <div class="page-shell">
         <div class="spells-controls">
             <label class="spell-search">
@@ -234,7 +236,7 @@ const metaRows = (spell: Spell) => {
                 <input data-spell-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
             </label>
 
-            <div class="spells-toolbar" role="tablist" aria-label={labels.filterKind}>
+            <div class="spells-toolbar" role="group" aria-label={labels.filterKind}>
                 {
                     kinds.map((k) => (
                         <button
@@ -249,7 +251,7 @@ const metaRows = (spell: Spell) => {
                 }
             </div>
 
-            <div class="spells-toolbar books-toolbar" role="tablist" aria-label={labels.filterBook}>
+            <div class="spells-toolbar books-toolbar" role="group" aria-label={labels.filterBook}>
                 {
                     books.map((b) => (
                         <button
@@ -270,10 +272,13 @@ const metaRows = (spell: Spell) => {
             {
                 spells.map((spell) => (
                     <article
+                        id={knowledgeEntryId("spells", spell.name)}
                         class="spell-card"
                         data-kind={spell.kind}
                         data-book={spell.book}
+                        data-spell-name={spell.name}
                         data-search={searchText(spell)}
+                        tabindex="-1"
                         style={`--book: ${bookColors[spell.book]}`}
                     >
                         <header class="spell-card-head">
@@ -287,7 +292,7 @@ const metaRows = (spell: Spell) => {
                                 onerror="this.onerror=null;this.style.visibility='hidden'"
                             />
                             <div class="spell-card-title">
-                                <h2>{spell.name}</h2>
+                                {embedded ? <h3>{spell.name}</h3> : <h2>{spell.name}</h2>}
                                 <div class="spell-badges">
                                     <span class="spell-book">{bookLabels[spell.book]}</span>
                                     <span class={`spell-kind ${spell.kind}`}>{kindLabels[spell.kind]}</span>
@@ -319,7 +324,11 @@ const metaRows = (spell: Spell) => {
                                     {spell.casters.map((caster) => (
                                         <a
                                             class="spell-caster-chip"
-                                            href={`${unitsHref}?faction=${caster.faction.toLowerCase()}`}
+                                            href={knowledgePath(lang, {
+                                                section: "units",
+                                                faction: caster.faction,
+                                                entry: caster.name,
+                                            })}
                                             style={`--faction: ${factionColors[caster.faction]}`}
                                             title={`${caster.name} · ${localizedFactionName(lang, caster.faction)}`}
                                         >
@@ -344,7 +353,10 @@ const metaRows = (spell: Spell) => {
                                 <span class="spell-casters-label">{labels.appliedBy}</span>
                                 <div class="spell-caster-chips">
                                     {spell.appliedBy.map((ability) => (
-                                        <a class="spell-source-chip" href={abilitiesHref}>
+                                        <a
+                                            class="spell-source-chip"
+                                            href={knowledgePath(lang, { section: "abilities", entry: ability })}
+                                        >
                                             {ability}
                                         </a>
                                     ))}
@@ -361,52 +373,56 @@ const metaRows = (spell: Spell) => {
 </section>
 
 <script>
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".spell-card"));
-    const kindPills = Array.from(document.querySelectorAll<HTMLButtonElement>(".kind-pill"));
-    const bookPills = Array.from(document.querySelectorAll<HTMLButtonElement>(".book-pill"));
-    const searchInput = document.querySelector<HTMLInputElement>("[data-spell-search]");
-    const emptyState = document.querySelector<HTMLElement>("[data-spells-empty]");
-    let activeKind = "all";
-    let activeBook = "all";
+    const root = document.querySelector<HTMLElement>("[data-spells-catalog]");
 
-    const applyFilters = () => {
-        const query = searchInput?.value.trim().toLowerCase() ?? "";
-        let visible = 0;
-        cards.forEach((card) => {
-            const kindMatch = activeKind === "all" || card.dataset.kind === activeKind;
-            const bookMatch = activeBook === "all" || card.dataset.book === activeBook;
-            const searchMatch = !query || (card.dataset.search ?? "").includes(query);
-            const show = kindMatch && bookMatch && searchMatch;
-            card.hidden = !show;
-            if (show) visible += 1;
-        });
-        if (emptyState) emptyState.hidden = visible > 0;
-    };
+    if (root) {
+        const cards = Array.from(root.querySelectorAll<HTMLElement>(".spell-card"));
+        const kindPills = Array.from(root.querySelectorAll<HTMLButtonElement>(".kind-pill"));
+        const bookPills = Array.from(root.querySelectorAll<HTMLButtonElement>(".book-pill"));
+        const searchInput = root.querySelector<HTMLInputElement>("[data-spell-search]");
+        const emptyState = root.querySelector<HTMLElement>("[data-spells-empty]");
+        let activeKind = "all";
+        let activeBook = "all";
 
-    const setActive = (pills: HTMLButtonElement[], attribute: string, value: string) => {
-        pills.forEach((pill) => {
-            const isActive = (pill.dataset[attribute] ?? "all") === value;
-            pill.classList.toggle("active", isActive);
-            pill.setAttribute("aria-pressed", isActive ? "true" : "false");
-        });
-        applyFilters();
-    };
+        const applyFilters = () => {
+            const query = searchInput?.value.trim().toLowerCase() ?? "";
+            let visible = 0;
+            cards.forEach((card) => {
+                const kindMatch = activeKind === "all" || card.dataset.kind === activeKind;
+                const bookMatch = activeBook === "all" || card.dataset.book === activeBook;
+                const searchMatch = !query || (card.dataset.search ?? "").includes(query);
+                const show = kindMatch && bookMatch && searchMatch;
+                card.hidden = !show;
+                if (show) visible += 1;
+            });
+            if (emptyState) emptyState.hidden = visible > 0;
+        };
 
-    kindPills.forEach((pill) =>
-        pill.addEventListener("click", () => {
-            activeKind = pill.dataset.kind ?? "all";
-            setActive(kindPills, "kind", activeKind);
-        }),
-    );
+        const setActive = (pills: HTMLButtonElement[], attribute: string, value: string) => {
+            pills.forEach((pill) => {
+                const isActive = (pill.dataset[attribute] ?? "all") === value;
+                pill.classList.toggle("active", isActive);
+                pill.setAttribute("aria-pressed", isActive ? "true" : "false");
+            });
+            applyFilters();
+        };
 
-    bookPills.forEach((pill) =>
-        pill.addEventListener("click", () => {
-            activeBook = pill.dataset.book ?? "all";
-            setActive(bookPills, "book", activeBook);
-        }),
-    );
+        kindPills.forEach((pill) =>
+            pill.addEventListener("click", () => {
+                activeKind = pill.dataset.kind ?? "all";
+                setActive(kindPills, "kind", activeKind);
+            }),
+        );
 
-    searchInput?.addEventListener("input", applyFilters);
+        bookPills.forEach((pill) =>
+            pill.addEventListener("click", () => {
+                activeBook = pill.dataset.book ?? "all";
+                setActive(bookPills, "book", activeBook);
+            }),
+        );
+
+        searchInput?.addEventListener("input", applyFilters);
+    }
 </script>
 
 <style>
@@ -618,7 +634,8 @@ const metaRows = (spell: Spell) => {
         min-width: 0;
     }
 
-    .spell-card-title h2 {
+    .spell-card-title h2,
+    .spell-card-title h3 {
         margin: 0;
         font-size: 1.2rem;
         line-height: 1.15;

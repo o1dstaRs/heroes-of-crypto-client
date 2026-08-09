@@ -1,20 +1,22 @@
 ---
-import { links, localPath, type Language } from "../lib/site-data";
+import { knowledgePath } from "../lib/knowledge-base";
+import { links, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount, type FactionName, type Unit } from "../lib/units-data";
 
 interface Props {
     lang: Language;
+    embedded?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, embedded = false } = Astro.props;
 const isRu = lang === "ru";
 const allUnits = factionUnits.flatMap((faction) => faction.units);
 const byName = new Map(allUnits.map((unit) => [unit.name, unit]));
 const pickUnits = (names: string[]) => names.map((name) => byName.get(name)).filter(Boolean) as Unit[];
 const heroUnits = pickUnits(["Black Dragon", "Angel", "Behemoth", "Pegasus"]);
 const exampleUnits = pickUnits(["Medusa", "Arbalester", "Hydra", "Thunderbird", "Satyr", "Gargantuan"]);
-const unitsHref = localPath(lang, "units");
+const unitsHref = knowledgePath(lang, { section: "units" });
 const playHref = isRu ? "/ru/play/" : links.play;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 
@@ -674,7 +676,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
 };
 ---
 
-<section class="rules-hero">
+{!embedded && <section class="rules-hero">
     <img class="rules-hero-bg" src="/assets/images/preview_game.webp" alt="" width="1200" height="630" />
     <div class="rules-hero-shade"></div>
     <div class="page-shell rules-hero-shell">
@@ -732,7 +734,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             </div>
         </div>
     </div>
-</section>
+</section>}
 
 <section class="rules-stat-strip" aria-label={copy.eyebrow}>
     <div class="page-shell rules-stats">
@@ -740,7 +742,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-section">
+<section class="section rules-section" id="rule-loop" tabindex="-1">
     <div class="page-shell">
         <div class="section-heading">
             <p class="eyebrow">{isRu ? "Цикл боя" : "Fight loop"}</p>
@@ -767,7 +769,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-band">
+<section class="section rules-band" id="rule-victory" tabindex="-1">
     <div class="page-shell rules-two-col">
         <div class="rules-copy-block">
             <p class="eyebrow">{isRu ? "Победа" : "Victory"}</p>
@@ -780,7 +782,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-section">
+<section class="section rules-section" id="rule-draft" tabindex="-1">
     <div class="page-shell rules-two-col wide">
         <div class="rules-copy-block">
             <p class="eyebrow">{isRu ? "Драфт" : "Draft"}</p>
@@ -819,7 +821,11 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         <div class="rules-faction-grid">
             {
                 factionUnits.map((faction) => (
-                    <a href={unitsHref} class="rules-faction" style={`--faction: ${faction.color}`}>
+                    <a
+                        href={knowledgePath(lang, { section: "units", faction: faction.faction })}
+                        class="rules-faction"
+                        style={`--faction: ${faction.color}`}
+                    >
                         <span class="rules-faction-head">
                             <img src={faction.icon} alt="" width="34" height="34" loading="lazy" />
                             <strong>{factionLabel(faction.faction)}</strong>
@@ -833,7 +839,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-band">
+<section class="section rules-band" id="rule-unit-stats" tabindex="-1">
     <div class="page-shell">
         <div class="section-heading">
             <p class="eyebrow">{isRu ? "Карточка юнита" : "Unit card"}</p>
@@ -843,7 +849,11 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
             <div class="rules-example-units">
                 {
                     exampleUnits.map((unit) => (
-                        <a href={unitsHref} class="rules-example-unit" style={`--faction: ${factionColors[unit.faction]}`}>
+                        <a
+                            href={knowledgePath(lang, { section: "units", entry: unit.name, faction: unit.faction })}
+                            class="rules-example-unit"
+                            style={`--faction: ${factionColors[unit.faction]}`}
+                        >
                             <img src={unit.icon} alt="" width="512" height="512" loading="lazy" />
                             <span>
                                 <strong>{unit.name}</strong>
@@ -873,7 +883,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-section">
+<section class="section rules-section" id="rule-augments" tabindex="-1">
     <div class="page-shell">
         <div class="section-heading">
             <p class="eyebrow">{isRu ? "Апгрейды" : "Augments"}</p>
@@ -905,7 +915,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-band">
+<section class="section rules-band" id="rule-synergies" tabindex="-1">
     <div class="page-shell">
         <div class="section-heading">
             <p class="eyebrow">{isRu ? "Синергии" : "Synergies"}</p>
@@ -936,7 +946,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-section">
+<section class="section rules-section" id="rule-placement" tabindex="-1">
     <div class="page-shell rules-two-col">
         <div class="rules-copy-block">
             <p class="eyebrow">{isRu ? "Расстановка" : "Placement"}</p>
@@ -954,7 +964,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
     </div>
 </section>
 
-<section class="section rules-band rules-deep">
+<section class="section rules-band rules-deep" id="rule-mechanics" tabindex="-1">
     <div class="page-shell">
         <div class="section-heading">
             <p class="eyebrow">{isRu ? "Глубже" : "Deep dive"}</p>
@@ -1005,7 +1015,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 </div>
             </details>
 
-            <details class="rules-acc">
+            <details class="rules-acc" id="rule-morale">
                 <summary>
                     <span class="rules-acc-title">{copy.moraleTitle}</span>
                     <span class="rules-acc-tag">{isRu ? "Темп" : "Tempo"}</span>
@@ -1042,7 +1052,7 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 </div>
             </details>
 
-            <details class="rules-acc">
+            <details class="rules-acc" id="rule-map">
                 <summary>
                     <span class="rules-acc-title">{copy.mapTitle}</span>
                     <span class="rules-acc-tag">{isRu ? "Карта" : "Map"}</span>

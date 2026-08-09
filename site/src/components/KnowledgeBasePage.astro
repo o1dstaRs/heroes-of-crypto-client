@@ -1,0 +1,1546 @@
+---
+import AbilitiesPage from "./AbilitiesPage.astro";
+import ArtifactsPage from "./ArtifactsPage.astro";
+import RulesPage from "./RulesPage.astro";
+import SpellsPage from "./SpellsPage.astro";
+import UnitsPage from "./UnitsPage.astro";
+import { artifacts, artifactsCount } from "../lib/artifacts-data";
+import {
+    buildKnowledgeEntries,
+    knowledgeEntryId,
+    knowledgePath,
+    type KnowledgeCatalogSection,
+    type KnowledgeSection,
+} from "../lib/knowledge-base";
+import { spells, spellsCount } from "../lib/spells-data";
+import type { Language } from "../lib/site-data";
+import { abilities, abilitiesCount, allUnits, unitCount } from "../lib/units-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const isRu = lang === "ru";
+const entries = buildKnowledgeEntries(lang);
+const rulesCount = entries.filter((entry) => entry.section === "rules").length;
+const totalCount = entries.length;
+
+const copy = isRu
+    ? {
+          eyebrow: "Единый справочник игрока",
+          title: "База знаний",
+          description:
+              "Правила, юниты, способности, заклинания и артефакты — в одном месте с быстрым поиском и прямыми ссылками.",
+          searchLabel: "Поиск по базе знаний",
+          searchPlaceholder: "Например: мораль, огонь, дракон, воскрешение...",
+          searchHint: "Нажмите /, чтобы начать поиск. Можно вводить несколько слов в любом порядке.",
+          clear: "Очистить поиск",
+          all: "Всё",
+          overview: "Обзор",
+          rules: "Правила",
+          units: "Юниты",
+          abilities: "Способности",
+          spells: "Заклинания",
+          artifacts: "Артефакты",
+          indexed: "материалов в поиске",
+          sections: "разделов",
+          liveData: "единый справочник",
+          browseTitle: "Выберите раздел",
+          browseBody:
+              "Начните с полного руководства или откройте каталог. Внутри каждого каталога есть дополнительные фильтры и подробные карточки.",
+          searchResults: "Результаты поиска",
+          searchResultsBody: "Найдите точное правило или объект, затем перейдите прямо к его описанию.",
+          noResults: "Ничего не найдено. Попробуйте другое название, эффект, фракцию или механику.",
+          result: "результат",
+          results: "результатов",
+          type: "Раздел",
+          name: "Название",
+          summary: "Описание",
+          details: "Метки",
+          action: "Открыть",
+          open: "Перейти",
+          filterLabel: "Фильтр результатов по разделу",
+          sectionNav: "Разделы базы знаний",
+          returnToOverview: "Вернуться к обзору",
+          categoryDescriptions: {
+              rules: "Полный цикл матча: драфт, расстановка, бой, мораль, удача, карты и Армагеддон.",
+              units: "Характеристики, роли, движение, способности и заклинания всего боевого ростера.",
+              abilities: "Пассивные эффекты, ауры и активные умения с указанием всех носителей.",
+              spells: "Школы, источники, цели, длительность, урон, баффы и дебаффы.",
+              artifacts: "Артефакты 1-го и 2-го уровней, проклятые варианты и точные эффекты армии.",
+          },
+          sectionEyebrows: {
+              rules: "Руководство",
+              units: "Боевой ростер",
+              abilities: "Справочник умений",
+              spells: "Справочник магии",
+              artifacts: "Арсенал армии",
+          },
+      }
+    : {
+          eyebrow: "Unified player reference",
+          title: "Knowledge Base",
+          description:
+              "Rules, units, abilities, spells, and artifacts in one searchable home with direct links to every detail.",
+          searchLabel: "Search the Knowledge Base",
+          searchPlaceholder: "Try morale, fire, dragon, resurrection...",
+          searchHint: "Press / to search. Use several words in any order to narrow the results.",
+          clear: "Clear search",
+          all: "All",
+          overview: "Overview",
+          rules: "Rules",
+          units: "Units",
+          abilities: "Abilities",
+          spells: "Spells",
+          artifacts: "Artifacts",
+          indexed: "searchable references",
+          sections: "sections",
+          liveData: "one source of truth",
+          browseTitle: "Choose a section",
+          browseBody:
+              "Start with the complete guide or open a catalog. Each catalog adds focused filters and descriptive detail cards.",
+          searchResults: "Search results",
+          searchResultsBody: "Find a rule or game object, then jump directly to its full description.",
+          noResults: "No matches. Try another name, effect, faction, or game mechanic.",
+          result: "result",
+          results: "results",
+          type: "Section",
+          name: "Name",
+          summary: "Summary",
+          details: "Tags",
+          action: "Open",
+          open: "View",
+          filterLabel: "Filter search results by section",
+          sectionNav: "Knowledge Base sections",
+          returnToOverview: "Return to overview",
+          categoryDescriptions: {
+              rules: "The complete match loop: draft, placement, combat, morale, luck, maps, and Armageddon.",
+              units: "Stats, roles, movement, abilities, and spells for the entire combat roster.",
+              abilities: "Passive effects, auras, and active skills with every carrier clearly identified.",
+              spells: "Schools, sources, targets, duration, damage, buffs, and debuffs.",
+              artifacts: "Tier 1 and Tier 2 artifacts, cursed options, and exact army-wide effects.",
+          },
+          sectionEyebrows: {
+              rules: "Game guide",
+              units: "Combat roster",
+              abilities: "Skill reference",
+              spells: "Magic reference",
+              artifacts: "Army arsenal",
+          },
+      };
+
+const categoryCounts: Record<KnowledgeCatalogSection, number> = {
+    rules: rulesCount,
+    units: unitCount,
+    abilities: abilitiesCount,
+    spells: spellsCount,
+    artifacts: artifactsCount,
+};
+
+const categoryImages: Record<KnowledgeCatalogSection, string> = {
+    rules: "/assets/images/preview_game.webp",
+    units: allUnits.find((unit) => unit.name === "Black Dragon")?.icon ?? allUnits[0]?.icon ?? "",
+    abilities: abilities.find((ability) => ability.name === "Lucky Strike")?.icon ?? abilities[0]?.icon ?? "",
+    spells: spells.find((spell) => spell.name === "Meteor Shower")?.icon ?? spells[0]?.icon ?? "",
+    artifacts: artifacts[0]?.icon ?? "",
+};
+
+const categorySections: KnowledgeCatalogSection[] = ["rules", "units", "abilities", "spells", "artifacts"];
+const navigationSections: KnowledgeSection[] = ["overview", ...categorySections];
+const sectionLabels: Record<KnowledgeSection, string> = {
+    overview: copy.overview,
+    rules: copy.rules,
+    units: copy.units,
+    abilities: copy.abilities,
+    spells: copy.spells,
+    artifacts: copy.artifacts,
+};
+---
+
+<div
+    class="knowledge-base"
+    data-knowledge-base
+    data-result-singular={copy.result}
+    data-result-plural={copy.results}
+>
+    <a class="kb-skip-link" href="#kb-search">{copy.searchLabel}</a>
+
+    <header class="kb-hero">
+        <div class="kb-hero-image" aria-hidden="true"></div>
+        <div class="page-shell kb-hero-shell">
+            <div class="kb-hero-copy">
+                <p class="eyebrow">{copy.eyebrow}</p>
+                <h1>{copy.title}</h1>
+                <p>{copy.description}</p>
+            </div>
+            <dl class="kb-hero-stats" aria-label={isRu ? "Содержание базы знаний" : "Knowledge Base contents"}>
+                <div><dt>{copy.indexed}</dt><dd>{totalCount}</dd></div>
+                <div><dt>{copy.sections}</dt><dd>5</dd></div>
+                <div><dt>{copy.liveData}</dt><dd><span aria-hidden="true">✓</span><span class="sr-only">{isRu ? "Да" : "Yes"}</span></dd></div>
+            </dl>
+        </div>
+    </header>
+
+    <div class="page-shell kb-search-shell">
+        <section class="kb-search-card" id="kb-search" aria-labelledby="kb-search-label">
+            <div class="kb-search-main">
+                <label id="kb-search-label" for="kb-search-input">{copy.searchLabel}</label>
+                <div class="kb-search-field">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22">
+                        <circle cx="10.8" cy="10.8" r="6.8"></circle>
+                        <path d="m16 16 4.3 4.3"></path>
+                    </svg>
+                    <input
+                        id="kb-search-input"
+                        data-kb-search
+                        type="search"
+                        autocomplete="off"
+                        placeholder={copy.searchPlaceholder}
+                        aria-describedby="kb-search-hint kb-search-status"
+                    />
+                    <button class="kb-search-clear" data-kb-clear type="button" aria-label={copy.clear} hidden>×</button>
+                    <kbd aria-hidden="true">/</kbd>
+                </div>
+                <p id="kb-search-hint" class="kb-search-hint">{copy.searchHint}</p>
+            </div>
+
+            <div class="kb-search-filters" role="group" aria-label={copy.filterLabel}>
+                <button type="button" class="active" data-kb-search-filter="all" aria-pressed="true">
+                    {copy.all}<span>{totalCount}</span>
+                </button>
+                {
+                    categorySections.map((section) => (
+                        <button type="button" data-kb-search-filter={section} aria-pressed="false">
+                            {sectionLabels[section]}<span>{categoryCounts[section]}</span>
+                        </button>
+                    ))
+                }
+            </div>
+            <p id="kb-search-status" class="sr-only" data-kb-status role="status" aria-live="polite"></p>
+        </section>
+    </div>
+
+    <div class="page-shell kb-layout">
+        <nav class="kb-section-nav" data-kb-tablist aria-label={copy.sectionNav}>
+            {
+                navigationSections.map((section, index) => (
+                    <a
+                        class:list={["kb-section-tab", { active: section === "overview" }]}
+                        id={`kb-tab-${section}`}
+                        href={section === "overview" ? knowledgePath(lang) : knowledgePath(lang, { section })}
+                        data-kb-tab={section}
+                        aria-current={section === "overview" ? "page" : undefined}
+                    >
+                        <span class="kb-tab-icon" aria-hidden="true">
+                            {section === "overview" ? (
+                                <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="30" height="30" />
+                            ) : (
+                                <img src={categoryImages[section]} alt="" width="30" height="30" loading="lazy" />
+                            )}
+                        </span>
+                        <span>{sectionLabels[section]}</span>
+                        <em>{section === "overview" ? totalCount : categoryCounts[section]}</em>
+                    </a>
+                ))
+            }
+        </nav>
+
+        <div class="kb-content" id="kb-content">
+            <section class="kb-search-results" data-kb-search-results aria-labelledby="kb-results-title" hidden>
+                <header class="kb-panel-header compact">
+                    <div>
+                        <p class="eyebrow">{copy.eyebrow}</p>
+                        <h2 id="kb-results-title">{copy.searchResults}</h2>
+                        <p>{copy.searchResultsBody}</p>
+                    </div>
+                    <strong data-kb-visible-count>0</strong>
+                </header>
+
+                <div class="kb-results-table-wrap">
+                    <table class="kb-results-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">{copy.name}</th>
+                                <th scope="col">{copy.type}</th>
+                                <th scope="col">{copy.summary}</th>
+                                <th scope="col">{copy.details}</th>
+                                <th scope="col"><span class="sr-only">{copy.action}</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {
+                                entries.map((entry) => (
+                                    <tr
+                                        data-kb-result
+                                        data-section={entry.section}
+                                        data-name={entry.name}
+                                        data-search={`${entry.name} ${entry.description} ${entry.meta} ${entry.searchText}`}
+                                    >
+                                        <td data-label={copy.name}>
+                                            <span class="kb-result-name">
+                                                <img src={entry.image} alt="" width="46" height="46" loading="lazy" />
+                                                <strong>{entry.name}</strong>
+                                            </span>
+                                        </td>
+                                        <td data-label={copy.type}>
+                                            <span class={`kb-type-badge ${entry.section}`}>{sectionLabels[entry.section]}</span>
+                                        </td>
+                                        <td data-label={copy.summary}><span class="kb-result-summary">{entry.description}</span></td>
+                                        <td data-label={copy.details}><span class="kb-result-meta">{entry.meta}</span></td>
+                                        <td class="kb-result-action">
+                                            <a
+                                                href={knowledgePath(lang, { section: entry.section, entry: entry.target })}
+                                                data-kb-result-link
+                                                data-section={entry.section}
+                                                data-target={knowledgeEntryId(entry.section, entry.target)}
+                                                aria-label={`${copy.open}: ${entry.name}`}
+                                            >
+                                                {copy.open}<span aria-hidden="true"> →</span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                ))
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="kb-empty" data-kb-empty hidden>{copy.noResults}</p>
+            </section>
+
+            <section class="kb-panel kb-overview" id="overview" data-kb-panel="overview" aria-labelledby="kb-tab-overview">
+                <header class="kb-panel-header">
+                    <div>
+                        <p class="eyebrow">{copy.eyebrow}</p>
+                        <h2>{copy.browseTitle}</h2>
+                        <p>{copy.browseBody}</p>
+                    </div>
+                    <strong>{totalCount}</strong>
+                </header>
+                <div class="kb-category-grid">
+                    {
+                        categorySections.map((section) => (
+                            <a
+                                class={`kb-category-card ${section}`}
+                                href={knowledgePath(lang, { section })}
+                                data-kb-section-link={section}
+                            >
+                                <span class="kb-category-art">
+                                    <img src={categoryImages[section]} alt="" width="180" height="180" loading="lazy" />
+                                </span>
+                                <span class="kb-category-copy">
+                                    <span class="eyebrow">{copy.sectionEyebrows[section]}</span>
+                                    <strong>{sectionLabels[section]}</strong>
+                                    <span>{copy.categoryDescriptions[section]}</span>
+                                </span>
+                                <em>{categoryCounts[section]}</em>
+                                <span class="kb-category-arrow" aria-hidden="true">↗</span>
+                            </a>
+                        ))
+                    }
+                </div>
+            </section>
+
+            <section class="kb-panel" id="rules" data-kb-panel="rules" aria-labelledby="kb-tab-rules">
+                <header class="kb-panel-header">
+                    <div>
+                        <p class="eyebrow">{copy.sectionEyebrows.rules}</p>
+                        <h2>{copy.rules}</h2>
+                        <p>{copy.categoryDescriptions.rules}</p>
+                    </div>
+                    <strong>{categoryCounts.rules}</strong>
+                </header>
+                <RulesPage lang={lang} embedded />
+            </section>
+
+            <section class="kb-panel" id="units" data-kb-panel="units" aria-labelledby="kb-tab-units">
+                <header class="kb-panel-header">
+                    <div>
+                        <p class="eyebrow">{copy.sectionEyebrows.units}</p>
+                        <h2>{copy.units}</h2>
+                        <p>{copy.categoryDescriptions.units}</p>
+                    </div>
+                    <strong>{categoryCounts.units}</strong>
+                </header>
+                <UnitsPage lang={lang} embedded />
+            </section>
+
+            <section class="kb-panel" id="abilities" data-kb-panel="abilities" aria-labelledby="kb-tab-abilities">
+                <header class="kb-panel-header">
+                    <div>
+                        <p class="eyebrow">{copy.sectionEyebrows.abilities}</p>
+                        <h2>{copy.abilities}</h2>
+                        <p>{copy.categoryDescriptions.abilities}</p>
+                    </div>
+                    <strong>{categoryCounts.abilities}</strong>
+                </header>
+                <AbilitiesPage lang={lang} embedded />
+            </section>
+
+            <section class="kb-panel" id="spells" data-kb-panel="spells" aria-labelledby="kb-tab-spells">
+                <header class="kb-panel-header">
+                    <div>
+                        <p class="eyebrow">{copy.sectionEyebrows.spells}</p>
+                        <h2>{copy.spells}</h2>
+                        <p>{copy.categoryDescriptions.spells}</p>
+                    </div>
+                    <strong>{categoryCounts.spells}</strong>
+                </header>
+                <SpellsPage lang={lang} embedded />
+            </section>
+
+            <section class="kb-panel" id="artifacts" data-kb-panel="artifacts" aria-labelledby="kb-tab-artifacts">
+                <header class="kb-panel-header">
+                    <div>
+                        <p class="eyebrow">{copy.sectionEyebrows.artifacts}</p>
+                        <h2>{copy.artifacts}</h2>
+                        <p>{copy.categoryDescriptions.artifacts}</p>
+                    </div>
+                    <strong>{categoryCounts.artifacts}</strong>
+                </header>
+                <ArtifactsPage lang={lang} embedded />
+            </section>
+
+            <a class="kb-back-overview" href={knowledgePath(lang)} data-kb-section-link="overview">← {copy.returnToOverview}</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    import {
+        isKnowledgeSection,
+        knowledgeEntryMatches,
+        knowledgeSearchRank,
+        type KnowledgeCatalogSection,
+        type KnowledgeSection,
+    } from "../lib/knowledge-base";
+
+    const roots = document.querySelectorAll<HTMLElement>("[data-knowledge-base]");
+
+    roots.forEach((root) => {
+        const tabs = Array.from(root.querySelectorAll<HTMLAnchorElement>("[data-kb-tab]"));
+        const tablist = root.querySelector<HTMLElement>("[data-kb-tablist]");
+        const panels = Array.from(root.querySelectorAll<HTMLElement>("[data-kb-panel]"));
+        const searchInput = root.querySelector<HTMLInputElement>("[data-kb-search]");
+        const clearButton = root.querySelector<HTMLButtonElement>("[data-kb-clear]");
+        const searchResults = root.querySelector<HTMLElement>("[data-kb-search-results]");
+        const resultRows = Array.from(root.querySelectorAll<HTMLTableRowElement>("[data-kb-result]"));
+        const filterButtons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-kb-search-filter]"));
+        const status = root.querySelector<HTMLElement>("[data-kb-status]");
+        const count = root.querySelector<HTMLElement>("[data-kb-visible-count]");
+        const empty = root.querySelector<HTMLElement>("[data-kb-empty]");
+        let activeSection: KnowledgeSection = "overview";
+        let searchSection: KnowledgeCatalogSection | "all" = "all";
+
+        tablist?.setAttribute("role", "tablist");
+        tabs.forEach((tab) => {
+            const section = tab.dataset.kbTab;
+            if (!isKnowledgeSection(section)) return;
+            tab.id = `kb-tab-${section}`;
+            tab.setAttribute("role", "tab");
+            tab.setAttribute("aria-controls", section);
+        });
+        panels.forEach((panel) => panel.setAttribute("role", "tabpanel"));
+        root.dataset.enhanced = "true";
+
+        const sectionFromFragment = (fragment: string): KnowledgeSection => {
+            let clean = fragment.replace(/^#/, "");
+            try {
+                clean = decodeURIComponent(clean);
+            } catch {
+                // A malformed external fragment should fall back to the overview, not stop page setup.
+                return "overview";
+            }
+            if (isKnowledgeSection(clean)) return clean;
+            if (clean.startsWith("rule-")) return "rules";
+            if (clean.startsWith("unit-")) return "units";
+            if (clean.startsWith("ability-")) return "abilities";
+            if (clean.startsWith("spell-")) return "spells";
+            if (clean.startsWith("artifact-")) return "artifacts";
+            return "overview";
+        };
+
+        const activateSection = (section: KnowledgeSection, focusTab = false) => {
+            root.querySelectorAll<HTMLDialogElement>("dialog[open]").forEach((dialog) => dialog.close());
+            activeSection = section;
+            searchResults?.setAttribute("hidden", "");
+            panels.forEach((panel) => {
+                const selected = panel.dataset.kbPanel === section;
+                panel.hidden = !selected;
+            });
+            tabs.forEach((tab) => {
+                const selected = tab.dataset.kbTab === section;
+                tab.classList.toggle("active", selected);
+                tab.setAttribute("aria-selected", selected ? "true" : "false");
+                tab.tabIndex = selected ? 0 : -1;
+                if (selected) tab.setAttribute("aria-current", "page");
+                else tab.removeAttribute("aria-current");
+                if (selected && focusTab) tab.focus();
+            });
+        };
+
+        const updateSectionUrl = (section: KnowledgeSection) => {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("q");
+            url.searchParams.delete("entry");
+            url.hash = section === "overview" ? "" : section;
+            window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+        };
+
+        const setSearchFilter = (section: KnowledgeCatalogSection | "all") => {
+            searchSection = section;
+            filterButtons.forEach((button) => {
+                const selected = (button.dataset.kbSearchFilter ?? "all") === section;
+                button.classList.toggle("active", selected);
+                button.setAttribute("aria-pressed", selected ? "true" : "false");
+            });
+        };
+
+        const applySearch = (syncUrl = true) => {
+            const query = searchInput?.value.trim() ?? "";
+            const searching = Boolean(query);
+            let visible = 0;
+
+            resultRows.forEach((row) => {
+                const sectionMatch = searchSection === "all" || row.dataset.section === searchSection;
+                const queryMatch = searching && knowledgeEntryMatches(row.dataset.search ?? "", query);
+                const shown = sectionMatch && queryMatch;
+                row.hidden = !shown;
+                if (shown) visible += 1;
+            });
+
+            const resultBody = resultRows[0]?.parentElement;
+            if (searching && resultBody) {
+                resultRows
+                    .sort(
+                        (a, b) =>
+                            knowledgeSearchRank(a.dataset.name ?? "", a.dataset.search ?? "", query) -
+                                knowledgeSearchRank(b.dataset.name ?? "", b.dataset.search ?? "", query) ||
+                            (a.dataset.name ?? "").localeCompare(b.dataset.name ?? ""),
+                    )
+                    .forEach((row) => resultBody.append(row));
+            }
+
+            if (searching) {
+                panels.forEach((panel) => (panel.hidden = true));
+                if (searchResults) searchResults.hidden = false;
+            } else {
+                if (searchResults) searchResults.hidden = true;
+                activateSection(activeSection);
+            }
+
+            if (clearButton) clearButton.hidden = !searching;
+            if (count) count.textContent = String(visible);
+            if (empty) empty.hidden = !searching || visible > 0;
+            if (status) {
+                const resultWord = visible === 1 ? root.dataset.resultSingular : root.dataset.resultPlural;
+                status.textContent = searching ? `${visible} ${resultWord ?? "results"}` : "";
+            }
+
+            if (syncUrl) {
+                const url = new URL(window.location.href);
+                if (query) url.searchParams.set("q", query);
+                else url.searchParams.delete("q");
+                window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+            }
+        };
+
+        const focusTarget = (targetId: string) => {
+            const target = document.getElementById(targetId);
+            if (!target) return;
+            const details = target.matches("details") ? target : target.closest("details");
+            if (details instanceof HTMLDetailsElement) details.open = true;
+            target.classList.add("kb-target-highlight");
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            const isNaturallyFocusable = target.matches(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]',
+            );
+            if (!isNaturallyFocusable) target.tabIndex = -1;
+            target.focus({ preventScroll: true });
+            if (target instanceof HTMLButtonElement && target.matches("[data-unit]")) target.click();
+            window.setTimeout(() => {
+                target.classList.remove("kb-target-highlight");
+                if (!isNaturallyFocusable) target.removeAttribute("tabindex");
+            }, 2200);
+        };
+
+        const resetSearchUi = () => {
+            if (searchInput) searchInput.value = "";
+            setSearchFilter("all");
+            applySearch(false);
+        };
+
+        tabs.forEach((tab, index) => {
+            tab.addEventListener("click", (event) => {
+                const section = tab.dataset.kbTab;
+                if (!isKnowledgeSection(section)) return;
+                event.preventDefault();
+                resetSearchUi();
+                activateSection(section);
+                updateSectionUrl(section);
+                root.querySelector<HTMLElement>(`[data-kb-panel="${section}"]`)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            });
+
+            tab.addEventListener("keydown", (event) => {
+                let next = index;
+                if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (index + 1) % tabs.length;
+                else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (index - 1 + tabs.length) % tabs.length;
+                else if (event.key === "Home") next = 0;
+                else if (event.key === "End") next = tabs.length - 1;
+                else return;
+                event.preventDefault();
+                tabs[next]?.click();
+                tabs[next]?.focus({ preventScroll: true });
+            });
+        });
+
+        root.querySelectorAll<HTMLAnchorElement>("[data-kb-section-link]").forEach((link) => {
+            link.addEventListener("click", (event) => {
+                const section = link.dataset.kbSectionLink;
+                if (!isKnowledgeSection(section)) return;
+                event.preventDefault();
+                resetSearchUi();
+                activateSection(section);
+                updateSectionUrl(section);
+                root.querySelector<HTMLElement>(`[data-kb-panel="${section}"]`)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            });
+        });
+
+        filterButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const value = button.dataset.kbSearchFilter;
+                const section = value === "all" ? "all" : isKnowledgeSection(value) && value !== "overview" ? value : "all";
+                setSearchFilter(section);
+                applySearch();
+            });
+        });
+
+        searchInput?.addEventListener("input", () => applySearch());
+        clearButton?.addEventListener("click", () => {
+            if (searchInput) {
+                searchInput.value = "";
+                searchInput.focus();
+            }
+            setSearchFilter("all");
+            applySearch();
+        });
+
+        root.querySelectorAll<HTMLAnchorElement>("[data-kb-result-link]").forEach((link) => {
+            link.addEventListener("click", (event) => {
+                const section = link.dataset.section;
+                const target = link.dataset.target;
+                if (!isKnowledgeSection(section) || section === "overview" || !target) return;
+                event.preventDefault();
+                resetSearchUi();
+                activateSection(section);
+                const destination = new URL(link.href);
+                window.history.pushState(null, "", `${destination.pathname}${destination.search}${destination.hash}`);
+                window.requestAnimationFrame(() => focusTarget(target));
+            });
+        });
+
+        document.addEventListener("keydown", (event) => {
+            const target = event.target as HTMLElement | null;
+            const isTyping =
+                target?.matches("input, textarea, select") || target?.isContentEditable || target?.closest("[contenteditable]");
+            if (event.key === "/" && !isTyping) {
+                event.preventDefault();
+                searchInput?.focus();
+            } else if (event.key === "Escape" && document.activeElement === searchInput && searchInput?.value) {
+                searchInput.value = "";
+                setSearchFilter("all");
+                applySearch();
+            }
+        });
+
+        const syncFromLocation = () => {
+            const params = new URLSearchParams(window.location.search);
+            const query = params.get("q") ?? "";
+            const section = sectionFromFragment(window.location.hash);
+            setSearchFilter("all");
+            activateSection(section);
+            if (searchInput) searchInput.value = query;
+            applySearch(false);
+            const target = window.location.hash.replace(/^#/, "");
+            if (target && target !== section && !query) window.requestAnimationFrame(() => focusTarget(target));
+        };
+
+        window.addEventListener("popstate", syncFromLocation);
+        window.addEventListener("hashchange", syncFromLocation);
+        syncFromLocation();
+    });
+</script>
+
+<style>
+    .knowledge-base {
+        --kb-surface: #0d1216;
+        --kb-surface-raised: #121920;
+        --kb-line: rgba(236, 203, 120, 0.17);
+        --kb-muted: rgba(246, 241, 230, 0.64);
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at 72% 8%, rgba(212, 158, 52, 0.09), transparent 30%),
+            #080b0d;
+    }
+
+    .kb-skip-link {
+        position: fixed;
+        z-index: 1000;
+        top: 8px;
+        left: 8px;
+        padding: 10px 15px;
+        color: #111;
+        background: #f2c75d;
+        border-radius: 6px;
+        transform: translateY(-140%);
+    }
+
+    .kb-skip-link:focus {
+        transform: none;
+    }
+
+    .kb-hero {
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid var(--kb-line);
+        isolation: isolate;
+    }
+
+    .kb-hero-image {
+        position: absolute;
+        z-index: -2;
+        inset: 0;
+        background: url("/assets/images/preview_game.webp") center 38% / cover;
+        filter: saturate(0.55) contrast(1.08);
+        opacity: 0.3;
+    }
+
+    .kb-hero::after {
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        content: "";
+        background:
+            linear-gradient(90deg, #080b0d 2%, rgba(8, 11, 13, 0.9) 43%, rgba(8, 11, 13, 0.45)),
+            linear-gradient(0deg, #080b0d, transparent 42%);
+    }
+
+    .kb-hero-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 48px;
+        align-items: end;
+        min-height: 340px;
+        padding-top: 78px;
+        padding-bottom: 68px;
+    }
+
+    .kb-hero-copy {
+        max-width: 810px;
+    }
+
+    .kb-hero-copy .eyebrow,
+    .kb-panel-header .eyebrow,
+    .kb-category-copy .eyebrow {
+        margin: 0 0 9px;
+        color: #e4b951;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+    }
+
+    .kb-hero h1 {
+        margin: 0 0 18px;
+        font-size: clamp(3.2rem, 8vw, 6.6rem);
+        font-weight: 860;
+        line-height: 0.9;
+        letter-spacing: -0.045em;
+    }
+
+    .kb-hero-copy > p:last-child {
+        max-width: 760px;
+        margin: 0;
+        color: rgba(247, 244, 235, 0.76);
+        font-size: clamp(1.05rem, 2vw, 1.28rem);
+        line-height: 1.65;
+    }
+
+    .kb-hero-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(105px, 1fr));
+        gap: 1px;
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid var(--kb-line);
+        border-radius: 14px;
+        background: var(--kb-line);
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    .kb-hero-stats div {
+        display: flex;
+        flex-direction: column-reverse;
+        justify-content: space-between;
+        min-height: 116px;
+        padding: 17px;
+        background: rgba(9, 13, 16, 0.9);
+    }
+
+    .kb-hero-stats dt {
+        max-width: 110px;
+        color: var(--kb-muted);
+        font-size: 0.72rem;
+        line-height: 1.3;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .kb-hero-stats dd {
+        margin: 0;
+        color: #f2c75d;
+        font-family: var(--font-display);
+        font-size: 2.25rem;
+        line-height: 1;
+    }
+
+    .kb-search-shell {
+        position: relative;
+        z-index: 5;
+        margin-top: -31px;
+    }
+
+    .kb-search-card {
+        padding: 22px;
+        border: 1px solid rgba(241, 200, 97, 0.28);
+        border-radius: 16px;
+        background: rgba(15, 21, 26, 0.96);
+        box-shadow: 0 24px 56px rgba(0, 0, 0, 0.34);
+        backdrop-filter: blur(18px);
+    }
+
+    .kb-search-main label {
+        display: block;
+        margin-bottom: 9px;
+        color: rgba(249, 246, 237, 0.88);
+        font-size: 0.84rem;
+        font-weight: 760;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .kb-search-field {
+        display: flex;
+        align-items: center;
+        min-height: 56px;
+        padding: 0 13px 0 16px;
+        border: 1px solid rgba(241, 200, 97, 0.19);
+        border-radius: 10px;
+        background: #080c0f;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .kb-search-field:focus-within {
+        border-color: rgba(242, 199, 93, 0.76);
+        box-shadow: 0 0 0 3px rgba(242, 199, 93, 0.13);
+    }
+
+    .kb-search-field svg {
+        flex: 0 0 auto;
+        margin-right: 12px;
+        fill: none;
+        stroke: #d9b45a;
+        stroke-width: 1.8;
+    }
+
+    .kb-search-field input {
+        width: 100%;
+        min-width: 0;
+        padding: 15px 0;
+        color: #faf7ed;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font: inherit;
+        font-size: 1.04rem;
+    }
+
+    .kb-search-field input::placeholder {
+        color: rgba(247, 243, 233, 0.4);
+    }
+
+    .kb-search-clear {
+        flex: 0 0 auto;
+        width: 36px;
+        height: 36px;
+        margin-left: 8px;
+        color: rgba(255, 255, 255, 0.76);
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 1.45rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .kb-search-field kbd {
+        flex: 0 0 auto;
+        min-width: 28px;
+        margin-left: 9px;
+        padding: 4px 8px;
+        color: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.13);
+        border-bottom-color: rgba(255, 255, 255, 0.24);
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.04);
+        text-align: center;
+    }
+
+    .kb-search-hint {
+        margin: 8px 0 0;
+        color: var(--kb-muted);
+        font-size: 0.82rem;
+    }
+
+    .kb-search-filters {
+        display: flex;
+        gap: 7px;
+        margin-top: 16px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .kb-search-filters::-webkit-scrollbar,
+    .kb-section-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .kb-search-filters button {
+        flex: 0 0 auto;
+        min-height: 42px;
+        padding: 8px 14px;
+        color: rgba(247, 244, 235, 0.68);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.035);
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .kb-search-filters button span {
+        margin-left: 6px;
+        opacity: 0.58;
+        font-size: 0.72rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .kb-search-filters button:hover,
+    .kb-search-filters button.active {
+        color: #171105;
+        border-color: #e4b951;
+        background: #e4b951;
+    }
+
+    .kb-layout {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+        padding-top: 34px;
+        padding-bottom: 90px;
+    }
+
+    .kb-section-nav {
+        position: sticky;
+        top: 84px;
+        display: grid;
+        gap: 7px;
+        padding: 9px;
+        border: 1px solid var(--kb-line);
+        border-radius: 13px;
+        background: rgba(13, 18, 22, 0.94);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.19);
+        backdrop-filter: blur(14px);
+    }
+
+    .kb-section-tab {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 51px;
+        padding: 8px 10px;
+        color: rgba(246, 241, 230, 0.66);
+        border: 1px solid transparent;
+        border-radius: 9px;
+        text-decoration: none;
+        transition: 150ms ease;
+    }
+
+    .kb-section-tab:hover {
+        color: #fff8e8;
+        background: rgba(255, 255, 255, 0.045);
+    }
+
+    .kb-section-tab.active {
+        color: #fff9e9;
+        border-color: rgba(242, 199, 93, 0.24);
+        background: linear-gradient(90deg, rgba(242, 199, 93, 0.16), rgba(242, 199, 93, 0.04));
+    }
+
+    .kb-section-tab:focus-visible,
+    .kb-category-card:focus-visible,
+    .kb-result-action a:focus-visible {
+        outline: 2px solid #f2c75d;
+        outline-offset: 3px;
+    }
+
+    .kb-tab-icon {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        overflow: hidden;
+        place-items: center;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .kb-tab-icon img {
+        width: 30px;
+        height: 30px;
+        object-fit: cover;
+    }
+
+    .kb-section-tab > span:nth-child(2) {
+        min-width: 0;
+        overflow: hidden;
+        font-size: 0.9rem;
+        font-weight: 720;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .kb-section-tab em {
+        color: rgba(242, 199, 93, 0.66);
+        font-size: 0.72rem;
+        font-style: normal;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .kb-content {
+        min-width: 0;
+    }
+
+    .kb-panel,
+    .kb-search-results {
+        scroll-margin-top: 92px;
+        overflow: hidden;
+        border: 1px solid var(--kb-line);
+        border-radius: 16px;
+        background: var(--kb-surface);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2);
+    }
+
+    .knowledge-base[data-enhanced="true"] .kb-panel[hidden],
+    .kb-search-results[hidden],
+    [data-kb-result][hidden],
+    .kb-search-clear[hidden],
+    .kb-empty[hidden] {
+        display: none !important;
+    }
+
+    .knowledge-base:not([data-enhanced="true"]) .kb-panel + .kb-panel {
+        margin-top: 28px;
+    }
+
+    .kb-panel-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: center;
+        padding: 30px clamp(22px, 4vw, 42px);
+        border-bottom: 1px solid var(--kb-line);
+        background:
+            radial-gradient(circle at 90% 0, rgba(237, 185, 66, 0.1), transparent 42%),
+            linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent);
+    }
+
+    .kb-panel-header.compact {
+        padding-block: 24px;
+    }
+
+    .kb-panel-header h2 {
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 4vw, 3.25rem);
+        line-height: 1;
+    }
+
+    .kb-panel-header p:last-child {
+        max-width: 730px;
+        margin: 0;
+        color: var(--kb-muted);
+        line-height: 1.58;
+    }
+
+    .kb-panel-header > strong {
+        display: grid;
+        min-width: 68px;
+        height: 68px;
+        place-items: center;
+        color: #f2c75d;
+        border: 1px solid rgba(242, 199, 93, 0.24);
+        border-radius: 50%;
+        background: rgba(242, 199, 93, 0.06);
+        font-family: var(--font-display);
+        font-size: 1.5rem;
+    }
+
+    .kb-category-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 13px;
+        padding: clamp(18px, 4vw, 38px);
+    }
+
+    .kb-category-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: 116px minmax(0, 1fr);
+        gap: 18px;
+        min-height: 178px;
+        overflow: hidden;
+        color: #f8f4e8;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.025);
+        text-decoration: none;
+        transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .kb-category-card:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .kb-category-card:hover {
+        border-color: rgba(242, 199, 93, 0.34);
+        background: rgba(242, 199, 93, 0.055);
+        transform: translateY(-2px);
+    }
+
+    .kb-category-art {
+        position: relative;
+        display: grid;
+        overflow: hidden;
+        place-items: center;
+        background: linear-gradient(145deg, rgba(242, 199, 93, 0.13), rgba(5, 7, 8, 0.4));
+    }
+
+    .kb-category-art::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background: linear-gradient(90deg, transparent 60%, rgba(13, 18, 22, 0.85));
+    }
+
+    .kb-category-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: saturate(0.78);
+    }
+
+    .kb-category-card:not(.rules) .kb-category-art img {
+        width: 92%;
+        height: 92%;
+        object-fit: contain;
+    }
+
+    .kb-category-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 22px 46px 22px 0;
+    }
+
+    .kb-category-copy > strong {
+        margin-bottom: 9px;
+        font-family: var(--font-display);
+        font-size: 1.55rem;
+    }
+
+    .kb-category-copy > span:last-child {
+        color: var(--kb-muted);
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .kb-category-card > em {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        color: rgba(242, 199, 93, 0.76);
+        font-size: 0.75rem;
+        font-style: normal;
+    }
+
+    .kb-category-arrow {
+        position: absolute;
+        right: 17px;
+        bottom: 15px;
+        color: #e4b951;
+        font-size: 1.2rem;
+    }
+
+    .kb-results-table-wrap {
+        overflow-x: auto;
+    }
+
+    .kb-results-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    .kb-results-table th {
+        padding: 13px 14px;
+        color: rgba(246, 241, 230, 0.48);
+        border-bottom: 1px solid var(--kb-line);
+        background: rgba(0, 0, 0, 0.17);
+        font-size: 0.69rem;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+    }
+
+    .kb-results-table th:nth-child(1) { width: 22%; }
+    .kb-results-table th:nth-child(2) { width: 12%; }
+    .kb-results-table th:nth-child(3) { width: 36%; }
+    .kb-results-table th:nth-child(4) { width: 20%; }
+    .kb-results-table th:nth-child(5) { width: 10%; }
+
+    .kb-results-table td {
+        padding: 13px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+        color: rgba(249, 246, 238, 0.76);
+        font-size: 0.82rem;
+        line-height: 1.45;
+        vertical-align: middle;
+    }
+
+    .kb-results-table tbody tr:hover {
+        background: rgba(242, 199, 93, 0.035);
+    }
+
+    .kb-result-name {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: #fcf7e9;
+    }
+
+    .kb-result-name img {
+        flex: 0 0 auto;
+        width: 46px;
+        height: 46px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.035);
+    }
+
+    .kb-type-badge {
+        display: inline-flex;
+        padding: 5px 8px;
+        color: #dfbd65;
+        border: 1px solid rgba(223, 189, 101, 0.2);
+        border-radius: 999px;
+        background: rgba(223, 189, 101, 0.06);
+        font-size: 0.69rem;
+        font-weight: 700;
+    }
+
+    .kb-result-summary {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+    }
+
+    .kb-result-meta {
+        color: rgba(246, 241, 230, 0.52);
+    }
+
+    .kb-result-action a {
+        color: #e8c261;
+        font-weight: 730;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .kb-empty {
+        margin: 0;
+        padding: 52px 24px;
+        color: var(--kb-muted);
+        text-align: center;
+    }
+
+    .kb-back-overview {
+        display: inline-flex;
+        margin-top: 17px;
+        padding: 10px 3px;
+        color: rgba(242, 199, 93, 0.78);
+        text-decoration: none;
+    }
+
+    .kb-target-highlight {
+        animation: kb-highlight 2.2s ease-out;
+    }
+
+    @keyframes kb-highlight {
+        0%, 25% { box-shadow: 0 0 0 4px rgba(242, 199, 93, 0.55), 0 0 42px rgba(242, 199, 93, 0.22); }
+        100% { box-shadow: none; }
+    }
+
+    .kb-panel :global(.page-shell) {
+        width: 100%;
+        max-width: none;
+        padding-inline: clamp(18px, 4vw, 38px);
+    }
+
+    .kb-panel :global(.units-section),
+    .kb-panel :global(.abilities-section),
+    .kb-panel :global(.spells-section),
+    .kb-panel :global(.artifacts-section) {
+        padding-top: clamp(18px, 4vw, 36px);
+        padding-bottom: clamp(30px, 5vw, 52px);
+        background: transparent;
+    }
+
+    .kb-panel :global(.rules-stat-strip) {
+        border-top: 0;
+    }
+
+    :global(html.reveal-on) .knowledge-base :global(.section),
+    :global(html.reveal-on) .knowledge-base :global(.rules-stat-strip) {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    @media (max-width: 1060px) {
+        .kb-hero-shell {
+            grid-template-columns: 1fr;
+            gap: 28px;
+        }
+
+        .kb-hero-stats {
+            width: min(100%, 520px);
+        }
+
+        .kb-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .kb-section-nav {
+            z-index: 4;
+            top: 10px;
+            display: flex;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .kb-section-tab {
+            flex: 0 0 auto;
+            min-width: 145px;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .kb-hero-shell {
+            min-height: 0;
+            padding-top: 58px;
+            padding-bottom: 62px;
+        }
+
+        .kb-hero h1 {
+            font-size: clamp(3.15rem, 17vw, 5rem);
+        }
+
+        .kb-hero-stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .kb-hero-stats div {
+            min-height: 100px;
+            padding: 13px 10px;
+        }
+
+        .kb-hero-stats dd {
+            font-size: 1.7rem;
+        }
+
+        .kb-search-card {
+            padding: 15px;
+            border-radius: 13px;
+        }
+
+        .kb-search-field kbd {
+            display: none;
+        }
+
+        .kb-layout {
+            gap: 15px;
+            padding-top: 22px;
+            padding-bottom: 60px;
+        }
+
+        .kb-section-nav {
+            margin-inline: -4px;
+            padding: 7px;
+        }
+
+        .kb-section-tab {
+            grid-template-columns: 30px minmax(0, 1fr) auto;
+            min-width: 132px;
+            min-height: 47px;
+            padding: 6px 8px;
+        }
+
+        .kb-tab-icon {
+            width: 30px;
+            height: 30px;
+        }
+
+        .kb-tab-icon img {
+            width: 27px;
+            height: 27px;
+        }
+
+        .kb-panel,
+        .kb-search-results {
+            border-radius: 12px;
+        }
+
+        .kb-panel-header {
+            grid-template-columns: 1fr auto;
+            padding: 23px 18px;
+        }
+
+        .kb-panel-header > strong {
+            min-width: 52px;
+            height: 52px;
+            font-size: 1.08rem;
+        }
+
+        .kb-category-grid {
+            grid-template-columns: 1fr;
+            padding: 14px;
+        }
+
+        .kb-category-card:first-child {
+            grid-column: auto;
+        }
+
+        .kb-category-card {
+            grid-template-columns: 92px minmax(0, 1fr);
+            min-height: 154px;
+        }
+
+        .kb-category-copy {
+            padding: 17px 38px 17px 0;
+        }
+
+        .kb-category-copy > strong {
+            font-size: 1.25rem;
+        }
+
+        .kb-category-copy > span:last-child {
+            font-size: 0.82rem;
+        }
+
+        .kb-results-table,
+        .kb-results-table tbody {
+            display: block;
+        }
+
+        .kb-results-table thead {
+            display: none;
+        }
+
+        .kb-results-table tr {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            padding: 16px;
+            border-bottom: 1px solid var(--kb-line);
+        }
+
+        .kb-results-table td {
+            display: block;
+            grid-column: 1 / -1;
+            padding: 5px 0;
+            border: 0;
+        }
+
+        .kb-results-table td:nth-child(1) {
+            grid-column: 1;
+        }
+
+        .kb-results-table td:nth-child(2) {
+            grid-column: 2;
+            grid-row: 1;
+            align-self: center;
+            padding-left: 10px;
+        }
+
+        .kb-results-table td:nth-child(3) {
+            padding-top: 11px;
+        }
+
+        .kb-results-table td:nth-child(4)::before {
+            content: attr(data-label) ": ";
+            color: rgba(246, 241, 230, 0.38);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .kb-result-action {
+            padding-top: 9px !important;
+        }
+    }
+
+    @media (max-width: 440px) {
+        .kb-hero-stats dt {
+            font-size: 0.6rem;
+        }
+
+        .kb-category-card {
+            grid-template-columns: 76px minmax(0, 1fr);
+        }
+
+        .kb-category-copy > span:last-child {
+            display: -webkit-box;
+            overflow: hidden;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .kb-category-card,
+        .kb-section-tab {
+            transition: none;
+        }
+
+        .kb-target-highlight {
+            animation: none;
+            outline: 3px solid #f2c75d;
+            outline-offset: 3px;
+        }
+    }
+</style>

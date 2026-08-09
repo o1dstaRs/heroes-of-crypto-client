@@ -1,16 +1,17 @@
 ---
 import { content, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
+import { knowledgeEntryId, knowledgePath } from "../lib/knowledge-base";
 import { abilities, abilitiesCount, factionColors } from "../lib/units-data";
 
 interface Props {
     lang: Language;
+    embedded?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, embedded = false } = Astro.props;
 const copy = content[lang];
 const page = copy.pages.abilities;
-const unitsHref = lang === "ru" ? "/ru/units/" : "/units/";
 
 const labels =
     lang === "ru"
@@ -85,27 +86,29 @@ const searchText = (ability: (typeof abilities)[number]) =>
         .toLowerCase();
 ---
 
-<section class="subhero abilities-subhero">
-    <div class="page-shell abilities-hero-shell">
-        <div class="abilities-hero-copy">
-            <p class="eyebrow">{page.eyebrow}</p>
-            <h1>{page.title}</h1>
-            <p>{page.description}</p>
-        </div>
-        <div class="abilities-summary" aria-label={labels.eyebrow}>
-            {
-                summaryStats.map((item) => (
-                    <div>
-                        <strong>{item.value}</strong>
-                        <span>{item.label}</span>
-                    </div>
-                ))
-            }
-        </div>
-    </div>
-</section>
+{
+    !embedded && (
+        <section class="subhero abilities-subhero">
+            <div class="page-shell abilities-hero-shell">
+                <div class="abilities-hero-copy">
+                    <p class="eyebrow">{page.eyebrow}</p>
+                    <h1>{page.title}</h1>
+                    <p>{page.description}</p>
+                </div>
+                <div class="abilities-summary" aria-label={labels.eyebrow}>
+                    {summaryStats.map((item) => (
+                        <div>
+                            <strong>{item.value}</strong>
+                            <span>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    )
+}
 
-<section class="section abilities-section">
+<section class="section abilities-section" data-abilities-catalog>
     <div class="page-shell">
         <div class="abilities-controls">
             <label class="ability-search">
@@ -113,7 +116,7 @@ const searchText = (ability: (typeof abilities)[number]) =>
                 <input data-ability-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
             </label>
 
-            <div class="abilities-toolbar" role="tablist" aria-label={labels.filter}>
+            <div class="abilities-toolbar" role="group" aria-label={labels.filter}>
                 {
                     kinds.map((k) => (
                         <button
@@ -134,8 +137,11 @@ const searchText = (ability: (typeof abilities)[number]) =>
                 abilities.map((ability) => (
                     <article
                         class="ability-card"
+                        id={knowledgeEntryId("abilities", ability.name)}
+                        data-ability-name={ability.name}
                         data-kind={ability.kind}
                         data-search={searchText(ability)}
+                        tabindex="-1"
                     >
                         <header class="ability-card-head">
                             <img
@@ -148,7 +154,7 @@ const searchText = (ability: (typeof abilities)[number]) =>
                                 onerror="this.onerror=null;this.style.visibility='hidden'"
                             />
                             <div class="ability-card-title">
-                                <h2>{ability.name}</h2>
+                                {embedded ? <h3>{ability.name}</h3> : <h2>{ability.name}</h2>}
                                 <div class="ability-badges">
                                     <span class={`ability-kind ${ability.kind}`}>{kindLabel(ability.kind)}</span>
                                     {ability.isStackPowered && <span class="ability-stack">{labels.stack}</span>}
@@ -170,7 +176,11 @@ const searchText = (ability: (typeof abilities)[number]) =>
                                 {ability.units.map((u) => (
                                     <a
                                         class="ability-unit-chip"
-                                        href={`${unitsHref}?faction=${u.faction.toLowerCase()}`}
+                                        href={knowledgePath(lang, {
+                                            section: "units",
+                                            entry: u.name,
+                                            faction: u.faction,
+                                        })}
                                         style={`--faction: ${factionColors[u.faction]}`}
                                         title={`${u.name} · ${localizedFactionName(lang, u.faction)}${u.summonedOnly ? ` · ${labels.summonedOnly}` : ""}`}
                                     >
@@ -198,10 +208,11 @@ const searchText = (ability: (typeof abilities)[number]) =>
 </section>
 
 <script>
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".ability-card"));
-    const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".kind-pill"));
-    const searchInput = document.querySelector<HTMLInputElement>("[data-ability-search]");
-    const emptyState = document.querySelector<HTMLElement>("[data-abilities-empty]");
+    const catalog = document.querySelector<HTMLElement>("[data-abilities-catalog]");
+    const cards = Array.from(catalog?.querySelectorAll<HTMLElement>(".ability-card") ?? []);
+    const pills = Array.from(catalog?.querySelectorAll<HTMLButtonElement>(".kind-pill") ?? []);
+    const searchInput = catalog?.querySelector<HTMLInputElement>("[data-ability-search]");
+    const emptyState = catalog?.querySelector<HTMLElement>("[data-abilities-empty]");
     let activeKind = "all";
 
     const applyFilters = () => {
@@ -423,7 +434,8 @@ const searchText = (ability: (typeof abilities)[number]) =>
         min-width: 0;
     }
 
-    .ability-card-title h2 {
+    .ability-card-title h2,
+    .ability-card-title h3 {
         margin: 0;
         font-size: 1.2rem;
         line-height: 1.15;

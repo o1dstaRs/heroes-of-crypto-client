@@ -1,6 +1,7 @@
 ---
-import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
+import { knowledgePath } from "../lib/knowledge-base";
 import { localizedFactionName } from "../lib/localization";
+import { content, contractAddress, links, localPath, type Language } from "../lib/site-data";
 import { abilityCount, factionColors, factionUnits, unitCount } from "../lib/units-data";
 import HeroLeaderboard from "./HeroLeaderboard.astro";
 import MetaSnapshot from "./MetaSnapshot.astro";
@@ -50,7 +51,7 @@ const featureCards = copy.features.items.map((item, index) => ({
     ...item,
     visual: featureVisuals[index] ?? featureVisuals[0],
 }));
-const rulesHref = localPath(lang, "rules");
+const rulesHref = knowledgePath(lang, { section: "rules" });
 const playHref = lang === "ru" ? "/ru/play/" : links.play;
 const factionLabel = (faction: string) => localizedFactionName(lang, faction);
 ---

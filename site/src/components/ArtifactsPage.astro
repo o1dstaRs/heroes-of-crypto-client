@@ -1,12 +1,14 @@
 ---
 import { content, type Language } from "../lib/site-data";
 import { artifacts, artifactsCount, tier1Count, tier2Count } from "../lib/artifacts-data";
+import { knowledgeEntryId } from "../lib/knowledge-base";
 
 interface Props {
     lang: Language;
+    embedded?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, embedded = false } = Astro.props;
 const copy = content[lang];
 const page = copy.pages.artifacts;
 
@@ -57,27 +59,29 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
         .toLowerCase();
 ---
 
-<section class="subhero artifacts-subhero">
-    <div class="page-shell artifacts-hero-shell">
-        <div class="artifacts-hero-copy">
-            <p class="eyebrow">{page.eyebrow}</p>
-            <h1>{page.title}</h1>
-            <p>{page.description}</p>
-        </div>
-        <div class="artifacts-summary" aria-label={labels.eyebrow}>
-            {
-                summaryStats.map((item) => (
-                    <div>
-                        <strong>{item.value}</strong>
-                        <span>{item.label}</span>
-                    </div>
-                ))
-            }
-        </div>
-    </div>
-</section>
+{
+    !embedded && (
+        <section class="subhero artifacts-subhero">
+            <div class="page-shell artifacts-hero-shell">
+                <div class="artifacts-hero-copy">
+                    <p class="eyebrow">{page.eyebrow}</p>
+                    <h1>{page.title}</h1>
+                    <p>{page.description}</p>
+                </div>
+                <div class="artifacts-summary" aria-label={labels.eyebrow}>
+                    {summaryStats.map((item) => (
+                        <div>
+                            <strong>{item.value}</strong>
+                            <span>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    )
+}
 
-<section class="section artifacts-section">
+<section class="section artifacts-section" data-artifacts-catalog>
     <div class="page-shell">
         <div class="artifacts-controls">
             <label class="artifact-search">
@@ -85,7 +89,7 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
                 <input data-artifact-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
             </label>
 
-            <div class="artifacts-toolbar" role="tablist" aria-label={labels.filter}>
+            <div class="artifacts-toolbar" role="group" aria-label={labels.filter}>
                 {
                     tiers.map((t) => (
                         <button
@@ -105,10 +109,12 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
             {
                 artifacts.map((artifact) => (
                     <article
+                        id={knowledgeEntryId("artifacts", artifact.name)}
                         class="artifact-card"
                         data-tier={String(artifact.tier)}
                         data-artifact-name={artifact.name}
                         data-search={searchText(artifact)}
+                        tabindex="-1"
                     >
                         <header class="artifact-card-head">
                             <img
@@ -121,7 +127,7 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
                                 onerror="this.onerror=null;this.style.visibility='hidden'"
                             />
                             <div class="artifact-card-title">
-                                <h2>{artifact.name}</h2>
+                                {embedded ? <h3>{artifact.name}</h3> : <h2>{artifact.name}</h2>}
                                 <div class="artifact-tags">
                                     <span class={`artifact-tier tier-${artifact.tier}`}>{tierLabel(artifact.tier)}</span>
                                     {artifact.cursed && <span class="artifact-cursed">{labels.cursed}</span>}
@@ -142,37 +148,41 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
     import { decorateArtifactCards } from "../lib/meta-stats-client";
 
     void decorateArtifactCards();
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".artifact-card"));
-    const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".tier-pill"));
-    const searchInput = document.querySelector<HTMLInputElement>("[data-artifact-search]");
-    const emptyState = document.querySelector<HTMLElement>("[data-artifacts-empty]");
-    let activeTier = "all";
+    const root = document.querySelector<HTMLElement>("[data-artifacts-catalog]");
 
-    const applyFilters = () => {
-        const query = searchInput?.value.trim().toLowerCase() ?? "";
-        let visible = 0;
-        cards.forEach((card) => {
-            const tierMatch = activeTier === "all" || card.dataset.tier === activeTier;
-            const searchMatch = !query || (card.dataset.search ?? "").includes(query);
-            const show = tierMatch && searchMatch;
-            card.hidden = !show;
-            if (show) visible += 1;
-        });
-        if (emptyState) emptyState.hidden = visible > 0;
-    };
+    if (root) {
+        const cards = Array.from(root.querySelectorAll<HTMLElement>(".artifact-card"));
+        const pills = Array.from(root.querySelectorAll<HTMLButtonElement>(".tier-pill"));
+        const searchInput = root.querySelector<HTMLInputElement>("[data-artifact-search]");
+        const emptyState = root.querySelector<HTMLElement>("[data-artifacts-empty]");
+        let activeTier = "all";
 
-    const setTier = (tier: string) => {
-        activeTier = tier;
-        pills.forEach((pill) => {
-            const isActive = (pill.dataset.tier ?? "all") === tier;
-            pill.classList.toggle("active", isActive);
-            pill.setAttribute("aria-pressed", isActive ? "true" : "false");
-        });
-        applyFilters();
-    };
+        const applyFilters = () => {
+            const query = searchInput?.value.trim().toLowerCase() ?? "";
+            let visible = 0;
+            cards.forEach((card) => {
+                const tierMatch = activeTier === "all" || card.dataset.tier === activeTier;
+                const searchMatch = !query || (card.dataset.search ?? "").includes(query);
+                const show = tierMatch && searchMatch;
+                card.hidden = !show;
+                if (show) visible += 1;
+            });
+            if (emptyState) emptyState.hidden = visible > 0;
+        };
 
-    pills.forEach((pill) => pill.addEventListener("click", () => setTier(pill.dataset.tier ?? "all")));
-    searchInput?.addEventListener("input", applyFilters);
+        const setTier = (tier: string) => {
+            activeTier = tier;
+            pills.forEach((pill) => {
+                const isActive = (pill.dataset.tier ?? "all") === tier;
+                pill.classList.toggle("active", isActive);
+                pill.setAttribute("aria-pressed", isActive ? "true" : "false");
+            });
+            applyFilters();
+        };
+
+        pills.forEach((pill) => pill.addEventListener("click", () => setTier(pill.dataset.tier ?? "all")));
+        searchInput?.addEventListener("input", applyFilters);
+    }
 </script>
 
 <style>
@@ -366,7 +376,8 @@ const searchText = (artifact: (typeof artifacts)[number]) =>
         min-width: 0;
     }
 
-    .artifact-card-title h2 {
+    .artifact-card-title h2,
+    .artifact-card-title h3 {
         margin: 0;
         font-size: 1.2rem;
         line-height: 1.15;

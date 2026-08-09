@@ -4,7 +4,7 @@
 // caster-scaled runtime value rather than a constant (see resolvedDescriptions below).
 //
 // Army-wide artifacts are modelled as System spells in spells.json too. They are filtered out here
-// because they already have their own codex at /artifacts — keeping them would list every artifact
+// because they already have their own Knowledge Base section — keeping them would list every artifact
 // twice under a misleading "spell" label. Pre-game augments are excluded for the same reason: they are
 // drafted, not cast, so a codex of castable spells is the wrong place for them.
 
@@ -117,8 +117,8 @@ export const bookColors: Record<SpellBook, string> = {
 /**
  * Pre-game army augments, which spells.json also models as System spells so the engine can apply them
  * through the same machinery. Nobody ever casts one — they are drafted and apply to the whole army — so
- * they are excluded from this codex entirely and documented on /rules, which covers all six with their
- * point costs. Listing them here duplicated that under a misleading "spell" label.
+ * they are excluded from this codex entirely and documented in the Knowledge Base rules, which cover all
+ * six with their point costs. Listing them here duplicated that under a misleading "spell" label.
  */
 const augmentSpells = new Set([
     "Armor Augment",
@@ -140,7 +140,7 @@ const abilityCastSpells = new Set([
 ]);
 
 // Which ability applies each non-castable buff/debuff. Curated because the link lives in ability code
-// rather than in the data files; every entry here is an ability name shown on /abilities.
+// rather than in the data files; every entry here is an ability name shown in the Knowledge Base.
 const appliedByAbility: Record<string, string[]> = {
     "Dulling Defense": ["Dulling Defense"],
     "Angelic Host": ["Angelic Host"],

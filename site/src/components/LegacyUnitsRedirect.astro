@@ -1,0 +1,37 @@
+---
+import type { Language } from "../lib/site-data";
+
+interface Props {
+    lang: Language;
+}
+
+const { lang } = Astro.props;
+const destination = `${lang === "ru" ? "/ru" : ""}/knowledge-base/#units`;
+const copy =
+    lang === "ru"
+        ? { title: "Перенаправление в базу знаний", link: "Открыть каталог юнитов" }
+        : { title: "Redirecting to the Knowledge Base", link: "Open the unit catalog" };
+---
+
+<!doctype html>
+<html lang={lang}>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta http-equiv="refresh" content={`0;url=${destination}`} />
+        <meta name="robots" content="noindex,follow" />
+        <link rel="canonical" href={destination} />
+        <title>{copy.title}</title>
+    </head>
+    <body>
+        <p><a href={destination}>{copy.link}</a></p>
+        <script>
+            const base = document.documentElement.lang === "ru" ? "/ru/knowledge-base/" : "/knowledge-base/";
+            const destination = new URL(base, window.location.origin);
+            const faction = new URLSearchParams(window.location.search).get("faction")?.trim();
+            if (faction) destination.searchParams.set("faction", faction);
+            destination.hash = "units";
+            window.location.replace(`${destination.pathname}${destination.search}${destination.hash}`);
+        </script>
+    </body>
+</html>

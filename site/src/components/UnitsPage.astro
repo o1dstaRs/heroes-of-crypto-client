@@ -1,13 +1,15 @@
 ---
 import { content, type Language } from "../lib/site-data";
+import { knowledgeEntryId } from "../lib/knowledge-base";
 import { localizedFactionName } from "../lib/localization";
 import { abilityCount, factionColors, factionUnits, unitCount, type Unit } from "../lib/units-data";
 
 interface Props {
     lang: Language;
+    embedded?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, embedded = false } = Astro.props;
 const copy = content[lang];
 const ui = copy.units;
 const s = ui.stats;
@@ -135,26 +137,29 @@ function unitSearchText(unit: Unit) {
 }
 ---
 
-<section class="subhero units-subhero">
-    <div class="page-shell units-hero-shell">
-        <div class="units-hero-copy">
-            <p class="eyebrow">{copy.pages.units.eyebrow}</p>
-            <h1>{copy.pages.units.title}</h1>
-            <p>{copy.pages.units.description}</p>
-        </div>
-        <div class="units-summary" aria-label={labels.eyebrow}>
-            {
-                summaryStats.map((item) => (
-                    <div>
-                        <strong>{item.value}</strong>
-                        <span>{item.label}</span>
-                    </div>
-                ))
-            }
-        </div>
-    </div>
-</section>
+{
+    !embedded && (
+        <section class="subhero units-subhero">
+            <div class="page-shell units-hero-shell">
+                <div class="units-hero-copy">
+                    <p class="eyebrow">{copy.pages.units.eyebrow}</p>
+                    <h1>{copy.pages.units.title}</h1>
+                    <p>{copy.pages.units.description}</p>
+                </div>
+                <div class="units-summary" aria-label={labels.eyebrow}>
+                    {summaryStats.map((item) => (
+                        <div>
+                            <strong>{item.value}</strong>
+                            <span>{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    )
+}
 
+<div data-units-catalog>
 <section class="section units-section">
     <div class="page-shell">
         <div class="units-controls">
@@ -163,7 +168,7 @@ function unitSearchText(unit: Unit) {
                 <input data-unit-search type="search" autocomplete="off" placeholder={labels.searchPlaceholder} />
             </label>
 
-            <div class="units-toolbar" role="tablist" aria-label={labels.factionFilter}>
+            <div class="units-toolbar" role="group" aria-label={labels.factionFilter}>
                 <button class="faction-pill active" data-faction="all" type="button" aria-pressed="true">
                     {ui.all}
                 </button>
@@ -205,6 +210,7 @@ function unitSearchText(unit: Unit) {
                     return (
                         <button
                             class="unit-card"
+                            id={knowledgeEntryId("units", unit.name)}
                             data-unit={dataIndex}
                             data-unit-name={unit.name}
                             data-faction={unit.faction}
@@ -299,10 +305,12 @@ function unitSearchText(unit: Unit) {
 </dialog>
 
 <script type="application/json" id="units-data" data-no-abilities={ui.noAbilities} set:html={serialized} />
+</div>
 
 <script>
     import { decorateUnitCards } from "../lib/meta-stats-client";
 
+    const catalog = document.querySelector<HTMLElement>("[data-units-catalog]");
     void decorateUnitCards();
     type Unit = {
         name: string;
@@ -370,14 +378,12 @@ function unitSearchText(unit: Unit) {
         LANG === "ru"
             ? { Chaos: "Хаос", Life: "Жизнь", Might: "Сила", Nature: "Природа", Death: "Смерть" }
             : { Chaos: "Chaos", Life: "Life", Might: "Might", Nature: "Nature", Death: "Death" };
-    const NO_ABILITIES =
-        document.getElementById("units-data")?.dataset.noAbilities ?? "No special abilities.";
+    const unitsData = catalog?.querySelector<HTMLElement>("#units-data");
+    const NO_ABILITIES = unitsData?.dataset.noAbilities ?? "No special abilities.";
 
-    const data = JSON.parse(
-        document.getElementById("units-data")?.textContent ?? "[]",
-    ) as Unit[];
+    const data = JSON.parse(unitsData?.textContent ?? "[]") as Unit[];
 
-    const dialog = document.getElementById("unit-dialog") as HTMLDialogElement | null;
+    const dialog = catalog?.querySelector<HTMLDialogElement>("#unit-dialog") ?? null;
     if (dialog) {
         const portrait = dialog.querySelector<HTMLImageElement>(".unit-dialog-portrait")!;
         const nameEl = dialog.querySelector<HTMLHeadingElement>("#unit-dialog-name")!;
@@ -505,7 +511,7 @@ function unitSearchText(unit: Unit) {
             if (e.key === "Escape" && dialog.open) dialog.close();
         });
 
-        document.querySelectorAll<HTMLElement>("[data-unit]").forEach((card) => {
+        catalog?.querySelectorAll<HTMLElement>("[data-unit]").forEach((card) => {
             card.addEventListener("click", () => {
                 const idx = Number(card.dataset.unit);
                 const unit = data[idx];
@@ -514,11 +520,11 @@ function unitSearchText(unit: Unit) {
         });
     }
 
-    const pills = Array.from(document.querySelectorAll<HTMLButtonElement>(".faction-pill"));
-    const grid = document.querySelector<HTMLElement>("[data-units-grid]");
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".unit-card"));
-    const searchInput = document.querySelector<HTMLInputElement>("[data-unit-search]");
-    const emptyState = document.querySelector<HTMLElement>("[data-units-empty]");
+    const pills = Array.from(catalog?.querySelectorAll<HTMLButtonElement>(".faction-pill") ?? []);
+    const grid = catalog?.querySelector<HTMLElement>("[data-units-grid]");
+    const cards = Array.from(catalog?.querySelectorAll<HTMLElement>(".unit-card") ?? []);
+    const searchInput = catalog?.querySelector<HTMLInputElement>("[data-unit-search]");
+    const emptyState = catalog?.querySelector<HTMLElement>("[data-units-empty]");
     let activeFaction = "all";
 
     const cardOrder = (card: HTMLElement, key: "alphaOrder" | "factionOrder") =>

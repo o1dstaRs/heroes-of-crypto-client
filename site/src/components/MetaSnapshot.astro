@@ -1,6 +1,7 @@
 ---
-import { allUnits } from "../lib/units-data";
 import { artifacts } from "../lib/artifacts-data";
+import { knowledgePath } from "../lib/knowledge-base";
+import { allUnits } from "../lib/units-data";
 
 interface Props {
     lang: "en" | "ru";
@@ -46,8 +47,8 @@ const copyByLang = {
 } as const;
 
 const copy = copyByLang[lang];
-const unitsHref = lang === "ru" ? "/ru/units/" : "/units/";
-const artifactsHref = lang === "ru" ? "/ru/artifacts/" : "/artifacts/";
+const unitsHref = knowledgePath(lang, { section: "units" });
+const artifactsHref = knowledgePath(lang, { section: "artifacts" });
 
 const nameKey = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 const unitIcons: Record<string, string> = {};

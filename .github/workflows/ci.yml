@@ -114,5 +114,14 @@ jobs:
               run: |
                   test -f site/dist/index.html
                   test -f site/dist/game/index.html
-                  test -f site/dist/units/index.html
+                  test -f site/dist/knowledge-base/index.html
+                  test -f site/dist/ru/knowledge-base/index.html
+                  test -f site/dist/rules/index.html
+                  grep -Fq '/knowledge-base/#rules' site/dist/rules/index.html
+                  grep -Fq '<loc>https://heroesofcrypto.io/knowledge-base/</loc>' site/dist/sitemap-0.xml
+                  grep -Fq '<loc>https://heroesofcrypto.io/ru/knowledge-base/</loc>' site/dist/sitemap-0.xml
+                  for section in rules units abilities spells artifacts; do
+                      ! grep -Fq "<loc>https://heroesofcrypto.io/${section}/</loc>" site/dist/sitemap-0.xml
+                      ! grep -Fq "<loc>https://heroesofcrypto.io/ru/${section}/</loc>" site/dist/sitemap-0.xml
+                  done
                   echo "Site build checks passed."

@@ -1,5 +1,6 @@
 // Framework-free helpers for the /profile page: resolve a portal creature id / faction value to the
-// same name + image the /units page uses, plus small win-rate / streak / relative-time formatters.
+// same name + image the Knowledge Base unit catalog uses, plus small win-rate / streak / relative-time
+// formatters.
 // Mirrors game/core/src/ui/PlayerPortal/portalFormat.tsx but with no React/MUI so it runs in the site's
 // client bundle.
 import creaturesJson from "@heroesofcrypto/common/src/configuration/creatures.json";
@@ -10,7 +11,7 @@ import { factionColors, type FactionName } from "./units-data";
 
 const UNKNOWN_CREATURE_IMAGE = "/assets/images/units/units/unknown_creature_512.webp";
 
-// Same slug rule the /units page uses so image paths line up (lowercase, non-alnum -> "_").
+// Same slug rule the unit catalog uses so image paths line up (lowercase, non-alnum -> "_").
 const slugify = (name: string): string =>
     name
         .toLowerCase()
@@ -49,7 +50,7 @@ const titleCase = (enumKey: string): string =>
         .join(" ");
 
 // The CreatureVals numeric enum reverse-maps an id to its key (e.g. 40 -> "TSAR_CANNON"); its lowercase
-// equals the /units image slug. Unknown ids fall back to a readable name + the placeholder portrait.
+// equals the unit image slug. Unknown ids fall back to a readable name + the placeholder portrait.
 export function creatureById(id: number): CreatureInfo {
     const enumKey = (CreatureVals as unknown as Record<number, string>)[id];
     const info = enumKey ? creatureBySlug.get(enumKey.toLowerCase()) : undefined;
