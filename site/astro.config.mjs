@@ -20,10 +20,14 @@ export default defineConfig({
         "/blog/[...slug]": "/news/[...slug]",
         "/ru/blog": "/ru/news",
         "/ru/blog/[...slug]": "/ru/news/[...slug]",
-        "/research": "/news/research/a13",
-        "/ru/research": "/news/research/a13",
-        "/news/research": "/news/research/a13",
-        "/ru/news/research": "/news/research/a13",
+        "/research": "/news/2026-07-22-inside-the-a13-ai",
+        "/research/a13": "/news/2026-07-22-inside-the-a13-ai",
+        "/ru/research": "/news/2026-07-22-inside-the-a13-ai",
+        "/ru/research/a13": "/news/2026-07-22-inside-the-a13-ai",
+        "/news/research": "/news/2026-07-22-inside-the-a13-ai",
+        "/news/research/a13": "/news/2026-07-22-inside-the-a13-ai",
+        "/ru/news/research": "/news/2026-07-22-inside-the-a13-ai",
+        "/ru/news/research/a13": "/news/2026-07-22-inside-the-a13-ai",
         "/rules": "/knowledge-base/#rules",
         "/abilities": "/knowledge-base/#abilities",
         "/spells": "/knowledge-base/#spells",
@@ -35,7 +39,6 @@ export default defineConfig({
     },
     integrations: [
         sitemap({
-            customPages: ["https://heroesofcrypto.io/news/research/a13/"],
             filter: (page) => {
                 const pathname = new URL(page).pathname.replace(/\/$/, "") || "/";
                 return !legacyKnowledgePaths.has(pathname);

@@ -4,23 +4,7 @@ import { getCollection } from "astro:content";
 
 const lang = "en";
 
-const posts = [
-    {
-        href: "/news/research/a13/",
-        title: "A13 — Inside the Heroes of Crypto v0.8 AI",
-        date: new Date("2026-07-22T00:00:00Z"),
-        tags: ["AI research"],
-        excerpt:
-            "A visual, source-audited guide to the rules, search, and learned value behind the Heroes of Crypto AI.",
-    },
-    ...(await getCollection("blog")).map((post) => ({
-        href: `/news/${post.id}/`,
-        title: post.data.title,
-        date: post.data.date,
-        tags: post.data.tags,
-        excerpt: post.data.excerpt,
-    })),
-].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+const posts = (await getCollection("blog")).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
 
 <BaseLayout
@@ -43,10 +27,10 @@ const posts = [
                 {
                     posts.map((post) => (
                         <li class="post-card">
-                            <a href={post.href} class="post-card-link">
+                            <a href={`/news/${post.id}/`} class="post-card-link">
                                 <div class="post-card-meta">
-                                    <time datetime={post.date.toISOString()}>
-                                        {post.date.toLocaleDateString("en-US", {
+                                    <time datetime={post.data.date.toISOString()}>
+                                        {post.data.date.toLocaleDateString("en-US", {
                                             year: "numeric",
                                             month: "short",
                                             day: "numeric",
@@ -54,13 +38,13 @@ const posts = [
                                         })}
                                     </time>
                                     <span class="post-tags">
-                                        {post.tags.map((tag) => (
+                                        {post.data.tags.map((tag) => (
                                             <span class="post-tag">{tag}</span>
                                         ))}
                                     </span>
                                 </div>
-                                <h2>{post.title}</h2>
-                                <p>{post.excerpt}</p>
+                                <h2>{post.data.title}</h2>
+                                <p>{post.data.excerpt}</p>
                                 <span class="post-read">Read →</span>
                             </a>
                         </li>
