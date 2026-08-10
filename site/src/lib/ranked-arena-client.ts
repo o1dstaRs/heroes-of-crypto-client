@@ -3,6 +3,7 @@ import {
     filterLeagues,
     filterLiveGames,
     filterRankedPlayers,
+    liveGameFormSlots,
     livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
@@ -13,7 +14,9 @@ import {
     relativeArenaTime,
     type ArenaTab,
     type LiveGame,
+    type LiveGameFormSlot,
     type LiveGamePlayer,
+    type LiveGameResult,
     type LiveGamesResponse,
     type LiveGameStage,
     type PlayerSort,
@@ -173,6 +176,19 @@ const currencyAmount = (amount: number, className = ""): HTMLElement => {
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
     Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), template);
 
+const appendRichTemplate = <T extends ParentNode>(
+    parent: T,
+    template: string,
+    values: Record<string, string | number | Node>,
+): T => {
+    for (const part of template.split(/(\{[^{}]+\})/g).filter(Boolean)) {
+        const placeholder = /^\{([^{}]+)\}$/.exec(part)?.[1];
+        const value = placeholder ? values[placeholder] : undefined;
+        parent.append(value instanceof Node ? value : document.createTextNode(value === undefined ? part : String(value)));
+    }
+    return parent;
+};
+
 const readCache = (resource: ArenaResource): unknown | undefined => {
     try {
         const raw = localStorage.getItem(`${CACHE_PREFIX}${resource}`);
@@ -313,14 +329,27 @@ const createAvatar = (username: string, league: number): HTMLElement => {
 const createBadge = (text: string, modifier = ""): HTMLElement =>
     el("span", `ranked-arena__badge${modifier ? ` ranked-arena__badge--${modifier}` : ""}`, text);
 
-const streakText = (copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy], player: RankedPlayer): string => {
-    if (player.winStreak > 0) {
-        return replaceTemplate(copy.winStreak, { n: player.winStreak });
+const createLiveGameForm = (
+    results: LiveGameResult[],
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+): HTMLElement => {
+    const labels: Record<LiveGameFormSlot, string> = {
+        win: copy.resultWin,
+        loss: copy.resultLoss,
+        draw: copy.resultDraw,
+        empty: copy.resultUnavailable,
+    };
+    const slots = liveGameFormSlots(results);
+    const form = el("span", "ranked-arena__game-form");
+    form.setAttribute("role", "img");
+    form.setAttribute("aria-label", `${copy.recentForm}: ${slots.map((slot) => labels[slot]).join(", ")}`);
+    for (const slot of slots) {
+        const dot = el("i", `ranked-arena__game-form-dot ranked-arena__game-form-dot--${slot}`);
+        dot.title = labels[slot];
+        dot.setAttribute("aria-hidden", "true");
+        append(form, dot);
     }
-    if (player.lossStreak > 0) {
-        return replaceTemplate(copy.lossStreak, { n: player.lossStreak });
-    }
-    return copy.noStreak;
+    return form;
 };
 
 const playerProfileHref = (
@@ -441,11 +470,10 @@ const renderPlayerDetail = (
     };
     append(
         stats,
-        stat(copy.gold, currencyAmount(player.gold)),
         stat(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         stat(copy.record, `${player.wins}–${player.losses}–${player.draws}`),
         stat(copy.winRate, `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
-        stat(copy.currentStreak, streakText(copy, player)),
+        stat(copy.recentForm, createLiveGameForm(player.recentResults, copy)),
         stat(
             copy.lastBattle,
             player.lastRankedGameAt
@@ -636,16 +664,20 @@ const renderPredictionPanel = (
 
     // ---- pools + proportion bar ----
     const header = el("div", "ranked-arena__market-header");
+    const totalPool = el("span", "ranked-arena__market-total");
     append(
-        header,
-        el("span", "ranked-arena__market-title", copy.marketTitle),
-        el(
-            "span",
-            "ranked-arena__market-total",
-            `${numberFormatter.format(game.predictionPool)} 🪙 · ${replaceTemplate(copy.marketBets, {
+        totalPool,
+        currencyAmount(game.predictionPool, "ranked-arena__market-currency"),
+        document.createTextNode(
+            ` · ${replaceTemplate(copy.marketBets, {
                 n: game.predictionBets,
             })}`,
         ),
+    );
+    append(
+        header,
+        el("span", "ranked-arena__market-title", copy.marketTitle),
+        totalPool,
     );
 
     const lowerShare = impliedShare(lower.predictionPool, upper.predictionPool);
@@ -659,15 +691,13 @@ const renderPredictionPanel = (
     const legend = el("div", "ranked-arena__market-legend");
     const legendSide = (player: LiveGame["players"][number], share: number, side: "lower" | "upper"): HTMLElement => {
         const item = el("span", `ranked-arena__market-legend-item ranked-arena__market-legend-item--${side}`);
+        const amount = el("span");
         append(
-            item,
-            el("strong", "", player.username),
-            el(
-                "span",
-                "",
-                `${numberFormatter.format(player.predictionPool)} 🪙 · ${Math.round(share * 100)}%`,
-            ),
+            amount,
+            currencyAmount(player.predictionPool, "ranked-arena__market-currency"),
+            document.createTextNode(` · ${Math.round(share * 100)}%`),
         );
+        append(item, el("strong", "", player.username), amount);
         return item;
     };
     append(legend, legendSide(lower, lowerShare, "lower"), legendSide(upper, 1 - lowerShare, "upper"));
@@ -679,40 +709,54 @@ const renderPredictionPanel = (
         const side = game.players.find((player) => player.playerId === mine.predictedPlayerId);
         const other = game.players.find((player) => player.playerId !== mine.predictedPlayerId);
         const placed = el("div", "ranked-arena__market-mine");
+        const placedAmount = el("span");
+        appendRichTemplate(placedAmount, copy.marketYourBet, {
+            amount: currencyAmount(mine.amount, "ranked-arena__market-currency"),
+            side: side?.username ?? "—",
+        });
+        const returnAmount = el("strong");
+        appendRichTemplate(returnAmount, copy.marketToReturn, {
+            amount: currencyAmount(
+                proposedReturn(
+                    mine.amount,
+                    Math.max(0, (side?.predictionPool ?? 0) - mine.amount),
+                    other?.predictionPool ?? 0,
+                ),
+                "ranked-arena__market-currency",
+            ),
+        });
         append(
             placed,
-            el("span", "", replaceTemplate(copy.marketYourBet, {
-                amount: numberFormatter.format(mine.amount),
-                side: side?.username ?? "—",
-            })),
-            el(
-                "strong",
-                "",
-                replaceTemplate(copy.marketToReturn, {
-                    amount: numberFormatter.format(
-                        // Their stake is already inside the side pool, so price the share it holds.
-                        proposedReturn(mine.amount, Math.max(0, (side?.predictionPool ?? 0) - mine.amount), other?.predictionPool ?? 0),
-                    ),
-                }),
-            ),
+            placedAmount,
+            returnAmount,
         );
         append(panel, placed);
         return panel;
     }
 
-    if (!isLoggedIn()) {
-        const signIn = el("a", "ranked-arena__market-signin", copy.marketSignIn);
-        signIn.href = "/auth/login/";
-        append(panel, signIn);
-        return panel;
-    }
-
     const isOpen = state.predictOpenGameId === game.gameId;
     if (!isOpen) {
-        const predict = el("button", "ranked-arena__market-predict", copy.marketPredict);
-        predict.type = "button";
-        predict.dataset.predictOpen = game.gameId;
-        append(panel, predict);
+        // A bet button per SIDE, shown to everyone. Signed out, the click routes to login (carrying a
+        // return path) rather than hiding the market behind a sign-in link — the whole point of the panel
+        // is to show what you could back, so the ask comes at the moment of intent, not before it.
+        const sides = el("div", "ranked-arena__market-sides");
+        for (const player of game.players) {
+            const bet = el("button", "ranked-arena__market-side ranked-arena__market-side--cta");
+            bet.type = "button";
+            append(
+                bet,
+                el("span", "ranked-arena__market-side-verb", copy.marketBetOn),
+                el("strong", "", player.username),
+            );
+            bet.dataset.predictOpen = game.gameId;
+            bet.dataset.predictPreselect = player.playerId;
+            bet.setAttribute("aria-label", `${copy.marketBetOn} ${player.username}`);
+            append(sides, bet);
+        }
+        append(panel, sides);
+        if (!isLoggedIn()) {
+            append(panel, el("p", "ranked-arena__market-rules", copy.marketSignInHint));
+        }
         return panel;
     }
 
@@ -747,11 +791,11 @@ const renderPredictionPanel = (
     const preview = el("p", "ranked-arena__market-preview");
     if (chosen && state.predictAmount > 0) {
         const total = proposedReturn(state.predictAmount, chosen.predictionPool, against?.predictionPool ?? 0);
-        preview.textContent = replaceTemplate(copy.marketPreview, {
-            stake: numberFormatter.format(state.predictAmount),
+        appendRichTemplate(preview, copy.marketPreview, {
+            stake: currencyAmount(state.predictAmount, "ranked-arena__market-currency"),
             side: chosen.username,
-            total: numberFormatter.format(total),
-            profit: numberFormatter.format(total - state.predictAmount),
+            total: currencyAmount(total, "ranked-arena__market-currency"),
+            profit: currencyAmount(total - state.predictAmount, "ranked-arena__market-currency"),
         });
     } else {
         preview.textContent = copy.marketPreviewHint;
@@ -817,9 +861,11 @@ const renderGameSeat = (
     dossier.id = dossierId;
     dossier.setAttribute("role", "tooltip");
     seat.setAttribute("aria-describedby", dossierId);
-    const metric = (label: string, value: string): HTMLElement => {
+    const metric = (label: string, value: string | Node): HTMLElement => {
         const node = el("span");
-        return append(node, el("small", "", label), el("strong", "", value));
+        const strong = el("strong");
+        append(strong, typeof value === "string" ? document.createTextNode(value) : value);
+        return append(node, el("small", "", label), strong);
     };
     append(
         dossier,
@@ -829,7 +875,7 @@ const renderGameSeat = (
             labelFromTemplate(copy.leagueTemplate, "n"),
             ranked?.league ? localizedLeague(copy, ranked.league) : "—",
         ),
-        metric(copy.rankedStatus, stateLabel),
+        metric(copy.recentForm, createLiveGameForm(ranked?.recentResults ?? [], copy)),
     );
     append(seat, dossier);
     return seat;
@@ -1416,8 +1462,16 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         }
         const predictOpen = target.closest<HTMLButtonElement>("[data-predict-open]");
         if (predictOpen?.dataset.predictOpen) {
+            // Signed out: this click IS the intent to bet, so send them to login and come straight back
+            // to the arena afterwards instead of opening a form they cannot submit.
+            if (!isLoggedIn()) {
+                const back = `${window.location.pathname}${window.location.search}#arena`;
+                window.location.href = `/auth/login/?redirect=${encodeURIComponent(back)}`;
+                return;
+            }
             state.predictOpenGameId = predictOpen.dataset.predictOpen;
-            state.predictSide = "";
+            // Clicking a specific side arms that side; the generic entry leaves the choice open.
+            state.predictSide = predictOpen.dataset.predictPreselect ?? "";
             state.predictAmount = 0;
             state.predictError = "";
             render();

@@ -226,6 +226,9 @@ export const endpoints = {
         playerSearch: IS_PROD ? "/v1/player-search" : "/v1/mm/player-search",
         rankedBan: IS_PROD ? "/v1/ranked-ban" : "/v1/mm/ranked-ban",
         rankedStanding: IS_PROD ? "/v1/ranked-standing" : "/v1/mm/ranked-standing",
+        predictionMarkets: IS_PROD ? "/v1/prediction-markets" : "/v1/mm/prediction-markets",
+        predictionBet: IS_PROD ? "/v1/prediction-bet" : "/v1/mm/prediction-bet",
+        predictionBets: IS_PROD ? "/v1/prediction-bets" : "/v1/mm/prediction-bets",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",

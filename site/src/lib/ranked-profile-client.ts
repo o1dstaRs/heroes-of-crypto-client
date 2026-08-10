@@ -112,6 +112,31 @@ export interface SeasonHistoryEntry {
     archivedAt: number;
 }
 
+export type PredictionStatus = "open" | "won" | "lost" | "burned" | "refunded";
+
+export interface PredictionRecord {
+    gameId: string;
+    predictedPlayerId: string;
+    backedUsername: string;
+    amount: number;
+    placedAt: number;
+    status: PredictionStatus;
+    payout: number;
+    settledAt: number;
+}
+
+/** How this player bets on OTHER people's games, and how it has gone. */
+export interface PredictionHistory {
+    bets: number;
+    staked: number;
+    returned: number;
+    settled: number;
+    won: number;
+    net: number;
+    winRatePct: number;
+    recent: PredictionRecord[];
+}
+
 export interface ProfileSeason {
     sequence: number;
     name: string;
@@ -149,6 +174,7 @@ export interface PublicRankedProfile {
     lastOnlineAt: number;
     // The player's pre-game ban preference: the ONE unit they never want offered in their drafts.
     rankedBan: { creatureId: number; name: string } | null;
+    predictions: PredictionHistory;
     // The season the live numbers belong to (null = season-less/preseason ladder) and the final
     // standings of every season this player already finished, newest first.
     season: ProfileSeason | null;
@@ -345,7 +371,6 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         username: asString(row.username, "Unknown player"),
         state: normalizeState(row.state),
         mmr: nonNegativeInteger(row.mmr),
-        gold: nonNegativeInteger(row.gold),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
         leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
@@ -374,6 +399,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         online: row.online === true,
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
         rankedBan: normalizeRankedBan(row.rankedBan),
+        predictions: normalizePredictions(row.predictions),
         season: normalizeProfileSeason(row.season),
         seasonHistory: (Array.isArray(row.seasonHistory) ? row.seasonHistory : [])
             .map(normalizeSeasonHistoryEntry)
@@ -381,6 +407,44 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
             .sort((a, b) => b.seasonSequence - a.seasonSequence),
         recentGames,
         playstyle,
+    };
+}
+
+const PREDICTION_STATUSES = new Set<PredictionStatus>(["open", "won", "lost", "burned", "refunded"]);
+
+function normalizePredictions(value: unknown): PredictionHistory {
+    const row = asRecord(value);
+    const recent = (Array.isArray(row.recent) ? row.recent : [])
+        .map((entry): PredictionRecord | null => {
+            const bet = asRecord(entry);
+            const gameId = asString(bet.gameId);
+            if (!gameId) {
+                return null;
+            }
+            const status = asString(bet.status) as PredictionStatus;
+            return {
+                gameId,
+                predictedPlayerId: asString(bet.predictedPlayerId),
+                backedUsername: asString(bet.backedUsername),
+                amount: nonNegativeInteger(bet.amount),
+                placedAt: nonNegativeInteger(bet.placedAt),
+                status: PREDICTION_STATUSES.has(status) ? status : "open",
+                payout: nonNegativeInteger(bet.payout),
+                settledAt: nonNegativeInteger(bet.settledAt),
+            };
+        })
+        .filter((bet): bet is PredictionRecord => bet !== null);
+
+    return {
+        bets: nonNegativeInteger(row.bets),
+        staked: nonNegativeInteger(row.staked),
+        returned: nonNegativeInteger(row.returned),
+        settled: nonNegativeInteger(row.settled),
+        won: nonNegativeInteger(row.won),
+        // Net is the only signed figure here — a losing bettor is below zero.
+        net: asInteger(row.net),
+        winRatePct: asNumber(row.winRatePct),
+        recent,
     };
 }
 
@@ -424,6 +488,7 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         seasonName,
         state: normalizeState(row.state),
         mmr: nonNegativeInteger(row.mmr),
+        gold: nonNegativeInteger(row.gold),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
         leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),

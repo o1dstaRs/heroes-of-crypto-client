@@ -7,6 +7,7 @@ export interface RankedArenaCopy {
     partial: string;
     unavailable: string;
     updated: string;
+    seasonEndsIn: string;
     refresh: string;
     refreshing: string;
     playersTab: string;
@@ -32,6 +33,8 @@ export interface RankedArenaCopy {
     marketTitle: string;
     marketBets: string;
     marketPredict: string;
+    marketBetOn: string;
+    marketSignInHint: string;
     marketPlace: string;
     marketPlacing: string;
     marketCancel: string;
@@ -103,6 +106,11 @@ export interface RankedArenaCopy {
     gamesPlayed: string;
     ladderRank: string;
     rankedStatus: string;
+    recentForm: string;
+    resultWin: string;
+    resultLoss: string;
+    resultDraw: string;
+    resultUnavailable: string;
     showMoreGames: string;
 }
 
@@ -142,15 +150,17 @@ export const rankedArenaCopy = {
         marketTitle: "Prediction market",
         marketBets: "{n} bets",
         marketPredict: "Predict",
+        marketBetOn: "Bet on",
+        marketSignInHint: "Pick a side to sign in and stake your gold.",
         marketPlace: "Place bet",
         marketPlacing: "Placing…",
         marketCancel: "Cancel",
         marketAmountPlaceholder: "Gold to stake",
-        marketPreview: "{stake} 🪙 on {side} returns {total} 🪙 (+{profit} profit) at the current pools.",
+        marketPreview: "{stake} on {side} returns {total} (+{profit} profit) at the current pools.",
         marketPreviewHint: "Pick a side and a stake to see the payout.",
         marketRules: "One bet per game, final once placed. No commission — winners split the losing pool. A draw burns every stake.",
-        marketYourBet: "Your bet: {amount} 🪙 on {side}",
-        marketToReturn: "Returns {amount} 🪙",
+        marketYourBet: "Your bet: {amount} on {side}",
+        marketToReturn: "Returns {amount}",
         marketSignIn: "Sign in to predict",
         sortWinRate: "Win rate",
         sortWins: "Wins",
@@ -187,7 +197,7 @@ export const rankedArenaCopy = {
         watchLive: "Watch live",
         notWatchable: "Spectating unavailable",
         started: "Started {time}",
-        versus: "versus",
+        versus: "vs",
         aiLabel: "AI {version}",
         leaguePlayers: "{n} players",
         ratingBand: "{min}–{max} MMR",
@@ -214,6 +224,11 @@ export const rankedArenaCopy = {
         gamesPlayed: "Ranked games",
         ladderRank: "Ladder rank",
         rankedStatus: "Ranked status",
+        recentForm: "Last 5 games",
+        resultWin: "Win",
+        resultLoss: "Loss",
+        resultDraw: "Draw",
+        resultUnavailable: "No game",
         showMoreGames: "Show {n} more · {remaining} remaining",
     },
     ru: {
@@ -251,15 +266,17 @@ export const rankedArenaCopy = {
         marketTitle: "Рынок прогнозов",
         marketBets: "ставок: {n}",
         marketPredict: "Прогноз",
+        marketBetOn: "Ставка на",
+        marketSignInHint: "Выберите сторону, чтобы войти и поставить золото.",
         marketPlace: "Сделать ставку",
         marketPlacing: "Ставим…",
         marketCancel: "Отмена",
         marketAmountPlaceholder: "Сколько золота",
-        marketPreview: "{stake} 🪙 на {side} вернёт {total} 🪙 (+{profit} прибыли) при текущих пулах.",
+        marketPreview: "Ставка {stake} на {side} вернёт {total} (+{profit} прибыли) при текущих пулах.",
         marketPreviewHint: "Выберите сторону и размер ставки, чтобы увидеть выплату.",
         marketRules: "Одна ставка на игру, изменить нельзя. Без комиссии — победители делят проигравший пул. При ничьей всё золото сгорает.",
-        marketYourBet: "Ваша ставка: {amount} 🪙 на {side}",
-        marketToReturn: "Вернёт {amount} 🪙",
+        marketYourBet: "Ваша ставка: {amount} на {side}",
+        marketToReturn: "Вернёт {amount}",
         marketSignIn: "Войдите, чтобы делать прогнозы",
         sortWinRate: "Процент побед",
         sortWins: "Победы",
@@ -323,6 +340,11 @@ export const rankedArenaCopy = {
         gamesPlayed: "Рейтинговые игры",
         ladderRank: "Место в рейтинге",
         rankedStatus: "Статус в рейтинге",
+        recentForm: "Последние 5 игр",
+        resultWin: "Победа",
+        resultLoss: "Поражение",
+        resultDraw: "Ничья",
+        resultUnavailable: "Нет игры",
         showMoreGames: "Показать ещё {n} · осталось {remaining}",
     },
 } satisfies Record<"en" | "ru", RankedArenaCopy>;

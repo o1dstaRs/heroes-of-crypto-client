@@ -178,6 +178,66 @@ export interface RankedStanding {
 /** The signed-in player's own ranked standing (calibration progress, or league once placed). */
 export const fetchRankedStanding = (): Promise<RankedStanding> => get(endpoints.social.rankedStanding);
 
+export interface PredictionSeat {
+    playerId: string;
+    username: string;
+    pool: number;
+    bets: number;
+}
+
+export interface PredictionMarket {
+    gameId: string;
+    pickEndTime: number;
+    totalPool: number;
+    totalBets: number;
+    seats: PredictionSeat[];
+}
+
+export interface PredictionBet {
+    gameId: string;
+    playerId: string;
+    predictedPlayerId: string;
+    amount: number;
+    placedAt: number;
+    status: "open" | "won" | "lost" | "burned" | "refunded";
+    payout: number;
+    settledAt: number;
+}
+
+/** Games still drafting, with both sides' stake pools. Public — no token needed. */
+export const fetchPredictionMarkets = async (): Promise<PredictionMarket[]> => {
+    const result = await get<{ markets?: PredictionMarket[] }>(endpoints.social.predictionMarkets);
+    return result.markets ?? [];
+};
+
+/** Every bet this player has placed, newest first (all statuses). */
+export const fetchMyPredictionBets = async (): Promise<PredictionBet[]> => {
+    const result = await get<{ bets?: PredictionBet[] }>(endpoints.social.predictionBets);
+    return result.bets ?? [];
+};
+
+/** Stake gold on one side of a drafting game. One immutable bet per game. */
+export const placePredictionBet = async (
+    gameId: string,
+    predictedPlayerId: string,
+    amount: number,
+): Promise<PredictionBet> => {
+    const result = await post<{ bet: PredictionBet }>(endpoints.social.predictionBet, {
+        gameId,
+        predictedPlayerId,
+        amount,
+    });
+    return result.bet;
+};
+
+/**
+ * Total gold returned for staking `amount` on a side holding `sidePool` against `otherPool` — the
+ * stake back plus its pro-rata share of the other side, floored. Mirrors the server's settle math
+ * exactly, so the previewed number is the number paid if the market closes as it stands.
+ */
+export const predictionReturn = (amount: number, sidePool: number, otherPool: number): number =>
+    amount <= 0 ? 0 : amount + Math.floor((amount * Math.max(0, otherPool)) / (Math.max(0, sidePool) + amount));
+
 export const searchPlayers = async (query: string): Promise<PlayerSearchHit[]> => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {

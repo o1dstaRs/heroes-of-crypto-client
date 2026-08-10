@@ -76,6 +76,12 @@ const rankedApp = links.rankedApp;
                     <div class="season-history" data-profile-seasons></div>
                 </section>
 
+                <section class="profile-section" data-profile-predictions-section hidden>
+                    <h2>{copy.publicPredictionsTitle}</h2>
+                    <dl class="prediction-summary" data-profile-prediction-summary></dl>
+                    <div class="prediction-history" data-profile-predictions></div>
+                </section>
+
                 <section class="profile-section" data-profile-self>
                     <h2>{copy.sectionCreatures}</h2>
                     <div class="bar-list" data-profile-creatures></div>
@@ -1046,6 +1052,62 @@ const rankedApp = links.rankedApp;
                 </dl>`;
         }
 
+        // Prediction record: how this player bets on OTHER people's games. Public for every profile —
+        // a market is only readable if you can see who backs what and how it turns out. Hidden until
+        // they have actually placed one.
+        const predictionsSection = document.querySelector<HTMLElement>("[data-profile-predictions-section]");
+        const predictionsEl = $("predictions");
+        const predictionSummaryEl = document.querySelector<HTMLElement>("[data-profile-prediction-summary]");
+        if (predictionsSection && predictionsEl) {
+            const predictions = summaryOnly
+                ? { bets: 0, staked: 0, returned: 0, settled: 0, won: 0, net: 0, winRatePct: 0, recent: [] }
+                : profile.predictions;
+            predictionsSection.hidden = predictions.bets === 0;
+
+            if (predictionSummaryEl) {
+                const netClass = predictions.net > 0 ? "positive" : predictions.net < 0 ? "negative" : "";
+                const netSign = predictions.net > 0 ? "+" : "";
+                predictionSummaryEl.innerHTML = `
+                    <div><dt>${escapeHtml(copy.predictionsPlaced)}</dt><dd>${numberFormatter.format(predictions.bets)}</dd></div>
+                    <div><dt>${escapeHtml(copy.predictionsStaked)}</dt><dd>${currencyMarkup(predictions.staked)}</dd></div>
+                    <div><dt>${escapeHtml(copy.predictionsHitRate)}</dt><dd>${
+                        predictions.settled > 0
+                            ? `${predictions.winRatePct.toFixed(1).replace(/\.0$/, "")}% (${predictions.won}/${predictions.settled})`
+                            : "—"
+                    }</dd></div>
+                    <div><dt>${escapeHtml(copy.predictionsNet)}</dt><dd class="${netClass}">${netSign}${numberFormatter.format(predictions.net)}</dd></div>`;
+            }
+
+            predictionsEl.innerHTML = predictions.recent
+                .map((bet) => {
+                    const label = {
+                        open: copy.predictionOpen,
+                        won: copy.predictionWon,
+                        lost: copy.predictionLost,
+                        burned: copy.predictionBurned,
+                        refunded: copy.predictionRefunded,
+                    }[bet.status];
+                    // Only a settled bet has a result worth colouring; an open one is still in play.
+                    const tone = bet.status === "won" ? "positive" : bet.status === "open" ? "" : "negative";
+                    // Won bets return stake + winnings, so the meaningful number is the profit.
+                    const profit = bet.payout - bet.amount;
+                    const outcome =
+                        bet.status === "open"
+                            ? "—"
+                            : `${profit > 0 ? "+" : ""}${numberFormatter.format(profit)}`;
+                    const when = bet.placedAt ? timeAgo(bet.placedAt, agoLabels) : "";
+                    return `
+                        <div class="prediction-row">
+                            <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                            <span class="prediction-side">${escapeHtml(bet.backedUsername || copy.predictionUnknownSide)}</span>
+                            <span class="prediction-stake">${currencyMarkup(bet.amount)}</span>
+                            <span class="prediction-outcome ${tone}">${escapeHtml(outcome)}</span>
+                            <span class="prediction-when">${escapeHtml(when)}</span>
+                        </div>`;
+                })
+                .join("");
+        }
+
         // Previous seasons: the archived final standings (MMR resets each season; this is where the
         // old numbers live on). Hidden until the player has at least one finished season behind them.
         const seasonsSection = document.querySelector<HTMLElement>("[data-profile-seasons-section]");
@@ -1453,10 +1515,96 @@ const rankedApp = links.rankedApp;
     }
 
     /* Previous seasons: one compact archived-standing row per finished season. */
-    .season-history {
+    /* Same four-card readout the ranked standing uses, so the two sections read as siblings. */
+    .prediction-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 9px;
+        margin: 0 0 12px;
+    }
+
+    .prediction-summary :global(> div) {
+        display: grid;
+        align-content: center;
+        min-height: 68px;
+        padding: 11px 14px;
+        border: 1px solid rgba(239, 228, 204, 0.08);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.28);
+    }
+
+    .prediction-summary :global(dt) {
+        color: rgba(251, 244, 232, 0.48);
+        font-size: 0.68rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .prediction-summary :global(dd) {
+        margin: 4px 0 0;
+        color: rgba(251, 244, 232, 0.92);
+        font-size: 0.94rem;
+        letter-spacing: 0.035em;
+    }
+
+    @media (max-width: 720px) {
+        .prediction-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    .season-history,
+    .prediction-history {
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+
+    /* Same row language as the season history, one column narrower. */
+    .prediction-history :global(.prediction-row) {
+        display: grid;
+        grid-template-columns: 0.7fr minmax(120px, 1.4fr) 0.8fr 0.8fr 0.8fr;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 14px;
+        border: 1px solid rgba(220, 177, 88, 0.22);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.24);
+        font-size: 0.86rem;
+    }
+
+    .prediction-history :global(.prediction-side) {
+        color: var(--gold, #dcb158);
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-stake) {
+        color: #f2c75d;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-status),
+    .prediction-history :global(.prediction-outcome) {
+        color: rgba(251, 244, 232, 0.66);
+    }
+
+    .prediction-history :global(.prediction-when) {
+        color: rgba(251, 244, 232, 0.45);
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.positive),
+    .prediction-summary :global(.positive) {
+        color: #7ad17a;
+    }
+
+    .prediction-history :global(.negative),
+    .prediction-summary :global(.negative) {
+        color: #ff8a70;
     }
 
     .season-row {

@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
+import { PredictionsPanel } from "./PredictionsPanel";
 import { useSocial } from "./SocialProvider";
 import {
     blockPlayer,
@@ -615,6 +616,7 @@ export const SocialDock: React.FC = () => {
     const [trayOpen, setTrayOpen] = useState(false);
     const [friendsOpen, setFriendsOpen] = useState(false);
     const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(null);
+    const [predictionsOpen, setPredictionsOpen] = useState(false);
 
     const active = authenticated && user?.is_active !== false;
     const inGame = location.pathname.startsWith("/game/");
@@ -647,6 +649,15 @@ export const SocialDock: React.FC = () => {
                     "&:hover": { opacity: 1 },
                 }}
             >
+                <IconButton
+                    aria-label="Predictions"
+                    sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
+                    onClick={() => setPredictionsOpen(true)}
+                >
+                    <span role="img" aria-hidden>
+                        🎯
+                    </span>
+                </IconButton>
                 <IconButton
                     aria-label="Friends"
                     sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
@@ -698,6 +709,7 @@ export const SocialDock: React.FC = () => {
                 </Box>
             </Stack>
 
+            <PredictionsPanel open={predictionsOpen} onClose={() => setPredictionsOpen(false)} />
             <NotificationsTray open={trayOpen} onClose={() => setTrayOpen(false)} onMessage={openConversation} />
             <FriendsPanel open={friendsOpen} onClose={() => setFriendsOpen(false)} onMessage={openConversation} />
             <ConversationPanel
