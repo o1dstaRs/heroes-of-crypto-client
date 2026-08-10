@@ -1,4 +1,4 @@
-import { Box, LinearProgress, Stack, Tooltip, Typography } from "@mui/joy";
+import { Box, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
 import { t } from "../../i18n/i18n";
@@ -10,7 +10,7 @@ import type { RankedStanding } from "../../api/social_client";
  * matchmaking lobby sidebar and the full portal page).
  *
  * While calibrating it shows the only number that matters — games played out of the required set —
- * as pips plus a bar, with the running W/D/L underneath and a plain sentence about what placement
+ * as a row of pips, with the running W/D/L underneath and a plain sentence about what placement
  * will do. The provisional MMR is deliberately absent: it is hidden server-side too, and showing a
  * rating that is still swinging on a high K-factor invites people to read it as their real one.
  * Once placed, the same block becomes the league + MMR readout.
@@ -34,7 +34,6 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
     const placed = state === "placed";
     const required = Math.max(1, calibration.required);
     const played = Math.min(calibration.gamesPlayed, required);
-    const pct = Math.round((played / required) * 100);
 
     if (placed) {
         return (
@@ -76,9 +75,14 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                 </Typography>
             </Stack>
 
-            {/* Pips read at a glance ("two more to go"); the bar carries the same value for anyone
-                scanning rather than counting. */}
-            <Stack direction="row" spacing={0.5} aria-hidden="true">
+            {/* Pips read at a glance ("two more to go"). They ARE the progress bar — a second
+                LinearProgress underneath said the same thing twice and refused the theme tokens. */}
+            <Stack
+                direction="row"
+                spacing={0.5}
+                role="img"
+                aria-label={`${t("Placement matches")}: ${played} / ${required}`}
+            >
                 {Array.from({ length: required }, (_, index) => (
                     <Box
                         key={index}
@@ -93,18 +97,6 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                     />
                 ))}
             </Stack>
-            <LinearProgress
-                determinate
-                value={pct}
-                aria-label={`${t("Placement matches")}: ${played} / ${required}`}
-                sx={{
-                    "--LinearProgress-radius": "999px",
-                    "--LinearProgress-thickness": "2px",
-                    "--LinearProgress-progressColor": hocColors.gold,
-                    "--LinearProgress-trackColor": "rgba(255,143,0,0.12)",
-                }}
-            />
-
             <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
                 <Tooltip title={t("Wins · draws · losses in placement")} size="sm" variant="soft">
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
