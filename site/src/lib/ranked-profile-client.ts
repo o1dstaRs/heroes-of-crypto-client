@@ -548,6 +548,10 @@ export function publicRankedProfileFallbackFromSearchParams(params: URLSearchPar
         winStreak: searchNumber(params, "winStreak"),
         lossStreak: searchNumber(params, "lossStreak"),
         lastRankedGameAt: searchNumber(params, "lastBattle"),
+        rankedBan: {
+            creatureId: searchNumber(params, "bannedCreatureId"),
+            name: params.get("bannedCreatureName") ?? "",
+        },
         recentGames: [],
         playstyle: null,
     });

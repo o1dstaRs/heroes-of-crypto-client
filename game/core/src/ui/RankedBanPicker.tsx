@@ -120,7 +120,7 @@ export const RankedBanPicker: React.FC = () => {
                     </Sheet>
                 ) : (
                     <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
-                        none
+                        Not picked
                     </Typography>
                 )}
                 <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>

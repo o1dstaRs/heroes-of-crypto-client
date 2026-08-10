@@ -31,6 +31,7 @@ export interface RankedArenaCopy {
     bansLabel: string;
     bansNone: string;
     marketTitle: string;
+    marketTotal: string;
     marketBets: string;
     marketPredict: string;
     marketBetOn: string;
@@ -146,8 +147,9 @@ export const rankedArenaCopy = {
         sortGold: "Gold",
         gold: "Gold",
         bansLabel: "Bans",
-        bansNone: "—",
+        bansNone: "Not picked",
         marketTitle: "Prediction market",
+        marketTotal: "Total",
         marketBets: "{n} bets",
         marketPredict: "Predict",
         marketBetOn: "Bet on",
@@ -262,8 +264,9 @@ export const rankedArenaCopy = {
         sortGold: "Золото",
         gold: "Золото",
         bansLabel: "Бан",
-        bansNone: "—",
+        bansNone: "Не выбрано",
         marketTitle: "Рынок прогнозов",
+        marketTotal: "Всего",
         marketBets: "ставок: {n}",
         marketPredict: "Прогноз",
         marketBetOn: "Ставка на",

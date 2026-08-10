@@ -63,6 +63,8 @@ const profileHref = (profileRoot: string, player: RankedPlayer): string => {
         winStreak: String(player.winStreak),
         lossStreak: String(player.lossStreak),
         lastBattle: String(player.lastRankedGameAt),
+        bannedCreatureId: String(player.bannedCreatureId),
+        bannedCreatureName: player.bannedCreatureName,
     });
     return `${profileRoot}?${params.toString()}`;
 };
@@ -163,6 +165,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
             metric(copy.rating, numberFormatter.format(player.mmr)),
             metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
             metric(copy.gold, currencyAmount(player.gold, numberFormatter)),
+            metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         );
         append(row, rankNode, avatar, identity, rating, dossier);
         return append(item, row);

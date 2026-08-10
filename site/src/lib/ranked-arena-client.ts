@@ -380,6 +380,8 @@ const rankedPlayerProfileHref = (lang: "en" | "ru", player: RankedPlayer): strin
         winStreak: player.winStreak,
         lossStreak: player.lossStreak,
         lastBattle: player.lastRankedGameAt,
+        bannedCreatureId: player.bannedCreatureId,
+        bannedCreatureName: player.bannedCreatureName,
     });
 
 const calibratingPlayerProfileHref = (lang: "en" | "ru", player: CalibratingPlayer): string =>
@@ -667,6 +669,7 @@ const renderPredictionPanel = (
     const totalPool = el("span", "ranked-arena__market-total");
     append(
         totalPool,
+        document.createTextNode(`${copy.marketTotal}:`),
         currencyAmount(game.predictionPool, "ranked-arena__market-currency"),
         document.createTextNode(
             ` · ${replaceTemplate(copy.marketBets, {
@@ -691,7 +694,7 @@ const renderPredictionPanel = (
     const legend = el("div", "ranked-arena__market-legend");
     const legendSide = (player: LiveGame["players"][number], share: number, side: "lower" | "upper"): HTMLElement => {
         const item = el("span", `ranked-arena__market-legend-item ranked-arena__market-legend-item--${side}`);
-        const amount = el("span");
+        const amount = el("span", "ranked-arena__market-legend-value");
         append(
             amount,
             currencyAmount(player.predictionPool, "ranked-arena__market-currency"),

@@ -878,8 +878,22 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__market-total {
+        display: inline-flex;
+        gap: 0.25em;
+        align-items: center;
+        justify-content: flex-end;
         font-size: 0.72rem;
         color: var(--parchment-dim, rgba(228, 208, 175, 0.72));
+    }
+
+    .ranked-arena .ranked-arena__market-currency {
+        gap: 0.2em;
+        vertical-align: middle;
+    }
+
+    .ranked-arena .ranked-arena__market-currency .currency-icon {
+        width: 1.1em;
+        height: 1.1em;
     }
 
     .ranked-arena .ranked-arena__market-bar {
@@ -922,6 +936,12 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .ranked-arena .ranked-arena__market-legend-value {
+        display: inline-flex;
+        gap: 0.25em;
+        align-items: center;
     }
 
     .ranked-arena .ranked-arena__market-legend-item--upper {
@@ -1514,6 +1534,10 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         background: rgba(0, 0, 0, 0.12);
     }
 
+    .ranked-arena .ranked-arena__detail-stats > div:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
+
     .ranked-arena .ranked-arena__detail-stats dt,
     .ranked-arena .ranked-arena__detail-stats dd {
         overflow: hidden;
@@ -1850,6 +1874,41 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__game-dossier strong {
         color: var(--gold-soft);
         font-size: 0.72rem;
+    }
+
+    .ranked-arena .ranked-arena__game-form {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        min-height: 12px;
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot {
+        display: block;
+        width: 9px;
+        height: 9px;
+        flex: 0 0 9px;
+        border: 1px solid rgba(239, 228, 204, 0.22);
+        border-radius: 50%;
+        background: rgba(239, 228, 204, 0.08);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot--win {
+        border-color: rgba(70, 209, 96, 0.78);
+        background: #46d160;
+        box-shadow: 0 0 5px rgba(70, 209, 96, 0.24);
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot--loss {
+        border-color: rgba(255, 90, 90, 0.78);
+        background: #ff5a5a;
+        box-shadow: 0 0 5px rgba(255, 90, 90, 0.2);
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot--draw {
+        border-color: rgba(174, 181, 190, 0.72);
+        background: #8f99a4;
     }
 
     .ranked-arena .ranked-arena__watch {

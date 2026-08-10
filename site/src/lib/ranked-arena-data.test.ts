@@ -4,6 +4,7 @@ import {
     filterLeagues,
     filterLiveGames,
     filterRankedPlayers,
+    liveGameFormSlots,
     livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
@@ -33,6 +34,7 @@ const player = (overrides: Partial<RankedPlayer> = {}): RankedPlayer => ({
     winRatePct: 70.6,
     winStreak: 3,
     lossStreak: 0,
+    recentResults: [],
     peakMmr: 1842,
     lastRankedGameAt: 1_750_000_000_000,
     ...overrides,
@@ -43,7 +45,7 @@ describe("ranked arena response normalization", () => {
         const response = normalizeTopResponse({
             computedAt: 123,
             players: [
-                { ...player(), position: 2 },
+                { ...player(), position: 2, recentResults: ["win", "invalid", "draw", "loss", "win", "draw"] },
                 { username: "Missing id" },
                 null,
                 { ...player({ playerId: "22222222-2222-4222-8222-222222222222", username: "Nyx" }), mmr: NaN },
@@ -53,6 +55,7 @@ describe("ranked arena response normalization", () => {
         expect(response.computedAt).toBe(123);
         expect(response.players).toHaveLength(2);
         expect(response.players[0].position).toBe(2);
+        expect(response.players[0].recentResults).toEqual(["win", "draw", "loss", "win", "draw"]);
         expect(response.players[1].mmr).toBe(0);
     });
 
@@ -166,7 +169,13 @@ describe("ranked arena response normalization", () => {
                             username: "AI v0.2 #03",
                             isBot: true,
                             rankedBot: true,
-                            ranked: { state: "placed", mmr: 803, league: 1, leaderboardRank: 17 },
+                            ranked: {
+                                state: "placed",
+                                mmr: 803,
+                                league: 1,
+                                leaderboardRank: 17,
+                                recentResults: ["win", "invalid", "loss", "draw", "win", "loss", "draw"],
+                            },
                         },
                     ],
                 },
@@ -178,8 +187,26 @@ describe("ranked arena response normalization", () => {
             mmr: 803,
             league: 1,
             leaderboardRank: 17,
+            recentResults: ["win", "loss", "draw", "win", "loss"],
         });
         expect(livePlayerRankedState(response.games[0].players[0])).toBe("placed");
+    });
+
+    test("pads and orders the five-game form with the newest result on the right", () => {
+        expect(liveGameFormSlots(["win", "draw", "loss"])).toEqual([
+            "empty",
+            "empty",
+            "loss",
+            "draw",
+            "win",
+        ]);
+        expect(liveGameFormSlots(["win", "loss", "draw", "win", "loss", "draw"])).toEqual([
+            "loss",
+            "win",
+            "draw",
+            "loss",
+            "win",
+        ]);
     });
 });
 

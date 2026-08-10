@@ -126,12 +126,15 @@ describe("public ranked profile URLs", () => {
             peakMmr: "1902",
             winStreak: "4",
             lastBattle: "1750000000000",
+            bannedCreatureId: "42",
+            bannedCreatureName: "Dark Witch",
         });
 
         const fallback = publicRankedProfileFallbackFromSearchParams(params);
         expect(fallback?.username).toBe("Artemis");
         expect(fallback?.mmr).toBe(1840);
         expect(fallback?.state).toBe("placed");
+        expect(fallback?.rankedBan).toEqual({ creatureId: 42, name: "Dark Witch" });
         expect(fallback?.recentGames).toEqual([]);
         expect(publicRankedProfileFallbackFromSearchParams(new URLSearchParams({ playerId: PLAYER_ID }))).toBeNull();
     });

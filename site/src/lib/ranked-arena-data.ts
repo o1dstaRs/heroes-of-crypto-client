@@ -2,6 +2,8 @@ export type ArenaTab = "players" | "games" | "leagues";
 export type PlayerSort = "rank" | "player" | "rating" | "winRate" | "wins" | "streak" | "gold";
 export type PlayerSortDirection = "asc" | "desc";
 export type LiveGameStage = "pick" | "placement" | "fight";
+export type LiveGameResult = "win" | "loss" | "draw";
+export type LiveGameFormSlot = LiveGameResult | "empty";
 
 export interface RankedPlayer {
     position: number;
@@ -22,6 +24,7 @@ export interface RankedPlayer {
     winRatePct: number;
     winStreak: number;
     lossStreak: number;
+    recentResults: LiveGameResult[];
     peakMmr: number;
     lastRankedGameAt: number;
     // The player's stored pre-game ban preference (0/"" = none).
@@ -97,6 +100,8 @@ export interface LiveGamePlayer {
         mmr: number;
         league: number;
         leaderboardRank: number;
+        /** Newest-first ranked outcomes, capped at five by the public live-games API. */
+        recentResults: LiveGameResult[];
     } | null;
 }
 
@@ -140,6 +145,16 @@ const asInteger = (value: unknown, fallback = 0): number => Math.trunc(asNumber(
 
 const asBoolean = (value: unknown): boolean => value === true;
 
+const LIVE_GAME_RESULTS = new Set<LiveGameResult>(["win", "loss", "draw"]);
+
+const normalizeLiveGameResults = (value: unknown): LiveGameResult[] =>
+    asArray(value)
+        .filter(
+            (result): result is LiveGameResult =>
+                typeof result === "string" && LIVE_GAME_RESULTS.has(result as LiveGameResult),
+        )
+        .slice(0, 5);
+
 const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | null => {
     const row = asRecord(value);
     const playerId = asString(row.playerId);
@@ -166,6 +181,7 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         winRatePct: Math.max(0, Math.min(100, asNumber(row.winRatePct))),
         winStreak: Math.max(0, asInteger(row.winStreak)),
         lossStreak: Math.max(0, asInteger(row.lossStreak)),
+        recentResults: normalizeLiveGameResults(row.recentResults),
         peakMmr: Math.max(0, asInteger(row.peakMmr)),
         lastRankedGameAt: Math.max(0, asInteger(row.lastRankedGameAt)),
         bannedCreatureId: Math.max(0, asInteger(row.bannedCreatureId)),
@@ -298,6 +314,7 @@ const normalizeLivePlayer = (value: unknown): LiveGamePlayer | null => {
                   mmr: rankedMmr,
                   league: rankedLeague,
                   leaderboardRank: Math.max(0, asInteger(rawRanked.leaderboardRank)),
+                  recentResults: normalizeLiveGameResults(rawRanked.recentResults),
               }
             : null,
     };
@@ -355,6 +372,15 @@ export function livePlayerRankedState(player: LiveGamePlayer): LivePlayerRankedS
         return state;
     }
     return player.ranked && (player.ranked.mmr > 0 || player.ranked.league > 0) ? "placed" : "unranked";
+}
+
+export function liveGameFormSlots(results: LiveGameResult[], size = 5): LiveGameFormSlot[] {
+    const boundedSize = Math.max(1, Math.trunc(size));
+    const chronological = results.slice(0, boundedSize).reverse();
+    return [
+        ...Array<LiveGameFormSlot>(Math.max(0, boundedSize - chronological.length)).fill("empty"),
+        ...chronological,
+    ];
 }
 
 const searchable = (value: string): string =>
