@@ -150,6 +150,34 @@ export const fetchRankedBan = (): Promise<RankedBanPreference> => get(endpoints.
 export const setRankedBan = (creatureId: number): Promise<RankedBanPreference> =>
     post(endpoints.social.rankedBan, { creatureId });
 
+export interface RankedStanding {
+    state: "calibration" | "placed" | "recalibration";
+    mmr: number;
+    peakMmr: number;
+    league: number;
+    leagueName: string;
+    leaderboardRank: number;
+    calibration: {
+        required: number;
+        gamesPlayed: number;
+        remaining: number;
+        wins: number;
+        draws: number;
+        losses: number;
+    };
+    previous: { league: number; leagueName: string; mmr: number } | null;
+    wins: number;
+    losses: number;
+    draws: number;
+    totalGames: number;
+    winStreak: number;
+    lossStreak: number;
+    gold: number;
+}
+
+/** The signed-in player's own ranked standing (calibration progress, or league once placed). */
+export const fetchRankedStanding = (): Promise<RankedStanding> => get(endpoints.social.rankedStanding);
+
 export const searchPlayers = async (query: string): Promise<PlayerSearchHit[]> => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {

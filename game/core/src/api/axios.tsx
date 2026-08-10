@@ -225,6 +225,7 @@ export const endpoints = {
         friends: IS_PROD ? "/v1/friends" : "/v1/mm/friends",
         playerSearch: IS_PROD ? "/v1/player-search" : "/v1/mm/player-search",
         rankedBan: IS_PROD ? "/v1/ranked-ban" : "/v1/mm/ranked-ban",
+        rankedStanding: IS_PROD ? "/v1/ranked-standing" : "/v1/mm/ranked-standing",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",

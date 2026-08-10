@@ -14,7 +14,9 @@ import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../h
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
 import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct, WinRateBar } from "./portalFormat";
+import { CalibrationProgress } from "./CalibrationProgress";
 import { usePlayerPortal } from "./usePlayerPortal";
+import { useRankedStanding } from "./useRankedStanding";
 
 const profileBackgroundUrl = new URL("../../../images/background_dark.webp", import.meta.url).toString();
 const logoUrl = new URL("../../../images/logo_hoc.webp", import.meta.url).toString();
@@ -247,6 +249,7 @@ const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }>
 export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
     const { data, loading, error, reload } = usePlayerPortal();
+    const standing = useRankedStanding(data?.total_games_played ?? 0);
     const { t, language } = useTranslation();
 
     const combos = data?.combos ?? [];
@@ -485,6 +488,13 @@ export const PlayerPortalPage: React.FC = () => {
 
                 {!loading && !error && data && (
                     <Stack spacing={2}>
+                        {/* Ladder standing first: while calibrating, "3 / 5 placement matches" is the
+                            headline number — the lifetime totals below it are not the ranked story yet. */}
+                        {standing && (
+                            <Sheet variant="outlined" sx={{ p: { xs: 1.75, sm: 2.25 }, ...hocPanelSx }}>
+                                <CalibrationProgress standing={standing} />
+                            </Sheet>
+                        )}
                         {/* Overview */}
                         <Box
                             sx={{

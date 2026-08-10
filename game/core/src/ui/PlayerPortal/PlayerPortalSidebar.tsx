@@ -16,7 +16,9 @@ import {
     type PortalMatchData,
 } from "./matchHistoryModel";
 import { CreatureIcon, timeAgo, winRateColor, winRatePct } from "./portalFormat";
+import { CalibrationProgress } from "./CalibrationProgress";
 import { usePlayerPortal } from "./usePlayerPortal";
+import { useRankedStanding } from "./useRankedStanding";
 
 const RESULT_COLORS: Record<MatchResultTone, string> = {
     draw: hocColors.gold,
@@ -236,6 +238,9 @@ export interface PlayerPortalSidebarProps {
 export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ navigationDisabled = false }) => {
     const navigate = useNavigate();
     const { data, loading, error, reload } = usePlayerPortal();
+    // Ranked standing rides its own small call (see useRankedStanding); re-read whenever the portal
+    // payload reloads so finishing a placement match updates the pips without a page refresh.
+    const standing = useRankedStanding(data?.total_games_played ?? 0);
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     const { language } = useTranslation();
 
@@ -344,6 +349,14 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                     </Tooltip>
                 </Stack>
             </Box>
+
+            {/* Placement progress sits directly under the identity block: while calibrating it is the
+                single most actionable thing on this panel ("two more and you are placed"). */}
+            {standing && (
+                <Box sx={{ px: { xs: 2.25, sm: 2.75 }, pt: 1.5 }}>
+                    <CalibrationProgress standing={standing} dense />
+                </Box>
+            )}
 
             <Stack spacing={2} sx={{ flex: 1, minHeight: 0, p: { xs: 2.25, sm: 2.75 } }}>
                 {loading && (
