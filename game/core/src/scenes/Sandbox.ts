@@ -12525,7 +12525,38 @@ export class Sandbox extends PixiScene {
         if (!target || !to || target.isDead() || target.getTeam() === caster.getTeam()) {
             return undefined;
         }
+        // Being an enemy is not the same as being a LEGAL target. A creature the spell can never touch —
+        // 100% magic armor (Black Dragon's Enchanted Skin), the matching element, a mind-resistant target,
+        // an already-applied debuff — is refused by the cast, so the aim preview must refuse it too.
+        // Without this the lane painted itself green over a throw the engine would reject on click.
+        if (!this.canArmedSpellTarget(target)) {
+            return undefined;
+        }
         return { caster, from, target, to };
+    }
+    /**
+     * Whether the currently armed spell may legally land on this unit — the SAME predicate the click and
+     * the target highlight use, so a preview can never promise a cast the engine refuses.
+     */
+    private canArmedSpellTarget(target: Unit): boolean {
+        const spell = this.currentActiveSpell;
+        const caster = this.currentActiveUnit;
+        if (!spell || !caster) {
+            return false;
+        }
+        return !!SpellHelper.canCastSpell(
+            false,
+            this.sc_sceneSettings.getGridSettings(),
+            this.gridMatrix,
+            caster,
+            target,
+            spell,
+            target.getBaseCell(),
+            target.getMagicResist(),
+            target.hasMindAttackResistance(),
+            target.canBeHealed(),
+            this.currentEnemiesCellsWithinMovementRange,
+        );
     }
     /**
      * Fire Strike aim preview: the projectile's trajectory, and a ring around the creature it actually burns.
@@ -12634,33 +12665,21 @@ export class Sandbox extends PixiScene {
         if (spell?.getName() !== "Vine Throw") {
             return;
         }
-        const caster = this.currentActiveUnit;
-        const from = caster?.getBaseCell();
-        if (!caster || !from) {
+        // Shared with Fire Strike: enemy under the cursor, measured to its BASE cell (the cell the engine
+        // throws at, which for a large creature is not the one the cursor is over), and already gated on
+        // the spell actually being castable at it.
+        const aim = this.hoveredThrowTarget("Vine Throw");
+        if (!aim) {
             return;
         }
+        const { from, to } = aim;
         const gs = this.sc_sceneSettings.getGridSettings();
-        const hovered = GridMath.getCellForPosition(gs, this.sc_mouseWorld);
-        if (!hovered) {
-            return;
-        }
-        // Only enemies are valid targets, and the lane is measured to the target's BASE cell — the same cell
-        // the engine throws at, which for a large creature is not the one the cursor happens to be over.
-        const occupantId = this.grid.getOccupantUnitId(hovered);
-        const target = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
-        if (!target || target.isDead() || target.getTeam() === caster.getTeam()) {
-            return;
-        }
-        const to = target.getBaseCell();
-        if (!to) {
-            return;
-        }
         const pathCells = VineHelper.vinePathCells(from, to);
         if (!pathCells.length) {
             return;
         }
-        // The same target-specific predicate gates fallback AI, local-model choices, hover and the click.
-        // The projection is drawn EITHER WAY (owner 2026-08-08): a blocked throw shows the lane in red up
+        // Target legality is settled above (hoveredThrowTarget). What remains is the LANE: a throw whose
+        // path a body intercepts is still previewed (owner 2026-08-08) — in red, up
         // to the creature intercepting it, because "nothing is drawn" reads as a broken preview rather
         // than as an explanation. Only a creature can block now, so this is always a body the player sees.
         const blockedAt = targetedSpellBlockerCell(spell.getName(), this.grid, from, to);
