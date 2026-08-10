@@ -1255,7 +1255,7 @@ export const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }
 );
 
 // Draft pools are faction-balanced (4/4/4/4 on L1-L2, 3/3/3/3 on L3-L4) and never contain Death, so the
-// grid can give every faction its own column.
+// grid can lay the level out as two factions per row.
 const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might"] as const;
 
 const FACTION_COLOR: Record<string, string> = {
@@ -1287,25 +1287,16 @@ const PickPanel: React.FC<{
         ids: creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
     })).filter((group) => group.ids.length > 0);
 
-    // Columns are one faction each (owner call). The pool is 3-5 creatures per faction depending on level,
-    // so every column is given the SAME number of rows as the largest one: a short faction then leaves an
-    // empty slot at the bottom instead of stretching its portraits taller than its neighbours', which is
-    // what makes the four columns read as four columns rather than four different-sized stacks.
-    const rowsPerFaction = byFaction.reduce((most, group) => Math.max(most, group.ids.length), 0);
-
     return (
         <PhasePanel>
-            {/* One column per faction. The captions are gone — the pool is faction-balanced and every player
-                knows the crests — so the portraits take that room instead. */}
+            {/* Four equal quadrants, one faction each. The captions are gone — the pool is faction-balanced
+                and every player knows the crests — so the portraits take that room instead. */}
             <Box
                 sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "stretch",
-                    // The panel is far wider than four portrait columns need. Stretching the columns to a
-                    // quarter of it each shrinks the portraits to thumbnails and strands the width between
-                    // them, so the columns are sized to the art and the leftover space goes to the gutters.
-                    gap: "clamp(24px, 6vw, 96px)",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gridTemplateRows: "repeat(2, minmax(0, 1fr))",
+                    gap: "18px",
                     height: "100%",
                 }}
             >
@@ -1314,22 +1305,11 @@ const PickPanel: React.FC<{
                         key={faction}
                         sx={{
                             display: "grid",
-                            gridTemplateRows: `repeat(${rowsPerFaction}, minmax(0, 1fr))`,
+                            gridTemplateColumns: `repeat(${ids.length}, minmax(0, 1fr))`,
+                            gridAutoRows: "minmax(0, 1fr)",
                             gap: "14px",
-                            height: "100%",
-                            // One square cell per row: the column is exactly as wide as a portrait is tall,
-                            // which is what keeps the art at full size no matter how wide the panel gets.
-                            aspectRatio: `1 / ${rowsPerFaction}`,
                             minWidth: 0,
                             minHeight: 0,
-                            // A column only reads as "this faction" if the eye can group it, and four
-                            // unlabelled stacks of portraits cannot do that on their own. A hairline in the
-                            // faction's colour and the faintest wash behind it are enough, and cost none of
-                            // the vertical room the portraits need.
-                            paddingTop: "10px",
-                            borderTop: `2px solid ${FACTION_COLOR[faction] ?? "#8a8a8a"}`,
-                            borderRadius: "10px 10px 0 0",
-                            background: `linear-gradient(180deg, ${FACTION_COLOR[faction] ?? "#8a8a8a"}14 0%, transparent 42%)`,
                         }}
                     >
                         {ids.map((creatureId) => {
