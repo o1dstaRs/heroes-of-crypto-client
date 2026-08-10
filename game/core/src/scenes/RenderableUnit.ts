@@ -978,10 +978,15 @@ export class RenderableUnit extends Unit {
             if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
         }
 
-        // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It keys off
-        // the same synced "Water Shield" buff that applyDamage consumes, so it disappears the frame the shield
-        // breaks. Independent of whose turn it is.
-        const waterShieldActive = !this.isDead() && this.hasBuffActive("Water Shield");
+        // Water Shield: a light-blue circulating ring while the once-per-battle absorb buff is up. It
+        // disappears the frame the shield breaks, and is independent of whose turn it is.
+        //
+        // hasStatusBuff, NOT hasBuffActive: the latter reads only the buff OBJECT array, which a ranked
+        // client fills solely from its own seeding pass (trySeedWaterShield, gated on the unit carrying the
+        // Water Shield ABILITY). A shield the server granted for any other reason — most visibly one an
+        // Arachna Queen assimilated off a Mermaid — is then present in the authoritative applied_buffs list
+        // and completely invisible on the board. hasStatusBuff ORs both, so the ring follows the server.
+        const waterShieldActive = !this.isDead() && this.hasStatusBuff("Water Shield");
         if (waterShieldActive) {
             this.updateWaterShieldAura(worldRoot, gs, pos);
         } else if (this.waterShieldAura) {
