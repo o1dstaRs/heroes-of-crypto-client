@@ -199,6 +199,26 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Watch replay": "Смотреть повтор",
     "Replay {result} against {opponent}": "Повтор: {result} против {opponent}",
 
+    // ~~~ Player portal: ranked standing / calibration ~~~
+    // "Placement" here is the RANKED sense — the matches that place you in a league — not the board
+    // "Расстановка" used in-game. The portal already calls that state Калибровка, so these follow it.
+    "RANKED STANDING": "РЕЙТИНГОВОЕ ПОЛОЖЕНИЕ",
+    // Cyrillic "ММР", not the Latin acronym: the identity check rejects untranslated leftovers, and the
+    // Russian ladder community writes it this way (the same Dota convention this ladder is modelled on).
+    MMR: "ММР",
+    "RETURNING TO THE LADDER": "ВОЗВРАЩЕНИЕ В РЕЙТИНГ",
+    "PLACEMENT MATCHES": "КАЛИБРОВОЧНЫЕ МАТЧИ",
+    "Finish these to return to the ladder. Your previous league is remembered.":
+        "Завершите их, чтобы вернуться в рейтинг. Ваша прежняя лига сохранена.",
+    "Finish these to be placed into a league. Your rating stays hidden until then.":
+        "Завершите их, чтобы попасть в лигу. До этого ваш рейтинг скрыт.",
+    "Placement matches": "Калибровочные матчи",
+    "Wins · draws · losses in placement": "Победы · ничьи · поражения на калибровке",
+    "1 match to placement": "остался 1 матч калибровки",
+    // Rendered as `${remaining} ${t(...)}`, so it has to read as a suffix after a bare number.
+    "matches to placement": "матчей до конца калибровки",
+    Previously: "Ранее",
+
     // ~~~ Match history ~~~
     "Match history": "История матчей",
     "{count} most recent finished matches": "последние завершённые матчи: {count}",
