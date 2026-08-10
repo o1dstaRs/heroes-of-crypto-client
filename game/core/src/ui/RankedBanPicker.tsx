@@ -1,6 +1,8 @@
 import { Box, Button, Input, Modal, ModalDialog, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
+
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
@@ -14,9 +16,22 @@ import { resolveUnitImage } from "./unitImage";
  */
 
 const ALL_CREATURES = Object.entries(UNIT_ID_TO_NAME)
-    .map(([id, name]) => ({ id: Number(id), name }))
+    .map(([id, name]) => ({ id: Number(id), name, faction: ToFactionName[getFactionOf(Number(id) as CreatureId)] }))
     .filter((creature) => creature.id > 0 && creature.name !== "Unknown")
     .sort((a, b) => a.name.localeCompare(b.name));
+
+// One column per faction (owner call). Alphabetical across all 63 creatures made the list a wall of names
+// you had to read; by faction you can go straight to the roster you actually play against. Order matches the
+// draft's own, with Death last since it is the smallest and never appears in the draft pool.
+const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might", "Death"] as const;
+
+const FACTION_COLOR: Record<string, string> = {
+    Life: "#e0d3b0",
+    Nature: "#aebf92",
+    Chaos: "#e0a06a",
+    Might: "#9fb6d4",
+    Death: "#b9a2c8",
+};
 
 export const RankedBanPicker: React.FC = () => {
     const [creatureId, setCreatureId] = useState(0);
@@ -55,10 +70,16 @@ export const RankedBanPicker: React.FC = () => {
         }
     };
 
-    const filtered = useMemo(
-        () => ALL_CREATURES.filter((creature) => creature.name.toLowerCase().includes(query.trim().toLowerCase())),
-        [query],
-    );
+    // Grouped, not flat: search still narrows the list, and a faction whose whole roster is filtered out
+    // drops its column rather than leaving a labelled gap.
+    const columns = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        const matching = ALL_CREATURES.filter((creature) => creature.name.toLowerCase().includes(needle));
+        return FACTION_ORDER.map((faction) => ({
+            faction,
+            creatures: matching.filter((creature) => creature.faction === faction),
+        })).filter((column) => column.creatures.length > 0);
+    }, [query]);
 
     return (
         <>
@@ -119,7 +140,7 @@ export const RankedBanPicker: React.FC = () => {
             </Stack>
 
             <Modal open={open} onClose={() => setOpen(false)}>
-                <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 560, maxWidth: "96vw" }}>
+                <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 880, maxWidth: "96vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>
                         Ban one unit
                     </Typography>
@@ -137,44 +158,76 @@ export const RankedBanPicker: React.FC = () => {
                     <Box
                         sx={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
-                            gap: 0.75,
+                            gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(0, 1fr))`,
+                            alignItems: "start",
+                            gap: 1,
                             maxHeight: "52vh",
                             overflowY: "auto",
                             mt: 0.5,
                             pr: 0.5,
                         }}
                     >
-                        {filtered.map((creature) => (
-                            <Sheet
-                                key={creature.id}
-                                variant="outlined"
-                                onClick={() => void choose(creature.id)}
-                                sx={{
-                                    cursor: "pointer",
-                                    p: 0.75,
-                                    borderRadius: "md",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    borderColor: creature.id === creatureId ? hocColors.danger : "rgba(255,143,0,0.25)",
-                                    bgcolor: creature.id === creatureId ? "rgba(255,90,63,0.15)" : "rgba(0,0,0,0.3)",
-                                    "&:hover": { borderColor: hocColors.danger, bgcolor: "rgba(255,90,63,0.12)" },
-                                }}
-                            >
-                                <img
-                                    src={resolveUnitImage(undefined, creature.name)}
-                                    alt=""
-                                    width={52}
-                                    height={52}
-                                    style={{ borderRadius: 6, objectFit: "cover" }}
-                                    loading="lazy"
-                                />
-                                <Typography level="body-xs" sx={{ color: hocColors.parchment, textAlign: "center" }}>
-                                    {creature.name}
+                        {columns.map(({ faction, creatures }) => (
+                            <Box key={faction} sx={{ display: "grid", gap: 0.75, minWidth: 0 }}>
+                                <Typography
+                                    level="body-xs"
+                                    sx={{
+                                        color: FACTION_COLOR[faction],
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.08em",
+                                        textAlign: "center",
+                                        borderBottom: `1px solid ${FACTION_COLOR[faction]}55`,
+                                        pb: 0.25,
+                                        position: "sticky",
+                                        top: 0,
+                                        // The list scrolls, so the captions ride along at the top of their
+                                        // column — otherwise you lose track of which roster you are in.
+                                        bgcolor: "rgba(12,10,9,0.92)",
+                                        zIndex: 1,
+                                    }}
+                                >
+                                    {faction}
                                 </Typography>
-                            </Sheet>
+                                {creatures.map((creature) => (
+                                    <Sheet
+                                        key={creature.id}
+                                        variant="outlined"
+                                        onClick={() => void choose(creature.id)}
+                                        sx={{
+                                            cursor: "pointer",
+                                            p: 0.75,
+                                            borderRadius: "md",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "center",
+                                            gap: 0.5,
+                                            borderColor:
+                                                creature.id === creatureId ? hocColors.danger : "rgba(255,143,0,0.25)",
+                                            bgcolor:
+                                                creature.id === creatureId ? "rgba(255,90,63,0.15)" : "rgba(0,0,0,0.3)",
+                                            "&:hover": {
+                                                borderColor: hocColors.danger,
+                                                bgcolor: "rgba(255,90,63,0.12)",
+                                            },
+                                        }}
+                                    >
+                                        <img
+                                            src={resolveUnitImage(undefined, creature.name)}
+                                            alt=""
+                                            width={52}
+                                            height={52}
+                                            style={{ borderRadius: 6, objectFit: "cover" }}
+                                            loading="lazy"
+                                        />
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{ color: hocColors.parchment, textAlign: "center" }}
+                                        >
+                                            {creature.name}
+                                        </Typography>
+                                    </Sheet>
+                                ))}
+                            </Box>
                         ))}
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
