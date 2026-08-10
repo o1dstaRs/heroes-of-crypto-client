@@ -93,7 +93,7 @@ export interface LiveGamePlayer {
     isBot: boolean;
     aiVersion: string | null;
     rankedBot: boolean;
-    /** Gold staked on THIS seat in the prediction market (0 outside a pick-phase ranked game). */
+    /** Gold staked on this seat; retained after the market closes for live odds. */
     predictionPool: number;
     ranked: {
         state: string;
@@ -125,6 +125,17 @@ export interface LiveGamesResponse {
     count: number;
     games: LiveGame[];
 }
+
+export type LivePredictionMarketState = "hidden" | "open" | "closed";
+
+export const livePredictionMarketState = (
+    game: Pick<LiveGame, "casual" | "players" | "stage">,
+): LivePredictionMarketState => {
+    if (game.casual || game.players.length < 2) {
+        return "hidden";
+    }
+    return game.stage === "pick" ? "open" : "closed";
+};
 
 export type LivePlayerRankedState = "placed" | "calibration" | "recalibration" | "unranked";
 

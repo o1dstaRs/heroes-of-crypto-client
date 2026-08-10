@@ -841,8 +841,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         z-index: 0;
         overflow: visible;
         border: 0;
-        border-left: 2px solid color-mix(in srgb, var(--game-stage) 78%, transparent);
-        border-radius: 0 3px 3px 0;
+        border-radius: 3px;
         background:
             linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 7%, transparent), transparent 48%),
             rgba(15, 10, 7, 0.72);
@@ -859,31 +858,39 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         flex-direction: column;
         gap: 0.35rem;
         margin-top: 0.55rem;
-        padding-top: 0.5rem;
+        padding: 0.5rem 9px 9px;
         border-top: 1px solid rgba(151, 104, 50, 0.28);
     }
 
     .ranked-arena .ranked-arena__market-header {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: baseline;
-        justify-content: space-between;
         gap: 0.5rem;
     }
 
     .ranked-arena .ranked-arena__market-title {
+        grid-column: 2;
         font-size: 0.66rem;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: color-mix(in srgb, var(--gold) 78%, transparent);
+        white-space: nowrap;
     }
 
     .ranked-arena .ranked-arena__market-total {
         display: inline-flex;
+        grid-column: 3;
         gap: 0.25em;
         align-items: center;
         justify-content: flex-end;
+        min-width: 0;
+        overflow: hidden;
         font-size: 0.72rem;
         color: var(--parchment-dim, rgba(228, 208, 175, 0.72));
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .ranked-arena .ranked-arena__market-currency {
@@ -1086,7 +1093,6 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__game-card:hover {
-        border-left-color: var(--game-stage);
         background:
             linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 11%, transparent), transparent 52%),
             rgba(20, 13, 8, 0.84);
@@ -1108,14 +1114,14 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 22px;
+        width: 18px;
         border: 0;
         background: transparent;
         color: rgba(239, 212, 154, 0.62);
-        font-size: 0.48rem;
+        font-size: 0.66rem;
         font-weight: 400;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        letter-spacing: 0;
+        text-transform: none;
     }
 
     .ranked-arena .ranked-arena__league-stats {

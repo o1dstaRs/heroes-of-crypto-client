@@ -5,6 +5,7 @@ import {
     filterLiveGames,
     filterRankedPlayers,
     liveGameFormSlots,
+    livePredictionMarketState,
     livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
@@ -12,6 +13,7 @@ import {
     playerInitials,
     playersInLeague,
     relativeArenaTime,
+    type LiveGame,
     type RankedPlayer,
 } from "./ranked-arena-data";
 import { rankedArenaCopy } from "./ranked-arena-copy";
@@ -134,12 +136,12 @@ describe("ranked arena response normalization", () => {
         ]);
     });
 
-    test("carries prediction pools per seat and per game", () => {
+    test("carries a closed prediction pool through a live fight", () => {
         const response = normalizeLiveGamesResponse({
             games: [
                 {
                     gameId: "market-game",
-                    stage: "pick",
+                    stage: "fight",
                     initTime: 10,
                     predictionPool: 250,
                     predictionBets: 4,
@@ -155,6 +157,18 @@ describe("ranked arena response normalization", () => {
         expect(game.predictionPool).toBe(250);
         expect(game.predictionBets).toBe(4);
         expect(game.players.map((player) => player.predictionPool)).toEqual([200, 50]);
+        expect(livePredictionMarketState(game)).toBe("closed");
+    });
+
+    test("opens ranked draft markets and hides casual or incomplete markets", () => {
+        const base = {
+            stage: "pick" as const,
+            casual: false,
+            players: [{}, {}] as LiveGame["players"],
+        };
+        expect(livePredictionMarketState(base)).toBe("open");
+        expect(livePredictionMarketState({ ...base, casual: true })).toBe("hidden");
+        expect(livePredictionMarketState({ ...base, players: base.players.slice(0, 1) })).toBe("hidden");
     });
 
     test("keeps a calibrated ranked bot placed in active games", () => {
@@ -193,13 +207,7 @@ describe("ranked arena response normalization", () => {
     });
 
     test("pads and orders the five-game form with the newest result on the right", () => {
-        expect(liveGameFormSlots(["win", "draw", "loss"])).toEqual([
-            "empty",
-            "empty",
-            "loss",
-            "draw",
-            "win",
-        ]);
+        expect(liveGameFormSlots(["win", "draw", "loss"])).toEqual(["empty", "empty", "loss", "draw", "win"]);
         expect(liveGameFormSlots(["win", "loss", "draw", "win", "loss", "draw"])).toEqual([
             "loss",
             "win",
@@ -324,5 +332,10 @@ describe("ranked arena display helpers", () => {
             expect(russian.trim()).not.toBe("");
             expect(placeholders(english).sort()).toEqual(placeholders(russian).sort());
         }
+    });
+
+    test("uses the compact matchup separator in English", () => {
+        expect(rankedArenaCopy.en.versus).toBe("vs");
+        expect(rankedArenaCopy.ru.versus).toBe("против");
     });
 });

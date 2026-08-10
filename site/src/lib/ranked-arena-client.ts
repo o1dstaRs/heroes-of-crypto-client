@@ -4,6 +4,7 @@ import {
     filterLiveGames,
     filterRankedPlayers,
     liveGameFormSlots,
+    livePredictionMarketState,
     livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
@@ -162,15 +163,17 @@ const append = <T extends ParentNode>(parent: T, ...children: Array<Node | null 
     return parent;
 };
 
-const currencyAmount = (amount: number, className = ""): HTMLElement => {
+const currencyAmount = (amount: number, className = "", currencyLabel = "Gold"): HTMLElement => {
     const node = el("span", ["currency-amount", className].filter(Boolean).join(" "));
+    const formattedAmount = numberFormatter.format(Math.max(0, Math.trunc(amount)));
+    node.setAttribute("aria-label", `${currencyLabel}: ${formattedAmount}`);
     const icon = el("img", "currency-icon");
     icon.src = "/assets/icons/currency/gold.svg";
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.width = 20;
     icon.height = 20;
-    return append(node, icon, document.createTextNode(numberFormatter.format(Math.max(0, Math.trunc(amount)))));
+    return append(node, icon, document.createTextNode(formattedAmount));
 };
 
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
@@ -184,7 +187,9 @@ const appendRichTemplate = <T extends ParentNode>(
     for (const part of template.split(/(\{[^{}]+\})/g).filter(Boolean)) {
         const placeholder = /^\{([^{}]+)\}$/.exec(part)?.[1];
         const value = placeholder ? values[placeholder] : undefined;
-        parent.append(value instanceof Node ? value : document.createTextNode(value === undefined ? part : String(value)));
+        parent.append(
+            value instanceof Node ? value : document.createTextNode(value === undefined ? part : String(value)),
+        );
     }
     return parent;
 };
@@ -423,7 +428,7 @@ const createPlayerDossier = (
     append(
         dossier,
         // Season currency first: gold is minted 1:1 with won MMR and never deducted.
-        metric(copy.gold, currencyAmount(player.gold)),
+        metric(copy.gold, currencyAmount(player.gold, "", copy.gold)),
         metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
@@ -453,7 +458,7 @@ const renderPlayerDetail = (
 
     const rating = el("div", "ranked-arena__detail-rating");
     const detailGold = el("small", "ranked-arena__detail-gold");
-    append(detailGold, document.createTextNode(`${copy.gold}: `), currencyAmount(player.gold));
+    append(detailGold, document.createTextNode(`${copy.gold}: `), currencyAmount(player.gold, "", copy.gold));
     append(
         rating,
         el("span", "", copy.rating),
@@ -517,7 +522,7 @@ const renderCalibratingSection = (
             el("span", "ranked-arena__rank", "…"),
             identity,
             el("strong", "ranked-arena__row-rating", "—"),
-            currencyAmount(player.gold, "ranked-arena__row-gold"),
+            currencyAmount(player.gold, "ranked-arena__row-gold", copy.gold),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el(
                 "span",
@@ -632,7 +637,7 @@ const renderPlayers = (
             rank,
             identity,
             el("strong", "ranked-arena__row-rating", numberFormatter.format(player.mmr)),
-            currencyAmount(player.gold, "ranked-arena__row-gold"),
+            currencyAmount(player.gold, "ranked-arena__row-gold", copy.gold),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el("span", "ranked-arena__row-rate", `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
             createPlayerDossier(player, copy, dossierId),
@@ -649,20 +654,23 @@ const renderPlayers = (
 };
 
 /**
- * Prediction market panel for one pick-phase game: the two pools as a proportion bar, the viewer's
- * existing bet (if any), and — while the draft is open — a Predict button that expands into a stake
- * form previewing the exact payout the current pools would produce.
+ * Prediction market panel for one ranked game: the two pools remain visible after betting closes,
+ * while an open draft also offers a stake form previewing the exact payout the current pools would
+ * produce.
  */
 const renderPredictionPanel = (
     game: LiveGame,
     state: ArenaState,
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
 ): HTMLElement | null => {
-    if (game.stage !== "pick" || game.casual || game.players.length < 2) {
+    const marketState = livePredictionMarketState(game);
+    if (marketState === "hidden") {
         return null;
     }
+    const isBettingOpen = marketState === "open";
     const [lower, upper] = game.players;
     const panel = el("div", "ranked-arena__market");
+    panel.dataset.marketState = marketState;
 
     // ---- pools + proportion bar ----
     const header = el("div", "ranked-arena__market-header");
@@ -670,18 +678,14 @@ const renderPredictionPanel = (
     append(
         totalPool,
         document.createTextNode(`${copy.marketTotal}:`),
-        currencyAmount(game.predictionPool, "ranked-arena__market-currency"),
+        currencyAmount(game.predictionPool, "ranked-arena__market-currency", copy.gold),
         document.createTextNode(
             ` · ${replaceTemplate(copy.marketBets, {
                 n: game.predictionBets,
             })}`,
         ),
     );
-    append(
-        header,
-        el("span", "ranked-arena__market-title", copy.marketTitle),
-        totalPool,
-    );
+    append(header, el("span", "ranked-arena__market-title", copy.marketTitle), totalPool);
 
     const lowerShare = impliedShare(lower.predictionPool, upper.predictionPool);
     const bar = el("div", "ranked-arena__market-bar");
@@ -697,7 +701,7 @@ const renderPredictionPanel = (
         const amount = el("span", "ranked-arena__market-legend-value");
         append(
             amount,
-            currencyAmount(player.predictionPool, "ranked-arena__market-currency"),
+            currencyAmount(player.predictionPool, "ranked-arena__market-currency", copy.gold),
             document.createTextNode(` · ${Math.round(share * 100)}%`),
         );
         append(item, el("strong", "", player.username), amount);
@@ -714,7 +718,7 @@ const renderPredictionPanel = (
         const placed = el("div", "ranked-arena__market-mine");
         const placedAmount = el("span");
         appendRichTemplate(placedAmount, copy.marketYourBet, {
-            amount: currencyAmount(mine.amount, "ranked-arena__market-currency"),
+            amount: currencyAmount(mine.amount, "ranked-arena__market-currency", copy.gold),
             side: side?.username ?? "—",
         });
         const returnAmount = el("strong");
@@ -726,14 +730,15 @@ const renderPredictionPanel = (
                     other?.predictionPool ?? 0,
                 ),
                 "ranked-arena__market-currency",
+                copy.gold,
             ),
         });
-        append(
-            placed,
-            placedAmount,
-            returnAmount,
-        );
+        append(placed, placedAmount, returnAmount);
         append(panel, placed);
+        return panel;
+    }
+
+    if (!isBettingOpen) {
         return panel;
     }
 
@@ -783,7 +788,11 @@ const renderPredictionPanel = (
     input.placeholder = copy.marketAmountPlaceholder;
     input.dataset.predictAmount = "";
     input.setAttribute("aria-label", copy.marketAmountPlaceholder);
-    const confirm = el("button", "ranked-arena__market-confirm", state.predictBusy ? copy.marketPlacing : copy.marketPlace);
+    const confirm = el(
+        "button",
+        "ranked-arena__market-confirm",
+        state.predictBusy ? copy.marketPlacing : copy.marketPlace,
+    );
     confirm.type = "button";
     confirm.dataset.predictConfirm = game.gameId;
     confirm.disabled = state.predictBusy || !state.predictSide || state.predictAmount < 1;
@@ -795,10 +804,10 @@ const renderPredictionPanel = (
     if (chosen && state.predictAmount > 0) {
         const total = proposedReturn(state.predictAmount, chosen.predictionPool, against?.predictionPool ?? 0);
         appendRichTemplate(preview, copy.marketPreview, {
-            stake: currencyAmount(state.predictAmount, "ranked-arena__market-currency"),
+            stake: currencyAmount(state.predictAmount, "ranked-arena__market-currency", copy.gold),
             side: chosen.username,
-            total: currencyAmount(total, "ranked-arena__market-currency"),
-            profit: currencyAmount(total - state.predictAmount, "ranked-arena__market-currency"),
+            total: currencyAmount(total, "ranked-arena__market-currency", copy.gold),
+            profit: currencyAmount(total - state.predictAmount, "ranked-arena__market-currency", copy.gold),
         });
     } else {
         preview.textContent = copy.marketPreviewHint;
