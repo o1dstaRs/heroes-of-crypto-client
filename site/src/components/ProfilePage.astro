@@ -413,7 +413,7 @@ const rankedApp = links.rankedApp;
 
     function matchToggle(gameId: string, source: "portal" | "public", context: string): string {
         const ids = matchIds(gameId, source);
-        return `<button class="match-details-toggle" type="button" id="${ids.button}" data-match-toggle data-match-source="${source}" data-match-context="${escapeHtml(context)}" data-game-id="${escapeHtml(gameId)}" aria-label="${escapeHtml(`${copy.matchDetails}: ${context}`)}" aria-expanded="false" aria-controls="${ids.panel}"><span data-match-toggle-label>${escapeHtml(copy.matchDetails)}</span><span class="match-details-chevron" aria-hidden="true">⌄</span></button>`;
+        return `<button class="match-card-hit-target" type="button" id="${ids.button}" data-match-toggle data-match-source="${source}" data-match-context="${escapeHtml(context)}" data-game-id="${escapeHtml(gameId)}" aria-label="${escapeHtml(`${copy.matchDetails}: ${context}`)}" aria-expanded="false" aria-controls="${ids.panel}"></button>`;
     }
 
     function matchDetailsRegion(gameId: string, source: "portal" | "public"): string {
@@ -445,7 +445,6 @@ const rankedApp = links.rankedApp;
         const rows = performances
             .slice()
             .sort((a, b) => b.damageDealt - a.damageDealt)
-            .slice(0, 3)
             .map((performance) => {
                 const creature = creatureById(performance.creatureId);
                 return `<div class="match-performance-row"><img src="${escapeHtml(creature.image)}" alt="" width="32" height="32" loading="lazy" ${imgFallback} /><span>${escapeHtml(creature.name)}</span><strong>${escapeHtml(formatDamage(performance.damageDealt))}</strong></div>`;
@@ -594,15 +593,21 @@ const rankedApp = links.rankedApp;
             : "";
         return `
             <article class="match-row match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
-                <div class="match-card-summary">
-                    <div class="match-main">
-                        <div class="match-title"><strong class="match-result ${resultClass}">${escapeHtml(resultLabel)}</strong><span>${escapeHtml(copy.versus)}</span><strong>${opponent}</strong></div>
-                        <div class="match-meta">${modeBadge(mode)}<span class="match-when">${escapeHtml(when)}</span>${abandonmentDetail ? `<span class="match-abandonment">${escapeHtml(abandonmentDetail)}</span>` : ""}${duration !== "—" ? `<span>${escapeHtml(duration)}</span>` : ""}${laps ? `<span>${laps} ${escapeHtml(copy.matchLaps.toLowerCase())}</span>` : ""}</div>
+                <div class="match-card-overview">
+                    <div class="match-card-toggle-surface${gameId ? "" : " is-static"}">
+                        ${gameId ? matchToggle(gameId, "portal", matchContext) : ""}
+                        <div class="match-card-summary">
+                            <div class="match-main">
+                                <div class="match-title"><strong class="match-result ${resultClass}">${escapeHtml(resultLabel)}</strong><span>${escapeHtml(copy.versus)}</span><strong>${opponent}</strong></div>
+                                <div class="match-meta">${modeBadge(mode)}<span class="match-when">${escapeHtml(when)}</span>${abandonmentDetail ? `<span class="match-abandonment">${escapeHtml(abandonmentDetail)}</span>` : ""}${duration !== "—" ? `<span>${escapeHtml(duration)}</span>` : ""}${laps ? `<span>${laps} ${escapeHtml(copy.matchLaps.toLowerCase())}</span>` : ""}</div>
+                            </div>
+                            ${rewards}
+                            ${gameId ? `<span class="match-details-chevron" aria-hidden="true">⌄</span>` : ""}
+                        </div>
+                        <div class="match-rosters">${rosterMarkup(match.creature_ids, copy.matchYourArmy)}${rosterMarkup(match.opponent_creature_ids, copy.matchOpponentArmy)}</div>
                     </div>
-                    ${rewards}
-                    <div class="match-card-actions">${replay}${gameId ? matchToggle(gameId, "portal", matchContext) : ""}</div>
+                    ${replay ? `<div class="match-card-actions">${replay}</div>` : ""}
                 </div>
-                <div class="match-rosters">${rosterMarkup(match.creature_ids, copy.matchYourArmy)}${rosterMarkup(match.opponent_creature_ids, copy.matchOpponentArmy)}</div>
                 ${gameId ? matchDetailsRegion(gameId, "portal") : ""}
             </article>`;
     }
@@ -720,25 +725,28 @@ const rankedApp = links.rankedApp;
         const mode: MatchMode = match.calibration ? "calibration" : "ranked";
         return `
             <article class="match-row match-row--ranked match-card--expandable ${match.result}" aria-label="${escapeHtml(matchContext)}">
-                <div class="match-card-summary">
-                    <div class="match-main">
-                        <div class="match-title">
-                            <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
-                            <span>${escapeHtml(copy.versus)}</span>
-                            ${opponent}
-                        </div>
-                        <div class="match-meta">
-                            ${modeBadge(mode)}
-                            <span class="match-when">${escapeHtml(when)}</span>
-                            <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
-                        </div>
-                    </div>
-                    <div class="match-rewards">
-                        <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
-                        <span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>
-                    </div>
-                    <div class="match-card-actions">
+                <div class="match-card-overview">
+                    <div class="match-card-toggle-surface">
                         ${matchToggle(match.gameId, "public", matchContext)}
+                        <div class="match-card-summary">
+                            <div class="match-main">
+                                <div class="match-title">
+                                    <strong class="match-result ${match.result}">${escapeHtml(resultLabel)}</strong>
+                                    <span>${escapeHtml(copy.versus)}</span>
+                                    ${opponent}
+                                </div>
+                                <div class="match-meta">
+                                    ${modeBadge(mode)}
+                                    <span class="match-when">${escapeHtml(when)}</span>
+                                    <span class="match-reason">${escapeHtml(publicReasonLabel(match.reason))}</span>
+                                </div>
+                            </div>
+                            <div class="match-rewards">
+                                <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
+                                <span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>
+                            </div>
+                            <span class="match-details-chevron" aria-hidden="true">⌄</span>
+                        </div>
                     </div>
                 </div>
                 ${matchDetailsRegion(match.gameId, "public")}
@@ -875,8 +883,6 @@ const rankedApp = links.rankedApp;
             button.setAttribute("aria-expanded", "false");
             const context = button.dataset.matchContext;
             button.setAttribute("aria-label", context ? `${copy.matchDetails}: ${context}` : copy.matchDetails);
-            const label = button.querySelector<HTMLElement>("[data-match-toggle-label]");
-            if (label) label.textContent = copy.matchDetails;
         }
         expandedMatchId = "";
     }
@@ -915,8 +921,6 @@ const rankedApp = links.rankedApp;
         button.setAttribute("aria-expanded", "true");
         const context = button.dataset.matchContext;
         button.setAttribute("aria-label", context ? `${copy.matchCollapse}: ${context}` : copy.matchCollapse);
-        const label = button.querySelector<HTMLElement>("[data-match-toggle-label]");
-        if (label) label.textContent = copy.matchCollapse;
         panel.hidden = false;
         if (button.dataset.matchSource === "public") {
             await loadPublicMatchDetails(gameId, panel);
@@ -2461,7 +2465,7 @@ const rankedApp = links.rankedApp;
     }
 
     /* Match history intentionally mirrors the game Portal: a quiet dark card, a result rail, and one
-       keyboard-operable details control. The report/replay links remain independent interactive targets. */
+       keyboard-operable card surface. The report/replay links remain independent interactive targets. */
     .profile-page :global(.match-card--expandable) {
         position: relative;
         display: block;
@@ -2479,7 +2483,7 @@ const rankedApp = links.rankedApp;
     }
 
     .profile-page :global(.match-card--expandable:hover),
-    .profile-page :global(.match-card--expandable:has(.match-details-toggle[aria-expanded="true"])) {
+    .profile-page :global(.match-card--expandable:has(.match-card-hit-target[aria-expanded="true"])) {
         border-color: rgba(255, 143, 0, 0.42);
         background: rgba(25, 15, 8, 0.84);
     }
@@ -2531,19 +2535,64 @@ const rankedApp = links.rankedApp;
         background: #ff5a5a;
     }
 
+    .profile-page :global(.match-card-overview) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+    }
+
+    .profile-page :global(.match-card-toggle-surface) {
+        position: relative;
+        min-width: 0;
+    }
+
+    .profile-page :global(.match-card-toggle-surface:not(.is-static)) {
+        cursor: pointer;
+    }
+
+    .profile-page :global(.match-card-hit-target) {
+        position: absolute;
+        z-index: 1;
+        inset: 0;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    .profile-page :global(.match-card-hit-target:focus-visible) {
+        outline: 2px solid var(--gold, #dcb158);
+        outline-offset: -3px;
+    }
+
     .profile-page :global(.match-card-summary) {
+        position: relative;
+        z-index: 2;
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto auto;
         gap: 12px;
         align-items: center;
         padding: 12px 13px 10px 17px;
+        pointer-events: none;
+    }
+
+    .profile-page :global(.match-card-summary a) {
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
     }
 
     .profile-page :global(.match-card-actions) {
+        position: relative;
+        z-index: 2;
         display: flex;
         gap: 7px;
         align-items: center;
         justify-content: flex-end;
+        padding: 12px 13px 10px 0;
     }
 
     .profile-page :global(.match-card-actions .match-replay) {
@@ -2554,7 +2603,6 @@ const rankedApp = links.rankedApp;
         border-radius: 7px;
     }
 
-    .profile-page :global(.match-details-toggle),
     .profile-page :global(.match-detail-link),
     .profile-page :global(.match-details-error button) {
         display: inline-flex;
@@ -2574,7 +2622,6 @@ const rankedApp = links.rankedApp;
         cursor: pointer;
     }
 
-    .profile-page :global(.match-details-toggle:hover),
     .profile-page :global(.match-detail-link:hover),
     .profile-page :global(.match-details-error button:hover) {
         border-color: rgba(255, 143, 0, 0.68);
@@ -2582,7 +2629,7 @@ const rankedApp = links.rankedApp;
         color: var(--ink, #efe4cc);
     }
 
-    .profile-page :global(.match-details-toggle[aria-expanded="true"] .match-details-chevron) {
+    .profile-page :global(.match-card-toggle-surface:has(.match-card-hit-target[aria-expanded="true"]) .match-details-chevron) {
         transform: rotate(180deg);
     }
 
@@ -2621,10 +2668,13 @@ const rankedApp = links.rankedApp;
     }
 
     .profile-page :global(.match-rosters) {
+        position: relative;
+        z-index: 2;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
         padding: 0 13px 12px 17px;
+        pointer-events: none;
     }
 
     .profile-page :global(.match-details-panel .match-rosters) {
@@ -2827,6 +2877,11 @@ const rankedApp = links.rankedApp;
             justify-items: start;
         }
 
+        .profile-page :global(.match-card-summary .match-details-chevron) {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+        }
+
         .profile-page :global(.match-card-actions) {
             grid-column: 2;
             grid-row: 1 / span 2;
@@ -2834,8 +2889,7 @@ const rankedApp = links.rankedApp;
             align-items: stretch;
         }
 
-        .profile-page :global(.match-replay),
-        .profile-page :global(.match-details-toggle) {
+        .profile-page :global(.match-replay) {
             margin-left: 0;
         }
 
@@ -2850,19 +2904,30 @@ const rankedApp = links.rankedApp;
     }
 
     @media (max-width: 460px) {
-        .profile-page :global(.match-card-summary) {
-            grid-template-columns: 1fr;
+        .profile-page :global(.match-card-overview) {
+            grid-template-columns: minmax(0, 1fr);
         }
 
-        .profile-page :global(.match-card-summary .match-rewards),
+        .profile-page :global(.match-card-summary) {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .profile-page :global(.match-card-summary .match-rewards) {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .profile-page :global(.match-card-summary .match-details-chevron) {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+        }
+
         .profile-page :global(.match-card-actions) {
             grid-column: 1;
-            grid-row: auto;
-        }
-
-        .profile-page :global(.match-card-actions) {
+            grid-row: 2;
             flex-direction: row;
             justify-content: flex-start;
+            padding: 0 13px 12px 17px;
         }
 
         .profile-page :global(.match-rosters) {

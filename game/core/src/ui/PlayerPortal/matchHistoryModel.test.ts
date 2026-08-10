@@ -103,16 +103,24 @@ describe("match history model", () => {
         expect(formatSignedMatchValue(-40.4)).toBe("-40");
     });
 
-    it("normalizes and sorts top performers", () => {
+    it("keeps every valid recorded performer while normalizing and sorting damage", () => {
         expect(
             normalizePerformances([
                 { creature_id: 2, damage_dealt: 400 },
                 { creature_id: 0, damage_dealt: 900 },
                 { creature_id: 1, damage_dealt: 800 },
+                { creature_id: 6, damage_dealt: 50 },
+                { creature_id: 4, damage_dealt: 200 },
+                { creature_id: 5, damage_dealt: 100 },
+                { creature_id: 3, damage_dealt: 300 },
             ]),
         ).toEqual([
             { creature_id: 1, damage_dealt: 800 },
             { creature_id: 2, damage_dealt: 400 },
+            { creature_id: 3, damage_dealt: 300 },
+            { creature_id: 4, damage_dealt: 200 },
+            { creature_id: 5, damage_dealt: 100 },
+            { creature_id: 6, damage_dealt: 50 },
         ]);
     });
 

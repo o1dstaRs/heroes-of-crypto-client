@@ -223,7 +223,7 @@ const PerformanceList: React.FC<{
             {label}
         </Typography>
         <Stack spacing={0.65}>
-            {performances.slice(0, 3).map((performance, index) => {
+            {performances.map((performance, index) => {
                 const creatureId = performance.creature_id ?? 0;
                 return (
                     <Stack
@@ -738,138 +738,170 @@ const MatchCard: React.FC<{
             }}
         >
             <Box sx={{ position: "absolute", inset: "0 auto 0 0", width: 3, bgcolor: resultColor }} />
-            <Box sx={{ p: compact ? 1 : 1.25, pl: compact ? 1.25 : 1.5 }}>
-                <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                            id={headingId}
-                            component="h3"
-                            level={compact ? "body-xs" : "body-sm"}
-                            noWrap
-                            sx={{ color: hocColors.parchment }}
-                        >
-                            <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
-                                {t(result.label)}
-                            </Box>{" "}
-                            {t("vs")} {opponent}
-                        </Typography>
-                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.25, flexWrap: "wrap" }}>
-                            <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
-                            {side && (
-                                <Stack
-                                    direction="row"
-                                    spacing={0.375}
-                                    alignItems="center"
-                                    sx={{ whiteSpace: "nowrap" }}
-                                >
-                                    <Box
-                                        sx={{
-                                            width: 7,
-                                            height: 7,
-                                            borderRadius: "50%",
-                                            bgcolor: SIDE_PRESENTATION[side].color,
-                                            boxShadow: `0 0 4px ${SIDE_PRESENTATION[side].color}`,
-                                        }}
-                                    />
-                                    <Typography
-                                        level="body-xs"
-                                        sx={{ color: SIDE_PRESENTATION[side].color, fontWeight: 700 }}
-                                    >
-                                        {t(SIDE_PRESENTATION[side].label)}
-                                    </Typography>
-                                </Stack>
-                            )}
-                            <Typography level="body-xs" textColor={hocColors.muted} sx={{ whiteSpace: "nowrap" }}>
-                                {timeAgo(match.finished_time ?? 0)}
+            <Box
+                sx={{
+                    position: "relative",
+                    p: compact ? 1 : 1.25,
+                    pl: compact ? 1.25 : 1.5,
+                }}
+            >
+                <Box
+                    component="button"
+                    type="button"
+                    aria-controls={detailsId}
+                    aria-expanded={expanded}
+                    aria-label={contextualDetailsLabel}
+                    onClick={onExpand}
+                    sx={{
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 1,
+                        width: "100%",
+                        m: 0,
+                        p: 0,
+                        appearance: "none",
+                        border: 0,
+                        borderRadius: "7px",
+                        bgcolor: "transparent",
+                        cursor: "pointer",
+                        WebkitTapHighlightColor: "transparent",
+                        transition: "background-color 150ms ease, box-shadow 150ms ease",
+                        "&:hover": { bgcolor: hocColors.orangeSoft },
+                        "&:focus-visible": {
+                            outline: `2px solid ${hocColors.gold}`,
+                            outlineOffset: -3,
+                        },
+                    }}
+                />
+
+                <Box sx={{ position: "relative", zIndex: 2, pointerEvents: "none" }}>
+                    <Stack direction="row" spacing={0.75} alignItems="center">
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
+                                id={headingId}
+                                component="h3"
+                                level={compact ? "body-xs" : "body-sm"}
+                                noWrap
+                                sx={{ color: hocColors.parchment }}
+                            >
+                                <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
+                                    {t(result.label)}
+                                </Box>{" "}
+                                {t("vs")} {opponent}
                             </Typography>
-                            {result.detail && (
-                                <Typography level="body-xs" sx={{ color: resultColor, whiteSpace: "nowrap" }}>
-                                    {t(result.detail)}
+                            <Stack
+                                direction="row"
+                                spacing={0.75}
+                                alignItems="center"
+                                sx={{ mt: 0.25, flexWrap: "wrap" }}
+                            >
+                                <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
+                                {side && (
+                                    <Stack
+                                        direction="row"
+                                        spacing={0.375}
+                                        alignItems="center"
+                                        sx={{ whiteSpace: "nowrap" }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                width: 7,
+                                                height: 7,
+                                                borderRadius: "50%",
+                                                bgcolor: SIDE_PRESENTATION[side].color,
+                                                boxShadow: `0 0 4px ${SIDE_PRESENTATION[side].color}`,
+                                            }}
+                                        />
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{ color: SIDE_PRESENTATION[side].color, fontWeight: 700 }}
+                                        >
+                                            {t(SIDE_PRESENTATION[side].label)}
+                                        </Typography>
+                                    </Stack>
+                                )}
+                                <Typography level="body-xs" textColor={hocColors.muted} sx={{ whiteSpace: "nowrap" }}>
+                                    {timeAgo(match.finished_time ?? 0)}
                                 </Typography>
-                            )}
-                        </Stack>
-                    </Box>
-                    <ReplayIconButton available={replayAvailable} compact={compact} onClick={onReplay} />
-                    <Tooltip
-                        title={expanded ? t("Collapse match details") : t("Expand match details")}
-                        size="sm"
-                        variant="soft"
-                    >
-                        <Button
-                            aria-controls={detailsId}
-                            aria-expanded={expanded}
-                            aria-label={contextualDetailsLabel}
-                            size={compact ? "sm" : "md"}
-                            variant="plain"
-                            onClick={onExpand}
-                            endDecorator={
-                                <ExpandMoreRoundedIcon
-                                    fontSize="small"
-                                    sx={{
-                                        transform: expanded ? "rotate(180deg)" : "none",
-                                        transition: "transform 150ms ease",
-                                    }}
-                                />
-                            }
+                                {result.detail && (
+                                    <Typography level="body-xs" sx={{ color: resultColor, whiteSpace: "nowrap" }}>
+                                        {t(result.detail)}
+                                    </Typography>
+                                )}
+                            </Stack>
+                        </Box>
+                        <Box sx={{ position: "relative", zIndex: 3, pointerEvents: "auto" }}>
+                            <ReplayIconButton available={replayAvailable} compact={compact} onClick={onReplay} />
+                        </Box>
+                        <Box
+                            aria-hidden="true"
                             sx={{
+                                display: "grid",
+                                placeItems: "center",
+                                width: 32,
+                                height: 44,
+                                flexShrink: 0,
                                 color: hocColors.mutedStrong,
-                                minWidth: compact ? 68 : 76,
-                                minHeight: 44,
-                                px: compact ? 0.75 : 1,
-                                borderRadius: "6px",
-                                "&:hover": { bgcolor: hocColors.orangeSoft },
                             }}
                         >
-                            {t("Details")}
-                        </Button>
-                    </Tooltip>
-                </Stack>
+                            <ExpandMoreRoundedIcon
+                                fontSize="small"
+                                sx={{
+                                    transform: expanded ? "rotate(180deg)" : "none",
+                                    transition: "transform 150ms ease",
+                                }}
+                            />
+                        </Box>
+                    </Stack>
 
-                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mt: 0.75, flexWrap: "wrap" }}>
-                    {duration && <MetadataItem icon={<AccessTimeRoundedIcon />} label={duration} />}
-                    {laps > 0 && (
-                        <MetadataItem
-                            icon={<LoopRoundedIcon />}
-                            label={
-                                laps === 1 ? tf("{count} lap", { count: laps }) : tf("{count} laps", { count: laps })
-                            }
+                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mt: 0.75, flexWrap: "wrap" }}>
+                        {duration && <MetadataItem icon={<AccessTimeRoundedIcon />} label={duration} />}
+                        {laps > 0 && (
+                            <MetadataItem
+                                icon={<LoopRoundedIcon />}
+                                label={
+                                    laps === 1
+                                        ? tf("{count} lap", { count: laps })
+                                        : tf("{count} laps", { count: laps })
+                                }
+                            />
+                        )}
+                        {topPlayer && (
+                            <Stack direction="row" spacing={0.45} alignItems="center" sx={{ minWidth: 0 }}>
+                                <MilitaryTechRoundedIcon sx={{ color: hocColors.gold, fontSize: 15 }} />
+                                <CreatureIcon creatureId={topPlayer.creature_id ?? 0} size={20} />
+                                <Typography level="body-xs" sx={{ color: hocColors.gold, whiteSpace: "nowrap" }}>
+                                    {tf("{amount} dmg", { amount: formatMatchDamage(topPlayer.damage_dealt) })}
+                                </Typography>
+                            </Stack>
+                        )}
+                        {kind.rated && mmrDelta && (
+                            <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
+                        )}
+                        {kind.rated && <RewardBadge label={tf("Gold +{amount}", { amount: goldEarned })} tone="gold" />}
+                    </Stack>
+
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: compact
+                                ? "minmax(0, 1fr) minmax(0, 1fr)"
+                                : { xs: "1fr", sm: "minmax(0, 1fr) minmax(0, 1fr)" },
+                            gap: compact ? 0.75 : 1.5,
+                            mt: 0.9,
+                        }}
+                    >
+                        <RosterStrip compact={compact} creatureIds={match.creature_ids ?? []} label={t("Your army")} />
+                        <RosterStrip
+                            compact={compact}
+                            creatureIds={match.opponent_creature_ids ?? []}
+                            label={tf("{opponent}'s army", { opponent })}
+                            muted
                         />
-                    )}
-                    {topPlayer && (
-                        <Stack direction="row" spacing={0.45} alignItems="center" sx={{ minWidth: 0 }}>
-                            <MilitaryTechRoundedIcon sx={{ color: hocColors.gold, fontSize: 15 }} />
-                            <CreatureIcon creatureId={topPlayer.creature_id ?? 0} size={20} />
-                            <Typography level="body-xs" sx={{ color: hocColors.gold, whiteSpace: "nowrap" }}>
-                                {tf("{amount} dmg", { amount: formatMatchDamage(topPlayer.damage_dealt) })}
-                            </Typography>
-                        </Stack>
-                    )}
-                    {kind.rated && mmrDelta && (
-                        <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
-                    )}
-                    {kind.rated && <RewardBadge label={tf("Gold +{amount}", { amount: goldEarned })} tone="gold" />}
-                </Stack>
+                    </Box>
 
-                <Box
-                    sx={{
-                        display: "grid",
-                        gridTemplateColumns: compact
-                            ? "minmax(0, 1fr) minmax(0, 1fr)"
-                            : { xs: "1fr", sm: "minmax(0, 1fr) minmax(0, 1fr)" },
-                        gap: compact ? 0.75 : 1.5,
-                        mt: 0.9,
-                    }}
-                >
-                    <RosterStrip compact={compact} creatureIds={match.creature_ids ?? []} label={t("Your army")} />
-                    <RosterStrip
-                        compact={compact}
-                        creatureIds={match.opponent_creature_ids ?? []}
-                        label={tf("{opponent}'s army", { opponent })}
-                        muted
-                    />
+                    <SetupSummary compact={compact} setup={playerSetup} />
                 </Box>
-
-                <SetupSummary compact={compact} setup={playerSetup} />
             </Box>
 
             {expanded && (
@@ -913,9 +945,9 @@ const MatchCard: React.FC<{
                             mt: 1.5,
                         }}
                     >
-                        <PerformanceList label={t("Your top damage")} performances={playerPerformances} />
+                        <PerformanceList label={t("Your damage")} performances={playerPerformances} />
                         <PerformanceList
-                            label={tf("{opponent}'s top damage", { opponent })}
+                            label={`${opponent} · ${t("Opponent damage")}`}
                             performances={opponentPerformances}
                         />
                     </Box>

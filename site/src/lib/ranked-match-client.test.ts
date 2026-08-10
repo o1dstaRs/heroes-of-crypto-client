@@ -50,6 +50,10 @@ const response = {
         lowerPerformers: [
             { creatureId: 5, damageDealt: 100 },
             { creatureId: 4, damageDealt: 500 },
+            { creatureId: 6, damageDealt: 450 },
+            { creatureId: 7, damageDealt: 300 },
+            { creatureId: 8, damageDealt: 200 },
+            { creatureId: 9, damageDealt: 50 },
         ],
         upperPerformers: [{ creatureId: 8, damageDealt: 320 }],
         lowerSetup: { artifactTier1: 1, artifactTier2: 2, perk: 3, synergies: ["Life:1:2"] },
@@ -71,7 +75,11 @@ describe("public ranked match normalization", () => {
         expect(match?.stats?.upperCreatureIds).toEqual([8, 9]);
         expect(match?.stats?.lowerPerformers).toEqual([
             { creatureId: 4, damageDealt: 500 },
+            { creatureId: 6, damageDealt: 450 },
+            { creatureId: 7, damageDealt: 300 },
+            { creatureId: 8, damageDealt: 200 },
             { creatureId: 5, damageDealt: 100 },
+            { creatureId: 9, damageDealt: 50 },
         ]);
         expect(match?.stats?.lowerSetup.augmentArmor).toBe(0);
     });
