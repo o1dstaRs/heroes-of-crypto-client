@@ -3517,11 +3517,15 @@ export class RenderableUnit extends Unit {
                 if (
                     this.unitProperties.abilities[i] === abilityName &&
                     // A poison aura is not stack-powered but IS luck-dependent, so its description must
-                    // still be refreshed with the live value like the stack-powered ones.
+                    // still be refreshed with the live value like the stack-powered ones. Through Shot and
+                    // Area Throw are the same case now: non-stack-powered (a lone Gargantuan / Tsar Cannon
+                    // lands the full percentage) yet still luck-scaled, so their cards must keep refreshing.
                     (this.unitProperties.abilities_stack_powered[i] ||
                         abilityName === "Blind Fury" ||
                         abilityName === "Guiding Winds Aura" ||
                         abilityName === "Sylvan Focus Aura" ||
+                        abilityName === "Through Shot" ||
+                        abilityName === "Area Throw" ||
                         abilityName === MAGIC_REFLECTION_ABILITY_NAME ||
                         HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES.has(abilityName))
                 ) {
