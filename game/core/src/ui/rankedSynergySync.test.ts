@@ -70,9 +70,13 @@ describe("ranked synergy snapshot sync", () => {
 });
 
 describe("placement synergy unit counts", () => {
-    const unit = (team: TeamType, faction: number) => ({
+    let uniqueSeq = 0;
+    // name defaults to a unique value so each unit reads as a DISTINCT creature; pass a shared name to
+    // model split stacks of the same creature (which must dedupe to one toward the faction synergy).
+    const unit = (team: TeamType, faction: number, name = `creature-${uniqueSeq++}`) => ({
         getTeam: () => team,
         getFaction: () => faction,
+        getName: () => name,
     });
 
     const createCountsStore = () => {
@@ -106,6 +110,24 @@ describe("placement synergy unit counts", () => {
         expect(lower).toMatchObject({ nature: 3, life: 1, chaos: 0, might: 0 });
         expect(upper).toMatchObject({ chaos: 2, nature: 0 });
         expect(store.calls).toHaveLength(2);
+    });
+
+    test("counts split stacks of one creature once (splitting must not inflate synergy)", () => {
+        const store = createCountsStore();
+        // A single Nature creature split into three placement stacks + one distinct Nature creature: TWO
+        // distinct creatures, so the faction count is 2 (level 1) — not 4 (level 2), which per-stack gave.
+        syncPlacementSynergyUnitCounts(
+            store,
+            [
+                unit(TeamVals.LOWER, FactionVals.NATURE, "Fairy Dragon"),
+                unit(TeamVals.LOWER, FactionVals.NATURE, "Fairy Dragon"),
+                unit(TeamVals.LOWER, FactionVals.NATURE, "Fairy Dragon"),
+                unit(TeamVals.LOWER, FactionVals.NATURE, "Elf"),
+            ],
+            false,
+        );
+        const lower = store.calls.find((call) => call.team === TeamVals.LOWER);
+        expect(lower).toMatchObject({ nature: 2 });
     });
 
     test("never recounts once the fight is live — authoritative lists own the fight", () => {

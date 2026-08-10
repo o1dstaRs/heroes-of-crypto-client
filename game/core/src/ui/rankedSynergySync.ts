@@ -13,6 +13,7 @@ interface RankedSynergyCountsStore {
 interface FactionCountableUnit {
     getTeam(): TeamType;
     getFaction(): number;
+    getName(): string;
 }
 
 type RankedSynergySnapshot = Pick<PlaySnapshot, "gameId" | "fightStarted" | "lowerSynergies" | "upperSynergies">;
@@ -54,27 +55,37 @@ export const syncPlacementSynergyUnitCounts = (
     if (fightStarted) {
         return;
     }
-    const counts = new Map<TeamType, { life: number; chaos: number; might: number; nature: number }>([
-        [TeamVals.LOWER as TeamType, { life: 0, chaos: 0, might: 0, nature: 0 }],
-        [TeamVals.UPPER as TeamType, { life: 0, chaos: 0, might: 0, nature: 0 }],
+    // Synergies count DISTINCT drafted creatures, not stacks: splitting a creature into multiple placement
+    // stacks (each sharing the creature's name) must not inflate its faction's synergy level. It is a property
+    // of the fielded army, fixed before placement — so dedupe by creature name here to match the server.
+    const seen = new Map<TeamType, { life: Set<string>; chaos: Set<string>; might: Set<string>; nature: Set<string> }>([
+        [TeamVals.LOWER as TeamType, { life: new Set(), chaos: new Set(), might: new Set(), nature: new Set() }],
+        [TeamVals.UPPER as TeamType, { life: new Set(), chaos: new Set(), might: new Set(), nature: new Set() }],
     ]);
     for (const unit of units) {
-        const teamCounts = counts.get(unit.getTeam());
-        if (!teamCounts) {
+        const teamSeen = seen.get(unit.getTeam());
+        if (!teamSeen) {
             continue;
         }
+        const name = unit.getName();
         const faction = unit.getFaction();
         if (faction === FactionVals.LIFE) {
-            teamCounts.life += 1;
+            teamSeen.life.add(name);
         } else if (faction === FactionVals.CHAOS) {
-            teamCounts.chaos += 1;
+            teamSeen.chaos.add(name);
         } else if (faction === FactionVals.MIGHT) {
-            teamCounts.might += 1;
+            teamSeen.might.add(name);
         } else if (faction === FactionVals.NATURE) {
-            teamCounts.nature += 1;
+            teamSeen.nature.add(name);
         }
     }
-    for (const [team, teamCounts] of counts) {
-        store.setSynergyUnitsPerFactions(team, teamCounts.life, teamCounts.chaos, teamCounts.might, teamCounts.nature);
+    for (const [team, teamSeen] of seen) {
+        store.setSynergyUnitsPerFactions(
+            team,
+            teamSeen.life.size,
+            teamSeen.chaos.size,
+            teamSeen.might.size,
+            teamSeen.nature.size,
+        );
     }
 };
