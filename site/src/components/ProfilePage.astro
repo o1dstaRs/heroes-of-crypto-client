@@ -76,10 +76,27 @@ const rankedApp = links.rankedApp;
                     <div class="season-history" data-profile-seasons></div>
                 </section>
 
-                <section class="profile-section" data-profile-predictions-section hidden>
-                    <h2>{copy.publicPredictionsTitle}</h2>
-                    <dl class="prediction-summary" data-profile-prediction-summary></dl>
-                    <div class="prediction-history" data-profile-predictions></div>
+                <section class="profile-section profile-section--predictions" data-profile-predictions-section hidden>
+                    <details class="prediction-panel" data-profile-predictions-panel>
+                        <summary class="prediction-panel__summary">
+                            <span class="prediction-panel__heading" role="heading" aria-level="2">{copy.publicPredictionsTitle}</span>
+                            <span class="prediction-panel__metrics" data-profile-prediction-summary></span>
+                            <span class="prediction-panel__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="prediction-panel__body">
+                            <div
+                                class="prediction-history"
+                                id="profile-prediction-history"
+                                data-profile-predictions></div>
+                            <button
+                                type="button"
+                                class="matches-more prediction-panel__more"
+                                data-profile-predictions-more
+                                aria-controls="profile-prediction-history"
+                                hidden>{copy.predictionsShowMore}</button
+                            >
+                        </div>
+                    </details>
                 </section>
 
                 <section class="profile-section" data-profile-self>
@@ -177,6 +194,9 @@ const rankedApp = links.rankedApp;
     const summaryNoticeEl = $("summary-notice");
     const matchesEl = $("matches");
     const matchesMoreEl = $<HTMLButtonElement>("matches-more");
+    const predictionsPanelEl = $<HTMLDetailsElement>("predictions-panel");
+    const predictionsEl = $("predictions");
+    const predictionsMoreEl = $<HTMLButtonElement>("predictions-more");
     const selfSections = [...document.querySelectorAll<HTMLElement>("[data-profile-self]")];
     const profileSearchParams = new URL(window.location.href).searchParams;
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
@@ -220,12 +240,15 @@ const rankedApp = links.rankedApp;
             : "Ranked battles this player ended by exiting the fight or remaining disconnected.";
     const GOLD_ICON = "/assets/icons/currency/gold.svg";
     const MATCH_PAGE_SIZE = 10;
+    const PREDICTION_PAGE_SIZE = 5;
     let matchHistoryRows: unknown[] = [];
     let matchHistoryRenderer: (match: unknown) => string = () => "";
     let visibleMatchCount = 0;
     const matchHistoryById = new Map<string, unknown>();
     const publicMatchDetails = new Map<string, PublicRankedMatch>();
     let expandedMatchId = "";
+    let predictionHistoryRows: string[] = [];
+    let visiblePredictionCount = 0;
 
     const matchGameId = (match: unknown): string => {
         if (!match || typeof match !== "object") return "";
@@ -263,6 +286,30 @@ const rankedApp = links.rankedApp;
         matchesEl.insertAdjacentHTML("beforeend", nextRows);
         visibleMatchCount = nextCount;
         updateMatchesMoreButton();
+    });
+
+    function updatePredictionsMoreButton(): void {
+        if (predictionsMoreEl) predictionsMoreEl.hidden = visiblePredictionCount >= predictionHistoryRows.length;
+    }
+
+    function renderPredictionHistory(rows: string[], emptyMarkup: string): void {
+        predictionHistoryRows = rows;
+        visiblePredictionCount = Math.min(PREDICTION_PAGE_SIZE, rows.length);
+        if (predictionsEl) {
+            predictionsEl.innerHTML = rows.length ? rows.slice(0, visiblePredictionCount).join("") : emptyMarkup;
+        }
+        updatePredictionsMoreButton();
+    }
+
+    predictionsMoreEl?.addEventListener("click", () => {
+        if (!predictionsEl) return;
+        const nextCount = Math.min(visiblePredictionCount + PREDICTION_PAGE_SIZE, predictionHistoryRows.length);
+        predictionsEl.insertAdjacentHTML(
+            "beforeend",
+            predictionHistoryRows.slice(visiblePredictionCount, nextCount).join(""),
+        );
+        visiblePredictionCount = nextCount;
+        updatePredictionsMoreButton();
     });
 
     function currencyMarkup(value: number, prefix = ""): string {
@@ -975,6 +1022,7 @@ const rankedApp = links.rankedApp;
 
     function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
         configurePublicMode();
+        if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
         const rating = placed ? numberFormatter.format(profile.mmr) : copy.publicRatingHidden;
         const rank = placed && profile.leaderboardRank ? `#${numberFormatter.format(profile.leaderboardRank)}` : copy.publicUnranked;
@@ -1056,7 +1104,6 @@ const rankedApp = links.rankedApp;
         // a market is only readable if you can see who backs what and how it turns out. Hidden until
         // they have actually placed one.
         const predictionsSection = document.querySelector<HTMLElement>("[data-profile-predictions-section]");
-        const predictionsEl = $("predictions");
         const predictionSummaryEl = document.querySelector<HTMLElement>("[data-profile-prediction-summary]");
         if (predictionsSection && predictionsEl) {
             const predictions = summaryOnly
@@ -1068,17 +1115,17 @@ const rankedApp = links.rankedApp;
                 const netClass = predictions.net > 0 ? "positive" : predictions.net < 0 ? "negative" : "";
                 const netSign = predictions.net > 0 ? "+" : "";
                 predictionSummaryEl.innerHTML = `
-                    <div><dt>${escapeHtml(copy.predictionsPlaced)}</dt><dd>${numberFormatter.format(predictions.bets)}</dd></div>
-                    <div><dt>${escapeHtml(copy.predictionsStaked)}</dt><dd>${currencyMarkup(predictions.staked)}</dd></div>
-                    <div><dt>${escapeHtml(copy.predictionsHitRate)}</dt><dd>${
+                    <span class="prediction-panel__metric"><b>${numberFormatter.format(predictions.bets)}</b><span>${escapeHtml(copy.predictionsPlaced)}</span></span>
+                    <span class="prediction-panel__metric"><b>${currencyMarkup(predictions.staked)}</b><span>${escapeHtml(copy.predictionsStaked)}</span></span>
+                    <span class="prediction-panel__metric"><b>${
                         predictions.settled > 0
-                            ? `${predictions.winRatePct.toFixed(1).replace(/\.0$/, "")}% (${predictions.won}/${predictions.settled})`
+                            ? `${predictions.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
                             : "—"
-                    }</dd></div>
-                    <div><dt>${escapeHtml(copy.predictionsNet)}</dt><dd class="${netClass}">${netSign}${numberFormatter.format(predictions.net)}</dd></div>`;
+                    }</b><span>${escapeHtml(copy.predictionsHitRate)}</span></span>
+                    <span class="prediction-panel__metric ${netClass}"><b>${netSign}${numberFormatter.format(predictions.net)}</b><span>${escapeHtml(copy.predictionsNet)}</span></span>`;
             }
 
-            predictionsEl.innerHTML = predictions.recent
+            const predictionRows = predictions.recent
                 .map((bet) => {
                     const label = {
                         open: copy.predictionOpen,
@@ -1088,24 +1135,57 @@ const rankedApp = links.rankedApp;
                         refunded: copy.predictionRefunded,
                     }[bet.status];
                     // Only a settled bet has a result worth colouring; an open one is still in play.
-                    const tone = bet.status === "won" ? "positive" : bet.status === "open" ? "" : "negative";
-                    // Won bets return stake + winnings, so the meaningful number is the profit.
+                    const tone =
+                        bet.status === "won"
+                            ? "positive"
+                            : bet.status === "lost" || bet.status === "burned"
+                              ? "negative"
+                              : bet.status === "refunded"
+                                ? "muted"
+                                : "";
                     const profit = bet.payout - bet.amount;
                     const outcome =
                         bet.status === "open"
                             ? "—"
                             : `${profit > 0 ? "+" : ""}${numberFormatter.format(profit)}`;
-                    const when = bet.placedAt ? timeAgo(bet.placedAt, agoLabels) : "";
+                    const backedUsername = bet.backedUsername || copy.predictionUnknownSide;
+                    const placedDate = bet.placedAt ? new Date(bet.placedAt) : null;
+                    const placedAt = placedDate && Number.isFinite(placedDate.getTime()) ? dateFormatter.format(placedDate) : "—";
+                    const placedTime =
+                        placedDate && Number.isFinite(placedDate.getTime())
+                            ? `<time datetime="${escapeHtml(placedDate.toISOString())}">${escapeHtml(placedAt)}</time>`
+                            : escapeHtml(placedAt);
+                    const compactGameId =
+                        bet.gameId.length > 16 ? `${bet.gameId.slice(0, 8)}…${bet.gameId.slice(-6)}` : bet.gameId;
+                    let matchHref = "";
+                    try {
+                        matchHref = buildRankedMatchPagePath(bet.gameId, bet.predictedPlayerId, language);
+                    } catch {
+                        matchHref = "";
+                    }
+                    const match = matchHref
+                        ? `<a class="prediction-row__match" href="${escapeHtml(matchHref)}" aria-label="${escapeHtml(`${copy.predictionOpenMatch}: ${bet.gameId}`)}"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(bet.gameId)}">${escapeHtml(compactGameId)}</code><i aria-hidden="true">↗</i></a>`
+                        : `<span class="prediction-row__match"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(bet.gameId)}">${escapeHtml(compactGameId)}</code></span>`;
                     return `
-                        <div class="prediction-row">
-                            <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
-                            <span class="prediction-side">${escapeHtml(bet.backedUsername || copy.predictionUnknownSide)}</span>
-                            <span class="prediction-stake">${currencyMarkup(bet.amount)}</span>
-                            <span class="prediction-outcome ${tone}">${escapeHtml(outcome)}</span>
-                            <span class="prediction-when">${escapeHtml(when)}</span>
-                        </div>`;
-                })
-                .join("");
+                        <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${copy.predictionBacked} ${backedUsername}`)}">
+                            <div class="prediction-row__outcome">
+                                <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                                <strong class="prediction-outcome ${tone}">${escapeHtml(outcome)}</strong>
+                            </div>
+                            <div class="prediction-row__bet">
+                                <strong>${escapeHtml(copy.predictionBacked)} ${escapeHtml(backedUsername)}</strong>
+                                <span>${escapeHtml(copy.predictionStake)} ${currencyMarkup(bet.amount)}</span>
+                            </div>
+                            <div class="prediction-row__context">
+                                ${match}
+                                <span class="prediction-row__placed"><span>${escapeHtml(copy.predictionPlaced)}</span>${placedTime}</span>
+                            </div>
+                        </article>`;
+                });
+            renderPredictionHistory(
+                predictionRows,
+                `<p class="prediction-history__empty">${escapeHtml(copy.predictionHistoryEmpty)}</p>`,
+            );
         }
 
         // Previous seasons: the archived final standings (MMR resets each season; this is where the
@@ -1514,97 +1594,309 @@ const rankedApp = links.rankedApp;
         vertical-align: baseline;
     }
 
-    /* Previous seasons: one compact archived-standing row per finished season. */
-    /* Same four-card readout the ranked standing uses, so the two sections read as siblings. */
-    .prediction-summary {
+    .profile-section--predictions {
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .prediction-panel {
+        background:
+            radial-gradient(circle at 88% 10%, rgba(220, 177, 88, 0.15), transparent 34%),
+            linear-gradient(135deg, rgba(42, 27, 15, 0.86), rgba(12, 8, 5, 0.98));
+    }
+
+    .prediction-panel__summary {
+        display: grid;
+        grid-template-columns: minmax(130px, 0.72fr) minmax(0, 2.45fr) 18px;
+        gap: 14px;
+        align-items: center;
+        padding: clamp(12px, 1.5vw, 16px);
+        list-style: none;
+        cursor: pointer;
+        transition: background 0.18s ease;
+    }
+
+    .prediction-panel__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .prediction-panel__summary:hover {
+        background: rgba(255, 190, 94, 0.035);
+    }
+
+    .prediction-panel__summary:focus-visible,
+    .prediction-history :global(.prediction-row__match):focus-visible {
+        outline: 2px solid rgba(242, 199, 93, 0.86);
+        outline-offset: -2px;
+    }
+
+    .prediction-panel[open] .prediction-panel__summary {
+        border-bottom: 1px solid rgba(220, 177, 88, 0.2);
+    }
+
+    .prediction-panel__heading {
+        color: var(--gold, #dcb158);
+        font-size: 1rem;
+        font-weight: 400;
+        letter-spacing: 0.025em;
+    }
+
+    .prediction-panel__metrics {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 9px;
-        margin: 0 0 12px;
+        gap: 8px;
     }
 
-    .prediction-summary :global(> div) {
+    .prediction-panel__metrics :global(.prediction-panel__metric) {
         display: grid;
-        align-content: center;
-        min-height: 68px;
-        padding: 11px 14px;
-        border: 1px solid rgba(239, 228, 204, 0.08);
-        border-radius: 10px;
-        background: rgba(0, 0, 0, 0.28);
+        gap: 2px;
+        min-width: 0;
+        padding-left: 12px;
+        border-left: 1px solid rgba(239, 228, 204, 0.12);
     }
 
-    .prediction-summary :global(dt) {
+    .prediction-panel__metrics :global(.prediction-panel__metric b) {
+        display: flex;
+        align-items: center;
+        min-height: 18px;
+        color: rgba(251, 244, 232, 0.94);
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+    }
+
+    .prediction-panel__metrics :global(.prediction-panel__metric > span) {
+        overflow: hidden;
         color: rgba(251, 244, 232, 0.48);
-        font-size: 0.68rem;
+        font-size: 0.64rem;
         letter-spacing: 0.05em;
+        text-overflow: ellipsis;
         text-transform: uppercase;
+        white-space: nowrap;
     }
 
-    .prediction-summary :global(dd) {
-        margin: 4px 0 0;
-        color: rgba(251, 244, 232, 0.92);
-        font-size: 0.94rem;
-        letter-spacing: 0.035em;
+    .prediction-panel__metrics :global(.prediction-panel__metric .currency-amount) {
+        gap: 4px;
+        font: inherit;
     }
 
-    @media (max-width: 720px) {
-        .prediction-summary {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
+    .prediction-panel__metrics :global(.prediction-panel__metric .currency-icon) {
+        width: 14px;
+        height: 14px;
+    }
+
+    .prediction-panel__chevron {
+        width: 8px;
+        height: 8px;
+        border-right: 1px solid rgba(251, 244, 232, 0.76);
+        border-bottom: 1px solid rgba(251, 244, 232, 0.76);
+        transform: rotate(45deg) translate(-2px, -2px);
+        transition: transform 0.18s ease;
+    }
+
+    .prediction-panel[open] .prediction-panel__chevron {
+        transform: rotate(225deg) translate(-2px, -2px);
+    }
+
+    .prediction-panel__body {
+        padding: 10px clamp(12px, 1.5vw, 16px) clamp(12px, 1.5vw, 16px);
     }
 
     .season-history,
     .prediction-history {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
     }
 
-    /* Same row language as the season history, one column narrower. */
     .prediction-history :global(.prediction-row) {
         display: grid;
-        grid-template-columns: 0.7fr minmax(120px, 1.4fr) 0.8fr 0.8fr 0.8fr;
-        gap: 10px;
+        grid-template-columns: minmax(92px, 0.55fr) minmax(180px, 1.1fr) minmax(270px, 1.35fr);
+        gap: 12px;
         align-items: center;
-        padding: 10px 14px;
+        min-width: 0;
+        padding: 9px 12px;
         border: 1px solid rgba(220, 177, 88, 0.22);
-        border-radius: 10px;
-        background: rgba(0, 0, 0, 0.24);
-        font-size: 0.86rem;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.015);
+        font-size: 0.82rem;
+        transition:
+            border-color 0.18s ease,
+            background 0.18s ease;
     }
 
-    .prediction-history :global(.prediction-side) {
+    .prediction-history :global(.prediction-row:hover) {
+        border-color: rgba(242, 199, 93, 0.42);
+        background: rgba(58, 36, 18, 0.44);
+    }
+
+    .prediction-history :global(.prediction-row__outcome),
+    .prediction-history :global(.prediction-row__bet),
+    .prediction-history :global(.prediction-row__context) {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .prediction-history :global(.prediction-row__context) {
+        grid-template-columns: minmax(0, 1.1fr) minmax(150px, 0.9fr);
+        gap: 10px;
+        align-items: center;
+    }
+
+    .prediction-history :global(.prediction-row__bet > strong) {
+        overflow: hidden;
         color: var(--gold, #dcb158);
         font-weight: 600;
-        overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .prediction-history :global(.prediction-stake) {
+    .prediction-history :global(.prediction-row__bet > span),
+    .prediction-history :global(.prediction-row__placed) {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        color: rgba(251, 244, 232, 0.5);
+        font-size: 0.7rem;
+    }
+
+    .prediction-history :global(.prediction-row__bet .currency-amount) {
         color: #f2c75d;
         white-space: nowrap;
     }
 
-    .prediction-history :global(.prediction-status),
-    .prediction-history :global(.prediction-outcome) {
+    .prediction-history :global(.prediction-status) {
         color: rgba(251, 244, 232, 0.66);
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.065em;
+        text-transform: uppercase;
     }
 
-    .prediction-history :global(.prediction-when) {
-        color: rgba(251, 244, 232, 0.45);
-        text-align: right;
+    .prediction-history :global(.prediction-outcome) {
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.96rem;
+        font-weight: 600;
+    }
+
+    .prediction-history :global(.prediction-row__match) {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        color: rgba(251, 244, 232, 0.7);
+        text-decoration: none;
+    }
+
+    .prediction-history :global(a.prediction-row__match:hover) {
+        color: var(--gold, #dcb158);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .prediction-history :global(.prediction-row__match > span:first-child),
+    .prediction-history :global(.prediction-row__placed > span:first-child) {
+        color: rgba(251, 244, 232, 0.46);
+        font-size: 0.66rem;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
+    }
+
+    .prediction-history :global(.prediction-row__match code) {
+        overflow: hidden;
+        color: inherit;
+        font-family: var(--hoc-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+        font-size: 0.76rem;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
 
+    .prediction-history :global(.prediction-row__match i) {
+        color: rgba(251, 244, 232, 0.48);
+        font-style: normal;
+    }
+
+    .prediction-history :global(.prediction-row__placed time) {
+        overflow: hidden;
+        color: rgba(251, 244, 232, 0.75);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-history__empty) {
+        margin: 0;
+        padding: 14px;
+        border: 1px dashed rgba(220, 177, 88, 0.22);
+        border-radius: 10px;
+        color: rgba(251, 244, 232, 0.54);
+        font-size: 0.86rem;
+        text-align: center;
+    }
+
     .prediction-history :global(.positive),
-    .prediction-summary :global(.positive) {
+    .prediction-panel__metrics :global(.positive b) {
         color: #7ad17a;
     }
 
     .prediction-history :global(.negative),
-    .prediction-summary :global(.negative) {
+    .prediction-panel__metrics :global(.negative b) {
         color: #ff8a70;
+    }
+
+    .prediction-history :global(.muted) {
+        color: rgba(251, 244, 232, 0.48);
+    }
+
+    .prediction-panel__more {
+        min-width: 150px;
+        margin-top: 10px;
+        padding-block: 7px;
+        font-size: 0.78rem;
+    }
+
+    @media (max-width: 820px) {
+        .prediction-panel__summary {
+            grid-template-columns: minmax(0, 1fr) 18px;
+            gap: 12px;
+        }
+
+        .prediction-panel__metrics {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .prediction-panel__chevron {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .prediction-history :global(.prediction-row) {
+            grid-template-columns: minmax(92px, 0.5fr) minmax(0, 1fr);
+        }
+
+        .prediction-history :global(.prediction-row__context) {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .prediction-panel__metrics :global(.prediction-panel__metric) {
+            padding-left: 9px;
+        }
+
+        .prediction-history :global(.prediction-row) {
+            gap: 10px;
+            padding: 12px;
+        }
+
+        .prediction-history :global(.prediction-row__context) {
+            grid-template-columns: 1fr;
+            gap: 7px;
+        }
     }
 
     .season-row {

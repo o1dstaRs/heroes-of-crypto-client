@@ -752,6 +752,53 @@ const copy = isRu
         gap: 1rem;
     }
 
+    /* The match body is injected via innerHTML, so Astro's SCOPED selectors above never match it — only
+       :global rules do (which is why the player cards, styled globally, look right while the overview and
+       the facts strip ran their label straight into their value: "MapNormal", "Laps8", "FinishedAug 8...").
+       Mirror those layouts globally so the label and value separate again. */
+    .match-page :global(.overview-grid) {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.8rem;
+    }
+    .match-page :global(.overview-grid > div) {
+        padding: 1.15rem;
+        border: 1px solid rgba(166, 124, 62, 0.2);
+        background: rgba(14, 11, 8, 0.82);
+    }
+    .match-page :global(.overview-grid span),
+    .match-page :global(.overview-grid strong) {
+        display: block;
+    }
+    .match-page :global(.overview-grid span) {
+        margin-bottom: 0.45rem;
+        color: #81776c;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .match-page :global(.overview-grid strong) {
+        color: #ead8b8;
+        font-size: 1.15rem;
+    }
+    .match-page :global(.two-column) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .match-page :global(.match-facts) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+    }
+    .match-page :global(.match-facts span) {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .match-page :global(.match-facts b) {
+        color: #d8c3a0;
+    }
+
     .match-page :global(.performance-panel),
     .match-page :global(.setup-panel) {
         padding: 1.2rem;
@@ -896,6 +943,11 @@ const copy = isRu
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
+        .match-page :global(.overview-grid),
+        .match-page :global(.two-column) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .matchup {
             grid-template-columns: 1fr;
         }
@@ -915,6 +967,11 @@ const copy = isRu
             grid-template-columns: 1fr;
         }
 
+        .match-page :global(.overview-grid),
+        .match-page :global(.two-column) {
+            grid-template-columns: 1fr;
+        }
+
         .match-page :global(.player-card dl div) {
             grid-template-columns: 1fr;
             gap: 0.3rem;
@@ -925,6 +982,11 @@ const copy = isRu
         }
 
         .match-facts {
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .match-page :global(.match-facts) {
             display: grid;
             gap: 0.45rem;
         }

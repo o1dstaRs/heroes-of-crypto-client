@@ -67,6 +67,59 @@ describe("public ranked profile normalization", () => {
         });
     });
 
+    test("normalizes and orders public prediction history by placement date", () => {
+        const profile = normalizePublicRankedProfile({
+            playerId: PLAYER_ID,
+            predictions: {
+                bets: 3,
+                staked: 120,
+                returned: 180,
+                settled: 2,
+                won: 1,
+                net: 60,
+                winRatePct: 50,
+                recent: [
+                    {
+                        gameId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                        predictedPlayerId: OPPONENT_ID,
+                        backedUsername: "Nyx",
+                        amount: 40,
+                        placedAt: 100,
+                        status: "won",
+                        payout: 80,
+                        settledAt: 200,
+                    },
+                    {
+                        gameId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                        predictedPlayerId: OPPONENT_ID,
+                        backedUsername: "Nyx",
+                        amount: 80,
+                        placedAt: 300,
+                        status: "not-a-status",
+                        payout: 0,
+                        settledAt: 0,
+                    },
+                    { gameId: "" },
+                ],
+            },
+        });
+
+        expect(profile?.predictions).toMatchObject({
+            bets: 3,
+            staked: 120,
+            returned: 180,
+            settled: 2,
+            won: 1,
+            net: 60,
+            winRatePct: 50,
+        });
+        expect(profile?.predictions.recent.map((bet) => bet.gameId)).toEqual([
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ]);
+        expect(profile?.predictions.recent[0]).toMatchObject({ status: "open", backedUsername: "Nyx" });
+    });
+
     test("rejects malformed identities and clamps unsafe public values", () => {
         expect(normalizePublicRankedProfile(null)).toBeNull();
         expect(normalizePublicRankedProfile({ playerId: "short" })).toBeNull();

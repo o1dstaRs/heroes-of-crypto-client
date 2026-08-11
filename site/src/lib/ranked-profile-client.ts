@@ -433,7 +433,8 @@ function normalizePredictions(value: unknown): PredictionHistory {
                 settledAt: nonNegativeInteger(bet.settledAt),
             };
         })
-        .filter((bet): bet is PredictionRecord => bet !== null);
+        .filter((bet): bet is PredictionRecord => bet !== null)
+        .sort((a, b) => b.placedAt - a.placedAt);
 
     return {
         bets: nonNegativeInteger(row.bets),
