@@ -28,6 +28,7 @@ import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
+import { isPreviewPlayGame } from "../api/previewPlaySession";
 import { createVsAiGame } from "../api/vs_ai_client";
 import {
     fetchRankedPlayReplay,
@@ -66,9 +67,12 @@ import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
 import { MapBadge } from "./PickAndBan/MapReveal";
 import {
+    DRAFT_ARMIES_HEIGHT,
+    DRAFT_HEADER_HEIGHT,
+    DRAFT_ZONE_GAP,
+    DraftBottomControls,
     draftBoardSx,
     draftShellSx,
-    DraftStepper,
     DraftTitle,
     MyDraftBar,
     OpponentDraftBar,
@@ -85,7 +89,16 @@ import { RankedFinishedActions } from "./RankedFinishedActions";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
-import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx, hocSpinnerSx } from "./hocTheme";
+import {
+    hocColors,
+    hocDangerAlertSx,
+    hocDisplayFontFamily,
+    hocDisplayLetterSpacing,
+    hocPanelSx,
+    hocSidebarSectionSx,
+    hocSoftButtonSx,
+    hocSpinnerSx,
+} from "./hocTheme";
 import {
     hasOffGridSubmitCell,
     rejectionErrorFromPlayEvent,
@@ -705,7 +718,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     }, [refreshSnapshot, replayOnly]);
 
     useEffect(() => {
-        if (replayOnly) {
+        // The preview session (/preview/placement) has no event stream to connect to — its snapshot lives
+        // in memory and every action returns the next one, so the 4s poll above is the whole sync story.
+        if (replayOnly || isPreviewPlayGame(gameId)) {
             return undefined;
         }
         let closed = false;
@@ -1664,7 +1679,19 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 
     if (!snapshot) {
         return (
-            <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "#07090d", color: "#fff" }}>
+            <Box
+                sx={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 9999,
+                    width: "100vw",
+                    height: "100dvh",
+                    display: "grid",
+                    placeItems: "center",
+                    bgcolor: "#07090d",
+                    color: "#fff",
+                }}
+            >
                 <Stack spacing={2} alignItems="center">
                     <CircularProgress sx={hocSpinnerSx} />
                     <Typography sx={{ color: hocColors.parchment }}>Loading ranked fight</Typography>
@@ -1717,23 +1744,27 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         around the same two sidebars — never drew it and the board simply ran into the
                         leather. It is anchored to the BOARD's edges, so it belongs beside the bars wherever
                         they are used. */}
-                    <ViewerTeamContext.Provider value={viewerTeam}>
-                        <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
-                    </ViewerTeamContext.Provider>
-                    <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
-                    {gameStarted && <UpNextOverlay />}
-                    {gameStarted && <NextLapHazardBadge />}
-                    {gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
+                    {pixiReady && (
+                        <ViewerTeamContext.Provider value={viewerTeam}>
+                            <LeftSideBar gameStarted={gameStarted} windowSize={windowSize} />
+                        </ViewerTeamContext.Provider>
+                    )}
+                    {pixiReady && (
+                        <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
+                    )}
+                    {pixiReady && gameStarted && <UpNextOverlay />}
+                    {pixiReady && gameStarted && <NextLapHazardBadge />}
+                    {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
                     )}
-                    {(replayOnly || replayPlaybackActive) && (
+                    {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
                             left={aiBadgeLeft(windowSize)}
                             onExit={() => window.location.assign("/portal")}
                         />
                     )}
-                    {gameStarted && (
+                    {pixiReady && gameStarted && (
                         <FightFinishedOverlay
                             backLabel={
                                 replayOnly
@@ -1754,7 +1785,8 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     )}
                     {/* Persistent top-left post-match actions for the participant: quick access after the
                         results overlay is dismissed. Not shown to observers/replay (ExitReplayBadge covers those). */}
-                    {gameStarted &&
+                    {pixiReady &&
+                        gameStarted &&
                         !isObserver &&
                         !replayPlaybackActive &&
                         (snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished) && (
@@ -2409,6 +2441,42 @@ const RankedRosterRow: React.FC<{
     </Box>
 );
 
+const RankedRosterDivider: React.FC = () => (
+    <Box
+        aria-hidden="true"
+        sx={{
+            position: "relative",
+            width: "100%",
+            height: "9.6px",
+            flex: "0 0 9.6px",
+            "&::before": {
+                content: '\"\"',
+                position: "absolute",
+                top: "50%",
+                left: 0,
+                right: 0,
+                height: "1.6px",
+                transform: "translateY(-50%)",
+                background:
+                    "linear-gradient(90deg, transparent, rgba(118,56,29,.72) 6%, #bd6537 50%, rgba(118,56,29,.72) 94%, transparent)",
+                boxShadow: "0 2px 8px rgba(211,70,26,.2), 0 -1px 0 rgba(0,0,0,.9)",
+            },
+            "&::after": {
+                content: '\"\"',
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                width: "6.4px",
+                height: "6.4px",
+                transform: "translate(-50%, -50%) rotate(45deg)",
+                background: "#d06d36",
+                border: "1.6px solid #1a0e09",
+                boxShadow: "0 0 7px rgba(231,83,32,.46)",
+            },
+        }}
+    />
+);
+
 // Preserve the draft header's own-army / map / opponent balance when the server opts this Setup into roster
 // privacy. Its footprint matches OpponentDraftBar, but it contains no slots or unit data.
 const RankedOpponentArmyPrivacyCard: React.FC = () => (
@@ -2451,7 +2519,7 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     }
 
     return (
-        <Stack spacing={1.75}>
+        <Stack spacing={1.1}>
             <RankedRosterRow
                 title="Opponent"
                 accent="#ff9d9d"
@@ -2459,6 +2527,7 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
                 bgcolor="#241416"
                 creatureIds={opponentIds}
             />
+            <RankedRosterDivider />
             <RankedRosterRow
                 title="Your army"
                 accent="#dcb158"
@@ -2469,6 +2538,77 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
         </Stack>
     );
 };
+
+// The compact stone READY plate requested for ranked placement. Its 9-slice keeps the authored corners
+// sharp at the sidebar's full width; the right-hand clock uses the same rigid divider and urgent blink as
+// the bundle-pick action bar without replacing this plate's established look.
+const rankedReadyPlacementButtonSx = {
+    position: "relative",
+    zIndex: 4,
+    // A further two per cent over the previous 105% footprint: 1.05 * 1.02 = 1.071.
+    width: "calc(107.1% - 12.852px)",
+    height: "clamp(3rem, 13.8cqw, 4.3rem)",
+    minHeight: "clamp(3rem, 13.8cqw, 4.3rem)",
+    maxHeight: "clamp(3rem, 13.8cqw, 4.3rem)",
+    mx: "auto",
+    alignSelf: "center",
+    py: 0,
+    px: 0,
+    boxSizing: "border-box",
+    overflow: "visible !important",
+    borderStyle: "solid",
+    borderColor: "transparent",
+    borderWidth: "3.69px",
+    borderRadius: 0,
+    borderImageSource: `url(${images.ui_start_button_plate_gray_50})`,
+    // One real 9-slice surface: only its continuous centre band expands, while the authored orange
+    // corners and rails remain at their original proportions. This avoids the visible copied squares
+    // produced by `round` repetition.
+    borderImageSlice: "64 120 fill",
+    borderImageWidth: "3.69px",
+    borderImageOutset: 0,
+    borderImageRepeat: "stretch",
+    background: "transparent",
+    opacity: 1,
+    color: "#cda078",
+    fontFamily: hocDisplayFontFamily,
+    fontSize: "clamp(.64rem, 6.15cqw, 1.722rem)",
+    fontStyle: "normal",
+    fontWeight: 800,
+    fontSynthesis: "weight",
+    letterSpacing: hocDisplayLetterSpacing,
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+    lineHeight: 1,
+    display: "flex",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: 0,
+    WebkitTextStroke: "0.045em rgba(43,25,15,.96)",
+    paintOrder: "stroke fill",
+    textShadow: "0 .075em 0 #070504, 0 -.022em 0 rgba(255,222,178,.24), 0 .12em .08em rgba(0,0,0,.82)",
+    boxShadow: "none",
+    filter: "brightness(.92) saturate(.9)",
+    transition: "filter 140ms ease, transform 80ms ease",
+    marginTop: "auto !important",
+    "&:hover:not(:disabled)": {
+        background: "transparent",
+        color: "#d8ab80",
+        filter: "brightness(1.09) contrast(1.04) drop-shadow(0 0 7px rgba(224,83,34,.38))",
+        transform: "translateY(-1px)",
+    },
+    "&:active": { transform: "translateY(1px)" },
+    "&.Mui-disabled": {
+        opacity: 1,
+        color: "#c69a72",
+        background: "transparent",
+        filter: "brightness(.7) saturate(.72)",
+    },
+    "@keyframes hocRankedPlacementTimerBlink": {
+        "0%, 100%": { opacity: 1 },
+        "50%": { opacity: 0.25 },
+    },
+} as const;
 
 const RankedOverlay: React.FC<RankedOverlayProps> = ({
     busy,
@@ -2594,43 +2734,56 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
     return (
         <Sheet
-            variant="outlined"
+            variant="plain"
             sx={{
                 position: embedded ? "static" : "fixed",
                 top: embedded ? undefined : 12,
                 right: embedded ? undefined : 12,
                 zIndex: embedded ? "auto" : 20,
                 width: embedded ? "100%" : { xs: "calc(100vw - 24px)", sm: 340 },
+                height: embedded ? "100%" : undefined,
+                minHeight: embedded ? 0 : undefined,
                 maxHeight: embedded ? "none" : "calc(100vh - 24px)",
-                overflow: embedded ? "visible" : "auto",
+                overflowX: embedded ? "visible" : "auto",
+                overflowY: embedded ? "visible" : "auto",
+                scrollbarWidth: embedded ? "none" : undefined,
+                "&::-webkit-scrollbar": embedded ? { display: "none" } : undefined,
+                mx: embedded ? "auto" : undefined,
                 p: 1.25,
-                ...hocPanelSx,
-                backdropFilter: "blur(10px)",
+                ...(snapshot.phase === PlayPhase.PLACEMENT ? hocSidebarSectionSx("army") : hocPanelSx),
+                // The base section surface is alpha .66. Ten additional percentage points of
+                // transparency therefore means .56 (not .8/.9, which made it more opaque).
+                ...(snapshot.phase === PlayPhase.PLACEMENT
+                    ? {
+                          background: "rgba(18, 12, 9, .56) !important",
+                          boxShadow: "0 7px 16px rgba(0,0,0,.35)",
+                      }
+                    : {}),
+                backdropFilter: snapshot.phase === PlayPhase.PLACEMENT ? "none" : "blur(10px)",
+                fontFamily: hocDisplayFontFamily,
+                containerType: "inline-size",
+                // Joy components carry their own theme font, so inheriting on the Sheet alone is not
+                // sufficient. Keep every textual element in this ranked command panel on HoC Forge.
+                "& .MuiTypography-root, & .MuiButton-root, & .MuiInput-root, & input": {
+                    fontFamily: hocDisplayFontFamily,
+                    fontSynthesis: "none",
+                },
             }}
         >
-            <Stack spacing={1}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                    <Typography level="title-md" textColor={hocColors.parchment}>
+            <Stack spacing={1} sx={{ height: "100%", minHeight: 0, flex: "1 1 auto" }}>
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                    <Typography
+                        level="title-md"
+                        textColor={hocColors.parchment}
+                        sx={{
+                            width: "100%",
+                            textAlign: "center",
+                            textTransform: "uppercase",
+                            letterSpacing: hocDisplayLetterSpacing,
+                        }}
+                    >
                         {phaseLabel(snapshot.phase)}
                     </Typography>
-                    {snapshot.phase === PlayPhase.PLACEMENT && augmentSecondsLeft >= 0 && (
-                        <Typography
-                            sx={{
-                                px: 1,
-                                py: 0.25,
-                                fontSize: 22,
-                                fontWeight: 700,
-                                lineHeight: 1.2,
-                                borderRadius: "8px",
-                                fontVariantNumeric: "tabular-nums",
-                                color: augmentSecondsLeft <= 15 ? "#ff8f8f" : hocColors.parchment,
-                                bgcolor: "rgba(255,255,255,0.06)",
-                                border: "1px solid rgba(255,255,255,0.14)",
-                            }}
-                        >
-                            {`${Math.floor(augmentSecondsLeft / 60)}:${String(augmentSecondsLeft % 60).padStart(2, "0")}`}
-                        </Typography>
-                    )}
                 </Stack>
 
                 {!HEALTHY_STATUSES.has(status) && (
@@ -2657,7 +2810,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                 )}
 
                 {snapshot.phase === PlayPhase.PLACEMENT && !isObserver && (
-                    <Stack spacing={0.75}>
+                    <Stack spacing={0.75} sx={{ flex: "1 1 0", minHeight: 0 }}>
                         {shouldShowRankedPlacementRosters(snapshot, augmentOverlayOpen) && (
                             <RankedPlacementRosters snapshot={snapshot} userTeam={userTeam} />
                         )}
@@ -2695,17 +2848,34 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 <Box sx={draftBoardSx(draftScale)}>
                                     {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
-                                    <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                                    <Box
+                                        sx={{
+                                            width: "100%",
+                                            height: DRAFT_HEADER_HEIGHT,
+                                            minHeight: DRAFT_HEADER_HEIGHT,
+                                            maxHeight: DRAFT_HEADER_HEIGHT,
+                                            flex: "0 0 auto",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            overflow: "hidden",
+                                        }}
+                                    >
+                                        <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                                    </Box>
                                     {/* Setup always recaps the player's draft. Opponent visibility follows the
                                     snapshot's explicit policy: normal rail by default, privacy card when set. */}
                                     <Stack
                                         direction="row"
-                                        spacing={1.25}
+                                        spacing={1.5}
                                         sx={{
                                             width: "100%",
-                                            mx: "auto",
+                                            height: DRAFT_ARMIES_HEIGHT,
+                                            minHeight: DRAFT_ARMIES_HEIGHT,
+                                            maxHeight: DRAFT_ARMIES_HEIGHT,
                                             flex: "0 0 auto",
                                             alignItems: "center",
+                                            justifyContent: "center",
                                             flexWrap: "nowrap",
                                         }}
                                     >
@@ -2748,72 +2918,88 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             />
                                         )}
                                     </Stack>
-                                    <PhasePanel>
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "center",
+                                            gap: DRAFT_ZONE_GAP,
+                                            width: "100%",
+                                            flex: "1 1 0",
+                                            minHeight: 0,
+                                        }}
+                                    >
                                         <Box
-                                            component="fieldset"
-                                            disabled={ready}
-                                            aria-disabled={ready}
                                             sx={{
-                                                minWidth: 0,
-                                                m: 0,
-                                                p: 0,
-                                                border: 0,
-                                                height: "100%",
-                                                pointerEvents: ready ? "none" : "auto",
-                                                opacity: ready ? 0.64 : 1,
+                                                position: "relative",
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                alignItems: "stretch",
+                                                width: "100%",
+                                                flex: "1 1 0",
+                                                minHeight: 0,
+                                                overflow: "visible",
                                             }}
                                         >
-                                            <SideToggleContainer
-                                                side={userTeam === TeamVals.LOWER ? "green" : "red"}
-                                                teamType={userTeam}
-                                                showArtifactPicker={false}
-                                                budgetPoints={augmentBudget}
-                                                authoritativeSelections={{
-                                                    placement:
-                                                        (userTeam === TeamVals.LOWER
-                                                            ? snapshot.lowerAugmentPlacement
-                                                            : snapshot.upperAugmentPlacement) ?? 0,
-                                                    armor:
-                                                        (userTeam === TeamVals.LOWER
-                                                            ? snapshot.lowerAugmentArmor
-                                                            : snapshot.upperAugmentArmor) ?? 0,
-                                                    might:
-                                                        (userTeam === TeamVals.LOWER
-                                                            ? snapshot.lowerAugmentMight
-                                                            : snapshot.upperAugmentMight) ?? 0,
-                                                    empower:
-                                                        (userTeam === TeamVals.LOWER
-                                                            ? snapshot.lowerAugmentEmpower
-                                                            : snapshot.upperAugmentEmpower) ?? 0,
-                                                    sniper:
-                                                        (userTeam === TeamVals.LOWER
-                                                            ? snapshot.lowerAugmentSniper
-                                                            : snapshot.upperAugmentSniper) ?? 0,
-                                                    movement:
-                                                        (userTeam === TeamVals.LOWER
-                                                            ? snapshot.lowerAugmentMovement
-                                                            : snapshot.upperAugmentMovement) ?? 0,
-                                                }}
-                                                onReadyChange={setAugmentReady}
-                                            />
+                                            <PhasePanel>
+                                                <Box
+                                                    component="fieldset"
+                                                    disabled={ready}
+                                                    aria-disabled={ready}
+                                                    sx={{
+                                                        minWidth: 0,
+                                                        m: 0,
+                                                        p: 0,
+                                                        border: 0,
+                                                        height: "100%",
+                                                        pointerEvents: ready ? "none" : "auto",
+                                                        opacity: ready ? 0.64 : 1,
+                                                    }}
+                                                >
+                                                    <SideToggleContainer
+                                                        side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                                        teamType={userTeam}
+                                                        showArtifactPicker={false}
+                                                        budgetPoints={augmentBudget}
+                                                        authoritativeSelections={{
+                                                            placement:
+                                                                (userTeam === TeamVals.LOWER
+                                                                    ? snapshot.lowerAugmentPlacement
+                                                                    : snapshot.upperAugmentPlacement) ?? 0,
+                                                            armor:
+                                                                (userTeam === TeamVals.LOWER
+                                                                    ? snapshot.lowerAugmentArmor
+                                                                    : snapshot.upperAugmentArmor) ?? 0,
+                                                            might:
+                                                                (userTeam === TeamVals.LOWER
+                                                                    ? snapshot.lowerAugmentMight
+                                                                    : snapshot.upperAugmentMight) ?? 0,
+                                                            empower:
+                                                                (userTeam === TeamVals.LOWER
+                                                                    ? snapshot.lowerAugmentEmpower
+                                                                    : snapshot.upperAugmentEmpower) ?? 0,
+                                                            sniper:
+                                                                (userTeam === TeamVals.LOWER
+                                                                    ? snapshot.lowerAugmentSniper
+                                                                    : snapshot.upperAugmentSniper) ?? 0,
+                                                            movement:
+                                                                (userTeam === TeamVals.LOWER
+                                                                    ? snapshot.lowerAugmentMovement
+                                                                    : snapshot.upperAugmentMovement) ?? 0,
+                                                        }}
+                                                        onReadyChange={setAugmentReady}
+                                                    />
+                                                </Box>
+                                            </PhasePanel>
                                         </Box>
-                                    </PhasePanel>
-                                    {/* Split Setup: this is the setup-ready that advances to the board (both-ready
+                                        {/* Split Setup: this is the setup-ready that advances to the board (both-ready
                                     or the setup deadline advances; the AI auto-spends for anyone not locked in).
                                     Legacy: choices commit as clicked, so this just closes the pop-up.
                                     Disabled until the build is complete (all points spent + all synergies
                                     picked) — see the setupComplete comment; the ready-locked state stays
                                     disabled regardless. */}
-                                    {/* One bar carries the action, the budget and the clock: gold while points are
+                                        {/* One bar carries the action, the budget and the clock: gold while points are
                                     still unspent, green once the build is complete. */}
-                                    <Box
-                                        sx={{
-                                            width: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            flex: "0 0 auto",
-                                        }}
-                                    >
                                         <PickCommitButton
                                             label={inSetupStage && ready ? "Waiting for opponent…" : "Lock in augments"}
                                             armed={
@@ -2841,17 +3027,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             }}
                                         />
                                     </Box>
-                                    <Box
-                                        sx={{
-                                            width: "100%",
-                                            display: "flex",
-                                            justifyContent: "center",
-                                            flex: "0 0 auto",
-                                        }}
-                                    >
-                                        <DraftStepper step={6} userTeam={userTeam} />
-                                    </Box>
                                 </Box>
+                                <DraftBottomControls step={7} userTeam={userTeam} draftScale={draftScale} />
                             </ModalDialog>
                         </Modal>
                         {/* Split Setup: lock-in advances the stage once every point is spent (both-ready or
@@ -2860,16 +3037,6 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 
                         {/* The board-stage Ready (start the fight) + per-stack split/unplace controls are hidden
                             during the split Setup stage, when the board is locked. */}
-                        {inBoardStage && (
-                            <Button
-                                variant="solid"
-                                disabled={!canSubmit || ready}
-                                onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
-                                sx={ready ? hocSoftButtonSx : hocPrimaryButtonSx}
-                            >
-                                {ready ? "Ready" : "Ready Placement"}
-                            </Button>
-                        )}
                         {inBoardStage && selectedUnit?.placed && selectedUnit.team === userTeam && (
                             <RankedPlacementStackActions
                                 canSubmit={canSubmit}
@@ -2879,6 +3046,69 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 submitProtocolAction={submitProtocolAction}
                                 userTeam={userTeam}
                             />
+                        )}
+                        {inBoardStage && (
+                            <Button
+                                variant="plain"
+                                disabled={!canSubmit || ready}
+                                onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+                                sx={rankedReadyPlacementButtonSx}
+                            >
+                                <Box
+                                    component="span"
+                                    sx={{
+                                        flex: "1 1 auto",
+                                        display: "grid",
+                                        alignItems: "center",
+                                        justifyItems: "center",
+                                        textAlign: "center",
+                                        px: 0,
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {ready ? "READY" : "READY PLACEMENT"}
+                                </Box>
+                                {augmentSecondsLeft >= 0 && (
+                                    <Box
+                                        component="span"
+                                        sx={{
+                                            position: "relative",
+                                            width: "22%",
+                                            minWidth: 0,
+                                            flex: "0 0 22%",
+                                            display: "grid",
+                                            alignItems: "center",
+                                            justifyItems: "center",
+                                            ml: 0,
+                                            pl: 0,
+                                            pr: 0,
+                                            borderLeft: 0,
+                                            boxShadow: "none",
+                                            fontVariantNumeric: "tabular-nums",
+                                            color: augmentSecondsLeft <= 15 ? "#ff3b2f" : "#c0b7a6",
+                                            textShadow:
+                                                augmentSecondsLeft <= 15 ? "0 0 12px rgba(255,59,47,.75)" : "none",
+                                            animation:
+                                                augmentSecondsLeft <= 15
+                                                    ? "hocRankedPlacementTimerBlink 1s ease-in-out infinite"
+                                                    : "none",
+                                            "&::before": {
+                                                content: '\"\"',
+                                                position: "absolute",
+                                                left: 0,
+                                                top: "10%",
+                                                bottom: "10%",
+                                                width: "1px",
+                                                background: "rgba(121, 91, 65, .82)",
+                                                boxShadow: "none",
+                                            },
+                                        }}
+                                    >
+                                        {`${Math.floor(augmentSecondsLeft / 60)}:${String(augmentSecondsLeft % 60).padStart(2, "0")}`}
+                                    </Box>
+                                )}
+                            </Button>
                         )}
                     </Stack>
                 )}

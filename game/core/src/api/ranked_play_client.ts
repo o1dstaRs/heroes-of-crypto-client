@@ -5,6 +5,7 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
+import { applyPreviewPlayAction, getPreviewPlaySnapshot, isPreviewPlayGame } from "./previewPlaySession";
 import {
     decodePlayActionResponse,
     decodePlaySnapshot,
@@ -89,6 +90,11 @@ export const fetchRankedPlaySnapshot = async (
     gameId: string,
     options?: { authorization?: string },
 ): Promise<PlaySnapshot | undefined> => {
+    // The /preview/placement route runs the whole ranked screen against an in-memory session instead of
+    // the play API — see previewPlaySession. No other game id is affected.
+    if (isPreviewPlayGame(gameId)) {
+        return getPreviewPlaySnapshot();
+    }
     const response = await axiosGameInstance.get(playSnapshotUrl(gameId), {
         responseType: "arraybuffer",
         headers: authHeaders(options?.authorization),
@@ -194,6 +200,19 @@ export const sendRankedPlayAction = async (
     if (payload.type !== PlayActionType.PING) {
         recordActionLog(`${seqTag} SEND  ${actionSummary} id=${payload.actionId.slice(0, 8)}`);
     }
+    // The /preview/placement session answers in-process. Logged through the same action log first, so the
+    // preview board can be debugged exactly like a real one.
+    if (isPreviewPlayGame(gameId)) {
+        const previewResponse = applyPreviewPlayAction(payload);
+        if (payload.type !== PlayActionType.PING) {
+            recordActionLog(
+                previewResponse.accepted
+                    ? `${seqTag} ✅ ACCEPTED seq->${previewResponse.sequence} (${actionSummary}) [preview]`
+                    : `${seqTag} ❌ REJECTED ${previewResponse.rejectionReason} (${actionSummary}) [preview]`,
+            );
+        }
+        return previewResponse;
+    }
     try {
         const response = await axiosGameInstance.post(playActionUrl(gameId), encodePlayAction(payload), {
             responseType: "arraybuffer",
@@ -230,6 +249,10 @@ export const sendRankedPlayMoveIntent = (
     gameId: string,
     args: { playerId: string; team: TeamType; unitId: string; targetCell?: PlayCell },
 ): void => {
+    // Nobody is watching the preview's board from the other seat.
+    if (isPreviewPlayGame(gameId)) {
+        return;
+    }
     const payload: PlayAction = {
         actionId: uuidv4(),
         gameId,

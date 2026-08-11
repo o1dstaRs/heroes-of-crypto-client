@@ -1,7 +1,8 @@
 import { Augment, HoCConstants, TeamType, FactionType } from "@heroesofcrypto/common";
 import React, { useEffect, useState } from "react";
-import { Sheet, Box, Typography } from "@mui/joy";
+import { Sheet, Box, Radio, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
 import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
@@ -11,6 +12,96 @@ const augmentEmpowerImg = new URL("../../../images/empower_augment_256.webp", im
 const augmentSniperImg = new URL("../../../images/sniper_augment_256.webp", import.meta.url).toString();
 const augmentMovementImg = new URL("../../../images/movement_augment_256.webp", import.meta.url).toString();
 type AugmentCardOption = { value: number; label: string };
+
+const AUGMENT_DESCRIPTIONS: Record<Augment.AugmentType["type"], string> = {
+    Placement: "Expands the deployment zone before battle.",
+    Armor: "Raises physical Armor and adds flat Magic Armor to every unit.",
+    Might: "Increases every unit's melee attack damage.",
+    Empower: "Increases magic damage from spells, abilities and effects.",
+    Sniper: "Increases ranged attack damage and effective shooting range.",
+    Movement: "Adds movement steps to every unit.",
+};
+
+const PlacementMiniBoard: React.FC<{
+    rows: number;
+    partial?: boolean;
+    edge?: boolean;
+    label: string;
+}> = ({ rows, partial = false, edge = false, label }) => (
+    <Box sx={{ display: "grid", justifyItems: "center", gap: 0.5, minWidth: 82 }}>
+        <Box
+            aria-label={label}
+            sx={{
+                width: 76,
+                height: 56,
+                p: "3px",
+                display: "grid",
+                gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
+                gridTemplateRows: "repeat(8, minmax(0, 1fr))",
+                gap: "1px",
+                borderRadius: "5px",
+                bgcolor: "rgba(5,6,6,.92)",
+                border: "1px solid rgba(151,103,52,.7)",
+                boxShadow: "inset 0 0 8px rgba(0,0,0,.78)",
+            }}
+        >
+            {Array.from({ length: 64 }, (_, index) => {
+                const row = Math.floor(index / 8);
+                const column = index % 8;
+                const fromBottom = 7 - row;
+                const withinHeight = edge ? fromBottom < rows : fromBottom >= 1 && fromBottom <= rows;
+                const withinWidth = !partial || (column > 0 && column < 7);
+                const active = withinHeight && withinWidth;
+                const edgeCell = active && edge && fromBottom === 0;
+                return (
+                    <Box
+                        key={index}
+                        sx={{
+                            minWidth: 0,
+                            minHeight: 0,
+                            borderRadius: "1px",
+                            bgcolor: edgeCell
+                                ? "rgba(239,191,91,.96)"
+                                : active
+                                  ? "rgba(172,113,45,.78)"
+                                  : "rgba(255,255,255,.045)",
+                            border: active
+                                ? `1px solid ${edgeCell ? "rgba(255,224,147,.82)" : "rgba(218,162,79,.5)"}`
+                                : "1px solid rgba(255,255,255,.025)",
+                        }}
+                    />
+                );
+            })}
+        </Box>
+        <Typography sx={{ fontSize: 11.5, lineHeight: 1.1, color: "#efe4cc", whiteSpace: "nowrap" }}>
+            {label}
+        </Typography>
+    </Box>
+);
+
+const AugmentTooltipContent: React.FC<{ kind: Augment.AugmentType["type"] }> = ({ kind }) => (
+    <Box sx={{ width: kind === "Placement" ? 330 : 260, p: 0.4 }}>
+        <Typography sx={{ fontSize: 14, lineHeight: 1.35, color: "#efe4cc" }}>{AUGMENT_DESCRIPTIONS[kind]}</Typography>
+        {kind === "Placement" && (
+            <>
+                <Typography sx={{ mt: 0.35, mb: 0.8, fontSize: 11.5, color: "rgba(239,228,204,.64)" }}>
+                    Rectangular board — highlighted cells are available for deployment.
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.45 }}>
+                    <PlacementMiniBoard rows={3} partial label="3 · partial" />
+                    <Typography aria-hidden sx={{ color: "#dcb158", fontSize: 17 }}>
+                        →
+                    </Typography>
+                    <PlacementMiniBoard rows={4} label="4 · full" />
+                    <Typography aria-hidden sx={{ color: "#dcb158", fontSize: 17 }}>
+                        →
+                    </Typography>
+                    <PlacementMiniBoard rows={6} edge label="6 · edge line" />
+                </Box>
+            </>
+        )}
+    </Box>
+);
 
 const AugmentCard = ({
     label,
@@ -45,48 +136,103 @@ const AugmentCard = ({
             variant="outlined"
             sx={{
                 p: "9px 12px",
-                borderRadius: "18px",
-                bgcolor: "#12151d",
-                border: "1px solid rgba(255,255,255,0.12)",
+                position: "relative",
+                borderRadius: "14px",
+                bgcolor: "transparent",
+                border: "2px solid rgba(145,104,67,.82)",
+                boxShadow:
+                    "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
                 display: "flex",
                 flexDirection: "column",
                 minHeight: 0,
                 height: "100%",
                 overflow: "hidden",
+                "&::before": {
+                    content: '\"\"',
+                    position: "absolute",
+                    inset: "4px",
+                    zIndex: 0,
+                    pointerEvents: "none",
+                    background:
+                        "linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)), linear-gradient(160deg, rgba(30,18,7,.64) 0%, rgba(9,6,2,.70) 100%)",
+                    borderRadius: "10px",
+                },
+                "&::after": {
+                    content: '\"\"',
+                    position: "absolute",
+                    inset: "3px",
+                    zIndex: 3,
+                    pointerEvents: "none",
+                    boxSizing: "border-box",
+                    border: "1px solid rgba(52,44,38,.92)",
+                    borderRadius: "11px",
+                },
             }}
         >
-            <Box
+            <Tooltip
+                title={<AugmentTooltipContent kind={kind} />}
+                placement="top"
+                variant="soft"
+                arrow
+                enterDelay={240}
                 sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 1,
-                    mb: 0.75,
-                    flex: "0 0 auto",
+                    maxWidth: "none",
+                    bgcolor: "#171a1c",
+                    backgroundImage: "linear-gradient(145deg, rgba(31,34,36,.99), rgba(20,22,23,.99))",
+                    border: "1px solid rgba(211,166,91,.18)",
+                    boxShadow: "0 8px 22px rgba(0,0,0,.7)",
+                    zIndex: 10000,
                 }}
             >
-                {icon ? (
-                    <img src={icon} alt="" style={{ width: 30, height: 30, objectFit: "contain" }} />
-                ) : (
-                    <Box
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 1,
+                        mb: 0.75,
+                        flex: "0 0 auto",
+                        position: "relative",
+                        zIndex: 1,
+                        cursor: "help",
+                    }}
+                >
+                    {icon ? (
+                        <img src={icon} alt="" style={{ width: 30, height: 30, objectFit: "contain" }} />
+                    ) : (
+                        <Box
+                            sx={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: "10px",
+                                display: "grid",
+                                placeItems: "center",
+                                bgcolor: "rgba(255,255,255,0.06)",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                color: "#7c8290",
+                                fontSize: 20,
+                                fontWeight: 700,
+                            }}
+                        >
+                            ?
+                        </Box>
+                    )}
+                    <Typography
                         sx={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: "10px",
-                            display: "grid",
-                            placeItems: "center",
-                            bgcolor: "rgba(255,255,255,0.06)",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            color: "#7c8290",
-                            fontSize: 20,
-                            fontWeight: 700,
+                            fontSize: 20.5,
+                            fontWeight: 400,
+                            fontSynthesis: "none",
+                            lineHeight: 1.1,
+                            letterSpacing: "0.055em",
+                            color: "#efe4cc",
+                            textTransform: "uppercase",
+                            textShadow: "0 2px 2px #000, 0 0 14px rgba(210,160,90,.16)",
                         }}
                     >
-                        ?
-                    </Box>
-                )}
-                <Typography sx={{ fontSize: 20.5, fontWeight: 600, color: "#e9e6df" }}>{label}</Typography>
-            </Box>
+                        {label}
+                    </Typography>
+                </Box>
+            </Tooltip>
             <Box
                 sx={{
                     display: "flex",
@@ -95,6 +241,8 @@ const AugmentCard = ({
                     flex: "1 1 auto",
                     minHeight: 0,
                     overflow: "hidden",
+                    position: "relative",
+                    zIndex: 1,
                 }}
             >
                 {options.map((option) => {
@@ -103,10 +251,7 @@ const AugmentCard = ({
                     return (
                         <Box
                             key={option.value}
-                            component="button"
-                            type="button"
-                            disabled={!affordable && !isSelected}
-                            onClick={() => select(option.value)}
+                            component="label"
                             sx={{
                                 display: "flex",
                                 alignItems: "center",
@@ -125,19 +270,20 @@ const AugmentCard = ({
                                 color: affordable || isSelected ? "#e9e6df" : "#5d636e",
                                 fontSize: 15.5,
                                 textAlign: "left",
+                                ...hocFantasyRadioSx,
                             }}
                         >
                             <span>{option.label}</span>
-                            <Box
-                                component="span"
+                            <Radio
+                                name={`augment-${kind}`}
+                                value={option.value}
+                                checked={isSelected}
+                                disabled={!affordable && !isSelected}
+                                onChange={() => select(option.value)}
                                 sx={{
-                                    width: 16,
-                                    height: 16,
                                     ml: "auto",
-                                    borderRadius: "50%",
                                     flex: "0 0 auto",
-                                    border: `2px solid ${isSelected ? "#4b90e2" : "rgba(255,255,255,0.35)"}`,
-                                    boxShadow: isSelected ? "inset 0 0 0 3px #4b90e2" : "none",
+                                    p: 0,
                                 }}
                             />
                         </Box>

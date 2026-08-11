@@ -42,6 +42,10 @@ const hocBronzeScrollSx = {
 } as const;
 
 const damageIcon = images.damage_analytics_icon;
+// Ranked placement uses the exact left-deck stone, physically mirrored once in the asset. This layer is
+// intentionally opaque: the translucent command sheet and READY plate reveal this texture, never the
+// board canvas, smoke layer or the page's black fallback.
+const RANKED_PLACEMENT_MIRRORED_BG_IMAGE = `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.2)), url(${images.ui_sidebar_bg_left_emberstone_mirrored})`;
 
 export default function RightSideBar({
     gameStarted,
@@ -251,9 +255,19 @@ export default function RightSideBar({
                 right: 0,
                 // All combat blocks share one left edge. The compensation preserves the existing visual
                 // gap at the right rail and mirrors that gap on the board-facing side.
-                pl: gameStarted ? `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px` : "6px",
+                pl:
+                    rankedPanel && !gameStarted
+                        ? `${Math.max(sidebarPlainFrameSideInsetPx(barSize), Math.round(barSize * 0.06))}px`
+                        : gameStarted
+                          ? `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px`
+                          : "6px",
                 // Setup keeps its safer inset for wide accordion controls and scrollbars.
-                pr: gameStarted ? 0 : `${sidebarPlainFrameSideInsetPx(barSize)}px`,
+                pr:
+                    rankedPanel && !gameStarted
+                        ? `${Math.max(sidebarPlainFrameSideInsetPx(barSize), Math.round(barSize * 0.06))}px`
+                        : gameStarted
+                          ? 0
+                          : `${sidebarPlainFrameSideInsetPx(barSize)}px`,
                 pt: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 pb: `${sidebarPlainFrameVerticalInsetPx(windowSize.height)}px`,
                 // flexShrink: 0,
@@ -267,15 +281,18 @@ export default function RightSideBar({
                 // Keep the Sandbox shell and its footer fixed; FightControlToggler owns the localized scroll
                 // fallback when a player deliberately opens more setup tools than the viewport can hold.
                 // Combat/ranked screens can still scroll here when their server-provided panels exceed it.
-                overflowY: !gameStarted && !rankedPanel ? "hidden" : "auto",
+                overflowY: !gameStarted ? "hidden" : "auto",
                 overflowX: "hidden", // Prevent horizontal scrolling
                 // Reserve the scrollbar lane even while the short/collapsed layout does not need it.
                 // Otherwise opening an augment makes the scrollbar appear, steals width, and visibly
                 // jerks every 9-slice container frame and its right rail to the left.
-                scrollbarGutter: !gameStarted && !rankedPanel ? "auto" : "stable",
+                scrollbarGutter: !gameStarted ? "auto" : "stable",
                 // Same ground as the left bar.
+                // The base remains fully opaque. Only the brown inner sheet and READY plate above it are
+                // translucent, so they reveal the mirrored left-deck stone rather than map fog/blackness.
                 backgroundColor: SIDEBAR_BG,
-                backgroundImage: RIGHT_SIDEBAR_BG_IMAGE,
+                backgroundImage:
+                    rankedPanel && !gameStarted ? RANKED_PLACEMENT_MIRRORED_BG_IMAGE : RIGHT_SIDEBAR_BG_IMAGE,
                 backgroundSize: SIDEBAR_BG_SIZE,
                 backgroundRepeat: SIDEBAR_BG_REPEAT,
                 backgroundPosition: "right center",
@@ -304,7 +321,9 @@ export default function RightSideBar({
                 >
                     {/* The ranked sheet is placement-only; during the fight the same slot ships just the
                         forfeit control, which is parked at the bottom of the bar instead (see below). */}
-                    {rankedPanel && !gameStarted && <Box sx={{ mb: 1 }}>{rankedPanel}</Box>}
+                    {rankedPanel && !gameStarted && (
+                        <Box sx={{ flex: "1 1 0", minHeight: 0, display: "flex", width: "100%" }}>{rankedPanel}</Box>
+                    )}
                     {!gameStarted && !rankedPanel && <FightControlToggler />}
                     {/* Turn actions live here rather than floating over the board — those cells have to stay
                         clickable to move and attack. The buttons keep their own narrow column and the damage
@@ -453,7 +472,7 @@ export default function RightSideBar({
                         </Box>
                     )}
                     {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
-                    <Divider />
+                    {!rankedPanel && <Divider />}
                     {showWallet && <WalletLinker />}
                     {/* Compact footer: fullscreen and music stay on the edges, while sandbox's exit action
                         occupies the centre instead of consuming a separate row above. The fight log receives
@@ -461,7 +480,10 @@ export default function RightSideBar({
                     <Box
                         sx={{
                             width: "100%",
-                            pl: gameStarted ? 0 : `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px`,
+                            pl:
+                                rankedPanel || gameStarted
+                                    ? 0
+                                    : `${Math.max(0, sidebarPlainFrameSideInsetPx(barSize) - 6)}px`,
                             display: "grid",
                             gridTemplateColumns: "32px minmax(0, 1fr) 32px",
                             alignItems: "center",

@@ -23,6 +23,7 @@ import { RankedBanPicker } from "./RankedBanPicker";
 import { Perk } from "@heroesofcrypto/common";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { PerkIcon } from "./PerkIcon";
 import { getPerkCopy } from "./perkCopy";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 
@@ -1018,108 +1019,125 @@ export const MatchmakingRoute: React.FC = () => {
                                     alignItems="stretch"
                                     sx={{ width: "100%", maxWidth: 650, mt: 2.5 }}
                                 >
-                                    {Perk.PERK_LIST.map((p) => {
-                                        const isSelected = preGamePerk === p.id;
-                                        const copy = getPerkCopy(p.id);
-                                        // The doctrine is locked in before the draft and quietly sets the
-                                        // augment budget spent much later at placement, so the full
-                                        // what/costs/why lives on hover rather than only in the card.
-                                        const hover = copy ? (
-                                            <Box sx={{ maxWidth: 320, p: 0.5, display: "grid", gap: 0.75 }}>
-                                                <Typography level="title-sm" sx={{ color: "common.white" }}>
-                                                    {copy.icon} {p.name}
-                                                </Typography>
-                                                <Typography level="body-xs" sx={{ color: "common.white" }}>
-                                                    {copy.detail}
-                                                </Typography>
-                                                <Typography level="body-xs" sx={{ color: hocColors.gold }}>
-                                                    {copy.budget}
-                                                </Typography>
-                                                <Typography
-                                                    level="body-xs"
-                                                    sx={{ color: "common.white", opacity: 0.85 }}
-                                                >
-                                                    {copy.why}
-                                                </Typography>
-                                            </Box>
-                                        ) : (
-                                            p.description
-                                        );
-                                        return (
-                                            <Tooltip
-                                                key={p.id}
-                                                title={hover}
-                                                variant="soft"
-                                                placement="top"
-                                                arrow
-                                                enterDelay={150}
-                                                enterTouchDelay={0}
-                                                sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
-                                            >
-                                                <Sheet
-                                                    variant={isSelected ? "solid" : "outlined"}
-                                                    onClick={() => {
-                                                        setPreGamePerkState(p.id);
-                                                        setPreGamePerk(p.id);
-                                                    }}
-                                                    sx={{
-                                                        flex: 1,
-                                                        cursor: "pointer",
-                                                        position: "relative",
-                                                        borderColor: isSelected ? "primary.500" : "neutral.700",
-                                                        bgcolor: isSelected ? "primary.500" : "rgba(0,0,0,0.35)",
-                                                        boxShadow: isSelected
-                                                            ? "0 0 0 2px rgba(120,170,255,0.55), 0 0 18px rgba(120,170,255,0.35)"
-                                                            : "none",
-                                                        transition: "all 0.15s ease",
-                                                        borderRadius: "md",
-                                                        p: 1.25,
-                                                        minHeight: 84,
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: 0.5,
-                                                        textAlign: "center",
-                                                        "&:hover": { borderColor: "primary.400" },
-                                                    }}
-                                                >
-                                                    {isSelected && (
-                                                        <CheckCircleRoundedIcon
-                                                            sx={{
-                                                                position: "absolute",
-                                                                top: 4,
-                                                                right: 4,
-                                                                fontSize: 18,
-                                                                color: "common.white",
-                                                            }}
-                                                        />
-                                                    )}
-                                                    <Typography level="title-md" sx={{ color: "common.white" }}>
-                                                        {copy ? `${copy.icon} ${p.name}` : p.name}
+                                    {[...Perk.PERK_LIST]
+                                        .sort((a, b) => a.upgradePoints - b.upgradePoints)
+                                        .map((p) => {
+                                            const isSelected = preGamePerk === p.id;
+                                            const copy = getPerkCopy(p.id);
+                                            // The doctrine is locked in before the draft and quietly sets the
+                                            // augment budget spent much later at placement, so the full
+                                            // what/costs/why lives on hover rather than only in the card.
+                                            const hover = copy ? (
+                                                <Box sx={{ maxWidth: 320, p: 0.5, display: "grid", gap: 0.75 }}>
+                                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                        <PerkIcon perkId={p.id} size={38} />
+                                                        <Typography level="title-sm" sx={{ color: "common.white" }}>
+                                                            {p.name}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Typography level="body-xs" sx={{ color: "common.white" }}>
+                                                        {copy.detail}
+                                                    </Typography>
+                                                    <Typography level="body-xs" sx={{ color: hocColors.gold }}>
+                                                        {copy.budget}
                                                     </Typography>
                                                     <Typography
                                                         level="body-xs"
-                                                        sx={{ opacity: 0.8, color: "common.white" }}
+                                                        sx={{ color: "common.white", opacity: 0.85 }}
                                                     >
-                                                        {p.upgradePoints} upgrade pts
+                                                        {copy.why}
                                                     </Typography>
-                                                    {copy && (
-                                                        <Typography
-                                                            level="body-xs"
+                                                </Box>
+                                            ) : (
+                                                p.description
+                                            );
+                                            return (
+                                                <Tooltip
+                                                    key={p.id}
+                                                    title={hover}
+                                                    variant="soft"
+                                                    placement="top"
+                                                    arrow
+                                                    enterDelay={150}
+                                                    enterTouchDelay={0}
+                                                    sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
+                                                >
+                                                    <Sheet
+                                                        variant={isSelected ? "solid" : "outlined"}
+                                                        onClick={() => {
+                                                            setPreGamePerkState(p.id);
+                                                            setPreGamePerk(p.id);
+                                                        }}
+                                                        sx={{
+                                                            flex: 1,
+                                                            cursor: "pointer",
+                                                            position: "relative",
+                                                            borderColor: isSelected ? "primary.500" : "neutral.700",
+                                                            bgcolor: isSelected ? "primary.500" : "rgba(0,0,0,0.35)",
+                                                            boxShadow: isSelected
+                                                                ? "0 0 0 2px rgba(120,170,255,0.55), 0 0 18px rgba(120,170,255,0.35)"
+                                                                : "none",
+                                                            transition: "all 0.15s ease",
+                                                            borderRadius: "md",
+                                                            p: 1.25,
+                                                            minHeight: 84,
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: 0.5,
+                                                            textAlign: "center",
+                                                            "&:hover": { borderColor: "primary.400" },
+                                                        }}
+                                                    >
+                                                        {isSelected && (
+                                                            <CheckCircleRoundedIcon
+                                                                sx={{
+                                                                    position: "absolute",
+                                                                    top: 4,
+                                                                    right: 4,
+                                                                    fontSize: 18,
+                                                                    color: "common.white",
+                                                                }}
+                                                            />
+                                                        )}
+                                                        <Box
                                                             sx={{
-                                                                opacity: 0.72,
-                                                                color: "common.white",
-                                                                lineHeight: 1.25,
+                                                                width: 58,
+                                                                height: 58,
+                                                                borderRadius: "50%",
+                                                                overflow: "hidden",
+                                                                boxShadow:
+                                                                    "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
                                                             }}
                                                         >
-                                                            {copy.tagline}
+                                                            <PerkIcon perkId={p.id} />
+                                                        </Box>
+                                                        <Typography level="title-md" sx={{ color: "common.white" }}>
+                                                            {p.name}
                                                         </Typography>
-                                                    )}
-                                                </Sheet>
-                                            </Tooltip>
-                                        );
-                                    })}
+                                                        <Typography
+                                                            level="body-xs"
+                                                            sx={{ opacity: 0.8, color: "common.white" }}
+                                                        >
+                                                            {p.upgradePoints} upgrade pts
+                                                        </Typography>
+                                                        {copy && (
+                                                            <Typography
+                                                                level="body-xs"
+                                                                sx={{
+                                                                    opacity: 0.72,
+                                                                    color: "common.white",
+                                                                    lineHeight: 1.25,
+                                                                }}
+                                                            >
+                                                                {copy.tagline}
+                                                            </Typography>
+                                                        )}
+                                                    </Sheet>
+                                                </Tooltip>
+                                            );
+                                        })}
                                 </Stack>
                             )}
 

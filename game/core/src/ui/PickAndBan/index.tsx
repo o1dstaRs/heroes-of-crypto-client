@@ -14,7 +14,18 @@ import {
     TeamVals,
     type TeamType,
 } from "@heroesofcrypto/common";
-import { Box, Button, Card, CardContent, Chip, CircularProgress, Divider, Sheet, Tooltip, Typography } from "@mui/joy";
+import {
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Divider,
+    Sheet,
+    Tooltip as JoyTooltip,
+    Typography,
+} from "@mui/joy";
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
@@ -25,8 +36,9 @@ import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
+import { PerkIcon } from "../PerkIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
-import { PERK_COPY } from "../perkCopy";
+import { getPerkCopy } from "../perkCopy";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { FistIcon } from "../svg/fist";
@@ -42,6 +54,31 @@ import { Timer } from "./Timer";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
 
 const images = rawImages as Record<string, string>;
+const watchedEyeImage = images.pick_phase_watched_eye;
+const draftBackgroundImage = images.pick_phase_ember_background_v2;
+const pickCommitFullImage = images.ui_start_button_plate_trimmed;
+
+const DRAFT_TOOLTIP_SX = {
+    bgcolor: "#171a1c",
+    backgroundImage: "linear-gradient(145deg, rgba(31,34,36,.99), rgba(20,22,23,.99))",
+    color: "#e9e3d8",
+    fontFamily: hocDisplayFontFamily,
+    fontSize: 14,
+    lineHeight: 1.4,
+    border: "1px solid rgba(211,166,91,.12)",
+    borderRadius: "9px",
+    boxShadow: "0 8px 22px rgba(0,0,0,.6)",
+} as const;
+
+// Every hint on the draft uses the same dark forged tooltip treatment. Keeping the wrapper local to
+// this screen also catches plain-string hints (button/artifact/fullscreen), not only rich doctrine copy.
+const Tooltip: React.FC<React.ComponentProps<typeof JoyTooltip>> = ({ sx, ...props }) => (
+    <JoyTooltip
+        {...props}
+        color="neutral"
+        sx={{ ...DRAFT_TOOLTIP_SX, ...(sx as Record<string, unknown> | undefined) }}
+    />
+);
 
 const creatureName = (creatureId: number): string => UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`;
 const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];
@@ -117,7 +154,7 @@ const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label:
             }}
         >
             {icon}
-            <Typography sx={{ fontSize: 19, fontWeight: 700, color: "#e9e6df", whiteSpace: "nowrap" }}>
+            <Typography sx={{ fontSize: 19, fontWeight: 700, color: "#efe4cc", whiteSpace: "nowrap" }}>
                 {value}
             </Typography>
         </Box>
@@ -127,7 +164,7 @@ const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label:
 // Top readout showing the currently inspected (hovered) creature's stats + abilities, so players can read
 // what a unit does before picking it. The header always reserves its space; revealing it must not shove the
 // hovered portrait away from the cursor.
-const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = ({ creatureId, armyHp = 0 }) => {
+const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) => {
     if (!creatureId) {
         return null;
     }
@@ -136,9 +173,17 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
         return null;
     }
     const c = entry.config;
-    const isRanged = c.attack_type === "RANGE";
+    // Range-only values are omitted when the creature cannot use them. Showing an em dash made an
+    // inapplicable mechanic look like a real zero-valued stat (for example on Berserker).
+    const usesShotDistance = c.attack_type === "RANGE" && c.shot_distance > 0;
+    const usesShots = c.attack_type === "RANGE" && c.range_shots > 0;
     const img = creatureImage(creatureId);
     const abilities = (c.abilities ?? []).filter(Boolean);
+    // A lone passive gets the 108px hero treatment; two use 94px each. Additional passives share this
+    // same fixed 260px zone and shrink uniformly instead of widening the panel.
+    const abilityCount = Math.max(abilities.length, 1);
+    const maxAbilitySlotSize = abilities.length === 1 ? 108 : 94;
+    const abilitySlotSize = Math.min(maxAbilitySlotSize, Math.floor((260 - 7 * (abilityCount - 1)) / abilityCount));
     return (
         <Sheet
             variant="soft"
@@ -147,15 +192,17 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                 height: 158,
                 overflow: "hidden",
                 p: "12px 20px",
-                borderRadius: "20px",
-                bgcolor: "rgba(11,13,18,0.98)",
-                border: "2px solid rgba(159,182,212,0.55)",
-                boxShadow: "0 18px 44px rgba(0,0,0,0.6)",
-                color: "#e9e6df",
+                borderRadius: "10px",
+                backgroundImage:
+                    "linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)), linear-gradient(160deg, rgba(30,18,7,.64) 0%, rgba(9,6,2,.70) 100%)",
+                border: "1px solid rgba(255,255,255,.18)",
+                boxShadow: "0 18px 44px rgba(0,0,0,.6)",
+                color: "#efe4cc",
                 display: { xs: "none", md: "flex" },
                 alignItems: "center",
                 gap: "18px",
                 flexWrap: "nowrap",
+                position: "relative",
             }}
         >
             {img && (
@@ -165,30 +212,25 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                     alt={c.name}
                     sx={{
                         width: "92px",
-                        height: "92px",
-                        borderRadius: "50%",
+                        height: "124px",
+                        borderRadius: "7px",
                         objectFit: "cover",
-                        border: "3px solid rgba(220,177,88,0.75)",
+                        border: "2px solid rgba(255,255,255,.18)",
                         flex: "0 0 auto",
                     }}
                 />
             )}
-            <Box sx={{ flex: "0 0 auto" }}>
+            <Box sx={{ flex: "0 0 168px", width: 168, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 30, fontWeight: 700, color: "#efe4cc", lineHeight: 1.1 }}>
                     {c.name}
                 </Typography>
                 <Typography sx={{ fontSize: 17, color: "#7c8290" }}>
-                    Level {c.level} · {entry.faction} · {c.size === 2 ? "2×2" : "1×1"}
+                    Level {c.level} · {entry.faction}
                 </Typography>
-                {armyHp > 0 && (
-                    <Typography sx={{ fontSize: 15, color: "#8fcd7d" }}>
-                        +{c.hp} HP → {armyHp + c.hp} total
-                    </Typography>
-                )}
             </Box>
             <Box
                 sx={{
-                    flex: "1 1 auto",
+                    flex: "1 1 0",
                     minWidth: 0,
                     display: "grid",
                     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -203,12 +245,10 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                     value={`${c.attack_damage_min} - ${c.attack_damage_max}`}
                 />
                 <StatChip icon={<SwordIcon />} label={t("Attack")} value={c.attack} />
-                <StatChip
-                    icon={<ShotRangeIcon />}
-                    label={t("Shot distance")}
-                    value={isRanged ? c.shot_distance : "—"}
-                />
-                <StatChip icon={<QuiverIcon />} label={t("Shots")} value={isRanged ? c.range_shots : "—"} />
+                {usesShotDistance && (
+                    <StatChip icon={<ShotRangeIcon />} label={t("Shot distance")} value={c.shot_distance} />
+                )}
+                {usesShots && <StatChip icon={<QuiverIcon />} label={t("Shots")} value={c.range_shots} />}
                 <StatChip icon={<ShieldIcon />} label={t("Armor")} value={c.armor} />
                 <StatChip icon={<MagicShieldIcon />} label={t("Magic resist")} value={`${c.magic_resist}%`} />
                 <StatChip
@@ -221,27 +261,36 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
             </Box>
             <>
                 <Divider orientation="vertical" sx={{ display: { xs: "none", lg: "block" } }} />
-                <Box sx={{ flex: "0 0 auto", display: "flex", gap: "8px" }}>
+                <Box
+                    sx={{
+                        flex: "0 0 260px",
+                        width: 260,
+                        display: "grid",
+                        gridTemplateColumns: `repeat(${abilityCount}, ${abilitySlotSize}px)`,
+                        justifyContent: "space-evenly",
+                        alignItems: "center",
+                        gap: "7px",
+                    }}
+                >
                     {abilities.map((ability, i) => (
                         <Tooltip
                             key={ability ?? `empty-${i}`}
-                            title={ability ? abilityDescription(ability) : ""}
+                            title={ability ? `${ability}: ${abilityDescription(ability)}` : ""}
                             variant="soft"
                             placement="top"
                         >
                             <Box
                                 sx={{
-                                    width: "72px",
-                                    height: "72px",
-                                    borderRadius: "14px",
+                                    minWidth: 0,
+                                    width: `${abilitySlotSize}px`,
+                                    height: `${abilitySlotSize}px`,
+                                    borderRadius: "10px",
                                     bgcolor: ability ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)",
                                     border: `1px solid ${ability ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)"}`,
                                     display: "flex",
-                                    flexDirection: "column",
                                     alignItems: "center",
-                                    justifyContent: "flex-start",
-                                    gap: 0.5,
-                                    p: 1,
+                                    justifyContent: "center",
+                                    p: 0.75,
                                 }}
                             >
                                 {ability && (
@@ -249,19 +298,9 @@ const CreatureDetailPanel: React.FC<{ creatureId: number; armyHp?: number }> = (
                                         <Box
                                             component="img"
                                             src={images[`${ability.toLowerCase().replace(/\s+/g, "_")}_256`]}
-                                            alt=""
-                                            sx={{ width: "58%", height: "58%", objectFit: "contain" }}
+                                            alt={ability}
+                                            sx={{ width: "82%", height: "82%", objectFit: "contain" }}
                                         />
-                                        <Typography
-                                            sx={{
-                                                fontSize: 14,
-                                                color: "#9fd0ff",
-                                                textAlign: "center",
-                                                lineHeight: 1.1,
-                                            }}
-                                        >
-                                            {ability}
-                                        </Typography>
                                     </>
                                 )}
                             </Box>
@@ -290,6 +329,10 @@ export const DRAFT_BOARD_WIDTH = 1340;
 // separate beats instead of one vertically crowded stack.
 export const DRAFT_BOARD_HEIGHT = 880;
 const DRAFT_MAX_SCALE = 1.05;
+export const DRAFT_ZONE_GAP = "26px";
+export const DRAFT_HEADER_HEIGHT = { xs: "78px", md: "158px" } as const;
+export const DRAFT_ARMIES_HEIGHT = "62px";
+const DRAFT_ACTION_HEIGHT = "72px";
 
 export const draftShellSx = {
     width: "100%",
@@ -298,8 +341,10 @@ export const draftShellSx = {
     alignItems: "center",
     justifyContent: "center",
     p: 0,
-    backgroundColor: "#050504",
-    backgroundImage: `url(${images.pick_phase_ember_background_v2})`,
+    // Share the warm obsidian-and-ember palette used by the fight-results screen so the draft
+    // belongs to the same visual family instead of reading as a cooler charcoal surface.
+    backgroundColor: "#0b0704",
+    backgroundImage: `url(${draftBackgroundImage})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
@@ -363,11 +408,16 @@ export const draftBoardSx = (scale: number) =>
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "26px",
-        transform: `scale(${scale})`,
+        gap: DRAFT_ZONE_GAP,
+        // Raise the complete draft composition by 3% of the viewport while keeping its internal geometry.
+        // The bottom stage rail stays viewport-anchored, giving the composition more breathing room below.
+        transform: `translateY(-3vh) scale(${scale})`,
         transformOrigin: "center center",
         px: "22px",
-        py: "12px",
+        pt: "12px",
+        // The stage rail is fixed to the viewport bottom. Reserve its height plus the same visual breathing
+        // room used above the board, so the commit plate always sits clearly above it instead of overlapping.
+        pb: "84px",
         boxSizing: "border-box",
     }) as const;
 
@@ -383,9 +433,9 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
             alignItems: "center",
             justifyContent: "center",
             gap: 0.5,
-            minHeight: "78px",
+            minHeight: "62px",
             flex: "0 1 auto",
-            py: "10px",
+            py: "6px",
         }}
     >
         <Typography
@@ -416,10 +466,6 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
 );
 
 // ---- Draft copy, step rail and portrait states ------------------------------------------------
-
-const PERK_ICON: Record<number, string> = Object.fromEntries(
-    Perk.PERK_LIST.map((perk) => [perk.id, PERK_COPY[perk.id]?.icon ?? "•"]),
-);
 
 const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.PERK]:
@@ -493,6 +539,8 @@ const STEP_ORDER_HINT: Record<DraftStepOrder, string> = {
     automatic: "Revealed automatically before Level 3",
 };
 
+const STEP_BUTTON_WIDTHS = [90, 78, 78, 112, 78, 112, 78, 106, 82];
+
 export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ step, userTeam }) => (
     <Box
         sx={{
@@ -501,7 +549,8 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
             gap: 0,
             flexWrap: "nowrap",
             justifyContent: "space-between",
-            width: "min(1040px, 88vw)",
+            width: "1040px",
+            pointerEvents: "auto",
         }}
     >
         {STEP_LABELS.map((label, i) => {
@@ -513,25 +562,21 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                 userTeam === undefined || order === "both" || order === "automatic"
                     ? undefined
                     : (order === "lowerFirst") === (userTeam === TeamVals.LOWER);
-            const marker =
-                order === "automatic"
-                    ? "✦"
-                    : order === "both"
-                      ? "⇄"
-                      : youFirst === undefined
-                        ? "1·2"
+            const marker = order === "automatic" ? "✦" : order === "both" ? "⇄" : undefined;
+            // Alternating creature-pick steps no longer need a separate You/Opp row. The label itself
+            // carries that information: green when the viewer picks first, red when the opponent does.
+            const labelColor =
+                order === "lowerFirst" || order === "upperFirst"
+                    ? youFirst === undefined
+                        ? "#d8ccb4"
                         : youFirst
-                          ? "You"
-                          : "Opp";
-            const markerColor = active
-                ? "#241a06"
-                : order === "automatic" || order === "both"
-                  ? done
-                      ? "#8fcd7d"
-                      : "#9aa0ab"
-                  : youFirst
-                    ? "#8fcd7d"
-                    : "#ff9d9d";
+                          ? "#8fcd7d"
+                          : "#ff9d9d"
+                    : active
+                      ? "#c0b7a6"
+                      : done
+                        ? "#a9d39d"
+                        : "#c0b7a6";
             return (
                 <React.Fragment key={label}>
                     <Tooltip
@@ -543,51 +588,130 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                         <Box
                             sx={{
                                 display: "flex",
-                                flexDirection: "column",
                                 alignItems: "center",
-                                gap: 0.4,
                                 minWidth: 0,
                             }}
                         >
                             <Box
                                 sx={{
-                                    minWidth: 52,
+                                    width: STEP_BUTTON_WIDTHS[i],
                                     height: 34,
-                                    px: 0.75,
-                                    borderRadius: "2px",
+                                    px: 1.1,
+                                    position: "relative",
+                                    borderRadius: "10px",
                                     display: "flex",
+                                    flexDirection: "row",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    fontSize: order === "both" || order === "automatic" ? 17 : 13,
+                                    gap: 0.7,
                                     fontWeight: 700,
-                                    bgcolor: active ? "#d5aa53" : done ? "rgba(45,83,44,0.42)" : "#11100f",
-                                    border: `2px solid ${active ? "#f0c66e" : done ? "#6f8e55" : "rgba(174,128,73,0.52)"}`,
-                                    color: markerColor,
-                                    boxShadow: active
-                                        ? "inset 0 0 0 2px rgba(75,42,12,.72), 0 0 11px rgba(222,174,77,.28)"
-                                        : "inset 0 0 0 1px rgba(255,220,154,.06), 0 3px 7px rgba(0,0,0,.5)",
-                                    clipPath:
-                                        "polygon(7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px), 0 7px)",
+                                    bgcolor: "transparent",
+                                    border: "2px solid rgba(145,104,67,.82)",
+                                    color: labelColor,
+                                    boxShadow:
+                                        "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.28), 0 2px 5px rgba(0,0,0,.5)",
+                                    isolation: "isolate",
+                                    "&::before": {
+                                        content: '""',
+                                        position: "absolute",
+                                        // Keep the active fill inside the ornamental frame instead of letting
+                                        // the gold plate bleed underneath its rails.
+                                        inset: 2,
+                                        borderRadius: "6px",
+                                        zIndex: -1,
+                                        background: active
+                                            ? "rgba(213,170,83,.64)"
+                                            : done
+                                              ? "rgba(69,72,74,.5)"
+                                              : "rgba(17,16,15,.82)",
+                                        boxShadow: active ? "0 0 7px rgba(222,174,77,.3)" : "none",
+                                    },
+                                    "&::after": {
+                                        content: '""',
+                                        position: "absolute",
+                                        inset: 0,
+                                        pointerEvents: "none",
+                                        borderRadius: "8px",
+                                        border: "1px solid rgba(52,44,38,.92)",
+                                        boxShadow: "inset 0 1px 0 rgba(224,174,99,.18)",
+                                        filter: active ? "brightness(1.25)" : done ? "sepia(.25)" : "brightness(.8)",
+                                    },
                                 }}
                             >
-                                {done ? "✓" : marker}
+                                <Typography
+                                    component="span"
+                                    sx={{
+                                        fontSize: 12.2,
+                                        fontWeight: 700,
+                                        lineHeight: 1,
+                                        color: labelColor,
+                                        whiteSpace: "nowrap",
+                                        letterSpacing: ".02em",
+                                        textTransform: "uppercase",
+                                    }}
+                                >
+                                    {t(label)}
+                                </Typography>
+                                {marker && (
+                                    <Box
+                                        component="span"
+                                        aria-hidden="true"
+                                        sx={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            height: "1em",
+                                            fontSize: 14,
+                                            lineHeight: 1,
+                                            color: labelColor,
+                                            transform: "translateY(-0.5px)",
+                                        }}
+                                    >
+                                        {marker}
+                                    </Box>
+                                )}
                             </Box>
-                            <Typography
-                                level="body-xs"
-                                sx={{ fontSize: 11.5, color: active ? "#efe4cc" : done ? "#8fcd7d" : "#7c8290" }}
-                            >
-                                {t(label)}
-                            </Typography>
                         </Box>
                     </Tooltip>
                     {i < STEP_LABELS.length - 1 && (
                         <Box
                             sx={{
                                 flex: "1 1 auto",
-                                minWidth: 10,
-                                height: 2,
-                                mt: "13px",
-                                bgcolor: done ? "#6f8e55" : "rgba(174,128,73,0.42)",
+                                minWidth: 12,
+                                height: 10,
+                                mx: "3px",
+                                mt: "12px",
+                                position: "relative",
+                                opacity: done ? 1 : 0.62,
+                                filter: done ? "drop-shadow(0 0 3px rgba(224,169,83,.28))" : "none",
+                                "&::before": {
+                                    content: '""',
+                                    position: "absolute",
+                                    left: 0,
+                                    right: 0,
+                                    top: "4px",
+                                    height: "3px",
+                                    background:
+                                        "linear-gradient(180deg, rgba(255,225,157,.92) 0, #c58a35 34%, #704119 66%, rgba(30,17,9,.95) 100%)",
+                                    borderRadius: "999px",
+                                    boxShadow:
+                                        "0 -1px 0 rgba(255,220,145,.18), 0 1px 0 rgba(12,7,4,.9), inset 0 0 0 1px rgba(106,61,24,.42)",
+                                },
+                                "&::after": {
+                                    content: '""',
+                                    position: "absolute",
+                                    left: "50%",
+                                    top: "2px",
+                                    width: "5.6px",
+                                    height: "5.6px",
+                                    transform: "translateX(-50%) rotate(45deg)",
+                                    background: done
+                                        ? "linear-gradient(135deg, #f4cf77, #8b511f)"
+                                        : "linear-gradient(135deg, #b8843e, #442715)",
+                                    border: "1px solid rgba(39,21,10,.95)",
+                                    boxShadow:
+                                        "inset 0 0 0 1px rgba(255,222,145,.32), 0 0 0 1px rgba(171,111,43,.52), 0 1px 3px rgba(0,0,0,.8)",
+                                },
                             }}
                         />
                     )}
@@ -596,6 +720,81 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
         })}
     </Box>
 );
+
+/** Fixed draft footer shared by every phase, including the separate augment screen. */
+export const DraftBottomControls: React.FC<{
+    step: number;
+    userTeam?: TeamType;
+    draftScale: number;
+}> = ({ step, userTeam, draftScale }) => {
+    const isFullscreen = useIsFullscreen();
+    const fullscreenLabel = isFullscreen ? t("Exit fullscreen") : t("Fullscreen");
+
+    return (
+        <>
+            <Box
+                sx={{
+                    position: "fixed",
+                    left: "50%",
+                    bottom: "1rem",
+                    zIndex: 55,
+                    width: "1040px",
+                    height: "46px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                    transform: `translateX(-50%) scale(${draftScale})`,
+                    transformOrigin: "center bottom",
+                }}
+            >
+                <DraftStepper step={step} userTeam={userTeam} />
+            </Box>
+            <Tooltip title={fullscreenLabel} variant="soft" placement="top">
+                <Box
+                    component="button"
+                    type="button"
+                    aria-label={fullscreenLabel}
+                    onClick={toggleFullscreen}
+                    sx={{
+                        position: "fixed",
+                        left: "1rem",
+                        bottom: "1rem",
+                        zIndex: 60,
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        display: "grid",
+                        placeItems: "center",
+                        cursor: "pointer",
+                        color: "#dcb158",
+                        bgcolor: "transparent",
+                        border: 0,
+                        "&:hover": { color: "#f1cf76", bgcolor: "transparent" },
+                    }}
+                >
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden
+                    >
+                        {isFullscreen ? (
+                            <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3" />
+                        ) : (
+                            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+                        )}
+                    </svg>
+                </Box>
+            </Tooltip>
+        </>
+    );
+};
 
 type PortraitState = "available" | "picked" | "taken" | "banned";
 
@@ -610,71 +809,74 @@ const STATE_HINT: Record<PortraitState, string> = {
 
 const stateHint = (state: PortraitState): string => (STATE_HINT[state] ? t(STATE_HINT[state]) : "");
 
-// Lucide-style attack-type glyph drawn inline: sword for melee, bow for ranged, open book for casters.
-const AttackTypeIcon: React.FC<{ attackType: string }> = ({ attackType }) => {
-    const common = {
-        width: 18,
-        height: 18,
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "#9aa0ab",
-        strokeWidth: 2.75,
-        strokeLinecap: "round" as const,
-        strokeLinejoin: "round" as const,
-        "aria-hidden": true,
-    };
-    if (attackType === "RANGE") {
-        return (
-            <svg {...common}>
-                <path d="M17 3h4v4" />
-                <path d="M18.575 11.082a13 13 0 0 1 1.048 9.027 1.17 1.17 0 0 1-1.914.597L14 17" />
-                <path d="M7 10 3.29 6.29a1.17 1.17 0 0 1 .6-1.91 13 13 0 0 1 9.03 1.05" />
-                <path d="M21 3 3 21" />
-            </svg>
-        );
-    }
-    if (attackType === "MAGIC") {
-        return (
-            <svg {...common}>
-                <path d="M12 7v14" />
-                <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
-            </svg>
-        );
-    }
-    return (
-        <svg {...common}>
-            <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
-            <path d="M13 19l6-6" />
-            <path d="M16 16l4 4" />
-            <path d="M19 21l2-2" />
-        </svg>
-    );
+const ATTACK_TYPE_ICON_IMAGE: Record<string, string> = {
+    RANGE: images.pick_attack_ranged_silver,
+    MAGIC: images.pick_attack_magic_silver,
+    MELEE: images.pick_attack_melee_silver,
 };
+const BAN_SLASH_FRAME_COUNT = 14;
+
+// The three matching silver pictograms come from the selected concept set. Muted cards carry the same
+// visual weight as their dimmed captions, so a banned creature cannot keep a bright class icon.
+const AttackTypeIcon: React.FC<{ attackType: string; muted?: boolean }> = ({ attackType, muted = false }) => (
+    <Box
+        component="img"
+        src={ATTACK_TYPE_ICON_IMAGE[attackType] ?? ATTACK_TYPE_ICON_IMAGE.MELEE}
+        alt=""
+        aria-hidden
+        sx={{
+            width: 15,
+            height: 15,
+            flex: "0 0 auto",
+            display: "block",
+            alignSelf: "center",
+            objectFit: "contain",
+            // The glyph artwork carries a little more visual weight below its geometric centre. Lift it by
+            // one pixel so sword, bow and book sit on the optical middle of the creature-name lettering.
+            transform: "translateY(-1px)",
+            opacity: muted ? 0.72 : 0.95,
+            filter: muted
+                ? "grayscale(1) brightness(.72)"
+                : "grayscale(1) brightness(.82) drop-shadow(0 1px 1px rgba(0,0,0,.7))",
+        }}
+    />
+);
 
 const CreaturePortrait: React.FC<{
     creatureId: number;
     state: PortraitState;
     disabled?: boolean;
     size?: number;
+    /** Optional portrait height for the tall cropped cards used by bundle and pick layouts. */
+    portraitHeight?: number;
     /** Grid tiles stretch to their column instead of using a fixed px size. */
     fill?: boolean;
     /** Name + attack-type glyph under the portrait (pick grid only). */
     caption?: boolean;
+    /** Size the whole tile from its row height so space-evenly can equalise outer and inner gutters. */
+    evenlySpaced?: boolean;
     /** Clicked but not yet committed — the commit button carries the confirm now. */
     pending?: boolean;
     onClick?: () => void;
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
-}> = ({ creatureId, state, disabled, size = 104, fill, caption, pending, onClick, onInspect, onInspectEnd }) => {
+}> = ({
+    creatureId,
+    state,
+    disabled,
+    size = 104,
+    portraitHeight,
+    fill,
+    caption,
+    evenlySpaced,
+    pending,
+    onClick,
+    onInspect,
+    onInspectEnd,
+}) => {
     const src = creatureImage(creatureId);
     const selectable = state === "available" && !disabled && !!onClick;
-    const ring = pending
-        ? "#3B9B5C"
-        : state === "picked"
-          ? "#3B9B5C"
-          : state === "banned" || state === "taken"
-            ? "#8a2b2b"
-            : "rgba(255,255,255,0.18)";
+    const ring = pending ? "#3B9B5C" : state === "picked" ? "#3B9B5C" : "rgba(255,255,255,0.18)";
     const hint = stateHint(state);
     const tip = hint ? `${creatureName(creatureId)} — ${hint}` : creatureName(creatureId);
     const config = creatureFullConfig(creatureId)?.config;
@@ -686,18 +888,26 @@ const CreaturePortrait: React.FC<{
                 onMouseLeave={() => onInspectEnd?.()}
                 sx={{
                     position: "relative",
-                    width: fill ? "auto" : size,
-                    height: fill ? "auto" : size,
-                    flex: fill ? "1 1 0" : undefined,
-                    minHeight: fill ? 0 : undefined,
+                    // Pick-stage cells consume their complete equal grid slot. The artwork itself keeps its
+                    // proportions through object-fit: cover while the surrounding card closes every gutter.
+                    // Container units let both 8×2 and 6×2 pools grow to the largest size that fits their
+                    // cell without ever breaking the 190:256 bundle-card ratio.
+                    width: fill
+                        ? caption
+                            ? "min(100cqw, calc((100cqh - 26px) * 190 / 256))"
+                            : "min(100cqw, calc(100cqh * 190 / 256))"
+                        : size,
+                    height: fill ? "auto" : (portraitHeight ?? size),
+                    aspectRatio: fill ? "190 / 256" : undefined,
+                    flex: fill ? "0 0 auto" : undefined,
                     maxWidth: fill ? "100%" : undefined,
+                    maxHeight: fill ? "100%" : undefined,
                     alignSelf: fill ? "center" : undefined,
-                    aspectRatio: fill ? "1" : undefined,
-                    borderRadius: fill ? "20px" : "10px",
+                    borderRadius: "10px",
                     overflow: "hidden",
-                    border: `${fill ? 3 : 2}px solid ${ring}`,
+                    border: `2px solid ${ring}`,
                     cursor: selectable ? "pointer" : "default",
-                    opacity: state === "available" ? 1 : 0.5,
+                    opacity: 1,
                     // The unit you are about to confirm pulses a soft green halo.
                     animation: pending
                         ? "hocPendingGlow 1.6s ease-in-out infinite"
@@ -708,10 +918,9 @@ const CreaturePortrait: React.FC<{
                         "0%": { boxShadow: "0 0 0 0 rgba(143,205,125,0.9)" },
                         "100%": { boxShadow: "0 0 0 26px rgba(143,205,125,0)" },
                     },
-                    "@keyframes hocBanStroke": {
-                        "0%": { opacity: 0, transform: "scale(1.35) rotate(-8deg)" },
-                        "60%": { opacity: 1 },
-                        "100%": { opacity: 1, transform: "scale(1) rotate(0deg)" },
+                    "@keyframes hocBanSlashCut": {
+                        "0%": { backgroundPosition: "0% 0" },
+                        "100%": { backgroundPosition: "100% 0" },
                     },
                     "@keyframes hocPendingGlow": {
                         "0%, 100%": { boxShadow: "0 0 0 0 rgba(59,155,92,0.55), 0 0 10px rgba(59,155,92,0.35)" },
@@ -731,7 +940,11 @@ const CreaturePortrait: React.FC<{
                             width: "100%",
                             height: "100%",
                             objectFit: "cover",
+                            // Creature art is authored in square/circular medallions. Zoom it into the tall
+                            // pick frame so the artwork reaches every inner edge instead of floating in it.
+                            transform: fill ? "scale(1.18)" : undefined,
                             filter: state === "banned" || state === "taken" ? "grayscale(1)" : "none",
+                            opacity: state === "available" ? 1 : 0.5,
                         }}
                     />
                 ) : (
@@ -740,22 +953,27 @@ const CreaturePortrait: React.FC<{
                     </Typography>
                 )}
                 {(state === "banned" || state === "taken") && (
-                    // Painted red brush stroke across a greyscale portrait (the grayscale filter is applied
-                    // on the portrait above) — the same `x_mark_2_512` art the legacy pick/ban boxes use, so
-                    // every banned creature reads the same across the draft UI.
-                    <img
+                    // Variant 2 is authored as fourteen top-to-bottom sprite frames. The same overlay mounts
+                    // for initial bans and for a newly learned 409 collision, so both events visibly cut the
+                    // portrait open instead of fading in a static paint mark.
+                    <Box
                         aria-hidden
-                        src={images.x_mark_2_512}
-                        alt=""
-                        style={{
+                        sx={{
                             position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "contain",
+                            inset: 0,
+                            zIndex: 2,
                             pointerEvents: "none",
-                            animation: "hocBanStroke 320ms ease-out",
+                            borderRadius: "8px",
+                            backgroundImage: `url(${images.pick_ban_slash_variant2_atlas})`,
+                            backgroundRepeat: "no-repeat",
+                            backgroundSize: `${BAN_SLASH_FRAME_COUNT * 100}% 100%`,
+                            backgroundPosition: "0% 0",
+                            animation: `hocBanSlashCut 580ms steps(${BAN_SLASH_FRAME_COUNT - 1}, end) forwards`,
+                            willChange: "background-position",
+                            "@media (prefers-reduced-motion: reduce)": {
+                                animation: "none",
+                                backgroundPosition: "100% 0",
+                            },
                         }}
                     />
                 )}
@@ -777,7 +995,7 @@ const CreaturePortrait: React.FC<{
         </Tooltip>
     );
 
-    if (!caption) {
+    if (!caption && !fill) {
         return portrait;
     }
 
@@ -787,30 +1005,37 @@ const CreaturePortrait: React.FC<{
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 0.75,
+                gap: 0,
                 minWidth: 0,
                 minHeight: 0,
-                width: "100%",
+                width: evenlySpaced ? "auto" : "100%",
                 height: "100%",
-                maxWidth: "168px",
+                aspectRatio: evenlySpaced ? "190 / 282" : undefined,
+                containerType: fill ? "size" : undefined,
+                maxWidth: fill ? "none" : "168px",
+                justifyContent: fill ? "center" : undefined,
             }}
         >
             {portrait}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, minWidth: 0 }}>
-                <Typography
-                    level="body-sm"
-                    sx={{
-                        fontSize: 15,
-                        color: state === "available" ? "#e9e6df" : "#7c8290",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                    }}
-                >
-                    {creatureName(creatureId)}
-                </Typography>
-                {config && <AttackTypeIcon attackType={config.attack_type} />}
-            </Box>
+            {caption && (
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.35, minWidth: 0 }}>
+                    <Typography
+                        level="body-sm"
+                        sx={{
+                            fontSize: 15,
+                            lineHeight: "20px",
+                            color: state === "available" ? "#efe4cc" : "#7c8290",
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                        }}
+                    >
+                        {creatureName(creatureId)}
+                    </Typography>
+                    {config && <AttackTypeIcon attackType={config.attack_type} muted={state !== "available"} />}
+                </Box>
+            )}
         </Box>
     );
 };
@@ -833,11 +1058,23 @@ export const PickCommitButton: React.FC<{
      * (and on hover).
      */
     blockedHint?: string;
+    /** Fires synchronously with the physical press, before the request, so the chosen card can lock immediately. */
+    onSubmitted?: () => void;
     onCommit: () => void;
-}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, onCommit }) => {
+}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, onSubmitted, onCommit }) => {
     const urgent = seconds >= 0 && seconds <= 15;
-    const blocked = !armed && !!blockedHint;
+    // Lock the plate immediately after confirmation instead of waiting for the server round-trip. This
+    // also lets the static preview demonstrate the same waiting state as a live simultaneous draft.
+    const [submitted, setSubmitted] = useState(false);
+    const waiting = !isYourTurn || submitted;
+    const effectiveArmed = armed && !waiting;
+    const blocked = !waiting && !effectiveArmed && !!blockedHint;
     const [hintOpen, setHintOpen] = useState(false);
+    useEffect(() => {
+        if (isYourTurn) {
+            setSubmitted(false);
+        }
+    }, [isYourTurn]);
     useEffect(() => {
         if (!hintOpen) {
             return undefined;
@@ -847,7 +1084,7 @@ export const PickCommitButton: React.FC<{
     }, [hintOpen]);
     return (
         <Tooltip
-            title={blockedHint ?? ""}
+            title={blocked ? (blockedHint ?? "") : ""}
             open={blocked && hintOpen}
             variant="soft"
             color="warning"
@@ -858,67 +1095,135 @@ export const PickCommitButton: React.FC<{
                 component="button"
                 type="button"
                 // A blocked button stays clickable ON PURPOSE: the click is what surfaces the reason.
-                disabled={!armed && !blocked}
-                onClick={armed ? onCommit : blocked ? () => setHintOpen(true) : undefined}
+                disabled={!effectiveArmed && !blocked}
+                onClick={
+                    effectiveArmed
+                        ? () => {
+                              setSubmitted(true);
+                              onSubmitted?.();
+                              onCommit();
+                          }
+                        : blocked
+                          ? () => setHintOpen(true)
+                          : undefined
+                }
                 onMouseEnter={blocked ? () => setHintOpen(true) : undefined}
                 sx={{
                     // A forged plate rather than a glossy pill: flat slate body, a hairline bevel, and the
                     // tone carried by a lit edge + a soft under-glow instead of a full-bleed gradient. Reads
                     // calmer beside the choice frame and lets the label do the talking.
-                    minHeight: 72,
+                    height: DRAFT_ACTION_HEIGHT,
+                    minHeight: DRAFT_ACTION_HEIGHT,
+                    maxHeight: DRAFT_ACTION_HEIGHT,
+                    flex: "0 0 auto",
                     width: "min(560px, 84%)",
                     minWidth: "min(560px, 84%)",
                     mt: 0,
                     position: "relative",
-                    borderRadius: 0,
-                    border: 0,
+                    // After the board is raised, place the action plate in the visual midpoint between
+                    // the bundle cards and the fixed phase rail. This keeps both vertical gaps balanced.
+                    transform: "translateY(3vh)",
+                    borderRadius: "10px",
+                    boxSizing: "border-box",
+                    border: waiting ? "1.3px solid rgba(174,58,48,.94)" : "1.3px solid rgba(255,255,255,.18)",
                     outline: 0,
                     backgroundColor: "transparent",
-                    backgroundImage: `linear-gradient(rgba(25,20,13,.22), rgba(5,5,4,.48)), url(${images.ui_start_button_plate_trimmed})`,
+                    backgroundImage: waiting
+                        ? `linear-gradient(rgba(92,5,7,.62), rgba(38,2,3,.72)), url(${pickCommitFullImage})`
+                        : "linear-gradient(rgba(2,3,3,.34), rgba(1,1,1,.4))",
                     backgroundSize: "100% 100%",
                     backgroundPosition: "center",
                     backgroundRepeat: "no-repeat",
-                    boxShadow: `inset 0 1px 0 rgba(255,224,176,.1), inset 0 -2px 0 rgba(0,0,0,.65), 0 5px 18px rgba(0,0,0,.52), 0 0 18px ${
-                        armed ? "rgba(183,132,69,.32)" : "rgba(90,62,34,.16)"
-                    }`,
-                    color: !isYourTurn ? "#d8aaa3" : "#efe4cc",
-                    fontSize: "22px",
+                    backgroundBlendMode: "normal",
+                    boxShadow: waiting
+                        ? "inset 0 0 0 1.3px rgba(241,103,88,.22), inset 0 0 22px rgba(119,7,8,.34), 0 5px 18px rgba(0,0,0,.52), 0 0 24px rgba(199,40,34,.42)"
+                        : effectiveArmed
+                          ? "inset 0 0 0 1.3px rgba(203,190,163,.1), 0 5px 18px rgba(0,0,0,.58), 0 0 16px rgba(151,129,91,.2)"
+                          : "inset 0 0 0 1px rgba(255,255,255,.06), 0 5px 18px rgba(0,0,0,.58), 0 0 0 1px rgba(203,181,137,.12), 0 0 22px rgba(203,181,137,.34)",
+                    color: waiting ? "#ffd0c8" : "#c0b7a6",
+                    fontSize: "23.5px",
                     fontWeight: 700,
                     letterSpacing: "0.12em",
                     textTransform: "uppercase",
                     display: "flex",
                     alignItems: "stretch",
                     justifyContent: "center",
+                    // The three fields form one continuous plate. A flex gap exposed the underlying image
+                    // between the augment counter and clock as a differently coloured vertical strip.
                     gap: 0,
-                    cursor: armed ? "pointer" : "default",
+                    cursor: effectiveArmed ? "pointer" : "default",
                     px: 0,
-                    overflow: "hidden",
+                    overflow: "visible",
                     transition: "border-color 140ms ease, box-shadow 140ms ease, transform 120ms ease",
+                    // Use the exact leather field painted over NEW BATTLE: its faint diagonal bands are
+                    // a CSS layer, not part of the plate bitmap. Keeping it separate preserves their
+                    // sharpness at every draft scale.
+                    "&::before": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: "4px",
+                        zIndex: 1,
+                        pointerEvents: "none",
+                        borderRadius: "5px",
+                        // Keep the forged perimeter untouched; only the leather field is 7pp more transparent.
+                        opacity: 0.13,
+                        background: waiting
+                            ? "linear-gradient(115deg, rgba(88,5,7,.88), rgba(48,3,4,.72), rgba(19,1,2,.9)), repeating-linear-gradient(14deg, rgba(255,255,255,.018) 0 1px, rgba(0,0,0,.08) 1px 3px), #160102"
+                            : "linear-gradient(115deg, rgba(3,4,4,.92), rgba(12,12,11,.72), rgba(1,2,2,.94)), repeating-linear-gradient(14deg, rgba(255,255,255,.014) 0 1px, rgba(0,0,0,.075) 1px 3px), #020303",
+                        WebkitMask: waiting
+                            ? "none"
+                            : "linear-gradient(90deg, #000 0 calc(78.5% - 3px), transparent calc(78.5% - 3px) calc(78.5% + 3px), #000 calc(78.5% + 3px) 100%)",
+                        mask: waiting
+                            ? "none"
+                            : "linear-gradient(90deg, #000 0 calc(78.5% - 3px), transparent calc(78.5% - 3px) calc(78.5% + 3px), #000 calc(78.5% + 3px) 100%)",
+                    },
+                    // Match the extra bronze perimeter used by the fight-results action buttons. The
+                    // plate remains the full background, while this masked copy only reinforces its
+                    // outer ring so the frame keeps its weight after the draft board is scaled.
+                    "&::after": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 3,
+                        p: "5.2px",
+                        pointerEvents: "none",
+                        backgroundImage: `url(${pickCommitFullImage})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "100% 100%",
+                        opacity: 0.68,
+                        filter: waiting ? "none" : "grayscale(.72) brightness(.38) saturate(.24)",
+                        WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+                        WebkitMaskComposite: "xor",
+                        maskComposite: "exclude",
+                    },
                     // Armed = a choice is staged and this press commits it. The whole plate breathes so the
                     // second press is obviously still owed; hovering settles it.
-                    animation: armed
-                        ? `${tone === "gold" ? "hocCommitPlateGold" : "hocCommitPlate"} 1.5s ease-in-out infinite`
-                        : "none",
-                    // A thin lit bar along the top edge rides the same beat.
-                    "&::before": {
-                        content: '""',
-                        position: "absolute",
-                        left: 14,
-                        right: 14,
-                        top: 5,
-                        height: "2px",
-                        borderRadius: "2px",
-                        background: !isYourTurn
-                            ? "linear-gradient(90deg, transparent, #9c4a40, transparent)"
-                            : "linear-gradient(90deg, transparent, #d4a968, transparent)",
-                        animation: armed ? "hocCommitBlink 1.6s ease-in-out infinite" : "none",
-                    },
-                    "&:hover": armed
+                    animation: waiting
+                        ? "hocCommitWaiting 1.35s ease-in-out infinite"
+                        : effectiveArmed
+                          ? `${tone === "gold" ? "hocCommitPlateGold" : "hocCommitPlate"} 1.5s ease-in-out infinite`
+                          : "none",
+                    "&:hover": effectiveArmed
                         ? {
-                              filter: "brightness(1.08) contrast(1.04)",
-                              transform: "translateY(-1px)",
+                              borderColor: "rgba(178,240,178,.92)",
+                              outline: "1px solid rgba(139,232,155,.38)",
+                              outlineOffset: "4px",
+                          }
+                        : undefined,
+                    "&:hover::after": effectiveArmed
+                        ? {
+                              boxShadow:
+                                  "0 0 12px rgba(120,225,140,.66), 0 0 38px rgba(120,225,140,.56), inset 0 0 12px rgba(120,225,140,.2)",
+                          }
+                        : undefined,
+                    "&:active": effectiveArmed
+                        ? {
+                              transform: "translateY(3vh) scale(.94)",
+                              filter: "brightness(.88) contrast(1.08)",
+                              boxShadow:
+                                  "inset 0 4px 12px rgba(0,0,0,.72), inset 0 0 0 1.3px rgba(211,151,93,.2), 0 2px 7px rgba(0,0,0,.56)",
                               animation: "none",
-                              "&::before": { animation: "none" },
                           }
                         : undefined,
                     "@keyframes hocCommitBlink": {
@@ -927,31 +1232,47 @@ export const PickCommitButton: React.FC<{
                     },
                     "@keyframes hocCommitPlate": {
                         "0%, 100%": {
+                            transform: "translateY(3vh) scale(1)",
+                            filter: "brightness(1)",
                             borderColor: "rgba(150,222,150,0.8)",
                             boxShadow:
-                                "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 22px rgba(90,190,110,0.3)",
+                                "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 14px rgba(90,190,110,0.2)",
                         },
                         "50%": {
+                            transform: "translateY(3vh) scale(1.012)",
+                            filter: "brightness(1.039)",
                             borderColor: "rgba(178,240,178,0.94)",
                             boxShadow:
-                                "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 30px rgba(120,225,140,0.62)",
+                                "inset 0 1px 0 rgba(255,255,255,0.11), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 20px rgba(120,225,140,0.4)",
                         },
                     },
                     "@keyframes hocCommitPlateGold": {
                         "0%, 100%": {
-                            borderColor: "rgba(226,186,110,0.8)",
+                            transform: "translateY(3vh) scale(1)",
+                            filter: "brightness(1)",
+                            borderColor: "rgba(132,116,91,.84)",
                             boxShadow:
-                                "inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 22px rgba(214,164,74,0.3)",
+                                "inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.58), 0 0 16px rgba(145,121,78,.16)",
                         },
                         "50%": {
-                            borderColor: "rgba(246,215,150,0.94)",
+                            transform: "translateY(3vh) scale(1.012)",
+                            filter: "brightness(1.06)",
+                            borderColor: "rgba(177,156,119,.94)",
                             boxShadow:
-                                "inset 0 1px 0 rgba(255,255,255,0.13), inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 30px rgba(236,190,100,0.62)",
+                                "inset 0 1px 0 rgba(255,255,255,.1), inset 0 -1px 0 rgba(0,0,0,.58), 0 0 22px rgba(166,139,91,.26)",
                         },
                     },
-                    "@keyframes hocCommitLabel": {
-                        "0%, 100%": { textShadow: "none", letterSpacing: "0.12em" },
-                        "50%": { textShadow: "0 0 10px rgba(190,255,190,0.6)", letterSpacing: "0.148em" },
+                    "@keyframes hocCommitWaiting": {
+                        "0%, 100%": {
+                            borderColor: "rgba(165,48,42,.84)",
+                            boxShadow:
+                                "inset 0 0 0 1.3px rgba(241,103,88,.18), inset 0 0 18px rgba(119,7,8,.26), 0 5px 18px rgba(0,0,0,.52), 0 0 18px rgba(181,31,28,.28)",
+                        },
+                        "50%": {
+                            borderColor: "rgba(238,91,77,.98)",
+                            boxShadow:
+                                "inset 0 0 0 1.3px rgba(255,143,126,.32), inset 0 0 26px rgba(159,11,12,.42), 0 5px 18px rgba(0,0,0,.52), 0 0 32px rgba(225,49,42,.58)",
+                        },
                     },
                     "@keyframes hocTimerBlink": {
                         "0%, 100%": { opacity: 1 },
@@ -967,22 +1288,45 @@ export const PickCommitButton: React.FC<{
                         placeItems: "center",
                         px: 2.5,
                         textAlign: "center",
-                        // The label breathes with the plate — the press it is waiting for is the confirming one.
-                        animation: armed ? "hocCommitLabel 1.5s ease-in-out infinite" : "none",
+                        whiteSpace: "nowrap",
+                        position: "relative",
+                        zIndex: 2,
                     }}
                 >
-                    {label}
+                    {waiting ? "WAITING OPPONENT" : label}
                 </Box>
                 {extra !== undefined && (
                     <Box
                         component="span"
                         sx={{
+                            position: "relative",
+                            width: "18.5%",
+                            flex: "0 0 18.5%",
                             display: "grid",
                             placeItems: "center",
                             px: 2.5,
-                            borderLeft: "1px solid rgba(255,255,255,0.14)",
+                            borderLeft: 0,
                             bgcolor: "rgba(255,255,255,0.03)",
                             fontVariantNumeric: "tabular-nums",
+                            zIndex: 2,
+                            "&::before": {
+                                content: '\"\"',
+                                position: "absolute",
+                                left: 0,
+                                top: "7%",
+                                bottom: "7%",
+                                width: "2px",
+                                borderRadius: "2px",
+                                background: waiting
+                                    ? "linear-gradient(90deg, rgba(105,19,18,.92) 0 36%, rgba(198,62,53,.66) 36% 64%, rgba(105,19,18,.92) 64% 100%)"
+                                    : "linear-gradient(90deg, rgba(5,5,5,.94) 0 38%, rgba(190,184,171,.3) 38% 62%, rgba(10,10,9,.94) 62% 100%)",
+                                boxShadow: waiting
+                                    ? "-1px 0 rgba(123,28,25,.46), 1px 0 rgba(244,102,88,.14)"
+                                    : "-1px 0 rgba(0,0,0,.78), 1px 0 rgba(255,255,255,.055)",
+                                // Keep the separator itself rigid while the armed plate breathes.
+                                animation: "none",
+                                transition: "none",
+                            },
                         }}
                     >
                         {extra}
@@ -992,14 +1336,37 @@ export const PickCommitButton: React.FC<{
                     <Box
                         component="span"
                         sx={{
+                            position: "relative",
+                            width: "21.5%",
+                            flex: "0 0 21.5%",
                             display: "grid",
                             placeItems: "center",
-                            px: 2.5,
-                            borderLeft: "1px solid rgba(255,255,255,0.14)",
-                            bgcolor: "rgba(255,255,255,0.03)",
+                            px: 1.5,
+                            borderLeft: 0,
+                            background: waiting
+                                ? "linear-gradient(90deg, rgba(151,34,29,.12), transparent 34%)"
+                                : "linear-gradient(90deg, rgba(198,167,112,.035), transparent 34%)",
                             fontVariantNumeric: "tabular-nums",
+                            zIndex: 2,
+                            "&::before": {
+                                content: '""',
+                                position: "absolute",
+                                left: 0,
+                                top: "7%",
+                                bottom: "7%",
+                                width: "2px",
+                                borderRadius: "2px",
+                                background: waiting
+                                    ? "linear-gradient(90deg, rgba(105,19,18,.92) 0 36%, rgba(198,62,53,.66) 36% 64%, rgba(105,19,18,.92) 64% 100%)"
+                                    : "linear-gradient(90deg, rgba(5,5,5,.94) 0 38%, rgba(190,184,171,.3) 38% 62%, rgba(10,10,9,.94) 62% 100%)",
+                                boxShadow: waiting
+                                    ? "-1px 0 rgba(123,28,25,.46), 1px 0 rgba(244,102,88,.14)"
+                                    : "-1px 0 rgba(0,0,0,.78), 1px 0 rgba(255,255,255,.055)",
+                                animation: "none",
+                                transition: "none",
+                            },
                             // White while there is time, blinking red for the last 15 seconds.
-                            color: urgent ? "#ff3b2f" : "#fff",
+                            color: urgent ? "#ff3b2f" : "#c0b7a6",
                             textShadow: urgent ? "0 0 18px rgba(255,59,47,0.75)" : "none",
                             animation: urgent ? "hocTimerBlink 1s ease-in-out infinite" : "none",
                         }}
@@ -1033,7 +1400,18 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                     >
                         <CardContent sx={{ gap: 1, alignItems: "flex-start" }}>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Typography level="h4">{PERK_ICON[p.id] ?? "•"}</Typography>
+                                <Box
+                                    sx={{
+                                        width: 70,
+                                        height: 70,
+                                        flex: "0 0 70px",
+                                        borderRadius: "50%",
+                                        overflow: "hidden",
+                                        boxShadow: "0 0 0 1px rgba(194,151,84,.52), 0 3px 10px rgba(0,0,0,.55)",
+                                    }}
+                                >
+                                    <PerkIcon perkId={p.id} />
+                                </Box>
                                 <Typography level="title-md">{p.name}</Typography>
                             </Box>
                             <Chip size="sm" color="warning" variant="soft">
@@ -1061,11 +1439,12 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
 const BundlePanel: React.FC<{
     bundles: [number, number, number][];
     disabled: boolean;
+    locked: boolean;
     selected: number;
     onSelect: (index: number) => void;
     onInspect?: (creatureId: number) => void;
     onInspectEnd?: () => void;
-}> = ({ bundles, disabled, selected, onSelect, onInspect, onInspectEnd }) => (
+}> = ({ bundles, disabled, locked, selected, onSelect, onInspect, onInspectEnd }) => (
     <PhasePanel>
         <Box
             sx={{
@@ -1074,25 +1453,9 @@ const BundlePanel: React.FC<{
                 gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                 gap: "18px",
                 height: "100%",
-                overflow: "hidden",
+                overflow: "visible",
                 alignItems: "stretch",
                 position: "relative",
-                "&::after": {
-                    content: '""',
-                    position: "absolute",
-                    zIndex: 12,
-                    pointerEvents: "none",
-                    top: 3,
-                    bottom: 3,
-                    left: "50%",
-                    width: 62,
-                    transform: "translateX(-50%)",
-                    backgroundImage: `url(${images.pick_phase_bundle_divider})`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "center",
-                    backgroundSize: "100% 100%",
-                    filter: "brightness(.9) contrast(1.04) drop-shadow(0 0 5px rgba(0,0,0,.9))",
-                },
             }}
         >
             {bundles.map((bundle, index) => {
@@ -1100,6 +1463,7 @@ const BundlePanel: React.FC<{
                 const artifact = Artifact.getTier1ArtifactProperties(artifactId as Artifact.Tier1Artifact);
                 const artifactImg = images[artifact.imageKey];
                 const isSelected = selected === index;
+                const isInactive = locked && !isSelected;
                 return (
                     <Card
                         key={index}
@@ -1111,103 +1475,162 @@ const BundlePanel: React.FC<{
                             width: "100%",
                             height: "100%",
                             overflow: "hidden",
-                            cursor: disabled ? "default" : "pointer",
+                            cursor: disabled || locked ? "default" : "pointer",
                             bgcolor: "transparent",
-                            border: 0,
-                            borderRadius: 0,
-                            boxShadow: isSelected ? "inset 0 0 28px rgba(220,177,88,0.08)" : "none",
-                            transition: "box-shadow 140ms ease",
+                            border: isSelected ? "2px solid rgba(205,151,82,.96)" : "2px solid rgba(145,104,67,.82)",
+                            borderRadius: "14px",
+                            opacity: isInactive ? 0.48 : 1,
+                            filter: isInactive ? "grayscale(.58) brightness(.68)" : "none",
+                            boxShadow: isSelected
+                                ? "inset 0 0 0 1px rgba(17,11,6,.98), inset 0 0 0 3px rgba(134,91,49,.42), inset 0 0 24px rgba(221,166,75,.14), 0 0 0 1px rgba(222,176,91,.2), 0 0 13px rgba(222,176,91,.42), 0 3px 8px rgba(0,0,0,.58)"
+                                : "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
+                            pointerEvents: isInactive ? "none" : "auto",
+                            transition:
+                                "box-shadow 160ms ease, border-color 160ms ease, opacity 160ms ease, filter 160ms ease",
+                            "&:hover":
+                                disabled || locked || (selected >= 0 && !isSelected)
+                                    ? undefined
+                                    : {
+                                          zIndex: isSelected ? 5 : 1,
+                                          borderColor: "rgba(205,151,82,.96)",
+                                          boxShadow:
+                                              "inset 0 0 0 1px rgba(17,11,6,.98), inset 0 0 0 3px rgba(134,91,49,.42), inset 0 0 18px rgba(221,166,75,.14), 0 0 0 1px rgba(222,176,91,.18), 0 0 12px rgba(205,151,82,.36), 0 3px 8px rgba(0,0,0,.58)",
+                                      },
+                            "&::before": {
+                                content: '\"\"',
+                                position: "absolute",
+                                inset: "4px",
+                                zIndex: 0,
+                                pointerEvents: "none",
+                                // Match the warm near-black well inside the fight-results frame instead of
+                                // letting the brighter draft backdrop show through the bundle.
+                                background:
+                                    "linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)), linear-gradient(160deg, rgba(30,18,7,.64) 0%, rgba(9,6,2,.70) 100%)",
+                                borderRadius: "10px",
+                            },
+                            "&::after": {
+                                content: '\"\"',
+                                position: "absolute",
+                                inset: "3px",
+                                zIndex: 3,
+                                pointerEvents: "none",
+                                boxSizing: "border-box",
+                                border: "1px solid rgba(52,44,38,.92)",
+                                borderRadius: "11px",
+                            },
                         }}
                     >
                         <CardContent
                             sx={{
+                                display: "grid",
+                                // One spacing token controls the two outer gutters and both inner gaps.
+                                gridTemplateColumns: "190px 190px 160px",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                gap: 3,
+                                columnGap: "20px",
+                                px: "20px",
+                                py: "8px",
                                 flex: "1 1 auto",
                                 minHeight: 0,
+                                position: "relative",
+                                zIndex: 1,
                             }}
                         >
-                            <Box sx={{ display: "flex", gap: 3, justifyContent: "center" }}>
-                                {[
-                                    { id: l1, level: 1 },
-                                    { id: l2, level: 2 },
-                                ].map(({ id, level }) => (
-                                    <Box
-                                        key={level}
-                                        sx={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            alignItems: "center",
-                                            gap: 0.5,
-                                        }}
-                                        onMouseEnter={() => onInspect?.(id)}
-                                        onMouseLeave={() => onInspectEnd?.()}
-                                    >
-                                        <Box
-                                            component="img"
-                                            src={creatureImage(id)}
-                                            alt={creatureName(id)}
-                                            sx={{
-                                                width: "128px",
-                                                height: "128px",
-                                                borderRadius: "50%",
-                                                objectFit: "cover",
+                            {[
+                                { id: l1, level: 1 },
+                                { id: l2, level: 2 },
+                            ].map(({ id, level }) => (
+                                <Box
+                                    key={level}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        minWidth: 0,
+                                        minHeight: 0,
+                                        overflow: "hidden",
+                                    }}
+                                    onMouseEnter={() => onInspect?.(id)}
+                                    onMouseLeave={() => onInspectEnd?.()}
+                                >
+                                    <CreaturePortrait
+                                        creatureId={id}
+                                        state="available"
+                                        size={190}
+                                        portraitHeight={256}
+                                        caption
+                                        onInspect={onInspect}
+                                        onInspectEnd={onInspectEnd}
+                                    />
+                                </Box>
+                            ))}
+                            <Tooltip
+                                title={Artifact.formatArtifactDescription(artifact)}
+                                placement="top"
+                                variant="soft"
+                                color="warning"
+                                sx={{ maxWidth: 360, fontSize: 14 }}
+                            >
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: 1,
+                                        width: "100%",
+                                        height: "207.39px",
+                                        maxHeight: "calc(100% - 4px)",
+                                        alignSelf: "center",
+                                        // The creature caption sits below its portrait. Lift the shorter
+                                        // artifact card so its centre aligns with the portrait frame itself.
+                                        transform: "translateY(-15.5px)",
+                                        minWidth: 0,
+                                        minHeight: 0,
+                                        p: 1.25,
+                                        borderRadius: "9px",
+                                        background: "linear-gradient(180deg, rgba(30,28,24,.78), rgba(13,12,10,.9))",
+                                        border: "1px solid rgba(151,103,52,.7)",
+                                        boxShadow: "inset 0 0 0 1px rgba(10,8,5,.88), 0 2px 5px rgba(0,0,0,.55)",
+                                        position: "relative",
+                                    }}
+                                >
+                                    {artifactImg && (
+                                        <img
+                                            src={artifactImg}
+                                            alt={artifact.name}
+                                            style={{
+                                                width: "120px",
+                                                height: "120px",
+                                                objectFit: "contain",
+                                                flex: "0 0 auto",
                                             }}
                                         />
-                                        <Typography sx={{ fontSize: "16px", fontWeight: 700, color: "#e9e6df" }}>
-                                            {creatureName(id)}
+                                    )}
+                                    <Box sx={{ minWidth: 0, textAlign: "center" }}>
+                                        <Typography
+                                            sx={{
+                                                fontSize: 15,
+                                                fontWeight: 700,
+                                                color: "#dcb158",
+                                                textTransform: "uppercase",
+                                            }}
+                                        >
+                                            {artifact.name}
                                         </Typography>
-                                        <Typography sx={{ fontSize: "13px", color: "#7c8290" }}>
-                                            Level {level}
+                                        <Typography
+                                            sx={{
+                                                fontSize: 12,
+                                                letterSpacing: "0.1em",
+                                                textTransform: "uppercase",
+                                                color: "#7c8290",
+                                            }}
+                                        >
+                                            Tier-1 artifact
                                         </Typography>
                                     </Box>
-                                ))}
-                            </Box>
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1.5,
-                                    width: "100%",
-                                    p: 1.5,
-                                    borderRadius: "7px",
-                                    background: "linear-gradient(180deg, rgba(30,28,24,.78), rgba(13,12,10,.9))",
-                                    border: "2px solid rgba(181,135,73,0.55)",
-                                    boxShadow: "inset 0 1px rgba(255,225,175,.06), 0 2px 8px rgba(0,0,0,.38)",
-                                }}
-                            >
-                                {artifactImg && (
-                                    <img
-                                        src={artifactImg}
-                                        alt={artifact.name}
-                                        style={{
-                                            width: "72px",
-                                            height: "72px",
-                                            objectFit: "contain",
-                                            flex: "0 0 auto",
-                                        }}
-                                    />
-                                )}
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography sx={{ fontSize: 17, fontWeight: 700, color: "#dcb158" }}>
-                                        {artifact.name}
-                                    </Typography>
-                                    <Typography
-                                        sx={{
-                                            fontSize: 12,
-                                            letterSpacing: "0.1em",
-                                            textTransform: "uppercase",
-                                            color: "#7c8290",
-                                        }}
-                                    >
-                                        Tier-1 artifact
-                                    </Typography>
-                                    <Typography sx={{ fontSize: "13px", color: "#9aa0ab" }}>
-                                        ({Artifact.formatArtifactDescription(artifact)})
-                                    </Typography>
                                 </Box>
-                            </Box>
+                            </Tooltip>
                         </CardContent>
                     </Card>
                 );
@@ -1227,27 +1650,11 @@ export const PhasePanel: React.FC<{ children: React.ReactNode }> = ({ children }
             // its contents shrink to fit instead of scrolling.
             height: "100%",
             minHeight: 0,
-            overflow: "hidden",
-            p: "18px 14px",
+            overflow: "visible",
+            p: 0,
             borderRadius: 0,
-            bgcolor: "rgba(5,5,4,0.5)",
+            bgcolor: "transparent",
             border: 0,
-            // The same outer frame used by the sandbox's left command deck. It is painted as an overlay
-            // rather than a real border so adding it never steals space from the pick cards or changes the
-            // fixed draft geometry. 9-slicing preserves the authored corners while stretching only rails.
-            "&::after": {
-                content: '""',
-                position: "absolute",
-                inset: 0,
-                zIndex: 10,
-                pointerEvents: "none",
-                boxSizing: "border-box",
-                border: "32px solid transparent",
-                borderImageSource: `url(${images.ui_outer_frame_3_9slice})`,
-                borderImageSlice: "58",
-                borderImageWidth: "32px",
-                borderImageRepeat: "stretch",
-            },
         }}
     >
         {children}
@@ -1282,58 +1689,69 @@ const PickPanel: React.FC<{
     const creatures = (level >= 1 ? getCreaturesByLevel(level) : []).filter(
         (creatureId) => creatureFullConfig(creatureId)?.faction !== "Death",
     );
-    const byFaction = FACTION_ORDER.map((faction) => ({
-        faction,
-        ids: creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
-    })).filter((group) => group.ids.length > 0);
+    const orderedCreatures = FACTION_ORDER.flatMap((faction) =>
+        creatures.filter((creatureId) => creatureFullConfig(creatureId)?.faction === faction),
+    );
+    const columns = Math.max(1, Math.ceil(orderedCreatures.length / 2));
 
     return (
         <PhasePanel>
-            {/* Four equal quadrants, one faction each. The captions are gone — the pool is faction-balanced
-                and every player knows the crests — so the portraits take that room instead. */}
+            {/* One flat two-row grid keeps faction order while a single 0.3% token controls both the outer
+                inset and every gap. Portraits retain the same 190:256 geometry as the bundle cards. */}
             <Box
                 sx={{
+                    position: "relative",
                     display: "grid",
-                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gridTemplateColumns:
+                        level >= 3 ? `repeat(${columns}, max-content)` : `repeat(${columns}, minmax(0, 1fr))`,
                     gridTemplateRows: "repeat(2, minmax(0, 1fr))",
-                    gap: "18px",
+                    gridAutoFlow: "row",
+                    columnGap: level >= 3 ? 0 : "0.3%",
+                    rowGap: "0.3%",
+                    justifyContent: level >= 3 ? "space-evenly" : undefined,
                     height: "100%",
+                    minHeight: 0,
+                    px: level >= 3 ? 0 : "0.3%",
+                    py: "0.3%",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                    border: "2px solid rgba(145,104,67,.82)",
+                    borderRadius: "14px",
+                    background:
+                        "linear-gradient(rgba(0,0,0,.24), rgba(0,0,0,.24)), linear-gradient(160deg, rgba(30,18,7,.58) 0%, rgba(9,6,2,.68) 100%)",
+                    boxShadow:
+                        "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
+                    "&::after": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: "3px",
+                        pointerEvents: "none",
+                        border: "1px solid rgba(52,44,38,.92)",
+                        borderRadius: "11px",
+                    },
                 }}
             >
-                {byFaction.map(({ faction, ids }) => (
-                    <Box
-                        key={faction}
-                        sx={{
-                            display: "grid",
-                            gridTemplateColumns: `repeat(${ids.length}, minmax(0, 1fr))`,
-                            gridAutoRows: "minmax(0, 1fr)",
-                            gap: "14px",
-                            minWidth: 0,
-                            minHeight: 0,
-                        }}
-                    >
-                        {ids.map((creatureId) => {
-                            let state: PortraitState = "available";
-                            if (pickedSet.has(creatureId)) state = "picked";
-                            else if (bannedSet.has(creatureId)) state = "banned";
-                            else if (takenSet.has(creatureId)) state = "taken";
-                            return (
-                                <CreaturePortrait
-                                    key={creatureId}
-                                    creatureId={creatureId}
-                                    state={state}
-                                    disabled={disabled}
-                                    fill
-                                    caption
-                                    pending={pendingId === creatureId}
-                                    onClick={() => onSelect(creatureId)}
-                                    onInspect={onInspect}
-                                    onInspectEnd={onInspectEnd}
-                                />
-                            );
-                        })}
-                    </Box>
-                ))}
+                {orderedCreatures.map((creatureId) => {
+                    let state: PortraitState = "available";
+                    if (pickedSet.has(creatureId)) state = "picked";
+                    else if (bannedSet.has(creatureId)) state = "banned";
+                    else if (takenSet.has(creatureId)) state = "taken";
+                    return (
+                        <CreaturePortrait
+                            key={creatureId}
+                            creatureId={creatureId}
+                            state={state}
+                            disabled={disabled}
+                            fill
+                            caption
+                            evenlySpaced={level >= 3}
+                            pending={pendingId === creatureId}
+                            onClick={() => onSelect(creatureId)}
+                            onInspect={onInspect}
+                            onInspectEnd={onInspectEnd}
+                        />
+                    );
+                })}
             </Box>
         </PhasePanel>
     );
@@ -1354,10 +1772,9 @@ const ArtifactPanel: React.FC<{
                 sx={{
                     width: "100%",
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 340px))",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                     gridTemplateRows: "minmax(0, 1fr)",
-                    justifyContent: "center",
-                    gap: "20px",
+                    gap: "18px",
                     height: "100%",
                     minHeight: 0,
                     overflow: "hidden",
@@ -1367,50 +1784,78 @@ const ArtifactPanel: React.FC<{
                 {offeredIds.map((id) => {
                     const a = Artifact.getTier2ArtifactProperties(id as Artifact.Tier2Artifact);
                     const isSelected = selected === a.id;
-                    // Descriptions differ by a factor of three in length (compare "Increases the army's luck
-                    // by 10." with the Lava Striders paragraph). Rather than let the long one push its card's
-                    // bottom border out of the frame, the art and the type shrink a notch for it.
-                    const descriptionLength = Artifact.formatArtifactDescription(a).length;
-                    const wordy = descriptionLength > 96;
-                    // The very longest entries (Lava Striders) need one more notch or their last line would
-                    // be the thing that gets clipped inside the card.
-                    const veryWordy = descriptionLength > 130;
                     return (
-                        // No hover affordance here on purpose: the full effect text is already printed on
-                        // the card, so a tooltip only repeated it over the artifact art, and the card's own
-                        // hover tint fought the gold "selected" border.
-                        <React.Fragment key={a.id}>
+                        <Tooltip
+                            key={a.id}
+                            title={Artifact.formatArtifactDescription(a)}
+                            placement="top"
+                            variant="soft"
+                            color="warning"
+                            sx={{ maxWidth: 420, fontSize: 15, lineHeight: 1.45 }}
+                        >
                             <Card
                                 key={id}
                                 variant="outlined"
                                 color="neutral"
                                 onClick={disabled ? undefined : () => onSelect(id)}
                                 sx={{
+                                    position: "relative",
                                     height: "100%",
                                     minHeight: 0,
                                     overflow: "hidden",
                                     cursor: disabled ? "default" : "pointer",
-                                    bgcolor: "#12151d",
-                                    border: `2px solid ${isSelected ? "#dcb158" : "rgba(255,255,255,0.08)"}`,
-                                    borderRadius: "22px",
-                                    boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                                    bgcolor: "transparent",
+                                    boxSizing: "border-box",
+                                    // The selected plate uses a 30% heavier, brighter gold edge while keeping
+                                    // the card's outer dimensions fixed, so selection is unmistakable.
+                                    border: isSelected
+                                        ? "2.6px solid rgba(235,181,92,1)"
+                                        : "2px solid rgba(145,104,67,.82)",
+                                    borderRadius: "14px",
+                                    boxShadow: isSelected
+                                        ? "inset 0 0 0 1px rgba(17,11,6,.98), inset 0 0 0 3px rgba(177,119,52,.58), inset 0 0 28px rgba(239,184,82,.22), 0 0 0 1px rgba(244,194,103,.38), 0 0 18px rgba(235,177,75,.62), 0 3px 8px rgba(0,0,0,.58)"
+                                        : "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
                                     transition: "none",
                                     "&:hover": {
-                                        bgcolor: "#12151d",
-                                        borderColor: isSelected ? "#dcb158" : "rgba(255,255,255,0.08)",
-                                        boxShadow: isSelected ? "0 0 18px rgba(220,177,88,0.35)" : "none",
+                                        bgcolor: "transparent",
+                                        borderColor: isSelected ? "rgba(235,181,92,1)" : "rgba(145,104,67,.82)",
+                                        boxShadow: isSelected
+                                            ? "inset 0 0 0 1px rgba(17,11,6,.98), inset 0 0 0 3px rgba(177,119,52,.58), inset 0 0 28px rgba(239,184,82,.22), 0 0 0 1px rgba(244,194,103,.38), 0 0 18px rgba(235,177,75,.62), 0 3px 8px rgba(0,0,0,.58)"
+                                            : "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
                                         transform: "none",
+                                    },
+                                    "&::before": {
+                                        content: '\"\"',
+                                        position: "absolute",
+                                        inset: "4px",
+                                        zIndex: 0,
+                                        pointerEvents: "none",
+                                        background:
+                                            "linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.25)), linear-gradient(160deg, rgba(30,18,7,.64) 0%, rgba(9,6,2,.70) 100%)",
+                                        borderRadius: "10px",
+                                    },
+                                    "&::after": {
+                                        content: '\"\"',
+                                        position: "absolute",
+                                        inset: "3px",
+                                        zIndex: 3,
+                                        pointerEvents: "none",
+                                        border: "1px solid rgba(52,44,38,.92)",
+                                        borderRadius: "11px",
                                     },
                                 }}
                             >
                                 <CardContent
                                     sx={{
                                         alignItems: "center",
-                                        gap: 1,
-                                        p: 1.5,
+                                        justifyContent: "center",
+                                        gap: 1.5,
+                                        p: 2,
                                         flex: "1 1 auto",
                                         minHeight: 0,
                                         height: "100%",
+                                        position: "relative",
+                                        zIndex: 1,
                                     }}
                                 >
                                     {images[a.imageKey] && (
@@ -1419,74 +1864,40 @@ const ArtifactPanel: React.FC<{
                                             src={images[a.imageKey]}
                                             alt={a.name}
                                             sx={{
-                                                width: veryWordy ? "82px" : wordy ? "96px" : "118px",
-                                                height: veryWordy ? "82px" : wordy ? "96px" : "118px",
+                                                width: "154px",
+                                                height: "154px",
                                                 flex: "0 0 auto",
                                                 objectFit: "contain",
-                                                borderRadius: "12px",
+                                                borderRadius: "14px",
                                             }}
                                         />
                                     )}
                                     <Typography
-                                        sx={{ fontSize: wordy ? "20px" : "22px", fontWeight: 700, color: "#dcb158" }}
+                                        sx={{
+                                            fontSize: "29px",
+                                            lineHeight: 1.15,
+                                            fontWeight: 700,
+                                            color: "#dcb158",
+                                            textAlign: "center",
+                                        }}
                                     >
                                         {a.name}
                                     </Typography>
                                     <Typography
                                         sx={{
-                                            fontSize: wordy ? 13 : 15,
+                                            fontSize: "19.5px",
+                                            lineHeight: 1.15,
                                             letterSpacing: "0.12em",
                                             textTransform: "uppercase",
                                             color: "#9aa0ab",
+                                            textAlign: "center",
                                         }}
                                     >
                                         Tier-2 artifact
                                     </Typography>
-                                    <Box
-                                        sx={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 1,
-                                            width: "100%",
-                                            flex: "1 1 auto",
-                                            minHeight: 0,
-                                        }}
-                                    >
-                                        {(() => {
-                                            // One box for every artifact, same height on all three cards: the
-                                            // caveat sentence rides in parentheses instead of a second panel.
-                                            const [head, ...rest] = Artifact.formatArtifactDescription(a)
-                                                .split(/(?<=\.)\s+/)
-                                                .filter(Boolean);
-                                            const text = rest.length ? `${head} (${rest.join(" ")})` : head;
-                                            return (
-                                                <Box
-                                                    sx={{
-                                                        p: "10px 14px",
-                                                        borderRadius: "16px",
-                                                        bgcolor: "rgba(255,255,255,0.05)",
-                                                        fontSize: veryWordy ? "12.5px" : wordy ? "13px" : "14px",
-                                                        lineHeight: wordy ? 1.35 : 1.45,
-                                                        overflow: "hidden",
-                                                        color: "#e9e6df",
-                                                        // No fixed height: the box takes what the card has
-                                                        // left, so the longest artifact still fits and every
-                                                        // card ends with the same padding it starts with.
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        flex: "1 1 auto",
-                                                        minHeight: 0,
-                                                        width: "100%",
-                                                    }}
-                                                >
-                                                    {text}
-                                                </Box>
-                                            );
-                                        })()}
-                                    </Box>
                                 </CardContent>
                             </Card>
-                        </React.Fragment>
+                        </Tooltip>
                     );
                 })}
             </Box>
@@ -1694,6 +2105,10 @@ export const MyDraftBar: React.FC<{
     /** Creature staged for confirmation, so its synergy can be previewed. */
     pendingId?: number;
 }> = ({ perk, picked, artifactTier1, artifactTier2, onInspect, onInspectEnd, gameId, pendingId }) => {
+    // The doctrine is chosen before entering the draft. During the short gap before the server echoes it,
+    // keep showing that persisted choice instead of falling back to the old no-perk emoji.
+    const visiblePerk = perk > 0 ? perk : getPreGamePerk();
+    const visiblePerkCopy = getPerkCopy(visiblePerk);
     const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
     // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
@@ -1701,8 +2116,8 @@ export const MyDraftBar: React.FC<{
     return (
         <Box
             sx={{
-                flex: "0 0 auto",
-                width: 624,
+                flex: "1 1 0",
+                width: 0,
                 display: "flex",
                 justifyContent: "center",
             }}
@@ -1722,8 +2137,16 @@ export const MyDraftBar: React.FC<{
                     flexWrap: "nowrap",
                     overflow: "hidden",
                     justifyContent: "center",
-                    borderRadius: 0,
-                    bgcolor: "#0f2216",
+                    borderRadius: "10px",
+                    bgcolor: "transparent",
+                    // A clean, continuous cloth tone. Removing the cropped source banner also removes its
+                    // residual edge ornaments, which showed up as unrelated debris at both ends.
+                    backgroundImage:
+                        "linear-gradient(90deg, rgba(3,18,8,.65), rgba(5,31,14,.55) 50%, rgba(3,18,8,.65))",
+                    backgroundSize: "100% 100%",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundBlendMode: "normal, normal",
                     border: 0,
                     color: "#e6f5e9",
                     width: "100%",
@@ -1734,39 +2157,53 @@ export const MyDraftBar: React.FC<{
                         zIndex: 10,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        border: "16px solid transparent",
-                        borderImageSource: `url(${images.ui_container_frame_1_9slice})`,
-                        borderImageSlice: "120",
-                        borderImageWidth: "16px",
-                        borderImageRepeat: "stretch",
+                        borderRadius: "10px",
+                        border: "1px solid rgba(151,103,52,.66)",
+                        boxShadow: "inset 0 0 0 1px rgba(10,8,5,.88), 0 1px 3px rgba(0,0,0,.65)",
                     },
                 }}
             >
-                {perk > 0 && (
-                    <Tooltip title={`Doctrine: ${perkName(perk)}`} variant="soft">
-                        <Box
-                            sx={{
-                                width: 30,
-                                height: 30,
-                                flex: "0 0 auto",
-                                borderRadius: "50%",
-                                display: "grid",
-                                placeItems: "center",
-                                fontSize: 22,
-                                lineHeight: 1,
-                                overflow: "hidden",
-                                bgcolor: "rgba(255,255,255,0.06)",
-                                border: "1px solid rgba(220,177,88,0.45)",
-                            }}
-                        >
-                            {PERK_ICON[perk] ?? "•"}
+                <Tooltip
+                    variant="soft"
+                    placement="top"
+                    title={
+                        <Box sx={{ width: 330, maxWidth: "78vw", p: 0.45, display: "grid", gap: 0.65 }}>
+                            <Typography level="title-sm" sx={{ color: "#efe4cc" }}>
+                                {perkName(visiblePerk)}
+                            </Typography>
+                            <Typography level="body-xs" sx={{ color: "rgba(255,255,255,.88)", lineHeight: 1.35 }}>
+                                {visiblePerkCopy?.detail}
+                            </Typography>
+                            {visiblePerkCopy && (
+                                <Typography level="body-xs" sx={{ color: "#dcb158", lineHeight: 1.3 }}>
+                                    {visiblePerkCopy.budget}
+                                </Typography>
+                            )}
                         </Box>
-                    </Tooltip>
-                )}
+                    }
+                >
+                    <Box
+                        sx={{
+                            width: 30,
+                            height: 30,
+                            flex: "0 0 auto",
+                            borderRadius: "50%",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: 22,
+                            lineHeight: 1,
+                            overflow: "hidden",
+                            bgcolor: "rgba(255,255,255,0.06)",
+                            border: "1px solid rgba(220,177,88,0.45)",
+                        }}
+                    >
+                        <PerkIcon perkId={visiblePerk} />
+                    </Box>
+                </Tooltip>
                 <BarDivider strong />
                 <SynergyDots picked={picked} tone="own" gameId={gameId} pendingId={pendingId} />
                 <BarDivider />
-                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "nowrap", flex: "0 0 auto" }}>
+                <Box sx={{ display: "flex", gap: 0.55, flexWrap: "nowrap", flex: "0 0 auto" }}>
                     {slots.map((slot, i) => {
                         const id = slot.id;
                         if (id) {
@@ -1777,7 +2214,7 @@ export const MyDraftBar: React.FC<{
                                         onMouseEnter={() => onInspect?.(id)}
                                         onMouseLeave={() => onInspectEnd?.()}
                                         sx={{
-                                            width: 46,
+                                            width: 38,
                                             height: 46,
                                             flex: "0 0 auto",
                                             borderRadius: "9px",
@@ -1805,7 +2242,7 @@ export const MyDraftBar: React.FC<{
                             <Tooltip key={`empty-${i}`} title={`Level ${slot.level} slot`} variant="soft">
                                 <Box
                                     sx={{
-                                        width: 46,
+                                        width: 38,
                                         height: 46,
                                         flex: "0 0 auto",
                                         borderRadius: "9px",
@@ -1852,13 +2289,20 @@ export const MyDraftBar: React.FC<{
                                             ? "1px solid rgba(245,158,11,0.45)"
                                             : "1px dashed rgba(245,158,11,0.28)",
                                         bgcolor: a ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.03)",
+                                        overflow: "hidden",
                                     }}
                                 >
                                     {img && (
                                         <img
                                             src={img}
                                             alt={a?.name ?? ""}
-                                            style={{ width: 28, height: 28, objectFit: "contain" }}
+                                            style={{
+                                                width: "100%",
+                                                height: "100%",
+                                                objectFit: "cover",
+                                                borderRadius: "inherit",
+                                                transform: "scale(1.15)",
+                                            }}
                                         />
                                     )}
                                 </Box>
@@ -1912,8 +2356,8 @@ export const OpponentDraftBar: React.FC<{
     return (
         <Box
             sx={{
-                flex: "0 0 auto",
-                width: 496,
+                flex: "1 1 0",
+                width: 0,
                 display: "flex",
                 justifyContent: "center",
             }}
@@ -1933,8 +2377,14 @@ export const OpponentDraftBar: React.FC<{
                     flexWrap: "nowrap",
                     overflow: "hidden",
                     justifyContent: "center",
-                    borderRadius: 0,
-                    bgcolor: "#241416",
+                    borderRadius: "10px",
+                    bgcolor: "transparent",
+                    backgroundImage:
+                        "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))",
+                    backgroundSize: "100% 100%",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundBlendMode: "normal, normal",
                     border: 0,
                     width: "100%",
                     color: "#f0e7e9",
@@ -1945,18 +2395,16 @@ export const OpponentDraftBar: React.FC<{
                         zIndex: 10,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        border: "16px solid transparent",
-                        borderImageSource: `url(${images.ui_container_frame_1_9slice})`,
-                        borderImageSlice: "120",
-                        borderImageWidth: "16px",
-                        borderImageRepeat: "stretch",
+                        borderRadius: "10px",
+                        border: "1px solid rgba(151,103,52,.66)",
+                        boxShadow: "inset 0 0 0 1px rgba(10,8,5,.88), 0 1px 3px rgba(0,0,0,.65)",
                     },
                 }}
             >
                 {/* Only the picks your doctrine reveals count — a hidden slot cannot light a synergy. */}
                 <SynergyDots picked={opponentPicked} tone="opponent" gameId={gameId} />
                 <BarDivider strong />
-                <Box sx={{ display: "flex", gap: 0.75, flexWrap: "nowrap", flex: "0 0 auto" }}>
+                <Box sx={{ display: "flex", gap: 0.55, flexWrap: "nowrap", flex: "0 0 auto" }}>
                     {slots.map((slot, i) => {
                         const id = slot.id;
                         const isWatched = watched.has(i);
@@ -1969,7 +2417,7 @@ export const OpponentDraftBar: React.FC<{
                                         onMouseEnter={() => onInspect?.(id)}
                                         onMouseLeave={() => onInspectEnd?.()}
                                         sx={{
-                                            width: 44,
+                                            width: 36,
                                             height: 44,
                                             flex: "0 0 auto",
                                             borderRadius: "9px",
@@ -2002,7 +2450,7 @@ export const OpponentDraftBar: React.FC<{
                                 >
                                     <Box
                                         sx={{
-                                            width: 44,
+                                            width: 36,
                                             height: 44,
                                             flex: "0 0 auto",
                                             borderRadius: "9px",
@@ -2010,11 +2458,19 @@ export const OpponentDraftBar: React.FC<{
                                             placeItems: "center",
                                             border: "1px solid rgba(240,180,90,0.55)",
                                             bgcolor: "rgba(240,180,90,0.1)",
-                                            color: "rgba(245,205,130,0.95)",
-                                            fontSize: 20,
                                         }}
                                     >
-                                        👁
+                                        <Box
+                                            component="img"
+                                            src={watchedEyeImage}
+                                            alt="Watched slot"
+                                            sx={{
+                                                width: 30,
+                                                height: 20,
+                                                objectFit: "contain",
+                                                filter: "drop-shadow(0 1px 1px rgba(0,0,0,.72))",
+                                            }}
+                                        />
                                     </Box>
                                 </Tooltip>
                             );
@@ -2024,7 +2480,7 @@ export const OpponentDraftBar: React.FC<{
                             <Tooltip key={`opp-hidden-${i}`} title={`Level ${slot.level} — hidden`} variant="soft">
                                 <Box
                                     sx={{
-                                        width: 44,
+                                        width: 36,
                                         height: 44,
                                         flex: "0 0 auto",
                                         borderRadius: "9px",
@@ -2098,7 +2554,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
-    const isFullscreen = useIsFullscreen();
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
     // the reserved header. Clearing on a short delay lets the cursor pass between nearby draft elements
     // without flashing the readout, while still closing it once the cursor is elsewhere.
@@ -2129,6 +2584,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     // Creature the player clicked to pick — opens the confirm modal. The actual pick only fires on Confirm.
     const [pendingPick, setPendingPick] = useState<number>(0);
     const [pendingBundle, setPendingBundle] = useState<number>(-1);
+    // Unlike the server echo, this flips on the exact confirmation click. It keeps the chosen bundle
+    // visually and interactively frozen throughout WAITING OPPONENT, including backend-free previews.
+    const [committedBundle, setCommittedBundle] = useState<number>(-1);
     // Artifact the player clicked to pick — opens the confirm modal. The actual pick only fires on Confirm.
     const [pendingArtifact, setPendingArtifact] = useState<number>(0);
 
@@ -2138,6 +2596,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         setPickError("");
         setPendingPick(0);
         setPendingArtifact(0);
+        setCommittedBundle(-1);
         // The hovered creature goes with it: the tile under the cursor is gone, so its mouseleave never
         // fires and the stat panel would otherwise hang around for the whole next phase.
         setInspectedId(0);
@@ -2179,8 +2638,6 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         }
     };
 
-    // Summed hit points of everything already drafted, so the hover panel can show what a pick adds.
-    const armyHp = picked.reduce((sum, id) => sum + (creatureFullConfig(id)?.config.hp ?? 0), 0);
     const disabled = !isYourTurn || busy;
 
     // Keyboard: Enter commits whatever is selected on the current step, Escape clears the selection.
@@ -2204,7 +2661,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 void pickCreature(id);
             } else if (pickPhase === PickPhaseVals.INITIAL_PICK && pendingBundle >= 0) {
                 const index = pendingBundle;
-                setPendingBundle(-1);
+                setCommittedBundle(index);
                 void send(index, () => pickPair(index));
             } else if (pickPhase === PickPhaseVals.ARTIFACT_2 && pendingArtifact > 0) {
                 const artifactId = pendingArtifact;
@@ -2245,6 +2702,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const bundleChosenIndex = bundleLocked
         ? initialBundles.findIndex((b) => b[0] === picked[0] && b[1] === picked[1])
         : selectedValue;
+    const bundleSelectionLocked =
+        bundleLocked || committedBundle >= 0 || selectedValue >= 0 || (busy && pendingBundle >= 0);
 
     let panel: React.ReactNode = <CircularProgress />;
     if (pickPhase < 0) {
@@ -2271,8 +2730,17 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         panel = (
             <BundlePanel
                 bundles={initialBundles}
-                disabled={disabled || bundleLocked}
-                selected={bundleLocked ? bundleChosenIndex : pendingBundle}
+                disabled={disabled || bundleSelectionLocked}
+                locked={bundleSelectionLocked}
+                selected={
+                    bundleLocked
+                        ? bundleChosenIndex
+                        : committedBundle >= 0
+                          ? committedBundle
+                          : pendingBundle >= 0
+                            ? pendingBundle
+                            : selectedValue
+                }
                 onSelect={(i) => setPendingBundle(i)}
                 onInspect={beginInspect}
                 onInspectEnd={endInspect}
@@ -2327,40 +2795,20 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
             {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
             <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>
-                <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="left">
-                    <Typography
-                        component="a"
-                        href={RULES_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        level="body-sm"
-                        sx={{
-                            position: "absolute",
-                            top: 12,
-                            right: 16,
-                            zIndex: 5,
-                            color: "#9fd0ff",
-                            textDecoration: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                            fontWeight: 600,
-                            "&:hover": { textDecoration: "underline" },
-                        }}
-                    >
-                        📖 Rules
-                    </Typography>
-                </Tooltip>
-
                 {/* The header reserves the inspector's height even when no unit is hovered. That keeps the
                 cards stable under the cursor, and the readout replaces the draft title instead of covering it. */}
                 <Box
+                    data-testid="draft-header-zone"
                     sx={{
                         width: "100%",
-                        minHeight: { xs: "78px", md: "158px" },
+                        height: DRAFT_HEADER_HEIGHT,
+                        minHeight: DRAFT_HEADER_HEIGHT,
+                        maxHeight: DRAFT_HEADER_HEIGHT,
+                        flex: "0 0 auto",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        overflow: "hidden",
                     }}
                     onMouseEnter={cancelInspectEnd}
                     onMouseLeave={endInspect}
@@ -2383,7 +2831,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                     {isPreparing ? t("Preparing the draft…") : title(pickPhase, requiredLevel)}
                                 </DraftTitle>
                             </Box>
-                            <CreatureDetailPanel creatureId={inspectedId} armyHp={armyHp} />
+                            <CreatureDetailPanel creatureId={inspectedId} />
                         </>
                     ) : (
                         <DraftTitle
@@ -2444,10 +2892,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         {/* Both armies sit above the grid by default. Ranked/private callers can suppress the
                             opponent rail during the zero-second augment handoff before private Setup opens. */}
                         <Box
+                            data-testid="draft-armies-zone"
                             sx={{
                                 display: "flex",
                                 gap: 1.5,
                                 width: "100%",
+                                height: DRAFT_ARMIES_HEIGHT,
+                                minHeight: DRAFT_ARMIES_HEIGHT,
+                                maxHeight: DRAFT_ARMIES_HEIGHT,
                                 justifyContent: "center",
                                 alignItems: "center",
                                 flexWrap: "nowrap",
@@ -2483,144 +2935,147 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     </>
                 )}
 
-                {/* Flexible slot for the phase's choice frame. It consumes the remaining board height without
-                affecting the reserved header, confirmation action or draft rail. */}
                 <Box
+                    data-testid="draft-choice-action-zone"
                     sx={{
-                        position: "relative",
                         display: "flex",
-                        justifyContent: "center",
-                        alignItems: "stretch",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: DRAFT_ZONE_GAP,
                         width: "100%",
-                        flex: "1 1 auto",
+                        flex: "1 1 0",
                         minHeight: 0,
-                        overflowY: "hidden",
                     }}
                 >
-                    {userTeam ? panel : null}
-                </Box>
-
-                {userTeam && isCommitPhase && pickPhase >= 0 && (
-                    <PickCommitButton
-                        label={
-                            !isYourTurn
-                                ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
-                                    ? `Opponent's turn — Lvl ${requiredLevel}`
-                                    : t("Opponent's turn")
-                                : pickPhase === PickPhaseVals.ARTIFACT_2
-                                  ? pendingArtifact > 0
-                                      ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
-                                      : t("Pick an artifact")
-                                  : pickPhase === PickPhaseVals.INITIAL_PICK
-                                    ? pendingBundle >= 0
-                                        ? t("Confirm bundle")
-                                        : t("Pick a bundle")
-                                    : pendingPick > 0
-                                      ? `Confirm ${creatureName(pendingPick)}`
-                                      : t("Pick a creature")
-                        }
-                        armed={
-                            !!isYourTurn &&
-                            !busy &&
-                            (pickPhase === PickPhaseVals.ARTIFACT_2
-                                ? pendingArtifact > 0
-                                : pickPhase === PickPhaseVals.INITIAL_PICK
-                                  ? pendingBundle >= 0 && !bundleLocked
-                                  : pendingPick > 0)
-                        }
-                        isYourTurn={!!isYourTurn}
-                        blockedHint={
-                            !isYourTurn
-                                ? undefined
-                                : pickPhase === PickPhaseVals.ARTIFACT_2
-                                  ? t("Choose one of the three artifacts first.")
-                                  : pickPhase === PickPhaseVals.INITIAL_PICK
-                                    ? t("Choose one of the two bundles first.")
-                                    : "Choose a creature first — click a portrait, then confirm."
-                        }
-                        seconds={secondsRemaining}
-                        onCommit={() => {
-                            if (pickPhase === PickPhaseVals.ARTIFACT_2) {
-                                const artifactId = pendingArtifact;
-                                setPendingArtifact(0);
-                                void send(artifactId, () => artifact(artifactId, 2));
-                                return;
-                            }
-                            if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-                                const index = pendingBundle;
-                                setPendingBundle(-1);
-                                void send(index, () => pickPair(index));
-                                return;
-                            }
-                            const id = pendingPick;
-                            setPendingPick(0);
-                            void pickCreature(id);
+                    {/* Flexible slot for the phase's choice frame. Every phase receives this exact region;
+                        only the grid rendered inside it changes. */}
+                    <Box
+                        data-testid="draft-choice-zone"
+                        sx={{
+                            position: "relative",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "stretch",
+                            width: "100%",
+                            flex: "1 1 0",
+                            minHeight: 0,
+                            overflow: "visible",
                         }}
-                    />
-                )}
-
-                {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
-                {!isYourTurn && !isHandoff && !isCommitPhase && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
-                        <CircularProgress size="sm" />
-                        <Typography level="body-sm">
-                            {selectedValue >= 0
-                                ? t("Locked in — waiting for your opponent…")
-                                : t("Waiting for your opponent…")}
-                        </Typography>
+                    >
+                        {userTeam ? panel : null}
                     </Box>
-                )}
+
+                    {userTeam && isCommitPhase && pickPhase >= 0 && (
+                        <PickCommitButton
+                            label={
+                                !isYourTurn
+                                    ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
+                                        ? `Opponent's turn — Lvl ${requiredLevel}`
+                                        : t("Opponent's turn")
+                                    : pickPhase === PickPhaseVals.ARTIFACT_2
+                                      ? pendingArtifact > 0
+                                          ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
+                                          : t("Pick an artifact")
+                                      : pickPhase === PickPhaseVals.INITIAL_PICK
+                                        ? pendingBundle >= 0
+                                            ? t("Confirm bundle")
+                                            : t("Pick a bundle")
+                                        : pendingPick > 0
+                                          ? `Confirm ${creatureName(pendingPick)}`
+                                          : t("Pick a creature")
+                            }
+                            tone="green"
+                            armed={
+                                !!isYourTurn &&
+                                !busy &&
+                                (pickPhase === PickPhaseVals.ARTIFACT_2
+                                    ? pendingArtifact > 0
+                                    : pickPhase === PickPhaseVals.INITIAL_PICK
+                                      ? pendingBundle >= 0 && !bundleLocked
+                                      : pendingPick > 0)
+                            }
+                            isYourTurn={!!isYourTurn}
+                            blockedHint={
+                                !isYourTurn
+                                    ? undefined
+                                    : pickPhase === PickPhaseVals.ARTIFACT_2
+                                      ? t("Choose one of the three artifacts first.")
+                                      : pickPhase === PickPhaseVals.INITIAL_PICK
+                                        ? t("Choose one of the two bundles first.")
+                                        : "Choose a creature first — click a portrait, then confirm."
+                            }
+                            seconds={secondsRemaining}
+                            onSubmitted={() => {
+                                if (pickPhase === PickPhaseVals.INITIAL_PICK && pendingBundle >= 0) {
+                                    setCommittedBundle(pendingBundle);
+                                }
+                            }}
+                            onCommit={() => {
+                                if (pickPhase === PickPhaseVals.ARTIFACT_2) {
+                                    const artifactId = pendingArtifact;
+                                    setPendingArtifact(0);
+                                    void send(artifactId, () => artifact(artifactId, 2));
+                                    return;
+                                }
+                                if (pickPhase === PickPhaseVals.INITIAL_PICK) {
+                                    const index = pendingBundle;
+                                    void send(index, () => pickPair(index));
+                                    return;
+                                }
+                                const id = pendingPick;
+                                setPendingPick(0);
+                                void pickCreature(id);
+                            }}
+                        />
+                    )}
+
+                    {/* Each phase is a simultaneous both-teams choice; show "waiting" while the opponent hasn't acted. */}
+                    {!isYourTurn && !isHandoff && !isCommitPhase && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, opacity: 0.7 }}>
+                            <CircularProgress size="sm" />
+                            <Typography level="body-sm">
+                                {selectedValue >= 0
+                                    ? t("Locked in — waiting for your opponent…")
+                                    : t("Waiting for your opponent…")}
+                            </Typography>
+                        </Box>
+                    )}
+                </Box>
 
                 {/* Fires once, right before the L3 picks, the moment the server reveals the map type. */}
                 <MapRevealModal mapType={mapType} />
-
-                {/* The rail sits at the bottom of the screen: the step you are on is the screen itself, the rail
-                is only there to show how far the draft has come. */}
-                <Box sx={{ mt: "auto", pt: 4, width: "100%", display: "flex", justifyContent: "center" }}>
-                    <DraftStepper step={currentStep(pickPhase, requiredLevel)} userTeam={userTeam} />
-                </Box>
             </Box>
-            <Tooltip title={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")} variant="soft" placement="top">
-                <Box
-                    component="button"
-                    type="button"
-                    onClick={toggleFullscreen}
+            {/* Keep draft progress out of the fixed board. It now shares the bottom control line with the
+                fullscreen button and ThemeMusic's floating volume control, so the choice area gets the full
+                board height and the rail remains anchored regardless of the active phase. */}
+            <DraftBottomControls
+                step={currentStep(pickPhase, requiredLevel)}
+                userTeam={userTeam}
+                draftScale={draftScale}
+            />
+            <Tooltip title={t("Open the full How-to-Play guide in a new tab")} variant="soft" placement="left">
+                <Typography
+                    component="a"
+                    href={RULES_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    level="body-sm"
                     sx={{
                         position: "fixed",
-                        left: "1rem",
-                        bottom: "1rem",
+                        top: "1rem",
+                        right: "1rem",
                         zIndex: 60,
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        display: "grid",
-                        placeItems: "center",
-                        cursor: "pointer",
-                        color: "#9aa0ab",
-                        bgcolor: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        "&:hover": { color: "#efe4cc", bgcolor: "rgba(255,255,255,0.08)" },
+                        color: "#9fd0ff",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        fontWeight: 600,
+                        "&:hover": { textDecoration: "underline" },
                     }}
                 >
-                    <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                    >
-                        {isFullscreen ? (
-                            // Inward arrows: pressing it shrinks the page back to the window it came from.
-                            <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3" />
-                        ) : (
-                            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
-                        )}
-                    </svg>
-                </Box>
+                    📖 {t("Rules")}
+                </Typography>
             </Tooltip>
         </Sheet>
     );

@@ -1,4 +1,20 @@
-import { PickPhaseVals, TeamVals, TeamType } from "@heroesofcrypto/common";
+import {
+    createPickSimState,
+    CreatureByLevel,
+    getCurrentPickPhase,
+    getOmniscientCreatureChoices,
+    getPickTeamView,
+    GridVals,
+    isPickSimComplete,
+    Perk,
+    PickPhaseVals,
+    TeamVals,
+    TeamType,
+    transitionPickSim,
+    type IPickSimState,
+    type PickAction,
+    type PickRandomInt,
+} from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
 
 import CssBaseline from "@mui/joy/CssBaseline";
@@ -26,11 +42,13 @@ import { PlayRankedBadge } from "./PlayRankedBadge";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
+import { AugmentStepPreview } from "./AugmentStepPreview";
+import { PlacementStepPreview } from "./PlacementStepPreview";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
 import { AuthProvider } from "./auth/context/auth_provider";
-import { useAuthContext } from "./auth/context/auth_context";
+import { AuthContext, useAuthContext } from "./auth/context/auth_context";
 import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
@@ -202,7 +220,372 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
 
 export type { IPickPhaseEventData } from "./context/PickBanContext";
 import { PickBanEventProvider, usePickBanEvents } from "./context/PickBanContext";
+import { PickBanContext, PickBanContextType } from "./context/PickBanContextDefs";
 export { PickBanEventProvider, usePickBanEvents };
+
+const BUNDLE_PREVIEW_STATE: PickBanContextType = {
+    isConnected: true,
+    events: [],
+    error: null,
+    banned: [],
+    picked: [],
+    opponentPicked: [],
+    watchedSlots: [],
+    isYourTurn: true,
+    isAbandoned: false,
+    pickPhase: PickPhaseVals.INITIAL_PICK,
+    secondsRemaining: 300,
+    revealsRemaining: 0,
+    initialBundles: [
+        [12, 24, 1], // Berserker + Elf + Veteran Helm
+        [31, 16, 11], // Peasant + Hyena + Helm of Focus
+    ],
+    tier2Offers: [],
+    perk: 0,
+    upgradePoints: 0,
+    artifactTier1: 0,
+    artifactTier2: 0,
+    requiredLevel: 0,
+    mapType: 0,
+    autoPickedSignal: 0,
+};
+
+const BUNDLE_PREVIEW_MAP_TYPES: Record<string, number> = {
+    normal: GridVals.NORMAL,
+    cemetery: GridVals.BLOCK_CENTER,
+    lava: GridVals.LAVA_CENTER,
+};
+
+/** Stable, backend-free canvas for iterating on the bundle-pick presentation. */
+const BundlePickPreview: React.FC = () => {
+    const requestedMap = new URLSearchParams(window.location.search).get("map")?.toLowerCase() ?? "";
+    const previewState = {
+        ...BUNDLE_PREVIEW_STATE,
+        mapType: BUNDLE_PREVIEW_MAP_TYPES[requestedMap] ?? BUNDLE_PREVIEW_STATE.mapType,
+    };
+    return (
+        <PickBanContext.Provider value={previewState}>
+            <div className="container" style={{ display: "flex" }}>
+                <CssVarsProvider>
+                    <CssBaseline />
+                </CssVarsProvider>
+                <StainedGlassWindow
+                    userTeam={TeamVals.LOWER as TeamType}
+                    gameId="bundle-pick-preview"
+                    opponentLabel="Opponent"
+                    showOpponentRosterDuringAugmentHandoff={false}
+                />
+            </div>
+        </PickBanContext.Provider>
+    );
+};
+
+const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
+    ...BUNDLE_PREVIEW_STATE,
+    picked: [12, 24],
+    initialBundles: [],
+    artifactTier1: 1,
+    pickPhase: PickPhaseVals.PICK,
+    requiredLevel: 1,
+};
+
+/** Stable, backend-free canvas for the first creature-pick step. */
+const LevelOnePickPreview: React.FC = () => (
+    <PickBanContext.Provider value={LEVEL_ONE_PICK_PREVIEW_STATE}>
+        <div className="container" style={{ display: "flex" }}>
+            <CssVarsProvider>
+                <CssBaseline />
+            </CssVarsProvider>
+            <StainedGlassWindow
+                userTeam={TeamVals.LOWER as TeamType}
+                gameId="level-one-pick-preview"
+                opponentLabel="Opponent"
+                showOpponentRosterDuringAugmentHandoff={false}
+            />
+        </div>
+    </PickBanContext.Provider>
+);
+
+/**
+ * BACKEND-FREE PLAYABLE DRAFT.
+ *
+ * The other two /preview/picks routes are frozen fixtures — one pose each, nothing to click. This one is
+ * the real thing minus the network: the same StainedGlassWindow the ranked game renders, but its state
+ * comes from common's pick_sim state machine instead of the server's SSE stream, and its four submit
+ * calls (perk / bundle / creature / tier-2 artifact) drive that machine instead of POSTing.
+ *
+ * So the whole ladder is clickable — doctrine, starting bundle, the four creature picks, the tier-2
+ * artifact — and it ends exactly where the ranked flow ends, on the AUGMENTS handoff to placement.
+ * Placement itself is a real game session and is NOT part of this route.
+ *
+ * The opponent is a random-legal chooser, not the drafting model: this route exists to click through the
+ * UI, not to evaluate draft quality. For that, use the e2e stack with a real bot seat.
+ */
+const localDraftRng: PickRandomInt = (maxExclusive) => Math.floor(Math.random() * maxExclusive);
+const LOCAL_DRAFT_TEAM = TeamVals.LOWER;
+const LOCAL_DRAFT_OPPONENT = TeamVals.UPPER;
+// The six draft slots, level-ordered, exactly as the opponent rail lays them out.
+const LOCAL_DRAFT_SLOT_LEVELS = [1, 1, 2, 2, 3, 4] as const;
+
+const creatureLevelOf = (creatureId: number): number => {
+    for (let level = 1; level <= 4; level += 1) {
+        if ((CreatureByLevel[level - 1] ?? []).includes(creatureId)) {
+            return level;
+        }
+    }
+    return 0;
+};
+
+/** One legal action for the opponent in whatever phase the sim is on, or null if it is not their move. */
+const localDraftOpponentAction = (state: IPickSimState): PickAction | null => {
+    const phase = getCurrentPickPhase(state);
+    if (!phase.actors.includes(LOCAL_DRAFT_OPPONENT)) {
+        return null;
+    }
+    switch (phase.phase) {
+        case PickPhaseVals.PERK:
+            return { type: "select_perk", team: LOCAL_DRAFT_OPPONENT, perk: Perk.Perk.SEE_NONE };
+        case PickPhaseVals.INITIAL_PICK:
+            return { type: "select_bundle", team: LOCAL_DRAFT_OPPONENT, bundleIndex: localDraftRng(2) };
+        case PickPhaseVals.ARTIFACT_2: {
+            const offers = getPickTeamView(state, LOCAL_DRAFT_OPPONENT).tier2Offers;
+            return offers.length
+                ? {
+                      type: "select_tier2",
+                      team: LOCAL_DRAFT_OPPONENT,
+                      artifactId: offers[localDraftRng(offers.length)],
+                  }
+                : null;
+        }
+        case PickPhaseVals.PICK: {
+            const choices = getOmniscientCreatureChoices(state, LOCAL_DRAFT_OPPONENT);
+            return choices.length
+                ? {
+                      type: "pick_creature",
+                      team: LOCAL_DRAFT_OPPONENT,
+                      creatureId: choices[localDraftRng(choices.length)],
+                  }
+                : null;
+        }
+        default:
+            return null;
+    }
+};
+
+/**
+ * Run the opponent until the ball is back in the player's court. A rejected action is the loop's exit
+ * condition, not an error: in the simultaneous phases (doctrine, bundle, tier-2) the opponent has already
+ * moved and is simply waiting on the human, which the sim reports as a rejection.
+ */
+const runLocalDraftOpponent = (start: IPickSimState): IPickSimState => {
+    let state = start;
+    for (let guard = 0; guard < 64; guard += 1) {
+        if (isPickSimComplete(state)) {
+            return state;
+        }
+        const action = localDraftOpponentAction(state);
+        if (!action) {
+            return state;
+        }
+        const transition = transitionPickSim(state, action, localDraftRng);
+        if (transition.status === "rejected") {
+            return state;
+        }
+        state = transition.state;
+    }
+    return state;
+};
+
+const LocalPlayableDraft: React.FC = () => {
+    const [state, setState] = useState<IPickSimState>(() => runLocalDraftOpponent(createPickSimState(localDraftRng)));
+
+    // The opponent must take a beat. Not for flavour: PickCommitButton only clears its own "submitted"
+    // lock when isYourTurn CHANGES, and resolving the player's move and the opponent's inside one state
+    // update leaves isYourTurn true throughout — so the button never unlocks and every step after the
+    // bundle reads "waiting opponent" forever. The live game gets this flip for free from the server
+    // round-trip; here it has to be real state.
+    const [resolving, setResolving] = useState(false);
+
+    const apply = useCallback((action: PickAction) => {
+        setState((current) => {
+            const transition = transitionPickSim(current, action, localDraftRng);
+            // A collision still advances the sim (the creature was taken); a rejection leaves it be.
+            const settled = transition.status === "rejected" ? current : transition.state;
+            // Dev-only window hook: this route has no server and no devtools story of its own, so the
+            // last action, its verdict and the resulting phase are parked where they can be read.
+            (window as unknown as Record<string, unknown>).__hocDraft = {
+                action,
+                status: transition.status,
+                reason: (transition as { reason?: string }).reason,
+                phaseBefore: current.phaseSequence,
+                phaseAfter: settled.phaseSequence,
+                lowerCreatures: settled.lower.creatures,
+                upperCreatures: settled.upper.creatures,
+                state: settled,
+            };
+            return settled;
+        });
+        setResolving(true);
+    }, []);
+
+    useEffect(() => {
+        if (!resolving) {
+            return undefined;
+        }
+        const timer = setTimeout(() => {
+            setState((current) => runLocalDraftOpponent(current));
+            setResolving(false);
+        }, 420);
+        return () => clearTimeout(timer);
+    }, [resolving]);
+
+    const view = useMemo(() => getPickTeamView(state, LOCAL_DRAFT_TEAM), [state]);
+
+    // Has the player already moved in this phase? Only meaningful for the three simultaneous phases —
+    // the creature picks belong to one side at a time, so being an actor there IS your turn.
+    const alreadyActed =
+        (view.phase === PickPhaseVals.PERK && state.lower.perk !== Perk.Perk.NO_PERK) ||
+        (view.phase === PickPhaseVals.INITIAL_PICK && state.lower.selectedBundleIndex !== undefined) ||
+        (view.phase === PickPhaseVals.ARTIFACT_2 && state.lower.tier2Artifact !== undefined);
+
+    // The opponent rail wants a SLOT-ALIGNED array, not a flat list: each known creature has to land in the
+    // level-ordered slot it actually occupies, or a revealed level-2 shows up under a level-1 heading.
+    const opponentPicked = useMemo(() => {
+        const slots = LOCAL_DRAFT_SLOT_LEVELS.map(() => 0);
+        for (const creatureId of view.knownOpponentCreatures) {
+            const level = creatureLevelOf(creatureId);
+            const slot = LOCAL_DRAFT_SLOT_LEVELS.findIndex((l, i) => l === level && slots[i] === 0);
+            if (slot >= 0) {
+                slots[slot] = creatureId;
+            }
+        }
+        return slots;
+    }, [view.knownOpponentCreatures]);
+
+    const watchedSlots = useMemo(() => {
+        const mode = Perk.PERKS[state.lower.perk]?.revealMode;
+        if (mode === "all") {
+            return LOCAL_DRAFT_SLOT_LEVELS.map((_, i) => i);
+        }
+        if (mode === "random3") {
+            return [0, 2, 4];
+        }
+        return [];
+    }, [state.lower.perk]);
+
+    const pickBanValue: PickBanContextType = useMemo(
+        () => ({
+            isConnected: true,
+            events: [],
+            error: null,
+            banned: view.creaturesBanned,
+            picked: view.creaturesPicked,
+            opponentPicked,
+            watchedSlots,
+            isYourTurn: !resolving && view.actors.includes(LOCAL_DRAFT_TEAM) && !alreadyActed && !view.complete,
+            isAbandoned: false,
+            pickPhase: view.phase,
+            secondsRemaining: 300,
+            revealsRemaining: 0,
+            initialBundles: view.bundles.map((bundle) => [...bundle] as [number, number, number]),
+            tier2Offers: view.tier2Offers,
+            perk: state.lower.perk,
+            upgradePoints: Perk.PERKS[state.lower.perk]?.upgradePoints ?? 0,
+            artifactTier1: view.artifacts.find(([tier]) => tier === 1)?.[1] ?? 0,
+            artifactTier2: view.artifacts.find(([tier]) => tier === 2)?.[1] ?? 0,
+            requiredLevel: view.requiredCreatureLevel,
+            mapType: GridVals.NORMAL,
+            autoPickedSignal: 0,
+        }),
+        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.lower.perk],
+    );
+
+    // Only the four submit calls are replaced; StainedGlassWindow reads nothing else off the auth context.
+    const authValue = useMemo(
+        () =>
+            ({
+                perk: async (perkId: number) => apply({ type: "select_perk", team: LOCAL_DRAFT_TEAM, perk: perkId }),
+                pickPair: async (pairIndex: number) =>
+                    apply({ type: "select_bundle", team: LOCAL_DRAFT_TEAM, bundleIndex: pairIndex }),
+                pick: async (creatureId: number) =>
+                    apply({ type: "pick_creature", team: LOCAL_DRAFT_TEAM, creatureId }),
+                artifact: async (artifactId: number) =>
+                    apply({ type: "select_tier2", team: LOCAL_DRAFT_TEAM, artifactId }),
+            }) as unknown as ReturnType<typeof useAuthContext>,
+        [apply],
+    );
+
+    return (
+        <AuthContext.Provider value={authValue}>
+            <PickBanContext.Provider value={pickBanValue}>
+                <div className="container" style={{ display: "flex" }}>
+                    <CssVarsProvider>
+                        <CssBaseline />
+                    </CssVarsProvider>
+                    <StainedGlassWindow
+                        userTeam={LOCAL_DRAFT_TEAM as TeamType}
+                        gameId="local-playable-draft"
+                        opponentLabel="Local opponent"
+                        showOpponentRosterDuringAugmentHandoff={false}
+                    />
+                    {/* The draft's last phase is a HANDOFF: StainedGlassWindow shows a spinner and waits for
+                        the server to move the game from PICK to PLAY. There is no server and no game here,
+                        so that spinner would turn forever and read as a freeze. Say the draft is done, show
+                        what it produced, and offer another one. */}
+                    {view.complete && (
+                        <div
+                            style={{
+                                position: "fixed",
+                                inset: 0,
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 14,
+                                background: "rgba(4,6,8,0.86)",
+                                color: "#efe4cc",
+                                fontFamily: '"Open Sans", Verdana, sans-serif',
+                                textAlign: "center",
+                                zIndex: 40,
+                            }}
+                        >
+                            <div style={{ fontSize: 26, letterSpacing: "0.06em" }}>ДРАФТ ЗАВЕРШЁН</div>
+                            <div style={{ maxWidth: 560, lineHeight: 1.5, color: "rgba(239,228,204,0.72)" }}>
+                                Дальше идёт расстановка — это уже игровая сессия, и локальному роуту её передать некому.
+                                В ранкеде здесь сервер переводит партию из PICK в PLAY.
+                            </div>
+                            <div style={{ color: "rgba(239,228,204,0.9)" }}>
+                                Ваша армия: {view.creaturesPicked.join(", ") || "—"}
+                            </div>
+                            <div style={{ color: "rgba(239,228,204,0.9)" }}>
+                                Артефакты: {view.artifacts.map(([tier, id]) => `T${tier}:${id}`).join(", ") || "—"}
+                                {" · "}
+                                очки прокачки: {Perk.PERKS[state.lower.perk]?.upgradePoints ?? 0}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setState(runLocalDraftOpponent(createPickSimState(localDraftRng)))}
+                                style={{
+                                    marginTop: 8,
+                                    padding: "10px 22px",
+                                    fontSize: 15,
+                                    letterSpacing: "0.09em",
+                                    color: "#efe4cc",
+                                    background: "#7a4405",
+                                    border: "1px solid #dcb158",
+                                    borderRadius: 3,
+                                    cursor: "pointer",
+                                }}
+                            >
+                                ЕЩЁ ОДИН ДРАФТ
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </PickBanContext.Provider>
+        </AuthContext.Provider>
+    );
+};
 
 // Bridges the live pick-phase SSE stream (only reachable from inside PickBanEventProvider) up to
 // GameRoute, which has no context of its own. GameRoute uses this to gate its play-snapshot polling
@@ -598,6 +981,16 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
         <Routes>
             {/* Offline sandbox is available without login */}
             <Route path="/" element={<Heroes windowSize={windowSize} />} />
+            {/* Backend-free visual fixture: intentionally remains on the starting-bundle phase. */}
+            <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
+            {/* Backend-free visual fixture for the first creature-pick phase. */}
+            <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
+            {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
+            <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
+            {/* Backend-free augment step: the ranked "Choose your augments" screen with no game behind it. */}
+            <Route path="/preview/augments" element={<AugmentStepPreview />} />
+            {/* Backend-free pre-fight placement: the ranked board+sidebar driven by an in-memory session. */}
+            <Route path="/preview/placement" element={<PlacementStepPreview windowSize={windowSize} />} />
             {/* Online routes require authentication */}
             <Route
                 path="/play"
