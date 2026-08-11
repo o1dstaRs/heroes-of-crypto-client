@@ -218,10 +218,10 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Finish these to be placed into a league. Your rating stays hidden until then.":
         "Завершите их, чтобы попасть в лигу. До этого ваш рейтинг скрыт.",
     "Calibration matches": "Калибровочные матчи",
-    "Wins · draws · losses in placement": "Победы · ничьи · поражения на калибровке",
-    "1 match to placement": "остался 1 матч калибровки",
+    "Wins · draws · losses in calibration": "Победы · ничьи · поражения на калибровке",
+    "1 calibration match left": "остался 1 матч калибровки",
     // Rendered as `${remaining} ${t(...)}`, so it has to read as a suffix after a bare number.
-    "matches to placement": "матчей до конца калибровки",
+    "calibration matches left": "матчей до конца калибровки",
     Previously: "Ранее",
 
     // ~~~ Match history ~~~

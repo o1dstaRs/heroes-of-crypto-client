@@ -98,7 +98,7 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                 ))}
             </Stack>
             <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
-                <Tooltip title={t("Wins · draws · losses in placement")} size="sm" variant="soft">
+                <Tooltip title={t("Wins · draws · losses in calibration")} size="sm" variant="soft">
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
                         <Box component="span" sx={{ color: hocColors.green, fontWeight: 800 }}>
                             {calibration.wins}
@@ -115,8 +115,8 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                 {calibration.remaining > 0 && (
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
                         {calibration.remaining === 1
-                            ? t("1 match to placement")
-                            : `${calibration.remaining} ${t("matches to placement")}`}
+                            ? t("1 calibration match left")
+                            : `${calibration.remaining} ${t("calibration matches left")}`}
                     </Typography>
                 )}
             </Stack>
