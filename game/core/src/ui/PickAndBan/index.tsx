@@ -32,6 +32,7 @@ import { images as rawImages } from "../../generated/image_imports";
 import { t, useTranslation } from "../../i18n/i18n";
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 import { getPreGamePerk } from "../../utils/preGamePerk";
+import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { hocDisplayFontFamily } from "../hocTheme";
@@ -1058,10 +1059,9 @@ export const PickCommitButton: React.FC<{
      * (and on hover).
      */
     blockedHint?: string;
-    /** Fires synchronously with the physical press, before the request, so the chosen card can lock immediately. */
-    onSubmitted?: () => void;
-    onCommit: () => void;
-}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, onSubmitted, onCommit }) => {
+    submissionKey?: number | string;
+    onCommit: DraftCommit;
+}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, submissionKey, onCommit }) => {
     const urgent = seconds >= 0 && seconds <= 15;
     // Lock the plate immediately after confirmation instead of waiting for the server round-trip. This
     // also lets the static preview demonstrate the same waiting state as a live simultaneous draft.
@@ -1074,7 +1074,7 @@ export const PickCommitButton: React.FC<{
         if (isYourTurn) {
             setSubmitted(false);
         }
-    }, [isYourTurn]);
+    }, [isYourTurn, submissionKey]);
     useEffect(() => {
         if (!hintOpen) {
             return undefined;
@@ -1100,8 +1100,9 @@ export const PickCommitButton: React.FC<{
                     effectiveArmed
                         ? () => {
                               setSubmitted(true);
-                              onSubmitted?.();
-                              onCommit();
+                              void runDraftSubmission(onCommit).then((accepted) => {
+                                  if (!accepted) setSubmitted(false);
+                              });
                           }
                         : blocked
                           ? () => setHintOpen(true)
@@ -2602,14 +2603,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         setInspectedId(0);
     }, [pickPhase]);
 
-    const send = async (value: number, fn: () => Promise<void>): Promise<void> => {
-        if (busy) return;
+    const send = async (value: number, fn: () => Promise<void>): Promise<boolean> => {
+        if (busy) return false;
         setBusy(true);
         try {
             await fn();
             setSelection({ phase: pickPhase, value });
+            return true;
         } catch (err) {
             console.warn("[pick] action rejected", (err as Error)?.message ?? err);
+            return false;
         } finally {
             setBusy(false);
         }
@@ -2617,13 +2620,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     // Creature pick: on a collision (409 — the opponent secretly holds this unit) the server does NOT advance
     // the phase, so remember the unit (grey it out) and prompt a re-pick instead of locking in a selection.
-    const pickCreature = async (id: number): Promise<void> => {
-        if (busy) return;
+    const pickCreature = async (id: number): Promise<boolean> => {
+        if (busy) return false;
         setBusy(true);
         setPickError("");
         try {
             await pick(id);
             setSelection({ phase: pickPhase, value: id });
+            return true;
         } catch (err) {
             const status = (err as { response?: { status?: number } })?.response?.status;
             const msg = (err as Error)?.message ?? "";
@@ -2633,9 +2637,27 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
             } else {
                 setPickError(msg || t("Pick rejected — choose another."));
             }
+            return false;
         } finally {
             setBusy(false);
         }
+    };
+
+    const commitBundle = async (index: number): Promise<boolean> => {
+        setCommittedBundle(index);
+        const accepted = await send(index, () => pickPair(index));
+        if (!accepted) setCommittedBundle(-1);
+        return accepted;
+    };
+
+    const commitArtifact = (artifactId: number): Promise<boolean> => {
+        setPendingArtifact(0);
+        return send(artifactId, () => artifact(artifactId, 2));
+    };
+
+    const commitCreature = (id: number): Promise<boolean> => {
+        setPendingPick(0);
+        return pickCreature(id);
     };
 
     const disabled = !isYourTurn || busy;
@@ -2656,17 +2678,11 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 return;
             }
             if (pickPhase === PickPhaseVals.PICK && pendingPick > 0) {
-                const id = pendingPick;
-                setPendingPick(0);
-                void pickCreature(id);
+                void commitCreature(pendingPick);
             } else if (pickPhase === PickPhaseVals.INITIAL_PICK && pendingBundle >= 0) {
-                const index = pendingBundle;
-                setCommittedBundle(index);
-                void send(index, () => pickPair(index));
+                void commitBundle(pendingBundle);
             } else if (pickPhase === PickPhaseVals.ARTIFACT_2 && pendingArtifact > 0) {
-                const artifactId = pendingArtifact;
-                setPendingArtifact(0);
-                void send(artifactId, () => artifact(artifactId, 2));
+                void commitArtifact(pendingArtifact);
             }
         };
         window.addEventListener("keydown", onKey);
@@ -3005,26 +3021,15 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                         : "Choose a creature first — click a portrait, then confirm."
                             }
                             seconds={secondsRemaining}
-                            onSubmitted={() => {
-                                if (pickPhase === PickPhaseVals.INITIAL_PICK && pendingBundle >= 0) {
-                                    setCommittedBundle(pendingBundle);
-                                }
-                            }}
+                            submissionKey={pickPhase}
                             onCommit={() => {
                                 if (pickPhase === PickPhaseVals.ARTIFACT_2) {
-                                    const artifactId = pendingArtifact;
-                                    setPendingArtifact(0);
-                                    void send(artifactId, () => artifact(artifactId, 2));
-                                    return;
+                                    return commitArtifact(pendingArtifact);
                                 }
                                 if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-                                    const index = pendingBundle;
-                                    void send(index, () => pickPair(index));
-                                    return;
+                                    return commitBundle(pendingBundle);
                                 }
-                                const id = pendingPick;
-                                setPendingPick(0);
-                                void pickCreature(id);
+                                return commitCreature(pendingPick);
                             }}
                         />
                     )}

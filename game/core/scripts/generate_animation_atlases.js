@@ -142,8 +142,8 @@ function main() {
     lines.push("/**");
     lines.push(" * One atlas entry per unit per animation state. Typed as an EXPLICIT record on purpose:");
     lines.push(" * the old `as const` + distributed-keyof types collapsed every indexed lookup to `never`");
-    lines.push(" * the moment the art in Dropbox went heterogeneous (a unit shipping only an \"attack\"");
-    lines.push(" * atlas while the rest carry \"default\"), which broke the client build at deploy time");
+    lines.push(' * the moment the art in Dropbox went heterogeneous (a unit shipping only an "attack"');
+    lines.push(' * atlas while the rest carry "default"), which broke the client build at deploy time');
     lines.push(" * even though CI — with no Dropbox — stayed green. Consumers already resolve units and");
     lines.push(" * states at runtime (`name in animationAtlases`, `Object.keys(...)`), so string keys");
     lines.push(" * with a strict value shape is the honest contract.");
@@ -158,11 +158,14 @@ function main() {
     lines.push("    frameDurationSec: number;");
     lines.push("    totalDurationSec: number;");
     lines.push("    layout: { cols: number; rows: number };");
+    lines.push("    footAnchorY?: number;");
     lines.push("    loopDurationMs: number;");
     lines.push("    pauseMs: number;");
     lines.push("}");
     lines.push("");
-    lines.push("export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =");
+    lines.push(
+        "export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =",
+    );
     lines.push(JSON.stringify(atlasMap, null, 2) + ";");
     lines.push("");
     lines.push("export type AnimationUnitName = string;");

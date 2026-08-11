@@ -34,7 +34,7 @@ import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
-import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
+import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
 
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
@@ -270,44 +270,47 @@ export class PixiGameManager {
         // Ensure it's on top of everything (UI container usually) but for now just add to stage
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
+        const minimumDurationMs = minimumLoadingScreenDurationMs(this.sceneTitle);
         let actualLoadingProgress = 0;
-        let minimumDurationElapsed = false;
+        let minimumDurationElapsed = minimumDurationMs === 0;
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
-            const elapsedMs = minimumDurationElapsed ? MINIMUM_LOADING_SCREEN_DURATION_MS : now - loadingScreenShownAt;
-            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs));
+            const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
+            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
         };
-        const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
-            let animationFrameId = 0;
-            let fallbackTimeoutId = 0;
-            let completed = false;
+        const minimumLoadingScreenDuration = minimumDurationMs
+            ? new Promise<void>((resolve) => {
+                  let animationFrameId = 0;
+                  let fallbackTimeoutId = 0;
+                  let completed = false;
 
-            const finish = () => {
-                if (completed) return;
-                completed = true;
-                minimumDurationElapsed = true;
-                window.cancelAnimationFrame(animationFrameId);
-                window.clearTimeout(fallbackTimeoutId);
-                renderLoadingProgress();
-                resolve();
-            };
-            const animate = (now: number) => {
-                if (!isCurrentLifecycle() || !loadingScreen) {
-                    finish();
-                    return;
-                }
+                  const finish = () => {
+                      if (completed) return;
+                      completed = true;
+                      minimumDurationElapsed = true;
+                      window.cancelAnimationFrame(animationFrameId);
+                      window.clearTimeout(fallbackTimeoutId);
+                      renderLoadingProgress();
+                      resolve();
+                  };
+                  const animate = (now: number) => {
+                      if (!isCurrentLifecycle() || !loadingScreen) {
+                          finish();
+                          return;
+                      }
 
-                renderLoadingProgress(now);
-                if (now - loadingScreenShownAt >= MINIMUM_LOADING_SCREEN_DURATION_MS) {
-                    finish();
-                    return;
-                }
-                animationFrameId = window.requestAnimationFrame(animate);
-            };
+                      renderLoadingProgress(now);
+                      if (now - loadingScreenShownAt >= minimumDurationMs) {
+                          finish();
+                          return;
+                      }
+                      animationFrameId = window.requestAnimationFrame(animate);
+                  };
 
-            animationFrameId = window.requestAnimationFrame(animate);
-            fallbackTimeoutId = window.setTimeout(finish, MINIMUM_LOADING_SCREEN_DURATION_MS);
-        });
+                  animationFrameId = window.requestAnimationFrame(animate);
+                  fallbackTimeoutId = window.setTimeout(finish, minimumDurationMs);
+              })
+            : Promise.resolve();
 
         // 2. Load Core Assets (Blocking)
         // Ensure starting state

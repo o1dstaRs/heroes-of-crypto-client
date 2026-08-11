@@ -281,12 +281,12 @@ export default function RightSideBar({
                 // Keep the Sandbox shell and its footer fixed; FightControlToggler owns the localized scroll
                 // fallback when a player deliberately opens more setup tools than the viewport can hold.
                 // Combat/ranked screens can still scroll here when their server-provided panels exceed it.
-                overflowY: !gameStarted ? "hidden" : "auto",
+                overflowY: !gameStarted && !rankedPanel ? "hidden" : "auto",
                 overflowX: "hidden", // Prevent horizontal scrolling
                 // Reserve the scrollbar lane even while the short/collapsed layout does not need it.
                 // Otherwise opening an augment makes the scrollbar appear, steals width, and visibly
                 // jerks every 9-slice container frame and its right rail to the left.
-                scrollbarGutter: !gameStarted ? "auto" : "stable",
+                scrollbarGutter: !gameStarted && !rankedPanel ? "auto" : "stable",
                 // Same ground as the left bar.
                 // The base remains fully opaque. Only the brown inner sheet and READY plate above it are
                 // translucent, so they reveal the mirrored left-deck stone rather than map fog/blackness.

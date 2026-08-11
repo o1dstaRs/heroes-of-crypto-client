@@ -569,7 +569,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: "#050504",
-                overflow: "hidden",
+                overflowX: "hidden",
+                overflowY: "auto",
+                p: { xs: 1, sm: 2 },
             }}
         >
             {/* Preserve both illustrated edges at tall/full-screen aspect ratios. Each half renders
@@ -631,6 +633,15 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     background: "linear-gradient(160deg, rgba(30,18,7,0.74) 0%, rgba(9,6,2,0.74) 100%)",
                     boxShadow: "0 16px 48px rgba(0,0,0,0.85)",
                     padding: "28px 32px",
+                    "@media (max-width: 899px), (max-height: 760px)": {
+                        top: 0,
+                        width: "100%",
+                        height: "auto",
+                        maxHeight: "none",
+                        my: 1,
+                        overflow: "visible",
+                        padding: "20px 16px",
+                    },
                     // Use one continuous metal edge on all four sides. The previous 9-slice artwork
                     // gave the horizontal and vertical edges visibly different weights.
                     "&::before": {
@@ -730,6 +741,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         minHeight: 0,
                         overflow: "hidden",
                         pb: 1.5,
+                        "@media (max-width: 899px), (max-height: 760px)": {
+                            overflow: "visible",
+                        },
                     }}
                 >
                     <Box
@@ -737,6 +751,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             height: "100%",
                             display: "flex",
                             flexDirection: "column",
+                            "@media (max-width: 899px), (max-height: 760px)": {
+                                height: "auto",
+                            },
                         }}
                     >
                         <CasualtyChartPanel series={stats.series} ornateResultsFrame />
@@ -757,6 +774,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 "&::-webkit-scrollbar-thumb": {
                                     backgroundColor: "rgba(145,104,67,.58)",
                                     borderRadius: "3px",
+                                },
+                                "@media (max-width: 899px), (max-height: 760px)": {
+                                    overflowY: "visible",
                                 },
                             }}
                         >
@@ -792,7 +812,15 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 <Stack
                     direction="row"
                     spacing={2}
-                    sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
+                    sx={{
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                        rowGap: 1.25,
+                        mt: 2,
+                        pt: 1,
+                        flexShrink: 0,
+                    }}
                 >
                     {canReplay && (
                         <ActionButton

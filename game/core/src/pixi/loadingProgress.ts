@@ -1,5 +1,9 @@
 export const MINIMUM_LOADING_SCREEN_DURATION_MS = 2000;
 
+export function minimumLoadingScreenDurationMs(sceneTitle: string): number {
+    return sceneTitle === "Sandbox" ? MINIMUM_LOADING_SCREEN_DURATION_MS : 0;
+}
+
 function clampProgress(value: number): number {
     if (!Number.isFinite(value)) return 0;
     return Math.max(0, Math.min(1, value));

@@ -16,6 +16,7 @@ import {
     type PickRandomInt,
 } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
+import { PREVIEW_ROUTES_ENABLED } from "../api/previewPlayGate";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -42,8 +43,6 @@ import { PlayRankedBadge } from "./PlayRankedBadge";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
-import { AugmentStepPreview } from "./AugmentStepPreview";
-import { PlacementStepPreview } from "./PlacementStepPreview";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
@@ -65,6 +64,9 @@ import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
+
+const AugmentStepPreview = PREVIEW_ROUTES_ENABLED ? React.lazy(() => import("./AugmentStepPreview")) : null;
+const PlacementStepPreview = PREVIEW_ROUTES_ENABLED ? React.lazy(() => import("./PlacementStepPreview")) : null;
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -981,16 +983,29 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
         <Routes>
             {/* Offline sandbox is available without login */}
             <Route path="/" element={<Heroes windowSize={windowSize} />} />
-            {/* Backend-free visual fixture: intentionally remains on the starting-bundle phase. */}
-            <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
-            {/* Backend-free visual fixture for the first creature-pick phase. */}
-            <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
-            {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
-            <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
-            {/* Backend-free augment step: the ranked "Choose your augments" screen with no game behind it. */}
-            <Route path="/preview/augments" element={<AugmentStepPreview />} />
-            {/* Backend-free pre-fight placement: the ranked board+sidebar driven by an in-memory session. */}
-            <Route path="/preview/placement" element={<PlacementStepPreview windowSize={windowSize} />} />
+            {PREVIEW_ROUTES_ENABLED && AugmentStepPreview && PlacementStepPreview && (
+                <>
+                    <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
+                    <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
+                    <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
+                    <Route
+                        path="/preview/augments"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <AugmentStepPreview />
+                            </React.Suspense>
+                        }
+                    />
+                    <Route
+                        path="/preview/placement"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <PlacementStepPreview windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                </>
+            )}
             {/* Online routes require authentication */}
             <Route
                 path="/play"

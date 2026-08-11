@@ -26,6 +26,7 @@ export interface IAtlasAnimationMeta {
     frameDurationSec: number;
     totalDurationSec: number;
     layout: { cols: number; rows: number };
+    footAnchorY?: number;
     loopDurationMs: number;
     pauseMs: number;
 }

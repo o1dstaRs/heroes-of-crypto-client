@@ -38,14 +38,12 @@ import {
     type PlaySnapshot,
     type PlayUnitState,
 } from "./play_protocol";
+import { PREVIEW_PLACEMENT_GAME_ID } from "./previewPlayGate";
 
-/** The one game id this fake session answers for. Anything else goes to the real API untouched. */
-export const PREVIEW_PLACEMENT_GAME_ID = "preview-placement";
+export { PREVIEW_PLACEMENT_GAME_ID } from "./previewPlayGate";
 
 export const PREVIEW_LOWER_PLAYER_ID = "preview-player-lower";
 export const PREVIEW_UPPER_PLAYER_ID = "preview-player-upper";
-
-export const isPreviewPlayGame = (gameId: string): boolean => gameId === PREVIEW_PLACEMENT_GAME_ID;
 
 // Stack sizes, mirroring the server's pick->play bridge: a stack is worth ~1000 experience, and a
 // creature the config has no exp for falls back to a flat ten.

@@ -28,7 +28,7 @@ import { useLocation, useNavigate } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
 import { createPlayActionFromGameAction } from "../api/game_action_play_codec";
-import { isPreviewPlayGame } from "../api/previewPlaySession";
+import { isPreviewPlayGame } from "../api/previewPlayGate";
 import { createVsAiGame } from "../api/vs_ai_client";
 import {
     fetchRankedPlayReplay,
@@ -1163,12 +1163,18 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     }, []);
 
     const submitProtocolActionForTeam = useCallback(
-        async (action: Partial<PlayAction>, team: TeamType, authorization?: string, options?: { silent?: boolean }) => {
+        async (
+            action: Partial<PlayAction>,
+            team: TeamType,
+            authorization?: string,
+            options?: { silent?: boolean },
+        ): Promise<boolean> => {
+            let accepted = false;
             await queueActionSubmission(async () => {
                 const envelope = buildActionEnvelope(team);
                 if (!envelope) return;
 
-                await sendPlayAction(
+                accepted = await sendPlayAction(
                     {
                         ...envelope,
                         type: PlayActionType.UNKNOWN,
@@ -1177,13 +1183,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     { authorization, silent: options?.silent },
                 );
             });
+            return accepted;
         },
         [buildActionEnvelope, queueActionSubmission, sendPlayAction],
     );
 
     const submitProtocolAction = useCallback(
         async (action: Partial<PlayAction>) => {
-            await submitProtocolActionForTeam(action, userTeam);
+            return submitProtocolActionForTeam(action, userTeam);
         },
         [submitProtocolActionForTeam, userTeam],
     );
@@ -1818,7 +1825,7 @@ interface RankedOverlayProps {
     snapshot: PlaySnapshot;
     status: string;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean>;
     userTeam: TeamType;
     isObserver: boolean;
 }
@@ -1828,7 +1835,7 @@ interface RankedPlacementStackActionsProps {
     selectedUnit: PlayUnitState;
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<boolean>;
     userTeam: TeamType;
 }
 
@@ -3018,11 +3025,12 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             extra={`${augmentBudget - augmentReady.pointsRemaining} / ${augmentBudget}`}
                                             onCommit={() => {
                                                 if (inSetupStage) {
-                                                    void submitProtocolAction({
+                                                    return submitProtocolAction({
                                                         type: rankedPlacementLockActionType(snapshot),
                                                     });
                                                 } else {
                                                     setAugmentOverlayOpen(false);
+                                                    return true;
                                                 }
                                             }}
                                         />

@@ -189,8 +189,8 @@ export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ en
 
     return (
         <Stack
-            direction="row"
-            spacing={3}
+            direction={{ xs: "column", md: "row" }}
+            spacing={{ xs: 0, md: 3 }}
             sx={{
                 position: "relative",
                 alignItems: "flex-start",
@@ -204,6 +204,7 @@ export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ en
                               left: "50%",
                               width: "1px",
                               transform: "translateX(-50%)",
+                              display: { xs: "none", md: "block" },
                               background:
                                   "linear-gradient(180deg, transparent, rgba(184,119,54,.7) 26%, rgba(184,119,54,.7) 74%, transparent)",
                               boxShadow: "0 0 5px rgba(190,111,42,.2)",
