@@ -26,7 +26,7 @@ const pipColor = (index: number, played: number): string => {
     if (index < played) {
         return hocColors.gold;
     }
-    return "rgba(255,143,0,0.18)";
+    return "rgba(220,177,88,0.06)";
 };
 
 export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standing, dense = false }) => {
@@ -59,7 +59,7 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
     }
 
     const recalibrating = state === "recalibration";
-    const headline = recalibrating ? t("RETURNING TO THE LADDER") : t("PLACEMENT MATCHES");
+    const headline = recalibrating ? t("RETURNING TO THE LADDER") : t("CALIBRATION MATCHES");
     const explainer = recalibrating
         ? t("Finish these to return to the ladder. Your previous league is remembered.")
         : t("Finish these to be placed into a league. Your rating stays hidden until then.");
@@ -81,7 +81,7 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                 direction="row"
                 spacing={0.5}
                 role="img"
-                aria-label={`${t("Placement matches")}: ${played} / ${required}`}
+                aria-label={`${t("Calibration matches")}: ${played} / ${required}`}
             >
                 {Array.from({ length: required }, (_, index) => (
                     <Box
@@ -91,7 +91,7 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                             height: dense ? 6 : 8,
                             borderRadius: 999,
                             bgcolor: pipColor(index, played),
-                            border: `1px solid ${index < played ? hocColors.gold : "rgba(255,143,0,0.25)"}`,
+                            border: `1px solid ${index < played ? hocColors.gold : "rgba(220,177,88,0.55)"}`,
                             transition: "background-color 200ms ease",
                         }}
                     />

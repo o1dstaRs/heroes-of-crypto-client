@@ -174,6 +174,7 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             i % 7 === 6 ? PortalMatchKind.LOBBY : i % 5 === 0 ? PortalMatchKind.CALIBRATION : PortalMatchKind.RANKED;
         const mmrBefore = matchKind === PortalMatchKind.LOBBY ? 0 : 790 + ((i * 19) % 240);
         const mmrDelta = matchKind === PortalMatchKind.LOBBY || draw ? 0 : won ? 15 + (i % 22) : -(14 + (i % 19));
+        const opponentUsername = OPPONENTS[Math.floor(rng() * OPPONENTS.length)];
 
         matches.push({
             game_id: `mock-${i}`,
@@ -182,7 +183,8 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             abandoned,
             player_abandoned: playerAbandoned,
             finished_time: finishedTime,
-            opponent_username: OPPONENTS[Math.floor(rng() * OPPONENTS.length)],
+            opponent_username: opponentUsername,
+            opponent_player_id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
             team: rng() < 0.5 ? 2 : 1,
             creature_ids: lineup,
             opponent_creature_ids: opponentLineup,

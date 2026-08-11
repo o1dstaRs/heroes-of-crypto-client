@@ -207,12 +207,17 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     // Russian ladder community writes it this way (the same Dota convention this ladder is modelled on).
     MMR: "ММР",
     "RETURNING TO THE LADDER": "ВОЗВРАЩЕНИЕ В РЕЙТИНГ",
-    "PLACEMENT MATCHES": "КАЛИБРОВОЧНЫЕ МАТЧИ",
+    "CALIBRATION MATCHES": "КАЛИБРОВОЧНЫЕ МАТЧИ",
+    "RANKED ARENA": "РЕЙТИНГОВАЯ АРЕНА",
+    PRESEASON: "ПРЕДСЕЗОН",
+    ENDS: "ЗАВЕРШИТСЯ",
+    STARTS: "НАЧНЁТСЯ",
+    "NO SCHEDULED END": "БЕЗ ДАТЫ ЗАВЕРШЕНИЯ",
     "Finish these to return to the ladder. Your previous league is remembered.":
         "Завершите их, чтобы вернуться в рейтинг. Ваша прежняя лига сохранена.",
     "Finish these to be placed into a league. Your rating stays hidden until then.":
         "Завершите их, чтобы попасть в лигу. До этого ваш рейтинг скрыт.",
-    "Placement matches": "Калибровочные матчи",
+    "Calibration matches": "Калибровочные матчи",
     "Wins · draws · losses in placement": "Победы · ничьи · поражения на калибровке",
     "1 match to placement": "остался 1 матч калибровки",
     // Rendered as `${remaining} ${t(...)}`, so it has to read as a suffix after a bare number.
@@ -238,6 +243,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Expand match details": "Развернуть детали матча",
     "Collapse details: {result} vs {opponent}": "Свернуть подробности: {result}, соперник — {opponent}",
     "Expand details: {result} vs {opponent}": "Развернуть подробности: {result}, соперник — {opponent}",
+    "Open {opponent}'s profile in a new tab": "Открыть профиль игрока {opponent} в новой вкладке",
     "Replay match": "Повтор матча",
     "Replay unavailable": "Повтор недоступен",
     "Replay unavailable for this match": "Повтор для этого матча недоступен",

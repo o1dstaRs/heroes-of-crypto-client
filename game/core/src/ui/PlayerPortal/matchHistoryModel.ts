@@ -59,6 +59,7 @@ export type PortalMatchData = PortalMatchBase & {
     mmr_after?: number;
     mmr_delta?: number;
     gold_earned?: number;
+    opponent_player_id?: string;
 };
 
 export type MatchHistoryFilter = "all" | "wins" | "losses";
@@ -204,3 +205,19 @@ export const normalizePerformances = (
 
 export const matchReplayPath = (match: PortalMatchData): string =>
     `/game/${encodeURIComponent(match.game_id ?? "")}/replay?team=${encodeURIComponent(String(match.team ?? 0))}`;
+
+export const matchOpponentProfileHref = (match: PortalMatchData, language: string): string => {
+    const playerId = (match.opponent_player_id ?? "").trim();
+    if (!playerId) {
+        return "";
+    }
+
+    const path = language === "ru" ? "/ru/profile/" : "/profile/";
+    const url = new URL(path, "https://heroesofcrypto.io");
+    url.searchParams.set("playerId", playerId);
+    const username = (match.opponent_username ?? "").trim();
+    if (username) {
+        url.searchParams.set("username", username);
+    }
+    return url.toString();
+};

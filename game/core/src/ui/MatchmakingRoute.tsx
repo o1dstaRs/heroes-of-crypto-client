@@ -14,7 +14,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
+import { fetchRankedSeasonSnapshot, type RankedSeasonSnapshot } from "../api/ranked_season_client";
 import { createVsAiGame } from "../api/vs_ai_client";
+import { useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
 import { RankedBanPicker } from "./RankedBanPicker";
@@ -52,6 +54,7 @@ const formatQueueDuration = (totalSeconds: number): string => {
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { t, language } = useTranslation();
     const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode, me } = useAuthContext();
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
@@ -61,6 +64,7 @@ export const MatchmakingRoute: React.FC = () => {
     const [state, setState] = useState<MatchmakingState>("idle");
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
+    const [seasonSnapshot, setSeasonSnapshot] = useState<RankedSeasonSnapshot>();
 
     useEffect(() => {
         let cancelled = false;
@@ -76,6 +80,26 @@ export const MatchmakingRoute: React.FC = () => {
         };
         void poll();
         const interval = setInterval(() => void poll(), 15_000);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        const poll = async (): Promise<void> => {
+            try {
+                const snapshot = await fetchRankedSeasonSnapshot();
+                if (!cancelled) {
+                    setSeasonSnapshot(snapshot);
+                }
+            } catch {
+                // Season context is useful orientation, but a transient failure must not block matchmaking.
+            }
+        };
+        void poll();
+        const interval = setInterval(() => void poll(), 60_000);
         return () => {
             cancelled = true;
             clearInterval(interval);
@@ -112,6 +136,22 @@ export const MatchmakingRoute: React.FC = () => {
             : searchStartedAt || queueAddedAtMs;
     const queueElapsedLabel =
         isSearching && searchAnchorMs > 0 ? formatQueueDuration((nowMs - searchAnchorMs) / 1000) : "";
+    const activeSeason = seasonSnapshot?.current ?? null;
+    const nextSeason = seasonSnapshot?.next ?? null;
+    const seasonMilestone = activeSeason?.endsAt ?? nextSeason?.startsAt ?? 0;
+    const seasonMilestoneLabel = useMemo(
+        () =>
+            seasonMilestone > 0
+                ? new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZoneName: "short",
+                  }).format(seasonMilestone)
+                : "",
+        [language, seasonMilestone],
+    );
 
     // A logged-in but email-unverified account (is_active === false) cannot enter matchmaking:
     // the server rejects POST /queue with "Activate your account to join the matchmaking queue".
@@ -715,9 +755,44 @@ export const MatchmakingRoute: React.FC = () => {
                     >
                         <Typography
                             level="body-xs"
-                            sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.2em", mb: 1.1 }}
+                            sx={{
+                                color: hocColors.gold,
+                                fontWeight: 800,
+                                fontSize: { xs: "0.68rem", sm: "0.75rem" },
+                                lineHeight: 1.5,
+                                letterSpacing: { xs: "0.09em", sm: "0.13em" },
+                                mb: 1.1,
+                            }}
                         >
-                            LIVE RANKED COMBAT
+                            {activeSeason ? (
+                                <>
+                                    {activeSeason.name} · {t("ENDS")}{" "}
+                                    <time
+                                        dateTime={new Date(activeSeason.endsAt).toISOString()}
+                                        title={new Date(activeSeason.endsAt).toLocaleString(
+                                            language === "ru" ? "ru-RU" : "en-US",
+                                        )}
+                                    >
+                                        {seasonMilestoneLabel}
+                                    </time>
+                                </>
+                            ) : nextSeason ? (
+                                <>
+                                    {t("PRESEASON")} · {nextSeason.name} {t("STARTS")}{" "}
+                                    <time
+                                        dateTime={new Date(nextSeason.startsAt).toISOString()}
+                                        title={new Date(nextSeason.startsAt).toLocaleString(
+                                            language === "ru" ? "ru-RU" : "en-US",
+                                        )}
+                                    >
+                                        {seasonMilestoneLabel}
+                                    </time>
+                                </>
+                            ) : seasonSnapshot ? (
+                                `${t("PRESEASON")} · ${t("NO SCHEDULED END")}`
+                            ) : (
+                                t("RANKED ARENA")
+                            )}
                         </Typography>
                         <Typography
                             id="ranked-heading"

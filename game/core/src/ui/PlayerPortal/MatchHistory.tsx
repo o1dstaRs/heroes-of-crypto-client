@@ -19,6 +19,7 @@ import {
     formatMatchDuration,
     formatSignedMatchValue,
     matchKindPresentation,
+    matchOpponentProfileHref,
     matchResultPresentation,
     normalizeMatchSetup,
     normalizePerformances,
@@ -704,6 +705,7 @@ const MatchCard: React.FC<{
     const laps = Math.max(0, Number(match.total_laps ?? 0));
     const replayAvailable = !!match.replay_available;
     const opponent = match.opponent_username || t("Unknown opponent");
+    const opponentProfileHref = matchOpponentProfileHref(match, language);
     const contextualDetailsLabel = tf(
         expanded ? "Collapse details: {result} vs {opponent}" : "Expand details: {result} vs {opponent}",
         { opponent, result: t(result.label) },
@@ -787,7 +789,36 @@ const MatchCard: React.FC<{
                                 <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
                                     {t(result.label)}
                                 </Box>{" "}
-                                {t("vs")} {opponent}
+                                {t("vs")}{" "}
+                                {opponentProfileHref ? (
+                                    <Box
+                                        component="a"
+                                        href={opponentProfileHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label={tf("Open {opponent}'s profile in a new tab", { opponent })}
+                                        onClick={(event) => event.stopPropagation()}
+                                        sx={{
+                                            position: "relative",
+                                            zIndex: 3,
+                                            color: "inherit",
+                                            pointerEvents: "auto",
+                                            textDecoration: "none",
+                                            textUnderlineOffset: "0.18em",
+                                            borderRadius: 2,
+                                            "&:hover": { color: hocColors.gold, textDecoration: "underline" },
+                                            "&:focus-visible": {
+                                                color: hocColors.gold,
+                                                outline: `2px solid ${hocColors.gold}`,
+                                                outlineOffset: 2,
+                                            },
+                                        }}
+                                    >
+                                        {opponent}
+                                    </Box>
+                                ) : (
+                                    opponent
+                                )}
                             </Typography>
                             <Stack
                                 direction="row"

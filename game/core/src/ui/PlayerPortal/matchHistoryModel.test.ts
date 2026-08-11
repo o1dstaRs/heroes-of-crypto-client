@@ -7,6 +7,7 @@ import {
     formatMatchDuration,
     formatSignedMatchValue,
     matchKindPresentation,
+    matchOpponentProfileHref,
     matchReplayPath,
     matchResultPresentation,
     normalizeMatchSetup,
@@ -187,5 +188,35 @@ describe("match history model", () => {
 
     it("builds an encoded historical replay route", () => {
         expect(matchReplayPath(match())).toBe("/game/game%2Fone/replay?team=2");
+    });
+
+    it("builds a localized, safely encoded public opponent profile link", () => {
+        expect(
+            matchOpponentProfileHref(
+                match({
+                    opponent_player_id: "d1bb3dd1-037e-4b0c-91aa-dca47d4f30bb",
+                    opponent_username: "A rival + friend",
+                }),
+                "en",
+            ),
+        ).toBe(
+            "https://heroesofcrypto.io/profile/?playerId=d1bb3dd1-037e-4b0c-91aa-dca47d4f30bb&username=A+rival+%2B+friend",
+        );
+        expect(
+            matchOpponentProfileHref(
+                match({
+                    opponent_player_id: "ai:v0.9:rb03:00000000000000000000000",
+                    opponent_username: "AI v0.9 #03",
+                }),
+                "ru",
+            ),
+        ).toBe(
+            "https://heroesofcrypto.io/ru/profile/?playerId=ai%3Av0.9%3Arb03%3A00000000000000000000000&username=AI+v0.9+%2303",
+        );
+    });
+
+    it("keeps legacy matches without an opponent id as plain text", () => {
+        expect(matchOpponentProfileHref(match(), "en")).toBe("");
+        expect(matchOpponentProfileHref(match({ opponent_player_id: "   " }), "ru")).toBe("");
     });
 });
