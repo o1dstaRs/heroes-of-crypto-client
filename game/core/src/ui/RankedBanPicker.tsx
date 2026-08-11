@@ -1,7 +1,7 @@
 import { Box, Button, Input, Modal, ModalDialog, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useEffect, useMemo, useState } from "react";
 
-import { getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
+import { getCreatureLevel, getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
@@ -17,7 +17,13 @@ import { resolveUnitImage } from "./unitImage";
 
 const ALL_CREATURES = Object.entries(UNIT_ID_TO_NAME)
     .map(([id, name]) => ({ id: Number(id), name, faction: ToFactionName[getFactionOf(Number(id) as CreatureId)] }))
-    .filter((creature) => creature.id > 0 && creature.name !== "Unknown")
+    // Only draftable creatures (level >= 1). This drops NO_CREATURE and internal summons like Arachna
+    // Spider — a level-0 Predatory Assimilation spawn that is never offered in drafts, so banning it is a
+    // no-op that only clutters the picker.
+    .filter(
+        (creature) =>
+            creature.id > 0 && creature.name !== "Unknown" && getCreatureLevel(creature.id as CreatureId) >= 1,
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
 // One column per faction (owner call). Alphabetical across all 63 creatures made the list a wall of names
