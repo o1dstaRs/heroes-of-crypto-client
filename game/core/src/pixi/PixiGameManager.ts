@@ -34,6 +34,7 @@ import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
+import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
 
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
@@ -114,7 +115,6 @@ export class PixiGameManager {
     };
     private lifecycleId = 0;
     private initEventCleanups: Array<() => void> = [];
-    private static readonly SANDBOX_MIN_LOADING_SCREEN_DURATION_MS = 2000;
     private static readonly OVERLAY_MOUSE_SUPPRESSION_MS = 350;
     private static readonly OVERLAY_MOUSE_SUPPRESSION_DISTANCE_PX = 8;
     public constructor() {
@@ -270,47 +270,50 @@ export class PixiGameManager {
         // Ensure it's on top of everything (UI container usually) but for now just add to stage
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
-        const isSandboxLoadingScreen = this.sceneTitle === "Sandbox";
-        const sandboxLoadingProgress = isSandboxLoadingScreen
-            ? new Promise<void>((resolve) => {
-                  let animationFrameId = 0;
-                  let fallbackTimeoutId = 0;
-                  let completed = false;
+        let actualLoadingProgress = 0;
+        let minimumDurationElapsed = false;
+        const renderLoadingProgress = (now = performance.now()) => {
+            if (!isCurrentLifecycle() || !loadingScreen) return;
+            const elapsedMs = minimumDurationElapsed ? MINIMUM_LOADING_SCREEN_DURATION_MS : now - loadingScreenShownAt;
+            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs));
+        };
+        const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
+            let animationFrameId = 0;
+            let fallbackTimeoutId = 0;
+            let completed = false;
 
-                  const finish = () => {
-                      if (completed) return;
-                      completed = true;
-                      window.cancelAnimationFrame(animationFrameId);
-                      window.clearTimeout(fallbackTimeoutId);
-                      if (isCurrentLifecycle()) loadingScreen?.setProgress(1);
-                      resolve();
-                  };
-                  const animate = (now: number) => {
-                      if (!isCurrentLifecycle() || !loadingScreen) {
-                          finish();
-                          return;
-                      }
+            const finish = () => {
+                if (completed) return;
+                completed = true;
+                minimumDurationElapsed = true;
+                window.cancelAnimationFrame(animationFrameId);
+                window.clearTimeout(fallbackTimeoutId);
+                renderLoadingProgress();
+                resolve();
+            };
+            const animate = (now: number) => {
+                if (!isCurrentLifecycle() || !loadingScreen) {
+                    finish();
+                    return;
+                }
 
-                      const elapsedMs = now - loadingScreenShownAt;
-                      loadingScreen.setProgress(elapsedMs / PixiGameManager.SANDBOX_MIN_LOADING_SCREEN_DURATION_MS);
-                      if (elapsedMs >= PixiGameManager.SANDBOX_MIN_LOADING_SCREEN_DURATION_MS) {
-                          finish();
-                          return;
-                      }
-                      animationFrameId = window.requestAnimationFrame(animate);
-                  };
+                renderLoadingProgress(now);
+                if (now - loadingScreenShownAt >= MINIMUM_LOADING_SCREEN_DURATION_MS) {
+                    finish();
+                    return;
+                }
+                animationFrameId = window.requestAnimationFrame(animate);
+            };
 
-                  animationFrameId = window.requestAnimationFrame(animate);
-                  fallbackTimeoutId = window.setTimeout(finish, PixiGameManager.SANDBOX_MIN_LOADING_SCREEN_DURATION_MS);
-              })
-            : undefined;
+            animationFrameId = window.requestAnimationFrame(animate);
+            fallbackTimeoutId = window.setTimeout(finish, MINIMUM_LOADING_SCREEN_DURATION_MS);
+        });
 
         // 2. Load Core Assets (Blocking)
         // Ensure starting state
         this._isLoading = true;
         this.onLoadingChanged.emit(true);
 
-        if (!isSandboxLoadingScreen) loadingScreen.setProgress(0.1);
         const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
@@ -320,17 +323,18 @@ export class PixiGameManager {
 
         this.textures = (await preloadCoreAssets((p) => {
             if (!isCurrentLifecycle()) return;
-            if (isSandboxLoadingScreen) return;
-            // scale 0.1 -> 1.0
-            if (loadingScreen) loadingScreen.setProgress(0.1 + p * 0.9);
+            actualLoadingProgress = p;
+            renderLoadingProgress();
         })) as PreloadedPixiTextures;
+        actualLoadingProgress = 1;
+        renderLoadingProgress();
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
             return;
         }
 
-        await sandboxLoadingProgress;
+        await minimumLoadingScreenDuration;
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();

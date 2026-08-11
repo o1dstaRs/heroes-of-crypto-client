@@ -265,15 +265,28 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                             transform: "translate(-50%, -50%) scaleX(.86)",
                             color: "transparent",
                             fontSize: "clamp(18.45rem, 26.4vw, 26.1rem)",
-                            fontFamily: hocDisplayFontFamily,
+                            // The central 5–4–3–2–1 turn countdown deliberately uses a distinct heroic
+                            // serif face. Its size, paint, frame and animation remain exactly as authored.
+                            fontFamily: '"Times New Roman", serif !important',
                             fontWeight: 400,
-                            fontVariantNumeric: "tabular-nums",
+                            // Lining numerals share one baseline/cap height; tabular advances keep the
+                            // centred 5–4–3–2–1 glyph box identical on every tick.
+                            fontVariantNumeric: "lining-nums tabular-nums",
+                            fontFeatureSettings: '"lnum" 1, "tnum" 1',
                             fontSynthesis: "none",
-                            lineHeight: 0.72,
+                            width: "1em",
+                            height: "1em",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            lineHeight: 1,
                             letterSpacing: "-0.025em",
                             opacity: 0.65,
                             backgroundImage:
                                 "repeating-linear-gradient(135deg, rgba(255,190,170,.11) 0 1px, transparent 1px 7px), linear-gradient(180deg, #ff735c 0%, #d94735 52%, #9d2b23 100%)",
+                            backgroundSize: "100% 100%",
+                            backgroundPosition: "center",
+                            backgroundRepeat: "no-repeat",
                             backgroundClip: "text",
                             WebkitBackgroundClip: "text",
                             WebkitTextFillColor: "transparent",
@@ -453,6 +466,12 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     }
 
     if (!gameStarted) {
+        // Ranked placement already carries its countdown inside the READY PLACEMENT action bar. The
+        // duplicate status card in the lower-left sidebar repeated the same information and covered the
+        // board; keep only the full-screen final countdown there. Sandbox retains its placement card.
+        if (!isSandbox) {
+            return countdownOverlay;
+        }
         const remainingSeconds = Math.max(0, Math.ceil(visibleState.secondsRemaining));
         return (
             <>

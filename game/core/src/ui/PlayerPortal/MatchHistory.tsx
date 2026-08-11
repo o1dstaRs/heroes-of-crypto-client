@@ -13,6 +13,7 @@ import { images } from "../../generated/image_imports";
 import { t, tf, useTranslation } from "../../i18n/i18n";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
+import { getPerkIconImage } from "../perkCopy";
 import {
     filterPortalMatches,
     formatMatchDamage,
@@ -267,7 +268,8 @@ const SetupChoice: React.FC<{
     fallback?: React.ReactNode;
     image?: string;
     name: string;
-}> = ({ alt = "", badge, detail, fallback, image, name }) => (
+    roundImage?: boolean;
+}> = ({ alt = "", badge, detail, fallback, image, name, roundImage = false }) => (
     <Tooltip title={detail} placement="top" size="sm" variant="soft">
         <Stack
             direction="row"
@@ -290,7 +292,7 @@ const SetupChoice: React.FC<{
                     display: "grid",
                     placeItems: "center",
                     overflow: "hidden",
-                    borderRadius: "6px",
+                    borderRadius: roundImage ? "50%" : "6px",
                     bgcolor: "rgba(0,0,0,0.28)",
                     border: "1px solid rgba(255,255,255,0.08)",
                     color: hocColors.gold,
@@ -298,7 +300,17 @@ const SetupChoice: React.FC<{
                 }}
             >
                 {image ? (
-                    <Box component="img" src={image} alt={alt} sx={{ width: 26, height: 26, objectFit: "contain" }} />
+                    <Box
+                        component="img"
+                        src={image}
+                        alt={alt}
+                        sx={{
+                            width: roundImage ? "100%" : 26,
+                            height: roundImage ? "100%" : 26,
+                            borderRadius: roundImage ? "50%" : 0,
+                            objectFit: roundImage ? "cover" : "contain",
+                        }}
+                    />
                 ) : (
                     fallback
                 )}
@@ -325,7 +337,8 @@ const SetupSummaryIcon: React.FC<{
     detail: string;
     fallback?: React.ReactNode;
     image?: string;
-}> = ({ alt = "", badge, compact, detail, fallback, image }) => {
+    roundImage?: boolean;
+}> = ({ alt = "", badge, compact, detail, fallback, image, roundImage = false }) => {
     const size = compact ? 24 : 28;
     return (
         <Tooltip title={detail} placement="top" size="sm" variant="soft">
@@ -338,7 +351,8 @@ const SetupSummaryIcon: React.FC<{
                     flex: `0 0 ${size}px`,
                     display: "grid",
                     placeItems: "center",
-                    borderRadius: "5px",
+                    borderRadius: roundImage ? "50%" : "5px",
+                    overflow: "visible",
                     bgcolor: "rgba(0,0,0,0.3)",
                     border: "1px solid rgba(255,255,255,0.1)",
                     color: hocColors.gold,
@@ -350,7 +364,12 @@ const SetupSummaryIcon: React.FC<{
                         component="img"
                         src={image}
                         alt={alt}
-                        sx={{ width: size - 3, height: size - 3, objectFit: "contain" }}
+                        sx={{
+                            width: roundImage ? "100%" : size - 3,
+                            height: roundImage ? "100%" : size - 3,
+                            borderRadius: roundImage ? "50%" : 0,
+                            objectFit: roundImage ? "cover" : "contain",
+                        }}
                     />
                 ) : (
                     fallback
@@ -428,6 +447,8 @@ const SetupSummary: React.FC<{
                         compact={compact}
                         detail={`${perk.name}: ${perk.description}`}
                         fallback={<ExploreRoundedIcon />}
+                        image={getPerkIconImage(setup.perk)}
+                        roundImage
                     />
                 </SetupSummaryGroup>
                 {artifacts.length > 0 && (
@@ -534,8 +555,10 @@ const TeamBuildChoices: React.FC<{
                 <SetupChoice
                     detail={perk.description}
                     fallback={<ExploreRoundedIcon />}
+                    image={getPerkIconImage(setup.perk)}
                     name={perk.name}
                     badge={tf("{count} pts", { count: perk.upgradePoints })}
+                    roundImage
                 />
             </SetupRow>
 

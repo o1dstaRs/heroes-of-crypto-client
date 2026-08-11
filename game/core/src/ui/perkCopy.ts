@@ -11,6 +11,8 @@
 
 import { Perk } from "@heroesofcrypto/common";
 
+import { images } from "../generated/image_imports";
+
 /**
  * Player-facing copy for the three scouting doctrines (perks).
  *
@@ -25,8 +27,8 @@ import { Perk } from "@heroesofcrypto/common";
  * server redeploy, and shared so the pre-game chooser and the in-draft panel can never drift apart.
  */
 export interface PerkCopy {
-    /** Emoji cue, so the vision trade-off reads at a glance without art. */
-    readonly icon: string;
+    /** Round doctrine medallion shared by every chooser, summary rail, and match-history view. */
+    readonly iconImage: string;
     /** Three or four words under the name on the card. */
     readonly tagline: string;
     /** Exactly what the doctrine reveals, in board terms. */
@@ -45,7 +47,7 @@ export interface PerkCopy {
  */
 export const PERK_COPY: Record<number, PerkCopy> = {
     [Perk.Perk.THREE_REVEALS]: {
-        icon: "🔍",
+        iconImage: images.doctrine_scout,
         tagline: "Half their army, spread across every tier",
         detail:
             "Opens three of the opponent's six army slots — one per tier block, not three at random: " +
@@ -59,7 +61,7 @@ export const PERK_COPY: Record<number, PerkCopy> = {
             "spare a single augment level to get it.",
     },
     [Perk.Perk.SEE_ALL]: {
-        icon: "👁️",
+        iconImage: images.doctrine_spymaster,
         tagline: "The whole enemy draft, live",
         detail:
             "Every one of the opponent's six picks is visible for the entire draft, each revealed as they " +
@@ -71,7 +73,7 @@ export const PERK_COPY: Record<number, PerkCopy> = {
             "enough to convert what you see into better picks.",
     },
     [Perk.Perk.SEE_NONE]: {
-        icon: "🚫",
+        iconImage: images.doctrine_blind_fury,
         tagline: "Draft blind, field the strongest army",
         detail:
             "You see none of the opponent's picks at any point. You draft entirely on your own plan and " +
@@ -85,3 +87,5 @@ export const PERK_COPY: Record<number, PerkCopy> = {
 };
 
 export const getPerkCopy = (perkId: number): PerkCopy | undefined => PERK_COPY[perkId];
+
+export const getPerkIconImage = (perkId: number): string | undefined => PERK_COPY[perkId]?.iconImage;

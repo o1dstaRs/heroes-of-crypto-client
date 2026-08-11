@@ -1,7 +1,6 @@
 import Box from "@mui/joy/Box";
 import React, { useLayoutEffect, useRef, useState } from "react";
 
-import { images } from "../../generated/image_imports";
 import { IFightStatsSample } from "../../scenes/VisibleState";
 import { CasualtyChart, GOLD } from "./CasualtyChart";
 
@@ -81,30 +80,41 @@ export const CasualtyChartPanel: React.FC<{
                 // measured against, and only a ResizeObserver tick would ever reconcile the two.
                 mb: 2,
                 // No padding on purpose either — the chart insets its own plot with axis gutters.
-                borderRadius: ornateResultsFrame ? 0 : "10px",
-                border: ornateResultsFrame ? "none" : `1px solid ${roomy ? `${GOLD}55` : "transparent"}`,
-                backgroundColor: roomy ? "rgba(0,0,0,0.25)" : "transparent",
+                borderRadius: ornateResultsFrame ? "14px" : "10px",
+                border: ornateResultsFrame
+                    ? "2px solid rgba(145,104,67,.82)"
+                    : `1px solid ${roomy ? `${GOLD}55` : "transparent"}`,
+                backgroundColor: "transparent",
+                boxShadow: ornateResultsFrame
+                    ? "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)"
+                    : "none",
                 ...(ornateResultsFrame && roomy
                     ? {
+                          "&::before": {
+                              content: '\"\"',
+                              position: "absolute",
+                              inset: "4px",
+                              zIndex: 0,
+                              pointerEvents: "none",
+                              backgroundColor: "rgba(0,0,0,0.25)",
+                              borderRadius: "10px",
+                          },
                           "&::after": {
                               content: '""',
                               position: "absolute",
-                              inset: 0,
+                              inset: "3px",
                               zIndex: 3,
                               pointerEvents: "none",
                               boxSizing: "border-box",
-                              border: "12px solid transparent",
-                              borderImageSource: `url(${images.fight_results_chart_frame_v3})`,
-                              borderImageSlice: "70",
-                              borderImageWidth: "12px",
-                              borderImageRepeat: "stretch",
+                              border: "1px solid rgba(52,44,38,.92)",
+                              borderRadius: "11px",
                           },
                       }
                     : {}),
             }}
         >
             {roomy && innerW > 0 && (
-                <Box sx={{ position: "absolute", inset: 0 }}>
+                <Box sx={{ position: "absolute", inset: 0, zIndex: 1 }}>
                     <CasualtyChart series={series} viewWidth={innerW} viewHeight={innerH} drawDurationSec={1.1} />
                 </Box>
             )}

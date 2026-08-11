@@ -335,10 +335,10 @@ export const ThemeMusic: React.FC = () => {
                     padding: 0,
                     // Docked it is just the glyph, like the fullscreen toggle beside it. The disc is for
                     // the floating fallback only, where there is bare screen behind the icon.
-                    borderRadius: "50%",
-                    border: dockSlot ? "none" : "1px solid rgba(255, 255, 255, 0.12)",
-                    background: dockSlot ? "transparent" : "rgba(255, 255, 255, 0.04)",
-                    color: dockSlot ? (silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158") : "inherit",
+                    borderRadius: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
                     cursor: "pointer",
                 }}
             >

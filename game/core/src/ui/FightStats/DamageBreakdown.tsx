@@ -40,7 +40,8 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
                             height: 34,
                             flexShrink: 0,
                             borderRadius: "14%",
-                            border: `2px solid ${color}99`,
+                            border: "none",
+                            boxShadow: "none",
                         }}
                     />
                 ) : (
@@ -50,7 +51,8 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
                             height: 34,
                             flexShrink: 0,
                             borderRadius: "14%",
-                            border: `2px solid ${color}99`,
+                            border: "none",
+                            boxShadow: "none",
                             backgroundColor: WOOD_DARK,
                             color,
                             fontWeight: 800,
@@ -68,7 +70,7 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
                     <Stack direction="row" sx={{ alignItems: "baseline", gap: 1 }}>
                         <Typography
                             sx={{
-                                color: PARCHMENT,
+                                color: GOLD,
                                 fontWeight: 700,
                                 fontSize: "0.82rem",
                                 overflow: "hidden",
@@ -94,35 +96,37 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
                     <Box
                         sx={{
                             mt: 0.4,
-                            height: 11,
+                            height: 8,
                             position: "relative",
-                            mx: 0.5,
-                            border: "3px solid #6b3a10",
+                            mx: 1.25,
+                            border: "2px solid #6b3a10",
                             backgroundColor: "rgba(4,3,2,.72)",
                             boxShadow: "inset 0 0 0 1px rgba(205,128,35,.18), 0 1px 2px rgba(0,0,0,.65)",
                             "&::before": {
                                 content: '\"\"',
                                 position: "absolute",
-                                left: -8,
+                                left: -7,
                                 top: "50%",
-                                width: 10,
-                                height: 10,
+                                width: 9,
+                                height: 9,
                                 transform: "translateY(-50%) rotate(45deg)",
                                 backgroundColor: "#17100a",
-                                border: "3px solid #6b3a10",
+                                border: "2px solid #6b3a10",
                                 boxSizing: "border-box",
+                                zIndex: 2,
                             },
                             "&::after": {
                                 content: '\"\"',
                                 position: "absolute",
-                                right: -8,
+                                right: -7,
                                 top: "50%",
-                                width: 10,
-                                height: 10,
+                                width: 9,
+                                height: 9,
                                 transform: "translateY(-50%) rotate(45deg)",
                                 backgroundColor: "#17100a",
-                                border: "3px solid #6b3a10",
+                                border: "2px solid #6b3a10",
                                 boxSizing: "border-box",
+                                zIndex: 2,
                             },
                         }}
                     >
@@ -184,7 +188,31 @@ export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ en
     const overflows = columns.some((column) => column.length > VISIBLE_ROWS);
 
     return (
-        <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 0, md: 3 }} sx={{ alignItems: "flex-start" }}>
+        <Stack
+            direction="row"
+            spacing={3}
+            sx={{
+                position: "relative",
+                alignItems: "flex-start",
+                ...(columns.length > 1
+                    ? {
+                          "&::before": {
+                              content: '\"\"',
+                              position: "absolute",
+                              top: 3,
+                              bottom: 3,
+                              left: "50%",
+                              width: "1px",
+                              transform: "translateX(-50%)",
+                              background:
+                                  "linear-gradient(180deg, transparent, rgba(184,119,54,.7) 26%, rgba(184,119,54,.7) 74%, transparent)",
+                              boxShadow: "0 0 5px rgba(190,111,42,.2)",
+                              pointerEvents: "none",
+                          },
+                      }
+                    : {}),
+            }}
+        >
             {columns.map((column, ci) => (
                 <Box
                     key={`dmgcol_${ci}`}

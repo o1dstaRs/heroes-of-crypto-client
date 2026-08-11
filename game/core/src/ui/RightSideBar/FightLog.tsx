@@ -25,11 +25,12 @@ const rowAppear = keyframes`
   to   { opacity: 1; transform: translateY(0); }
 `;
 
-// Warm ember highlight that flares on arrival then cools to a faint left accent.
+// A restrained bronze arrival highlight. It keeps new events discoverable without bringing the old
+// orange/red fill back into the otherwise near-black HUD material.
 const emberFlash = keyframes`
-  0%   { background-color: rgba(255, 143, 0, 0.30); box-shadow: inset 3px 0 0 0 rgba(255, 170, 40, 0.95); }
-  60%  { background-color: rgba(255, 143, 0, 0.10); }
-  100% { background-color: rgba(255, 143, 0, 0.00); box-shadow: inset 2px 0 0 0 rgba(255, 143, 0, 0.22); }
+  0%   { background-color: rgba(148, 103, 54, 0.16); box-shadow: inset 2px 0 0 0 rgba(190, 145, 78, 0.62); }
+  60%  { background-color: rgba(112, 75, 42, 0.06); }
+  100% { background-color: rgba(112, 75, 42, 0.00); box-shadow: inset 1px 0 0 0 rgba(148, 98, 53, 0.28); }
 `;
 
 interface ILogEntry {
@@ -193,10 +194,9 @@ export const FightLog = ({ text }: { text: string }) => {
                     // Contain wheel scrolling here so it doesn't bubble to the sidebar when over the log.
                     overscrollBehavior: "contain",
                     border: "none",
-                    // Near-black worn leather behind the chronicle, matching the selected concept while
-                    // leaving the raised turn plaques and bronze event rail readable at sidebar scale.
+                    // The same almost-black, faintly diagonal material as the left HUD plates.
                     background:
-                        "radial-gradient(ellipse at 50% 0%, rgba(62, 37, 16, .14), transparent 52%), linear-gradient(180deg, rgba(10, 8, 6, .92), rgba(5, 5, 4, .96))",
+                        "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(18,17,15,.96), rgba(6,6,5,.98))",
                     boxShadow: "inset 0 0 22px rgba(0, 0, 0, 0.78)",
                     py: "5px",
                     // Thin, themed scrollbar (no chunky default, no resize grip).
@@ -220,7 +220,7 @@ export const FightLog = ({ text }: { text: string }) => {
                             fontSize: "10px",
                             fontStyle: "italic",
                             letterSpacing: "0.04em",
-                            color: "rgba(255, 143, 0, 0.4)",
+                            color: "rgba(199, 163, 102, 0.46)",
                             userSelect: "none",
                         }}
                     >
@@ -248,13 +248,12 @@ export const FightLog = ({ text }: { text: string }) => {
                                         color: "#d9b36c",
                                         whiteSpace: "normal",
                                         wordBreak: "break-word",
-                                        // One even leather fill from edge to edge. A horizontal fade made the
-                                        // right half look unpainted beside the richer brown behind the label.
-                                        backgroundColor: "#311d0f",
-                                        backgroundImage: "none",
-                                        border: "1px solid rgba(118, 76, 30, .86)",
+                                        background:
+                                            "repeating-linear-gradient(135deg, rgba(255,255,255,.012) 0 1px, transparent 1px 7px), linear-gradient(180deg, rgba(31,29,25,.94), rgba(10,9,8,.98))",
+                                        border: "1px solid rgba(139, 98, 56, .72)",
+                                        borderRadius: "3px",
                                         boxShadow:
-                                            "inset 0 1px 0 rgba(220, 177, 88, .13), inset 0 0 12px rgba(0,0,0,.56), 0 1px 3px rgba(0,0,0,.72)",
+                                            "inset 0 1px 0 rgba(220,177,88,.09), inset 0 0 12px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.62)",
                                         "&::after": {
                                             content: '"⌄"',
                                             position: "absolute",
@@ -312,8 +311,8 @@ export const FightLog = ({ text }: { text: string }) => {
                                         // The very newest line glows a touch hotter than the rest.
                                         ...(entry.id === newestEntryId
                                             ? {
-                                                  color: "#FFB347",
-                                                  textShadow: "0 0 6px rgba(255, 143, 0, 0.45)",
+                                                  color: "#d4ae6c",
+                                                  textShadow: "0 0 4px rgba(188, 143, 75, 0.22)",
                                               }
                                             : {}),
                                         // Only freshly-mounted rows run the entrance + ember flash; existing rows

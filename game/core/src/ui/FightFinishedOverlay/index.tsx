@@ -45,7 +45,13 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
         ],
         damageByUnit: [
             { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: TeamVals.UPPER },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: TeamVals.UPPER },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: TeamVals.UPPER },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: TeamVals.UPPER },
             { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: TeamVals.LOWER },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: TeamVals.LOWER },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: TeamVals.LOWER },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: TeamVals.LOWER },
         ],
         lowerStartTotal: 200,
         upperStartTotal: 200,
@@ -61,61 +67,64 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
 const CasualtyColumn: React.FC<{
     team: TeamType;
     deaths: IFightDeathEntry[];
-    killedTotal: number;
-    startTotal: number;
-}> = ({ team, deaths, killedTotal, startTotal }) => {
+}> = ({ team, deaths }) => {
     const color = teamColor(team);
-    const pct = startTotal > 0 ? Math.round((killedTotal / startTotal) * 100) : 0;
-    const frameImage =
-        team === TeamVals.LOWER
-            ? imgSrc("fight_results_fallen_green_frame_v3")
-            : imgSrc("fight_results_fallen_red_frame_v3");
-
     return (
         <Box sx={{ flex: 1, minWidth: 220 }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
-                <Box
-                    sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        backgroundColor: color,
-                        boxShadow: `0 0 8px ${color}`,
-                    }}
-                />
-                <Typography sx={{ color: PARCHMENT, fontWeight: 700 }}>{teamName(team)} army</Typography>
-                <Typography sx={{ color, fontWeight: 700, ml: "auto" }}>
-                    {killedTotal} / {startTotal} fell ({pct}%)
-                </Typography>
-            </Stack>
             <Box
                 sx={{
                     position: "relative",
                     display: "flex",
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                     gap: 1,
-                    p: 1.25,
-                    borderRadius: 0,
-                    border: "none",
-                    backgroundColor: "rgba(0,0,0,0.25)",
+                    p: 0.75,
+                    borderRadius: "14px",
+                    border: "2px solid rgba(145,104,67,.82)",
+                    backgroundColor: "transparent",
+                    height: 68,
                     minHeight: 68,
+                    maxHeight: 68,
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    overscrollBehaviorX: "contain",
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "rgba(145,104,67,.58) transparent",
+                    boxShadow:
+                        "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
+                    "&::-webkit-scrollbar": { height: "4px" },
+                    "&::-webkit-scrollbar-track": { background: "transparent" },
+                    "&::-webkit-scrollbar-thumb": {
+                        backgroundColor: "rgba(145,104,67,.58)",
+                        borderRadius: "2px",
+                    },
+                    "&::before": {
+                        content: '\"\"',
+                        position: "absolute",
+                        inset: "4px",
+                        zIndex: 0,
+                        pointerEvents: "none",
+                        background: "linear-gradient(160deg, rgba(30,18,7,.62), rgba(9,6,2,.62))",
+                        // Let 13% more of the battlefield show through the loss well without fading its
+                        // portraits, counters or forged frame.
+                        opacity: 0.87,
+                        borderRadius: "10px",
+                    },
                     "&::after": {
                         content: '""',
                         position: "absolute",
-                        inset: 0,
+                        inset: "3px",
                         zIndex: 3,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        backgroundImage: `url(${frameImage})`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "center",
-                        backgroundSize: "100% 100%",
-                        filter: team === TeamVals.LOWER ? "brightness(1.55) saturate(.9)" : "brightness(1.08)",
+                        border: "1px solid rgba(52,44,38,.92)",
+                        borderRadius: "11px",
                     },
                 }}
             >
                 {deaths.length === 0 && (
-                    <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1 }}>
+                    <Typography
+                        sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
+                    >
                         No casualties — flawless.
                     </Typography>
                 )}
@@ -131,15 +140,15 @@ const CasualtyColumn: React.FC<{
                             zIndex: 10001,
                         }}
                     >
-                        <Box sx={{ position: "relative" }}>
+                        <Box sx={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
                             <Avatar
                                 src={imgSrc(d.smallTextureName)}
                                 variant="plain"
                                 sx={{
-                                    width: 52,
+                                    width: 60,
                                     height: 52,
                                     borderRadius: "14%",
-                                    border: `2px solid ${color}99`,
+                                    border: "none",
                                     filter: "grayscale(55%) brightness(0.82)",
                                 }}
                             />
@@ -171,51 +180,259 @@ const CasualtyColumn: React.FC<{
     );
 };
 
-const ActionButton: React.FC<{ label: string; disabled?: boolean; primary?: boolean; onClick: () => void }> = ({
+const ActionButton: React.FC<{
+    label: string;
+    disabled?: boolean;
+    primary?: boolean;
+    tone?: "gray" | "brown" | "olive" | "gold" | "brightGold";
+    frameTone?: "gray" | "brown" | "olive" | "gold" | "brightGold";
+    labelColor?: string;
+    leadingIcon?: string;
+    backgroundOpacity?: number;
+    visualOpacity?: number;
+    onClick: () => void;
+}> = ({
+    backgroundOpacity,
     disabled,
+    frameTone,
     label,
+    labelColor,
+    leadingIcon,
     primary,
+    tone,
+    visualOpacity = 1,
     onClick,
-}) => (
-    <Box
-        onClick={disabled ? undefined : onClick}
-        sx={{
-            px: primary ? 3.4 : 3,
-            py: primary ? 1.35 : 1.1,
-            minWidth: primary ? 160 : 138,
-            borderRadius: 0,
-            cursor: disabled ? "not-allowed" : "pointer",
-            fontWeight: 800,
-            letterSpacing: "0.04em",
-            fontSize: "0.95rem",
-            fontFamily: HOC_GAME_FONT_FAMILY,
-            userSelect: "none",
-            border: "none",
-            color: disabled ? `${PARCHMENT}66` : primary ? "#f3d08a" : PARCHMENT,
-            backgroundColor: "transparent",
-            backgroundImage: primary
-                ? `linear-gradient(180deg, rgba(255,211,111,.28), rgba(153,91,12,.16)), url(${imgSrc("ui_start_button_plate_trimmed")})`
-                : `linear-gradient(180deg, rgba(255,255,255,.025), rgba(0,0,0,.12)), url(${imgSrc("ui_start_button_plate_trimmed")})`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center",
-            backgroundSize: "100% 100%",
-            textShadow: primary ? "0 2px 2px #090501, 0 0 8px rgba(225,170,67,.4)" : "0 2px 2px #090501",
-            boxShadow: primary ? `0 0 13px ${GOLD}55` : "0 3px 7px rgba(0,0,0,.5)",
-            opacity: disabled ? 0.45 : 1,
-            transition: "all 0.15s ease",
-            "&:hover": {
-                transform: disabled ? "none" : "translateY(-1px)",
-                boxShadow: disabled ? (primary ? `0 0 16px ${GOLD}66` : "none") : `0 0 20px ${GOLD}aa`,
+}) => {
+    const resolvedTone = tone ?? (primary ? "gold" : "gray");
+    const resolvedFrameTone = frameTone ?? resolvedTone;
+    const resolvedBackgroundOpacity = backgroundOpacity ?? visualOpacity;
+    const hasWarmText = resolvedTone !== "gray";
+    const plateImage = imgSrc("ui_start_button_plate_trimmed");
+    const backgroundImage =
+        resolvedFrameTone === "gray"
+            ? `linear-gradient(180deg, rgba(132,138,141,.58), rgba(27,30,32,.74)), url(${plateImage})`
+            : resolvedFrameTone === "brown"
+              ? `linear-gradient(180deg, rgba(84,53,35,.34), rgba(29,20,15,.52)), url(${plateImage})`
+              : resolvedFrameTone === "olive"
+                ? `linear-gradient(180deg, rgba(104,94,48,.36), rgba(35,31,18,.5)), url(${plateImage})`
+                : resolvedFrameTone === "brightGold"
+                  ? `linear-gradient(180deg, rgba(255,229,145,.46), rgba(190,112,15,.3)), url(${plateImage})`
+                  : `linear-gradient(180deg, rgba(255,211,111,.28), rgba(153,91,12,.16)), url(${plateImage})`;
+    const hoverBackgroundImage =
+        resolvedFrameTone === "gray"
+            ? `linear-gradient(180deg, rgba(155,161,164,.66), rgba(38,41,43,.78)), url(${plateImage})`
+            : resolvedFrameTone === "brown"
+              ? `linear-gradient(180deg, rgba(105,67,43,.4), rgba(38,25,18,.56)), url(${plateImage})`
+              : resolvedFrameTone === "olive"
+                ? `linear-gradient(180deg, rgba(126,113,57,.44), rgba(44,39,21,.54)), url(${plateImage})`
+                : resolvedFrameTone === "brightGold"
+                  ? `linear-gradient(180deg, rgba(255,239,174,.58), rgba(211,133,25,.36)), url(${plateImage})`
+                  : `linear-gradient(180deg, rgba(255,224,142,.38), rgba(172,105,18,.2)), url(${plateImage})`;
+    const edgeColor =
+        resolvedFrameTone === "gray"
+            ? "rgba(119,113,106,.92)"
+            : resolvedFrameTone === "brown"
+              ? "rgba(132,82,51,.82)"
+              : resolvedFrameTone === "olive"
+                ? "rgba(146,128,68,.88)"
+                : "rgba(218,164,73,.96)";
+    const textColor = resolvedTone === "brown" ? "#d8b77f" : resolvedTone === "olive" ? "#dfcf91" : "#f3d08a";
+    const restingShadow =
+        resolvedTone === "brown"
+            ? "inset 0 0 0 1px rgba(190,129,82,.1), 0 3px 8px rgba(0,0,0,.58)"
+            : resolvedTone === "olive"
+              ? "inset 0 0 0 1px rgba(207,190,113,.13), 0 0 8px rgba(121,108,51,.2)"
+              : hasWarmText
+                ? `inset 0 0 0 1px rgba(255,221,139,.2), 0 0 13px ${GOLD}55`
+                : "inset 0 0 0 1px rgba(214,158,101,.14), 0 3px 7px rgba(0,0,0,.5)";
+    const hoverShadow = `0 0 20px ${GOLD}aa`;
+
+    return (
+        <Box
+            onClick={disabled ? undefined : onClick}
+            sx={{
+                px: primary ? 3.4 : 3,
+                py: 0,
+                minWidth: primary ? 160 : 138,
+                height: primary ? "42px" : "40px",
+                boxSizing: "border-box",
+                position: "relative",
+                borderRadius: "10px",
+                overflow: "hidden",
+                cursor: disabled ? "not-allowed" : "pointer",
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                fontSize: "14px",
+                fontFamily: HOC_GAME_FONT_FAMILY,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                userSelect: "none",
+                border: `1px solid ${edgeColor}`,
+                color: disabled ? `${PARCHMENT}66` : (labelColor ?? (hasWarmText ? textColor : PARCHMENT)),
                 backgroundColor: "transparent",
-                backgroundImage: primary
-                    ? `linear-gradient(180deg, rgba(255,224,142,.38), rgba(172,105,18,.2)), url(${imgSrc("ui_start_button_plate_trimmed")})`
-                    : `linear-gradient(180deg, rgba(255,205,112,.12), rgba(95,55,12,.12)), url(${imgSrc("ui_start_button_plate_trimmed")})`,
-            },
-            "&:active": { transform: "translateY(0)" },
-        }}
-    >
-        {label}
-    </Box>
+                backgroundClip: "padding-box",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                backgroundSize: "100% 100%",
+                textShadow: hasWarmText ? "0 2px 2px #090501, 0 0 8px rgba(225,170,67,.4)" : "0 2px 2px #090501",
+                boxShadow: restingShadow,
+                opacity: disabled ? 0.45 : 1,
+                transition: "all 0.15s ease",
+                // Repaint only the outer ring from the illustrated plate above the colour wash.
+                // Its translucent edge preserves each button's tone while keeping the engraved
+                // frame crisp instead of burying it under the background gradient.
+                "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 2,
+                    p: "4px",
+                    pointerEvents: "none",
+                    backgroundImage: `url(${plateImage})`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    backgroundSize: "100% 100%",
+                    opacity: 0.62,
+                    WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+                    WebkitMaskComposite: "xor",
+                    maskComposite: "exclude",
+                },
+                "&:hover": {
+                    transform: disabled ? "none" : "translateY(-1px)",
+                    boxShadow: disabled ? (hasWarmText ? `0 0 16px ${GOLD}66` : "none") : hoverShadow,
+                    backgroundColor: "transparent",
+                    "& .action-button-fill": { backgroundImage: hoverBackgroundImage },
+                },
+                "&:active": { transform: "translateY(0)" },
+            }}
+        >
+            <Box
+                aria-hidden
+                className="action-button-fill"
+                sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 0,
+                    pointerEvents: "none",
+                    opacity: resolvedBackgroundOpacity,
+                    // The plate and the card beneath it are both almost the same dark brown, so alpha
+                    // alone is visually lost. Reduce only the field's luminance by the same factor to
+                    // make the requested 10/20/30% progression readable without fading the frame.
+                    filter: `brightness(${resolvedBackgroundOpacity})`,
+                    backgroundImage,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                    backgroundSize: "100% 100%",
+                    transition: "background-image .15s ease, opacity .15s ease, filter .15s ease",
+                    // Keep the plate and leather field in one opacity group. Independent translucent
+                    // layers compound their alphas and make the requested transparency look denser.
+                    "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        inset: "4px",
+                        pointerEvents: "none",
+                        borderRadius: "5px",
+                        opacity: 0.85,
+                        background:
+                            "linear-gradient(115deg, rgba(43,24,9,.62), rgba(72,44,17,.34), rgba(28,14,6,.68)), repeating-linear-gradient(14deg, rgba(255,255,255,.018) 0 1px, rgba(0,0,0,.04) 1px 3px), #130c07",
+                    },
+                }}
+            />
+            <Box
+                component="span"
+                sx={{
+                    position: "relative",
+                    zIndex: 3,
+                    opacity: visualOpacity,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.42em",
+                }}
+            >
+                {leadingIcon && (
+                    <Box
+                        component="span"
+                        aria-hidden
+                        sx={{
+                            fontSize: "1.16em",
+                            lineHeight: 1,
+                            display: "inline-block",
+                            flexShrink: 0,
+                            // Size the visible crossed swords to the REMATCH capitals rather than to
+                            // the taller fallback-font line box.
+                            transform: "translateY(-0.06em)",
+                        }}
+                    >
+                        {leadingIcon}
+                    </Box>
+                )}
+                {label}
+            </Box>
+        </Box>
+    );
+};
+
+const ResultsSectionPlaque: React.FC<{ label: string }> = ({ label }) => (
+    <Stack direction="row" sx={{ alignItems: "center", mb: 1, px: 0.25 }}>
+        <Box
+            sx={{
+                flex: 1,
+                height: "1px",
+                background: "linear-gradient(90deg, transparent, rgba(123,72,34,.76))",
+            }}
+        />
+        <Box
+            sx={{
+                position: "relative",
+                // Both section plates use the width of the longer DAMAGE DEALT caption instead of
+                // spanning a large part of the results card.
+                width: "160px",
+                // Five percent lower than the previous 34px plate.
+                height: "32.3px",
+                mx: 1.25,
+                clipPath: "polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%)",
+                background: "linear-gradient(180deg, rgba(138,91,48,.05), rgba(66,36,19,.05))",
+                filter: "drop-shadow(0 2px 3px rgba(0,0,0,.58))",
+            }}
+        >
+            <Box
+                sx={{
+                    position: "absolute",
+                    inset: "1px",
+                    clipPath: "inherit",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background:
+                        "linear-gradient(180deg, rgba(48,42,35,.16), rgba(22,18,15,.16)), radial-gradient(circle at 50% 0%, rgba(190,125,59,.02), transparent 68%)",
+                    boxShadow: "inset 0 1px rgba(255,219,157,.12), inset 0 -1px rgba(0,0,0,.72)",
+                }}
+            >
+                <Typography
+                    sx={{
+                        color: GOLD,
+                        fontWeight: 700,
+                        fontSize: "15px",
+                        letterSpacing: "0.08em",
+                        lineHeight: 1,
+                        textAlign: "center",
+                        textShadow: "0 2px 2px rgba(0,0,0,.9)",
+                    }}
+                >
+                    {label}
+                </Typography>
+            </Box>
+        </Box>
+        <Box
+            sx={{
+                flex: 1,
+                height: "1px",
+                background: "linear-gradient(90deg, rgba(123,72,34,.76), transparent)",
+            }}
+        />
+    </Stack>
 );
 
 interface FightFinishedOverlayProps {
@@ -244,8 +461,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     onBackToLobby,
 }) => {
     const manager = usePixiManager();
-    const previewMode =
-        import.meta.env.DEV && new URLSearchParams(window.location.search).get("fight-results-preview") === "1";
+    const previewParams = new URLSearchParams(window.location.search);
+    const previewMode = import.meta.env.DEV && previewParams.get("fight-results-preview") === "1";
+    const requestedPreviewBackground = previewParams.get("fight-results-bg");
+    const previewBackground =
+        import.meta.env.DEV && requestedPreviewBackground?.startsWith("/@fs/") ? requestedPreviewBackground : undefined;
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [dismissed, setDismissed] = useState(false);
     const [replayResult, setReplayResult] = useState(false);
@@ -303,6 +523,10 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
+    const resultsBackground = previewBackground ?? imgSrc("fight_results_moonlit_castle_background");
+    const splitBackgroundImage = previewBackground
+        ? `url(${resultsBackground})`
+        : `url(${imgSrc("fight_results_moonlit_fire_overlay_v9")}), url(${resultsBackground})`;
     const clearReplayTimers = (): void => {
         replayTimers.current.forEach(window.clearTimeout);
         replayTimers.current = [];
@@ -345,25 +569,38 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: "#050504",
-                backgroundImage: `url(${imgSrc("fight_results_obsidian_ember_background")})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
+                overflow: "hidden",
             }}
         >
-            {/* Winner-coloured glow behind the card */}
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.8 }}
-                style={{
+            {/* Preserve both illustrated edges at tall/full-screen aspect ratios. Each half renders
+                the same full canvas but pins its important outer edge; any necessary crop therefore
+                disappears from the quiet centre. The animated fire uses the identical split and stays
+                registered to the braziers. */}
+            <Box
+                aria-hidden
+                sx={{
                     position: "absolute",
-                    width: "70vw",
-                    height: "70vh",
-                    background: `radial-gradient(circle, ${winnerColor}33 0%, transparent 65%)`,
+                    inset: 0,
+                    zIndex: 0,
+                    display: "flex",
                     pointerEvents: "none",
                 }}
-            />
+            >
+                {(["left", "right"] as const).map((edge) => (
+                    <Box
+                        key={edge}
+                        sx={{
+                            width: "50%",
+                            height: "100%",
+                            flexShrink: 0,
+                            backgroundImage: splitBackgroundImage,
+                            backgroundSize: previewBackground ? "cover" : "cover, cover",
+                            backgroundPosition: previewBackground ? `${edge} center` : `${edge} center, ${edge} center`,
+                            backgroundRepeat: previewBackground ? "no-repeat" : "no-repeat, no-repeat",
+                        }}
+                    />
+                ))}
+            </Box>
 
             <Box
                 component={motion.div}
@@ -372,28 +609,30 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 transition={{ type: "spring", stiffness: 220, damping: 24 }}
                 sx={{
                     position: "relative",
+                    top: "-1.2vh",
+                    zIndex: 2,
                     width: "92%",
                     maxWidth: 880,
                     // Fixed footprint — the card is always the size it used to be when the chart
                     // filled it (content overflowed, so it sat at maxHeight). Pinning height instead
                     // of maxHeight keeps it identical from fight to fight: a 2-creature skirmish and
                     // a 16-creature brawl now open the same box instead of the card jumping in size.
-                    height: "90vh",
-                    maxHeight: "90vh",
+                    height: "78vh",
+                    maxHeight: "78vh",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
-                    borderRadius: "6px",
+                    textTransform: "uppercase",
+                    borderRadius: "12px",
                     border: "none",
-                    // Near-black with a warm cast, matching the game's other panels (the sidebar wells
-                    // sit at rgba(18,11,4) / rgba(11,9,5) / rgba(12,12,12)) instead of the lighter
-                    // brown this card used to be. Still 95% opaque, so the board reads faintly through.
-                    background: "linear-gradient(160deg, rgba(30,18,7,0.71) 0%, rgba(9,6,2,0.71) 100%)",
+                    // Near-black with a warm cast, matching the game's other panels. The 74% opacity lets
+                    // the battlefield texture read
+                    // through the results content without reducing the opacity of text or charts.
+                    background: "linear-gradient(160deg, rgba(30,18,7,0.74) 0%, rgba(9,6,2,0.74) 100%)",
                     boxShadow: "0 16px 48px rgba(0,0,0,0.85)",
                     padding: "28px 32px",
-                    // Reuse the command deck's approved metal-and-ember frame. A pseudo-element keeps
-                    // the 9-slice artwork independent from the card's layout, so replacing the old 2px
-                    // CSS stroke does not move or resize any results content.
+                    // Use one continuous metal edge on all four sides. The previous 9-slice artwork
+                    // gave the horizontal and vertical edges visibly different weights.
                     "&::before": {
                         content: '""',
                         position: "absolute",
@@ -401,11 +640,10 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         zIndex: 5,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        border: "16px solid transparent",
-                        borderImageSource: `url(${imgSrc("ui_outer_frame_3_9slice")})`,
-                        borderImageSlice: "58",
-                        borderImageWidth: "16px",
-                        borderImageRepeat: "stretch",
+                        border: "1px solid rgba(126,91,61,.88)",
+                        borderRadius: "12px",
+                        boxShadow:
+                            "inset 0 0 0 1px rgba(35,28,22,.92), inset 0 0 0 2px rgba(157,112,72,.22), 0 0 5px rgba(0,0,0,.85)",
                     },
                 }}
             >
@@ -418,24 +656,35 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         position: "absolute",
                         top: 10,
                         right: 12,
-                        width: 42,
-                        height: 42,
-                        border: 0,
-                        backgroundColor: "transparent",
-                        backgroundImage: `url(${imgSrc("fight_results_close_button_v1")})`,
-                        backgroundRepeat: "no-repeat",
-                        backgroundPosition: "center",
-                        backgroundSize: "contain",
+                        width: 27,
+                        height: 27,
+                        p: 0,
+                        border: "1px solid rgba(158,111,63,.78)",
+                        borderRadius: "50%",
+                        background: "linear-gradient(180deg, rgba(44,32,23,.96), rgba(17,13,10,.98))",
+                        color: "#d7b77a",
+                        fontFamily: HOC_GAME_FONT_FAMILY,
+                        fontSize: "28.8px",
+                        fontWeight: 400,
+                        lineHeight: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         cursor: "pointer",
                         zIndex: 6,
-                        filter: "drop-shadow(0 2px 3px rgba(0,0,0,.75))",
-                        transition: "transform .14s ease, filter .14s ease",
+                        boxShadow: "inset 0 0 0 1px rgba(226,182,111,.08), 0 2px 4px rgba(0,0,0,.72)",
+                        transition:
+                            "transform .14s ease, border-color .14s ease, color .14s ease, box-shadow .14s ease",
                         "&:hover": {
-                            transform: "scale(1.06)",
-                            filter: "drop-shadow(0 0 6px rgba(231,168,57,.5))",
+                            transform: "scale(1.04)",
+                            borderColor: "rgba(209,155,76,.92)",
+                            color: "#f0cf91",
+                            boxShadow: "inset 0 0 0 1px rgba(226,182,111,.12), 0 0 5px rgba(190,123,48,.3)",
                         },
                     }}
-                />
+                >
+                    ×
+                </Box>
 
                 {/* Winner banner (or draw banner — armageddon can wipe both sides on the same lap) */}
                 {/* The cup sits BESIDE the headline, not over it. Stacked, it cost the card a whole line of
@@ -443,7 +692,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     of the roster at the bottom, which ended up under the action buttons. */}
                 <Stack sx={{ alignItems: "center", textAlign: "center", mb: 1.25, flexShrink: 0 }}>
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", justifyContent: "center" }}>
-                        <Typography sx={{ fontSize: "2.2rem", lineHeight: 1 }}>{isDraw ? "⚖️" : "🏆"}</Typography>
+                        {isDraw ? (
+                            <Typography sx={{ fontSize: "2.2rem", lineHeight: 1 }}>⚖️</Typography>
+                        ) : (
+                            <Box
+                                component="img"
+                                src={imgSrc("fight_results_trophy_v1")}
+                                alt="Victory trophy"
+                                sx={{ width: 52, height: 52, objectFit: "contain", flexShrink: 0 }}
+                            />
+                        )}
                         <Typography
                             sx={{
                                 color: winnerColor,
@@ -464,99 +722,98 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                 </Stack>
 
-                {/* Stats take the slack between the banner and the actions. Only this middle band
-                    scrolls, so a long roster never pushes the buttons out of the fixed-size card —
-                    and the scrollbar itself stays hidden. */}
+                {/* The middle band itself never moves. Only the damage list may scroll, so the chart,
+                    casualty wells and action buttons retain the same coordinates for every fight. */}
                 <Box
                     sx={{
                         flex: 1,
                         minHeight: 0,
-                        overflowY: "auto",
-                        // The band clips at its own edge, so without this the last row of portraits ended
-                        // flush against the buttons and read as running under them.
+                        overflow: "hidden",
                         pb: 1.5,
-                        scrollbarWidth: "none",
-                        msOverflowStyle: "none",
-                        "&::-webkit-scrollbar": { width: 0, height: 0, display: "none" },
                     }}
                 >
-                    {/* Every block lands in the same place from fight to fight: the chart holds a
-                        fixed band under the banner, the damage stats follow it directly, and the
-                        roster is pushed down onto the buttons by `mt: auto`. A 1v1 whose damage list
-                        is one row therefore looks like a full fight with a gap in the middle, rather
-                        than a differently-shaped card.
-
-                        `mt: auto` rather than `justifyContent`: an auto margin only ever eats POSITIVE
-                        free space, so once the content overflows it is simply 0 and the band scrolls
-                        from the top — where `flex-end` would push the overflowing top out of reach. */}
                     <Box
                         sx={{
-                            minHeight: "100%",
+                            height: "100%",
                             display: "flex",
                             flexDirection: "column",
                         }}
                     >
                         <CasualtyChartPanel series={stats.series} ornateResultsFrame />
 
-                        {/* Damage stats — pinned directly under the chart. */}
-                        <Box sx={{ flexShrink: 0 }}>
-                            <Typography
-                                sx={{
-                                    color: GOLD,
-                                    fontWeight: 700,
-                                    fontSize: "0.8rem",
-                                    letterSpacing: "0.06em",
-                                    mb: 1,
-                                }}
-                            >
-                                DAMAGE DEALT
-                            </Typography>
+                        {/* Damage stays in the fixed space between the chart and roster. Longer lists
+                            scroll here instead of moving or resizing any surrounding container. */}
+                        <Box
+                            sx={{
+                                flex: 1,
+                                minHeight: 0,
+                                overflowY: "auto",
+                                overflowX: "hidden",
+                                overscrollBehavior: "contain",
+                                scrollbarWidth: "thin",
+                                scrollbarColor: "rgba(145,104,67,.58) transparent",
+                                "&::-webkit-scrollbar": { width: "5px" },
+                                "&::-webkit-scrollbar-track": { background: "transparent" },
+                                "&::-webkit-scrollbar-thumb": {
+                                    backgroundColor: "rgba(145,104,67,.58)",
+                                    borderRadius: "3px",
+                                },
+                            }}
+                        >
+                            <ResultsSectionPlaque label="DAMAGE DEALT" />
                             <DamageBreakdown entries={stats.damageByUnit ?? []} />
                         </Box>
 
-                        {/* Casualty rosters — pinned to the bottom; the card's spare room opens up
-                            above this block, between it and the damage stats. */}
-                        <Box sx={{ flexShrink: 0, mt: "auto" }}>
+                        {/* Casualty rosters remain pinned to the bottom. */}
+                        <Box sx={{ flexShrink: 0 }}>
                             {/* "1px", not 1: MUI reads a unitless height <= 1 as a fraction, so
                                 `height: 1` is 100%. Harmless while the parent was auto-height, but the
                                 parent has a definite height now and the rule would blow it up to fill. */}
-                            <Box sx={{ height: "1px", backgroundColor: `${GOLD}44`, my: 2 }} />
-
-                            <Typography
+                            <Box
                                 sx={{
-                                    color: GOLD,
-                                    fontWeight: 700,
-                                    fontSize: "0.8rem",
-                                    letterSpacing: "0.06em",
-                                    mb: 1,
+                                    position: "relative",
+                                    height: "1.8px",
+                                    my: 2,
+                                    background:
+                                        "linear-gradient(90deg, transparent, rgba(118,56,29,.72) 6%, #bd6537 50%, rgba(118,56,29,.72) 94%, transparent)",
+                                    boxShadow: "0 2px 8px rgba(211,70,26,.2), 0 -1px 0 rgba(0,0,0,.9)",
                                 }}
-                            >
-                                FALLEN
-                            </Typography>
-                            <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
-                                <CasualtyColumn
-                                    team={TeamVals.LOWER as TeamType}
-                                    deaths={stats.lowerDeaths}
-                                    killedTotal={stats.lowerKilledTotal}
-                                    startTotal={stats.lowerStartTotal}
-                                />
-                                <CasualtyColumn
-                                    team={TeamVals.UPPER as TeamType}
-                                    deaths={stats.upperDeaths}
-                                    killedTotal={stats.upperKilledTotal}
-                                    startTotal={stats.upperStartTotal}
-                                />
+                            />
+
+                            <ResultsSectionPlaque label="LOSSES" />
+                            <Stack direction="row" spacing={3}>
+                                <CasualtyColumn team={TeamVals.LOWER as TeamType} deaths={stats.lowerDeaths} />
+                                <CasualtyColumn team={TeamVals.UPPER as TeamType} deaths={stats.upperDeaths} />
                             </Stack>
                         </Box>
                     </Box>
                 </Box>
 
-                <Stack direction="row" spacing={2} sx={{ justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}>
-                    {canReplay && <ActionButton label="Replay" onClick={replayFight} />}
+                <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
+                >
+                    {canReplay && (
+                        <ActionButton
+                            label="REPLAY"
+                            labelColor="#dfcf91"
+                            tone="gray"
+                            frameTone="brown"
+                            backgroundOpacity={0.7}
+                            visualOpacity={0.9}
+                            onClick={replayFight}
+                        />
+                    )}
                     {showRematchAction && (
                         <ActionButton
-                            label="⚔ Rematch"
+                            label="REMATCH"
+                            leadingIcon="⚔"
+                            labelColor="#dfcf91"
                             primary
+                            tone="olive"
+                            backgroundOpacity={0.8}
+                            visualOpacity={0.8}
                             onClick={() => {
                                 if (previewMode) return;
                                 console.log("[Rematch] button clicked");
@@ -568,7 +825,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showSandboxActions && (
                         <ActionButton
-                            label="+ New Battle"
+                            label="+ NEW BATTLE"
+                            labelColor="#dfcf91"
+                            tone="brown"
+                            backgroundOpacity={0.8}
+                            visualOpacity={0.7}
                             onClick={() => {
                                 if (previewMode) return;
                                 clearReplayTimers();

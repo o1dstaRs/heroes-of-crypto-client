@@ -19,13 +19,12 @@ export default function SplashScreen({ sx, ...other }: BoxProps) {
     return (
         <Box
             sx={{
-                right: 0,
-                width: 1,
-                bottom: 0,
-                height: 1,
+                inset: 0,
+                width: "100vw",
+                height: "100dvh",
                 zIndex: 9998,
                 display: "flex",
-                position: "absolute",
+                position: "fixed",
                 alignItems: "center",
                 justifyContent: "center",
                 bgcolor: "background.default",

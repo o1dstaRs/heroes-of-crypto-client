@@ -18,59 +18,27 @@ const REVEAL_KEYFRAMES = `
     100% { transform: scale(1); opacity: 1; }
 }`;
 
-/**
- * A 4x4-cell crop of the map's own centre — the same floor art the sandbox and the fight draw, not a
- * stylised icon. Every map shares the stone floor; terrain-specific art is layered over its centre.
- *
- * The board is ~13 cells across, so showing the texture at 320% frames roughly four cells around dead
- * centre.
- */
-const MAP_FLOOR_KEY: Record<string, string> = {
-    Standard: "background_stone_tiles_sinister_16x16",
-    Lava: "background_stone_tiles_sinister_16x16",
-    Cemetery: "background_stone_tiles_sinister_16x16",
-    Water: "background_stone_tiles_sinister_16x16",
-};
-
-const MAP_CENTER_OVERLAY: Record<string, string | undefined> = {
-    Lava: "lava_256",
-    Cemetery: "mountain_432_412",
-    Water: "water_256",
+const MAP_THUMB_KEY: Record<string, string> = {
+    Standard: "map_pick_normal_4x4",
+    Lava: "map_pick_lava_4x4",
+    Cemetery: "map_pick_cemetery_4x4",
 };
 
 const MapThumb: React.FC<{ display: IMapDisplay; size: number; radius: number }> = ({ display, size, radius }) => {
-    const floor = images[MAP_FLOOR_KEY[display.name] ?? "background_stone_tiles"];
-    const overlayKey = MAP_CENTER_OVERLAY[display.name];
-    const overlay = overlayKey ? images[overlayKey] : undefined;
+    const thumb = images[MAP_THUMB_KEY[display.name] ?? "map_pick_normal_4x4"];
     return (
         <Box
+            component="img"
+            src={thumb}
+            alt=""
             sx={{
-                position: "relative",
                 width: size,
                 height: size,
                 borderRadius: `${radius}px`,
-                overflow: "hidden",
-                backgroundImage: `url(${floor})`,
-                backgroundSize: "320%",
-                backgroundPosition: "center",
+                display: "block",
+                objectFit: "cover",
             }}
-        >
-            {overlay && (
-                <Box
-                    component="img"
-                    src={overlay}
-                    alt=""
-                    sx={{
-                        position: "absolute",
-                        inset: "18%",
-                        width: "64%",
-                        height: "64%",
-                        objectFit: "contain",
-                        opacity: display.name === "Water" ? 0.85 : 1,
-                    }}
-                />
-            )}
-        </Box>
+        />
     );
 };
 
@@ -79,7 +47,6 @@ const MapThumb: React.FC<{ display: IMapDisplay; size: number; radius: number }>
 // server reveals the map (right before the L3 picks).
 export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
     const display = getMapDisplay(mapType);
-    const accent = display?.accent ?? "rgba(255,255,255,0.7)";
     return (
         <Tooltip title={`Map type — ${display ? display.name : "?"}`} variant="soft">
             <Sheet
@@ -89,42 +56,39 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
                     display: "grid",
                     placeItems: "center",
                     p: "2px",
-                    minHeight: 62,
-                    width: 62,
+                    minHeight: 65,
+                    width: 65,
                     flex: "0 0 auto",
-                    borderRadius: 0,
-                    bgcolor: "#171a23",
-                    border: 0,
+                    borderRadius: "10px",
+                    bgcolor: "rgba(23,26,35,.2)",
+                    border: "1px solid rgba(151,103,52,.66)",
+                    boxShadow: "inset 0 0 0 1px rgba(10,8,5,.88), 0 1px 3px rgba(0,0,0,.65)",
                     "&::after": {
                         content: '\"\"',
                         position: "absolute",
-                        inset: 0,
                         zIndex: 10,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        border: "14px solid transparent",
-                        borderImageSource: `url(${images.ui_container_frame_1_9slice})`,
-                        borderImageSlice: "120",
-                        borderImageWidth: "14px",
-                        borderImageRepeat: "stretch",
-                        filter: display ? `drop-shadow(0 0 2px ${accent})` : "none",
+                        inset: "2px",
+                        border: "1px solid rgba(52,44,38,.92)",
+                        borderRadius: "8px",
                     },
                 }}
             >
                 {display ? (
-                    <MapThumb display={display} size={56} radius={10} />
+                    <MapThumb display={display} size={59} radius={10} />
                 ) : (
                     <Box
                         sx={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: "10px",
+                            width: 59,
+                            height: 59,
+                            borderRadius: "7px",
                             display: "grid",
                             placeItems: "center",
                             fontSize: 26,
                             fontWeight: 700,
                             color: "rgba(255,255,255,0.7)",
-                            bgcolor: "rgba(255,255,255,0.05)",
+                            bgcolor: "rgba(255,255,255,0.02)",
                         }}
                     >
                         ?

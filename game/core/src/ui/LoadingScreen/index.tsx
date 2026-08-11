@@ -9,12 +9,15 @@ export default function LoadingScreen({ sx, ...other }: BoxProps) {
         <Box
             sx={{
                 px: 5,
-                width: 1,
-                flexGrow: 1,
-                minHeight: 1,
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                width: "100vw",
+                height: "100dvh",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                bgcolor: "background.default",
                 ...sx,
             }}
             {...other}
