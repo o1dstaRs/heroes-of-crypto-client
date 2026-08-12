@@ -1163,6 +1163,18 @@ const rankedApp = links.rankedApp;
                     } catch {
                         matchHref = "";
                     }
+                    // The match's OWN result, which the bet status cannot convey: a lost bet never names
+                    // the winner. Empty for an unfinished match; "drawn" when it ended level.
+                    const matchResult = !bet.matchDecided
+                        ? bet.status === "open"
+                            ? escapeHtml(copy.predictionUndecided)
+                            : escapeHtml(copy.predictionDrawn)
+                        : bet.winnerUsername
+                          ? `${escapeHtml(copy.predictionWonBy)} <strong>${escapeHtml(bet.winnerUsername)}</strong>`
+                          : "";
+                    const matchResultMarkup = matchResult
+                        ? `<span class="prediction-row__result">${matchResult}</span>`
+                        : "";
                     const match = matchHref
                         ? `<a class="prediction-row__match" href="${escapeHtml(matchHref)}" aria-label="${escapeHtml(`${copy.predictionOpenMatch}: ${bet.gameId}`)}"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(bet.gameId)}">${escapeHtml(compactGameId)}</code><i aria-hidden="true">↗</i></a>`
                         : `<span class="prediction-row__match"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(bet.gameId)}">${escapeHtml(compactGameId)}</code></span>`;
@@ -1177,7 +1189,7 @@ const rankedApp = links.rankedApp;
                                 <span>${escapeHtml(copy.predictionStake)} ${currencyMarkup(bet.amount)}</span>
                             </div>
                             <div class="prediction-row__context">
-                                ${match}
+                                <span class="prediction-row__matchcell">${match}${matchResultMarkup}</span>
                                 <span class="prediction-row__placed"><span>${escapeHtml(copy.predictionPlaced)}</span>${placedTime}</span>
                             </div>
                         </article>`;
@@ -1711,16 +1723,18 @@ const rankedApp = links.rankedApp;
 
     .prediction-history :global(.prediction-row) {
         display: grid;
-        grid-template-columns: minmax(92px, 0.55fr) minmax(180px, 1.1fr) minmax(270px, 1.35fr);
-        gap: 12px;
+        grid-template-columns: minmax(88px, 0.5fr) minmax(170px, 1.05fr) minmax(290px, 1.45fr);
+        gap: 10px;
         align-items: center;
         min-width: 0;
-        padding: 9px 12px;
+        /* Owner call: a shade shorter again. The history runs to twenty rows, so a couple of pixels
+           per row is the difference between scanning it and scrolling it. */
+        padding: 6px 11px;
         border: 1px solid rgba(220, 177, 88, 0.22);
         border-radius: 8px;
         background: rgba(0, 0, 0, 0.3);
         box-shadow: inset 0 1px rgba(255, 255, 255, 0.015);
-        font-size: 0.82rem;
+        font-size: 0.79rem;
         transition:
             border-color 0.18s ease,
             background 0.18s ease;
@@ -1735,8 +1749,28 @@ const rankedApp = links.rankedApp;
     .prediction-history :global(.prediction-row__bet),
     .prediction-history :global(.prediction-row__context) {
         display: grid;
-        gap: 4px;
+        gap: 2px;
         min-width: 0;
+    }
+
+    /* Match link and its result share one cell: the link on top, "won by X" under it. */
+    .prediction-history :global(.prediction-row__matchcell) {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .prediction-history :global(.prediction-row__result) {
+        overflow: hidden;
+        color: var(--muted, #9a8f7d);
+        font-size: 0.92em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-row__result strong) {
+        color: var(--parchment, #e8dcc0);
+        font-weight: 600;
     }
 
     .prediction-history :global(.prediction-row__context) {

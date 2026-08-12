@@ -123,6 +123,10 @@ export interface PredictionRecord {
     status: PredictionStatus;
     payout: number;
     settledAt: number;
+    /** Who won the match this bet was on — empty while it is unsettled, or when it ended a draw. */
+    winnerUsername: string;
+    /** False for an unfinished match or a draw, so the row can say "drawn" instead of naming nobody. */
+    matchDecided: boolean;
 }
 
 /** How this player bets on OTHER people's games, and how it has gone. */
@@ -426,6 +430,8 @@ function normalizePredictions(value: unknown): PredictionHistory {
                 gameId,
                 predictedPlayerId: asString(bet.predictedPlayerId),
                 backedUsername: asString(bet.backedUsername),
+                winnerUsername: asString(bet.winnerUsername),
+                matchDecided: bet.matchDecided === true,
                 amount: nonNegativeInteger(bet.amount),
                 placedAt: nonNegativeInteger(bet.placedAt),
                 status: PREDICTION_STATUSES.has(status) ? status : "open",
