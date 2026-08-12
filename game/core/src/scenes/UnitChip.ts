@@ -1,5 +1,6 @@
 // game/core/src/scenes/UnitChip.ts
 import { Container, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
+import { usesUnitAtlasAnimation } from "../pixi/PixiUnitsFactory";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 
@@ -11,6 +12,7 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     if (!name) return null;
     const trimmed = name.trim();
     if (!trimmed) return null;
+    if (!usesUnitAtlasAnimation(trimmed)) return null;
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }

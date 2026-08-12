@@ -139,6 +139,11 @@ export enum TextureType {
     LARGE = 1,
 }
 
+const UNIT_ATLAS_ANIMATION_EXCLUSIONS = new Set(["Ash Moth"]);
+
+export const usesUnitAtlasAnimation = (unitName: string): boolean =>
+    !UNIT_ATLAS_ANIMATION_EXCLUSIONS.has(unitName.trim());
+
 export const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
     if (textureType === TextureType.LARGE) return `${base}_512`;

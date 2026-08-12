@@ -24,6 +24,7 @@ import React, { useCallback } from "react";
 
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
+import { usesUnitAtlasAnimation } from "../../pixi/PixiUnitsFactory";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact } from "../../scenes/VisibleState";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -116,6 +117,7 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     if (!name) return null;
     const trimmed = name.trim();
     if (!trimmed) return null;
+    if (!usesUnitAtlasAnimation(trimmed)) return null;
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }

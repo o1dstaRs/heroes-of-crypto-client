@@ -26,7 +26,7 @@ import {
     FactionVals,
 } from "@heroesofcrypto/common";
 import { getSpellCornerFrameTextureKey, PixiRenderableSpell } from "./RenderableSpell";
-import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
+import { TextureType, unitToTextureName, usesUnitAtlasAnimation } from "@/pixi/PixiUnitsFactory";
 import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
@@ -39,6 +39,7 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     if (!name) return null;
     const trimmed = name.trim();
     if (!trimmed) return null;
+    if (!usesUnitAtlasAnimation(trimmed)) return null;
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }
