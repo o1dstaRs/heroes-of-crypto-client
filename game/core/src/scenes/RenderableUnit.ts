@@ -2757,25 +2757,30 @@ export class RenderableUnit extends Unit {
         // below at a lower configured power, so the card shows what enemies actually face.
         const stunAuraAbility = this.getAbility("Stun Aura");
         if (stunAuraAbility) {
-            const percentage = Number(
-                this.calculateAbilityApplyChance(stunAuraAbility, _synergyAbilityPowerIncrease).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                stunAuraAbility.getName(),
-                stunAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+            const auraEffect = stunAuraAbility.getAuraEffect();
+            if (auraEffect) {
+                const percentage = Number(this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toFixed(2));
+                this.refreshAbiltyDescription(
+                    stunAuraAbility.getName(),
+                    stunAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
         }
 
         // Stun
         const stunAbility = this.getAbility("Stun");
         if (stunAbility) {
-            const percentage = Number(
-                this.calculateAbilityApplyChance(stunAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            const ownChance = Math.max(
+                0,
+                Math.min(100, this.calculateAbilityApplyChance(stunAbility, _synergyAbilityPowerIncrease)),
             );
-            this.refreshAbiltyDescription(
-                stunAbility.getName(),
-                stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+            const auraChance = Math.max(0, Math.min(100, this.getBuff("Stun Aura")?.getPower() ?? 0));
+            const combinedChance = auraChance ? 100 * (1 - (1 - ownChance / 100) * (1 - auraChance / 100)) : ownChance;
+            const percentage = Number(combinedChance.toFixed(2));
+            const description = auraChance
+                ? `On attack, has a ${percentage}% total chance to stun (Status) an enemy for 1 turn while Stun Aura is active (${Number(ownChance.toFixed(2))}% own + a separate ${Number(auraChance.toFixed(2))}% aura roll, before target modifiers)`
+                : stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString());
+            this.refreshAbiltyDescription(stunAbility.getName(), description);
         }
 
         // Terrifying Gaze (stack-powered fright chance, same shape as Stun): 12 per stack plus the gazer's

@@ -202,6 +202,32 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
             expect(properties.abilities_descriptions[index]).toContain(`Maximum targets: ${stackPower}.`);
         }
     });
+
+    test("shows Stun's real combined chance while Stun Aura is active", () => {
+        const squire = createRenderableUnit(TeamVals.LOWER, "Life", "Squire", "squire_512");
+        squire.setStackPower(5);
+        squire.applyAuraEffect(
+            "Stun Aura",
+            "This unit gains a separate 25% chance to stun the enemy it hits for a turn.",
+            true,
+            25,
+            "0;0",
+        );
+        squire.adjustBaseStats(false, 0, 0, 0, 0, 0, 0);
+
+        const properties = squire.getUnitProperties();
+        const stunIndex = properties.abilities.indexOf("Stun");
+        expect(stunIndex).toBeGreaterThanOrEqual(0);
+        // Life's innate +1 luck makes Squire's own full-stack roll 36%; the separate 25% aura roll turns
+        // that into 1 - (1 - .36) * (1 - .25) = 52%, which is the number the player should read.
+        expect(properties.abilities_descriptions[stunIndex]).toContain("52% total chance");
+        expect(properties.abilities_descriptions[stunIndex]).toContain("36% own + a separate 25% aura roll");
+
+        squire.cleanAuraEffects();
+        squire.adjustBaseStats(false, 0, 0, 0, 0, 0, 0);
+        expect(squire.getUnitProperties().abilities_descriptions[stunIndex]).toContain("36% chance");
+        expect(squire.getUnitProperties().abilities_descriptions[stunIndex]).not.toContain("total chance");
+    });
 });
 
 describe("RenderableUnit revealed roster card", () => {
