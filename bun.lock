@@ -132,7 +132,7 @@
     },
     "site": {
       "name": "@heroesofcrypto/site",
-      "version": "0.1.0",
+      "version": "0.1.5",
       "dependencies": {
         "@astrojs/sitemap": "^3.7.1",
         "@heroesofcrypto/common": "workspace:*",
@@ -141,6 +141,9 @@
       },
     },
   },
+  "trustedDependencies": [
+    "protoc-gen-js",
+  ],
   "overrides": {
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
