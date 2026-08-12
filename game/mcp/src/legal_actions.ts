@@ -116,7 +116,7 @@ const estimateUnitValue = (unit: Unit): number =>
     Math.round(
         unit.getStackPower() +
             unit.getLevel() * 12 +
-            unit.getSpeed() * 4 +
+            unit.getInitiative() * 4 +
             unit.getAttack() * 0.5 +
             unit.getAttackDamageMax() * 2 +
             unit.getRangeShots() * 2 +

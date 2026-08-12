@@ -34,6 +34,7 @@
         "build:ws": "bun run build:common && bun run build:core && bun run build:site && bun run build:mcp",
         "check": "bun run lint && bun run check:images && bun run typecheck && bun run test",
         "check:images": "bun scripts/check_image_asset_locations.ts",
+        "check:test-skips": "bun scripts/check_test_skips.ts",
         "lint": "bun run lint:es && bun run lint:scss && bun run lint:package && bun run lint:style",
         "lint:es": "bunx eslint \"game/**/src/**/*.{ts,tsx}\" --ignore-pattern .prettierignore",
         "lint:es:fix": "bun run lint:es -- --fix",
@@ -48,9 +49,11 @@
         "prepare": "git config core.hooksPath .githooks || true",
         "start": "bun --cwd game/core start",
         "start:site": "bun --cwd site dev",
-        "test": "bun run test:core && bun run test:common",
+        "test": "bun run check:test-skips && bun run test:core && bun run test:common && bun run test:mcp && bun run test:site",
         "test:common": "bun run --cwd game/heroes-of-crypto-common test",
         "test:core": "bun test --cwd game/core src",
+        "test:mcp": "bun run --cwd game/mcp test",
+        "test:site": "bun run --cwd site test",
         "typecheck": "tsc --noEmit -p game/core/tsconfig.json"
     },
     "lint-staged": {

@@ -32,6 +32,9 @@ jobs:
             - name: Check image asset locations
               run: bun run check:images
 
+            - name: Reject skipped tests
+              run: bun run check:test-skips
+
             - name: Test game image asset policy
               run: bun test --cwd game/core src/gameImageAssetPolicy.test.ts
 
@@ -117,6 +120,35 @@ jobs:
 
             - name: Run common tests
               run: bun run --cwd game/heroes-of-crypto-common test
+
+    mcp:
+        name: MCP tests and build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+
+            - name: Init common submodule (HTTPS)
+              run: |
+                  git config --global url."https://github.com/".insteadOf "git@github.com:"
+                  git submodule update --init --recursive
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: bun install
+
+            - name: Build common types
+              working-directory: game/heroes-of-crypto-common
+              run: bunx tsc --project tsconfig.build.json
+
+            - name: Run MCP tests
+              run: bun run --cwd game/mcp test
+
+            - name: Build MCP
+              run: bun run --cwd game/mcp build
 
     site:
         name: Site build
