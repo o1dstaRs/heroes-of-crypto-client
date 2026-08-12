@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 
 import { Container, Graphics, Text, Texture } from "pixi.js";
 
@@ -59,7 +59,10 @@ function createRenderableUnit(
 const spellAmounts = (unit: Unit): Record<string, number> =>
     Object.fromEntries(unit.getSpells().map((spell) => [spell.getName(), spell.getAmount()]));
 
-afterEach(() => HoCLib.setDeterministicRandomSource(undefined));
+afterEach(() => {
+    jest.useRealTimers();
+    HoCLib.setDeterministicRandomSource(undefined);
+});
 
 test("active-turn fire atlas ping-pongs without jumping at either endpoint", () => {
     const frameMs = 1000 / 18;
@@ -479,8 +482,6 @@ describe("RenderableUnit applied buff/debuff display de-duplication", () => {
 });
 
 describe("RenderableUnit dodge animation", () => {
-    const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
     // In-grid position (x ∈ (-1024, 1024), y ∈ (0, 2048)) so ensureVisual builds the sprite.
     const pos = { x: 0, y: 1024 };
 
@@ -508,7 +509,8 @@ describe("RenderableUnit dodge animation", () => {
         expect(unit.isDodging()).toBe(false);
     });
 
-    test("offsets sprite by the full displacement during the hold phase and leaves a ghost trail", async () => {
+    test("offsets sprite by the full displacement during the hold phase and leaves a ghost trail", () => {
+        jest.useFakeTimers();
         const { unit, worldRoot } = createVisualUnit();
         const childrenBefore = worldRoot.children.length;
 
@@ -517,7 +519,7 @@ describe("RenderableUnit dodge animation", () => {
         unit.ensureVisual(worldRoot, gridSettings);
 
         // 250ms sits inside the hold phase (22%..55% of the 640ms dodge) where the envelope is exactly 1.
-        await sleep(250);
+        jest.advanceTimersByTime(250);
         unit.ensureVisual(worldRoot, gridSettings);
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
         expect(sprite).toBeDefined();
@@ -528,14 +530,15 @@ describe("RenderableUnit dodge animation", () => {
         expect(worldRoot.children.length).toBeGreaterThan(childrenBefore);
     });
 
-    test("springs back to rest and cleans up its ghosts after the dodge completes", async () => {
+    test("springs back to rest and cleans up its ghosts after the dodge completes", () => {
+        jest.useFakeTimers();
         const { unit, worldRoot } = createVisualUnit();
         const childrenBefore = worldRoot.children.length;
 
         unit.playDodgeAnimation(40, -20);
         unit.ensureVisual(worldRoot, gridSettings);
         // 640ms dodge + 300ms ghost life, with margin.
-        await sleep(1100);
+        jest.advanceTimersByTime(1100);
         unit.ensureVisual(worldRoot, gridSettings);
 
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
