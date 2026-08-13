@@ -20,6 +20,7 @@ import { useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
 import { RankedBanPicker } from "./RankedBanPicker";
+import { WagerStakeBox } from "./WagerStakeBox";
 import { Perk } from "@heroesofcrypto/common";
 import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
@@ -1143,6 +1144,10 @@ export const MatchmakingRoute: React.FC = () => {
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
                                 <RankedBanPicker />
+                            )}
+
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
+                                <WagerStakeBox />
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (

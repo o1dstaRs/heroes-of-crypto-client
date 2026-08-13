@@ -279,3 +279,48 @@ export const formatLastSeen = (lastOnlineAt: number, now: number = Date.now()): 
     }
     return `${Math.floor(hours / 24)}d ago`;
 };
+
+/* ------------------------------------------------------------- ranked wagers */
+
+export interface WagerIntentState {
+    amount: number;
+    gold: number;
+}
+
+export interface WagerState {
+    gameId: string;
+    status: "negotiating" | "raised" | "locked" | "settled" | "burned" | "refunded";
+    /** The per-player amount currently being played for (the floor until locked/raised). */
+    amount: number;
+    raisedTo: number;
+    deadlineAt: number;
+    myStake: number;
+    opponentStake: number;
+    myTurn: boolean;
+    winnerPlayerId: string;
+    payout: number;
+}
+
+/** The caller's standing next-match stake + live purse (drives the arena stake box). */
+export const fetchWagerIntent = async (): Promise<WagerIntentState> =>
+    get<WagerIntentState>(endpoints.social.wagerIntent);
+
+/** Arm/replace (amount > 0) or clear (amount = 0) the next-match stake. Escrow moves immediately. */
+export const setWagerIntent = async (amount: number): Promise<WagerIntentState> =>
+    post<WagerIntentState>(endpoints.social.wagerIntent, { amount });
+
+/** The live wager on one of MY games, or null when none formed / I am not a participant. */
+export const fetchWager = async (gameId: string): Promise<WagerState | null> => {
+    const result = await get<{ wager: WagerState | null }>(
+        `${endpoints.social.wager}?gameId=${encodeURIComponent(gameId)}`,
+    );
+    return result.wager;
+};
+
+export const callWager = async (gameId: string): Promise<void> => {
+    await post(endpoints.social.wagerCall, { gameId });
+};
+
+export const raiseWager = async (gameId: string, amount: number): Promise<void> => {
+    await post(endpoints.social.wagerRaise, { gameId, amount });
+};

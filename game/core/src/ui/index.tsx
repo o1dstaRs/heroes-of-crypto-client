@@ -52,6 +52,7 @@ import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
+import { WagerNegotiator } from "./WagerNegotiator";
 import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
@@ -936,6 +937,11 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
+                    {/* Wager negotiation rides the draft: it forms a few seconds into pick and must
+                        resolve before the fight. Observers have no seat, hence no wager. */}
+                    {routeMode === "pick" && !observerMode && authenticated && (
+                        <WagerNegotiator gameId={gameId} active={routeMode === "pick"} />
+                    )}
                     {routeMode === "pick" &&
                         (observerMode ? (
                             <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />

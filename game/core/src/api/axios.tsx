@@ -230,6 +230,10 @@ export const endpoints = {
         predictionMarkets: IS_PROD ? "/v1/prediction-markets" : "/v1/mm/prediction-markets",
         predictionBet: IS_PROD ? "/v1/prediction-bet" : "/v1/mm/prediction-bet",
         predictionBets: IS_PROD ? "/v1/prediction-bets" : "/v1/mm/prediction-bets",
+        wagerIntent: IS_PROD ? "/v1/ranked-wager-intent" : "/v1/mm/ranked-wager-intent",
+        wager: IS_PROD ? "/v1/ranked-wager" : "/v1/mm/ranked-wager",
+        wagerCall: IS_PROD ? "/v1/ranked-wager-call" : "/v1/mm/ranked-wager-call",
+        wagerRaise: IS_PROD ? "/v1/ranked-wager-raise" : "/v1/mm/ranked-wager-raise",
     },
     game: {
         confirm: IS_PROD ? "/v1/confirm" : "/v1/game/confirm",
