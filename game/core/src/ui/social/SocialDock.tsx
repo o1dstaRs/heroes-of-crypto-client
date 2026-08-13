@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
+import { DockPanelShell } from "./DockPanelShell";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { useSocial } from "./SocialProvider";
 import {
@@ -159,98 +160,88 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
     const pendingIds = new Set(social.pendingIncoming.map((request) => request.requestId));
 
     return (
-        <Modal open={open} onClose={onClose}>
-            <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 420, maxWidth: "94vw" }}>
-                <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                    Notifications
+        <DockPanelShell open={open} onClose={onClose} width={420} maxWidth="94vw">
+            <Typography level="title-lg" sx={{ color: hocColors.gold }}>
+                Notifications
+            </Typography>
+            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+            {loading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                    <CircularProgress size="sm" sx={hocSpinnerSx} />
+                </Box>
+            ) : items.length === 0 ? (
+                <Typography level="body-sm" sx={{ color: hocColors.muted, py: 2 }}>
+                    Nothing here yet. Friend requests and updates will appear in this tray.
                 </Typography>
-                <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
-                {loading ? (
-                    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                        <CircularProgress size="sm" sx={hocSpinnerSx} />
-                    </Box>
-                ) : items.length === 0 ? (
-                    <Typography level="body-sm" sx={{ color: hocColors.muted, py: 2 }}>
-                        Nothing here yet. Friend requests and updates will appear in this tray.
-                    </Typography>
-                ) : (
-                    <Stack spacing={1} sx={{ maxHeight: "55vh", overflowY: "auto", pr: 0.5 }}>
-                        {items.map((notification) => {
-                            const actionable =
-                                notification.type === "friend_request" &&
-                                !!notification.requestId &&
-                                pendingIds.has(notification.requestId);
-                            const clickable = isClickable(notification);
-                            return (
-                                <Box
-                                    key={notification.id}
-                                    role={clickable ? "button" : undefined}
-                                    tabIndex={clickable ? 0 : undefined}
-                                    onClick={() => {
-                                        if (clickable) {
-                                            activate(notification);
-                                        }
-                                    }}
-                                    onKeyDown={(event) => {
-                                        if ((event.key === "Enter" || event.key === " ") && clickable) {
-                                            event.preventDefault();
-                                            activate(notification);
-                                        }
-                                    }}
-                                    sx={{
-                                        p: 1.25,
-                                        borderRadius: 8,
-                                        border: `1px solid ${notification.seenAt === 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.14)"}`,
-                                        bgcolor: notification.seenAt === 0 ? hocColors.orangeSoft : "transparent",
-                                        cursor: clickable ? "pointer" : "default",
-                                        "&:hover": clickable ? { borderColor: hocColors.orangeBorder } : undefined,
-                                    }}
-                                >
-                                    <Stack
-                                        direction="row"
-                                        spacing={1}
-                                        alignItems="center"
-                                        justifyContent="space-between"
-                                    >
-                                        <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                                            {notificationText(notification)}
-                                        </Typography>
-                                        <Typography
-                                            level="body-xs"
-                                            sx={{ color: hocColors.muted, whiteSpace: "nowrap" }}
+            ) : (
+                <Stack spacing={1} sx={{ maxHeight: "55vh", overflowY: "auto", pr: 0.5 }}>
+                    {items.map((notification) => {
+                        const actionable =
+                            notification.type === "friend_request" &&
+                            !!notification.requestId &&
+                            pendingIds.has(notification.requestId);
+                        const clickable = isClickable(notification);
+                        return (
+                            <Box
+                                key={notification.id}
+                                role={clickable ? "button" : undefined}
+                                tabIndex={clickable ? 0 : undefined}
+                                onClick={() => {
+                                    if (clickable) {
+                                        activate(notification);
+                                    }
+                                }}
+                                onKeyDown={(event) => {
+                                    if ((event.key === "Enter" || event.key === " ") && clickable) {
+                                        event.preventDefault();
+                                        activate(notification);
+                                    }
+                                }}
+                                sx={{
+                                    p: 1.25,
+                                    borderRadius: 8,
+                                    border: `1px solid ${notification.seenAt === 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.14)"}`,
+                                    bgcolor: notification.seenAt === 0 ? hocColors.orangeSoft : "transparent",
+                                    cursor: clickable ? "pointer" : "default",
+                                    "&:hover": clickable ? { borderColor: hocColors.orangeBorder } : undefined,
+                                }}
+                            >
+                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                    <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
+                                        {notificationText(notification)}
+                                    </Typography>
+                                    <Typography level="body-xs" sx={{ color: hocColors.muted, whiteSpace: "nowrap" }}>
+                                        {formatLastSeen(notification.createdAt)}
+                                    </Typography>
+                                </Stack>
+                                {actionable && notification.requestId ? (
+                                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                        <Button
+                                            size="sm"
+                                            sx={hocPrimaryButtonSx}
+                                            onClick={() => void social.respond(notification.requestId ?? "", true)}
                                         >
-                                            {formatLastSeen(notification.createdAt)}
-                                        </Typography>
+                                            Accept
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            onClick={() => void social.respond(notification.requestId ?? "", false)}
+                                        >
+                                            Decline
+                                        </Button>
                                     </Stack>
-                                    {actionable && notification.requestId ? (
-                                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                            <Button
-                                                size="sm"
-                                                sx={hocPrimaryButtonSx}
-                                                onClick={() => void social.respond(notification.requestId ?? "", true)}
-                                            >
-                                                Accept
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outlined"
-                                                sx={hocSoftButtonSx}
-                                                onClick={() => void social.respond(notification.requestId ?? "", false)}
-                                            >
-                                                Decline
-                                            </Button>
-                                        </Stack>
-                                    ) : null}
-                                </Box>
-                            );
-                        })}
-                    </Stack>
-                )}
-                <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
-                    Close
-                </Button>
-            </ModalDialog>
-        </Modal>
+                                ) : null}
+                            </Box>
+                        );
+                    })}
+                </Stack>
+            )}
+            <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
+                Close
+            </Button>
+        </DockPanelShell>
     );
 };
 
@@ -376,236 +367,232 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
     );
 
     return (
-        <Modal open={open} onClose={onClose}>
-            <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 480, maxWidth: "96vw" }}>
-                <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                    Friends
-                </Typography>
-                <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+        <DockPanelShell open={open} onClose={onClose} width={480}>
+            <Typography level="title-lg" sx={{ color: hocColors.gold }}>
+                Friends
+            </Typography>
+            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
 
-                <Stack direction="row" spacing={1}>
-                    <Input
-                        size="sm"
-                        placeholder="Add a friend by username…"
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                                void submitRequest(query);
-                            }
-                        }}
-                        sx={{ ...hocInputSx, flex: 1 }}
-                    />
-                    <Button
-                        size="sm"
-                        disabled={busy || query.trim().length < 3}
-                        sx={hocPrimaryButtonSx}
-                        onClick={() => void submitRequest(query)}
-                    >
-                        Add
-                    </Button>
-                </Stack>
-                {suggestions.length > 0 ? (
-                    <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                        {suggestions.map((hit) => (
-                            <Chip
-                                key={hit.id}
-                                size="sm"
-                                variant="outlined"
-                                sx={{ ...hocSoftButtonSx, cursor: "pointer" }}
-                                onClick={() => void submitRequest(hit.username)}
-                            >
-                                {hit.username}
-                            </Chip>
-                        ))}
-                    </Stack>
-                ) : null}
-                {message ? (
-                    <Alert
-                        size="sm"
-                        sx={
-                            message.kind === "error"
-                                ? hocDangerAlertSx
-                                : {
-                                      bgcolor: "rgba(70,209,96,0.12)",
-                                      color: hocColors.parchment,
-                                      border: `1px solid ${hocColors.greenDeep}`,
-                                  }
+            <Stack direction="row" spacing={1}>
+                <Input
+                    size="sm"
+                    placeholder="Add a friend by username…"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                            void submitRequest(query);
                         }
-                    >
-                        {message.text}
-                    </Alert>
-                ) : null}
-
-                {loading || !overview ? (
-                    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                        <CircularProgress size="sm" sx={hocSpinnerSx} />
-                    </Box>
-                ) : (
-                    <Stack spacing={0.75} sx={{ maxHeight: "52vh", overflowY: "auto", pr: 0.5 }}>
-                        {overview.incoming.length > 0 ? (
-                            <>
-                                {sectionTitle(`Requests (${overview.incoming.length})`)}
-                                {overview.incoming.map((request) => (
-                                    <Stack key={request.requestId} direction="row" alignItems="center" spacing={1}>
-                                        <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
-                                            {request.fromUsername}
-                                        </Typography>
-                                        <Button
-                                            size="sm"
-                                            sx={hocPrimaryButtonSx}
-                                            disabled={busy}
-                                            onClick={() => void act(() => social.respond(request.requestId, true))}
-                                        >
-                                            Accept
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outlined"
-                                            sx={hocSoftButtonSx}
-                                            disabled={busy}
-                                            onClick={() => void act(() => social.respond(request.requestId, false))}
-                                        >
-                                            Decline
-                                        </Button>
-                                    </Stack>
-                                ))}
-                            </>
-                        ) : null}
-
-                        {sectionTitle(`Friends (${overview.friends.length})`)}
-                        {overview.friends.length === 0 ? (
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                No friends yet — send a request by username above.
-                            </Typography>
-                        ) : (
-                            overview.friends.map((friend) => (
-                                <Box
-                                    key={friend.playerId}
-                                    sx={{
-                                        p: 1,
-                                        borderRadius: 8,
-                                        border: `1px solid ${friend.unreadCount > 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.12)"}`,
-                                        bgcolor: friend.unreadCount > 0 ? hocColors.orangeSoft : "transparent",
-                                    }}
-                                >
-                                    <Stack direction="row" alignItems="center" spacing={1}>
-                                        <OnlineDot online={friend.online} />
-                                        <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
-                                            {friend.username}
-                                        </Typography>
-                                        {friend.unreadCount > 0 ? (
-                                            <Chip size="sm" sx={{ bgcolor: hocColors.danger, color: "#fff" }}>
-                                                {friend.unreadCount > 99 ? "99+" : friend.unreadCount}
-                                            </Chip>
-                                        ) : null}
-                                        <Typography
-                                            level="body-xs"
-                                            sx={{
-                                                color: friend.online ? hocColors.green : hocColors.muted,
-                                                whiteSpace: "nowrap",
-                                            }}
-                                        >
-                                            {friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt)}
-                                        </Typography>
-                                    </Stack>
-                                    <Stack direction="row" spacing={0.7} sx={{ mt: 0.8, flexWrap: "wrap" }}>
-                                        <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
-                                            Message
-                                        </Button>
-                                        {currentLobbyId ? (
-                                            <Button
-                                                size="sm"
-                                                variant="outlined"
-                                                sx={hocSoftButtonSx}
-                                                disabled={busy}
-                                                onClick={() => void invite(friend)}
-                                            >
-                                                Invite
-                                            </Button>
-                                        ) : null}
-                                        <Button
-                                            size="sm"
-                                            variant="outlined"
-                                            sx={hocSoftButtonSx}
-                                            disabled={busy}
-                                            onClick={() =>
-                                                void act(() => setFriendMuted(friend.playerId, !friend.muted))
-                                            }
-                                        >
-                                            {friend.muted ? "Unmute alerts" : "Mute alerts"}
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outlined"
-                                            sx={hocSoftButtonSx}
-                                            disabled={busy}
-                                            onClick={() => void act(() => removeFriend(friend.playerId))}
-                                        >
-                                            Remove
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="outlined"
-                                            sx={{
-                                                ...hocSoftButtonSx,
-                                                borderColor: "rgba(255,90,63,0.5)",
-                                                color: hocColors.danger,
-                                            }}
-                                            disabled={busy}
-                                            onClick={() => void act(() => blockPlayer(friend.playerId))}
-                                        >
-                                            Block
-                                        </Button>
-                                    </Stack>
-                                </Box>
-                            ))
-                        )}
-
-                        {overview.outgoing.length > 0 ? (
-                            <>
-                                {sectionTitle(`Sent (${overview.outgoing.length})`)}
-                                {overview.outgoing.map((request) => (
-                                    <Stack key={request.requestId} direction="row" alignItems="center" spacing={1}>
-                                        <Typography level="body-sm" sx={{ color: hocColors.muted, flex: 1 }}>
-                                            {request.toUsername}
-                                        </Typography>
-                                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                            pending
-                                        </Typography>
-                                    </Stack>
-                                ))}
-                            </>
-                        ) : null}
-
-                        {overview.blocked.length > 0 ? (
-                            <>
-                                {sectionTitle(`Blocked (${overview.blocked.length})`)}
-                                {overview.blocked.map((blocked) => (
-                                    <Stack key={blocked.playerId} direction="row" alignItems="center" spacing={1}>
-                                        <Typography level="body-sm" sx={{ color: hocColors.muted, flex: 1 }}>
-                                            {blocked.username}
-                                        </Typography>
-                                        <Button
-                                            size="sm"
-                                            variant="outlined"
-                                            sx={hocSoftButtonSx}
-                                            disabled={busy}
-                                            onClick={() => void act(() => unblockPlayer(blocked.playerId))}
-                                        >
-                                            Unblock
-                                        </Button>
-                                    </Stack>
-                                ))}
-                            </>
-                        ) : null}
-                    </Stack>
-                )}
-                <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
-                    Close
+                    }}
+                    sx={{ ...hocInputSx, flex: 1 }}
+                />
+                <Button
+                    size="sm"
+                    disabled={busy || query.trim().length < 3}
+                    sx={hocPrimaryButtonSx}
+                    onClick={() => void submitRequest(query)}
+                >
+                    Add
                 </Button>
-            </ModalDialog>
-        </Modal>
+            </Stack>
+            {suggestions.length > 0 ? (
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                    {suggestions.map((hit) => (
+                        <Chip
+                            key={hit.id}
+                            size="sm"
+                            variant="outlined"
+                            sx={{ ...hocSoftButtonSx, cursor: "pointer" }}
+                            onClick={() => void submitRequest(hit.username)}
+                        >
+                            {hit.username}
+                        </Chip>
+                    ))}
+                </Stack>
+            ) : null}
+            {message ? (
+                <Alert
+                    size="sm"
+                    sx={
+                        message.kind === "error"
+                            ? hocDangerAlertSx
+                            : {
+                                  bgcolor: "rgba(70,209,96,0.12)",
+                                  color: hocColors.parchment,
+                                  border: `1px solid ${hocColors.greenDeep}`,
+                              }
+                    }
+                >
+                    {message.text}
+                </Alert>
+            ) : null}
+
+            {loading || !overview ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                    <CircularProgress size="sm" sx={hocSpinnerSx} />
+                </Box>
+            ) : (
+                <Stack spacing={0.75} sx={{ maxHeight: "52vh", overflowY: "auto", pr: 0.5 }}>
+                    {overview.incoming.length > 0 ? (
+                        <>
+                            {sectionTitle(`Requests (${overview.incoming.length})`)}
+                            {overview.incoming.map((request) => (
+                                <Stack key={request.requestId} direction="row" alignItems="center" spacing={1}>
+                                    <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
+                                        {request.fromUsername}
+                                    </Typography>
+                                    <Button
+                                        size="sm"
+                                        sx={hocPrimaryButtonSx}
+                                        disabled={busy}
+                                        onClick={() => void act(() => social.respond(request.requestId, true))}
+                                    >
+                                        Accept
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={hocSoftButtonSx}
+                                        disabled={busy}
+                                        onClick={() => void act(() => social.respond(request.requestId, false))}
+                                    >
+                                        Decline
+                                    </Button>
+                                </Stack>
+                            ))}
+                        </>
+                    ) : null}
+
+                    {sectionTitle(`Friends (${overview.friends.length})`)}
+                    {overview.friends.length === 0 ? (
+                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                            No friends yet — send a request by username above.
+                        </Typography>
+                    ) : (
+                        overview.friends.map((friend) => (
+                            <Box
+                                key={friend.playerId}
+                                sx={{
+                                    p: 1,
+                                    borderRadius: 8,
+                                    border: `1px solid ${friend.unreadCount > 0 ? hocColors.orangeBorder : "rgba(255,143,0,0.12)"}`,
+                                    bgcolor: friend.unreadCount > 0 ? hocColors.orangeSoft : "transparent",
+                                }}
+                            >
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                    <OnlineDot online={friend.online} />
+                                    <Typography level="body-sm" sx={{ color: hocColors.parchment, flex: 1 }}>
+                                        {friend.username}
+                                    </Typography>
+                                    {friend.unreadCount > 0 ? (
+                                        <Chip size="sm" sx={{ bgcolor: hocColors.danger, color: "#fff" }}>
+                                            {friend.unreadCount > 99 ? "99+" : friend.unreadCount}
+                                        </Chip>
+                                    ) : null}
+                                    <Typography
+                                        level="body-xs"
+                                        sx={{
+                                            color: friend.online ? hocColors.green : hocColors.muted,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {friend.online ? "Online" : formatLastSeen(friend.lastOnlineAt)}
+                                    </Typography>
+                                </Stack>
+                                <Stack direction="row" spacing={0.7} sx={{ mt: 0.8, flexWrap: "wrap" }}>
+                                    <Button size="sm" sx={hocPrimaryButtonSx} onClick={() => onMessage(friend)}>
+                                        Message
+                                    </Button>
+                                    {currentLobbyId ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outlined"
+                                            sx={hocSoftButtonSx}
+                                            disabled={busy}
+                                            onClick={() => void invite(friend)}
+                                        >
+                                            Invite
+                                        </Button>
+                                    ) : null}
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={hocSoftButtonSx}
+                                        disabled={busy}
+                                        onClick={() => void act(() => setFriendMuted(friend.playerId, !friend.muted))}
+                                    >
+                                        {friend.muted ? "Unmute alerts" : "Mute alerts"}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={hocSoftButtonSx}
+                                        disabled={busy}
+                                        onClick={() => void act(() => removeFriend(friend.playerId))}
+                                    >
+                                        Remove
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={{
+                                            ...hocSoftButtonSx,
+                                            borderColor: "rgba(255,90,63,0.5)",
+                                            color: hocColors.danger,
+                                        }}
+                                        disabled={busy}
+                                        onClick={() => void act(() => blockPlayer(friend.playerId))}
+                                    >
+                                        Block
+                                    </Button>
+                                </Stack>
+                            </Box>
+                        ))
+                    )}
+
+                    {overview.outgoing.length > 0 ? (
+                        <>
+                            {sectionTitle(`Sent (${overview.outgoing.length})`)}
+                            {overview.outgoing.map((request) => (
+                                <Stack key={request.requestId} direction="row" alignItems="center" spacing={1}>
+                                    <Typography level="body-sm" sx={{ color: hocColors.muted, flex: 1 }}>
+                                        {request.toUsername}
+                                    </Typography>
+                                    <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                        pending
+                                    </Typography>
+                                </Stack>
+                            ))}
+                        </>
+                    ) : null}
+
+                    {overview.blocked.length > 0 ? (
+                        <>
+                            {sectionTitle(`Blocked (${overview.blocked.length})`)}
+                            {overview.blocked.map((blocked) => (
+                                <Stack key={blocked.playerId} direction="row" alignItems="center" spacing={1}>
+                                    <Typography level="body-sm" sx={{ color: hocColors.muted, flex: 1 }}>
+                                        {blocked.username}
+                                    </Typography>
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        sx={hocSoftButtonSx}
+                                        disabled={busy}
+                                        onClick={() => void act(() => unblockPlayer(blocked.playerId))}
+                                    >
+                                        Unblock
+                                    </Button>
+                                </Stack>
+                            ))}
+                        </>
+                    ) : null}
+                </Stack>
+            )}
+            <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
+                Close
+            </Button>
+        </DockPanelShell>
     );
 };
 
@@ -640,8 +627,11 @@ export const SocialDock: React.FC = () => {
                 spacing={inGame ? 0.6 : 1}
                 sx={{
                     position: "fixed",
-                    top: inGame ? 10 : "auto",
-                    bottom: inGame ? "auto" : 18,
+                    // In a fight the dock lives at the BOTTOM of the right sidebar column (owner call):
+                    // the top-right corner is where the board's own status chrome sits, and a player's
+                    // eyes are on the board, not above it.
+                    top: "auto",
+                    bottom: inGame ? 12 : 18,
                     right: inGame ? 10 : 18,
                     zIndex: 1400,
                     opacity: inGame ? 0.82 : 1,

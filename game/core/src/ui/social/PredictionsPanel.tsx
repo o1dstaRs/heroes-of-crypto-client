@@ -1,18 +1,4 @@
-import {
-    Box,
-    Button,
-    Divider,
-    Input,
-    Modal,
-    ModalDialog,
-    Sheet,
-    Stack,
-    Tab,
-    TabList,
-    TabPanel,
-    Tabs,
-    Typography,
-} from "@mui/joy";
+import { Box, Button, Divider, Input, Sheet, Stack, Tab, TabList, TabPanel, Tabs, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 
 import {
@@ -27,6 +13,7 @@ import {
 import { fetchRankedStanding } from "../../api/social_client";
 import { t } from "../../i18n/i18n";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
+import { DockPanelShell } from "./DockPanelShell";
 
 /**
  * In-game prediction tray: the markets you can still bet on, and everything you have bet already.
@@ -236,70 +223,68 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
     };
 
     return (
-        <Modal open={open} onClose={onClose}>
-            <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 520, maxWidth: "96vw" }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                    <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                        {t("Predictions")}
-                    </Typography>
-                    <Typography level="body-sm" sx={{ color: hocColors.gold }}>
-                        {gold} {t("gold")}
-                    </Typography>
-                </Stack>
-                <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                    {t("Back a side while a game is still drafting. One bet per game, final once placed.")}
+        <DockPanelShell open={open} onClose={onClose} width={520}>
+            <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                <Typography level="title-lg" sx={{ color: hocColors.gold }}>
+                    {t("Predictions")}
                 </Typography>
+                <Typography level="body-sm" sx={{ color: hocColors.gold }}>
+                    {gold} {t("gold")}
+                </Typography>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                {t("Back a side while a game is still drafting. One bet per game, final once placed.")}
+            </Typography>
 
-                <Tabs defaultValue={0} sx={{ bgcolor: "transparent", mt: 0.5 }}>
-                    <TabList sx={{ bgcolor: "transparent" }}>
-                        <Tab value={0}>{`${t("Open markets")} (${markets.length})`}</Tab>
-                        <Tab value={1}>{`${t("Active")} (${openBets.length})`}</Tab>
-                        <Tab value={2}>{`${t("History")} (${pastBets.length})`}</Tab>
-                    </TabList>
+            <Tabs defaultValue={0} sx={{ bgcolor: "transparent", mt: 0.5 }}>
+                <TabList sx={{ bgcolor: "transparent" }}>
+                    <Tab value={0}>{`${t("Open markets")} (${markets.length})`}</Tab>
+                    <Tab value={1}>{`${t("Active")} (${openBets.length})`}</Tab>
+                    <Tab value={2}>{`${t("History")} (${pastBets.length})`}</Tab>
+                </TabList>
 
-                    <TabPanel value={0} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
-                        {markets.length === 0 ? (
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                {t("No games are drafting right now.")}
-                            </Typography>
-                        ) : (
-                            markets.map(renderMarket)
-                        )}
-                        {error && (
-                            <Typography level="body-xs" sx={{ color: hocColors.danger, mt: 0.5 }}>
-                                {error}
-                            </Typography>
-                        )}
-                    </TabPanel>
+                <TabPanel value={0} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
+                    {markets.length === 0 ? (
+                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                            {t("No games are drafting right now.")}
+                        </Typography>
+                    ) : (
+                        markets.map(renderMarket)
+                    )}
+                    {error && (
+                        <Typography level="body-xs" sx={{ color: hocColors.danger, mt: 0.5 }}>
+                            {error}
+                        </Typography>
+                    )}
+                </TabPanel>
 
-                    <TabPanel value={1} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
-                        {openBets.length === 0 ? (
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                {t("No bets in play.")}
-                            </Typography>
-                        ) : (
-                            openBets.map(renderBet)
-                        )}
-                    </TabPanel>
+                <TabPanel value={1} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
+                    {openBets.length === 0 ? (
+                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                            {t("No bets in play.")}
+                        </Typography>
+                    ) : (
+                        openBets.map(renderBet)
+                    )}
+                </TabPanel>
 
-                    <TabPanel value={2} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
-                        {pastBets.length === 0 ? (
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                {t("Nothing settled yet.")}
-                            </Typography>
-                        ) : (
-                            pastBets.map(renderBet)
-                        )}
-                    </TabPanel>
-                </Tabs>
+                <TabPanel value={2} sx={{ px: 0, maxHeight: "52vh", overflowY: "auto" }}>
+                    {pastBets.length === 0 ? (
+                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                            {t("Nothing settled yet.")}
+                        </Typography>
+                    ) : (
+                        pastBets.map(renderBet)
+                    )}
+                </TabPanel>
+            </Tabs>
 
-                <Divider sx={{ my: 0.5 }} />
-                <Box>
-                    <Button variant="outlined" sx={hocSoftButtonSx} onClick={onClose}>
-                        {t("Close")}
-                    </Button>
-                </Box>
-            </ModalDialog>
-        </Modal>
+            <Divider sx={{ my: 0.5 }} />
+            <Box>
+                <Button variant="outlined" sx={hocSoftButtonSx} onClick={onClose}>
+                    {t("Close")}
+                </Button>
+            </Box>
+        </DockPanelShell>
     );
 };
