@@ -2262,6 +2262,81 @@ const augmentEffectText = (label: string, level: number): string => {
     }
 };
 
+/**
+ * Sidebar augments during placement: the read-only recap, plus — while the board stage is live and
+ * this player has not board-readied — an expandable editor built from the SAME sandbox picker used
+ * in the Setup screen (SideToggleContainer). Every click routes through
+ * RankedPlayScene.propagateAugmentation (the AUGMENT play-action): the server re-validates the
+ * budget, reconciles the placement zones/cap, and the snapshot rebroadcast re-renders unit stats,
+ * movement and shot ranges everywhere (hydration -> refreshUnits).
+ */
+const RankedAugmentPanel: React.FC<{
+    snapshot: PlaySnapshot;
+    userTeam: TeamType;
+    budget: number;
+    canEdit: boolean;
+}> = ({ snapshot, userTeam, budget, canEdit }) => {
+    const [editing, setEditing] = useState(false);
+    useEffect(() => {
+        if (!canEdit && editing) {
+            setEditing(false);
+        }
+    }, [canEdit, editing]);
+    const isLower = userTeam === TeamVals.LOWER;
+    return (
+        <Stack spacing={0.75}>
+            <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={budget} />
+            {canEdit && (
+                <Button
+                    size="sm"
+                    variant={editing ? "solid" : "outlined"}
+                    color="neutral"
+                    onClick={() => setEditing((value) => !value)}
+                    sx={{
+                        alignSelf: "flex-start",
+                        minHeight: 0,
+                        py: 0.4,
+                        px: 1.1,
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        color: editing ? "#201505" : hocColors.gold,
+                        bgcolor: editing ? hocColors.gold : "transparent",
+                        borderColor: "rgba(245,158,11,0.4)",
+                        "&:hover": { bgcolor: editing ? hocColors.gold : "rgba(245,158,11,0.12)" },
+                    }}
+                >
+                    {editing ? "Done editing" : "Edit augments"}
+                </Button>
+            )}
+            {canEdit && editing && (
+                <Box
+                    sx={{
+                        border: "1px solid rgba(245,158,11,0.25)",
+                        borderRadius: 8,
+                        p: 0.75,
+                        bgcolor: "rgba(245,158,11,0.05)",
+                    }}
+                >
+                    <SideToggleContainer
+                        side={isLower ? "green" : "red"}
+                        teamType={userTeam}
+                        showArtifactPicker={false}
+                        budgetPoints={budget}
+                        authoritativeSelections={{
+                            placement: (isLower ? snapshot.lowerAugmentPlacement : snapshot.upperAugmentPlacement) ?? 0,
+                            armor: (isLower ? snapshot.lowerAugmentArmor : snapshot.upperAugmentArmor) ?? 0,
+                            might: (isLower ? snapshot.lowerAugmentMight : snapshot.upperAugmentMight) ?? 0,
+                            empower: (isLower ? snapshot.lowerAugmentEmpower : snapshot.upperAugmentEmpower) ?? 0,
+                            sniper: (isLower ? snapshot.lowerAugmentSniper : snapshot.upperAugmentSniper) ?? 0,
+                            movement: (isLower ? snapshot.lowerAugmentMovement : snapshot.upperAugmentMovement) ?? 0,
+                        }}
+                    />
+                </Box>
+            )}
+        </Stack>
+    );
+};
+
 // Read-only recap of the augments/synergies chosen in the placement overlay, shown in the sidebar
 // while the player positions units. Augment levels come straight from the authoritative snapshot;
 // faction synergies come from the local FightProperties. Read-only on purpose: augments are committed
@@ -2830,9 +2905,17 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             RankedPlayScene.propagateAugmentation (the AUGMENT play-action); artifacts are
                             drafted in pick/ban (read-only above), so the sandbox-only artifact picker
                             stays hidden. */}
-                        {/* Augments are chosen on their OWN screen (the overlay below), like every other
-                            draft phase; the sidebar keeps a read-only recap of what was committed. */}
-                        <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                        {/* Augments are chosen on their own screen during Setup; once the BOARD stage
+                            opens they stay RE-SPENDABLE from this sidebar until this player's own
+                            board-ready — the summary grows an expandable sandbox-style editor. The
+                            server reconciles a live Placement re-spend (units relocate or fold back,
+                            never destroyed) and force-spends whatever is left at fight start. */}
+                        <RankedAugmentPanel
+                            snapshot={snapshot}
+                            userTeam={userTeam}
+                            budget={augmentBudget}
+                            canEdit={inBoardStage && !ready && !isObserver}
+                        />
                         {/* The augment step is its own full screen, built like every draft phase before it:
                             same gradient, same 1340px column, army rails on top and the progress rail at the
                             bottom — not a dialog floating over the placement board. */}
