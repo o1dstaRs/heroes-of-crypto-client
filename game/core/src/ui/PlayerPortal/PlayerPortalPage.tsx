@@ -181,10 +181,10 @@ const RecentForm: React.FC<{ matches: readonly RecentFormMatch[] }> = ({ matches
 };
 
 /** Tier-aware artifact lookup for the stats row: name + codex icon, straight from the shared catalog. */
-const artifactInfo = (tier: 1 | 2, artifactId: number): Artifact.ArtifactProperties | undefined =>
-    (tier === 1 ? Artifact.TIER1_ARTIFACT_LIST : Artifact.TIER2_ARTIFACT_LIST).find(
-        (artifact) => artifact.id === artifactId,
-    );
+export const playerPortalArtifactInfo = (tier: 1 | 2, artifactId: number): Artifact.ArtifactProperties | undefined =>
+    tier === 1
+        ? Artifact.TIER1_ARTIFACTS[artifactId as Artifact.Tier1Artifact]
+        : Artifact.TIER2_ARTIFACTS[artifactId as Artifact.Tier2Artifact];
 
 const ArtifactStatRow: React.FC<{ tier: 1 | 2; artifactId: number; games: number; wins: number }> = ({
     tier,
@@ -192,7 +192,7 @@ const ArtifactStatRow: React.FC<{ tier: 1 | 2; artifactId: number; games: number
     games,
     wins,
 }) => {
-    const info = artifactInfo(tier, artifactId);
+    const info = playerPortalArtifactInfo(tier, artifactId);
     const src = info ? (images as Record<string, string>)[info.imageKey] : undefined;
     // Artifact names come from the shared catalog and stay in English, like creature names do.
     const label = info?.name ?? tf("Artifact {id}", { id: artifactId });
@@ -255,15 +255,19 @@ export const PlayerPortalPage: React.FC = () => {
     const { currency, seasons } = useRankedSeason();
 
     const combos = data?.combos ?? [];
+    const displayedCombos = useMemo(() => {
+        const trios = combos.filter((combo) => new Set(combo.creature_ids ?? []).size === 3);
+        return trios.length > 0 ? trios : combos.filter((combo) => new Set(combo.creature_ids ?? []).size > 3);
+    }, [combos]);
     const bestCombos = useMemo(
         () =>
-            [...combos]
+            [...displayedCombos]
                 .filter((c) => (c.games ?? 0) >= 2)
                 .sort((a, b) => winRatePct(b.wins ?? 0, b.games ?? 0) - winRatePct(a.wins ?? 0, a.games ?? 0))
                 .slice(0, 6),
-        [combos],
+        [displayedCombos],
     );
-    const mostPlayedCombos = useMemo(() => [...combos].slice(0, 6), [combos]);
+    const mostPlayedCombos = useMemo(() => [...displayedCombos].slice(0, 6), [displayedCombos]);
     // ALL creatures, best win rate first (ties: more games first) — the list scrolls instead of cutting off.
     const creatureStats = useMemo(
         () =>
@@ -276,10 +280,21 @@ export const PlayerPortalPage: React.FC = () => {
     );
     const matches = data?.recent_matches ?? [];
     const totalGold = Math.max(0, Number(data?.gold ?? 0));
-    // Creature DUOS that win together: every unordered pair inside each recorded line-up inherits that
-    // line-up's games/wins, and a pair recurring across different line-ups accumulates them all — which is
-    // exactly what makes it a better synergy signal than whole-line-up win rate.
+    // New payloads carry independently aggregated pairs. Keep deriving them from legacy full-lineup payloads
+    // as a rollout fallback so the client and auth server can deploy in either order.
     const strongestPairs = useMemo(() => {
+        const directPairs = combos
+            .filter((combo) => new Set(combo.creature_ids ?? []).size === 2)
+            .map((combo) => {
+                const [a, b] = [...new Set(combo.creature_ids ?? [])].sort((x, y) => x - y);
+                return { a, b, games: combo.games ?? 0, wins: combo.wins ?? 0 };
+            });
+        if (directPairs.length > 0) {
+            return directPairs
+                .filter((pair) => pair.games >= 3)
+                .sort((x, y) => winRatePct(y.wins, y.games) - winRatePct(x.wins, x.games) || y.games - x.games)
+                .slice(0, 8);
+        }
         const byPair = new Map<string, { a: number; b: number; games: number; wins: number }>();
         for (const combo of combos) {
             const games = combo.games ?? 0;
