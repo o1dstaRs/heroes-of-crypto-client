@@ -14,7 +14,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
-import { fetchRankedSeasonSnapshot, type RankedSeasonSnapshot } from "../api/ranked_season_client";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
@@ -27,6 +26,7 @@ import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./ho
 import { PerkIcon } from "./PerkIcon";
 import { getPerkCopy } from "./perkCopy";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
+import { useRankedSeason } from "./useRankedSeason";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -66,7 +66,7 @@ export const MatchmakingRoute: React.FC = () => {
     const [state, setState] = useState<MatchmakingState>("idle");
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
-    const [seasonSnapshot, setSeasonSnapshot] = useState<RankedSeasonSnapshot>();
+    const { currency, snapshot: seasonSnapshot } = useRankedSeason();
 
     useEffect(() => {
         let cancelled = false;
@@ -88,25 +88,6 @@ export const MatchmakingRoute: React.FC = () => {
         };
     }, []);
 
-    useEffect(() => {
-        let cancelled = false;
-        const poll = async (): Promise<void> => {
-            try {
-                const snapshot = await fetchRankedSeasonSnapshot();
-                if (!cancelled) {
-                    setSeasonSnapshot(snapshot);
-                }
-            } catch {
-                // Season context is useful orientation, but a transient failure must not block matchmaking.
-            }
-        };
-        void poll();
-        const interval = setInterval(() => void poll(), 60_000);
-        return () => {
-            cancelled = true;
-            clearInterval(interval);
-        };
-    }, []);
     const [pendingGameId, setPendingGameId] = useState("");
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
@@ -1147,7 +1128,7 @@ export const MatchmakingRoute: React.FC = () => {
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <WagerStakeBox />
+                                <WagerStakeBox currency={currency} />
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (

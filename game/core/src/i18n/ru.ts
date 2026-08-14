@@ -302,4 +302,23 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Ability mastery": "Мастерство способностей",
     "Expanded ranks": "Расширенные ряды",
     "Winged armor": "Броня крылатых",
+
+    // ~~~ Seasonal currency / wagering ~~~
+    "{currency} on the line": "{currency} на кону",
+    "Win ranked games to earn {currency} — then stake it on your matches, winner takes all.":
+        "Побеждайте в рейтинговых матчах, чтобы получать {currency}, и ставьте их на свои бои — победитель забирает всё.",
+    "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.":
+        "{currency} поставлены на следующий матч. Если соперник тоже сделает ставку, победитель заберёт банк, а при ничьей он сгорит.",
+    "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.":
+        "Поставьте {currency} на следующий матч. Равные ставки играются сразу; если ваша ниже, после поиска матча её можно уравнять или повысить.",
+    "{currency} to stake": "Сколько поставить ({currency})",
+    "Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}":
+        "Ставка зафиксирована: по {amount} {symbol}, победитель получит {pot} {symbol}",
+    "Wager settled: {amount} {symbol} to the winner": "Ставка рассчитана: победителю {amount} {symbol}",
+    "Draw — the pot of {pot} {symbol} burns": "Ничья — банк {pot} {symbol} сгорает",
+    "{symbol} each — you already committed it.": "{symbol} с каждого — ваша ставка уже внесена.",
+    "Do nothing and the match plays for {pot} {symbol} total.":
+        "Если ничего не делать, матч будет сыгран за общий банк {pot} {symbol}.",
+    "{amount} {symbol} · {count} bets": "{amount} {symbol} · ставок: {count}",
+    "Not enough {currency}": "Недостаточно: {currency}",
 };

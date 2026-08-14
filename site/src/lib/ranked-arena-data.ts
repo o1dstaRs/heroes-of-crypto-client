@@ -1,3 +1,5 @@
+import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
+
 export type ArenaTab = "players" | "games" | "leagues";
 export type PlayerSort = "rank" | "player" | "rating" | "winRate" | "wins" | "streak" | "gold";
 export type PlayerSortDirection = "asc" | "desc";
@@ -70,7 +72,7 @@ export interface ArenaSeason {
     startsAt: number;
     endsAt: number;
     status: "upcoming" | "active" | "finished";
-    currency: { name: string; symbol: string };
+    currency: SeasonCurrency;
 }
 
 export interface RankedStandingsResponse {
@@ -288,14 +290,13 @@ export function normalizeArenaSeason(value: unknown): ArenaSeason | null {
         return null;
     }
     const status = asString(row.status);
-    const currency = asRecord(row.currency);
     return {
         sequence,
         name,
         startsAt: Math.max(0, asInteger(row.startsAt)),
         endsAt: Math.max(0, asInteger(row.endsAt)),
         status: status === "upcoming" || status === "finished" ? status : "active",
-        currency: { name: asString(currency.name, "Coins"), symbol: asString(currency.symbol, "CN") },
+        currency: normalizeSeasonCurrency(row.currency),
     };
 }
 

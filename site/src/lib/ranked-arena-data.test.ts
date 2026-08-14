@@ -66,6 +66,16 @@ describe("ranked arena response normalization", () => {
             activeCount: 24,
             calibratingCount: 3,
             collapsed: false,
+            season: {
+                sequence: 7,
+                name: "Ashfall",
+                status: "active",
+                currency: {
+                    name: "Ember Shards",
+                    symbol: "ES",
+                    iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+                },
+            },
             leagues: [
                 { league: 1, players: [] },
                 {
@@ -83,6 +93,11 @@ describe("ranked arena response normalization", () => {
         expect(response.activeCount).toBe(24);
         expect(response.leagues.map((league) => league.league)).toEqual([5, 1]);
         expect(response.leagues[0].players[0].username).toBe("Artemis");
+        expect(response.season?.currency).toEqual({
+            name: "Ember Shards",
+            symbol: "ES",
+            iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+        });
     });
 
     test("accepts only known live stages and caps every game at two seats", () => {
@@ -337,5 +352,14 @@ describe("ranked arena display helpers", () => {
     test("uses the compact matchup separator in English", () => {
         expect(rankedArenaCopy.en.versus).toBe("vs");
         expect(rankedArenaCopy.ru.versus).toBe("против");
+    });
+
+    test("keeps prediction-market prose neutral or seasonal", () => {
+        for (const copy of [rankedArenaCopy.en, rankedArenaCopy.ru]) {
+            expect(copy.marketSignInHint).toContain("{currency}");
+            expect(copy.marketAmountPlaceholder).toContain("{currency}");
+        }
+        expect(rankedArenaCopy.en.marketRules.toLowerCase()).not.toContain("gold");
+        expect(rankedArenaCopy.ru.marketRules.toLowerCase()).not.toContain("золот");
     });
 });

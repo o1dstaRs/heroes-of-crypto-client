@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
-import { fetchFriendMessages, markFriendMessagesRead, sendFriendMessage, setFriendMuted } from "./social_client";
+import {
+    fetchFriendMessages,
+    markFriendMessagesRead,
+    sendFriendMessage,
+    setFriendMuted,
+    settledPredictionBetsForSeason,
+    type PredictionBet,
+} from "./social_client";
 
 const FRIEND_ID = "bbbbbbbb-0000-4000-8000-000000000002";
 const storage = {
@@ -62,5 +69,30 @@ describe("social messaging client", () => {
                 expect.objectContaining({ Authorization: "social-token", "x-request-id": expect.any(String) }),
             );
         }
+    });
+});
+
+describe("prediction history", () => {
+    test("keeps only settled bets from the active season", () => {
+        const base: PredictionBet = {
+            gameId: "current-settled",
+            playerId: FRIEND_ID,
+            predictedPlayerId: "bbbbbbbb-0000-4000-8000-000000000003",
+            amount: 10,
+            placedAt: 100,
+            seasonSequence: 4,
+            status: "won",
+            payout: 20,
+            settledAt: 200,
+        };
+        const bets: PredictionBet[] = [
+            base,
+            { ...base, gameId: "current-open", status: "open" },
+            { ...base, gameId: "previous-settled", seasonSequence: 3 },
+            { ...base, gameId: "legacy-settled", seasonSequence: undefined },
+        ];
+
+        expect(settledPredictionBetsForSeason(bets, 4).map((bet) => bet.gameId)).toEqual(["current-settled"]);
+        expect(settledPredictionBetsForSeason(bets, undefined)).toEqual([]);
     });
 });

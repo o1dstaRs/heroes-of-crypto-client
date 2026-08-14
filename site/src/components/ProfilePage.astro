@@ -166,6 +166,14 @@ const rankedApp = links.rankedApp;
         type RankedProfileMatch,
     } from "../lib/ranked-profile-client";
     import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
+    import {
+        fetchSeasonCurrencyCatalog,
+        LEGACY_SEASON_CURRENCY,
+        seasonCurrencyForTimestamp,
+        seasonCurrencyIconUrl,
+        type SeasonCurrency,
+        type SeasonCurrencyCatalog,
+    } from "../lib/season-currency";
 
     type Copy = Record<string, string>;
     const copyEl = document.querySelector<HTMLElement>("[data-profile-copy]");
@@ -238,7 +246,6 @@ const rankedApp = links.rankedApp;
         language === "ru"
             ? "Доля рейтинговых боёв, завершённых игроком через выход из боя или длительное отключение."
             : "Ranked battles this player ended by exiting the fight or remaining disconnected.";
-    const GOLD_ICON = "/assets/icons/currency/gold.svg";
     const MATCH_PAGE_SIZE = 10;
     const PREDICTION_PAGE_SIZE = 5;
     let matchHistoryRows: unknown[] = [];
@@ -249,6 +256,8 @@ const rankedApp = links.rankedApp;
     let expandedMatchId = "";
     let predictionHistoryRows: string[] = [];
     let visiblePredictionCount = 0;
+    let currentCurrency: SeasonCurrency = LEGACY_SEASON_CURRENCY;
+    let selfSeasonCatalog: SeasonCurrencyCatalog | null = null;
 
     const matchGameId = (match: unknown): string => {
         if (!match || typeof match !== "object") return "";
@@ -312,9 +321,23 @@ const rankedApp = links.rankedApp;
         updatePredictionsMoreButton();
     });
 
-    function currencyMarkup(value: number, prefix = ""): string {
-        const amount = `${prefix}${numberFormatter.format(Math.max(0, Math.trunc(value)))}`;
-        return `<span class="currency-amount"><img class="currency-icon" src="${GOLD_ICON}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(amount)}</span></span>`;
+    function currencyMarkup(
+        value: number,
+        prefix = "",
+        currency: SeasonCurrency = currentCurrency,
+        allowNegative = false,
+    ): string {
+        const normalizedValue = allowNegative ? Math.trunc(value) : Math.max(0, Math.trunc(value));
+        const amount = `${prefix}${numberFormatter.format(normalizedValue)}`;
+        const iconUrl = seasonCurrencyIconUrl(currency);
+        return `<span class="currency-amount" aria-label="${escapeHtml(`${currency.name}: ${amount}`)}"><img class="currency-icon" src="${escapeHtml(iconUrl)}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(amount)}</span></span>`;
+    }
+
+    function portalMatchCurrency(match: Record<string, unknown>): SeasonCurrency {
+        const finishedTime = num(match.finished_time ?? match.finishedTime);
+        return finishedTime
+            ? seasonCurrencyForTimestamp(selfSeasonCatalog, finishedTime)
+            : currentCurrency;
     }
 
     function statCard(label: string, value: string, accent?: string): string {
@@ -629,6 +652,7 @@ const rankedApp = links.rankedApp;
                 : copy.matchOpponentLeft
             : "";
         const when = timeAgo(num(match.finished_time), agoLabels);
+        const currency = portalMatchCurrency(match);
         const gameId = typeof match.game_id === "string" ? match.game_id : "";
         const mode = portalMatchMode(match);
         const ratedMode = mode === "ranked" || mode === "calibration";
@@ -642,7 +666,7 @@ const rankedApp = links.rankedApp;
             ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(gameId)}/replay`)}">↻ ${escapeHtml(copy.matchReplay)}</a>`
             : "";
         const rewards = ratedMode && (hasDelta || hasGold)
-            ? `<div class="match-rewards">${hasDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+")}</span>` : ""}</div>`
+            ? `<div class="match-rewards">${hasDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+", currency)}</span>` : ""}</div>`
             : "";
         return `
             <article class="match-row match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
@@ -765,6 +789,7 @@ const rankedApp = links.rankedApp;
     }
 
     function publicMatchRow(match: RankedProfileMatch): string {
+        const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         const resultLabel =
             match.result === "win" ? copy.resultWin : match.result === "loss" ? copy.resultLoss : copy.resultDraw;
         const opponentName = match.opponent?.username ?? "—";
@@ -796,7 +821,7 @@ const rankedApp = links.rankedApp;
                             </div>
                             <div class="match-rewards">
                                 <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
-                                <span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>
+                                <span class="match-gold">${currencyMarkup(match.goldEarned, "+", currency)}</span>
                             </div>
                             <span class="match-details-chevron" aria-hidden="true">⌄</span>
                         </div>
@@ -842,6 +867,7 @@ const rankedApp = links.rankedApp;
     }
 
     function publicDetailsMarkup(match: PublicRankedMatch): string {
+        const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         const viewer = match.players.find((player) => player.playerId === requestedPlayerId) ?? match.players[0];
         const opponent = match.players.find((player) => player.playerId !== viewer.playerId) ?? match.players[1];
         const stats = match.stats;
@@ -872,7 +898,7 @@ const rankedApp = links.rankedApp;
                 ${matchMetric(copy.matchDuration, duration)}
                 ${matchMetric(copy.matchLaps, laps > 0 ? numberFormatter.format(laps) : "—")}
                 ${matchMetric(copy.matchMmr, mmr)}
-                ${matchMetric(copy.matchGoldGain, currencyMarkup(viewer.goldEarned, "+"))}
+                ${matchMetric(currency.name, currencyMarkup(viewer.goldEarned, "+", currency))}
                 ${matchMetric(copy.matchYourDamage, formatDamage(playerDamage))}
                 ${matchMetric(copy.matchOpponentDamage, formatDamage(opponentDamage))}
             </dl>
@@ -890,6 +916,7 @@ const rankedApp = links.rankedApp;
             : "—";
         const mode = portalMatchMode(match);
         const ratedMode = mode === "ranked" || mode === "calibration";
+        const currency = portalMatchCurrency(match);
         const duration = formatDuration(match.duration_ms);
         const laps = Math.max(0, num(match.total_laps));
         const playerDamage = num(match.player_damage);
@@ -908,7 +935,9 @@ const rankedApp = links.rankedApp;
             ? `${numberFormatter.format(before)} → ${numberFormatter.format(after)} <span class="${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">(${delta > 0 ? "+" : ""}${numberFormatter.format(delta)})</span>`
             : "—";
         const goldValue = match.gold_earned ?? match.goldEarned;
-        const gold = !ratedMode || goldValue === undefined ? "—" : currencyMarkup(Math.max(0, num(goldValue)), "+");
+        const gold = !ratedMode || goldValue === undefined
+            ? "—"
+            : currencyMarkup(Math.max(0, num(goldValue)), "+", currency);
         const playerPerformances = portalPerformances(match.player_top_units);
         const opponentPerformances = portalPerformances(match.opponent_top_units);
         return `
@@ -916,7 +945,7 @@ const rankedApp = links.rankedApp;
                 ${matchMetric(copy.matchDuration, duration)}
                 ${matchMetric(copy.matchLaps, laps > 0 ? numberFormatter.format(laps) : "—")}
                 ${matchMetric(copy.matchMmr, mmr)}
-                ${matchMetric(copy.matchGoldGain, gold)}
+                ${matchMetric(currency.name, gold)}
                 ${matchMetric(copy.matchYourDamage, formatDamage(playerDamage))}
                 ${matchMetric(copy.matchOpponentDamage, formatDamage(opponentDamage))}
             </dl>
@@ -1022,6 +1051,7 @@ const rankedApp = links.rankedApp;
 
     function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
         configurePublicMode();
+        currentCurrency = profile.season?.currency ?? LEGACY_SEASON_CURRENCY;
         if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
         const rating = placed ? numberFormatter.format(profile.mmr) : copy.publicRatingHidden;
@@ -1031,7 +1061,8 @@ const rankedApp = links.rankedApp;
         if (goldEl) {
             const gold = numberFormatter.format(profile.gold);
             goldEl.innerHTML = currencyMarkup(profile.gold);
-            goldEl.setAttribute("aria-label", `${copy.statGold}: ${gold}`);
+            goldEl.setAttribute("aria-label", `${currentCurrency.name}: ${gold}`);
+            goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
         }
         document.title = `${profile.username} · Heroes of Crypto`;
@@ -1082,7 +1113,7 @@ const rankedApp = links.rankedApp;
                 ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
                 : copy.publicUnranked;
             const seasonLine = profile.season
-                ? `<small class="ranked-standing__season">${escapeHtml(profile.season.name)}</small>`
+                ? `<small class="ranked-standing__season">${escapeHtml(`${profile.season.name} · ${currentCurrency.name}`)}</small>`
                 : "";
             standingEl.innerHTML = `
                 <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
@@ -1122,7 +1153,7 @@ const rankedApp = links.rankedApp;
                             ? `${predictions.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
                             : "—"
                     }</b><span>${escapeHtml(copy.predictionsHitRate)}</span></span>
-                    <span class="prediction-panel__metric ${netClass}"><b>${netSign}${numberFormatter.format(predictions.net)}</b><span>${escapeHtml(copy.predictionsNet)}</span></span>`;
+                    <span class="prediction-panel__metric ${netClass}"><b>${currencyMarkup(predictions.net, netSign, currentCurrency, true)}</b><span>${escapeHtml(`${copy.predictionsNet} · ${currentCurrency.name}`)}</span></span>`;
             }
 
             const predictionRows = predictions.recent
@@ -1144,10 +1175,10 @@ const rankedApp = links.rankedApp;
                                 ? "muted"
                                 : "";
                     const profit = bet.payout - bet.amount;
-                    const outcome =
+                    const outcomeMarkup =
                         bet.status === "open"
                             ? "—"
-                            : `${profit > 0 ? "+" : ""}${numberFormatter.format(profit)}`;
+                            : currencyMarkup(profit, profit > 0 ? "+" : "", currentCurrency, true);
                     const backedUsername = bet.backedUsername || copy.predictionUnknownSide;
                     const placedDate = bet.placedAt ? new Date(bet.placedAt) : null;
                     const placedAt = placedDate && Number.isFinite(placedDate.getTime()) ? dateFormatter.format(placedDate) : "—";
@@ -1182,7 +1213,7 @@ const rankedApp = links.rankedApp;
                         <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${copy.predictionBacked} ${backedUsername}`)}">
                             <div class="prediction-row__outcome">
                                 <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
-                                <strong class="prediction-outcome ${tone}">${escapeHtml(outcome)}</strong>
+                                <strong class="prediction-outcome ${tone}">${outcomeMarkup}</strong>
                             </div>
                             <div class="prediction-row__bet">
                                 <strong>${escapeHtml(copy.predictionBacked)} ${escapeHtml(backedUsername)}</strong>
@@ -1220,7 +1251,7 @@ const rankedApp = links.rankedApp;
                             <span class="season-name">${escapeHtml(entry.seasonName)}</span>
                             <span class="season-standing">${escapeHtml(standing)}</span>
                             <span class="season-mmr">${escapeHtml(mmr)}</span>
-                            <span class="season-gold">${currencyMarkup(entry.gold)}</span>
+                            <span class="season-gold">${currencyMarkup(entry.gold, "", entry.currency)}</span>
                             <span class="season-record">${entry.wins}–${entry.losses}–${entry.draws}</span>
                             <span class="season-rate">${escapeHtml(rate)}</span>
                             <span class="season-games">${entry.totalGames} ${escapeHtml(copy.gamesLabel)}</span>
@@ -1339,8 +1370,10 @@ const rankedApp = links.rankedApp;
         showState("content");
     }
 
-    function render(portal: any): void {
+    function render(portal: any, catalog: SeasonCurrencyCatalog | null): void {
         configureSelfMode();
+        selfSeasonCatalog = catalog;
+        currentCurrency = catalog?.current?.currency ?? LEGACY_SEASON_CURRENCY;
         const wins = num(portal.wins);
         const losses = num(portal.losses);
         const games = num(portal.total_games_played);
@@ -1350,7 +1383,8 @@ const rankedApp = links.rankedApp;
         if (goldEl) {
             const gold = Math.max(0, num(portal.gold));
             goldEl.innerHTML = currencyMarkup(gold);
-            goldEl.setAttribute("aria-label", `${copy.statGold}: ${numberFormatter.format(gold)}`);
+            goldEl.setAttribute("aria-label", `${currentCurrency.name}: ${numberFormatter.format(gold)}`);
+            goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
         }
 
@@ -1427,7 +1461,11 @@ const rankedApp = links.rankedApp;
         }
         showState("loading");
         try {
-            render(await fetchPlayerPortal());
+            const [portal, catalog] = await Promise.all([
+                fetchPlayerPortal(),
+                fetchSeasonCurrencyCatalog().catch(() => null),
+            ]);
+            render(portal, catalog);
         } catch (error) {
             showState(error instanceof PortalAuthError ? "guest" : "error");
         }

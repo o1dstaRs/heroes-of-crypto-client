@@ -199,10 +199,19 @@ export interface PredictionBet {
     predictedPlayerId: string;
     amount: number;
     placedAt: number;
+    seasonSequence?: number;
     status: "open" | "won" | "lost" | "burned" | "refunded";
     payout: number;
     settledAt: number;
 }
+
+export const settledPredictionBetsForSeason = (
+    bets: readonly PredictionBet[],
+    seasonSequence: number | undefined,
+): PredictionBet[] =>
+    seasonSequence === undefined
+        ? []
+        : bets.filter((bet) => bet.status !== "open" && bet.seasonSequence === seasonSequence);
 
 /** Games still drafting, with both sides' stake pools. Public — no token needed. */
 export const fetchPredictionMarkets = async (): Promise<PredictionMarket[]> => {

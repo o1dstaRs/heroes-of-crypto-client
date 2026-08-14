@@ -37,6 +37,11 @@ describe("public ranked profile normalization", () => {
                     result: "win",
                     reason: "normal",
                     mmrDelta: 14,
+                    season: {
+                        sequence: 4,
+                        name: "Ashfall",
+                        currency: { name: "Embers", symbol: "EM", iconSvg: "<svg></svg>" },
+                    },
                     opponent: { playerId: OPPONENT_ID, username: "Nyx" },
                 },
                 { result: "win" },
@@ -48,6 +53,12 @@ describe("public ranked profile normalization", () => {
         expect(profile?.winRatePct).toBe(71.4);
         expect(profile?.recentGames.map((match) => match.gameId)).toEqual(["newer", "older"]);
         expect(profile?.recentGames[0].opponent).toEqual({ playerId: OPPONENT_ID, username: "Nyx" });
+        expect(profile?.recentGames[0].season?.currency).toEqual({
+            name: "Embers",
+            symbol: "EM",
+            iconSvg: "<svg></svg>",
+        });
+        expect(profile?.recentGames[1].season).toBeNull();
     });
 
     test("keeps recalibration progress and the previous visible standing", () => {
@@ -65,6 +76,41 @@ describe("public ranked profile normalization", () => {
             leagueName: "League 4",
             mmr: 1630,
         });
+    });
+
+    test("keeps current and historical season currency metadata with legacy fallbacks", () => {
+        const profile = normalizePublicRankedProfile({
+            playerId: PLAYER_ID,
+            season: {
+                sequence: 4,
+                name: "Ashfall",
+                currency: {
+                    name: "Ember Shards",
+                    symbol: "ES",
+                    iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+                },
+            },
+            seasonHistory: [
+                {
+                    seasonSequence: 3,
+                    seasonName: "First Flame",
+                    currency: { name: "Crowns", symbol: "CR", iconSvg: "<svg></svg>" },
+                },
+                { seasonSequence: 2, seasonName: "Legacy" },
+            ],
+        });
+
+        expect(profile?.season?.currency).toEqual({
+            name: "Ember Shards",
+            symbol: "ES",
+            iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+        });
+        expect(profile?.seasonHistory[0].currency).toEqual({
+            name: "Crowns",
+            symbol: "CR",
+            iconSvg: "<svg></svg>",
+        });
+        expect(profile?.seasonHistory[1].currency).toEqual({ name: "Gold", symbol: "G", iconSvg: "" });
     });
 
     test("normalizes and orders public prediction history by placement date", () => {

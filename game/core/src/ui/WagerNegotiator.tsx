@@ -1,10 +1,13 @@
 import { Button, Sheet, Slider, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
+import { isInsufficientSeasonCurrencyError } from "../api/ranked_season_client";
 import { callWager, fetchWager, raiseWager, type WagerState } from "../api/social_client";
-import { t } from "../i18n/i18n";
+import { t, tf } from "../i18n/i18n";
 import { playCallSound, playLockSound, playRaiseSound } from "./audio/chipSounds";
+import { CurrencyIcon } from "./GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { useRankedSeason } from "./useRankedSeason";
 
 /**
  * The poker moment of a wagered match. Mounted over the draft; polls the wager (it forms a few
@@ -29,6 +32,7 @@ export interface WagerNegotiatorProps {
 const POLL_MS = 2000;
 
 export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active }) => {
+    const { currency } = useRankedSeason();
     const [wager, setWager] = useState<WagerState | null>(null);
     const [raiseTo, setRaiseTo] = useState(0);
     const [busy, setBusy] = useState(false);
@@ -119,7 +123,11 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
             await raiseWager(gameId, raiseTo);
             await reload();
         } catch (err) {
-            setError((err as Error).message || t("Could not raise"));
+            setError(
+                isInsufficientSeasonCurrencyError(err)
+                    ? tf("Not enough {currency}", { currency: currency.name })
+                    : (err as Error).message || t("Could not raise"),
+            );
         } finally {
             setBusy(false);
         }
@@ -130,10 +138,17 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
     if (wager.status === "locked" || wager.status === "settled" || wager.status === "burned") {
         const text =
             wager.status === "locked"
-                ? `${t("Wager locked")}: ${wager.amount} ${t("gold each — winner takes")} ${pot}`
+                ? tf("Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}", {
+                      amount: wager.amount,
+                      pot,
+                      symbol: currency.symbol,
+                  })
                 : wager.status === "settled"
-                  ? `${t("Wager settled")}: ${wager.payout} ${t("gold to the winner")}`
-                  : `${t("Draw — the pot of")} ${pot} ${t("gold burns")}`;
+                  ? tf("Wager settled: {amount} {symbol} to the winner", {
+                        amount: wager.payout,
+                        symbol: currency.symbol,
+                    })
+                  : tf("Draw — the pot of {pot} {symbol} burns", { pot, symbol: currency.symbol });
         return (
             <Sheet
                 variant="outlined"
@@ -154,7 +169,10 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 }}
             >
                 <Typography level="body-sm" sx={{ color: hocColors.gold, fontWeight: 700 }}>
-                    💰 {text}
+                    <Stack component="span" direction="row" spacing={0.5} alignItems="center">
+                        <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
+                        <span>{text}</span>
+                    </Stack>
                 </Typography>
                 <Button
                     size="sm"
@@ -195,8 +213,18 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
             }}
         >
             <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                <Typography level="title-md" sx={{ color: hocColors.gold, fontWeight: 800 }}>
-                    {t("Gold on the line")}
+                <Typography
+                    level="title-md"
+                    sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        color: hocColors.gold,
+                        fontWeight: 800,
+                    }}
+                >
+                    <CurrencyIcon iconSvg={currency.iconSvg} size={17} />
+                    {tf("{currency} on the line", { currency: currency.name })}
                 </Typography>
                 {secondsLeft > 0 && (
                     <Typography
@@ -223,7 +251,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                         <Typography level="body-sm" sx={{ color: hocColors.parchment, mb: 1 }}>
                             {t("Opponent raised the wager to")}{" "}
                             <b style={{ color: hocColors.gold }}>{wager.raisedTo}</b>{" "}
-                            {t("gold each — you already committed it.")}
+                            {tf("{symbol} each — you already committed it.", { symbol: currency.symbol })}
                         </Typography>
                         <Button
                             fullWidth
@@ -283,7 +311,10 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                         </Button>
                     </Stack>
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.75 }}>
-                        {t("Do nothing and the match plays for")} {pot} {t("gold total.")}
+                        {tf("Do nothing and the match plays for {pot} {symbol} total.", {
+                            pot,
+                            symbol: currency.symbol,
+                        })}
                     </Typography>
                 </>
             ) : (

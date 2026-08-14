@@ -2,7 +2,7 @@ import { Grid, GridConstants, GridSettings, TeamVals } from "@heroesofcrypto/com
 import type { UnitProperties } from "@heroesofcrypto/common";
 import { describe, expect, test } from "bun:test";
 
-import { reconcileRankedGridOccupancy } from "./RankedPlayScene";
+import { RankedPlayScene, rankedUnitCellsMatchAuthoritative, reconcileRankedGridOccupancy } from "./RankedPlayScene";
 
 // The live "Angel couldn't move properly" bug (beta game f5e444ae): a Fairy's move never landed in the
 // client grid, so the Angel's move-and-strike preview pathed through a corridor the real board had
@@ -27,6 +27,70 @@ const unitState = (id: string, cells: { x: number; y: number }[], size = 1, dead
 });
 
 describe("reconcileRankedGridOccupancy", () => {
+    test("distinguishes stale renderable geometry even when the grid is already correct", () => {
+        const authoritative = [{ x: 8, y: 10 }];
+
+        expect(rankedUnitCellsMatchAuthoritative([{ x: 8, y: 10 }], authoritative)).toBe(true);
+        expect(rankedUnitCellsMatchAuthoritative([{ x: 8, y: 9 }], authoritative)).toBe(false);
+        expect(
+            rankedUnitCellsMatchAuthoritative(
+                [
+                    { x: 4, y: 11 },
+                    { x: 5, y: 11 },
+                    { x: 4, y: 10 },
+                    { x: 5, y: 10 },
+                ],
+                [
+                    { x: 5, y: 10 },
+                    { x: 4, y: 10 },
+                    { x: 5, y: 11 },
+                    { x: 4, y: 11 },
+                ],
+            ),
+        ).toBe(true);
+    });
+
+    test("snaps stale unit geometry before an AI decision when occupancy is already authoritative", () => {
+        const grid = new Grid(gridSettings, 1);
+        const authoritative = [{ x: 8, y: 10 }];
+        grid.occupyCells(authoritative, "scavenger", TeamVals.LOWER, 1, false, false);
+        const positions: { x: number; y: number }[] = [];
+        let visualsSynced = 0;
+        let matricesRefreshed = 0;
+        let stacksRefreshed = 0;
+        const unit = {
+            isDead: () => false,
+            getCells: () => [{ x: 8, y: 9 }],
+            setPosition: (x: number, y: number) => positions.push({ x, y }),
+            syncVisual: () => {
+                visualsSynced += 1;
+            },
+        };
+        const scene = Object.assign(Object.create(RankedPlayScene.prototype), {
+            grid,
+            unitsHolder: {
+                getAllUnits: () => new Map([["scavenger", unit]]),
+                refreshStackPowerForAllUnits: () => {
+                    stacksRefreshed += 1;
+                },
+            },
+            sc_sceneSettings: { getGridSettings: () => gridSettings },
+            drawer: { getUnitsContainer: () => ({}) },
+            refreshGridMatrices: () => {
+                matricesRefreshed += 1;
+            },
+        }) as unknown as {
+            healRankedGridOccupancy: (units: ReturnType<typeof unitState>[]) => void;
+        };
+
+        scene.healRankedGridOccupancy([unitState("scavenger", authoritative)]);
+
+        expect(positions).toHaveLength(1);
+        expect(visualsSynced).toBe(1);
+        expect(matricesRefreshed).toBe(1);
+        expect(stacksRefreshed).toBe(1);
+    });
+
     test("re-registers a unit whose grid cells diverged from the authoritative snapshot", () => {
         const grid = new Grid(gridSettings, 1);
         // The grid still thinks the fairy stands at (6,9); the server says (6,11).

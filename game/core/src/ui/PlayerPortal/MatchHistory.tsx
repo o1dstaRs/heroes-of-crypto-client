@@ -9,8 +9,10 @@ import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Box, Button, IconButton, Sheet, Stack, ToggleButtonGroup, Tooltip, Typography } from "@mui/joy";
 import React, { useId, useMemo, useState } from "react";
 
+import { rankedSeasonCurrencyAt, type RankedSeasonCatalog } from "../../api/ranked_season_client";
 import { images } from "../../generated/image_imports";
 import { t, tf, useTranslation } from "../../i18n/i18n";
+import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
 import { getPerkIconImage } from "../perkCopy";
@@ -118,6 +120,7 @@ interface MatchHistoryProps {
     filterable?: boolean;
     matches: readonly PortalMatchData[];
     onReplay: (match: PortalMatchData) => void;
+    seasons: RankedSeasonCatalog;
 }
 
 interface RosterStripProps {
@@ -184,7 +187,11 @@ const MatchKindBadge: React.FC<{ label: string; tone: MatchKindTone }> = ({ labe
     </Box>
 );
 
-const RewardBadge: React.FC<{ label: string; tone: "gold" | "rating" }> = ({ label, tone }) => (
+const RewardBadge: React.FC<{ icon?: React.ReactNode; label: string; tone: "gold" | "rating" }> = ({
+    icon,
+    label,
+    tone,
+}) => (
     <Box
         component="span"
         sx={{
@@ -199,8 +206,10 @@ const RewardBadge: React.FC<{ label: string; tone: "gold" | "rating" }> = ({ lab
             fontWeight: 800,
             lineHeight: 1,
             whiteSpace: "nowrap",
+            gap: 0.35,
         }}
     >
+        {icon}
         {label}
     </Box>
 );
@@ -713,7 +722,8 @@ const MatchCard: React.FC<{
     match: PortalMatchData;
     onExpand: () => void;
     onReplay: () => void;
-}> = ({ compact, expanded, match, onExpand, onReplay }) => {
+    seasons: RankedSeasonCatalog;
+}> = ({ compact, expanded, match, onExpand, onReplay, seasons }) => {
     const detailsId = useId();
     const headingId = useId();
     const { language } = useTranslation();
@@ -742,6 +752,7 @@ const MatchCard: React.FC<{
     const mmrAfter = Number.isFinite(match.mmr_after) ? Math.round(Number(match.mmr_after)) : 0;
     const mmrDelta = formatSignedMatchValue(match.mmr_delta);
     const goldEarned = Number.isFinite(match.gold_earned) ? Math.max(0, Math.round(Number(match.gold_earned))) : 0;
+    const rewardCurrency = rankedSeasonCurrencyAt(seasons, match.finished_time);
 
     return (
         <Sheet
@@ -932,7 +943,13 @@ const MatchCard: React.FC<{
                         {kind.rated && mmrDelta && (
                             <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
                         )}
-                        {kind.rated && <RewardBadge label={tf("Gold +{amount}", { amount: goldEarned })} tone="gold" />}
+                        {kind.rated && (
+                            <RewardBadge
+                                icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
+                                label={`${rewardCurrency.symbol} +${goldEarned}`}
+                                tone="gold"
+                            />
+                        )}
                     </Stack>
 
                     <Box
@@ -984,7 +1001,10 @@ const MatchCard: React.FC<{
                             <>
                                 <Metric label={t("MMR rating")} value={`${mmrBefore} → ${mmrAfter}`} />
                                 <Metric label={t("MMR change")} value={mmrDelta || "0"} />
-                                <Metric label={t("Gold earned")} value={`+${goldEarned}`} />
+                                <Metric
+                                    label={`${rewardCurrency.name} (${rewardCurrency.symbol})`}
+                                    value={`+${goldEarned}`}
+                                />
                             </>
                         )}
                         <Metric label={t("Your damage")} value={formatMatchDamage(match.player_damage)} />
@@ -1047,6 +1067,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     filterable = false,
     matches,
     onReplay,
+    seasons,
 }) => {
     const [filter, setFilter] = useState<MatchHistoryFilter>("all");
     const [expandedGameId, setExpandedGameId] = useState<string>();
@@ -1114,6 +1135,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                         match={match}
                         onExpand={() => setExpandedGameId(expanded ? undefined : gameId)}
                         onReplay={() => onReplay(match)}
+                        seasons={seasons}
                     />
                 );
             })}

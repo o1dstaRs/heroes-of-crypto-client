@@ -1,5 +1,4 @@
 import LanguageRoundedIcon from "@mui/icons-material/LanguageRounded";
-import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { Box, Button, CircularProgress, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
@@ -10,7 +9,9 @@ import { useNavigate } from "react-router";
 import { SUPPORTED_LANGUAGES, setLanguage, t, tf, useTranslation } from "../../i18n/i18n";
 
 import { images } from "../../generated/image_imports";
+import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
+import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
 import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct, WinRateBar } from "./portalFormat";
@@ -251,6 +252,7 @@ export const PlayerPortalPage: React.FC = () => {
     const { data, loading, error, reload } = usePlayerPortal();
     const standing = useRankedStanding(data?.total_games_played ?? 0);
     const { t, language } = useTranslation();
+    const { currency, seasons } = useRankedSeason();
 
     const combos = data?.combos ?? [];
     const bestCombos = useMemo(
@@ -398,7 +400,8 @@ export const PlayerPortalPage: React.FC = () => {
                                     {data ? (
                                         <Sheet
                                             variant="soft"
-                                            aria-label={`${t("Gold balance")}: ${totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}`}
+                                            aria-label={`${currency.name}: ${totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}`}
+                                            title={`${currency.name} (${currency.symbol})`}
                                             sx={{
                                                 display: "inline-flex",
                                                 alignItems: "center",
@@ -411,9 +414,10 @@ export const PlayerPortalPage: React.FC = () => {
                                                 color: hocColors.gold,
                                             }}
                                         >
-                                            <PaidRoundedIcon sx={{ fontSize: 17 }} aria-hidden="true" />
+                                            <CurrencyIcon iconSvg={currency.iconSvg} size={17} />
                                             <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
-                                                {totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}
+                                                {totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}{" "}
+                                                {currency.symbol}
                                             </Typography>
                                         </Sheet>
                                     ) : null}
@@ -656,6 +660,7 @@ export const PlayerPortalPage: React.FC = () => {
                                 filterable
                                 matches={matches}
                                 onReplay={(match) => navigate(matchReplayPath(match))}
+                                seasons={seasons}
                             />
                         </Section>
                     </Stack>

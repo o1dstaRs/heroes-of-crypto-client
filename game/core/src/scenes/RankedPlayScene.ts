@@ -187,6 +187,13 @@ export interface IOccupancyAuditGrid {
     ): boolean;
 }
 
+export const rankedUnitCellsMatchAuthoritative = (
+    actual: readonly HoCMath.XY[],
+    authoritative: readonly HoCMath.XY[],
+): boolean =>
+    actual.length === authoritative.length &&
+    authoritative.every((cell) => actual.some((candidate) => candidate.x === cell.x && candidate.y === cell.y));
+
 /**
  * Audit the client grid's occupancy against the authoritative snapshot and re-register any unit whose
  * cells diverged. The skip-rebuild and same-signature snapshot paths assume every replayed move already
@@ -208,8 +215,7 @@ export const reconcileRankedGridOccupancy = (
         const id = unitState.properties.id;
         const registered = grid.getRegisteredCells(id);
         const inSync =
-            registered.length === unitState.cells.length &&
-            unitState.cells.every((cell) => registered.some((r) => r.x === cell.x && r.y === cell.y)) &&
+            rankedUnitCellsMatchAuthoritative(registered, unitState.cells) &&
             unitState.cells.every((cell) => grid.getOccupantUnitId(cell) === id);
         if (inSync) {
             continue;
@@ -1936,27 +1942,35 @@ export class RankedPlayScene extends Sandbox {
         }
     }
     /**
-     * Self-heal grid occupancy from the authoritative snapshot (see reconcileRankedGridOccupancy). On a
-     * fix, also snap the unit's logical position to its authoritative cells (idempotent for units that
-     * merely missed their grid registration) and re-derive the cached path matrices so the next movement
-     * preview paths the REAL board instead of the stale one.
+     * Self-heal grid occupancy and renderable-unit geometry from the authoritative snapshot. The grid can be
+     * correct while a replayed sprite still has a stale logical position; tactical candidates read Unit cells,
+     * not grid occupancy, so snap either mismatch before the next movement preview or AI decision.
      */
     private healRankedGridOccupancy(units: SandboxSceneUnitState[]): void {
         const fixed = reconcileRankedGridOccupancy(this.grid, units);
-        if (!fixed.length) {
-            return;
-        }
-        for (const id of fixed) {
+        const occupancyFixed = new Set(fixed);
+        let geometryFixed = false;
+        for (const unitState of units) {
+            if (unitState.dead || !unitState.cells.length) {
+                continue;
+            }
+            const id = unitState.properties.id;
             const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            const unitState = units.find((u) => u.properties.id === id);
-            if (!unit || !unitState) {
+            if (!unit || unit.isDead()) {
+                continue;
+            }
+            if (!occupancyFixed.has(id) && rankedUnitCellsMatchAuthoritative(unit.getCells(), unitState.cells)) {
                 continue;
             }
             const position = GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), unitState.cells);
             if (position) {
                 unit.setPosition(position.x, position.y);
                 unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+                geometryFixed = true;
             }
+        }
+        if (!fixed.length && !geometryFixed) {
+            return;
         }
         this.refreshGridMatrices();
         this.unitsHolder.refreshStackPowerForAllUnits();

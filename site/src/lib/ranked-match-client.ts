@@ -1,4 +1,5 @@
 import { isPublicRankedPlayerId, type RankedMatchReason, type RankedMatchResult } from "./ranked-profile-client";
+import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
 
 export type RankedMatchSide = "lower" | "upper";
 
@@ -47,6 +48,14 @@ export interface PublicRankedMatchStats {
     replayAvailable: boolean;
 }
 
+export interface PublicRankedMatchSeason {
+    sequence: number;
+    name: string;
+    startsAt: number;
+    endsAt: number;
+    currency: SeasonCurrency;
+}
+
 export interface PublicRankedMatch {
     gameId: string;
     finishedTime: number;
@@ -57,6 +66,7 @@ export interface PublicRankedMatch {
     reason: RankedMatchReason;
     winnerPlayerId: string;
     seasonSequence: number;
+    season: PublicRankedMatchSeason | null;
     players: [PublicRankedMatchPlayer, PublicRankedMatchPlayer];
     stats: PublicRankedMatchStats | null;
 }
@@ -167,6 +177,21 @@ const normalizeStats = (value: unknown): PublicRankedMatchStats | null => {
     };
 };
 
+const normalizeSeason = (value: unknown): PublicRankedMatchSeason | null => {
+    const row = asRecord(value);
+    if (!row) return null;
+    const sequence = nonNegativeInteger(row.sequence);
+    const name = asString(row.name);
+    if (!sequence || !name) return null;
+    return {
+        sequence,
+        name,
+        startsAt: nonNegativeInteger(row.startsAt),
+        endsAt: nonNegativeInteger(row.endsAt),
+        currency: normalizeSeasonCurrency(row.currency),
+    };
+};
+
 export const isPublicRankedGameId = (value: string): boolean => value.length === 36 && /^[a-zA-Z0-9-]+$/.test(value);
 
 export function normalizePublicRankedMatch(value: unknown): PublicRankedMatch | null {
@@ -180,6 +205,7 @@ export function normalizePublicRankedMatch(value: unknown): PublicRankedMatch | 
         .sort((left, right) => (left.side === right.side ? 0 : left.side === "lower" ? -1 : 1));
     if (players.length !== 2 || players[0]?.side !== "lower" || players[1]?.side !== "upper") return null;
     const winnerPlayerId = asString(row.winnerPlayerId);
+    const season = normalizeSeason(row.season);
     return {
         gameId,
         finishedTime: nonNegativeInteger(row.finishedTime),
@@ -189,7 +215,8 @@ export function normalizePublicRankedMatch(value: unknown): PublicRankedMatch | 
         outcome: row.outcome === "win" ? "win" : "draw",
         reason: normalizeReason(row.reason),
         winnerPlayerId: isPublicRankedPlayerId(winnerPlayerId) ? winnerPlayerId : "",
-        seasonSequence: nonNegativeInteger(row.seasonSequence),
+        seasonSequence: nonNegativeInteger(row.seasonSequence) || season?.sequence || 0,
+        season,
         players: [players[0], players[1]],
         stats: normalizeStats(row.stats),
     };

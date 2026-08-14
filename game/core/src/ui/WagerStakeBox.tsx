@@ -1,9 +1,11 @@
 import { Button, Input, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 
+import { isInsufficientSeasonCurrencyError, type RankedSeasonCurrency } from "../api/ranked_season_client";
 import { fetchWagerIntent, setWagerIntent } from "../api/social_client";
-import { t } from "../i18n/i18n";
+import { t, tf } from "../i18n/i18n";
 import { playCallSound } from "./audio/chipSounds";
+import { CurrencyIcon } from "./GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 
 /**
@@ -15,7 +17,7 @@ import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx 
  * winning ranked games, and the box says exactly that.
  */
 
-export const WagerStakeBox: React.FC = () => {
+export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> }> = ({ currency }) => {
     const [gold, setGold] = useState<number | null>(null);
     const [armed, setArmed] = useState(0);
     const [draft, setDraft] = useState("");
@@ -56,7 +58,11 @@ export const WagerStakeBox: React.FC = () => {
             setGold(result.gold);
             setDraft("");
         } catch (err) {
-            setError((err as Error).message || t("Could not set the stake"));
+            setError(
+                isInsufficientSeasonCurrencyError(err)
+                    ? tf("Not enough {currency}", { currency: currency.name })
+                    : (err as Error).message || t("Could not set the stake"),
+            );
         } finally {
             setBusy(false);
         }
@@ -67,7 +73,10 @@ export const WagerStakeBox: React.FC = () => {
         return (
             <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 1.5, width: "100%", textAlign: "center" }}>
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    ⚔️ {t("Win ranked games to earn gold — then stake it on your matches, winner takes all.")}
+                    ⚔️{" "}
+                    {tf("Win ranked games to earn {currency} — then stake it on your matches, winner takes all.", {
+                        currency: currency.name,
+                    })}
                 </Typography>
             </Sheet>
         );
@@ -76,11 +85,21 @@ export const WagerStakeBox: React.FC = () => {
     return (
         <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 1.5, width: "100%" }}>
             <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.75 }}>
-                <Typography level="title-sm" sx={{ color: hocColors.gold, fontWeight: 800 }}>
-                    💰 {t("Gold on the line")}
+                <Typography
+                    level="title-sm"
+                    sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        color: hocColors.gold,
+                        fontWeight: 800,
+                    }}
+                >
+                    <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
+                    {tf("{currency} on the line", { currency: currency.name })}
                 </Typography>
                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                    {t("Purse")}: {gold} {t("gold")}
+                    {t("Purse")}: {gold} {currency.symbol}
                 </Typography>
             </Stack>
 
@@ -88,8 +107,9 @@ export const WagerStakeBox: React.FC = () => {
                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
                     <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
                         <b style={{ color: hocColors.gold }}>{armed}</b>{" "}
-                        {t(
-                            "gold rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.",
+                        {tf(
+                            "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.",
+                            { currency: currency.name },
                         )}
                     </Typography>
                     <Button
@@ -105,15 +125,16 @@ export const WagerStakeBox: React.FC = () => {
             ) : (
                 <>
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mb: 0.75 }}>
-                        {t(
-                            "Stake gold on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.",
+                        {tf(
+                            "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.",
+                            { currency: currency.name },
                         )}
                     </Typography>
                     <Stack direction="row" spacing={0.75} alignItems="center">
                         <Input
                             size="sm"
                             type="number"
-                            placeholder={t("Gold to stake")}
+                            placeholder={tf("{currency} to stake", { currency: currency.name })}
                             value={draft}
                             slotProps={{ input: { min: 1, max: total, step: 1 } }}
                             onChange={(event) => setDraft(event.target.value)}

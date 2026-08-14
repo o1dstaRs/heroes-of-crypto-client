@@ -1,3 +1,5 @@
+import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
+
 export type RankedProfileState = "calibration" | "placed" | "recalibration";
 export type RankedMatchResult = "win" | "loss" | "draw";
 export type RankedMatchReason = "normal" | "concede" | "disconnect" | "double_disconnect" | "cancel";
@@ -30,6 +32,7 @@ export interface RankedProfileMatch {
     goldEarned: number;
     calibration: boolean;
     opponent: RankedProfileOpponent | null;
+    season: ProfileSeason | null;
 }
 
 export interface PlaystyleCreature {
@@ -110,6 +113,7 @@ export interface SeasonHistoryEntry {
     totalGames: number;
     winRatePct: number;
     archivedAt: number;
+    currency: SeasonCurrency;
 }
 
 export type PredictionStatus = "open" | "won" | "lost" | "burned" | "refunded";
@@ -146,6 +150,7 @@ export interface ProfileSeason {
     name: string;
     startsAt: number;
     endsAt: number;
+    currency: SeasonCurrency;
 }
 
 export interface PublicRankedProfile {
@@ -357,6 +362,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
                 mmrDelta: asInteger(match.mmrDelta),
                 goldEarned: nonNegativeInteger(match.goldEarned),
                 calibration: match.calibration === true,
+                season: normalizeProfileSeason(match.season),
                 opponent:
                     opponentRow && isPublicRankedPlayerId(opponentId)
                         ? {
@@ -480,6 +486,7 @@ function normalizeProfileSeason(value: unknown): ProfileSeason | null {
         name,
         startsAt: nonNegativeInteger(row.startsAt),
         endsAt: nonNegativeInteger(row.endsAt),
+        currency: normalizeSeasonCurrency(row.currency),
     };
 }
 
@@ -506,6 +513,7 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         totalGames: nonNegativeInteger(row.totalGames),
         winRatePct: Math.max(0, Math.min(100, asNumber(row.winRatePct))),
         archivedAt: nonNegativeInteger(row.archivedAt),
+        currency: normalizeSeasonCurrency(row.currency),
     };
 }
 

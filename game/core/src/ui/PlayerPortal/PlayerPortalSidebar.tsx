@@ -1,14 +1,15 @@
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
-import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Avatar, Box, Button, CircularProgress, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 import { useNavigate } from "react-router";
 
 import { t, tf, useTranslation } from "../../i18n/i18n";
+import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
+import { useRankedSeason } from "../useRankedSeason";
 import {
     matchReplayPath,
     matchResultPresentation,
@@ -243,6 +244,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     const standing = useRankedStanding(data?.total_games_played ?? 0);
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     const { language } = useTranslation();
+    const { currency } = useRankedSeason();
 
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
     const recent = (data?.recent_matches ?? []).slice(0, 3);
@@ -314,12 +316,13 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                     direction="row"
                                     spacing={0.3}
                                     alignItems="center"
-                                    aria-label={`${t("Gold balance")}: ${localizedGold}`}
+                                    aria-label={`${currency.name}: ${localizedGold}`}
+                                    title={`${currency.name} (${currency.symbol})`}
                                     sx={{ flexShrink: 0, color: hocColors.gold }}
                                 >
-                                    <PaidRoundedIcon sx={{ fontSize: 14 }} aria-hidden="true" />
+                                    <CurrencyIcon iconSvg={currency.iconSvg} size={14} />
                                     <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
-                                        {localizedGold}
+                                        {localizedGold} {currency.symbol}
                                     </Typography>
                                 </Stack>
                             )}

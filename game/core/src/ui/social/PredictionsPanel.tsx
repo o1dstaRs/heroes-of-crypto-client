@@ -7,12 +7,15 @@ import {
     placePredictionBet,
     predictionReturn,
     socialErrorMessage,
+    settledPredictionBetsForSeason,
     type PredictionBet,
     type PredictionMarket,
 } from "../../api/social_client";
 import { fetchRankedStanding } from "../../api/social_client";
-import { t } from "../../i18n/i18n";
+import { t, tf } from "../../i18n/i18n";
+import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
+import { useRankedSeason } from "../useRankedSeason";
 import { DockPanelShell } from "./DockPanelShell";
 
 /**
@@ -46,6 +49,7 @@ const statusColor = (status: PredictionBet["status"]): string => {
 };
 
 export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClose }) => {
+    const { currency, snapshot: seasonSnapshot } = useRankedSeason();
     const [markets, setMarkets] = useState<PredictionMarket[]>([]);
     const [bets, setBets] = useState<PredictionBet[]>([]);
     const [gold, setGold] = useState(0);
@@ -87,7 +91,8 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
 
     const betByGame = new Map(bets.map((bet) => [bet.gameId, bet]));
     const openBets = bets.filter((bet) => bet.status === "open");
-    const pastBets = bets.filter((bet) => bet.status !== "open");
+    const currentSeasonSequence = seasonSnapshot?.current?.sequence;
+    const pastBets = settledPredictionBetsForSeason(bets, currentSeasonSequence);
     const stake = Math.max(0, Math.floor(Number(amount) || 0));
 
     const submit = async (market: PredictionMarket): Promise<void> => {
@@ -120,7 +125,11 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
             <Sheet key={market.gameId} variant="outlined" sx={{ ...hocPanelSx, p: 1.25, mb: 1 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.5 }}>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        {market.totalPool} {t("gold")} · {market.totalBets} {t("bets")}
+                        {tf("{amount} {symbol} · {count} bets", {
+                            amount: market.totalPool,
+                            count: market.totalBets,
+                            symbol: currency.symbol,
+                        })}
                     </Typography>
                 </Stack>
                 <Stack direction="row" spacing={0.75}>
@@ -150,7 +159,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                     {seat.username}
                                 </Typography>
                                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                    {seat.pool} {t("gold")} · {share}%
+                                    {seat.pool} {currency.symbol} · {share}%
                                 </Typography>
                             </Button>
                         );
@@ -159,7 +168,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
 
                 {mine ? (
                     <Typography level="body-xs" sx={{ color: hocColors.gold, mt: 0.75 }}>
-                        {t("Your bet")}: {mine.amount} {t("gold")}
+                        {t("Your bet")}: {mine.amount} {currency.symbol}
                     </Typography>
                 ) : armed ? (
                     <Stack spacing={0.75} sx={{ mt: 0.75 }}>
@@ -168,7 +177,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                 size="sm"
                                 type="number"
                                 slotProps={{ input: { min: 1, step: 1 } }}
-                                placeholder={t("Gold to stake")}
+                                placeholder={tf("{currency} to stake", { currency: currency.name })}
                                 value={amount}
                                 onChange={(event) => setAmount(event.target.value)}
                                 sx={{ ...hocInputSx, flex: 1 }}
@@ -185,12 +194,12 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                         </Stack>
                         {stake > 0 && chosen && (
                             <Typography level="body-xs" sx={{ color: hocColors.gold }}>
-                                {t("Returns")} {total} {t("gold")} (+{total - stake})
+                                {t("Returns")} {total} {currency.symbol} (+{total - stake})
                             </Typography>
                         )}
                         {stake > gold && (
                             <Typography level="body-xs" sx={{ color: hocColors.danger }}>
-                                {t("Not enough gold")}
+                                {tf("Not enough {currency}", { currency: currency.name })}
                             </Typography>
                         )}
                     </Stack>
@@ -213,7 +222,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                     {statusLabel(bet.status)}
                 </Typography>
                 <Typography level="body-xs" sx={{ color: hocColors.parchment, flex: 1, mx: 1 }}>
-                    {bet.amount} {t("gold")}
+                    {bet.amount} {currency.symbol}
                 </Typography>
                 <Typography level="body-xs" sx={{ color: bet.status === "won" ? hocColors.green : hocColors.muted }}>
                     {bet.status === "open" ? "—" : `${profit > 0 ? "+" : ""}${profit}`}
@@ -228,8 +237,12 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                 <Typography level="title-lg" sx={{ color: hocColors.gold }}>
                     {t("Predictions")}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: hocColors.gold }}>
-                    {gold} {t("gold")}
+                <Typography
+                    level="body-sm"
+                    sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
+                    title={`${currency.name} (${currency.symbol})`}
+                >
+                    <CurrencyIcon iconSvg={currency.iconSvg} size={15} /> {gold} {currency.symbol}
                 </Typography>
             </Stack>
             <Typography level="body-xs" sx={{ color: hocColors.muted }}>
