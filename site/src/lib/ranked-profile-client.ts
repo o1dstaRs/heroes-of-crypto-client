@@ -145,6 +145,31 @@ export interface PredictionHistory {
     recent: PredictionRecord[];
 }
 
+export type WagerOutcome = "won" | "lost" | "draw" | "refunded" | "open";
+
+export interface WagerRecord {
+    gameId: string;
+    opponentPlayerId: string;
+    opponentUsername: string;
+    /** Per-player locked amount — each side risked exactly this; the winner banks the opponent's. */
+    amount: number;
+    outcome: WagerOutcome;
+    settledAt: number;
+    createdAt: number;
+}
+
+/** Head-to-head record: gold wagered on the player's OWN games (winner takes the pot, draws burn). */
+export interface WagerHistory {
+    wagers: number;
+    staked: number;
+    won: number;
+    lost: number;
+    draws: number;
+    net: number;
+    winRatePct: number;
+    recent: WagerRecord[];
+}
+
 export interface ProfileSeason {
     sequence: number;
     name: string;
@@ -184,6 +209,7 @@ export interface PublicRankedProfile {
     // The player's pre-game ban preference: the ONE unit they never want offered in their drafts.
     rankedBan: { creatureId: number; name: string } | null;
     predictions: PredictionHistory;
+    wagers: WagerHistory;
     // The season the live numbers belong to (null = season-less/preseason ladder) and the final
     // standings of every season this player already finished, newest first.
     season: ProfileSeason | null;
@@ -410,6 +436,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
         rankedBan: normalizeRankedBan(row.rankedBan),
         predictions: normalizePredictions(row.predictions),
+        wagers: normalizeWagers(row.wagers),
         season: normalizeProfileSeason(row.season),
         seasonHistory: (Array.isArray(row.seasonHistory) ? row.seasonHistory : [])
             .map(normalizeSeasonHistoryEntry)
@@ -455,6 +482,44 @@ function normalizePredictions(value: unknown): PredictionHistory {
         settled: nonNegativeInteger(row.settled),
         won: nonNegativeInteger(row.won),
         // Net is the only signed figure here — a losing bettor is below zero.
+        net: asInteger(row.net),
+        winRatePct: asNumber(row.winRatePct),
+        recent,
+    };
+}
+
+const WAGER_OUTCOMES = new Set<WagerOutcome>(["won", "lost", "draw", "refunded", "open"]);
+
+function normalizeWagers(value: unknown): WagerHistory {
+    const row = asRecord(value);
+    const recent = (Array.isArray(row.recent) ? row.recent : [])
+        .map((entry): WagerRecord | null => {
+            const wager = asRecord(entry);
+            const gameId = asString(wager.gameId);
+            if (!gameId) {
+                return null;
+            }
+            const outcome = asString(wager.outcome) as WagerOutcome;
+            return {
+                gameId,
+                opponentPlayerId: asString(wager.opponentPlayerId),
+                opponentUsername: asString(wager.opponentUsername),
+                amount: nonNegativeInteger(wager.amount),
+                outcome: WAGER_OUTCOMES.has(outcome) ? outcome : "open",
+                settledAt: nonNegativeInteger(wager.settledAt),
+                createdAt: nonNegativeInteger(wager.createdAt),
+            };
+        })
+        .filter((wager): wager is WagerRecord => wager !== null)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+    return {
+        wagers: nonNegativeInteger(row.wagers),
+        staked: nonNegativeInteger(row.staked),
+        won: nonNegativeInteger(row.won),
+        lost: nonNegativeInteger(row.lost),
+        draws: nonNegativeInteger(row.draws),
+        // A losing wagerer sits below zero — the one signed figure here.
         net: asInteger(row.net),
         winRatePct: asNumber(row.winRatePct),
         recent,

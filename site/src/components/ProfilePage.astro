@@ -99,6 +99,29 @@ const rankedApp = links.rankedApp;
                     </details>
                 </section>
 
+                <section class="profile-section profile-section--predictions" data-profile-wagers-section hidden>
+                    <details class="prediction-panel" data-profile-wagers-panel>
+                        <summary class="prediction-panel__summary">
+                            <span class="prediction-panel__heading" role="heading" aria-level="2">{copy.publicWagersTitle}</span>
+                            <span class="prediction-panel__metrics" data-profile-wager-summary></span>
+                            <span class="prediction-panel__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="prediction-panel__body">
+                            <div
+                                class="prediction-history"
+                                id="profile-wager-history"
+                                data-profile-wagers></div>
+                            <button
+                                type="button"
+                                class="matches-more prediction-panel__more"
+                                data-profile-wagers-more
+                                aria-controls="profile-wager-history"
+                                hidden>{copy.predictionsShowMore}</button
+                            >
+                        </div>
+                    </details>
+                </section>
+
                 <section class="profile-section" data-profile-self>
                     <h2>{copy.sectionCreatures}</h2>
                     <div class="bar-list" data-profile-creatures></div>
@@ -205,6 +228,8 @@ const rankedApp = links.rankedApp;
     const predictionsPanelEl = $<HTMLDetailsElement>("predictions-panel");
     const predictionsEl = $("predictions");
     const predictionsMoreEl = $<HTMLButtonElement>("predictions-more");
+    const wagersEl = $("wagers");
+    const wagersMoreEl = $<HTMLButtonElement>("wagers-more");
     const selfSections = [...document.querySelectorAll<HTMLElement>("[data-profile-self]")];
     const profileSearchParams = new URL(window.location.href).searchParams;
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
@@ -319,6 +344,30 @@ const rankedApp = links.rankedApp;
         );
         visiblePredictionCount = nextCount;
         updatePredictionsMoreButton();
+    });
+
+    let wagerHistoryRows: string[] = [];
+    let visibleWagerCount = 0;
+
+    function updateWagersMoreButton(): void {
+        if (wagersMoreEl) wagersMoreEl.hidden = visibleWagerCount >= wagerHistoryRows.length;
+    }
+
+    function renderWagerHistory(rows: string[], emptyMarkup: string): void {
+        wagerHistoryRows = rows;
+        visibleWagerCount = Math.min(PREDICTION_PAGE_SIZE, rows.length);
+        if (wagersEl) {
+            wagersEl.innerHTML = rows.length ? rows.slice(0, visibleWagerCount).join("") : emptyMarkup;
+        }
+        updateWagersMoreButton();
+    }
+
+    wagersMoreEl?.addEventListener("click", () => {
+        if (!wagersEl) return;
+        const nextCount = Math.min(visibleWagerCount + PREDICTION_PAGE_SIZE, wagerHistoryRows.length);
+        wagersEl.insertAdjacentHTML("beforeend", wagerHistoryRows.slice(visibleWagerCount, nextCount).join(""));
+        visibleWagerCount = nextCount;
+        updateWagersMoreButton();
     });
 
     function currencyMarkup(
@@ -1228,6 +1277,95 @@ const rankedApp = links.rankedApp;
             renderPredictionHistory(
                 predictionRows,
                 `<p class="prediction-history__empty">${escapeHtml(copy.predictionHistoryEmpty)}</p>`,
+            );
+        }
+
+        // Head-to-head wager record: gold made (or lost) betting on their OWN games. Public like the
+        // prediction book, hidden until they have wagered at least once.
+        const wagersSection = document.querySelector<HTMLElement>("[data-profile-wagers-section]");
+        const wagerSummaryEl = document.querySelector<HTMLElement>("[data-profile-wager-summary]");
+        if (wagersSection && wagersEl) {
+            const wagers = summaryOnly
+                ? { wagers: 0, staked: 0, won: 0, lost: 0, draws: 0, net: 0, winRatePct: 0, recent: [] }
+                : profile.wagers;
+            wagersSection.hidden = wagers.wagers === 0;
+
+            if (wagerSummaryEl) {
+                const netClass = wagers.net > 0 ? "positive" : wagers.net < 0 ? "negative" : "";
+                const netSign = wagers.net > 0 ? "+" : "";
+                wagerSummaryEl.innerHTML = `
+                    <span class="prediction-panel__metric"><b>${numberFormatter.format(wagers.wagers)}</b><span>${escapeHtml(copy.wagersPlayed)}</span></span>
+                    <span class="prediction-panel__metric"><b>${currencyMarkup(wagers.staked)}</b><span>${escapeHtml(copy.predictionsStaked)}</span></span>
+                    <span class="prediction-panel__metric"><b>${
+                        wagers.won + wagers.lost > 0
+                            ? `${wagers.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
+                            : "—"
+                    }</b><span>${escapeHtml(copy.wagersWinRate)}</span></span>
+                    <span class="prediction-panel__metric ${netClass}"><b>${currencyMarkup(wagers.net, netSign, currentCurrency, true)}</b><span>${escapeHtml(`${copy.predictionsNet} · ${currentCurrency.name}`)}</span></span>`;
+            }
+
+            const wagerRows = wagers.recent.map((wager) => {
+                const label = {
+                    open: copy.wagerOpen,
+                    won: copy.wagerWon,
+                    lost: copy.wagerLost,
+                    draw: copy.wagerDraw,
+                    refunded: copy.wagerRefunded,
+                }[wager.outcome];
+                const tone =
+                    wager.outcome === "won"
+                        ? "positive"
+                        : wager.outcome === "lost" || wager.outcome === "draw"
+                          ? "negative"
+                          : wager.outcome === "refunded"
+                            ? "muted"
+                            : "";
+                // Each side risks exactly `amount`: a win banks the opponent's stake, a loss or a
+                // drawn (burned) pot costs your own; refunds and live tables move nothing yet.
+                const profit =
+                    wager.outcome === "won" ? wager.amount : wager.outcome === "lost" || wager.outcome === "draw" ? -wager.amount : 0;
+                const outcomeMarkup =
+                    wager.outcome === "open" || wager.outcome === "refunded"
+                        ? "—"
+                        : currencyMarkup(profit, profit > 0 ? "+" : "", currentCurrency, true);
+                const opponent = wager.opponentUsername || copy.predictionUnknownSide;
+                const whenMs = wager.settledAt || wager.createdAt;
+                const whenDate = whenMs ? new Date(whenMs) : null;
+                const whenLabel = whenDate && Number.isFinite(whenDate.getTime()) ? dateFormatter.format(whenDate) : "—";
+                const whenTime =
+                    whenDate && Number.isFinite(whenDate.getTime())
+                        ? `<time datetime="${escapeHtml(whenDate.toISOString())}">${escapeHtml(whenLabel)}</time>`
+                        : escapeHtml(whenLabel);
+                const compactGameId =
+                    wager.gameId.length > 16 ? `${wager.gameId.slice(0, 8)}…${wager.gameId.slice(-6)}` : wager.gameId;
+                let matchHref = "";
+                try {
+                    matchHref = buildRankedMatchPagePath(wager.gameId, profile.playerId, language);
+                } catch {
+                    matchHref = "";
+                }
+                const match = matchHref
+                    ? `<a class="prediction-row__match" href="${escapeHtml(matchHref)}" aria-label="${escapeHtml(`${copy.predictionOpenMatch}: ${wager.gameId}`)}"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(wager.gameId)}">${escapeHtml(compactGameId)}</code><i aria-hidden="true">↗</i></a>`
+                    : `<span class="prediction-row__match"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(wager.gameId)}">${escapeHtml(compactGameId)}</code></span>`;
+                return `
+                    <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${copy.wagerVersus} ${opponent}`)}">
+                        <div class="prediction-row__outcome">
+                            <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                            <strong class="prediction-outcome ${tone}">${outcomeMarkup}</strong>
+                        </div>
+                        <div class="prediction-row__bet">
+                            <strong>${escapeHtml(copy.wagerVersus)} ${escapeHtml(opponent)}</strong>
+                            <span>${escapeHtml(copy.predictionStake)} ${currencyMarkup(wager.amount)}</span>
+                        </div>
+                        <div class="prediction-row__context">
+                            <span class="prediction-row__matchcell">${match}</span>
+                            <span class="prediction-row__placed"><span>${escapeHtml(copy.predictionPlaced)}</span>${whenTime}</span>
+                        </div>
+                    </article>`;
+            });
+            renderWagerHistory(
+                wagerRows,
+                `<p class="prediction-history__empty">${escapeHtml(copy.wagerHistoryEmpty)}</p>`,
             );
         }
 
