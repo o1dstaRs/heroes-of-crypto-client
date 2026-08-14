@@ -84,6 +84,12 @@ import {
     type EffectFlash,
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
+import {
+    formatAggrBlockedActionHint,
+    isAggrBlockedActionHint,
+    isManualAttackBlockedByAggr,
+    shouldResolveAggrAfterFirstDoubleShotObstacle,
+} from "./aggrBlockedActionHint";
 import { RenderableUnit } from "./RenderableUnit";
 import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { PixiRenderableSpell } from "./RenderableSpell";
@@ -6223,6 +6229,17 @@ export class Sandbox extends PixiScene {
                 }
                 const spellTarget = this.getUnitAtPosition(p);
                 if (spellTarget && !spellTarget.isDead()) {
+                    const spellTargetType = this.currentActiveSpell.getSpellTargetType();
+                    const aggrBlockedSpellTarget =
+                        !spellTarget.hasBuffActive("Hidden") &&
+                        (spellTargetType === SpellTargetType.ANY_ENEMY ||
+                            spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE)
+                            ? this.isAttackBlockedByAggr(spellTarget, "spell")
+                            : undefined;
+                    if (aggrBlockedSpellTarget) {
+                        this.showAggrBlockedActionHint(aggrBlockedSpellTarget);
+                        return;
+                    }
                     if (this.castSpellOnTarget(spellTarget)) {
                         return;
                     }
@@ -6237,6 +6254,23 @@ export class Sandbox extends PixiScene {
                 this.sc_sceneLog.updateLog("Spell cancelled");
                 this.buttonManager.refreshButtons(true);
                 return;
+            }
+
+            // A fast move-and-click can arrive before hover() has built an attack cursor. Consume an invalid
+            // enemy click here so it cannot fall through as movement, and surface the same Aggr explanation.
+            const clickedAttackTarget = this.getUnitAtPosition(p);
+            if (
+                clickedAttackTarget &&
+                this.currentActiveUnit &&
+                !clickedAttackTarget.isDead() &&
+                clickedAttackTarget.getTeam() !== this.currentActiveUnit.getTeam() &&
+                !clickedAttackTarget.hasBuffActive("Hidden")
+            ) {
+                const aggrBlockedTarget = this.isUnitAttackBlockedByAggr(clickedAttackTarget);
+                if (aggrBlockedTarget) {
+                    this.showAggrBlockedActionHint(aggrBlockedTarget);
+                    return;
+                }
             }
 
             // --- OBSTACLE ATTACK: striking the destructible center on BLOCK_CENTER maps. ---
@@ -7228,12 +7262,20 @@ export class Sandbox extends PixiScene {
      * gate for showing the sword/bow attack cursor over destructible terrain.
      */
     private isHoveringAttackableObstacle(worldPos: HoCMath.XY): boolean {
-        return !!this.resolveObstacleAttack(worldPos);
+        return (
+            !!this.resolveObstacleAttack(worldPos) &&
+            !isManualAttackBlockedByAggr(this.getLiveAggrForcedTarget()?.getId(), { kind: "obstacle" })
+        );
     }
     private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
         const resolved = this.resolveObstacleAttack(worldPos);
         if (!resolved) {
             return false;
+        }
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })) {
+            this.showAggrBlockedActionHint(forcedTarget);
+            return true;
         }
         return this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom);
     }
@@ -8165,6 +8207,12 @@ export class Sandbox extends PixiScene {
         if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
             return notHovering();
         }
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })) {
+            this.dungeonVisuals.clearScatteredMountainHighlight();
+            this.showAggrBlockedActionHint(forcedTarget);
+            return true;
+        }
         this.hoverManager.clearAttackVisuals();
 
         // Ranged attackers shoot the mountain in place (unless pinned into melee). Same
@@ -8192,7 +8240,8 @@ export class Sandbox extends PixiScene {
                 false,
             );
             if (this.grid.hasScatteredMountains()) {
-                this.hoverManager.clearObstacleHighlight();
+                // The red target circles above STAY: the contour rim alone read as scenery, and players
+                // could not tell the shot was about to hit the stone. Rim + circle = "this takes the hit".
                 this.dungeonVisuals.highlightScatteredMountains(
                     projectileHits.length ? projectileHits.map((obstacle) => obstacle.position) : [cellCenter],
                 );
@@ -8237,6 +8286,9 @@ export class Sandbox extends PixiScene {
         }
         if (this.grid.hasScatteredMountains()) {
             this.dungeonVisuals.highlightScatteredMountains([cellCenter]);
+            // Same red target circle a plain obstacle gets — the rim alone was invisible in the heat
+            // of a fight, and the swing looked like it would do nothing.
+            this.hoverManager.highlightObstacle(cellCenter, gs.getCellSize());
         } else {
             this.hoverManager.highlightObstacle(cellCenter, gs.getCellSize());
         }
@@ -8252,6 +8304,7 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clearAOEArea();
         this.hoverManager.clearAttackVisuals();
         const clearInfo = (): boolean => {
+            this.clearAggrBlockedActionHint();
             // Prefix match: the live label carries the falloff fraction ("Area attack — 🎯1/N"), so an exact
             // "Area attack" compare would never clear it.
             if (this.sc_hoverInfoArr[0]?.startsWith("Area attack")) {
@@ -8268,18 +8321,14 @@ export class Sandbox extends PixiScene {
 
         const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
 
-        // Aggr: an aggravated AOE unit can only attack the enemy that aggr'd it. Only preview/allow the throw
-        // when its splash actually covers that forced target; suppress it (no AOE outline) anywhere else.
-        const forcedTargetId = this.currentActiveUnit?.getTarget();
-        if (forcedTargetId) {
-            const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
-            if (forcedTarget && !forcedTarget.isDead()) {
-                const coversForcedTarget = affectedGroups.some((g) => g.some((u) => u.getId() === forcedTargetId));
-                if (!coversForcedTarget) {
-                    return clearInfo();
-                }
-            }
+        // The authoritative range handler checks only the ordered primary ([0][0]); a forced target later
+        // in the splash does not make the throw legal. An empty splash is a legal miss and remains available.
+        const aggrBlockedTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+        if (aggrBlockedTarget) {
+            this.showAggrBlockedActionHint(aggrBlockedTarget);
+            return true;
         }
+        this.clearAggrBlockedActionHint();
 
         this.hoverManager.drawAOEArea(cells);
         // Trajectory line to the impact cell — the same arrow a single-target ranged hover draws. The
@@ -8498,6 +8547,64 @@ export class Sandbox extends PixiScene {
         );
         return evalResult.affectedUnits[0]?.[0];
     }
+    /** The target/obstacle on which the engine applies Aggr's gate after resolving the actual range ray. */
+    private resolveRangeAttackAggrIntent(
+        targetUnit: Unit,
+        exactAimPosition?: HoCMath.XY,
+    ): { primary?: Unit; stoppedByObstacle: boolean } {
+        const attacker = this.currentActiveUnit;
+        if (!attacker || !this.attackHandler) {
+            return { stoppedByObstacle: false };
+        }
+        const aimPosition = resolveLiveRangeProjectileTracePosition(
+            exactAimPosition,
+            () =>
+                attacker instanceof RenderableUnit
+                    ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                    : undefined,
+            targetUnit.getPosition(),
+        );
+        const throughShot = attacker.hasAbilityActive("Through Shot");
+        const ignoresStructures = attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw");
+        let evaluation = this.attackHandler.evaluateRangeAttack(
+            this.unitsHolder.getAllUnits(),
+            attacker,
+            attacker.getPosition(),
+            aimPosition,
+            throughShot,
+            false,
+            ignoresStructures,
+        );
+        const hasDoubleShot = !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot"));
+        const obstacleIntersections =
+            this.grid.hasScatteredMountains() && hasDoubleShot && !ignoresStructures
+                ? this.attackHandler.getObstacleIntersections(attacker.getPosition(), aimPosition).slice(0, 2)
+                : [];
+        if (
+            shouldResolveAggrAfterFirstDoubleShotObstacle(
+                obstacleIntersections.length,
+                hasDoubleShot,
+                ignoresStructures,
+            )
+        ) {
+            // Projectile one removes the sole tombstone; projectile two is then evaluated on the unchanged
+            // ray. `isSelection` is the evaluator's read-only "ignore structures" mode, safe here because
+            // getObstacleIntersections proved there is exactly one structure to remove on this segment.
+            evaluation = this.attackHandler.evaluateRangeAttack(
+                this.unitsHolder.getAllUnits(),
+                attacker,
+                attacker.getPosition(),
+                aimPosition,
+                throughShot,
+                true,
+                ignoresStructures,
+            );
+        }
+        return {
+            primary: evaluation.affectedUnits[0]?.[0],
+            stoppedByObstacle: !!evaluation.attackObstacle,
+        };
+    }
     /**
      * The 3x3 splash cells for an Area Throw aimed at worldPos, or undefined when the active unit
      * can't area-throw there (not an Area Throw range unit, off-grid, or aiming directly at an
@@ -8551,6 +8658,12 @@ export class Sandbox extends PixiScene {
         const cells = this.getAreaThrowCells(worldPos);
         if (!unit || !cells) {
             return false;
+        }
+        const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
+        const aggrBlockedTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+        if (aggrBlockedTarget) {
+            this.showAggrBlockedActionHint(aggrBlockedTarget);
+            return true;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const mouseCell = GridMath.getCellForPosition(gs, worldPos);
@@ -9042,6 +9155,12 @@ export class Sandbox extends PixiScene {
                 target,
                 replayAction?.type === "range_attack" ? replayAction : undefined,
             );
+            const aggrBlockedTarget = replayAction ? undefined : this.isRangeAttackBlockedByAggr(target, aim?.position);
+            if (aggrBlockedTarget) {
+                this.sc_moveBlocked = false;
+                this.showAggrBlockedActionHint(aggrBlockedTarget);
+                return false;
+            }
             const action: GameAction =
                 replayAction?.type === "range_attack"
                     ? {
@@ -9168,6 +9287,12 @@ export class Sandbox extends PixiScene {
                 });
             }
         } else {
+            const aggrBlockedTarget = replayAction ? undefined : this.isAttackBlockedByAggr(target, "melee");
+            if (aggrBlockedTarget) {
+                this.sc_moveBlocked = false;
+                this.showAggrBlockedActionHint(aggrBlockedTarget);
+                return false;
+            }
             const routeMetadata = this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)?.[0];
             const action: GameAction =
                 replayAction?.type === "melee_attack"
@@ -10067,6 +10192,7 @@ export class Sandbox extends PixiScene {
         this.hoverRangeAttackObstacle = undefined;
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
+        this.clearAggrBlockedActionHint();
     }
     protected override canShowHoverForActiveUnit(): boolean {
         return true;
@@ -10098,6 +10224,9 @@ export class Sandbox extends PixiScene {
     }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (!fightProps.hasFightStarted() || fightProps.hasFightFinished()) {
+            this.clearAggrBlockedActionHint();
+        }
 
         if (this.isBoardInputLockedByAI()) {
             this.clearBoardHoverPreviews();
@@ -10110,6 +10239,7 @@ export class Sandbox extends PixiScene {
         // across the target during the short flight; otherwise hover() would draw the dashed line again.
         if (this.rangedProjectiles.hasActive()) {
             this.hoverManager.clearAttackVisuals();
+            this.clearAggrBlockedActionHint();
             return;
         }
 
@@ -10272,6 +10402,7 @@ export class Sandbox extends PixiScene {
             this.hoverManager.hoveredUnitHighlight = undefined;
             this.hoverRangeAttackObstacle = undefined;
             this.emitLocalMoveIntent(undefined);
+            this.clearAggrBlockedActionHint();
             return;
         }
 
@@ -10279,16 +10410,19 @@ export class Sandbox extends PixiScene {
         if (fightProps.hasFightStarted()) {
             if (!this.currentActiveUnit) {
                 this.hoverManager.clearHoverSilhouette();
+                this.clearAggrBlockedActionHint();
                 return;
             }
             if (this.sc_isAnimating || this.isActiveUnitMoving || this.sc_moveBlocked || !this.sc_mouseWorld) {
                 // While a projectile is in flight / the unit is landing an attack, it can't move —
                 // don't draw the move-preview silhouette.
                 this.hoverManager.clearHoverSilhouette();
+                this.clearAggrBlockedActionHint();
                 return;
             }
             if (this.currentActiveUnit.hasAbilityActive("AI Driven")) {
                 this.hoverManager.clearHoverSilhouette();
+                this.clearAggrBlockedActionHint();
                 return;
             }
 
@@ -10308,8 +10442,23 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.clearHoverSilhouette();
                 this.hoverManager.hoverAttackFromCell = undefined;
 
+                const spellTargetType = spell.getSpellTargetType();
+                const aggrBlockedSpellTarget =
+                    hoveredUnit &&
+                    !hoveredUnit.isDead() &&
+                    !hoveredUnit.hasBuffActive("Hidden") &&
+                    (spellTargetType === SpellTargetType.ANY_ENEMY ||
+                        spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE)
+                        ? this.isAttackBlockedByAggr(hoveredUnit, "spell")
+                        : undefined;
+                if (aggrBlockedSpellTarget) {
+                    this.showAggrBlockedActionHint(aggrBlockedSpellTarget);
+                    return;
+                }
+                this.clearAggrBlockedActionHint();
+
                 // Positive magic reads emerald; debuffs and battle magic read as fire-red.
-                const isSwap = spell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
+                const isSwap = spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
                 const isPositiveSpell = spell.isBuff() || isSwap;
                 const spellColor = isPositiveSpell ? 0x18c868 : 0xe02b16;
                 const casterPos = caster.getVisualCenter(gs2);
@@ -10484,6 +10633,7 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.hoverAttackFromCell = undefined;
                 this.hoverManager.clearAuraVisuals();
                 this.sc_hoveredShotRange = undefined;
+                this.clearAggrBlockedActionHint();
                 return;
             }
 
@@ -10494,6 +10644,7 @@ export class Sandbox extends PixiScene {
 
             // Check for melee attack target
             let isAttacking = false;
+            let isAggrBlockedAttack = false;
 
             this.hoverManager.hoverAttackFromCell = undefined; // Reset state
             this.hoverRangeAttackObstacle = undefined; // Reset blocked-shot state
@@ -11242,43 +11393,62 @@ export class Sandbox extends PixiScene {
 
                         if (blockedByObstacle) {
                             this.hoverRangeAttackObstacle = blockedByObstacle;
-                            // Arrow to the mountain (what actually takes the hit), plus a faint dashed
-                            // continuation on to the intended unit so the whole projection still reads, and
-                            // a red glow on the mountain as the real target (the unit behind takes no damage).
-                            this.hoverManager.drawAttackArrow(
-                                arrowStartPos,
-                                blockedByObstacle.position,
-                                tVis,
-                                isRangeAttackContext
-                                    ? this.resolveSmokeEntryPoint(arrowStartPos, blockedByObstacle.position)
-                                    : undefined,
-                            );
-                            if (this.grid.hasScatteredMountains()) {
-                                this.hoverManager.clearObstacleHighlight();
-                                this.dungeonVisuals.highlightScatteredMountains(
-                                    (doubleShotObstacleIntersections.length
-                                        ? doubleShotObstacleIntersections
-                                        : [blockedByObstacle]
-                                    ).map((obstacle) => obstacle.position),
-                                );
+                            const forcedTarget = this.getLiveAggrForcedTarget();
+                            if (forcedTarget) {
+                                this.dungeonVisuals.clearScatteredMountainHighlight();
+                                this.showAggrBlockedActionHint(forcedTarget);
+                                isAggrBlockedAttack = true;
+                                isAttacking = true;
                             } else {
-                                this.hoverManager.highlightObstacle(
+                                // Arrow to the mountain (what actually takes the hit), plus a faint dashed
+                                // continuation on to the intended unit so the whole projection still reads,
+                                // and a red glow on the mountain as the real target.
+                                this.hoverManager.drawAttackArrow(
+                                    arrowStartPos,
                                     blockedByObstacle.position,
-                                    this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                    tVis,
+                                    isRangeAttackContext
+                                        ? this.resolveSmokeEntryPoint(arrowStartPos, blockedByObstacle.position)
+                                        : undefined,
                                 );
+                                if (this.grid.hasScatteredMountains()) {
+                                    const struckStones = (
+                                        doubleShotObstacleIntersections.length
+                                            ? doubleShotObstacleIntersections
+                                            : [blockedByObstacle]
+                                    ).map((obstacle) => obstacle.position);
+                                    this.dungeonVisuals.highlightScatteredMountains(struckStones);
+                                    // Red target circles on the stones actually taking the hit — the
+                                    // contour rim alone was too subtle to warn the shot dies here.
+                                    this.hoverManager.highlightObstacles(
+                                        struckStones,
+                                        this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                    );
+                                } else {
+                                    this.hoverManager.highlightObstacle(
+                                        blockedByObstacle.position,
+                                        this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                    );
+                                }
+                                this.sc_hoverInfoArr = [
+                                    doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
+                                ];
+                                this.sc_hoverTextUpdateNeeded = true;
+                                isAttacking = true;
                             }
-                            this.sc_hoverInfoArr = [
-                                doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
-                            ];
-                            this.sc_hoverTextUpdateNeeded = true;
-                            isAttacking = true;
                         } else {
                             // Moving onto a reachable (unblocked) target: drop any mountain-hit glow.
                             this.hoverRangeAttackObstacle = undefined;
                             if (doubleShotObstacleIntersections.length > 0) {
-                                this.hoverManager.clearObstacleHighlight();
-                                this.dungeonVisuals.highlightScatteredMountains(
-                                    doubleShotObstacleIntersections.map((obstacle) => obstacle.position),
+                                const struckStones = doubleShotObstacleIntersections.map(
+                                    (obstacle) => obstacle.position,
+                                );
+                                this.dungeonVisuals.highlightScatteredMountains(struckStones);
+                                // These stones consume projectiles on the way in — same red circle as a
+                                // directly-targeted one so the cost of the shot is visible at a glance.
+                                this.hoverManager.highlightObstacles(
+                                    struckStones,
+                                    this.sc_sceneSettings.getGridSettings().getCellSize(),
                                 );
                             } else {
                                 this.hoverManager.clearObstacleHighlight();
@@ -11334,12 +11504,30 @@ export class Sandbox extends PixiScene {
                 this.emitLocalMoveIntent(undefined);
             }
 
+            const hoveredAttackTarget = this.getUnitAtPosition(this.sc_mouseWorld);
+            const aggrBlockedTarget =
+                (isAggrBlockedAttack ? this.getLiveAggrForcedTarget() : undefined) ??
+                (!isAttacking &&
+                hoveredAttackTarget &&
+                hoveredAttackTarget.getTeam() !== this.currentActiveUnit.getTeam() &&
+                !hoveredAttackTarget.hasBuffActive("Hidden")
+                    ? this.isUnitAttackBlockedByAggr(hoveredAttackTarget)
+                    : undefined);
+            if (aggrBlockedTarget) {
+                this.showAggrBlockedActionHint(aggrBlockedTarget);
+            } else {
+                this.clearAggrBlockedActionHint();
+            }
+
             // A paralyzed active unit can't move, so a move hover/click is silently ignored — surface
             // the reason in the cursor popover the whole time the player aims at anything that isn't
             // an attack (striking in place is still allowed, so an attack hover keeps its preview).
             // "Hidden" keeps priority: hovering a concealed enemy stays explained as Hidden.
             const showParalyzedHint =
-                !isAttacking && !this.currentActiveUnit.canMove() && this.sc_hoverInfoArr[0] !== "Hidden";
+                !isAttacking &&
+                !aggrBlockedTarget &&
+                !this.currentActiveUnit.canMove() &&
+                this.sc_hoverInfoArr[0] !== "Hidden";
             if (showParalyzedHint && this.sc_hoverInfoArr[0] !== "Paralyzed — can't move") {
                 this.sc_hoverInfoArr = ["Paralyzed — can't move"];
                 this.sc_hoverTextUpdateNeeded = true;
@@ -13805,21 +13993,118 @@ export class Sandbox extends PixiScene {
      * canAttackBy*Targets forced-target filter in updateCurrentMovePath. Returns true (attackable) when there
      * is no active forced target, when the lock has released (target dead/gone), or when this IS the target.
      */
+    private getLiveAggrForcedTarget(): Unit | undefined {
+        const forcedTargetId = this.currentActiveUnit?.getTarget();
+        if (!forcedTargetId) {
+            return undefined;
+        }
+        const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
+        return forcedTarget && !forcedTarget.isDead() ? forcedTarget : undefined;
+    }
+    private showAggrBlockedActionHint(forcedTarget: Unit | undefined = this.getLiveAggrForcedTarget()): boolean {
+        const activeUnit = this.currentActiveUnit;
+        if (!activeUnit || !forcedTarget) {
+            return false;
+        }
+
+        // A blocked attack must not leave the previous legal target's arrow, damage numbers, AOE outline,
+        // move silhouette, or attack cursor behind the explanation. This is also used by MouseDown so a
+        // quick move-and-click gets the same feedback even when hover() has not run at the new pointer yet.
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.clearAOEArea();
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.hoverRangeAttackObstacle = undefined;
+        this.emitLocalMoveIntent(undefined);
+        this.sc_isHoveringAttackTarget = false;
+        this.sc_meleeCursorDirection = undefined;
+
+        const viewerTeam = this.getViewerTeam();
+        const concealedFromViewer =
+            forcedTarget.hasBuffActive("Hidden") && viewerTeam !== undefined && forcedTarget.getTeam() !== viewerTeam;
+        const hint = formatAggrBlockedActionHint(concealedFromViewer ? undefined : forcedTarget.getName());
+        if (this.sc_hoverInfoArr.length !== 1 || this.sc_hoverInfoArr[0] !== hint) {
+            this.cleanupHoverText(false);
+            this.sc_hoverInfoArr = [hint];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+        return true;
+    }
+    private clearAggrBlockedActionHint(): void {
+        if (!isAggrBlockedActionHint(this.sc_hoverInfoArr[0])) {
+            return;
+        }
+        this.sc_hoverInfoArr = [];
+        this.sc_hoverTextUpdateNeeded = true;
+    }
+    private isAttackBlockedByAggr(
+        resolvedPrimaryTarget: Unit | undefined,
+        kind: "melee" | "range" | "area" | "spell",
+    ): Unit | undefined {
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (
+            !forcedTarget ||
+            !isManualAttackBlockedByAggr(forcedTarget.getId(), {
+                kind,
+                resolvedPrimaryTargetId: resolvedPrimaryTarget?.getId(),
+            })
+        ) {
+            return undefined;
+        }
+        return forcedTarget;
+    }
+    private isRangeAttackBlockedByAggr(targetUnit: Unit, exactAimPosition?: HoCMath.XY): Unit | undefined {
+        const resolution = this.resolveRangeAttackAggrIntent(targetUnit, exactAimPosition);
+        if (!resolution.primary && resolution.stoppedByObstacle) {
+            const forcedTarget = this.getLiveAggrForcedTarget();
+            return forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })
+                ? forcedTarget
+                : undefined;
+        }
+        return this.isAttackBlockedByAggr(resolution.primary, "range");
+    }
+    private isRangedUnitAttackIntent(targetUnit: Unit): boolean {
+        const unit = this.currentActiveUnit;
+        if (
+            !(unit instanceof RenderableUnit) ||
+            unit.getAttackTypeSelection() !== AttackVals.RANGE ||
+            unit.getRangeShots() <= 0 ||
+            unit.hasDebuffActive("Range Null Field Aura") ||
+            unit.hasStatusApplied("Rangebane") ||
+            this.attackHandler.canBeAttackedByMelee(
+                unit.getPosition(),
+                unit.isSmallSize(),
+                this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
+            )
+        ) {
+            return false;
+        }
+        return (
+            unit.hasAbilityActive("No Melee") ||
+            HoCMath.getDistance(unit.getPosition(), targetUnit.getPosition()) > GridConstants.STEP * 1.5
+        );
+    }
+    private isUnitAttackBlockedByAggr(targetUnit: Unit): Unit | undefined {
+        const unit = this.currentActiveUnit;
+        const selection = unit?.getAttackTypeSelection();
+        if (selection === AttackVals.RANGE) {
+            if (this.isRangedUnitAttackIntent(targetUnit)) {
+                return this.isRangeAttackBlockedByAggr(targetUnit);
+            }
+            return unit?.hasAbilityActive("No Melee") ? undefined : this.isAttackBlockedByAggr(targetUnit, "melee");
+        }
+        if (selection !== AttackVals.MELEE && selection !== AttackVals.MELEE_MAGIC) {
+            return undefined;
+        }
+        return this.isAttackBlockedByAggr(targetUnit, "melee");
+    }
     private isAttackableUnderForcedTarget(targetUnit: Unit): boolean {
         // Terrifying Gaze is the mirror image of Aggr and is checked first: it removes exactly one enemy from
         // the attackable set instead of narrowing the set down to one.
         if (this.currentActiveUnit?.cannotAttackUnitId(targetUnit.getId())) {
             return false;
         }
-        const forcedTargetId = this.currentActiveUnit?.getTarget();
-        if (!forcedTargetId) {
-            return true;
-        }
-        const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
-        if (!forcedTarget || forcedTarget.isDead()) {
-            return true;
-        }
-        return targetUnit.getId() === forcedTargetId;
+        return !this.isUnitAttackBlockedByAggr(targetUnit);
     }
     // Cowardice: the active unit cannot attack a stack with MORE cumulative HP than itself — the engine
     // rejects such strikes (cause "cowardice"; see handlers/attack_handler.ts and the AI candidate guards).
