@@ -7,8 +7,9 @@
  * though nothing in Sandbox asked for it - the two screens shared one component and only ranked wanted the
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
+import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
@@ -487,19 +488,43 @@ const SandboxToggleContainer = ({
     // Upgrade-point budget for augments. In ranked this is the perk's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
+    // Ranked embeds this picker over a server-authoritative build: seed (and keep re-syncing) the
+    // selections from the snapshot so a remount mid-game never shows a blank picker with a full
+    // budget while the server is still enforcing the already-spent points. Sandbox omits it.
+    authoritativeSelections,
 }: {
     side: string;
     teamType: TeamType;
     showArtifactPicker?: boolean;
     budgetPoints?: number;
+    authoritativeSelections?: AugmentSelections;
 }) => {
-    const [totalPoints, setTotalPoints] = useState(budgetPoints);
-    const [placementSelection, setPlacementSelection] = useState<number | null>(null);
-    const [armorSelection, setArmorSelection] = useState<number | null>(null);
-    const [mightSelection, setMightSelection] = useState<number | null>(null);
-    const [empowerSelection, setEmpowerSelection] = useState<number | null>(null);
-    const [sniperSelection, setSniperSelection] = useState<number | null>(null);
-    const [movementSelection, setMovementSelection] = useState<number | null>(null);
+    const [totalPoints, setTotalPoints] = useState(
+        authoritativeSelections ? remainingAugmentPoints(budgetPoints, authoritativeSelections) : budgetPoints,
+    );
+    const [placementSelection, setPlacementSelection] = useState<number | null>(
+        authoritativeSelections?.placement ?? null,
+    );
+    const [armorSelection, setArmorSelection] = useState<number | null>(authoritativeSelections?.armor ?? null);
+    const [mightSelection, setMightSelection] = useState<number | null>(authoritativeSelections?.might ?? null);
+    const [empowerSelection, setEmpowerSelection] = useState<number | null>(authoritativeSelections?.empower ?? null);
+    const [sniperSelection, setSniperSelection] = useState<number | null>(authoritativeSelections?.sniper ?? null);
+    const [movementSelection, setMovementSelection] = useState<number | null>(
+        authoritativeSelections?.movement ?? null,
+    );
+
+    useEffect(() => {
+        if (!authoritativeSelections) {
+            return;
+        }
+        setPlacementSelection(authoritativeSelections.placement);
+        setArmorSelection(authoritativeSelections.armor);
+        setMightSelection(authoritativeSelections.might);
+        setEmpowerSelection(authoritativeSelections.empower);
+        setSniperSelection(authoritativeSelections.sniper);
+        setMovementSelection(authoritativeSelections.movement);
+        setTotalPoints(remainingAugmentPoints(budgetPoints, authoritativeSelections));
+    }, [authoritativeSelections, budgetPoints]);
     // Opening a team lands on Augments with Board Placement already showing — the first thing you set for a
     // side — instead of a bar of shut headers you have to click twice to get anywhere.
     const [togglerType, setTogglerType] = useState<

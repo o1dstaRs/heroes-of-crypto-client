@@ -80,6 +80,7 @@ import {
     PickCommitButton,
     useDraftScale,
 } from "./PickAndBan";
+import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
@@ -2288,24 +2289,25 @@ const RankedAugmentPanel: React.FC<{
             <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={budget} />
             {canEdit && (
                 <Button
-                    size="sm"
+                    size="md"
                     variant={editing ? "solid" : "outlined"}
                     color="neutral"
                     onClick={() => setEditing((value) => !value)}
                     sx={{
-                        alignSelf: "flex-start",
-                        minHeight: 0,
-                        py: 0.4,
-                        px: 1.1,
-                        fontSize: "0.72rem",
-                        fontWeight: 700,
+                        alignSelf: "stretch",
+                        minHeight: 40,
+                        py: 1,
+                        px: 2,
+                        fontSize: "0.95rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.02em",
                         color: editing ? "#201505" : hocColors.gold,
-                        bgcolor: editing ? hocColors.gold : "transparent",
-                        borderColor: "rgba(245,158,11,0.4)",
-                        "&:hover": { bgcolor: editing ? hocColors.gold : "rgba(245,158,11,0.12)" },
+                        bgcolor: editing ? hocColors.gold : "rgba(245,158,11,0.07)",
+                        borderColor: "rgba(245,158,11,0.55)",
+                        "&:hover": { bgcolor: editing ? hocColors.gold : "rgba(245,158,11,0.16)" },
                     }}
                 >
-                    {editing ? "Done editing" : "Edit augments"}
+                    {editing ? "Done editing" : "⚔️ Edit augments"}
                 </Button>
             )}
             {canEdit && editing && (
@@ -2317,7 +2319,7 @@ const RankedAugmentPanel: React.FC<{
                         bgcolor: "rgba(245,158,11,0.05)",
                     }}
                 >
-                    <SideToggleContainer
+                    <SandboxToggleContainer
                         side={isLower ? "green" : "red"}
                         teamType={userTeam}
                         showArtifactPicker={false}
