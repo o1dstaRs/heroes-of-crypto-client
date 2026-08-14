@@ -1,4 +1,4 @@
-import { Button, Input, Sheet, Slider, Stack, Typography } from "@mui/joy";
+import { Button, Input, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { isInsufficientSeasonCurrencyError } from "../api/ranked_season_client";
@@ -28,10 +28,9 @@ import { useRankedSeason } from "./useRankedSeason";
  * The negotiation itself:
  *
  *   your stakes matched   -> a banner: locked, winner takes the pot;
- *   you bid LESS          -> the decision panel: CALL to play your bid, or RAISE the pot toward
- *                            the opponent's bid (they already committed it — they cannot decline);
- *   you bid MORE          -> "opponent is deciding…", then their raise arrives as a single CALL
- *                            button on your side;
+ *   you bid LESS          -> do nothing to play the smaller bid, CALL up to the larger bid, or
+ *                            RAISE to at least twice the larger bid;
+ *   you bid MORE          -> "opponent is deciding…", then fund a CALL if they raise;
  *   nobody acts           -> the countdown runs out and the wager locks DOWN at the smaller bid.
  *
  * Chip sounds fire on the transitions (raise/call/lock), riding the game's volume settings.
@@ -44,6 +43,7 @@ export interface WagerNegotiatorProps {
 }
 
 const POLL_MS = 2000;
+const MAX_WAGER = 1_000_000;
 
 export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active }) => {
     const { currency } = useRankedSeason();
@@ -104,14 +104,11 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         };
     }, [active, reload]);
 
-    // Default the raise slider to a middle-of-the-band suggestion whenever negotiation opens.
     useEffect(() => {
         if (wager?.status === "negotiating" && wager.myTurn) {
-            const floor = wager.amount;
-            const ceiling = wager.opponentStake;
-            setRaiseTo(Math.min(ceiling, Math.max(floor + 1, Math.round((floor + ceiling) / 2))));
+            setRaiseTo(Math.min(MAX_WAGER, Math.max(wager.myStake, wager.opponentStake) * 2));
         }
-    }, [wager?.status, wager?.myTurn, wager?.amount, wager?.opponentStake]);
+    }, [wager?.status, wager?.myTurn, wager?.myStake, wager?.opponentStake]);
 
     if (dismissed) {
         return null;
@@ -261,7 +258,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         setError("");
         try {
             playRaiseSound();
-            await raiseWager(gameId, raiseTo);
+            await raiseWager(gameId, normalizedRaise);
             await reload();
         } catch (err) {
             setError(
@@ -335,6 +332,11 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
 
     const myTurn = wager.myTurn;
     const isRaised = wager.status === "raised";
+    const callAmount = isRaised ? wager.raisedTo : Math.max(wager.myStake, wager.opponentStake);
+    const minimumRaise = Math.max(wager.myStake, wager.opponentStake) * 2;
+    const normalizedRaise = Math.floor(raiseTo);
+    const canRaise =
+        Number.isFinite(normalizedRaise) && normalizedRaise >= minimumRaise && normalizedRaise <= MAX_WAGER;
 
     return (
         <Sheet
@@ -392,7 +394,10 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                         <Typography level="body-sm" sx={{ color: hocColors.parchment, mb: 1 }}>
                             {t("Opponent raised the wager to")}{" "}
                             <b style={{ color: hocColors.gold }}>{wager.raisedTo}</b>{" "}
-                            {tf("{symbol} each — you already committed it.", { symbol: currency.symbol })}
+                            {tf("{symbol} each. Call it, or let the match play for {amount} each.", {
+                                symbol: currency.symbol,
+                                amount: wager.amount,
+                            })}
                         </Typography>
                         <Button
                             fullWidth
@@ -401,7 +406,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                             disabled={busy}
                             onClick={() => void doCall()}
                         >
-                            {t("CALL")} — {t("play for")} {wager.raisedTo * 2}
+                            {t("CALL to")} {wager.raisedTo} — {t("play for")} {wager.raisedTo * 2}
                         </Button>
                     </>
                 ) : (
@@ -412,23 +417,23 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
             ) : myTurn ? (
                 <>
                     <Typography level="body-sm" sx={{ color: hocColors.parchment, mb: 1 }}>
-                        {t("Your opponent staked more. Play your")} <b>{wager.amount}</b>
-                        {t(", or raise toward their")} <b>{wager.opponentStake}</b>.
+                        {t("Your opponent staked more. Do nothing to play")} <b>{wager.amount}</b> {t("each, call to")}{" "}
+                        <b>{callAmount}</b> {t("or raise to at least")} <b>{minimumRaise}</b>.
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                        <Slider
+                        <Input
                             size="sm"
-                            min={wager.amount + 1}
-                            max={wager.opponentStake}
-                            value={Math.min(Math.max(raiseTo, wager.amount + 1), wager.opponentStake)}
-                            onChange={(_event, value) => setRaiseTo(value as number)}
-                            sx={{ flex: 1, "--Slider-trackBackground": hocColors.gold }}
+                            type="number"
+                            value={raiseTo}
+                            slotProps={{ input: { min: minimumRaise, max: MAX_WAGER, step: 1 } }}
+                            onChange={(event) => setRaiseTo(Math.floor(Number(event.target.value) || 0))}
+                            sx={{ ...hocInputSx, flex: 1 }}
                         />
                         <Typography
                             level="body-sm"
                             sx={{ color: hocColors.gold, minWidth: 52, textAlign: "right", fontWeight: 700 }}
                         >
-                            {Math.min(Math.max(raiseTo, wager.amount + 1), wager.opponentStake)}
+                            {normalizedRaise}
                         </Typography>
                     </Stack>
                     <Stack direction="row" spacing={1}>
@@ -439,16 +444,16 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                             disabled={busy}
                             onClick={() => void doCall()}
                         >
-                            {t("CALL")} — {t("play for")} {pot}
+                            {t("CALL to")} {callAmount} — {t("play for")} {callAmount * 2}
                         </Button>
                         <Button
                             fullWidth
                             variant="solid"
                             sx={hocPrimaryButtonSx}
-                            disabled={busy || raiseTo <= wager.amount}
+                            disabled={busy || !canRaise}
                             onClick={() => void doRaise()}
                         >
-                            {t("RAISE to")} {Math.min(Math.max(raiseTo, wager.amount + 1), wager.opponentStake)}
+                            {t("RAISE to")} {normalizedRaise}
                         </Button>
                     </Stack>
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.75 }}>
@@ -460,8 +465,8 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 </>
             ) : (
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    {t("You staked more — your opponent is deciding: play their")} {wager.opponentStake}{" "}
-                    {t("or raise toward your")} {wager.myStake}…
+                    {t("You staked more — your opponent is deciding: do nothing to play")} {wager.amount}{" "}
+                    {t("each, call to")} {callAmount} {t("or raise to at least")} {minimumRaise}…
                 </Typography>
             )}
             {error && (
