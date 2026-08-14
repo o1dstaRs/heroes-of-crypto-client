@@ -87,7 +87,7 @@ const runtimeHost = globalThis.location?.hostname ?? "";
 const isProduction =
     runtimeHost === "heroesofcrypto.io" ||
     runtimeHost.endsWith(".heroesofcrypto.io") ||
-    import.meta.env.PROD === true ||
+    (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true) ||
     import.meta.env.VITE_IS_PROD === "true";
 
 // Single-box rigs: VITE_ARENA_SAME_HOST_API_PORT pins every arena API call to the HOSTNAME the

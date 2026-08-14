@@ -232,7 +232,7 @@ const runtimeIsProduction = (): boolean => {
     return (
         hostname === "heroesofcrypto.io" ||
         hostname.endsWith(".heroesofcrypto.io") ||
-        import.meta.env.PROD === true ||
+        (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true) ||
         import.meta.env.VITE_IS_PROD === "true"
     );
 };

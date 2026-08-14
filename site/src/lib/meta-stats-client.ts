@@ -54,7 +54,7 @@ const runtimeHost = globalThis.location?.hostname ?? "";
 const isProduction =
     runtimeHost === "heroesofcrypto.io" ||
     runtimeHost.endsWith(".heroesofcrypto.io") ||
-    import.meta.env.PROD === true ||
+    (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true) ||
     import.meta.env.VITE_IS_PROD === "true";
 
 const sameHostPort = import.meta.env.VITE_ARENA_SAME_HOST_API_PORT as string | undefined;

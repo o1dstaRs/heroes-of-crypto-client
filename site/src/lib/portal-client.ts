@@ -14,7 +14,7 @@ const sameOrigin = globalThis.location?.origin ?? "";
 const isProd =
     host === "heroesofcrypto.io" ||
     host.endsWith(".heroesofcrypto.io") ||
-    import.meta.env.PROD === true ||
+    (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true) ||
     import.meta.env.VITE_IS_PROD === "true";
 
 const authBaseUrl =
