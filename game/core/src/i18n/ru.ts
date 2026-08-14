@@ -312,6 +312,12 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.":
         "Поставьте {currency} на следующий матч. Равные ставки играются сразу; если ваша ниже, после поиска матча её можно уравнять или повысить.",
     "{currency} to stake": "Сколько поставить ({currency})",
+    "on the table — if your opponent stakes too, the wager opens right here.":
+        "на столе — если соперник тоже поставит, пари откроется прямо здесь.",
+    "Stake {currency} on THIS match — winner takes the pot.":
+        "Поставьте {currency} на ЭТОТ матч — победитель забирает банк.",
+    "If the draft ends first, your stake rides your next match instead.":
+        "Если драфт закончится раньше, ставка перейдёт на ваш следующий матч.",
     "Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}":
         "Ставка зафиксирована: по {amount} {symbol}, победитель получит {pot} {symbol}",
     "Wager settled: {amount} {symbol} to the winner": "Ставка рассчитана: победителю {amount} {symbol}",

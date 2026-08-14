@@ -1,17 +1,31 @@
-import { Button, Sheet, Slider, Stack, Typography } from "@mui/joy";
+import { Button, Input, Sheet, Slider, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { isInsufficientSeasonCurrencyError } from "../api/ranked_season_client";
-import { callWager, fetchWager, raiseWager, type WagerState } from "../api/social_client";
+import {
+    callWager,
+    fetchWager,
+    fetchWagerIntent,
+    raiseWager,
+    setWagerIntent,
+    type WagerIntentState,
+    type WagerState,
+} from "../api/social_client";
 import { t, tf } from "../i18n/i18n";
 import { playCallSound, playLockSound, playRaiseSound } from "./audio/chipSounds";
 import { CurrencyIcon } from "./GoldCurrencyIcon";
-import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { useRankedSeason } from "./useRankedSeason";
 
 /**
  * The poker moment of a wagered match. Mounted over the draft; polls the wager (it forms a few
- * seconds into pick) and walks the one-street negotiation:
+ * seconds into pick) and walks the one-street negotiation. While NO wager exists yet the panel is
+ * a late-arm surface instead of thin air: your already-armed stake shows as "on the table", and an
+ * unarmed player can still stake DURING the draft — the server forms the wager on its next tick the
+ * moment both seats hold intents (a real player sat through a whole match wondering why he
+ * "couldn't call or raise" when his stake had simply never been armed — nothing ever told him).
+ *
+ * The negotiation itself:
  *
  *   your stakes matched   -> a banner: locked, winner takes the pot;
  *   you bid LESS          -> the decision panel: CALL to play your bid, or RAISE the pot toward
@@ -34,6 +48,8 @@ const POLL_MS = 2000;
 export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active }) => {
     const { currency } = useRankedSeason();
     const [wager, setWager] = useState<WagerState | null>(null);
+    const [intent, setIntent] = useState<WagerIntentState | null>(null);
+    const [stakeDraft, setStakeDraft] = useState("");
     const [raiseTo, setRaiseTo] = useState(0);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -44,6 +60,15 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
     const reload = useCallback(async (): Promise<void> => {
         try {
             const next = await fetchWager(gameId);
+            if (!next) {
+                // No wager yet — surface the caller's OWN standing stake so the panel can either
+                // show it riding this match or offer to arm one right here mid-draft.
+                try {
+                    setIntent(await fetchWagerIntent());
+                } catch {
+                    setIntent(null);
+                }
+            }
             setWager((previous) => {
                 const from = lastStatusRef.current;
                 const to = next?.status ?? "";
@@ -88,8 +113,124 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         }
     }, [wager?.status, wager?.myTurn, wager?.amount, wager?.opponentStake]);
 
-    if (!wager || dismissed) {
+    if (dismissed) {
         return null;
+    }
+
+    /* ---------- no wager yet: the late-arm surface (draft only) ---------- */
+
+    if (!wager) {
+        if (!active || intent === null) {
+            return null;
+        }
+        const purse = intent.gold + intent.amount;
+        const draftStake = Math.max(0, Math.floor(Number(stakeDraft) || 0));
+        const armHere = async (amount: number): Promise<void> => {
+            if (busy) {
+                return;
+            }
+            setBusy(true);
+            setError("");
+            try {
+                playCallSound();
+                const result = await setWagerIntent(amount);
+                setIntent(result);
+                setStakeDraft("");
+            } catch (err) {
+                setError(
+                    isInsufficientSeasonCurrencyError(err)
+                        ? tf("Not enough {currency}", { currency: currency.name })
+                        : (err as Error).message || t("Could not set the stake"),
+                );
+            } finally {
+                setBusy(false);
+            }
+        };
+        if (purse <= 0) {
+            return null; // nothing to stake and nothing armed — stay out of the draft's way
+        }
+        return (
+            <Sheet
+                variant="outlined"
+                sx={{
+                    ...hocPanelSx,
+                    position: "fixed",
+                    top: 14,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 60,
+                    width: "min(420px, calc(100vw - 24px))",
+                    px: 2,
+                    py: 1.25,
+                    borderColor: "rgba(255,182,76,0.45)",
+                    boxShadow: "0 10px 34px rgba(0,0,0,0.5)",
+                }}
+            >
+                {intent.amount > 0 ? (
+                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                        <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
+                            <Stack component="span" direction="row" spacing={0.5} alignItems="center">
+                                <CurrencyIcon iconSvg={currency.iconSvg} size={15} />
+                                <span>
+                                    <b style={{ color: hocColors.gold }}>{intent.amount}</b>{" "}
+                                    {t("on the table — if your opponent stakes too, the wager opens right here.")}
+                                </span>
+                            </Stack>
+                        </Typography>
+                        <Button
+                            size="sm"
+                            variant="outlined"
+                            sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
+                            disabled={busy}
+                            onClick={() => void armHere(0)}
+                        >
+                            {t("Take it back")}
+                        </Button>
+                    </Stack>
+                ) : (
+                    <>
+                        <Typography level="body-sm" sx={{ color: hocColors.parchment, mb: 0.75 }}>
+                            <Stack component="span" direction="row" spacing={0.5} alignItems="center">
+                                <CurrencyIcon iconSvg={currency.iconSvg} size={15} />
+                                <span>
+                                    {tf("Stake {currency} on THIS match — winner takes the pot.", {
+                                        currency: currency.name,
+                                    })}
+                                </span>
+                            </Stack>
+                        </Typography>
+                        <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Input
+                                size="sm"
+                                type="number"
+                                placeholder={tf("{currency} to stake", { currency: currency.name })}
+                                value={stakeDraft}
+                                slotProps={{ input: { min: 1, max: purse, step: 1 } }}
+                                onChange={(event) => setStakeDraft(event.target.value)}
+                                sx={{ ...hocInputSx, flex: 1 }}
+                            />
+                            <Button
+                                size="sm"
+                                variant="solid"
+                                sx={hocPrimaryButtonSx}
+                                disabled={busy || draftStake < 1 || draftStake > purse}
+                                onClick={() => void armHere(draftStake)}
+                            >
+                                {t("Stake it")}
+                            </Button>
+                        </Stack>
+                        <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.5 }}>
+                            {t("If the draft ends first, your stake rides your next match instead.")}
+                        </Typography>
+                    </>
+                )}
+                {error && (
+                    <Typography level="body-xs" sx={{ color: hocColors.danger, mt: 0.5 }}>
+                        {error}
+                    </Typography>
+                )}
+            </Sheet>
+        );
     }
 
     const secondsLeft = wager.deadlineAt > 0 ? Math.max(0, Math.ceil((wager.deadlineAt - nowTick) / 1000)) : 0;
