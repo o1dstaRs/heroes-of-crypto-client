@@ -3,7 +3,7 @@ import { TeamType } from "@heroesofcrypto/common";
 import { CustomEventSource } from "@heroesofcrypto/common";
 import { IS_PROD } from "../env";
 import { tokenExpSafe } from "../auth/context/auth_utils";
-import { IPickPhaseEventData, PickBanContext } from "./PickBanContextDefs";
+import { IPickPhaseEventData, pickPhaseIdentity, PickBanContext } from "./PickBanContextDefs";
 
 export { usePickBanEvents } from "./PickBanContextDefs";
 export type { IPickPhaseEventData };
@@ -22,6 +22,7 @@ export const PickBanEventProvider: React.FC<{
     const [isYourTurn, setIsYourTurn] = useState<boolean | null>(null);
     const [isAbandoned, setIsAbandoned] = useState<boolean | null>(null);
     const [pickPhase, setPickPhase] = useState<number>(-1);
+    const [phaseIdentity, setPhaseIdentity] = useState("pending");
     const [secondsRemaining, setSecondsRemaining] = useState<number>(-1);
     const [revealsRemaining, setRevealsRemaining] = useState<number>(0);
     const [initialBundles, setInitialBundles] = useState<[number, number, number][]>([]);
@@ -86,6 +87,7 @@ export const PickBanEventProvider: React.FC<{
             setOpponentPicked(event.op);
             setWatchedSlots(event.ws ?? []);
             setPickPhase(event.pp);
+            setPhaseIdentity(pickPhaseIdentity(event));
             setIsYourTurn(event.a.includes(userTeam));
             setIsAbandoned(event.ia);
             setSecondsRemaining(Math.ceil(event.t / 1000));
@@ -135,6 +137,7 @@ export const PickBanEventProvider: React.FC<{
             isYourTurn,
             isAbandoned,
             pickPhase,
+            phaseIdentity,
             secondsRemaining,
             revealsRemaining,
             initialBundles,
@@ -158,6 +161,7 @@ export const PickBanEventProvider: React.FC<{
             isYourTurn,
             isAbandoned,
             pickPhase,
+            phaseIdentity,
             secondsRemaining,
             revealsRemaining,
             initialBundles,

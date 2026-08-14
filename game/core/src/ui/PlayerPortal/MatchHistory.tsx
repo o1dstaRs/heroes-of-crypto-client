@@ -940,10 +940,10 @@ const MatchCard: React.FC<{
                                 </Typography>
                             </Stack>
                         )}
-                        {kind.rated && mmrDelta && (
+                        {kind.showsMmr && mmrDelta && (
                             <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
                         )}
-                        {kind.rated && (
+                        {kind.showsGold && (
                             <RewardBadge
                                 icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
                                 label={`${rewardCurrency.symbol} +${goldEarned}`}
@@ -997,15 +997,17 @@ const MatchCard: React.FC<{
                     >
                         <Metric label={t("Battle duration")} value={duration || t("Unknown")} />
                         <Metric label={t("Laps")} value={laps > 0 ? String(laps) : t("Unknown")} />
-                        {kind.rated && (
+                        {kind.showsMmr && (
                             <>
                                 <Metric label={t("MMR rating")} value={`${mmrBefore} → ${mmrAfter}`} />
                                 <Metric label={t("MMR change")} value={mmrDelta || "0"} />
-                                <Metric
-                                    label={`${rewardCurrency.name} (${rewardCurrency.symbol})`}
-                                    value={`+${goldEarned}`}
-                                />
                             </>
+                        )}
+                        {kind.showsGold && (
+                            <Metric
+                                label={`${rewardCurrency.name} (${rewardCurrency.symbol})`}
+                                value={`+${goldEarned}`}
+                            />
                         )}
                         <Metric label={t("Your damage")} value={formatMatchDamage(match.player_damage)} />
                         <Metric label={t("Opponent damage")} value={formatMatchDamage(match.opponent_damage)} />

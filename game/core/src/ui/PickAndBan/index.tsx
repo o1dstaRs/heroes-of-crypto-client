@@ -2515,6 +2515,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     useTranslation();
     const {
         pickPhase,
+        phaseIdentity,
         isYourTurn,
         secondsRemaining,
         initialBundles,
@@ -2552,7 +2553,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         // because perk !== 0 (the guard above) prevents re-entry once committed.
     }, [pickPhase, perk, busy, sendPerk]);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
-    const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
+    const [selection, setSelection] = useState<{ phaseIdentity: string; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
@@ -2593,7 +2594,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     // Clear the local selection whenever the phase advances.
     useEffect(() => {
-        setSelection((prev) => (prev && prev.phase === pickPhase ? prev : null));
+        setSelection((prev) => (prev && prev.phaseIdentity === phaseIdentity ? prev : null));
         setPickError("");
         setPendingPick(0);
         setPendingArtifact(0);
@@ -2601,14 +2602,14 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         // The hovered creature goes with it: the tile under the cursor is gone, so its mouseleave never
         // fires and the stat panel would otherwise hang around for the whole next phase.
         setInspectedId(0);
-    }, [pickPhase]);
+    }, [phaseIdentity]);
 
     const send = async (value: number, fn: () => Promise<void>): Promise<boolean> => {
         if (busy) return false;
         setBusy(true);
         try {
             await fn();
-            setSelection({ phase: pickPhase, value });
+            setSelection({ phaseIdentity, value });
             return true;
         } catch (err) {
             console.warn("[pick] action rejected", (err as Error)?.message ?? err);
@@ -2626,7 +2627,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         setPickError("");
         try {
             await pick(id);
-            setSelection({ phase: pickPhase, value: id });
+            setSelection({ phaseIdentity, value: id });
             return true;
         } catch (err) {
             const status = (err as { response?: { status?: number } })?.response?.status;
@@ -2688,7 +2689,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     });
-    const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
+    const selectedValue = selection && selection.phaseIdentity === phaseIdentity ? selection.value : -1;
     const hint = t(PHASE_HINT[pickPhase] ?? "");
     // "Taken" units are the opponent picks we legitimately know about: the ones we've collided on locally
     // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting doctrine /
@@ -3021,7 +3022,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                         : "Choose a creature first — click a portrait, then confirm."
                             }
                             seconds={secondsRemaining}
-                            submissionKey={pickPhase}
+                            submissionKey={phaseIdentity}
                             onCommit={() => {
                                 if (pickPhase === PickPhaseVals.ARTIFACT_2) {
                                     return commitArtifact(pendingArtifact);

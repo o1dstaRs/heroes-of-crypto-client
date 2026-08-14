@@ -75,7 +75,22 @@ export type MatchKindTone = "calibration" | "lobby" | "ranked" | "unknown";
 
 export interface MatchKindPresentation {
     label: "Calibration" | "Lobby" | "Match" | "Ranked";
-    rated: boolean;
+    /**
+     * Whether this kind's MMR movement is shown to the player. Calibration games DO move a rating, but
+     * it is the *provisional* one the server deliberately keeps hidden (ranked_math.ts: "Calibrating
+     * players track a hidden provisional MMR"), and for a fresh calibrator it does not even decide
+     * where they place — that comes from the calibration WIN COUNT via seedMmrForCalibrationWins. So a
+     * "MMR -40" on a placement game reads as a penalty the player can neither see the total of nor act
+     * on. The number stays in the history record for audit; it just is not surfaced here.
+     */
+    showsMmr: boolean;
+    /**
+     * Whether this kind can pay currency. Calibration CAN: placement games mint nothing from the
+     * result itself (the server gates that on `goldMintingEnabled && !calibrating`), but a player who
+     * wagered on their own game still takes the pot, credited straight to the profile by wager.ts with
+     * no calibration gate. So the reward is real during placement and the chip stays.
+     */
+    showsGold: boolean;
     tone: MatchKindTone;
 }
 
@@ -130,13 +145,13 @@ export const matchResultPresentation = (match: PortalMatchData): MatchResultPres
 export const matchKindPresentation = (match: PortalMatchData): MatchKindPresentation => {
     switch (match.match_kind) {
         case PortalMatchKind.RANKED:
-            return { label: "Ranked", rated: true, tone: "ranked" };
+            return { label: "Ranked", showsGold: true, showsMmr: true, tone: "ranked" };
         case PortalMatchKind.CALIBRATION:
-            return { label: "Calibration", rated: true, tone: "calibration" };
+            return { label: "Calibration", showsGold: true, showsMmr: false, tone: "calibration" };
         case PortalMatchKind.LOBBY:
-            return { label: "Lobby", rated: false, tone: "lobby" };
+            return { label: "Lobby", showsGold: false, showsMmr: false, tone: "lobby" };
         default:
-            return { label: "Match", rated: false, tone: "unknown" };
+            return { label: "Match", showsGold: false, showsMmr: false, tone: "unknown" };
     }
 };
 

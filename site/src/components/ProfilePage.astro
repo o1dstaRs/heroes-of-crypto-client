@@ -1138,15 +1138,27 @@ const rankedApp = links.rankedApp;
         if (sectionsEl) sectionsEl.hidden = false;
         if (summaryNoticeEl) summaryNoticeEl.hidden = !summaryOnly;
 
+        // While calibrating, the season record and the placement counter sit on DIFFERENT scopes, and
+        // showing both as-is makes the profile contradict itself. resetProfileForSeason() zeroes
+        // wins/losses/draws/totalGames but deliberately preserves the calibration counters —
+        // "calibration is a once-per-account rite, never re-asked on season rollover". So a player who
+        // crosses a season boundary mid-placement reads "Calibrating 2 / 5" beside a record of "1–0–0",
+        // with the pre-rollover game missing from one number and counted by the other. Report the
+        // CALIBRATION record while calibrating so every tile here describes the same set of games.
+        // (Entering recalibration zeroes these counters too, so the scope is right in that state as well.)
+        const record = placed ? profile : profile.calibration;
+        const recordGames = placed ? profile.totalGames : record.wins + record.losses + record.draws;
+        const recordWinRatePct = placed ? profile.winRatePct : recordGames ? (record.wins / recordGames) * 100 : 0;
+
         const statsEl = $("stats");
         if (statsEl) {
             statsEl.innerHTML = [
                 statCard(copy.statRating, rating, placed ? "#f2c75d" : undefined),
                 statCard(copy.statLeaderboardRank, rank),
-                statCard(copy.statRecord, `${profile.wins}–${profile.losses}–${profile.draws}`),
-                statCard(copy.statWinRate, profile.totalGames ? `${profile.winRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—", winRateColor(profile.winRatePct)),
+                statCard(copy.statRecord, `${record.wins}–${record.losses}–${record.draws}`),
+                statCard(copy.statWinRate, recordGames ? `${recordWinRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—", winRateColor(recordWinRatePct)),
                 statCard(copy.statPeakRating, profile.peakMmr ? numberFormatter.format(profile.peakMmr) : "—"),
-                statCard(copy.statGames, numberFormatter.format(profile.totalGames)),
+                statCard(copy.statGames, numberFormatter.format(recordGames)),
                 statCard(copy.statHoursInGame, hoursInGameLabel(profile.secondsInGame)),
                 // Gold moved to the header (large, right after the nickname); no duplicate stat card here.
             ].join("");

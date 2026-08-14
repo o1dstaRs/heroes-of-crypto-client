@@ -23,7 +23,11 @@ import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from 
  */
 const VOLUME_KEY = "hoc:themeVolume";
 const MUTED_KEY = "hoc:themeMuted";
-const DEFAULT_VOLUME = 0.5; // "medium"
+// 10% (owner call, down from a "medium" 0.5): the menu theme opened far louder than most players wanted
+// on first load, so it now starts quiet and is turned UP by anyone who wants it. Must stay in step with
+// ThemeMusic.astro — a player who has never touched the slider crosses between the two origins with no
+// stored value, and a mismatch is an audible jump.
+const DEFAULT_VOLUME = 0.1;
 const FADE_MS = 900;
 
 /**

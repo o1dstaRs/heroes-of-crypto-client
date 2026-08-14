@@ -237,6 +237,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
     isYourTurn: true,
     isAbandoned: false,
     pickPhase: PickPhaseVals.INITIAL_PICK,
+    phaseIdentity: "preview:bundle",
     secondsRemaining: 300,
     revealsRemaining: 0,
     initialBundles: [
@@ -289,6 +290,7 @@ const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
     initialBundles: [],
     artifactTier1: 1,
     pickPhase: PickPhaseVals.PICK,
+    phaseIdentity: "preview:level-1",
     requiredLevel: 1,
 };
 
@@ -488,6 +490,7 @@ const LocalPlayableDraft: React.FC = () => {
             isYourTurn: !resolving && view.actors.includes(LOCAL_DRAFT_TEAM) && !alreadyActed && !view.complete,
             isAbandoned: false,
             pickPhase: view.phase,
+            phaseIdentity: `sequence:${view.phaseSequence}`,
             secondsRemaining: 300,
             revealsRemaining: 0,
             initialBundles: view.bundles.map((bundle) => [...bundle] as [number, number, number]),

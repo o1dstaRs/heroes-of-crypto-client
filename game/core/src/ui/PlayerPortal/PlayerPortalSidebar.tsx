@@ -11,11 +11,14 @@ import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
 import {
+    formatSignedMatchValue,
+    matchKindPresentation,
     matchReplayPath,
     matchResultPresentation,
     type MatchResultTone,
     type PortalMatchData,
 } from "./matchHistoryModel";
+import { rankedSeasonCurrencyAt } from "../../api/ranked_season_client";
 import { CreatureIcon, timeAgo, winRateColor, winRatePct } from "./portalFormat";
 import { CalibrationProgress } from "./CalibrationProgress";
 import { usePlayerPortal } from "./usePlayerPortal";
@@ -132,6 +135,14 @@ const RecentMatchRow: React.FC<{
     const color = RESULT_COLORS[result.tone];
     const roster = (match.creature_ids ?? []).slice(0, 5);
     const replayAvailable = !!match.replay_available;
+    // The rewards this battle actually moved. Driven by the SAME kind rules the full history uses, so the
+    // two lists can never disagree about a match: ranked shows both, a calibration game shows only its
+    // gold (its rating movement is the hidden provisional one), a lobby game shows neither.
+    const { seasons } = useRankedSeason();
+    const kind = matchKindPresentation(match);
+    const mmrDelta = formatSignedMatchValue(match.mmr_delta);
+    const goldEarned = Number.isFinite(match.gold_earned) ? Math.max(0, Math.round(Number(match.gold_earned))) : 0;
+    const rewardCurrency = rankedSeasonCurrencyAt(seasons, match.finished_time);
     // The model keeps its result labels in English as the stable key; localize at the render edge.
     const resultLabel = t(result.label);
     const opponentName = match.opponent_username || t("Unknown rival");
@@ -175,6 +186,26 @@ const RecentMatchRow: React.FC<{
                             <Typography level="body-xs" sx={{ color }}>
                                 · {t(result.detail)}
                             </Typography>
+                        )}
+                        {kind.showsMmr && mmrDelta && (
+                            <Typography level="body-xs" sx={{ color: "#c7bfff", fontWeight: 800 }}>
+                                {tf("MMR {amount}", { amount: mmrDelta })}
+                            </Typography>
+                        )}
+                        {kind.showsGold && (
+                            <Stack
+                                component="span"
+                                direction="row"
+                                spacing={0.25}
+                                alignItems="center"
+                                title={`${rewardCurrency.name} (${rewardCurrency.symbol})`}
+                                sx={{ color: hocColors.gold }}
+                            >
+                                <CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={12} />
+                                <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
+                                    +{goldEarned}
+                                </Typography>
+                            </Stack>
                         )}
                     </Stack>
                 </Box>

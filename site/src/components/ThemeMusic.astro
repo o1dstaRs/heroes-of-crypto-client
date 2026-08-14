@@ -67,7 +67,9 @@
     // pages under /play, which hand these across the origin boundary in the query string.
     const VOLUME_KEY = "hoc:themeVolume";
     const MUTED_KEY = "hoc:themeMuted";
-    const DEFAULT_VOLUME = 0.5; // "medium"
+    // 10% (owner call, down from a "medium" 0.5). Must stay in step with the client's ThemeMusic.tsx —
+    // see the note there.
+    const DEFAULT_VOLUME = 0.1;
     const FADE_MS = 900;
 
     // The menu playlist, in order; wraps back to the first when the last ends. Kept in step with the

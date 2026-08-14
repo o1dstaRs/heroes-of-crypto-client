@@ -75,25 +75,41 @@ describe("match history model", () => {
     it("presents explicit match modes without inferring from rating values", () => {
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.RANKED, mmr_delta: 0 }))).toEqual({
             label: "Ranked",
-            rated: true,
+            showsGold: true,
+            showsMmr: true,
             tone: "ranked",
-        });
-        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION }))).toEqual({
-            label: "Calibration",
-            rated: true,
-            tone: "calibration",
         });
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.LOBBY, mmr_delta: 42 }))).toEqual({
             label: "Lobby",
-            rated: false,
+            showsGold: false,
+            showsMmr: false,
             tone: "lobby",
         });
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.UNKNOWN }))).toEqual({
             label: "Match",
-            rated: false,
+            showsGold: false,
+            showsMmr: false,
             tone: "unknown",
         });
-        expect(matchKindPresentation(match())).toEqual({ label: "Match", rated: false, tone: "unknown" });
+        expect(matchKindPresentation(match())).toEqual({
+            label: "Match",
+            showsGold: false,
+            showsMmr: false,
+            tone: "unknown",
+        });
+    });
+
+    it("hides calibration MMR but keeps its gold, which a wager can still pay", () => {
+        // The provisional rating a placement game moves is hidden by design, so a row reporting
+        // "MMR -40" reports a penalty the player cannot see the total of. Gold is the opposite case:
+        // the result mints none during calibration, but betting on your own game pays the pot
+        // regardless, so the reward is real and belongs on the row.
+        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, mmr_delta: -40 }))).toEqual({
+            label: "Calibration",
+            showsGold: true,
+            showsMmr: false,
+            tone: "calibration",
+        });
     });
 
     it("formats signed rating and reward values", () => {
