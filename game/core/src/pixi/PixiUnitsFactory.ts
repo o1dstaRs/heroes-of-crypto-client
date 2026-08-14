@@ -141,8 +141,13 @@ export enum TextureType {
 
 const UNIT_ATLAS_ANIMATION_EXCLUSIONS = new Set(["Ash Moth"]);
 
+// Unit board atlas animation is disabled per owner (2026-08-14): every unit renders as the framed
+// circular chip (the pre-rollout look) instead of the full-body animated sprite. Flip
+// UNIT_ATLAS_ANIMATION_ENABLED back to true to restore per-unit atlas animation once the art is finalized.
+const UNIT_ATLAS_ANIMATION_ENABLED: boolean = false;
+
 export const usesUnitAtlasAnimation = (unitName: string): boolean =>
-    !UNIT_ATLAS_ANIMATION_EXCLUSIONS.has(unitName.trim());
+    UNIT_ATLAS_ANIMATION_ENABLED && !UNIT_ATLAS_ANIMATION_EXCLUSIONS.has(unitName.trim());
 
 export const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
