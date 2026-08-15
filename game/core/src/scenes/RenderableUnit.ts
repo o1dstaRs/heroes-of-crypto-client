@@ -2692,17 +2692,11 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Lightning Spin
-        const lightningSpinAbility = this.getAbility("Lightning Spin");
-        if (lightningSpinAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(lightningSpinAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                lightningSpinAbility.getName(),
-                lightningSpinAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
+        // Lightning Spin, Skewer Strike, Large Caliber, Area Throw and Through Shot are NOT refreshed here:
+        // the base implementation in common owns those five (it is the set Giant's Maul boosts, and it must
+        // apply the Maul on top of this same multiplier). super.refreshAbilitiesDescriptions() runs after
+        // this method, so a copy here would be overwritten anyway — and while it existed it read as the
+        // source of the number, which is how the Maul pass came to print a luck-less "100%" unnoticed.
 
         // Fire Breath
         const fireBreathAbility = this.getAbility("Fire Breath");
@@ -2713,18 +2707,6 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(
                 fireBreathAbility.getName(),
                 fireBreathAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Skewer Strike
-        const skewerStrikeAbility = this.getAbility("Skewer Strike");
-        if (skewerStrikeAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(skewerStrikeAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                skewerStrikeAbility.getName(),
-                skewerStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -3138,42 +3120,6 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(
                 spitBallAbility.getName(),
                 spitBallAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Large Caliber
-        const largeCaliberAbility = this.getAbility("Large Caliber");
-        if (largeCaliberAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(largeCaliberAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                largeCaliberAbility.getName(),
-                largeCaliberAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Area Throw
-        const areaThrowAbility = this.getAbility("Area Throw");
-        if (areaThrowAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(areaThrowAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                areaThrowAbility.getName(),
-                areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Through Shot
-        const throughShotAbility = this.getAbility("Through Shot");
-        if (throughShotAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(throughShotAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                throughShotAbility.getName(),
-                throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
