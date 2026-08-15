@@ -7636,6 +7636,7 @@ export class Sandbox extends PixiScene {
                 targetIsFireElement: target.hasAbilityActive("Fire Element"),
                 targetIsWaterElement: target.hasAbilityActive("Water Element"),
                 targetIsWindElement: target.hasAbilityActive("Wind Element"),
+                targetIsEarthElement: target.hasAbilityActive("Earth Element"),
             }),
         );
     }
