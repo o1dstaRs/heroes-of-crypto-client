@@ -223,15 +223,21 @@ interface IObserverPickViewProps {
     gameId: string;
     /** Forwards the live phase so GameRoute can speed up its pick->play handoff poll. */
     onPickPhaseChange?: (phase: number) => void;
+    /** Backend-free snapshot used only by the local ranked preview. */
+    previewSnapshot?: PickObserveSnapshot;
 }
 
-export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange }) => {
-    const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(undefined);
+export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange, previewSnapshot }) => {
+    const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(previewSnapshot);
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
     const driftRef = useRef(0);
 
     useEffect(() => {
+        if (previewSnapshot) {
+            setSnapshot(previewSnapshot);
+            return undefined;
+        }
         let cancelled = false;
         const poll = async () => {
             try {
@@ -256,7 +262,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             cancelled = true;
             window.clearInterval(pollId);
         };
-    }, [gameId, onPickPhaseChange]);
+    }, [gameId, onPickPhaseChange, previewSnapshot]);
 
     useEffect(() => {
         const tickId = window.setInterval(() => setNow(Date.now()), 500);
@@ -396,6 +402,44 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             </Stack>
         </Box>
     );
+};
+
+/** Read-only fake draft reached from the mock prediction card's Spectate action. */
+export const MockObserverPickView: React.FC = () => {
+    const snapshot = useMemo<PickObserveSnapshot>(
+        () => ({
+            gameId: "mock-live-draft",
+            stage: "pick",
+            phaseName: "PICK",
+            phaseSeq: 6,
+            phaseCount: 16,
+            phaseEndsAt: Date.now() + 4 * 60_000,
+            serverTimeMs: Date.now(),
+            bans: [16, 31],
+            teams: [
+                {
+                    team: "lower",
+                    playerId: "mock-iron-warden",
+                    username: "IronWarden",
+                    isBot: false,
+                    aiVersion: null,
+                    artifactTier1: 1,
+                    revealedCreatureSlots: [12, 24, 0, 0, 0, 0],
+                },
+                {
+                    team: "upper",
+                    playerId: "mock-frost-queen",
+                    username: "FrostQueen",
+                    isBot: false,
+                    aiVersion: null,
+                    artifactTier1: 2,
+                    revealedCreatureSlots: [31, 11, 0, 0, 0, 0],
+                },
+            ],
+        }),
+        [],
+    );
+    return <ObserverPickView gameId={snapshot.gameId} previewSnapshot={snapshot} />;
 };
 
 export default ObserverPickView;

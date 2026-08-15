@@ -1,15 +1,20 @@
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
+import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Avatar, Box, Button, CircularProgress, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 import { useNavigate } from "react-router";
 
+import { rankedSeasonCurrencyAt } from "../../api/ranked_season_client";
 import { t, tf, useTranslation } from "../../i18n/i18n";
+import { useAuthContext } from "../auth/context/auth_context";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
+import { CalibrationProgress } from "./CalibrationProgress";
+import { LivePredictionMarkets } from "./LivePredictionMarkets";
 import {
     formatSignedMatchValue,
     matchKindPresentation,
@@ -18,9 +23,7 @@ import {
     type MatchResultTone,
     type PortalMatchData,
 } from "./matchHistoryModel";
-import { rankedSeasonCurrencyAt } from "../../api/ranked_season_client";
 import { CreatureIcon, timeAgo, winRateColor, winRatePct } from "./portalFormat";
-import { CalibrationProgress } from "./CalibrationProgress";
 import { usePlayerPortal } from "./usePlayerPortal";
 import { useRankedStanding } from "./useRankedStanding";
 
@@ -35,12 +38,11 @@ const StatBlock: React.FC<{ label: string; value: string | number; color?: strin
         variant="soft"
         sx={{
             minWidth: 0,
-            px: 1,
-            py: 1.3,
+            px: 0.5,
+            py: 0.55,
             textAlign: "center",
-            borderRadius: "10px",
-            bgcolor: "rgba(0,0,0,0.3)",
-            border: "1px solid rgba(239,228,204,0.08)",
+            bgcolor: "transparent",
+            border: 0,
         }}
     >
         <Typography level="h4" sx={{ color: color ?? hocColors.parchment, lineHeight: 1.05 }}>
@@ -269,6 +271,7 @@ export interface PlayerPortalSidebarProps {
 /** In-flow profile summary shown alongside ranked matchmaking. */
 export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ navigationDisabled = false }) => {
     const navigate = useNavigate();
+    const { user } = useAuthContext();
     const { data, loading, error, reload } = usePlayerPortal();
     // Ranked standing rides its own small call (see useRankedStanding); re-read whenever the portal
     // payload reloads so finishing a placement match updates the pips without a page refresh.
@@ -276,6 +279,12 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     // Subscribes this subtree to the profile language picker, so switching repaints it without a reload.
     const { language } = useTranslation();
     const { currency } = useRankedSeason();
+    const [predictionsVisible, setPredictionsVisible] = React.useState(false);
+    const [recentBattlesExpanded, setRecentBattlesExpanded] = React.useState(false);
+    const handlePredictionsVisibility = React.useCallback((visible: boolean) => {
+        setPredictionsVisible(visible);
+        if (visible) setRecentBattlesExpanded(false);
+    }, []);
 
     const overallPct = data ? winRatePct(data.wins ?? 0, data.total_games_played ?? 0) : 0;
     const recent = (data?.recent_matches ?? []).slice(0, 3);
@@ -284,221 +293,319 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
     const rawGold = Number(data?.gold ?? 0);
     const gold = Number.isFinite(rawGold) ? Math.max(0, Math.trunc(rawGold)) : 0;
     const localizedGold = gold.toLocaleString(language === "ru" ? "ru-RU" : "en-US");
+    const showRecentBattles = !predictionsVisible || recentBattlesExpanded;
 
     return (
-        <Sheet
-            component="aside"
-            aria-label={t("Player profile summary")}
-            variant="outlined"
+        <Box
             sx={{
                 position: { lg: "sticky" },
                 top: { lg: 24 },
                 alignSelf: "start",
                 minWidth: 0,
-                minHeight: { lg: 724 },
                 boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
-                overflow: "hidden",
-                borderRadius: "22px",
-                ...hocPanelSx,
-                bgcolor: "rgba(12,8,5,0.91)",
-                borderColor: "rgba(255,143,0,0.25)",
-                boxShadow: "0 28px 80px rgba(0,0,0,0.48)",
-                backdropFilter: "blur(16px)",
+                gap: 1,
             }}
         >
-            <Box
+            <Sheet
+                component="aside"
+                aria-label={t("Player profile summary")}
+                variant="outlined"
                 sx={{
-                    position: "relative",
-                    p: { xs: 2.25, sm: 2.75 },
-                    borderBottom: "1px solid rgba(239,228,204,0.09)",
-                    background:
-                        "radial-gradient(circle at 92% 0%, rgba(255,143,0,0.18), transparent 40%), linear-gradient(135deg, rgba(255,143,0,0.1), transparent 60%)",
+                    minWidth: 0,
+                    minHeight: predictionsVisible ? undefined : { lg: 724 },
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                    borderRadius: predictionsVisible ? "18px" : "22px",
+                    ...hocPanelSx,
+                    bgcolor: "rgba(12,8,5,0.91)",
+                    borderColor: predictionsVisible ? "rgba(255,143,0,0.16)" : "rgba(255,143,0,0.25)",
+                    boxShadow: predictionsVisible ? "0 16px 48px rgba(0,0,0,0.34)" : "0 28px 80px rgba(0,0,0,0.48)",
+                    backdropFilter: "blur(16px)",
                 }}
             >
-                <Stack direction="row" spacing={1.25} alignItems="center">
-                    <Avatar
-                        variant="soft"
-                        sx={{
-                            width: 54,
-                            height: 54,
-                            flexShrink: 0,
-                            color: hocColors.gold,
-                            bgcolor: "rgba(0,0,0,0.36)",
-                            border: `1px solid ${hocColors.orangeBorder}`,
-                            boxShadow: "0 0 0 5px rgba(255,143,0,0.07)",
-                            fontWeight: 850,
-                        }}
-                    >
-                        {playerInitials(displayName)}
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                            <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
-                                {displayName}
-                            </Typography>
-                            {data && (
-                                <Stack
-                                    component="span"
-                                    direction="row"
-                                    spacing={0.3}
-                                    alignItems="center"
-                                    aria-label={`${currency.name}: ${localizedGold}`}
-                                    title={`${currency.name} (${currency.symbol})`}
-                                    sx={{ flexShrink: 0, color: hocColors.gold }}
-                                >
-                                    <CurrencyIcon iconSvg={currency.iconSvg} size={14} />
-                                    <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
-                                        {localizedGold} {currency.symbol}
-                                    </Typography>
-                                </Stack>
-                            )}
-                        </Stack>
-                        <SidebarRecentForm matches={recentFormMatches} />
-                    </Box>
-                    <Tooltip
-                        title={
-                            navigationDisabled
-                                ? t("Leave matchmaking before opening your profile")
-                                : t("Open full profile")
-                        }
-                        size="sm"
-                        variant="soft"
-                    >
-                        <span style={{ display: "inline-flex" }}>
-                            <IconButton
-                                aria-label={t("Open full profile")}
-                                variant="soft"
-                                disabled={navigationDisabled}
-                                onClick={() => navigate("/portal")}
-                                sx={{ ...hocSoftButtonSx, borderRadius: "10px" }}
-                            >
-                                <ChevronRightRoundedIcon />
-                            </IconButton>
-                        </span>
-                    </Tooltip>
-                </Stack>
-            </Box>
-
-            {/* Placement progress sits directly under the identity block: while calibrating it is the
-                single most actionable thing on this panel ("two more and you are placed"). */}
-            {standing && (
-                <Box sx={{ px: { xs: 2.25, sm: 2.75 }, pt: 1.5 }}>
-                    <CalibrationProgress standing={standing} dense />
-                </Box>
-            )}
-
-            <Stack spacing={2} sx={{ flex: 1, minHeight: 0, p: { xs: 2.25, sm: 2.75 } }}>
-                {loading && (
-                    <Stack spacing={1.25} alignItems="center" justifyContent="center" sx={{ flex: 1, minHeight: 320 }}>
-                        <CircularProgress
-                            size="md"
-                            sx={{
-                                "--CircularProgress-progressColor": hocColors.orange,
-                                "--CircularProgress-trackColor": "rgba(255,143,0,0.16)",
-                            }}
-                        />
-                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                            {t("Loading your battle record…")}
-                        </Typography>
-                    </Stack>
-                )}
-
-                {!loading && error && (
-                    <Stack spacing={1.25} alignItems="center" justifyContent="center" sx={{ flex: 1, minHeight: 320 }}>
-                        <HistoryRoundedIcon sx={{ color: hocColors.danger, fontSize: 36 }} />
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "center" }}>
-                            {error}
-                        </Typography>
-                        <Button size="sm" variant="soft" sx={hocSoftButtonSx} onClick={reload}>
-                            {t("Try again")}
-                        </Button>
-                    </Stack>
-                )}
-
-                {!loading && !error && data && (
-                    <>
-                        <Box
-                            sx={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                                gap: 0.8,
-                            }}
-                        >
-                            <StatBlock label={t("Wins")} value={data.wins ?? 0} color="#55d878" />
-                            <StatBlock label={t("Losses")} value={data.losses ?? 0} color={hocColors.danger} />
-                            <StatBlock
-                                label={t("Win rate")}
-                                value={`${overallPct}%`}
-                                color={winRateColor(overallPct)}
-                            />
-                        </Box>
-
-                        <Box sx={{ minWidth: 0 }}>
-                            <Stack
-                                direction="row"
-                                spacing={1}
-                                alignItems="center"
-                                justifyContent="space-between"
-                                sx={{ mb: 1 }}
-                            >
-                                <Stack direction="row" spacing={0.75} alignItems="center">
-                                    <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 18 }} />
-                                    <Typography level="title-sm" sx={{ color: hocColors.parchment }}>
-                                        {t("Recent battles")}
-                                    </Typography>
-                                </Stack>
-                                <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                    {tf("Last {count}", { count: recent.length })}
-                                </Typography>
-                            </Stack>
-
-                            {recent.length > 0 ? (
-                                <Stack spacing={0.9}>
-                                    {recent.map((match) => (
-                                        <RecentMatchRow
-                                            key={match.game_id}
-                                            match={match}
-                                            navigationDisabled={navigationDisabled}
-                                            onReplay={() => navigate(matchReplayPath(match))}
-                                        />
-                                    ))}
-                                </Stack>
-                            ) : (
-                                <Sheet
-                                    variant="soft"
-                                    sx={{
-                                        p: 2.5,
-                                        textAlign: "center",
-                                        borderRadius: "11px",
-                                        bgcolor: "rgba(0,0,0,0.25)",
-                                        border: "1px dashed rgba(239,228,204,0.14)",
-                                    }}
-                                >
-                                    <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 28 }} />
-                                    <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
-                                        {t("Your finished matches will appear here.")}
-                                    </Typography>
-                                </Sheet>
-                            )}
-                        </Box>
-
-                        <Box sx={{ flex: 1 }} />
-                        <Button
-                            fullWidth
+                <Box
+                    sx={{
+                        position: "relative",
+                        p: predictionsVisible ? { xs: 1.5, sm: 1.75 } : { xs: 2.25, sm: 2.75 },
+                        borderBottom: "1px solid rgba(239,228,204,0.09)",
+                        background:
+                            "radial-gradient(circle at 92% 0%, rgba(255,143,0,0.18), transparent 40%), linear-gradient(135deg, rgba(255,143,0,0.1), transparent 60%)",
+                    }}
+                >
+                    <Stack direction="row" spacing={predictionsVisible ? 1 : 1.25} alignItems="center">
+                        <Avatar
                             variant="soft"
-                            disabled={navigationDisabled}
-                            onClick={() => navigate("/portal")}
-                            endDecorator={<ArrowForwardRoundedIcon />}
-                            title={navigationDisabled ? t("Leave matchmaking before opening your profile") : undefined}
-                            sx={{ ...hocSoftButtonSx, minHeight: 48 }}
+                            sx={{
+                                width: predictionsVisible ? 46 : 54,
+                                height: predictionsVisible ? 46 : 54,
+                                flexShrink: 0,
+                                color: hocColors.gold,
+                                bgcolor: "rgba(0,0,0,0.36)",
+                                border: `1px solid ${hocColors.orangeBorder}`,
+                                boxShadow: predictionsVisible
+                                    ? "0 0 0 3px rgba(255,143,0,0.055)"
+                                    : "0 0 0 5px rgba(255,143,0,0.07)",
+                                fontWeight: 850,
+                            }}
                         >
-                            {t("View full profile")}
-                        </Button>
-                    </>
+                            {playerInitials(displayName)}
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                                <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
+                                    {displayName}
+                                </Typography>
+                                {data && (
+                                    <Stack
+                                        component="span"
+                                        direction="row"
+                                        spacing={0.3}
+                                        alignItems="center"
+                                        aria-label={`${currency.name}: ${localizedGold}`}
+                                        title={`${currency.name} (${currency.symbol})`}
+                                        sx={{ flexShrink: 0, color: hocColors.gold }}
+                                    >
+                                        <CurrencyIcon iconSvg={currency.iconSvg} size={14} />
+                                        <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
+                                            {localizedGold} {currency.symbol}
+                                        </Typography>
+                                    </Stack>
+                                )}
+                            </Stack>
+                            <SidebarRecentForm matches={recentFormMatches} />
+                        </Box>
+                        <Tooltip
+                            title={
+                                navigationDisabled
+                                    ? t("Leave matchmaking before opening your profile")
+                                    : t("Open full profile")
+                            }
+                            size="sm"
+                            variant="soft"
+                        >
+                            <span style={{ display: "inline-flex" }}>
+                                <IconButton
+                                    aria-label={t("Open full profile")}
+                                    variant="soft"
+                                    disabled={navigationDisabled}
+                                    onClick={() => navigate("/portal")}
+                                    sx={{ ...hocSoftButtonSx, borderRadius: "10px" }}
+                                >
+                                    <ChevronRightRoundedIcon />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                    </Stack>
+                </Box>
+
+                {/* Placement progress sits directly under the identity block: while calibrating it is the
+                single most actionable thing on this panel ("two more and you are placed"). */}
+                {standing && (
+                    <Box sx={{ px: { xs: 2.25, sm: 2.75 }, pt: 1.5 }}>
+                        <CalibrationProgress standing={standing} dense />
+                    </Box>
                 )}
-            </Stack>
-        </Sheet>
+
+                <Stack
+                    spacing={predictionsVisible ? 1.15 : 2}
+                    sx={{
+                        flex: 1,
+                        minHeight: 0,
+                        p: predictionsVisible ? { xs: 1.5, sm: 1.75 } : { xs: 2.25, sm: 2.75 },
+                    }}
+                >
+                    {loading && (
+                        <Stack
+                            spacing={1.25}
+                            alignItems="center"
+                            justifyContent="center"
+                            sx={{ flex: 1, minHeight: 320 }}
+                        >
+                            <CircularProgress
+                                size="md"
+                                sx={{
+                                    "--CircularProgress-progressColor": hocColors.orange,
+                                    "--CircularProgress-trackColor": "rgba(255,143,0,0.16)",
+                                }}
+                            />
+                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                                {t("Loading your battle record…")}
+                            </Typography>
+                        </Stack>
+                    )}
+
+                    {!loading && error && (
+                        <Stack
+                            spacing={1.25}
+                            alignItems="center"
+                            justifyContent="center"
+                            sx={{ flex: 1, minHeight: 320 }}
+                        >
+                            <HistoryRoundedIcon sx={{ color: hocColors.danger, fontSize: 36 }} />
+                            <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "center" }}>
+                                {error}
+                            </Typography>
+                            <Button size="sm" variant="soft" sx={hocSoftButtonSx} onClick={reload}>
+                                {t("Try again")}
+                            </Button>
+                        </Stack>
+                    )}
+
+                    {!loading && !error && data && (
+                        <>
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                                    gap: 0.8,
+                                }}
+                            >
+                                <StatBlock label={t("Wins")} value={data.wins ?? 0} color="#55d878" />
+                                <StatBlock label={t("Losses")} value={data.losses ?? 0} color={hocColors.danger} />
+                                <StatBlock
+                                    label={t("Win rate")}
+                                    value={`${overallPct}%`}
+                                    color={winRateColor(overallPct)}
+                                />
+                            </Box>
+
+                            <Box sx={{ minWidth: 0 }}>
+                                {predictionsVisible ? (
+                                    <Button
+                                        fullWidth
+                                        size="sm"
+                                        variant="plain"
+                                        aria-label={
+                                            recentBattlesExpanded ? "Collapse recent battles" : "Expand recent battles"
+                                        }
+                                        aria-expanded={recentBattlesExpanded}
+                                        onClick={() => setRecentBattlesExpanded((expanded) => !expanded)}
+                                        startDecorator={
+                                            <HistoryRoundedIcon sx={{ color: hocColors.muted, fontSize: 15 }} />
+                                        }
+                                        endDecorator={
+                                            <ExpandMoreRoundedIcon
+                                                sx={{
+                                                    fontSize: 17,
+                                                    opacity: 0.7,
+                                                    transform: recentBattlesExpanded ? "rotate(180deg)" : "none",
+                                                    transition: "transform 160ms ease",
+                                                }}
+                                            />
+                                        }
+                                        sx={{
+                                            justifyContent: "flex-start",
+                                            minHeight: 28,
+                                            mb: recentBattlesExpanded ? 0.75 : 0,
+                                            px: 0.25,
+                                            py: 0.15,
+                                            color: hocColors.muted,
+                                            bgcolor: "transparent",
+                                            "&:hover": { bgcolor: "rgba(255,143,0,0.035)", color: hocColors.gold },
+                                        }}
+                                    >
+                                        <Stack
+                                            component="span"
+                                            direction="row"
+                                            alignItems="center"
+                                            justifyContent="space-between"
+                                            sx={{ flex: 1, minWidth: 0 }}
+                                        >
+                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 600 }}>
+                                                {t("Recent battles")}
+                                            </Typography>
+                                            <Typography level="body-xs" sx={{ color: hocColors.muted, opacity: 0.72 }}>
+                                                {recent.length}
+                                            </Typography>
+                                        </Stack>
+                                    </Button>
+                                ) : (
+                                    <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        alignItems="center"
+                                        justifyContent="space-between"
+                                        sx={{ mb: 1 }}
+                                    >
+                                        <Stack direction="row" spacing={0.75} alignItems="center">
+                                            <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 18 }} />
+                                            <Typography level="title-sm" sx={{ color: hocColors.parchment }}>
+                                                {t("Recent battles")}
+                                            </Typography>
+                                        </Stack>
+                                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                            {tf("Last {count}", { count: recent.length })}
+                                        </Typography>
+                                    </Stack>
+                                )}
+
+                                {showRecentBattles &&
+                                    (recent.length > 0 ? (
+                                        <Stack spacing={0.9}>
+                                            {recent.map((match) => (
+                                                <RecentMatchRow
+                                                    key={match.game_id}
+                                                    match={match}
+                                                    navigationDisabled={navigationDisabled}
+                                                    onReplay={() => navigate(matchReplayPath(match))}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    ) : (
+                                        <Sheet
+                                            variant="soft"
+                                            sx={{
+                                                p: 2.5,
+                                                textAlign: "center",
+                                                borderRadius: "11px",
+                                                bgcolor: "rgba(0,0,0,0.25)",
+                                                border: "1px dashed rgba(239,228,204,0.14)",
+                                            }}
+                                        >
+                                            <HistoryRoundedIcon sx={{ color: hocColors.gold, fontSize: 28 }} />
+                                            <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
+                                                {t("Your finished matches will appear here.")}
+                                            </Typography>
+                                        </Sheet>
+                                    ))}
+                            </Box>
+
+                            <Box sx={{ flex: 1 }} />
+                            {!predictionsVisible && (
+                                <Button
+                                    fullWidth
+                                    variant="soft"
+                                    disabled={navigationDisabled}
+                                    onClick={() => navigate("/portal")}
+                                    endDecorator={<ArrowForwardRoundedIcon />}
+                                    title={
+                                        navigationDisabled
+                                            ? t("Leave matchmaking before opening your profile")
+                                            : undefined
+                                    }
+                                    sx={{ ...hocSoftButtonSx, minHeight: 48 }}
+                                >
+                                    {t("View full profile")}
+                                </Button>
+                            )}
+                        </>
+                    )}
+                </Stack>
+            </Sheet>
+
+            {data && (
+                <LivePredictionMarkets
+                    viewerUsername={displayName}
+                    viewerGameId={user?.in_game_id}
+                    gold={gold}
+                    onBetPlaced={reload}
+                    onVisibilityChange={handlePredictionsVisibility}
+                />
+            )}
+        </Box>
     );
 };

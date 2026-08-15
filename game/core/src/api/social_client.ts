@@ -205,6 +205,29 @@ export interface PredictionBet {
     settledAt: number;
 }
 
+export interface PredictionMarketViewer {
+    gameId?: string;
+    username?: string;
+}
+
+/**
+ * Markets a signed-in spectator may back. The server is still authoritative and rejects either
+ * player at bet time; this keeps a commander's own draft out of the UI before they can click it.
+ * Username matching covers the current auth payload, which intentionally carries no player id.
+ */
+export const eligiblePredictionMarkets = (
+    markets: readonly PredictionMarket[],
+    viewer: PredictionMarketViewer,
+): PredictionMarket[] => {
+    const gameId = viewer.gameId?.trim() ?? "";
+    const username = viewer.username?.trim().toLocaleLowerCase() ?? "";
+    return markets.filter(
+        (market) =>
+            (!gameId || market.gameId !== gameId) &&
+            (!username || !market.seats.some((seat) => seat.username.trim().toLocaleLowerCase() === username)),
+    );
+};
+
 export const settledPredictionBetsForSeason = (
     bets: readonly PredictionBet[],
     seasonSequence: number | undefined,

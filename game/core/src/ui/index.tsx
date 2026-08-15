@@ -60,7 +60,7 @@ import { SocialProvider } from "./social/SocialProvider";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
-import ObserverPickView from "./PickAndBan/ObserverPickView";
+import ObserverPickView, { MockObserverPickView } from "./PickAndBan/ObserverPickView";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
@@ -997,6 +997,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                     <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
                     <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
                     <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
+                    <Route path="/preview/picks/spectator" element={<MockObserverPickView />} />
                     <Route
                         path="/preview/augments"
                         element={

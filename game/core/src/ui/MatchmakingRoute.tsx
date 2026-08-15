@@ -4,6 +4,7 @@ import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
+import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
 import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
@@ -26,6 +27,7 @@ import { useAuthContext } from "./auth/context/auth_context";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { PerkIcon } from "./PerkIcon";
 import { getPerkCopy } from "./perkCopy";
+import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { useRankedSeason } from "./useRankedSeason";
 import {
@@ -84,6 +86,10 @@ export const MatchmakingRoute: React.FC = () => {
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
 
     useEffect(() => {
+        if (isMockPortalEnabled()) {
+            setOnlineNow({ searching: 4, playing: 20, online: 24 });
+            return undefined;
+        }
         let cancelled = false;
         const poll = async (): Promise<void> => {
             try {
@@ -741,7 +747,7 @@ export const MatchmakingRoute: React.FC = () => {
                         sx={{ width: { xs: "100%", sm: "auto" }, pb: { xs: 0.25, sm: 0 } }}
                     >
                         <Button
-                            aria-label="Custom games"
+                            aria-label="Ranked Arena"
                             size="sm"
                             variant="soft"
                             aria-current="page"
@@ -757,12 +763,13 @@ export const MatchmakingRoute: React.FC = () => {
                             Ranked
                         </Button>
                         <Button
+                            aria-label="Lobby"
                             size="sm"
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/lobbies")}
                             title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
-                            startDecorator={<GroupsRoundedIcon />}
+                            startDecorator={<MeetingRoomRoundedIcon />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -772,7 +779,7 @@ export const MatchmakingRoute: React.FC = () => {
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                Custom
+                                Lobby
                             </Box>
                         </Button>
                         <Button
@@ -948,16 +955,13 @@ export const MatchmakingRoute: React.FC = () => {
                                             alignItems="center"
                                             aria-label={`${onlineNow.online} commanders online`}
                                             sx={{
-                                                minHeight: 32,
-                                                px: 1,
-                                                borderRadius: "999px",
+                                                minHeight: 28,
+                                                px: 0.25,
                                                 color: hocColors.gold,
-                                                bgcolor: "rgba(0,0,0,0.26)",
-                                                border: "1px solid rgba(239,228,204,0.1)",
                                             }}
                                         >
-                                            <GroupsRoundedIcon sx={{ fontSize: 17 }} />
-                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
+                                            <GroupsRoundedIcon sx={{ fontSize: 18 }} />
+                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 750 }}>
                                                 {onlineNow.online}
                                             </Typography>
                                         </Stack>

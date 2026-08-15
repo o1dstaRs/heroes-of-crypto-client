@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:
 
 import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "./axios";
 import {
+    eligiblePredictionMarkets,
     fetchFriendMessages,
     markFriendMessagesRead,
     sendFriendMessage,
     setFriendMuted,
     settledPredictionBetsForSeason,
     type PredictionBet,
+    type PredictionMarket,
 } from "./social_client";
 
 const FRIEND_ID = "bbbbbbbb-0000-4000-8000-000000000002";
@@ -73,6 +75,31 @@ describe("social messaging client", () => {
 });
 
 describe("prediction history", () => {
+    test("keeps only markets that do not involve the viewer", () => {
+        const market = (gameId: string, lower: string, upper: string): PredictionMarket => ({
+            gameId,
+            pickEndTime: 1_800_000_000_000,
+            totalPool: 0,
+            totalBets: 0,
+            seats: [
+                { playerId: `${gameId}-lower`, username: lower, pool: 0, bets: 0 },
+                { playerId: `${gameId}-upper`, username: upper, pool: 0, bets: 0 },
+            ],
+        });
+        const markets = [
+            market("viewer-current-game", "SomeoneElse", "AnotherCommander"),
+            market("viewer-by-name", "previewcommander", "ThirdCommander"),
+            market("eligible-game", "IronWarden", "FrostQueen"),
+        ];
+
+        expect(
+            eligiblePredictionMarkets(markets, {
+                gameId: "viewer-current-game",
+                username: "PreviewCommander",
+            }).map((candidate) => candidate.gameId),
+        ).toEqual(["eligible-game"]);
+    });
+
     test("keeps only settled bets from the active season", () => {
         const base: PredictionBet = {
             gameId: "current-settled",
