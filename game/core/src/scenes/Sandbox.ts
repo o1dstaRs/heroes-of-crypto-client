@@ -16,6 +16,7 @@ import {
     HoCLib,
     AttackType,
     Spell,
+    SpellElement,
     SpellMultiplierType,
     SpellTargetType,
     SpellPowerType,
@@ -6638,6 +6639,7 @@ export class Sandbox extends PixiScene {
         if (this.spellHoverInfoKey === key) return;
 
         this.spellHoverInfoKey = key;
+        this.sc_hoverSpellElement = spell?.getElement() ?? SpellElement.NO_ELEMENT;
         this.sc_attackDamageSpreadStr = "";
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_attackKillSpreadStr = "";

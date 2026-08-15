@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore }
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
+import { t, useTranslation } from "../../i18n/i18n";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
 import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
@@ -94,6 +95,7 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
 };
 
 export const ThemeMusic: React.FC = () => {
+    useTranslation();
     const { pathname } = useLocation();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const webmSourceRef = useRef<HTMLSourceElement | null>(null);
@@ -308,8 +310,8 @@ export const ThemeMusic: React.FC = () => {
             <button
                 type="button"
                 aria-pressed={silent}
-                aria-label="Toggle music"
-                title="Music volume"
+                aria-label={t("Toggle music")}
+                title={t("Music volume")}
                 onClick={() => {
                     const nextMuted = !muted;
                     setMuted(nextMuted);
@@ -373,7 +375,7 @@ export const ThemeMusic: React.FC = () => {
                 max={100}
                 step={1}
                 value={Math.round(volume * 100)}
-                aria-label="Music volume"
+                aria-label={t("Music volume")}
                 onChange={(event) => {
                     const next = clamp01(Number(event.target.value) / 100);
                     setVolume(next);

@@ -6,6 +6,7 @@ import React from "react";
 
 import { images } from "../../generated/image_imports";
 import { IFightStatsSample } from "../../scenes/VisibleState";
+import { t, useTranslation } from "../../i18n/i18n";
 
 // --- "Heroes" palette (matches the in-game tooltip / overlay aesthetic) ---
 export const GREEN = "#46d160";
@@ -16,7 +17,7 @@ export const WOOD_DARK = "#1c0d03";
 
 export const imgSrc = (name: string): string | undefined => (images as Record<string, string>)[name];
 export const teamColor = (team: TeamType): string => (team === TeamVals.LOWER ? GREEN : RED);
-export const teamName = (team: TeamType): string => (team === TeamVals.LOWER ? "Green" : "Red");
+export const teamName = (team: TeamType): string => t(team === TeamVals.LOWER ? "Green" : "Red");
 
 const DEFAULT_CHART_W = 600;
 const DEFAULT_CHART_H = 264;
@@ -50,6 +51,7 @@ export const CasualtyChart: React.FC<{
     viewWidth = DEFAULT_CHART_W,
     viewHeight = DEFAULT_CHART_H,
 }) => {
+    useTranslation();
     const ChartW = Math.max(ML + MR + 40, viewWidth);
     const ChartH = Math.max(MT + MB + 30, viewHeight);
     const PLOT_W = ChartW - ML - MR;
@@ -189,6 +191,7 @@ export const CasualtyPercents: React.FC<{
     lowerKilledPct: number;
     upperKilledPct: number;
 }> = ({ lowerKilledPct, upperKilledPct }) => {
+    useTranslation();
     const rows: { team: TeamType; pct: number }[] = [
         { team: TeamVals.LOWER as TeamType, pct: lowerKilledPct },
         { team: TeamVals.UPPER as TeamType, pct: upperKilledPct },

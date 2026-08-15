@@ -29,35 +29,32 @@ const fallbackUrl = remoteGameClientUrls[0];
     title="Открыть песочницу"
     description="Открыть режим песочницы Heroes of Crypto."
 >
-    <section class="redirect-page">
+    <section
+        class="redirect-page"
+        data-sandbox-redirect
+        data-local-game-client-urls={JSON.stringify([...new Set(localGameClientUrls)])}
+        data-remote-game-client-urls={JSON.stringify([...new Set(remoteGameClientUrls)])}
+    >
         <h1>Открываем песочницу</h1>
         <p>Перенаправляем в режим песочницы Heroes of Crypto.</p>
         <p><a href={fallbackUrl}>Открыть песочницу</a></p>
     </section>
 </BaseLayout>
 
-<script
-    define:vars={{
-        localGameClientUrls: [...new Set(localGameClientUrls)],
-        remoteGameClientUrls: [...new Set(remoteGameClientUrls)],
-    }}
->
+<script>
+    import { withGameAuthToken } from "../../lib/auth-handoff";
+
     const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+    const redirectPage = document.querySelector<HTMLElement>("[data-sandbox-redirect]");
+    const localGameClientUrls = JSON.parse(redirectPage?.dataset.localGameClientUrls ?? "[]") as string[];
+    const remoteGameClientUrls = JSON.parse(redirectPage?.dataset.remoteGameClientUrls ?? "[]") as string[];
 
-    function targetWithToken(url) {
-        const token = localStorage.getItem("accessToken");
+    function targetWithToken(url: string): URL {
         const target = new URL(url, window.location.href);
-
-        if (token) {
-            const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
-            hashParams.set("access_token", token);
-            target.hash = hashParams.toString();
-        }
-
-        return target;
+        return withGameAuthToken(target);
     }
 
-    async function canReach(url) {
+    async function canReach(url: string): Promise<boolean> {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 700);
         try {
@@ -74,7 +71,7 @@ const fallbackUrl = remoteGameClientUrls[0];
         }
     }
 
-    async function resolveTarget() {
+    async function resolveTarget(): Promise<URL> {
         const isLocalSite = localHosts.has(window.location.hostname);
         const gameClientUrls = isLocalSite ? localGameClientUrls : remoteGameClientUrls;
 
@@ -84,7 +81,7 @@ const fallbackUrl = remoteGameClientUrls[0];
             if (!isLocalSite || await canReach(candidate.href)) return candidate;
         }
 
-        return targetWithToken(gameClientUrls[0]);
+        return targetWithToken(gameClientUrls[0] ?? "/");
     }
 
     resolveTarget().then((target) => window.location.replace(target.toString()));

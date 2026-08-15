@@ -15,6 +15,7 @@ const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString()
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
 import { Tooltip } from "@mui/joy";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 
 // Copied from UnitStatsListItem.tsx / UpNext.tsx
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
@@ -65,6 +66,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 };
 
 export const UpNextOverlay: React.FC = () => {
+    useTranslation();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [altPressed, setAltPressed] = useState<boolean>(false);
 
@@ -118,7 +120,7 @@ export const UpNextOverlay: React.FC = () => {
     const hazard = nextLapHazard(visibleState);
     let defaultIcon =
         hazard?.kind === "narrowing" ? (
-            <Tooltip title="The map will narrow after this turn." placement="top" sx={{ zIndex: 9999 }}>
+            <Tooltip title={t("The map will narrow after this turn.")} placement="top" sx={{ zIndex: 9999 }}>
                 <ZoomInMapIcon sx={{ color: "white", pb: 2, width: 50, height: 50 }} />
             </Tooltip>
         ) : (
@@ -127,7 +129,7 @@ export const UpNextOverlay: React.FC = () => {
 
     if (hazard?.kind === "armageddon") {
         defaultIcon = (
-            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ zIndex: 9999 }}>
+            <Tooltip title={t("Armageddon wave after this turn.")} placement="top" sx={{ zIndex: 9999 }}>
                 <Box component="img" src={meteorIconDataUrl} sx={{ width: 50, height: 50, pb: 2 }} />
             </Tooltip>
         );
@@ -179,7 +181,7 @@ export const UpNextOverlay: React.FC = () => {
                         mr: 2,
                     }}
                 >
-                    Lap {visibleState.lapNumber}
+                    {tf("Lap {number}", { number: visibleState.lapNumber })}
                 </Typography>
                 {defaultIcon}
             </Box>
@@ -216,7 +218,7 @@ export const UpNextOverlay: React.FC = () => {
                             {unit.isSkipping ? (
                                 <img
                                     src={stopImg}
-                                    alt="Skipping"
+                                    alt={t("Skipping")}
                                     style={{
                                         position: "absolute",
                                         top: 0,
@@ -229,7 +231,7 @@ export const UpNextOverlay: React.FC = () => {
                             ) : unit.isOnHourglass ? (
                                 <img
                                     src={hourglassImg}
-                                    alt="On Hourglass"
+                                    alt={t("On Hourglass")}
                                     style={{
                                         position: "absolute",
                                         top: 0,

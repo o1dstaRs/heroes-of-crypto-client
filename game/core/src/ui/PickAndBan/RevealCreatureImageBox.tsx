@@ -6,6 +6,7 @@ import { usePickBanEvents } from "@/ui";
 import { images } from "../../generated/image_imports";
 const revealSmallImage = new URL("../../../images/icon_reveal_128.webp", import.meta.url).toString();
 import { useAuthContext } from "../auth/context/auth_context";
+import { t, useTranslation } from "../../i18n/i18n";
 
 export const RevealCreatureImageBox = ({
     creatureId,
@@ -32,6 +33,7 @@ export const RevealCreatureImageBox = ({
     transformY: boolean;
     setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>;
 }) => {
+    useTranslation();
     const pickBanContext = usePickBanEvents();
     const { reveal } = useAuthContext();
 
@@ -147,7 +149,7 @@ export const RevealCreatureImageBox = ({
                         }}
                     >
                         <IconButton
-                            aria-label="reveal"
+                            aria-label={t("Reveal")}
                             onClick={handleRevealClick}
                             sx={{
                                 color: "#3B9B5C",
@@ -176,7 +178,7 @@ export const RevealCreatureImageBox = ({
                                 },
                             }}
                         >
-                            <span style={{ color: "white", transform: "none" }}>Reveal</span>
+                            <span style={{ color: "white", transform: "none" }}>{t("Reveal")}</span>
                         </IconButton>
                     </Box>
                 )}
@@ -200,7 +202,7 @@ export const RevealCreatureImageBox = ({
                     textDecoration: pickBanContext.banned.includes(creatureId) ? "line-through" : "none",
                 }}
             >
-                Unknown
+                {t("Unknown")}
             </Box>
         </Box>
     );

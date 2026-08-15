@@ -22,6 +22,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useMemo, useState } from "react";
 
 import { PixiGameManager, PixiManagerContext } from "../pixi/PixiGameManager";
+import { t, useTranslation } from "../i18n/i18n";
 import {
     DRAFT_ARMIES_HEIGHT,
     DRAFT_HEADER_HEIGHT,
@@ -65,6 +66,7 @@ const PREVIEW_PERKS: Record<string, Perk.Perk> = {
 const PREVIEW_ARMY = [12, 33, 24, 51, 17, 40];
 
 export const AugmentStepPreview: React.FC = () => {
+    useTranslation();
     const params = new URLSearchParams(window.location.search);
     const perkId = PREVIEW_PERKS[params.get("perk")?.toLowerCase() ?? ""] ?? Perk.Perk.THREE_REVEALS;
     const requestedPoints = Number.parseInt(params.get("points") ?? "", 10);
@@ -108,7 +110,7 @@ export const AugmentStepPreview: React.FC = () => {
                                 overflow: "hidden",
                             }}
                         >
-                            <DraftTitle>Choose your augments</DraftTitle>
+                            <DraftTitle>{t("Choose your augments")}</DraftTitle>
                         </Box>
                         <Stack
                             direction="row"
@@ -136,7 +138,7 @@ export const AugmentStepPreview: React.FC = () => {
                             </Box>
                             <OpponentDraftBar
                                 opponentPicked={PREVIEW_ARMY}
-                                opponentLabel="Opponent"
+                                opponentLabel={t("Opponent")}
                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                 gameId="augment-step-preview"
                             />
@@ -191,13 +193,13 @@ export const AugmentStepPreview: React.FC = () => {
                                 </PhasePanel>
                             </Box>
                             <PickCommitButton
-                                label={ready ? "Waiting for opponent…" : "Lock in augments"}
+                                label={ready ? t("Waiting for opponent…") : t("Lock in augments")}
                                 armed={complete && !ready}
                                 isYourTurn={!ready}
                                 seconds={90}
                                 extra={`${spent} / ${budgetPoints}`}
                                 tone={complete ? "green" : "gold"}
-                                blockedHint="Spend every upgrade point first."
+                                blockedHint={t("Spend every upgrade point first.")}
                                 onCommit={() => setReady(true)}
                             />
                         </Box>

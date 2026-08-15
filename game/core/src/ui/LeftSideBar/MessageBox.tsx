@@ -24,6 +24,7 @@ import { stonePlateSx } from "./UnitStatsListItem";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 
 // Exact crop supplied for the new command-panel direction. Only the frame and stone surface remain baked
 // into the high-resolution 432x114 plate; START is live HoC Forge text, so the same type system can be used
@@ -125,7 +126,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
                 },
             }}
         >
-            Start
+            {t("Start")}
         </Button>
     );
 
@@ -134,7 +135,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
     }
 
     return (
-        <Tooltip title="Place units for both teams to start" placement="top" variant="solid" sx={commonTooltipSx}>
+        <Tooltip title={t("Place units for both teams to start")} placement="top" variant="solid" sx={commonTooltipSx}>
             {/* Joy disables pointer events on a disabled Button, which would swallow the tooltip's hover. */}
             <Box sx={{ display: "flex", width: "100%", justifyContent: "center" }}>{button}</Box>
         </Tooltip>
@@ -142,6 +143,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
 };
 
 export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
+    useTranslation();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [countdown, setCountdown] = useState<number | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
@@ -383,14 +385,14 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                             {
                                 key: "green" as const,
                                 color: "success" as const,
-                                label: "Green AI",
+                                label: t("Green AI"),
                                 checked: greenAi,
                                 team: TeamVals.LOWER,
                             },
                             {
                                 key: "red" as const,
                                 color: "danger" as const,
-                                label: "Red AI",
+                                label: t("Red AI"),
                                 checked: redAi,
                                 team: TeamVals.UPPER,
                             },
@@ -485,12 +487,14 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                 >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography level="title-sm" sx={{ fontSize: `${0.78 * metrics.fontScale}rem` }}>
-                            Placement
+                            {t("Placement")}
                         </Typography>
                         <TimelapseRoundedIcon />
                     </Stack>
                     <Typography level="body-xs" sx={{ fontSize: `${0.7 * metrics.fontScale}rem` }}>
-                        {remainingSeconds > 0 ? `${remainingSeconds}s until auto-start` : "Starting fight."}
+                        {remainingSeconds > 0
+                            ? tf("{seconds}s until auto-start", { seconds: remainingSeconds })
+                            : t("Starting fight.")}
                     </Typography>
                     <LinearProgress
                         variant="outlined"
@@ -541,8 +545,8 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
 
     if (visibleState.hasFinished) {
         messageBoxColor = "neutral";
-        messageBoxTitle = "Fight finished";
-        messageBoxText = "Refresh the page to start a new one";
+        messageBoxTitle = t("Fight finished");
+        messageBoxText = t("Refresh the page to start a new one");
     } else {
         // The additional-time button is rendered unconditionally below (disabled when the reserve is
         // spent), so nothing here decides whether it exists — only the panel's colour tracks the clock.
@@ -555,18 +559,18 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
         }
         // The lap now lives in the timer medallion, so the heading carries whose turn it is.
         if (!visibleState.teamTypeTurn) {
-            messageBoxTitle = "Calculating next turn";
+            messageBoxTitle = t("Calculating next turn");
         } else if (perspectiveTeam !== undefined) {
             // Frame the turn from the watcher's side instead of by absolute team colours. On the other
             // side's turn the heading is left EMPTY on purpose — the button below says "Enemy turn" for
             // the whole of it, and printing it twice was the only thing in this card saying the same word
             // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
             // fixed slot.
-            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
+            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? t("Your turn") : "";
         } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
-            messageBoxTitle = "Green team's turn";
+            messageBoxTitle = t("Green team's turn");
         } else {
-            messageBoxTitle = "Red team's turn";
+            messageBoxTitle = t("Red team's turn");
         }
         messageBoxText = "";
     }
@@ -582,7 +586,11 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
 
     if (isArmageddonTurn) {
         defaultIcon = (
-            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ ...commonTooltipSx, zIndex: 2 }}>
+            <Tooltip
+                title={t("Armageddon wave after this turn.")}
+                placement="top"
+                sx={{ ...commonTooltipSx, zIndex: 2 }}
+            >
                 {/* Wrapped in a Box to separate styling context */}
                 <Box component="span" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                     <Box component="img" src={meteorIconDataUrl} sx={{ width: 26, height: 26 }} />
@@ -592,7 +600,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
     } else if (isNarrowingTurn) {
         defaultIcon = (
             <Tooltip
-                title="The map will narrow after this turn."
+                title={t("The map will narrow after this turn.")}
                 placement="top"
                 sx={{ ...commonTooltipSx, zIndex: 2 }}
             >
@@ -709,7 +717,7 @@ export const MessageBox = ({ gameStarted }: { gameStarted: boolean }) => {
                             >
                                 {/* On the other side's clock this stops being an action and becomes the
                                     label for the wait. */}
-                                {cannotAct ? "Enemy turn" : "Use additional time"}
+                                {cannotAct ? t("Enemy turn") : t("Use additional time")}
                             </Button>
                         }
                     />

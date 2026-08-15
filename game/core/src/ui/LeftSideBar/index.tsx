@@ -14,6 +14,7 @@ import React, { useEffect, useState, useCallback, useMemo, useLayoutEffect } fro
 
 import { MessageBox } from "./MessageBox";
 import { images } from "../../generated/image_imports";
+import { t, useTranslation } from "../../i18n/i18n";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { SidebarFrame } from "../SidebarFrame";
 // Black under everything. The hide is laid over it at partial opacity, so this is what mutes it — and what
@@ -99,6 +100,7 @@ type LeftSideBarProps = {
 };
 
 export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProps) {
+    useTranslation();
     const [barSize, setBarSize] = useState(280);
     // Height actually left for the unit card once the turn panel and the up-next queue have taken theirs.
     // Measured rather than derived, because those blocks resize with the content.
@@ -341,7 +343,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                             <ListItemButton selected>
                                                 <DashboardRoundedIcon />
                                                 <Box sx={{ marginLeft: 2 }}>
-                                                    <Typography level="title-sm">Fight</Typography>
+                                                    <Typography level="title-sm">{t("Fight")}</Typography>
                                                 </Box>
                                             </ListItemButton>
                                         </ListItem>

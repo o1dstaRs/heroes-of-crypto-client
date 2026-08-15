@@ -11,13 +11,13 @@ import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import ViewSidebarRoundedIcon from "@mui/icons-material/ViewSidebarRounded";
-import { Alert, Box, Button, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
-import { useTranslation } from "../i18n/i18n";
+import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
 import { RankedBanPicker } from "./RankedBanPicker";
@@ -375,32 +375,34 @@ export const MatchmakingRoute: React.FC = () => {
 
     const statusText = useMemo(() => {
         if (needsActivation) {
-            return "Email verification required";
+            return t("Email verification required");
         }
         if (penalized) {
-            return `Match not accepted — search again in ${penaltySeconds}s`;
+            return tf("Match not accepted — search again in {seconds}s", { seconds: penaltySeconds });
         }
         if (state === "searching") {
-            return queueSize ? `Looking for opponent (${queueSize} in queue)` : "Looking for opponent";
+            return queueSize
+                ? tf("Looking for opponent ({count} in queue)", { count: queueSize })
+                : t("Looking for opponent");
         }
         if (state === "confirming") {
             return secondsRemaining && secondsRemaining > 0
-                ? `Match found. Accept within ${secondsRemaining}s.`
-                : "Match found.";
+                ? tf("Match found. Accept within {seconds}s.", { seconds: secondsRemaining })
+                : t("Match found.");
         }
         if (state === "accepted") {
             return secondsRemaining && secondsRemaining > 0
-                ? `Accepted. Waiting for opponent: ${secondsRemaining}s left.`
-                : "Accepted. Waiting for opponent.";
+                ? tf("Accepted. Waiting for opponent: {seconds}s left.", { seconds: secondsRemaining })
+                : t("Accepted. Waiting for opponent.");
         }
         if (state === "starting-ai") {
-            return "Preparing AI match";
+            return t("Preparing AI match");
         }
         if (state === "error") {
-            return "Connection error";
+            return t("Connection error");
         }
-        return "Ready";
-    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state]);
+        return t("Ready");
+    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state, t]);
 
     const handleStart = async () => {
         if (needsActivation || penalized || aiStartInFlightRef.current) {
@@ -417,7 +419,7 @@ export const MatchmakingRoute: React.FC = () => {
         } catch (err) {
             closeStream();
             setState("error");
-            setError((err as Error)?.message ?? "Unable to enter matchmaking");
+            setError((err as Error)?.message ?? t("Unable to enter matchmaking"));
             // The server rejects re-queue during a no-accept cooldown (429); refresh /me so the render
             // switches from the raw error to the penalty countdown.
             void me().catch(() => undefined);
@@ -466,8 +468,8 @@ export const MatchmakingRoute: React.FC = () => {
             setState("error");
             setError(
                 message === "Already in game"
-                    ? "Leave matchmaking before starting an AI match"
-                    : message || "Unable to start an AI match",
+                    ? t("Leave matchmaking before starting an AI match")
+                    : message || t("Unable to start an AI match"),
             );
         } finally {
             aiStartInFlightRef.current = false;
@@ -507,7 +509,7 @@ export const MatchmakingRoute: React.FC = () => {
         try {
             await stopGameSearch();
         } catch (err) {
-            setError((err as Error)?.message ?? "Unable to leave matchmaking");
+            setError((err as Error)?.message ?? t("Unable to leave matchmaking"));
         } finally {
             acceptedGameIdRef.current = "";
             acceptAttemptRef.current += 1;
@@ -568,7 +570,7 @@ export const MatchmakingRoute: React.FC = () => {
             acceptedGameIdRef.current = "";
             acceptAttemptRef.current += 1;
             setState("confirming");
-            setError((err as Error)?.message ?? "Unable to accept match");
+            setError((err as Error)?.message ?? t("Unable to accept match"));
         }
     };
 
@@ -581,59 +583,66 @@ export const MatchmakingRoute: React.FC = () => {
         if (needsActivation) {
             return {
                 accent: hocColors.gold,
-                eyebrow: "ACCOUNT ACTIVATION",
-                headline: "Verify before entering the arena",
-                description: "Activate your account to unlock ranked matchmaking and practice battles.",
+                eyebrow: t("ACCOUNT ACTIVATION"),
+                headline: t("Verify before entering the arena"),
+                description: t("Activate your account to unlock ranked matchmaking and practice battles."),
             };
         }
         if (penalized) {
             return {
                 accent: hocColors.danger,
-                eyebrow: "QUEUE COOLDOWN",
-                headline: `Search unlocks in ${penaltySeconds}s`,
-                description: "Ranked matches must be accepted in time. The queue will reopen automatically.",
+                eyebrow: t("QUEUE COOLDOWN"),
+                headline: tf("Search unlocks in {seconds}s", { seconds: penaltySeconds }),
+                description: t("Ranked matches must be accepted in time. The queue will reopen automatically."),
             };
         }
         if (state === "searching") {
             return {
                 accent: hocColors.orange,
-                eyebrow: "MATCHMAKING",
-                headline: "Scouting for a worthy rival",
+                eyebrow: t("MATCHMAKING"),
+                headline: t("Scouting for a worthy rival"),
                 description: queueSize
-                    ? `${queueSize} ${queueSize === 1 ? "commander is" : "commanders are"} currently in the queue.`
-                    : "Stay ready while we search the live ranked queue.",
+                    ? tf(
+                          queueSize === 1
+                              ? "{count} commander is currently in the queue."
+                              : "{count} commanders are currently in the queue.",
+                          {
+                              count: queueSize,
+                          },
+                      )
+                    : t("Stay ready while we search the live ranked queue."),
             };
         }
         if (state === "confirming") {
             return {
                 accent: "#ffd166",
-                eyebrow: "OPPONENT FOUND",
-                headline: "Your rival is ready",
-                description: "Accept before the timer expires to lock in the match.",
+                eyebrow: t("OPPONENT FOUND"),
+                headline: t("Your rival is ready"),
+                description: t("Accept before the timer expires to lock in the match."),
             };
         }
         if (state === "accepted") {
             return {
                 accent: "#55d878",
-                eyebrow: "MATCH ACCEPTED",
-                headline: "You’re locked in",
-                description: "Waiting for your opponent to accept. The arena will open automatically.",
+                eyebrow: t("MATCH ACCEPTED"),
+                headline: t("You’re locked in"),
+                description: t("Waiting for your opponent to accept. The arena will open automatically."),
             };
         }
         if (state === "starting-ai") {
             return {
                 accent: hocColors.gold,
-                eyebrow: "PRACTICE ARENA",
-                headline: "Summoning a training opponent",
-                description: "Preparing a private match against the default AI commander.",
+                eyebrow: t("PRACTICE ARENA"),
+                headline: t("Summoning a training opponent"),
+                description: t("Preparing a private match against the default AI commander."),
             };
         }
         if (state === "error") {
             return {
                 accent: hocColors.danger,
-                eyebrow: "CONNECTION ISSUE",
-                headline: "The arena link was interrupted",
-                description: "Try the ranked queue again, or sharpen your strategy against the AI.",
+                eyebrow: t("CONNECTION ISSUE"),
+                headline: t("The arena link was interrupted"),
+                description: t("Try the ranked queue again, or sharpen your strategy against the AI."),
             };
         }
         return {
@@ -718,7 +727,9 @@ export const MatchmakingRoute: React.FC = () => {
                         variant="plain"
                         onClick={() => navigate("/")}
                         disabled={navigationLocked}
-                        title={navigationLocked ? "Leave matchmaking before navigating away" : "Open battle sandbox"}
+                        title={
+                            navigationLocked ? t("Leave matchmaking before navigating away") : t("Open battle sandbox")
+                        }
                         sx={{
                             justifyContent: "flex-start",
                             px: 0.5,
@@ -741,13 +752,13 @@ export const MatchmakingRoute: React.FC = () => {
 
                     <Stack
                         component="nav"
-                        aria-label="Game navigation"
+                        aria-label={t("Game navigation")}
                         direction="row"
                         spacing={0.5}
                         sx={{ width: { xs: "100%", sm: "auto" }, pb: { xs: 0.25, sm: 0 } }}
                     >
                         <Button
-                            aria-label="Ranked Arena"
+                            aria-label={t("Ranked Arena")}
                             size="sm"
                             variant="soft"
                             aria-current="page"
@@ -760,15 +771,15 @@ export const MatchmakingRoute: React.FC = () => {
                                 color: hocColors.gold,
                             }}
                         >
-                            Ranked
+                            {t("Ranked")}
                         </Button>
                         <Button
-                            aria-label="Lobby"
+                            aria-label={t("Lobby")}
                             size="sm"
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/lobbies")}
-                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
+                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
                             startDecorator={<MeetingRoomRoundedIcon />}
                             sx={{
                                 color: hocColors.mutedStrong,
@@ -779,16 +790,16 @@ export const MatchmakingRoute: React.FC = () => {
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                Lobby
+                                {t("Lobby")}
                             </Box>
                         </Button>
                         <Button
-                            aria-label="Sandbox"
+                            aria-label={t("Sandbox")}
                             size="sm"
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/")}
-                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
+                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
                             startDecorator={<HomeRoundedIcon />}
                             sx={{
                                 color: hocColors.mutedStrong,
@@ -799,7 +810,7 @@ export const MatchmakingRoute: React.FC = () => {
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                Sandbox
+                                {t("Sandbox")}
                             </Box>
                         </Button>
                         <Button
@@ -807,7 +818,7 @@ export const MatchmakingRoute: React.FC = () => {
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/portal")}
-                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
+                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
                             startDecorator={<AccountCircleRoundedIcon />}
                             sx={{
                                 color: hocColors.mutedStrong,
@@ -817,7 +828,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
                             }}
                         >
-                            Profile
+                            {t("Profile")}
                         </Button>
                     </Stack>
                 </Stack>
@@ -847,6 +858,7 @@ export const MatchmakingRoute: React.FC = () => {
                     variant="outlined"
                     sx={{
                         minWidth: 0,
+                        minHeight: profileSummaryOpen ? { lg: 724 } : undefined,
                         display: "flex",
                         flexDirection: "column",
                         overflow: "hidden",
@@ -939,56 +951,101 @@ export const MatchmakingRoute: React.FC = () => {
                                     letterSpacing: "-0.035em",
                                 }}
                             >
-                                Ranked Arena
+                                {t("Ranked Arena")}
                             </Typography>
                             <Stack direction="row" spacing={0.75} alignItems="center">
                                 {onlineNow !== undefined && (
                                     <Tooltip
-                                        title={`${onlineNow.online} online · ${onlineNow.searching} searching · ${onlineNow.playing} in battle`}
+                                        title={tf("{online} online · {searching} searching · {playing} in battle", {
+                                            online: onlineNow.online,
+                                            searching: onlineNow.searching,
+                                            playing: onlineNow.playing,
+                                        })}
                                         size="sm"
                                         variant="soft"
                                     >
                                         <Stack
                                             component="span"
                                             direction="row"
-                                            spacing={0.55}
+                                            spacing={0.7}
                                             alignItems="center"
-                                            aria-label={`${onlineNow.online} commanders online`}
+                                            aria-label={tf("{count} commanders online", { count: onlineNow.online })}
                                             sx={{
-                                                minHeight: 28,
-                                                px: 0.25,
-                                                color: hocColors.gold,
+                                                minHeight: 38,
+                                                px: 1.15,
+                                                borderRadius: "10px",
+                                                color: hocColors.parchment,
+                                                bgcolor: "rgba(0,0,0,0.3)",
+                                                border: "1px solid rgba(220,177,88,0.3)",
+                                                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
                                             }}
                                         >
-                                            <GroupsRoundedIcon sx={{ fontSize: 18 }} />
-                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 750 }}>
+                                            <Box
+                                                aria-hidden="true"
+                                                sx={{
+                                                    width: 7,
+                                                    height: 7,
+                                                    flexShrink: 0,
+                                                    borderRadius: "50%",
+                                                    bgcolor: hocColors.green,
+                                                    boxShadow: `0 0 7px ${hocColors.green}`,
+                                                }}
+                                            />
+                                            <GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 19 }} />
+                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
                                                 {onlineNow.online}
+                                            </Typography>
+                                            <Typography
+                                                level="body-xs"
+                                                sx={{
+                                                    display: { xs: "none", sm: "block" },
+                                                    color: hocColors.muted,
+                                                    fontSize: "0.65rem",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.08em",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                {t("Online")}
                                             </Typography>
                                         </Stack>
                                     </Tooltip>
                                 )}
                                 <Tooltip
-                                    title={profileSummaryOpen ? "Hide player stats" : "Show player stats"}
+                                    title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
                                     size="sm"
                                     variant="soft"
                                 >
-                                    <IconButton
+                                    <Button
                                         size="sm"
-                                        variant={profileSummaryOpen ? "soft" : "plain"}
-                                        aria-label={profileSummaryOpen ? "Hide player stats" : "Show player stats"}
+                                        variant="outlined"
+                                        aria-label={
+                                            profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
+                                        }
                                         aria-expanded={profileSummaryOpen}
                                         aria-controls="ranked-profile-summary"
                                         onClick={() => setProfileSummaryOpen((open) => !open)}
+                                        startDecorator={<ViewSidebarRoundedIcon />}
                                         sx={{
-                                            ...hocSoftButtonSx,
-                                            minWidth: 32,
-                                            minHeight: 32,
-                                            borderRadius: "50%",
-                                            color: profileSummaryOpen ? hocColors.gold : hocColors.mutedStrong,
+                                            minHeight: 38,
+                                            px: 1.15,
+                                            borderRadius: "10px",
+                                            color: hocColors.parchment,
+                                            bgcolor: profileSummaryOpen ? "rgba(255,143,0,0.14)" : "rgba(0,0,0,0.3)",
+                                            borderColor: "rgba(220,177,88,0.3)",
+                                            fontSize: "0.72rem",
+                                            fontWeight: 750,
+                                            "&:hover": {
+                                                color: hocColors.gold,
+                                                bgcolor: "rgba(255,143,0,0.2)",
+                                                borderColor: hocColors.orangeBorder,
+                                            },
                                         }}
                                     >
-                                        <ViewSidebarRoundedIcon />
-                                    </IconButton>
+                                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                            {profileSummaryOpen ? t("Hide stats") : t("Show stats")}
+                                        </Box>
+                                    </Button>
                                 </Tooltip>
                             </Stack>
                         </Stack>
@@ -1080,7 +1137,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             level="body-xs"
                                             sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
                                         >
-                                            SECONDS
+                                            {t("SECONDS")}
                                         </Typography>
                                     </Stack>
                                 ) : state === "accepted" ? (
@@ -1105,7 +1162,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             level="body-xs"
                                             sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
                                         >
-                                            IN QUEUE
+                                            {t("IN QUEUE")}
                                         </Typography>
                                     </Stack>
                                 ) : penalized ? (
@@ -1168,14 +1225,25 @@ export const MatchmakingRoute: React.FC = () => {
                         </Typography>
 
                         <Stack
-                            spacing={1.25}
-                            sx={{ width: "100%", maxWidth: 650, mt: showStatusPresentation ? 2.75 : 0 }}
+                            spacing={{ xs: 1.25, md: profileSummaryOpen && !showStatusPresentation ? 0 : 1.25 }}
+                            sx={{
+                                width: "100%",
+                                maxWidth: 650,
+                                mt: showStatusPresentation ? 2.75 : 0,
+                                flex: profileSummaryOpen && !showStatusPresentation ? 1 : undefined,
+                                justifyContent:
+                                    profileSummaryOpen && !showStatusPresentation ? "space-evenly" : "flex-start",
+                            }}
                         >
                             {needsActivation && (
                                 <>
                                     <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                        Verify your email to play online. We sent a verification code to{" "}
-                                        {accountEmail || "your email address"}.
+                                        {tf(
+                                            "Verify your email to play online. We sent a verification code to {email}.",
+                                            {
+                                                email: accountEmail || t("your email address"),
+                                            },
+                                        )}
                                     </Alert>
                                     <Button
                                         fullWidth
@@ -1185,13 +1253,15 @@ export const MatchmakingRoute: React.FC = () => {
                                         sx={{ ...hocPrimaryButtonSx, minHeight: 50 }}
                                     >
                                         {resendState === "sending"
-                                            ? "Sending…"
+                                            ? t("Sending…")
                                             : resendState === "sent"
-                                              ? "Email sent — check your inbox"
-                                              : "Resend verification email"}
+                                              ? t("Email sent — check your inbox")
+                                              : t("Resend verification email")}
                                     </Button>
                                     <Typography level="body-xs" textColor={hocColors.muted}>
-                                        Enter the code from the email to activate your account, then reload this page.
+                                        {t(
+                                            "Enter the code from the email to activate your account, then reload this page.",
+                                        )}
                                     </Typography>
                                 </>
                             )}
@@ -1202,7 +1272,11 @@ export const MatchmakingRoute: React.FC = () => {
                                     spacing={1.5}
                                     justifyContent="center"
                                     alignItems="stretch"
-                                    sx={{ width: "100%", maxWidth: 650, mt: 2.5 }}
+                                    sx={{
+                                        width: "100%",
+                                        maxWidth: 650,
+                                        mt: showStatusPresentation || !profileSummaryOpen ? 2.5 : 0,
+                                    }}
                                 >
                                     {[...Perk.PERK_LIST]
                                         .sort((a, b) => a.upgradePoints - b.upgradePoints)
@@ -1217,24 +1291,24 @@ export const MatchmakingRoute: React.FC = () => {
                                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                                         <PerkIcon perkId={p.id} size={38} />
                                                         <Typography level="title-sm" sx={{ color: "common.white" }}>
-                                                            {p.name}
+                                                            {t(p.name)}
                                                         </Typography>
                                                     </Box>
                                                     <Typography level="body-xs" sx={{ color: "common.white" }}>
-                                                        {copy.detail}
+                                                        {t(copy.detail)}
                                                     </Typography>
                                                     <Typography level="body-xs" sx={{ color: hocColors.gold }}>
-                                                        {copy.budget}
+                                                        {t(copy.budget)}
                                                     </Typography>
                                                     <Typography
                                                         level="body-xs"
                                                         sx={{ color: "common.white", opacity: 0.85 }}
                                                     >
-                                                        {copy.why}
+                                                        {t(copy.why)}
                                                     </Typography>
                                                 </Box>
                                             ) : (
-                                                p.description
+                                                t(p.description)
                                             );
                                             return (
                                                 <Tooltip
@@ -1299,13 +1373,13 @@ export const MatchmakingRoute: React.FC = () => {
                                                             <PerkIcon perkId={p.id} />
                                                         </Box>
                                                         <Typography level="title-md" sx={{ color: "common.white" }}>
-                                                            {p.name}
+                                                            {t(p.name)}
                                                         </Typography>
                                                         <Typography
                                                             level="body-xs"
                                                             sx={{ opacity: 0.8, color: "common.white" }}
                                                         >
-                                                            {p.upgradePoints} upgrade pts
+                                                            {tf("{count} upgrade pts", { count: p.upgradePoints })}
                                                         </Typography>
                                                         {copy && (
                                                             <Typography
@@ -1316,7 +1390,7 @@ export const MatchmakingRoute: React.FC = () => {
                                                                     lineHeight: 1.25,
                                                                 }}
                                                             >
-                                                                {copy.tagline}
+                                                                {t(copy.tagline)}
                                                             </Typography>
                                                         )}
                                                     </Sheet>
@@ -1330,7 +1404,11 @@ export const MatchmakingRoute: React.FC = () => {
                                 <RankedBanPicker />
                             )}
 
-                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
+                            {/* No stake against a bot: a wager only forms when BOTH seats hold an intent and
+                                the AI seat never sets one, so gold armed on the way into a vs-AI match can
+                                never ride it — it just sits escrowed until a human turns up. Hence "idle"
+                                and "error" but not "starting-ai". */}
+                            {!needsActivation && (state === "idle" || state === "error") && (
                                 <WagerStakeBox currency={currency} />
                             )}
 
@@ -1345,7 +1423,9 @@ export const MatchmakingRoute: React.FC = () => {
                                         endDecorator={!penalized ? <ArrowForwardRoundedIcon /> : undefined}
                                         sx={{ ...hocPrimaryButtonSx, minHeight: 54, fontSize: "0.96rem" }}
                                     >
-                                        {penalized ? `Search again in ${penaltySeconds}s` : "Find ranked opponent"}
+                                        {penalized
+                                            ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
+                                            : t("Find ranked opponent")}
                                     </Button>
                                     <Button
                                         fullWidth
@@ -1356,7 +1436,7 @@ export const MatchmakingRoute: React.FC = () => {
                                         startDecorator={<SmartToyRoundedIcon />}
                                         sx={{ ...hocSoftButtonSx, minHeight: 54, fontSize: "0.96rem" }}
                                     >
-                                        Practice vs AI
+                                        {t("Practice vs AI")}
                                     </Button>
                                 </Stack>
                             ) : null}
@@ -1368,7 +1448,7 @@ export const MatchmakingRoute: React.FC = () => {
                                     onClick={handleCancel}
                                     sx={{ ...hocSoftButtonSx, minHeight: 52 }}
                                 >
-                                    Leave ranked queue
+                                    {t("Leave ranked queue")}
                                 </Button>
                             ) : null}
 
@@ -1406,13 +1486,15 @@ export const MatchmakingRoute: React.FC = () => {
                                         },
                                     }}
                                 >
-                                    {state === "accepted" ? "Match accepted" : "Accept ranked match"}
+                                    {state === "accepted" ? t("Match accepted") : t("Accept ranked match")}
                                 </Button>
                             ) : null}
 
                             {penalized && (
                                 <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                    You didn&apos;t accept the last match. You can search again in {penaltySeconds}s.
+                                    {tf("You didn't accept the last match. You can search again in {seconds}s.", {
+                                        seconds: penaltySeconds,
+                                    })}
                                 </Alert>
                             )}
 
@@ -1428,7 +1510,7 @@ export const MatchmakingRoute: React.FC = () => {
                                     title={pendingGameId}
                                     sx={{ color: "rgba(239,228,204,0.4)", letterSpacing: "0.08em" }}
                                 >
-                                    MATCH REF · {shortGameId}
+                                    {t("MATCH REF")} · {shortGameId}
                                 </Typography>
                             )}
                         </Stack>

@@ -11,9 +11,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
-import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
+import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 
 const RESULTS_PREVIEW_STATE: IVisibleState = {
     canBeStarted: false,
@@ -125,13 +126,17 @@ const CasualtyColumn: React.FC<{
                     <Typography
                         sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
                     >
-                        No casualties — flawless.
+                        {t("No casualties — flawless.")}
                     </Typography>
                 )}
                 {deaths.map((d) => (
                     <Tooltip
                         key={d.name}
-                        title={`${d.name}: ${d.died} of ${d.start} lost`}
+                        title={tf("{name}: {died} of {start} lost", {
+                            name: d.name,
+                            died: d.died,
+                            start: d.start,
+                        })}
                         placement="top"
                         sx={{
                             backgroundColor: "#2d1606",
@@ -460,6 +465,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     onPlayAgainVsAi,
     onBackToLobby,
 }) => {
+    useTranslation();
     const manager = usePixiManager();
     const previewParams = new URLSearchParams(window.location.search);
     const previewMode = import.meta.env.DEV && previewParams.get("fight-results-preview") === "1";
@@ -661,7 +667,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 {/* Close button */}
                 <Box
                     component="button"
-                    aria-label="Close fight results"
+                    aria-label={t("Close fight results")}
                     onClick={() => setDismissed(true)}
                     sx={{
                         position: "absolute",
@@ -709,7 +715,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             <Box
                                 component="img"
                                 src={imgSrc("fight_results_trophy_v1")}
-                                alt="Victory trophy"
+                                alt={t("Victory trophy")}
                                 sx={{ width: 52, height: 52, objectFit: "contain", flexShrink: 0 }}
                             />
                         )}
@@ -723,12 +729,18 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 textShadow: `0 0 18px ${winnerColor}aa`,
                             }}
                         >
-                            {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
+                            {isDraw
+                                ? t("DRAW")
+                                : tf("{team} WINS", {
+                                      team: t(
+                                          stats.winner === TeamVals.LOWER ? "Green team" : "Red team",
+                                      ).toUpperCase(),
+                                  })}
                         </Typography>
                     </Stack>
                     {opponentLabel && (
                         <Typography sx={{ color: GOLD, opacity: 0.9, fontSize: "0.85rem", fontWeight: 700, mt: 0.25 }}>
-                            vs {opponentLabel}
+                            {t("vs")} {opponentLabel}
                         </Typography>
                     )}
                 </Stack>
@@ -780,7 +792,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 },
                             }}
                         >
-                            <ResultsSectionPlaque label="DAMAGE DEALT" />
+                            <ResultsSectionPlaque label={t("DAMAGE DEALT")} />
                             <DamageBreakdown entries={stats.damageByUnit ?? []} />
                         </Box>
 
@@ -800,7 +812,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 }}
                             />
 
-                            <ResultsSectionPlaque label="LOSSES" />
+                            <ResultsSectionPlaque label={t("LOSSES")} />
                             <Stack direction="row" spacing={3}>
                                 <CasualtyColumn team={TeamVals.LOWER as TeamType} deaths={stats.lowerDeaths} />
                                 <CasualtyColumn team={TeamVals.UPPER as TeamType} deaths={stats.upperDeaths} />
@@ -824,7 +836,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 >
                     {canReplay && (
                         <ActionButton
-                            label="REPLAY"
+                            label={t("REPLAY")}
                             labelColor="#dfcf91"
                             tone="gray"
                             frameTone="brown"
@@ -835,7 +847,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showRematchAction && (
                         <ActionButton
-                            label="REMATCH"
+                            label={t("REMATCH")}
                             leadingIcon="⚔"
                             labelColor="#dfcf91"
                             primary
@@ -853,7 +865,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showSandboxActions && (
                         <ActionButton
-                            label="+ NEW BATTLE"
+                            label={t("+ NEW BATTLE")}
                             labelColor="#dfcf91"
                             tone="brown"
                             backgroundOpacity={0.8}
@@ -868,7 +880,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && onPlayAgainVsAi && (
                         <ActionButton
-                            label={playAgainBusy ? "Starting…" : "⚔ Play Again vs AI"}
+                            label={playAgainBusy ? t("Starting…") : `⚔ ${t("Play Again vs AI")}`}
                             primary
                             disabled={playAgainBusy}
                             onClick={() => {
@@ -881,7 +893,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                     .catch((err: unknown) => {
                                         setPlayAgainBusy(false);
                                         setPlayAgainError(
-                                            err instanceof Error ? err.message : "Unable to start an AI match",
+                                            err instanceof Error ? t(err.message) : t("Unable to start an AI match"),
                                         );
                                     });
                             }}
@@ -889,7 +901,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && onBackToLobby && (
                         <ActionButton
-                            label={backLabel}
+                            label={t(backLabel)}
                             primary={!onPlayAgainVsAi}
                             onClick={() => {
                                 clearReplayTimers();
@@ -900,7 +912,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && !onPlayAgainVsAi && !onBackToLobby && (
                         <ActionButton
-                            label="Close"
+                            label={t("Close")}
                             primary
                             onClick={() => {
                                 clearReplayTimers();

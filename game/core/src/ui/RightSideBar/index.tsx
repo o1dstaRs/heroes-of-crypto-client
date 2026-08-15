@@ -21,6 +21,7 @@ import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
+import { t, useTranslation } from "../../i18n/i18n";
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -58,6 +59,7 @@ export default function RightSideBar({
     rankedPanel?: React.ReactNode;
     showWallet?: boolean;
 }) {
+    useTranslation();
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
@@ -397,7 +399,7 @@ export default function RightSideBar({
                                             color: hocColors.gold,
                                         }}
                                     >
-                                        DAMAGE
+                                        {t("DAMAGE")}
                                     </Typography>
                                 </Box>
                                 <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -463,7 +465,7 @@ export default function RightSideBar({
                                         color: hocColors.gold,
                                     }}
                                 >
-                                    BATTLE LOG
+                                    {t("BATTLE LOG")}
                                 </Typography>
                             </Box>
                             <Box sx={{ flex: 1, minHeight: 0, display: "flex" }}>
@@ -520,7 +522,7 @@ export default function RightSideBar({
                                     fontWeight: 880,
                                 }}
                             >
-                                EXIT FIGHT
+                                {t("EXIT FIGHT")}
                             </Button>
                         ) : (
                             <Box />

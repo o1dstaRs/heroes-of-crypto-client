@@ -7,9 +7,10 @@ import { motion } from "framer-motion";
 import React from "react";
 
 import { IFightDamageEntry } from "../../scenes/VisibleState";
+import { getLanguage, t, tf, useTranslation } from "../../i18n/i18n";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "./CasualtyChart";
 
-const fmt = (n: number): string => Math.round(n).toLocaleString("en-US");
+const fmt = (n: number): string => Math.round(n).toLocaleString(getLanguage() === "ru" ? "ru-RU" : "en-US");
 
 /** One creature: icon, name, share-of-the-best bar, damage number. */
 const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number }> = ({ entry, max, index }) => {
@@ -21,7 +22,11 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
 
     return (
         <Tooltip
-            title={`${entry.name} (${teamName(entry.team)}): ${fmt(entry.damage)} damage dealt`}
+            title={tf("{name} ({team}): {amount} damage dealt", {
+                name: entry.name,
+                team: teamName(entry.team),
+                amount: fmt(entry.damage),
+            })}
             placement="top"
             sx={{
                 backgroundColor: "#2d1606",
@@ -170,10 +175,11 @@ const scrollSx = {
  * fielded, both armies on one scale, ordered by damage dealt.
  */
 export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ entries }) => {
+    useTranslation();
     if (!entries.length) {
         return (
             <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", fontSize: "0.82rem" }}>
-                No damage was dealt.
+                {t("No damage was dealt.")}
             </Typography>
         );
     }

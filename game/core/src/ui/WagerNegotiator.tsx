@@ -122,6 +122,9 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         }
         const purse = intent.gold + intent.amount;
         const draftStake = Math.max(0, Math.floor(Number(stakeDraft) || 0));
+        // Exactly what the "Stake it" button is allowed to do, so Enter in the field cannot commit gold
+        // the button itself would have refused.
+        const canStakeHere = !busy && draftStake >= 1 && draftStake <= purse;
         const armHere = async (amount: number): Promise<void> => {
             if (busy) {
                 return;
@@ -136,7 +139,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
             } catch (err) {
                 setError(
                     isInsufficientSeasonCurrencyError(err)
-                        ? tf("Not enough {currency}", { currency: currency.name })
+                        ? tf("Not enough {currency}", { currency: t(currency.name) })
                         : (err as Error).message || t("Could not set the stake"),
                 );
             } finally {
@@ -191,7 +194,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                                 <CurrencyIcon iconSvg={currency.iconSvg} size={15} />
                                 <span>
                                     {tf("Stake {currency} on THIS match — winner takes the pot.", {
-                                        currency: currency.name,
+                                        currency: t(currency.name),
                                     })}
                                 </span>
                             </Stack>
@@ -200,17 +203,24 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                             <Input
                                 size="sm"
                                 type="number"
-                                placeholder={tf("{currency} to stake", { currency: currency.name })}
+                                placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
                                 value={stakeDraft}
                                 slotProps={{ input: { min: 1, max: purse, step: 1 } }}
                                 onChange={(event) => setStakeDraft(event.target.value)}
+                                onKeyDown={(event) => {
+                                    // Typing an amount and hitting Enter stakes it, same as the button.
+                                    if (event.key === "Enter" && canStakeHere) {
+                                        event.preventDefault();
+                                        void armHere(draftStake);
+                                    }
+                                }}
                                 sx={{ ...hocInputSx, flex: 1 }}
                             />
                             <Button
                                 size="sm"
                                 variant="solid"
                                 sx={hocPrimaryButtonSx}
-                                disabled={busy || draftStake < 1 || draftStake > purse}
+                                disabled={!canStakeHere}
                                 onClick={() => void armHere(draftStake)}
                             >
                                 {t("Stake it")}
@@ -263,7 +273,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         } catch (err) {
             setError(
                 isInsufficientSeasonCurrencyError(err)
-                    ? tf("Not enough {currency}", { currency: currency.name })
+                    ? tf("Not enough {currency}", { currency: t(currency.name) })
                     : (err as Error).message || t("Could not raise"),
             );
         } finally {
@@ -367,7 +377,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                     }}
                 >
                     <CurrencyIcon iconSvg={currency.iconSvg} size={17} />
-                    {tf("{currency} on the line", { currency: currency.name })}
+                    {tf("{currency} on the line", { currency: t(currency.name) })}
                 </Typography>
                 {secondsLeft > 0 && (
                     <Typography

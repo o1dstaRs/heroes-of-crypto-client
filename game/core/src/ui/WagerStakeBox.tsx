@@ -44,6 +44,9 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
 
     const stake = Math.max(0, Math.floor(Number(draft) || 0));
     const total = gold + armed; // what the player COULD stake in full
+    // Exactly what the "Stake it" button is allowed to do, so Enter in the field cannot commit gold the
+    // button itself would have refused — an empty box, a zero, or more than the purse holds.
+    const canStake = !busy && stake >= 1 && stake <= total;
 
     const apply = async (amount: number): Promise<void> => {
         if (busy) {
@@ -60,7 +63,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
         } catch (err) {
             setError(
                 isInsufficientSeasonCurrencyError(err)
-                    ? tf("Not enough {currency}", { currency: currency.name })
+                    ? tf("Not enough {currency}", { currency: t(currency.name) })
                     : (err as Error).message || t("Could not set the stake"),
             );
         } finally {
@@ -75,7 +78,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
                     ⚔️{" "}
                     {tf("Win ranked games to earn {currency} — then stake it on your matches, winner takes all.", {
-                        currency: currency.name,
+                        currency: t(currency.name),
                     })}
                 </Typography>
             </Sheet>
@@ -96,7 +99,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                     }}
                 >
                     <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
-                    {tf("{currency} on the line", { currency: currency.name })}
+                    {tf("{currency} on the line", { currency: t(currency.name) })}
                 </Typography>
                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
                     {t("Purse")}: {gold} {currency.symbol}
@@ -109,7 +112,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                         <b style={{ color: hocColors.gold }}>{armed}</b>{" "}
                         {tf(
                             "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.",
-                            { currency: currency.name },
+                            { currency: t(currency.name) },
                         )}
                     </Typography>
                     <Button
@@ -127,17 +130,24 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mb: 0.75 }}>
                         {tf(
                             "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.",
-                            { currency: currency.name },
+                            { currency: t(currency.name) },
                         )}
                     </Typography>
                     <Stack direction="row" spacing={0.75} alignItems="center">
                         <Input
                             size="sm"
                             type="number"
-                            placeholder={tf("{currency} to stake", { currency: currency.name })}
+                            placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
                             value={draft}
                             slotProps={{ input: { min: 1, max: total, step: 1 } }}
                             onChange={(event) => setDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                                // Typing an amount and hitting Enter stakes it, same as pressing the button.
+                                if (event.key === "Enter" && canStake) {
+                                    event.preventDefault();
+                                    void apply(stake);
+                                }
+                            }}
                             sx={{ ...hocInputSx, flex: 1 }}
                         />
                         {[0.25, 0.5, 1].map((share) => (
@@ -156,7 +166,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                             size="sm"
                             variant="solid"
                             sx={hocPrimaryButtonSx}
-                            disabled={busy || stake < 1 || stake > total}
+                            disabled={!canStake}
                             onClick={() => void apply(stake)}
                         >
                             {t("Stake it")}

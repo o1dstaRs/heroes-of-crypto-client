@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Box, Divider, Tooltip, Typography } from "@mui/joy";
 
 import { images } from "../../generated/image_imports";
+import { t, useTranslation } from "../../i18n/i18n";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 
@@ -147,6 +148,7 @@ export const ArtifactToggler: React.FC<{
     isOpen?: boolean;
     onToggle?: () => void;
 }> = ({ teamType, isOpen: isOpenProp, onToggle }) => {
+    useTranslation();
     const manager = usePixiManager();
     const [tier1Selected, setTier1Selected] = useState<number>(Artifact.Tier1Artifact.NO_ARTIFACT);
     const [tier2Selected, setTier2Selected] = useState<number>(Artifact.Tier2Artifact.NO_ARTIFACT);
@@ -212,7 +214,7 @@ export const ArtifactToggler: React.FC<{
                     level="title-sm"
                     sx={{ color: "inherit", fontSize: "1.1rem", letterSpacing: "0.06em", lineHeight: 1.25 }}
                 >
-                    Artifacts
+                    {t("Artifacts")}
                 </Typography>
                 <Box
                     component="img"
@@ -229,7 +231,7 @@ export const ArtifactToggler: React.FC<{
                 />
             </Box>
             <ArtifactRow
-                title="Tier 1"
+                title={t("Tier 1")}
                 tier={Artifact.ArtifactTier.TIER_1}
                 artifacts={Artifact.TIER1_ARTIFACT_LIST}
                 selectedId={tier1Selected}
@@ -237,7 +239,7 @@ export const ArtifactToggler: React.FC<{
                 isOpen={isOpen}
             />
             <ArtifactRow
-                title="Tier 2"
+                title={t("Tier 2")}
                 tier={Artifact.ArtifactTier.TIER_2}
                 artifacts={Artifact.TIER2_ARTIFACT_LIST}
                 selectedId={tier2Selected}

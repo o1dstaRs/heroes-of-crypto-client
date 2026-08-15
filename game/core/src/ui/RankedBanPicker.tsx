@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getCreatureLevel, getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
+import { t, useTranslation } from "../i18n/i18n";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { resolveUnitImage } from "./unitImage";
@@ -40,6 +41,7 @@ const FACTION_COLOR: Record<string, string> = {
 };
 
 export const RankedBanPicker: React.FC = () => {
+    useTranslation();
     const [creatureId, setCreatureId] = useState(0);
     const [creatureName, setCreatureName] = useState("");
     const [open, setOpen] = useState(false);
@@ -97,7 +99,7 @@ export const RankedBanPicker: React.FC = () => {
                 sx={{ width: "100%", maxWidth: 650, mt: 1.25 }}
             >
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    Ban a unit from your drafts:
+                    {t("Ban a unit from your drafts:")}
                 </Typography>
                 {creatureId > 0 ? (
                     <Sheet
@@ -126,11 +128,11 @@ export const RankedBanPicker: React.FC = () => {
                     </Sheet>
                 ) : (
                     <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
-                        Not picked
+                        {t("Not picked")}
                     </Typography>
                 )}
                 <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>
-                    {creatureId > 0 ? "Change" : "Choose"}
+                    {creatureId > 0 ? t("Change") : t("Choose")}
                 </Button>
                 {creatureId > 0 ? (
                     <Button
@@ -140,7 +142,7 @@ export const RankedBanPicker: React.FC = () => {
                         disabled={busy}
                         onClick={() => void choose(0)}
                     >
-                        Clear
+                        {t("Clear")}
                     </Button>
                 ) : null}
             </Stack>
@@ -148,15 +150,16 @@ export const RankedBanPicker: React.FC = () => {
             <Modal open={open} onClose={() => setOpen(false)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 880, maxWidth: "96vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                        Ban one unit
+                        {t("Ban one unit")}
                     </Typography>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        It will never be offered in your ranked drafts. If your opponent bans a different unit, one of
-                        the two is chosen 50/50 — only one extra ban applies per game.
+                        {t(
+                            "It will never be offered in your ranked drafts. If your opponent bans a different unit, one of the two is chosen 50/50 — only one extra ban applies per game.",
+                        )}
                     </Typography>
                     <Input
                         size="sm"
-                        placeholder="Search units…"
+                        placeholder={t("Search units…")}
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                         sx={{ ...hocInputSx, mt: 0.5 }}
@@ -192,7 +195,7 @@ export const RankedBanPicker: React.FC = () => {
                                         zIndex: 1,
                                     }}
                                 >
-                                    {faction}
+                                    {t(faction)}
                                 </Typography>
                                 {creatures.map((creature) => (
                                     <Sheet
@@ -238,7 +241,7 @@ export const RankedBanPicker: React.FC = () => {
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                         <Button variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(false)}>
-                            Close
+                            {t("Close")}
                         </Button>
                         {creatureId > 0 ? (
                             <Button
@@ -247,7 +250,7 @@ export const RankedBanPicker: React.FC = () => {
                                 disabled={busy}
                                 onClick={() => void choose(0)}
                             >
-                                Remove my ban
+                                {t("Remove my ban")}
                             </Button>
                         ) : null}
                     </Stack>

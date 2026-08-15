@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, MovementType, AttackType } from "@heroesofcrypto/common";
+import { TeamType, MovementType, AttackType, SpellElement } from "@heroesofcrypto/common";
 
 export interface IVisibleUnit {
     id: string;
@@ -162,6 +162,8 @@ export interface IHoverInfo {
     unitLevel: number;
     unitMovementType: MovementType;
     information: string[];
+    /** Element of the hovered spell, so its card can be marked in that element's colour. */
+    spellElement?: SpellElement;
     // True while the cursor is hovering an enemy unit that the active unit can attack. Drives the
     // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
     // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.

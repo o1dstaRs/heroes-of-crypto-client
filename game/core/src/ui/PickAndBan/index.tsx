@@ -29,7 +29,7 @@ import {
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
-import { t, useTranslation } from "../../i18n/i18n";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 import { getPreGamePerk } from "../../utils/preGamePerk";
 import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
@@ -1294,7 +1294,7 @@ export const PickCommitButton: React.FC<{
                         zIndex: 2,
                     }}
                 >
-                    {waiting ? "WAITING OPPONENT" : label}
+                    {waiting ? t("WAITING OPPONENT") : label}
                 </Box>
                 {extra !== undefined && (
                     <Box
@@ -1413,13 +1413,13 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                                 >
                                     <PerkIcon perkId={p.id} />
                                 </Box>
-                                <Typography level="title-md">{p.name}</Typography>
+                                <Typography level="title-md">{t(p.name)}</Typography>
                             </Box>
                             <Chip size="sm" color="warning" variant="soft">
-                                {p.upgradePoints} upgrade points
+                                {tf("{count} upgrade points", { count: p.upgradePoints })}
                             </Chip>
                             <Typography level="body-sm" sx={{ minHeight: 60 }}>
-                                {p.description}
+                                {t(p.description)}
                             </Typography>
                             <Button
                                 disabled={disabled}
@@ -1428,7 +1428,7 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                                 sx={{ mt: 0.5 }}
                                 fullWidth
                             >
-                                {isSelected ? "✓ Chosen" : t("Choose")}
+                                {isSelected ? `✓ ${t("Chosen")}` : t("Choose")}
                             </Button>
                         </CardContent>
                     </Card>
@@ -1627,7 +1627,7 @@ const BundlePanel: React.FC<{
                                                 color: "#7c8290",
                                             }}
                                         >
-                                            Tier-1 artifact
+                                            {t("Tier-1 artifact")}
                                         </Typography>
                                     </Box>
                                 </Box>
@@ -1894,7 +1894,7 @@ const ArtifactPanel: React.FC<{
                                             textAlign: "center",
                                         }}
                                     >
-                                        Tier-2 artifact
+                                        {t("Tier-2 artifact")}
                                     </Typography>
                                 </CardContent>
                             </Card>
@@ -1990,12 +1990,25 @@ export const SynergyDots: React.FC<{
                 const label = t(SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction);
                 const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
                 const tip = previewing
-                    ? `Confirming this pick lights ${faction} — ${label} lvl ${previewLevel}: ${describeSynergy(
-                          `${faction}:${variant}:${previewLevel}`,
-                      )}`
+                    ? tf("Confirming this pick lights {faction} — {label} lvl {level}: {description}", {
+                          faction: t(faction),
+                          label,
+                          level: previewLevel,
+                          description: describeSynergy(`${faction}:${variant}:${previewLevel}`),
+                      })
                     : level
-                      ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${variant}:${level}`)}`
-                      : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+                      ? tf("{faction} — {label} (lvl {level}): {description}", {
+                            faction: t(faction),
+                            label,
+                            level,
+                            description: describeSynergy(`${faction}:${variant}:${level}`),
+                        })
+                      : tf(
+                            units === 1
+                                ? "{faction} — {label}: locked, {count} more {faction} unit to reach lvl 1"
+                                : "{faction} — {label}: locked, {count} more {faction} units to reach lvl 1",
+                            { faction: t(faction), label, count: 2 - units },
+                        );
                 return (
                     <Tooltip key={faction} title={tip} variant="soft" placement="top">
                         <Box
@@ -2170,14 +2183,14 @@ export const MyDraftBar: React.FC<{
                     title={
                         <Box sx={{ width: 330, maxWidth: "78vw", p: 0.45, display: "grid", gap: 0.65 }}>
                             <Typography level="title-sm" sx={{ color: "#efe4cc" }}>
-                                {perkName(visiblePerk)}
+                                {t(perkName(visiblePerk))}
                             </Typography>
                             <Typography level="body-xs" sx={{ color: "rgba(255,255,255,.88)", lineHeight: 1.35 }}>
-                                {visiblePerkCopy?.detail}
+                                {visiblePerkCopy ? t(visiblePerkCopy.detail) : ""}
                             </Typography>
                             {visiblePerkCopy && (
                                 <Typography level="body-xs" sx={{ color: "#dcb158", lineHeight: 1.3 }}>
-                                    {visiblePerkCopy.budget}
+                                    {t(visiblePerkCopy.budget)}
                                 </Typography>
                             )}
                         </Box>
@@ -2240,7 +2253,11 @@ export const MyDraftBar: React.FC<{
                         }
                         // Empty slot: show the level it will hold, so the layout reads as 6 ordered slots.
                         return (
-                            <Tooltip key={`empty-${i}`} title={`Level ${slot.level} slot`} variant="soft">
+                            <Tooltip
+                                key={`empty-${i}`}
+                                title={tf("Level {level} slot", { level: slot.level })}
+                                variant="soft"
+                            >
                                 <Box
                                     sx={{
                                         width: 38,
@@ -2274,7 +2291,7 @@ export const MyDraftBar: React.FC<{
                                 title={
                                     a
                                         ? `${a.name} — ${Artifact.formatArtifactDescription(a)}`
-                                        : `Tier-${tier + 1} artifact — not drafted yet`
+                                        : tf("Tier-{tier} artifact — not drafted yet", { tier: tier + 1 })
                                 }
                                 variant="soft"
                             >
@@ -2446,7 +2463,10 @@ export const OpponentDraftBar: React.FC<{
                             return (
                                 <Tooltip
                                     key={`opp-eye-${i}`}
-                                    title={`Level ${slot.level} — revealed by your doctrine (flips to the unit once your opponent picks here)`}
+                                    title={tf(
+                                        "Level {level} — revealed by your doctrine (flips to the unit once your opponent picks here)",
+                                        { level: slot.level },
+                                    )}
                                     variant="soft"
                                 >
                                     <Box
@@ -2478,7 +2498,11 @@ export const OpponentDraftBar: React.FC<{
                         }
                         // Not revealed by your doctrine -> face-down slot.
                         return (
-                            <Tooltip key={`opp-hidden-${i}`} title={`Level ${slot.level} — hidden`} variant="soft">
+                            <Tooltip
+                                key={`opp-hidden-${i}`}
+                                title={tf("Level {level} — hidden", { level: slot.level })}
+                                variant="soft"
+                            >
                                 <Box
                                     sx={{
                                         width: 36,
@@ -2634,7 +2658,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
             const msg = (err as Error)?.message ?? "";
             if (status === 409 || /already taken|already picked/i.test(msg)) {
                 setCollided((prev) => (prev.includes(id) ? prev : [...prev, id]));
-                setPickError("Already picked by your opponent — choose another.");
+                setPickError(t("Already picked by your opponent — choose another."));
             } else {
                 setPickError(msg || t("Pick rejected — choose another."));
             }
@@ -2876,12 +2900,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     }}
                 >
                     <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                        {isYourTurn ? t("Your turn") : `${opponentLabel}'s turn`}
+                        {isYourTurn ? t("Your turn") : tf("{opponent}'s turn", { opponent: opponentLabel })}
                     </Chip>
                     {upgradePoints > 0 && (
-                        <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
+                        <Tooltip title={t("Points you can spend on upgrades before placement")} variant="soft">
                             <Chip color="primary" variant="soft">
-                                {upgradePoints} upgrade pts
+                                {tf("{count} upgrade pts", { count: upgradePoints })}
                             </Chip>
                         </Tooltip>
                     )}
@@ -2987,18 +3011,22 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             label={
                                 !isYourTurn
                                     ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
-                                        ? `Opponent's turn — Lvl ${requiredLevel}`
+                                        ? tf("Opponent's turn — Lvl {level}", { level: requiredLevel })
                                         : t("Opponent's turn")
                                     : pickPhase === PickPhaseVals.ARTIFACT_2
                                       ? pendingArtifact > 0
-                                          ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
+                                          ? tf("Confirm {name}", {
+                                                name: Artifact.getTier2ArtifactProperties(
+                                                    pendingArtifact as Artifact.Tier2Artifact,
+                                                ).name,
+                                            })
                                           : t("Pick an artifact")
                                       : pickPhase === PickPhaseVals.INITIAL_PICK
                                         ? pendingBundle >= 0
                                             ? t("Confirm bundle")
                                             : t("Pick a bundle")
                                         : pendingPick > 0
-                                          ? `Confirm ${creatureName(pendingPick)}`
+                                          ? tf("Confirm {name}", { name: creatureName(pendingPick) })
                                           : t("Pick a creature")
                             }
                             tone="green"
@@ -3019,7 +3047,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                       ? t("Choose one of the three artifacts first.")
                                       : pickPhase === PickPhaseVals.INITIAL_PICK
                                         ? t("Choose one of the two bundles first.")
-                                        : "Choose a creature first — click a portrait, then confirm."
+                                        : t("Choose a creature first — click a portrait, then confirm.")
                             }
                             seconds={secondsRemaining}
                             submissionKey={phaseIdentity}

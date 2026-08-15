@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
 import { images as rawImages } from "../../generated/image_imports";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
 
@@ -36,12 +37,12 @@ const PHASE_LABELS: Record<string, string> = {
 
 const phaseLabel = (snapshot: PickObserveSnapshot): string => {
     const raw = snapshot.phaseName ?? "";
-    return PHASE_LABELS[raw] ?? raw.replaceAll("_", " ").toLowerCase() ?? "Drafting";
+    return t(PHASE_LABELS[raw] ?? raw.replaceAll("_", " ").toLowerCase() ?? "Drafting");
 };
 
 const CreatureSlot: React.FC<{ creatureId: number; levelLabel: string }> = ({ creatureId, levelLabel }) => {
     const img = creatureId ? UNIT_ID_TO_IMAGE[creatureId] : undefined;
-    const name = creatureId ? (UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`) : "Hidden";
+    const name = creatureId ? (UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`) : t("Hidden");
     return (
         <Stack spacing={0.5} alignItems="center" sx={{ width: 92 }}>
             {img ? (
@@ -103,7 +104,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
                 <Box
                     component="img"
                     src={image}
-                    alt={artifact?.name ?? `Tier-${tier} artifact`}
+                    alt={artifact?.name ?? tf("Tier-{tier} artifact", { tier })}
                     sx={{
                         width: 44,
                         height: 44,
@@ -134,7 +135,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
             )}
             <Stack spacing={0.1} sx={{ minWidth: 0 }}>
                 <Typography level="body-xs" sx={{ color: "#dcb158", fontWeight: 700 }}>
-                    Tier {tier}
+                    {tf("Tier {tier}", { tier })}
                 </Typography>
                 <Typography
                     level="body-xs"
@@ -145,7 +146,7 @@ const ArtifactSlot: React.FC<{ slot: ObservedDraftArtifactSlot }> = ({ slot }) =
                         textOverflow: "ellipsis",
                     }}
                 >
-                    {artifact?.name ?? "Not selected"}
+                    {artifact?.name ?? t("Not selected")}
                 </Typography>
             </Stack>
         </Stack>
@@ -182,7 +183,7 @@ const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = 
                                 color: "#dcb158",
                             }}
                         >
-                            AI {team.aiVersion ?? ""}
+                            {t("AI")} {team.aiVersion ?? ""}
                         </Typography>
                     )}
                 </Stack>
@@ -206,7 +207,7 @@ const TeamColumn: React.FC<{ team?: PickObserveTeam; fallbackLabel: string }> = 
                         level="body-xs"
                         sx={{ color: "#9fb6d4", textTransform: "uppercase", letterSpacing: 0.7, mb: 0.75 }}
                     >
-                        Selected artifacts
+                        {t("Selected artifacts")}
                     </Typography>
                     <Stack direction="row" spacing={1} justifyContent="space-between">
                         {artifactSlots.map((slot) => (
@@ -228,6 +229,7 @@ interface IObserverPickViewProps {
 }
 
 export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onPickPhaseChange, previewSnapshot }) => {
+    useTranslation();
     const [snapshot, setSnapshot] = useState<PickObserveSnapshot | undefined>(previewSnapshot);
     const [now, setNow] = useState(() => Date.now());
     // Server/browser clock drift so the countdown tracks the authoritative deadline.
@@ -296,13 +298,16 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
             <Stack spacing={2.5} alignItems="center">
                 <Stack spacing={0.5} alignItems="center">
                     <Typography sx={{ fontSize: 26, fontWeight: 700, color: "#efe4cc" }}>
-                        Spectating the draft
+                        {t("Spectating the draft")}
                     </Typography>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                         <Typography sx={{ color: "#9fb6d4", fontSize: 16 }}>
-                            {snapshot ? phaseLabel(snapshot) : "Connecting to the draft"}
+                            {snapshot ? phaseLabel(snapshot) : t("Connecting to the draft")}
                             {snapshot?.phaseCount
-                                ? ` — phase ${Math.min((snapshot.phaseSeq ?? 0) + 1, snapshot.phaseCount)}/${snapshot.phaseCount}`
+                                ? tf(" — phase {current}/{total}", {
+                                      current: Math.min((snapshot.phaseSeq ?? 0) + 1, snapshot.phaseCount),
+                                      total: snapshot.phaseCount,
+                                  })
                                 : ""}
                         </Typography>
                         {secondsLeft !== undefined && (
@@ -322,17 +327,18 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                         )}
                     </Stack>
                     <Typography level="body-xs" sx={{ color: "rgba(159,182,212,0.6)" }}>
-                        Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked
-                        in.
+                        {t(
+                            "Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked in.",
+                        )}
                     </Typography>
                 </Stack>
 
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} alignItems="stretch">
-                    <TeamColumn team={lower} fallbackLabel="Lower team" />
+                    <TeamColumn team={lower} fallbackLabel={t("Lower team")} />
                     <Stack alignItems="center" justifyContent="center">
-                        <Typography sx={{ color: "#dcb158", fontSize: 22, fontWeight: 700 }}>VS</Typography>
+                        <Typography sx={{ color: "#dcb158", fontSize: 22, fontWeight: 700 }}>{t("VS")}</Typography>
                     </Stack>
-                    <TeamColumn team={upper} fallbackLabel="Upper team" />
+                    <TeamColumn team={upper} fallbackLabel={t("Upper team")} />
                 </Stack>
 
                 {bans.length > 0 && (
@@ -347,7 +353,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                     >
                         <Stack spacing={0.75} alignItems="center">
                             <Typography level="body-sm" sx={{ color: "#d99" }}>
-                                Banned creatures
+                                {t("Banned creatures")}
                             </Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
                                 {bans.map((creatureId) => (
@@ -372,7 +378,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                                                 <Box
                                                     component="img"
                                                     src={images.x_mark_2_512}
-                                                    alt="banned"
+                                                    alt={t("banned")}
                                                     sx={{
                                                         position: "absolute",
                                                         inset: 8,

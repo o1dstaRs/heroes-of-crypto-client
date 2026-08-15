@@ -55,6 +55,7 @@ import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./si
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { hocDisplayFontFamily } from "../hocTheme";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
     teamType: TeamType;
@@ -98,7 +99,7 @@ function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
             const synergyKey = `${factionName}:${synergyId}:${level}`;
             return {
                 key: synergyKey,
-                label: FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy",
+                label: t(FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy"),
                 level,
             };
         }).filter((synergy) => synergy.key in SYNERGY_KEY_TO_IMAGE),
@@ -106,11 +107,12 @@ function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
 }
 
 function getSynergyTooltip(synergyKey: string, level: number): string {
-    return `Level ${level}: ${(
-        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || "Unknown Synergy"
+    const description = (
+        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || t("Unknown Synergy")
     )
         .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[0]?.toString() || "0")
-        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`;
+        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0");
+    return tf("Level {level}: {description}", { level, description: t(description) });
 }
 
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
@@ -1098,6 +1100,7 @@ const UnitStatsLayout: React.FC<{
     hasBreakApplied,
     team,
 }) => {
+    useTranslation();
     const animationConfig = getDefaultAnimationConfig(unitProperties.name);
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -1113,28 +1116,28 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<HeartIcon />}
                 value={`${formatSidebarStat(unitProperties.hp)}/${formatSidebarStat(unitProperties.max_hp)}`}
-                tooltip="Current/max Health Points"
+                tooltip={t("Current/max Health Points")}
                 color="#ff4d4d"
                 metrics={metrics}
             />
             <StatItem
                 icon={<FistIcon />}
                 value={damageRange}
-                tooltip="Attack spread"
+                tooltip={t("Attack spread")}
                 color="#c0c0c0"
                 metrics={metrics}
             />
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                 value={formatSidebarStat(attackDamage)}
-                tooltip="Attack type and multiplier"
+                tooltip={t("Attack type and multiplier")}
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
             />
             <StatItem
                 icon={<ShieldIcon />}
                 value={formatSidebarStat(meleeArmor)}
-                tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
+                tooltip={hasDifferentRangeArmor ? t("Armor against melee attacks") : t("Armor")}
                 color="#4682b4"
                 metrics={metrics}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
@@ -1144,12 +1147,12 @@ const UnitStatsLayout: React.FC<{
                 secondIcon={hasDifferentRangeArmor ? <ArrowShieldIcon /> : undefined}
                 secondValue={hasDifferentRangeArmor ? formatSidebarStat(rangeArmor) : undefined}
                 secondColor="#f4a460"
-                secondTooltip="Armor against ranged attacks"
+                secondTooltip={t("Armor against ranged attacks")}
             />
             <StatItem
                 icon={<MagicShieldIcon />}
                 value={`${formatSidebarStat(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
-                tooltip="Magic resist in %"
+                tooltip={t("Magic resist in %")}
                 color="#8a2be2"
                 metrics={metrics}
             />
@@ -1162,13 +1165,13 @@ const UnitStatsLayout: React.FC<{
                 // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
                 // the board can no longer disagree.
                 value={formatSidebarStat(unitProperties.steps + stepsMod)}
-                tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
+                tooltip={t("Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding")}
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
                 secondIcon={<HourglassIcon />}
                 secondValue={formatSidebarStat(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
-                secondTooltip="Units with higher initiative turn first"
+                secondTooltip={t("Units with higher initiative turn first")}
             />
             {/* Morale and luck share one cell. They are the two smallest, most closely related numbers, and
                 pairing them buys back a slot — a ranged creature carries enough extra stats to spill onto a
@@ -1176,13 +1179,13 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={formatSidebarStat(Math.round(unitProperties.morale))}
-                tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
+                tooltip={t("Morale grants extra actions, and adds movement steps once the map starts narrowing")}
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
                 secondIcon={<LuckIcon />}
                 secondValue={formatSidebarStat(Math.round(unitProperties.luck + unitProperties.luck_mod))}
                 secondColor="#ff4040"
-                secondTooltip="Luck raises damage rolls and the power of abilities"
+                secondTooltip={t("Luck raises damage rolls and the power of abilities")}
             />
             {/* Spellbook scroll count: the only readout of how many casts a spellcaster has left —
                 without it, answering that question means opening the spellbook. */}
@@ -1190,7 +1193,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<ScrollIcon />}
                     value={formatSidebarStat(unitProperties.spells.length)}
-                    tooltip="Magic scrolls left to cast"
+                    tooltip={t("Magic scrolls left to cast")}
                     color="#add8e6"
                     metrics={metrics}
                 />
@@ -1199,7 +1202,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<ShotRangeIcon />}
                     value={formatSidebarStat(unitProperties.shot_distance)}
-                    tooltip="Ranged shot distance in cells"
+                    tooltip={t("Ranged shot distance in cells")}
                     color="#ffff00"
                     metrics={metrics}
                 />
@@ -1208,7 +1211,7 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<QuiverIcon />}
                     value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
-                    tooltip="Number of ranged shots"
+                    tooltip={t("Number of ranged shots")}
                     color="#cd5c5c"
                     metrics={metrics}
                 />
@@ -1483,7 +1486,7 @@ const UnitStatsLayout: React.FC<{
 
             {/* All three blocks are always rendered at a constant height, empty or not, so the card is the
                 same shape for every creature and nothing below it ever moves. */}
-            <PanelSection title="Abilities" metrics={metrics}>
+            <PanelSection title={t("Abilities")} metrics={metrics}>
                 <ScrollWell height={abilityWellHeight}>
                     <AbilityStack
                         abilities={abilities}
@@ -1494,7 +1497,7 @@ const UnitStatsLayout: React.FC<{
                 </ScrollWell>
             </PanelSection>
 
-            <PanelSection title="Buffs" metrics={metrics}>
+            <PanelSection title={t("Buffs")} metrics={metrics}>
                 <ScrollWell height={effectWellHeight} pinToEnd pinKey={buffsPinKey}>
                     {/* ONE wrapping row: every tile renders `display: contents`, so each wraps as its own
                         item and each line fills the bar's full width. */}
@@ -1512,15 +1515,15 @@ const UnitStatsLayout: React.FC<{
                             them along, and the eye has to find them again each turn. */}
                         {shownSynergies.length > 0 && <SynergiesRow synergies={shownSynergies} inline />}
                         {orderedBuffs.length > 0 && (
-                            <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                            <EffectTiles effects={orderedBuffs} title={t("Buffs")} metrics={metrics} inline />
                         )}
                     </Box>
                 </ScrollWell>
             </PanelSection>
 
-            <PanelSection title="Debuffs" metrics={metrics}>
+            <PanelSection title={t("Debuffs")} metrics={metrics}>
                 <ScrollWell height={effectWellHeight}>
-                    <EffectTiles effects={debuffs} title="Debuffs" metrics={metrics} />
+                    <EffectTiles effects={debuffs} title={t("Debuffs")} metrics={metrics} />
                 </ScrollWell>
             </PanelSection>
         </Box>

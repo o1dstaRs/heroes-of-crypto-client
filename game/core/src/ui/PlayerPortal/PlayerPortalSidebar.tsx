@@ -365,8 +365,8 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                         direction="row"
                                         spacing={0.3}
                                         alignItems="center"
-                                        aria-label={`${currency.name}: ${localizedGold}`}
-                                        title={`${currency.name} (${currency.symbol})`}
+                                        aria-label={`${t(currency.name)}: ${localizedGold}`}
+                                        title={`${t(currency.name)} (${currency.symbol})`}
                                         sx={{ flexShrink: 0, color: hocColors.gold }}
                                     >
                                         <CurrencyIcon iconSvg={currency.iconSvg} size={14} />
@@ -480,7 +480,9 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                         size="sm"
                                         variant="plain"
                                         aria-label={
-                                            recentBattlesExpanded ? "Collapse recent battles" : "Expand recent battles"
+                                            recentBattlesExpanded
+                                                ? t("Collapse recent battles")
+                                                : t("Expand recent battles")
                                         }
                                         aria-expanded={recentBattlesExpanded}
                                         onClick={() => setRecentBattlesExpanded((expanded) => !expanded)}

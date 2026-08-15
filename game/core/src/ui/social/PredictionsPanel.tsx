@@ -177,7 +177,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                                 size="sm"
                                 type="number"
                                 slotProps={{ input: { min: 1, step: 1 } }}
-                                placeholder={tf("{currency} to stake", { currency: currency.name })}
+                                placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
                                 value={amount}
                                 onChange={(event) => setAmount(event.target.value)}
                                 sx={{ ...hocInputSx, flex: 1 }}
@@ -199,7 +199,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                         )}
                         {stake > gold && (
                             <Typography level="body-xs" sx={{ color: hocColors.danger }}>
-                                {tf("Not enough {currency}", { currency: currency.name })}
+                                {tf("Not enough {currency}", { currency: t(currency.name) })}
                             </Typography>
                         )}
                     </Stack>
@@ -240,7 +240,7 @@ export const PredictionsPanel: React.FC<PredictionsPanelProps> = ({ open, onClos
                 <Typography
                     level="body-sm"
                     sx={{ display: "inline-flex", alignItems: "center", gap: 0.4, color: hocColors.gold }}
-                    title={`${currency.name} (${currency.symbol})`}
+                    title={`${t(currency.name)} (${currency.symbol})`}
                 >
                     <CurrencyIcon iconSvg={currency.iconSvg} size={15} /> {gold} {currency.symbol}
                 </Typography>

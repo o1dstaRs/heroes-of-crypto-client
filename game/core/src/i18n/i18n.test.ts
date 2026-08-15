@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, getLanguage, setLanguage, t, tf } from "./i18n";
@@ -10,10 +10,21 @@ afterEach(() => {
 });
 
 /** Every literal key handed to t()/tf() in a directory — dynamic keys (t(variable)) are invisible here. */
-const literalKeysUnder = (directory: string): string[] => {
+const literalKeysUnder = (path: string): string[] => {
     const keys: string[] = [];
-    for (const file of readdirSync(directory).filter((name) => /\.tsx?$/.test(name) && !name.endsWith(".test.ts"))) {
-        const source = readFileSync(join(directory, file), "utf8");
+    const files: string[] = [];
+    const visit = (candidate: string): void => {
+        if (statSync(candidate).isDirectory()) {
+            for (const name of readdirSync(candidate)) {
+                visit(join(candidate, name));
+            }
+        } else if (/\.tsx?$/.test(candidate) && !candidate.includes(".test.")) {
+            files.push(candidate);
+        }
+    };
+    visit(path);
+    for (const file of files) {
+        const source = readFileSync(file, "utf8");
         for (const pattern of [/(?<![\w.])t\(\s*"((?:[^"\\]|\\.)*)"/g, /(?<![\w.])tf\(\s*"((?:[^"\\]|\\.)*)"/g]) {
             for (const match of source.matchAll(pattern)) {
                 keys.push(match[1]);
@@ -22,6 +33,8 @@ const literalKeysUnder = (directory: string): string[] => {
     }
     return [...new Set(keys)];
 };
+
+const literalKeysAcross = (paths: string[]): string[] => [...new Set(paths.flatMap(literalKeysUnder))];
 
 describe("game-client i18n", () => {
     it("registers at least English and Russian, English first as the default", () => {
@@ -72,5 +85,54 @@ describe("player portal localization", () => {
         const keys = literalKeysUnder(join(import.meta.dir, "..", "ui", "PlayerPortal"));
         expect(keys.length).toBeGreaterThan(50);
         expect(keys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+});
+
+describe("ranked flow localization", () => {
+    it("has Russian entries for every literal key from arena through draft and fight", () => {
+        const ui = join(import.meta.dir, "..", "ui");
+        const keys = literalKeysAcross([
+            join(ui, "MatchmakingRoute.tsx"),
+            join(ui, "RankedBanPicker.tsx"),
+            join(ui, "RankedGameView.tsx"),
+            join(ui, "AugmentStepPreview.tsx"),
+            join(ui, "ExitReplayBadge.tsx"),
+            join(ui, "RankedFinishedActions.tsx"),
+            join(ui, "NextLapHazardBadge.tsx"),
+            join(ui, "PickAndBan"),
+            join(ui, "LeftSideBar"),
+            join(ui, "RightSideBar"),
+            join(ui, "FightFinishedOverlay"),
+            join(ui, "FightStats"),
+            join(ui, "DraggableToolbar"),
+            join(ui, "UpNextOverlay"),
+            join(ui, "PlayerPortal", "LivePredictionMarkets.tsx"),
+            join(ui, "WagerNegotiator.tsx"),
+            join(ui, "WagerStakeBox.tsx"),
+            join(ui, "audio", "ThemeMusic.tsx"),
+            join(ui, "index.tsx"),
+            join(import.meta.dir, "..", "scenes", "LoadingScreen.ts"),
+            join(import.meta.dir, "..", "scenes", "sandbox", "CombatVisuals.ts"),
+        ]);
+        expect(keys.length).toBeGreaterThan(250);
+        expect(keys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+
+    it("covers data-driven doctrine, map, and hazard copy", () => {
+        const dynamicKeys = [
+            "Scout",
+            "Spymaster",
+            "Blind Fury",
+            "Half their army, spread across every tier",
+            "The whole enemy draft, live",
+            "Draft blind, field the strongest army",
+            "Standard",
+            "Lava",
+            "Cemetery",
+            "Water",
+            "Armageddon next lap",
+            "Map narrows next lap",
+        ];
+        expect(dynamicKeys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
     });
 });

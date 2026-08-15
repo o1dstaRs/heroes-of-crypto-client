@@ -1,6 +1,7 @@
 import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture } from "pixi.js";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
+import { tf } from "../i18n/i18n";
 
 const FORGING_BACKGROUND_URL = images.loading_screen_forging_base;
 const FORGING_LAVA_URL = images.loading_screen_forging_lava_strip;
@@ -54,7 +55,7 @@ export class LoadingScreen extends Container {
         this.dragonMedallion.height = MEDALLION_ASSET_SIZE;
 
         this.loadingLabel = new Text({
-            text: "FORGING THE BATTLEFIELD   0%",
+            text: tf("FORGING THE BATTLEFIELD   {percent}%", { percent: 0 }),
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 27,
@@ -106,7 +107,9 @@ export class LoadingScreen extends Container {
 
         this.dragonMedallion.position.set(TRACK_X + fillWidth, TRACK_Y + TRACK_HEIGHT / 2);
         this.dragonMedallion.rotation = this.progress * Math.PI * 4;
-        this.loadingLabel.text = `FORGING THE BATTLEFIELD   ${Math.round(this.progress * 100)}%`;
+        this.loadingLabel.text = tf("FORGING THE BATTLEFIELD   {percent}%", {
+            percent: Math.round(this.progress * 100),
+        });
     }
     public resize(screenWidth: number, screenHeight: number): void {
         this.viewportBackground.clear();

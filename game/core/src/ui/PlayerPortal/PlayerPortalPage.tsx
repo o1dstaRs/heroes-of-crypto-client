@@ -415,8 +415,8 @@ export const PlayerPortalPage: React.FC = () => {
                                     {data ? (
                                         <Sheet
                                             variant="soft"
-                                            aria-label={`${currency.name}: ${totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}`}
-                                            title={`${currency.name} (${currency.symbol})`}
+                                            aria-label={`${t(currency.name)}: ${totalGold.toLocaleString(language === "ru" ? "ru-RU" : "en-US")}`}
+                                            title={`${t(currency.name)} (${currency.symbol})`}
                                             sx={{
                                                 display: "inline-flex",
                                                 alignItems: "center",

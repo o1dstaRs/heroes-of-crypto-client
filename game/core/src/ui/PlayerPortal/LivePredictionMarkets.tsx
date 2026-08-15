@@ -12,6 +12,7 @@ import {
     type PredictionBet,
     type PredictionMarket,
 } from "../../api/social_client";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
 import { isMockPortalEnabled } from "./mockPortal";
@@ -38,7 +39,7 @@ const mockMarkets = (): PredictionMarket[] => [
 ];
 
 const draftClock = (pickEndTime: number, now: number): string => {
-    if (pickEndTime <= 0) return "LIVE";
+    if (pickEndTime <= 0) return t("LIVE");
     const remaining = Math.max(0, Math.ceil((pickEndTime - now) / 1000));
     const minutes = Math.floor(remaining / 60);
     return `${minutes}:${String(remaining % 60).padStart(2, "0")}`;
@@ -52,6 +53,8 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
     onBetPlaced,
     onVisibilityChange,
 }) => {
+    // Keep this independently mounted card in sync with the profile language picker.
+    useTranslation();
     const { currency } = useRankedSeason();
     const mockPreview = isMockPortalEnabled();
     const [markets, setMarkets] = useState<PredictionMarket[]>(() =>
@@ -157,7 +160,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
             setArmedSide("");
             setAmount("");
         } catch (err) {
-            setError(socialErrorMessage(err, "Could not place the prediction"));
+            setError(socialErrorMessage(err, t("Could not place the prediction")));
         } finally {
             setBusy(false);
         }
@@ -168,7 +171,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
     return (
         <Sheet
             component="section"
-            aria-label="Live prediction markets"
+            aria-label={t("Live prediction markets")}
             variant="outlined"
             sx={{
                 ...hocPanelSx,
@@ -198,7 +201,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                         level="body-xs"
                         sx={{ color: hocColors.gold, fontWeight: 850, letterSpacing: "0.12em" }}
                     >
-                        LIVE DRAFT{wagerableMarkets.length === 1 ? "" : "S"}
+                        {t(wagerableMarkets.length === 1 ? "LIVE DRAFT" : "LIVE DRAFTS")}
                     </Typography>
                 </Stack>
             </Stack>
@@ -214,7 +217,9 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                         <Box
                             key={market.gameId}
                             component="article"
-                            aria-label={`Live draft: ${market.seats.map((seat) => seat.username).join(" versus ")}`}
+                            aria-label={tf("Live draft: {players}", {
+                                players: market.seats.map((seat) => seat.username).join(t(" versus ")),
+                            })}
                             sx={{
                                 minWidth: 0,
                                 pt: 0.3,
@@ -222,7 +227,10 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                         >
                             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.45 }}>
                                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                    {market.totalPool} {currency.symbol} pool
+                                    {tf("{amount} {symbol} pool", {
+                                        amount: market.totalPool,
+                                        symbol: currency.symbol,
+                                    })}
                                 </Typography>
                                 <Stack direction="row" spacing={0.4} alignItems="center">
                                     <Typography
@@ -247,7 +255,9 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                         rel="noopener noreferrer"
                                         size="sm"
                                         variant="plain"
-                                        aria-label={`Spectate ${market.seats.map((seat) => seat.username).join(" versus ")} in a new tab`}
+                                        aria-label={tf("Spectate {players} in a new tab", {
+                                            players: market.seats.map((seat) => seat.username).join(t(" versus ")),
+                                        })}
                                         startDecorator={<VisibilityRoundedIcon sx={{ fontSize: 15 }} />}
                                         sx={{
                                             minHeight: 24,
@@ -257,7 +267,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                             "&:hover": { color: hocColors.gold, bgcolor: "rgba(255,143,0,0.08)" },
                                         }}
                                     >
-                                        Spectate
+                                        {t("Spectate")}
                                     </Button>
                                 </Stack>
                             </Stack>
@@ -330,7 +340,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                         size="sm"
                                         type="number"
                                         slotProps={{ input: { min: 1, step: 1 } }}
-                                        placeholder={`${currency.name} to bet`}
+                                        placeholder={tf("{currency} to bet", { currency: t(currency.name) })}
                                         value={amount}
                                         onChange={(event) => setAmount(event.target.value)}
                                         onKeyDown={(event) => {
@@ -345,7 +355,7 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                         onClick={() => void submit(market)}
                                         sx={{ ...hocPrimaryButtonSx, minWidth: 88, px: 1.2 }}
                                     >
-                                        {busy ? "Placing…" : armed ? "Bet" : "Choose side"}
+                                        {busy ? t("Placing…") : armed ? t("Bet") : t("Choose side")}
                                     </Button>
                                 </Stack>
                                 {stake > 0 && chosen && (
@@ -356,8 +366,12 @@ export const LivePredictionMarkets: React.FC<LivePredictionMarketsProps> = ({
                                         }}
                                     >
                                         {stake > availableGold
-                                            ? `Not enough ${currency.name}`
-                                            : `Returns ${predictedReturn} ${currency.symbol} (+${predictedReturn - stake})`}
+                                            ? tf("Not enough {currency}", { currency: t(currency.name) })
+                                            : tf("Returns {return} {symbol} (+{profit})", {
+                                                  return: predictedReturn,
+                                                  symbol: currency.symbol,
+                                                  profit: predictedReturn - stake,
+                                              })}
                                     </Typography>
                                 )}
                             </Stack>

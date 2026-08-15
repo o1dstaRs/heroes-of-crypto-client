@@ -36,18 +36,21 @@ const fallbackUrl = gameClientUrls[0];
     title="Play Ranked"
     description="Open Heroes of Crypto ranked matchmaking."
 >
-    <section class="redirect-page">
+    <section class="redirect-page" data-ranked-redirect data-game-client-urls={JSON.stringify(gameClientUrls)}>
         <h1>Opening Ranked</h1>
         <p>Redirecting to Heroes of Crypto ranked matchmaking.</p>
         <p><a href={fallbackUrl}>Open ranked</a></p>
     </section>
 </BaseLayout>
 
-<script define:vars={{ gameClientUrls }}>
-    const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+<script>
+    import { withGameAuthToken } from "../../lib/auth-handoff";
 
-    function targetWithToken(url) {
-        const token = localStorage.getItem("accessToken");
+    const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+    const redirectPage = document.querySelector<HTMLElement>("[data-ranked-redirect]");
+    const gameClientUrls = JSON.parse(redirectPage?.dataset.gameClientUrls ?? "[]") as string[];
+
+    function targetWithToken(url: string): URL {
         const target = new URL(url, window.location.href);
 
         for (const [key, value] of new URLSearchParams(window.location.search)) {
@@ -68,16 +71,10 @@ const fallbackUrl = gameClientUrls[0];
             // Storage unavailable — the client falls back to its own stored setting or the default.
         }
 
-        if (token) {
-            const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
-            hashParams.set("access_token", token);
-            target.hash = hashParams.toString();
-        }
-
-        return target;
+        return withGameAuthToken(target);
     }
 
-    async function canReach(url) {
+    async function canReach(url: string): Promise<boolean> {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 700);
 
@@ -95,7 +92,7 @@ const fallbackUrl = gameClientUrls[0];
         }
     }
 
-    async function resolveTarget() {
+    async function resolveTarget(): Promise<URL> {
         for (const url of gameClientUrls) {
             const candidate = targetWithToken(url);
             if (candidate.href === window.location.href) continue;
@@ -103,7 +100,7 @@ const fallbackUrl = gameClientUrls[0];
             if (!localHosts.has(window.location.hostname) || await canReach(candidate.href)) return candidate;
         }
 
-        return targetWithToken(gameClientUrls[0]);
+        return targetWithToken(gameClientUrls[0] ?? "/play");
     }
 
     resolveTarget().then((target) => window.location.replace(target.toString()));

@@ -28,6 +28,7 @@ import { TextStyle } from "pixi.js";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
+import { t, useTranslation } from "../i18n/i18n";
 import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
@@ -679,54 +680,57 @@ const PickAndBanView: React.FC<{
     );
 };
 
-const MatchLoadingOverlay: React.FC = () => (
-    <div
-        style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "#0f1117",
-            color: "#f8fafc",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 1000,
-            padding: 24,
-        }}
-    >
-        <style>
-            {`
+const MatchLoadingOverlay: React.FC = () => {
+    useTranslation();
+    return (
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                backgroundColor: "#0f1117",
+                color: "#f8fafc",
+                display: "grid",
+                placeItems: "center",
+                zIndex: 1000,
+                padding: 24,
+            }}
+        >
+            <style>
+                {`
                 @keyframes hoc-route-progress {
                     0% { transform: translateX(-80%); }
                     50% { transform: translateX(20%); }
                     100% { transform: translateX(140%); }
                 }
             `}
-        </style>
-        <div style={{ width: "min(440px, 100%)" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Opening match</div>
-            <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
-                Syncing your seat and loading the latest match state.
-            </div>
-            <div
-                style={{
-                    height: 8,
-                    overflow: "hidden",
-                    borderRadius: 999,
-                    backgroundColor: "rgba(148, 163, 184, 0.24)",
-                }}
-            >
+            </style>
+            <div style={{ width: "min(440px, 100%)" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{t("Opening match")}</div>
+                <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
+                    {t("Syncing your seat and loading the latest match state.")}
+                </div>
                 <div
                     style={{
-                        width: "55%",
-                        height: "100%",
+                        height: 8,
+                        overflow: "hidden",
                         borderRadius: 999,
-                        background: "linear-gradient(90deg, #f97316, #22c55e)",
-                        animation: "hoc-route-progress 1.25s ease-in-out infinite",
+                        backgroundColor: "rgba(148, 163, 184, 0.24)",
                     }}
-                />
+                >
+                    <div
+                        style={{
+                            width: "55%",
+                            height: "100%",
+                            borderRadius: 999,
+                            background: "linear-gradient(90deg, #f97316, #22c55e)",
+                            animation: "hoc-route-progress 1.25s ease-in-out infinite",
+                        }}
+                    />
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
@@ -941,8 +945,11 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
                     {/* Wager negotiation rides the draft: it forms a few seconds into pick and must
-                        resolve before the fight. Observers have no seat, hence no wager. */}
-                    {routeMode === "pick" && !observerMode && authenticated && (
+                        resolve before the fight. Observers have no seat, hence no wager. Neither does a
+                        vs-AI match: the server only materializes a wager when BOTH seats hold an intent
+                        and the bot seat never sets one, so the panel could only ever invite a stake that
+                        cannot form on this game. */}
+                    {routeMode === "pick" && !observerMode && authenticated && !isMarkedVsAiGame(gameId) && (
                         <WagerNegotiator gameId={gameId} active={routeMode === "pick"} />
                     )}
                     {routeMode === "pick" &&

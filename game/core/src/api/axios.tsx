@@ -1,5 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosInstance } from "axios";
 
+import { adoptRotatedStoredAccessToken, registerAccessTokenListener } from "./access_token";
+
 const DEFAULT_DEV_API = "http://127.0.0.1:3001";
 const PROD_AUTH_API = "https://auth.heroesofcrypto.io";
 const PROD_MATCHMAKING_API = "https://mm.heroesofcrypto.io";
@@ -70,93 +72,94 @@ export const axiosAuthInstance = createAxios(HOST_AUTH_API);
 export const axiosMMInstance = createAxios(HOST_MATCHMAKING_API);
 export const axiosGameInstance = createAxios(HOST_GAME_API);
 
-/** Narrowed localStorage guard so server imports don’t explode */
-function setAccessTokenSafely(token: string): void {
-    if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
-        window.localStorage.setItem("accessToken", token);
+const syncAuthorizationDefaults = (accessToken: string | null): void => {
+    for (const instance of [axiosAuthInstance, axiosMMInstance, axiosGameInstance]) {
+        if (accessToken) {
+            instance.defaults.headers.common.Authorization = accessToken;
+        } else {
+            delete instance.defaults.headers.common.Authorization;
+        }
     }
-}
+};
+
+registerAccessTokenListener(syncAuthorizationDefaults);
+
+const adoptRotatedAccessToken = (headers: unknown): void => {
+    if (!headers || typeof headers !== "object") {
+        return;
+    }
+    const headerRecord = headers as Record<string, unknown> & { get?: (name: string) => unknown };
+    const newToken =
+        (typeof headerRecord.get === "function" ? headerRecord.get("x-new-token") : undefined) ??
+        headerRecord["x-new-token"] ??
+        headerRecord["X-New-Token"];
+    if (typeof newToken === "string") {
+        adoptRotatedStoredAccessToken(newToken);
+    }
+};
+
+const handleSuccessfulResponse = <T extends { headers?: unknown }>(response: T): T => {
+    adoptRotatedAccessToken(response.headers);
+    response.headers = { ...(response.headers as Record<string, unknown> | undefined) };
+    return response;
+};
 
 /* ----------------------------- Interceptors ------------------------------ */
 
-axiosAuthInstance.interceptors.response.use(
-    (res) => {
-        const hdrs = res.headers ?? {};
-        const newToken = (hdrs as Record<string, unknown>)["x-new-token"];
-        if (typeof newToken === "string" && newToken.length > 0) {
-            setAccessTokenSafely(newToken);
-        }
-        // copy headers to keep shape stable
-        res.headers = { ...res.headers };
-        return res;
-    },
-    (error) => {
-        // 400 with non-string body, or string not starting with "Password matches" -> generic input error
-        if (
-            error?.response?.status === 400 &&
-            (!error.response.data ||
-                typeof error.response.data !== "string" ||
-                !error.response.data.startsWith("Password matches"))
-        ) {
-            error.message = "Request failed: Invalid inputs";
-        }
+axiosAuthInstance.interceptors.response.use(handleSuccessfulResponse, (error) => {
+    // 400 with non-string body, or string not starting with "Password matches" -> generic input error
+    if (
+        error?.response?.status === 400 &&
+        (!error.response.data ||
+            typeof error.response.data !== "string" ||
+            !error.response.data.startsWith("Password matches"))
+    ) {
+        error.message = "Request failed: Invalid inputs";
+    }
 
-        const d = error?.response?.data;
-        if (typeof d === "string" && d !== "Bad Request") {
-            return Promise.reject(`Request failed: ${d}`);
-        }
-        return Promise.reject(error);
-    },
-);
+    const d = error?.response?.data;
+    if (typeof d === "string" && d !== "Bad Request") {
+        return Promise.reject(`Request failed: ${d}`);
+    }
+    return Promise.reject(error);
+});
 
-axiosMMInstance.interceptors.response.use(
-    (res) => {
-        res.headers = { ...res.headers };
-        return res;
-    },
-    (error) => {
-        const status = error?.response?.status as number | undefined;
-        if (status === 409) return Promise.reject(new Error("Already in game"));
-        if (status === 401) return Promise.reject(new Error("Unauthorized"));
+axiosMMInstance.interceptors.response.use(handleSuccessfulResponse, (error) => {
+    const status = error?.response?.status as number | undefined;
+    if (status === 409) return Promise.reject(new Error("Already in game"));
+    if (status === 401) return Promise.reject(new Error("Unauthorized"));
 
-        const data = error?.response?.data;
-        if (data instanceof ArrayBuffer) {
-            const buf = new Uint8Array(data);
-            let s = "";
-            for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
-            return Promise.reject(new Error(s));
-        }
+    const data = error?.response?.data;
+    if (data instanceof ArrayBuffer) {
+        const buf = new Uint8Array(data);
+        let s = "";
+        for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
+        return Promise.reject(new Error(s));
+    }
 
-        if (typeof data === "string" && data !== "Bad Request") {
-            return Promise.reject(new Error(`Request failed: ${data}`));
-        }
-        return Promise.reject(error);
-    },
-);
+    if (typeof data === "string" && data !== "Bad Request") {
+        return Promise.reject(new Error(`Request failed: ${data}`));
+    }
+    return Promise.reject(error);
+});
 
-axiosGameInstance.interceptors.response.use(
-    (res) => {
-        res.headers = { ...res.headers };
-        return res;
-    },
-    (error) => {
-        const status = error?.response?.status as number | undefined;
-        if (status === 401) return Promise.reject(new Error("Unauthorized"));
+axiosGameInstance.interceptors.response.use(handleSuccessfulResponse, (error) => {
+    const status = error?.response?.status as number | undefined;
+    if (status === 401) return Promise.reject(new Error("Unauthorized"));
 
-        const data = error?.response?.data;
-        if (data instanceof ArrayBuffer) {
-            const buf = new Uint8Array(data);
-            let s = "";
-            for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
-            return Promise.reject(new Error(s));
-        }
+    const data = error?.response?.data;
+    if (data instanceof ArrayBuffer) {
+        const buf = new Uint8Array(data);
+        let s = "";
+        for (let i = 0; i < buf.length; i++) s += String.fromCharCode(buf[i]);
+        return Promise.reject(new Error(s));
+    }
 
-        if (typeof data === "string" && data !== "Bad Request") {
-            return Promise.reject(new Error(`Request failed: ${data}`));
-        }
-        return Promise.reject(error);
-    },
-);
+    if (typeof data === "string" && data !== "Bad Request") {
+        return Promise.reject(new Error(`Request failed: ${data}`));
+    }
+    return Promise.reject(error);
+});
 
 /* -------------------------------- Fetcher -------------------------------- */
 
