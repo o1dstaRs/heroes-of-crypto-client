@@ -860,7 +860,14 @@ const MatchCard: React.FC<{
                                 alignItems="center"
                                 sx={{ mt: 0.25, flexWrap: "wrap" }}
                             >
-                                <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
+                                <Tooltip
+                                    title={kind.detail ? t(kind.detail) : ""}
+                                    placement="top"
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
+                                </Tooltip>
                                 {side && (
                                     <Stack
                                         direction="row"

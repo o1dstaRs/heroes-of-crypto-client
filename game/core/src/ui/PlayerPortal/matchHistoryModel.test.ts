@@ -74,24 +74,28 @@ describe("match history model", () => {
 
     it("presents explicit match modes without inferring from rating values", () => {
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.RANKED, mmr_delta: 0 }))).toEqual({
+            detail: "",
             label: "Ranked",
             showsGold: true,
             showsMmr: true,
             tone: "ranked",
         });
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.LOBBY, mmr_delta: 42 }))).toEqual({
+            detail: "",
             label: "Lobby",
             showsGold: false,
             showsMmr: false,
             tone: "lobby",
         });
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.UNKNOWN }))).toEqual({
+            detail: "",
             label: "Match",
             showsGold: false,
             showsMmr: false,
             tone: "unknown",
         });
         expect(matchKindPresentation(match())).toEqual({
+            detail: "",
             label: "Match",
             showsGold: false,
             showsMmr: false,
@@ -105,11 +109,31 @@ describe("match history model", () => {
         // the result mints none during calibration, but betting on your own game pays the pot
         // regardless, so the reward is real and belongs on the row.
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, mmr_delta: -40 }))).toEqual({
+            detail: "",
             label: "Calibration",
             showsGold: true,
             showsMmr: false,
             tone: "calibration",
         });
+    });
+
+    it("explains why a calibration game didn't advance the counter", () => {
+        // Only a fully played-out "normal" game counts (ranked_math.ts RankedOutcomeReason) — a forfeit
+        // or disconnect still moves MMR/gold at reduced weight, so the badge alone can't tell them apart.
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "normal" })).detail,
+        ).toBe("");
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "concede" })).detail,
+        ).toBe("Didn't count toward calibration — a player conceded");
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "disconnect" }))
+                .detail,
+        ).toBe("Didn't count toward calibration — a player disconnected");
+        // A non-calibration match kind never shows the detail, even with a non-"normal" reason.
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.RANKED, outcome_reason: "concede" })).detail,
+        ).toBe("");
     });
 
     it("formats signed rating and reward values", () => {

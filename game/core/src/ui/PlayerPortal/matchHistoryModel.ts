@@ -60,6 +60,7 @@ export type PortalMatchData = PortalMatchBase & {
     mmr_delta?: number;
     gold_earned?: number;
     opponent_player_id?: string;
+    outcome_reason?: string;
 };
 
 export type MatchHistoryFilter = "all" | "wins" | "losses";
@@ -75,6 +76,14 @@ export type MatchKindTone = "calibration" | "lobby" | "ranked" | "unknown";
 
 export interface MatchKindPresentation {
     label: "Calibration" | "Lobby" | "Match" | "Ranked";
+    /**
+     * Why a CALIBRATION match's own outcome_reason kept it from advancing the calibration counter —
+     * empty for every other reason (a fully played-out "normal" game, or a non-calibration match kind).
+     * Only "normal" advances the counter (ranked_math.ts RankedOutcomeReason); a forfeit or disconnect
+     * still moves MMR and win/loss at reduced weight, so the badge alone reads identically to a game
+     * that counted, and this is the string that explains the difference.
+     */
+    detail: string;
     /**
      * Whether this kind's MMR movement is shown to the player. Calibration games DO move a rating, but
      * it is the *provisional* one the server deliberately keeps hidden (ranked_math.ts: "Calibrating
@@ -142,16 +151,31 @@ export const matchResultPresentation = (match: PortalMatchData): MatchResultPres
     return match.won ? { detail, label: "Victory", tone: "win" } : { detail, label: "Defeat", tone: "loss" };
 };
 
+const CALIBRATION_MISS_DETAIL: Record<string, string> = {
+    concede: "Didn't count toward calibration — a player conceded",
+    disconnect: "Didn't count toward calibration — a player disconnected",
+    double_disconnect: "Didn't count toward calibration — both players disconnected",
+    cancel: "Didn't count toward calibration — cancelled before it started",
+};
+
 export const matchKindPresentation = (match: PortalMatchData): MatchKindPresentation => {
+    const reason = match.outcome_reason ?? "";
+    const calibrationDetail = reason && reason !== "normal" ? (CALIBRATION_MISS_DETAIL[reason] ?? "") : "";
     switch (match.match_kind) {
         case PortalMatchKind.RANKED:
-            return { label: "Ranked", showsGold: true, showsMmr: true, tone: "ranked" };
+            return { detail: "", label: "Ranked", showsGold: true, showsMmr: true, tone: "ranked" };
         case PortalMatchKind.CALIBRATION:
-            return { label: "Calibration", showsGold: true, showsMmr: false, tone: "calibration" };
+            return {
+                detail: calibrationDetail,
+                label: "Calibration",
+                showsGold: true,
+                showsMmr: false,
+                tone: "calibration",
+            };
         case PortalMatchKind.LOBBY:
-            return { label: "Lobby", showsGold: false, showsMmr: false, tone: "lobby" };
+            return { detail: "", label: "Lobby", showsGold: false, showsMmr: false, tone: "lobby" };
         default:
-            return { label: "Match", showsGold: false, showsMmr: false, tone: "unknown" };
+            return { detail: "", label: "Match", showsGold: false, showsMmr: false, tone: "unknown" };
     }
 };
 
