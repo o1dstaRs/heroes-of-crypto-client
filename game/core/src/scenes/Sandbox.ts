@@ -8501,8 +8501,16 @@ export class Sandbox extends PixiScene {
             false, // isSelection
             largeCaliber || areaThrow, // splash (Large Caliber / Area Throw)
         );
+        // Only highlight units the shot actually reaches. A non-piercing shot (Large Caliber / Area
+        // Throw) stops at the first unit on its path, so when a unit intercepts the shot before the
+        // aimed target, the target under the cursor is NOT hit — don't outline it. Through Shot pierces
+        // multiple units for real, so every group it returns is a genuine hit and stays highlighted; a
+        // non-piercing splash shot's ray walk can still surface a second "direct hit" group further down
+        // the trajectory (past where the shot actually stopped) — take only the first group so a unit
+        // standing behind the one that intercepts the shot never reads as independently attackable.
+        const groups = throughShot ? evalResult.affectedUnits : evalResult.affectedUnits.slice(0, 1);
         const seen = new Set<string>();
-        for (const affectedGroup of evalResult.affectedUnits) {
+        for (const affectedGroup of groups) {
             for (const affectedUnit of affectedGroup) {
                 if (seen.has(affectedUnit.getId())) {
                     continue;
@@ -8511,10 +8519,6 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.addTargetHighlight(affectedUnit);
             }
         }
-        // Only highlight units the shot actually reaches. A non-piercing shot (Large Caliber / Area
-        // Throw) stops at the first unit on its path, so when a unit intercepts the shot before the
-        // aimed target, the target under the cursor is NOT hit — don't outline it. (A Through Shot or a
-        // direct hit already includes the target above, since it's in evalResult.affectedUnits.)
         return seen.size > 0;
     }
     /**
@@ -11518,11 +11522,19 @@ export class Sandbox extends PixiScene {
                                 !damageUnit.isSmallSize(), // isLargeTarget
                                 iconPath,
                             );
+                            // A unit intercepting the shot before the hovered target (same rule as a
+                            // mountain above): the arrow stops at what actually takes the hit, with a
+                            // dashed continuation on to the hovered unit — otherwise the solid arrow flew
+                            // straight through the intercepting unit to the one behind it, which read as
+                            // "this unit is directly attackable" even though the shot never reaches it.
+                            const arrowImpactPos = damageUnit.getId() !== targetUnit.getId() ? damageCenterVis : tVis;
                             this.hoverManager.drawAttackArrow(
                                 arrowStartPos,
-                                tVis,
-                                undefined,
-                                isRangeAttackContext ? this.resolveSmokeEntryPoint(arrowStartPos, tVis) : undefined,
+                                arrowImpactPos,
+                                arrowImpactPos === tVis ? undefined : tVis,
+                                isRangeAttackContext
+                                    ? this.resolveSmokeEntryPoint(arrowStartPos, arrowImpactPos)
+                                    : undefined,
                                 isRangeAttackContext ? "arrow" : "melee",
                             );
                             isAttacking = true;
