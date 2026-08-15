@@ -362,6 +362,88 @@ describe("ranked placement scene state", () => {
         expect(flyer.getSteps()).toBe(stepsWhileBroken);
     });
 
+    test("applies and clears the authoritative Aggr target on a preserved ranked unit", () => {
+        let target = "";
+        const unit = {
+            syncAuthoritativeBreak: () => false,
+            getTarget: () => target,
+            setTarget: (next: string) => {
+                target = next;
+            },
+        } as unknown as RenderableUnit;
+        const state = { forcedTargetId: "pikeman" } as Parameters<typeof applyRankedUnitMechanicalEffects>[1];
+
+        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(true);
+        expect(target).toBe("pikeman");
+        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(false);
+        expect(applyRankedUnitMechanicalEffects(unit, { ...state, forcedTargetId: undefined })).toBe(true);
+        expect(target).toBe("");
+    });
+
+    test("preserves the ranked Aggr target through stat refresh and clears it with the status", () => {
+        const sceneState = authoritativeSnapshotToSandboxSceneState({
+            ...placementSnapshot([
+                unitState({
+                    id: "orc",
+                    name: "Orc",
+                    creatureId: CreatureVals.ORC,
+                    forcedTargetId: "pikeman",
+                    debuffs: ["Aggr"],
+                    debuffLaps: [1],
+                    debuffDescriptions: ["Must attack the unit that provoked it."],
+                }),
+            ]),
+            phase: 2,
+            fightStarted: true,
+        });
+        const state = sceneState.units[0];
+        const gridSettings = new GridSettings(
+            GridConstants.GRID_SIZE,
+            GridConstants.MAX_Y,
+            GridConstants.MIN_Y,
+            GridConstants.MAX_X,
+            GridConstants.MIN_X,
+            GridConstants.MOVEMENT_DELTA,
+            GridConstants.UNIT_SIZE_DELTA,
+        );
+        const unitsHolder = new UnitsHolder(new Grid(gridSettings, GridVals.NORMAL));
+        const effectFactory = new EffectFactory();
+        const initialProperties = structuredClone(state.properties);
+        initialProperties.applied_debuffs = [];
+        initialProperties.applied_debuffs_laps = [];
+        initialProperties.applied_debuffs_descriptions = [];
+        initialProperties.applied_debuffs_powers = [];
+        const unit = RenderableUnit.fromBase(
+            Unit.createUnit(
+                initialProperties,
+                gridSettings,
+                state.properties.team,
+                UnitVals.CREATURE,
+                new AbilityFactory(effectFactory),
+                effectFactory,
+                false,
+            ),
+            undefined as never,
+        );
+        unitsHolder.addUnit(unit);
+
+        expect(applyRankedUnitSnapshotStats(unit, state.properties)).toBe(true);
+        expect(applyRankedUnitMechanicalEffects(unit, state)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        expect(unit.getTarget()).toBe("pikeman");
+
+        const clearedState = structuredClone(state);
+        clearedState.forcedTargetId = undefined;
+        clearedState.properties.applied_debuffs = [];
+        clearedState.properties.applied_debuffs_laps = [];
+        clearedState.properties.applied_debuffs_descriptions = [];
+        clearedState.properties.applied_debuffs_powers = [];
+        expect(applyRankedUnitSnapshotStats(unit, clearedState.properties)).toBe(true);
+        expect(applyRankedUnitMechanicalEffects(unit, clearedState)).toBe(true);
+        unitsHolder.refreshStackPowerForAllUnits();
+        expect(unit.getTarget()).toBe("");
+    });
+
     test("collapses the Visible debuff the ranked seam applies on top of the snapshot's own entry", () => {
         FightStateManager.getInstance().reset();
         const tigerCell = { x: 4, y: 4 };

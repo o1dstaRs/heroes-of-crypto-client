@@ -9,7 +9,8 @@ import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
-import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import ViewSidebarRoundedIcon from "@mui/icons-material/ViewSidebarRounded";
+import { Alert, Box, Button, IconButton, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -27,6 +28,16 @@ import { PerkIcon } from "./PerkIcon";
 import { getPerkCopy } from "./perkCopy";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { useRankedSeason } from "./useRankedSeason";
+import {
+    isAcceptedMatchHandoff,
+    isAmbiguousConfirmFailure,
+    isCurrentAcceptAttempt,
+    type MatchmakingCurrentGame,
+    resolveConfirmFailure,
+    resolveTerminalHandoff,
+    shouldSurfaceMatchmakingStreamError,
+    TERMINAL_MATCHMAKING_STREAM_ERROR,
+} from "./matchmakingAcceptTransition";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -61,9 +72,13 @@ export const MatchmakingRoute: React.FC = () => {
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef("");
+    const pendingGameIdRef = useRef("");
+    const acceptAttemptRef = useRef(0);
+    const mountedRef = useRef(true);
     const aiStartInFlightRef = useRef(false);
     const vsAiAutoStartedRef = useRef(false);
     const [state, setState] = useState<MatchmakingState>("idle");
+    const [profileSummaryOpen, setProfileSummaryOpen] = useState(false);
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
@@ -89,6 +104,10 @@ export const MatchmakingRoute: React.FC = () => {
     }, []);
 
     const [pendingGameId, setPendingGameId] = useState("");
+    const updatePendingGameId = useCallback((gameId: string) => {
+        pendingGameIdRef.current = gameId;
+        setPendingGameId(gameId);
+    }, []);
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
     const [searchStartedAt, setSearchStartedAt] = useState(0);
@@ -173,12 +192,13 @@ export const MatchmakingRoute: React.FC = () => {
                 return;
             }
 
-            setPendingGameId(event.ps);
+            updatePendingGameId(event.ps);
 
             if (event.r !== undefined && event.r < 0) {
                 acceptedGameIdRef.current = "";
+                acceptAttemptRef.current += 1;
                 setState("idle");
-                setPendingGameId("");
+                updatePendingGameId("");
                 setSecondsRemaining(null);
                 // The found match window closed. If WE let it expire the server just set a no-accept
                 // cooldown — refresh /me so the penalty countdown renders (a no-op if we weren't at fault).
@@ -187,6 +207,10 @@ export const MatchmakingRoute: React.FC = () => {
             }
 
             if (event.c === 1) {
+                // Keep the completed handoff marker through close/navigation. closeStream aborts the
+                // underlying fetch; if its rejection lands before unmount it is still an intentional close.
+                acceptedGameIdRef.current = event.ps;
+                acceptAttemptRef.current += 1;
                 setState("accepted");
                 closeStream();
                 navigate(`/game/${event.ps}`);
@@ -197,6 +221,69 @@ export const MatchmakingRoute: React.FC = () => {
         };
 
         source.onerror = (err: Error) => {
+            const acceptedGameId = acceptedGameIdRef.current;
+            const pendingId = pendingGameIdRef.current;
+            const acceptedHandoff = isAcceptedMatchHandoff(acceptedGameId, pendingId);
+            const isTerminal = err.message === TERMINAL_MATCHMAKING_STREAM_ERROR;
+            if (
+                !shouldSurfaceMatchmakingStreamError(
+                    err.message,
+                    acceptedGameId,
+                    pendingId,
+                    streamRef.current === source,
+                )
+            ) {
+                return;
+            }
+
+            if (acceptedHandoff && isTerminal) {
+                const attempt = acceptAttemptRef.current;
+                closeStream();
+                // The stream is permanently closed, so unlock immediately even if /current itself hangs.
+                // A successful reconciliation below can still route or restore the same match's Accept.
+                setError(err.message);
+                setState("error");
+
+                void (async () => {
+                    let currentGame: MatchmakingCurrentGame | null = null;
+                    let reconciliationSucceeded = false;
+                    try {
+                        currentGame = await getCurrentGame();
+                        reconciliationSucceeded = true;
+                    } catch {
+                        // The recoverable error state is already visible; a future Find retries the ingress.
+                    }
+
+                    if (
+                        !isCurrentAcceptAttempt({
+                            acceptedGameId: acceptedGameIdRef.current,
+                            attempt,
+                            currentAttempt: acceptAttemptRef.current,
+                            expectedGameId: acceptedGameId,
+                            mounted: mountedRef.current,
+                            pendingGameId: pendingGameIdRef.current,
+                        })
+                    ) {
+                        return;
+                    }
+
+                    const resolution = resolveTerminalHandoff(acceptedGameId, currentGame, reconciliationSucceeded);
+                    if (resolution === "navigate") {
+                        acceptAttemptRef.current += 1;
+                        setError("");
+                        navigate(`/game/${acceptedGameId}`);
+                        return;
+                    }
+
+                    acceptedGameIdRef.current = "";
+                    acceptAttemptRef.current += 1;
+                    if (resolution === "retry-confirm") {
+                        setState("confirming");
+                    }
+                })();
+                return;
+            }
+
             setError(err.message);
             setState((current) => (current === "accepted" ? current : "error"));
             // A dropped stream right after a found match is usually the accept window expiring. Pull the
@@ -205,9 +292,26 @@ export const MatchmakingRoute: React.FC = () => {
         };
 
         streamRef.current = source;
-    }, [closeStream, navigate, me]);
+    }, [closeStream, getCurrentGame, navigate, me, updatePendingGameId]);
 
-    useEffect(() => closeStream, [closeStream]);
+    // A terminal accepted-stream failure may reconcile to the same still-unconfirmed game. Re-opening
+    // here makes the restored Accept button useful: its successful retry still needs the authoritative
+    // c=1 navigation frame. Ordinary confirming transitions already have a live source and are a no-op.
+    useEffect(() => {
+        if (state === "confirming" && pendingGameIdRef.current && !streamRef.current) {
+            openStream();
+        }
+    }, [openStream, state]);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            acceptedGameIdRef.current = "";
+            acceptAttemptRef.current += 1;
+            closeStream();
+        };
+    }, [closeStream]);
 
     // Refresh /me on arrival so a penalty applied in a previous session/route shows immediately.
     useEffect(() => {
@@ -250,7 +354,7 @@ export const MatchmakingRoute: React.FC = () => {
                     return;
                 }
 
-                setPendingGameId(game.id);
+                updatePendingGameId(game.id);
                 setState("confirming");
                 openStream();
             })
@@ -261,7 +365,7 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [getCurrentGame, navigate, openStream]);
+    }, [getCurrentGame, navigate, openStream, updatePendingGameId]);
 
     const statusText = useMemo(() => {
         if (needsActivation) {
@@ -298,6 +402,7 @@ export const MatchmakingRoute: React.FC = () => {
         }
         setError("");
         acceptedGameIdRef.current = "";
+        acceptAttemptRef.current += 1;
         setState("searching");
         closeStream();
         openStream();
@@ -321,6 +426,7 @@ export const MatchmakingRoute: React.FC = () => {
         aiStartInFlightRef.current = true;
         setError("");
         acceptedGameIdRef.current = "";
+        acceptAttemptRef.current += 1;
         setState("starting-ai");
         closeStream();
         try {
@@ -340,7 +446,7 @@ export const MatchmakingRoute: React.FC = () => {
                     if (currentGame.confirmed) {
                         navigate(`/game/${currentGame.id}`);
                     } else {
-                        setPendingGameId(currentGame.id);
+                        updatePendingGameId(currentGame.id);
                         setState("confirming");
                         openStream();
                     }
@@ -360,7 +466,7 @@ export const MatchmakingRoute: React.FC = () => {
         } finally {
             aiStartInFlightRef.current = false;
         }
-    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream]);
+    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream, updatePendingGameId]);
 
     // A /play?mode=vs-ai deep link starts the AI match on arrival (optionally at ?difficulty=<tier>).
     // Consume the params before starting so browser Back or a remount cannot unintentionally create
@@ -398,9 +504,10 @@ export const MatchmakingRoute: React.FC = () => {
             setError((err as Error)?.message ?? "Unable to leave matchmaking");
         } finally {
             acceptedGameIdRef.current = "";
+            acceptAttemptRef.current += 1;
             closeStream();
             setState("idle");
-            setPendingGameId("");
+            updatePendingGameId("");
             setQueueSize(null);
             setSecondsRemaining(null);
         }
@@ -412,12 +519,48 @@ export const MatchmakingRoute: React.FC = () => {
         }
 
         setError("");
-        acceptedGameIdRef.current = pendingGameId;
+        const gameId = pendingGameId;
+        const attempt = acceptAttemptRef.current + 1;
+        acceptAttemptRef.current = attempt;
+        acceptedGameIdRef.current = gameId;
         setState("accepted");
         try {
-            await confirmGame(pendingGameId);
+            await confirmGame(gameId);
         } catch (err) {
+            let currentGame: MatchmakingCurrentGame | null = null;
+            let reconciliationSucceeded = false;
+            try {
+                currentGame = await getCurrentGame();
+                reconciliationSucceeded = true;
+            } catch {
+                // Unknown is not rejection: keep the accepted handoff alive and let its SSE retry finish it.
+            }
+
+            if (
+                !isCurrentAcceptAttempt({
+                    acceptedGameId: acceptedGameIdRef.current,
+                    attempt,
+                    currentAttempt: acceptAttemptRef.current,
+                    expectedGameId: gameId,
+                    mounted: mountedRef.current,
+                    pendingGameId: pendingGameIdRef.current,
+                })
+            ) {
+                return;
+            }
+
+            const resolution = resolveConfirmFailure(
+                gameId,
+                currentGame,
+                reconciliationSucceeded,
+                isAmbiguousConfirmFailure(err),
+            );
+            if (resolution !== "rejected") {
+                return;
+            }
+
             acceptedGameIdRef.current = "";
+            acceptAttemptRef.current += 1;
             setState("confirming");
             setError((err as Error)?.message ?? "Unable to accept match");
         }
@@ -427,6 +570,7 @@ export const MatchmakingRoute: React.FC = () => {
         state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
     const shortGameId =
         pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
+    const showStatusPresentation = state !== "idle" || needsActivation || penalized;
     const presentation = (() => {
         if (needsActivation) {
             return {
@@ -488,9 +632,9 @@ export const MatchmakingRoute: React.FC = () => {
         }
         return {
             accent: hocColors.orange,
-            eyebrow: "READY FOR BATTLE",
-            headline: "Choose your next opponent",
-            description: "Enter the ranked queue for a live duel, or practice your draft against the AI.",
+            eyebrow: "",
+            headline: "",
+            description: "",
         };
     })();
 
@@ -544,7 +688,7 @@ export const MatchmakingRoute: React.FC = () => {
                 sx={{
                     position: "relative",
                     zIndex: 1,
-                    width: "min(1480px, calc(100% - 32px))",
+                    width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
                     mx: "auto",
                     pt: { xs: 2, md: 2.5 },
                 }}
@@ -584,9 +728,6 @@ export const MatchmakingRoute: React.FC = () => {
                                     sx={{ color: "inherit", fontWeight: 800, lineHeight: 1.05 }}
                                 >
                                     Heroes of Crypto
-                                </Typography>
-                                <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.13em" }}>
-                                    RANKED ARENA
                                 </Typography>
                             </Box>
                         </Stack>
@@ -680,13 +821,17 @@ export const MatchmakingRoute: React.FC = () => {
                 sx={{
                     position: "relative",
                     zIndex: 1,
-                    width: "min(1480px, calc(100% - 32px))",
+                    width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
                     mx: "auto",
                     py: { xs: 2, md: 3 },
                     display: "grid",
-                    gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(560px, 1fr) minmax(370px, 420px)" },
+                    gridTemplateColumns: {
+                        xs: "minmax(0, 1fr)",
+                        lg: profileSummaryOpen ? "minmax(560px, 1fr) minmax(370px, 420px)" : "minmax(0, 1fr)",
+                    },
                     gap: { xs: 2, md: 3 },
                     alignItems: "start",
+                    transition: "width 220ms ease",
                 }}
             >
                 <Sheet
@@ -694,7 +839,6 @@ export const MatchmakingRoute: React.FC = () => {
                     aria-labelledby="ranked-heading"
                     variant="outlined"
                     sx={{
-                        minHeight: { lg: 724 },
                         minWidth: 0,
                         display: "flex",
                         flexDirection: "column",
@@ -725,7 +869,7 @@ export const MatchmakingRoute: React.FC = () => {
                             position: "relative",
                             overflow: "hidden",
                             px: { xs: 2.25, sm: 4, md: 5 },
-                            py: { xs: 3, md: 4.5 },
+                            py: { xs: 2.5, md: 3 },
                             borderBottom: "1px solid rgba(239,228,204,0.09)",
                             background:
                                 state === "confirming"
@@ -739,6 +883,7 @@ export const MatchmakingRoute: React.FC = () => {
                         <Typography
                             level="body-xs"
                             sx={{
+                                display: activeSeason || nextSeason || seasonSnapshot ? "block" : "none",
                                 color: hocColors.gold,
                                 fontWeight: 800,
                                 fontSize: { xs: "0.68rem", sm: "0.75rem" },
@@ -773,44 +918,76 @@ export const MatchmakingRoute: React.FC = () => {
                                 </>
                             ) : seasonSnapshot ? (
                                 `${t("PRESEASON")} · ${t("NO SCHEDULED END")}`
-                            ) : (
-                                t("RANKED ARENA")
-                            )}
+                            ) : null}
                         </Typography>
-                        <Typography
-                            id="ranked-heading"
-                            level="h1"
-                            sx={{
-                                maxWidth: 700,
-                                color: hocColors.parchment,
-                                fontSize: { xs: "2rem", sm: "2.65rem", md: "3.15rem" },
-                                lineHeight: 1.02,
-                                letterSpacing: "-0.035em",
-                            }}
-                        >
-                            Command the arena.
-                        </Typography>
-                        <Typography
-                            level="body-md"
-                            sx={{ color: hocColors.muted, maxWidth: 620, mt: 1.35, lineHeight: 1.65 }}
-                        >
-                            Draft your army, adapt your build, and face another commander in a match that counts.
-                        </Typography>
-                        {onlineNow !== undefined && (
-                            <Typography level="body-sm" sx={{ color: hocColors.gold, mt: 2, fontWeight: 650 }}>
-                                {onlineNow.online} commander{onlineNow.online === 1 ? "" : "s"} online
-                                {onlineNow.online > 0 && (
-                                    <Typography
-                                        component="span"
-                                        level="body-sm"
-                                        sx={{ color: hocColors.muted, fontWeight: 400 }}
-                                    >
-                                        {" "}
-                                        — {onlineNow.searching} searching · {onlineNow.playing} in battle
-                                    </Typography>
-                                )}
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                            <Typography
+                                id="ranked-heading"
+                                level="h1"
+                                sx={{
+                                    maxWidth: 700,
+                                    color: hocColors.parchment,
+                                    fontSize: { xs: "2rem", sm: "2.45rem", md: "2.75rem" },
+                                    lineHeight: 1.02,
+                                    letterSpacing: "-0.035em",
+                                }}
+                            >
+                                Ranked Arena
                             </Typography>
-                        )}
+                            <Stack direction="row" spacing={0.75} alignItems="center">
+                                {onlineNow !== undefined && (
+                                    <Tooltip
+                                        title={`${onlineNow.online} online · ${onlineNow.searching} searching · ${onlineNow.playing} in battle`}
+                                        size="sm"
+                                        variant="soft"
+                                    >
+                                        <Stack
+                                            component="span"
+                                            direction="row"
+                                            spacing={0.55}
+                                            alignItems="center"
+                                            aria-label={`${onlineNow.online} commanders online`}
+                                            sx={{
+                                                minHeight: 32,
+                                                px: 1,
+                                                borderRadius: "999px",
+                                                color: hocColors.gold,
+                                                bgcolor: "rgba(0,0,0,0.26)",
+                                                border: "1px solid rgba(239,228,204,0.1)",
+                                            }}
+                                        >
+                                            <GroupsRoundedIcon sx={{ fontSize: 17 }} />
+                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
+                                                {onlineNow.online}
+                                            </Typography>
+                                        </Stack>
+                                    </Tooltip>
+                                )}
+                                <Tooltip
+                                    title={profileSummaryOpen ? "Hide player stats" : "Show player stats"}
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    <IconButton
+                                        size="sm"
+                                        variant={profileSummaryOpen ? "soft" : "plain"}
+                                        aria-label={profileSummaryOpen ? "Hide player stats" : "Show player stats"}
+                                        aria-expanded={profileSummaryOpen}
+                                        aria-controls="ranked-profile-summary"
+                                        onClick={() => setProfileSummaryOpen((open) => !open)}
+                                        sx={{
+                                            ...hocSoftButtonSx,
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                            borderRadius: "50%",
+                                            color: profileSummaryOpen ? hocColors.gold : hocColors.mutedStrong,
+                                        }}
+                                    >
+                                        <ViewSidebarRoundedIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </Stack>
+                        </Stack>
                     </Box>
 
                     <Box
@@ -822,7 +999,7 @@ export const MatchmakingRoute: React.FC = () => {
                             alignItems: "center",
                             justifyContent: "center",
                             px: { xs: 2.25, sm: 4 },
-                            py: { xs: 3.25, md: 4 },
+                            py: { xs: 3, md: showStatusPresentation ? 4 : 3 },
                             textAlign: "center",
                             background:
                                 state === "confirming"
@@ -838,7 +1015,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 position: "relative",
                                 width: 126,
                                 height: 126,
-                                display: "grid",
+                                display: showStatusPresentation ? "grid" : "none",
                                 placeItems: "center",
                                 mb: 2.25,
                             }}
@@ -939,22 +1116,41 @@ export const MatchmakingRoute: React.FC = () => {
 
                         <Typography
                             level="body-xs"
-                            sx={{ color: presentation.accent, fontWeight: 800, letterSpacing: "0.18em" }}
+                            sx={{
+                                display: showStatusPresentation ? "block" : "none",
+                                color: presentation.accent,
+                                fontWeight: 800,
+                                letterSpacing: "0.18em",
+                            }}
                         >
                             {presentation.eyebrow}
                         </Typography>
                         <Typography
                             level="h2"
-                            sx={{ color: hocColors.parchment, mt: 0.75, fontSize: { xs: "1.55rem", sm: "2rem" } }}
+                            sx={{
+                                display: showStatusPresentation ? "block" : "none",
+                                color: hocColors.parchment,
+                                mt: 0.75,
+                                fontSize: { xs: "1.55rem", sm: "2rem" },
+                            }}
                         >
                             {presentation.headline}
                         </Typography>
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, maxWidth: 540, mt: 0.8 }}>
+                        <Typography
+                            level="body-sm"
+                            sx={{
+                                display: showStatusPresentation ? "block" : "none",
+                                color: hocColors.muted,
+                                maxWidth: 540,
+                                mt: 0.8,
+                            }}
+                        >
                             {presentation.description}
                         </Typography>
                         <Typography
                             level="body-xs"
                             sx={{
+                                display: showStatusPresentation ? "block" : "none",
                                 color: hocColors.muted,
                                 mt: 1.25,
                                 px: 1.2,
@@ -967,7 +1163,10 @@ export const MatchmakingRoute: React.FC = () => {
                             {statusText}
                         </Typography>
 
-                        <Stack spacing={1.25} sx={{ width: "100%", maxWidth: 650, mt: 2.75 }}>
+                        <Stack
+                            spacing={1.25}
+                            sx={{ width: "100%", maxWidth: 650, mt: showStatusPresentation ? 2.75 : 0 }}
+                        >
                             {needsActivation && (
                                 <>
                                     <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
@@ -1232,7 +1431,11 @@ export const MatchmakingRoute: React.FC = () => {
                     </Box>
                 </Sheet>
 
-                <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                {profileSummaryOpen && (
+                    <Box id="ranked-profile-summary" sx={{ minWidth: 0 }}>
+                        <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                    </Box>
+                )}
             </Box>
         </Box>
     );

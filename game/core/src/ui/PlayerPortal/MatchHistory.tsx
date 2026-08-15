@@ -943,7 +943,7 @@ const MatchCard: React.FC<{
                         {kind.showsMmr && mmrDelta && (
                             <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
                         )}
-                        {kind.showsGold && (
+                        {kind.showsGold && goldEarned > 0 && (
                             <RewardBadge
                                 icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
                                 label={`${rewardCurrency.symbol} +${goldEarned}`}
@@ -1003,7 +1003,7 @@ const MatchCard: React.FC<{
                                 <Metric label={t("MMR change")} value={mmrDelta || "0"} />
                             </>
                         )}
-                        {kind.showsGold && (
+                        {kind.showsGold && goldEarned > 0 && (
                             <Metric
                                 label={`${rewardCurrency.name} (${rewardCurrency.symbol})`}
                                 value={`+${goldEarned}`}

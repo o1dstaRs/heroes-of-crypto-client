@@ -192,7 +192,7 @@ const RecentMatchRow: React.FC<{
                                 {tf("MMR {amount}", { amount: mmrDelta })}
                             </Typography>
                         )}
-                        {kind.showsGold && (
+                        {kind.showsGold && goldEarned > 0 && (
                             <Stack
                                 component="span"
                                 direction="row"
@@ -334,10 +334,7 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                         {playerInitials(displayName)}
                     </Avatar>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
-                            {t("COMMANDER PROFILE")}
-                        </Typography>
-                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0, mt: 0.2 }}>
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
                             <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
                                 {displayName}
                             </Typography>

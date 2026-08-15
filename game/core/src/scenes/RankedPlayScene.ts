@@ -543,8 +543,15 @@ export const applyRankedUnitSnapshotStats = (unit: RenderableUnit, properties: U
 };
 
 /** Sync snapshot-owned mechanics that must affect common lookups even when ranked preserves the live board. */
-export const applyRankedUnitMechanicalEffects = (unit: RenderableUnit, state: SandboxSceneUnitState): boolean =>
-    unit.syncAuthoritativeBreak(state.mechanicalBreakLaps);
+export const applyRankedUnitMechanicalEffects = (unit: RenderableUnit, state: SandboxSceneUnitState): boolean => {
+    let changed = unit.syncAuthoritativeBreak(state.mechanicalBreakLaps);
+    const forcedTargetId = state.forcedTargetId ?? "";
+    if (unit.getTarget() !== forcedTargetId) {
+        unit.setTarget(forcedTargetId);
+        changed = true;
+    }
+    return changed;
+};
 
 /** Mechanics that cannot be reconciled by the animation-preserving ranked stats update. */
 export const rankedUnitMechanicsMatch = (unit: RenderableUnit, properties: UnitProperties): boolean => {
@@ -1733,9 +1740,6 @@ export class RankedPlayScene extends Sandbox {
         // (which assumes "same server board => client already in sync") must NOT fire — fall through
         // to the full hydrate below to rebuild from authoritative truth.
         if (boardSignature === this.lastBoardSignature && !forceRebuild) {
-            if (this.syncRankedUnitMechanicalEffects(state.units)) {
-                this.unitsHolder.refreshStackPowerForAllUnits();
-            }
             // Scattered stones the server mined between snapshots must fall BEFORE activation paths the
             // board (same reasoning as the occupancy audit below).
             this.applyScatteredMountainsFromSnapshot(snapshot);
@@ -1743,10 +1747,11 @@ export class RankedPlayScene extends Sandbox {
             // grid registration (a missed move) otherwise survives here forever — the signature matches
             // precisely because the SERVER board didn't change, saying nothing about ours being right.
             this.healRankedGridOccupancy(state.units);
-            // Break must be mechanical before activating the authoritative unit: activation refreshes stats,
-            // movement paths and buttons synchronously, so syncing it afterward leaves a stale Host preview.
-            this.syncRankedVisibleTurnState(snapshot);
+            // Install display statuses and their mechanics together BEFORE activation rebuilds paths. Installing
+            // Aggr's target before its display row lets refresh clear it; installing it after activation caches
+            // an unforced path until another snapshot. applyRankedUnitStats performs stats -> mechanics -> refresh.
             this.applyRankedUnitStats(state.units);
+            this.syncRankedVisibleTurnState(snapshot);
             this.reconcileAuraEffectsFromSnapshot(snapshot);
             this.applyRankedFightStats(snapshot, state.units);
             return;
@@ -1762,13 +1767,6 @@ export class RankedPlayScene extends Sandbox {
             !forceRebuild && !!options?.skipBoardRebuild && snapshot.fightStarted && !snapshot.fightFinished;
         if (skipBoardRebuild) {
             this.lastBoardSignature = boardSignature;
-            // See the same-signature path above: apply Break before turn activation/path generation.
-            this.syncRankedUnitMechanicalEffects(state.units);
-            this.syncRankedVisibleTurnState(snapshot);
-            if (this.sc_visibleState) {
-                this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
-                this.sc_visibleStateUpdateNeeded = true;
-            }
             // A skip-rebuild snapshot updates stats but never tears down units the server has dropped
             // (a kill conveyed by snapshot rather than a replayed event), so they linger as "ghosts" the
             // AI then targets — which the server rejects as unit_not_found. Remove them here.
@@ -1783,6 +1781,13 @@ export class RankedPlayScene extends Sandbox {
             // the authoritative remaining amounts/hp here so attack and retaliation damage actually
             // updates each unit's stack on the board (otherwise it stays frozen at the pre-hit count).
             this.applyRankedUnitStats(state.units);
+            // See the same-signature path above: coherent statuses + mechanics must exist before activation
+            // regenerates targeting paths and buttons.
+            this.syncRankedVisibleTurnState(snapshot);
+            if (this.sc_visibleState) {
+                this.sc_visibleState.lapNumber = Math.max(snapshot.currentLap || 0, 0);
+                this.sc_visibleStateUpdateNeeded = true;
+            }
             // Re-run synergies + POSITION-DEPENDENT auras so the AI/targeting agree with the server on
             // targetability. A skip-rebuild snapshot moves units (animated) but never re-runs the aura
             // pass, so e.g. White Tiger's Disguise Aura (which Hides it when no enemy is within range,
@@ -1974,16 +1979,6 @@ export class RankedPlayScene extends Sandbox {
         }
         this.refreshGridMatrices();
         this.unitsHolder.refreshStackPowerForAllUnits();
-    }
-    private syncRankedUnitMechanicalEffects(units: SandboxSceneUnitState[]): boolean {
-        let changed = false;
-        for (const state of units) {
-            const live = this.unitsHolder.getAllUnits().get(state.properties.id) as RenderableUnit | undefined;
-            if (live && !live.isDead()) {
-                changed = applyRankedUnitMechanicalEffects(live, state) || changed;
-            }
-        }
-        return changed;
     }
     public override applyAuthoritativeReplaySnapshot(snapshot: AuthoritativeGameSnapshot): void {
         this.lastAuthoritativeSequence = snapshot.latestSequence - 1;
@@ -3222,6 +3217,9 @@ export class RankedPlayScene extends Sandbox {
                 continue;
             }
             changed = applyRankedUnitSnapshotStats(unit, u.properties) || changed;
+            // Stats first installs the authoritative display-only Aggr row. Then install its mechanical
+            // target before refreshUnits so Unit.adjustBaseStats can preserve it through the refresh.
+            changed = applyRankedUnitMechanicalEffects(unit, u) || changed;
         }
         if (changed) {
             this.refreshUnits();
