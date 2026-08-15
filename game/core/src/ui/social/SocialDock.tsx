@@ -13,12 +13,14 @@ import {
     Typography,
 } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
 import { DockPanelShell } from "./DockPanelShell";
 import { PredictionsPanel } from "./PredictionsPanel";
+import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
 import { useSocial } from "./SocialProvider";
 import {
     blockPlayer,
@@ -604,6 +606,11 @@ export const SocialDock: React.FC = () => {
     const [friendsOpen, setFriendsOpen] = useState(false);
     const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(null);
     const [predictionsOpen, setPredictionsOpen] = useState(false);
+    const fightDockSlot = React.useSyncExternalStore(
+        subscribeSocialDockSlot,
+        getSocialDockSlot,
+        getSocialDockSlotServerSnapshot,
+    );
 
     const active = authenticated && user?.is_active !== false;
     const inGame = location.pathname.startsWith("/game/");
@@ -620,84 +627,87 @@ export const SocialDock: React.FC = () => {
     const popup = social.popupRequest;
     const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !inGame;
 
-    return (
-        <>
-            <Stack
-                direction="row"
-                spacing={inGame ? 0.6 : 1}
-                sx={{
-                    position: "fixed",
-                    // In a fight the dock lives at the BOTTOM of the right sidebar column (owner call):
-                    // the top-right corner is where the board's own status chrome sits, and a player's
-                    // eyes are on the board, not above it.
-                    top: "auto",
-                    bottom: inGame ? 12 : 18,
-                    right: inGame ? 10 : 18,
-                    zIndex: 1400,
-                    opacity: inGame ? 0.82 : 1,
-                    transition: "opacity 150ms ease",
-                    "&:hover": { opacity: 1 },
+    const dockControls = (
+        <Stack
+            direction="row"
+            spacing={inGame ? 0.6 : 1}
+            sx={{
+                position: fightDockSlot ? "relative" : "fixed",
+                top: "auto",
+                bottom: fightDockSlot ? "auto" : inGame ? 12 : 18,
+                right: fightDockSlot ? "auto" : inGame ? 10 : 18,
+                width: fightDockSlot ? "100%" : "auto",
+                justifyContent: fightDockSlot ? "center" : "flex-start",
+                zIndex: 1400,
+                opacity: inGame ? 0.82 : 1,
+                transition: "opacity 150ms ease",
+                "&:hover": { opacity: 1 },
+            }}
+        >
+            <IconButton
+                aria-label="Predictions"
+                sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
+                onClick={() => setPredictionsOpen(true)}
+            >
+                <span role="img" aria-hidden>
+                    🎯
+                </span>
+            </IconButton>
+            <IconButton
+                aria-label="Friends"
+                sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
+                onClick={() => {
+                    social.requestNotificationPermission();
+                    setFriendsOpen(true);
                 }}
             >
+                <span role="img" aria-hidden>
+                    👥
+                </span>
+            </IconButton>
+            <Box sx={{ position: "relative" }}>
                 <IconButton
-                    aria-label="Predictions"
-                    sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
-                    onClick={() => setPredictionsOpen(true)}
-                >
-                    <span role="img" aria-hidden>
-                        🎯
-                    </span>
-                </IconButton>
-                <IconButton
-                    aria-label="Friends"
+                    aria-label="Notifications"
                     sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
                     onClick={() => {
                         social.requestNotificationPermission();
-                        setFriendsOpen(true);
+                        setTrayOpen(true);
                     }}
                 >
                     <span role="img" aria-hidden>
-                        👥
+                        🔔
                     </span>
                 </IconButton>
-                <Box sx={{ position: "relative" }}>
-                    <IconButton
-                        aria-label="Notifications"
-                        sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
-                        onClick={() => {
-                            social.requestNotificationPermission();
-                            setTrayOpen(true);
+                {social.unseenCount > 0 ? (
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            top: -4,
+                            right: -4,
+                            minWidth: 20,
+                            height: 20,
+                            px: 0.5,
+                            borderRadius: 10,
+                            bgcolor: hocColors.danger,
+                            color: "#fff",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: "none",
                         }}
                     >
-                        <span role="img" aria-hidden>
-                            🔔
-                        </span>
-                    </IconButton>
-                    {social.unseenCount > 0 ? (
-                        <Box
-                            sx={{
-                                position: "absolute",
-                                top: -4,
-                                right: -4,
-                                minWidth: 20,
-                                height: 20,
-                                px: 0.5,
-                                borderRadius: 10,
-                                bgcolor: hocColors.danger,
-                                color: "#fff",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                pointerEvents: "none",
-                            }}
-                        >
-                            {social.unseenCount > 99 ? "99+" : social.unseenCount}
-                        </Box>
-                    ) : null}
-                </Box>
-            </Stack>
+                        {social.unseenCount > 99 ? "99+" : social.unseenCount}
+                    </Box>
+                ) : null}
+            </Box>
+        </Stack>
+    );
+
+    return (
+        <>
+            {fightDockSlot ? createPortal(dockControls, fightDockSlot) : dockControls}
 
             <PredictionsPanel open={predictionsOpen} onClose={() => setPredictionsOpen(false)} />
             <NotificationsTray open={trayOpen} onClose={() => setTrayOpen(false)} onMessage={openConversation} />

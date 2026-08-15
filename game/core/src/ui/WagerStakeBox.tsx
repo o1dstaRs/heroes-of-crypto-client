@@ -1,4 +1,4 @@
-import { Button, Input, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, Input, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useState } from "react";
 
 import { isInsufficientSeasonCurrencyError, type RankedSeasonCurrency } from "../api/ranked_season_client";
@@ -6,7 +6,13 @@ import { fetchWagerIntent, setWagerIntent } from "../api/social_client";
 import { t, tf } from "../i18n/i18n";
 import { playCallSound } from "./audio/chipSounds";
 import { CurrencyIcon } from "./GoldCurrencyIcon";
-import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import {
+    hocActionPrimaryButtonSx,
+    hocActionSoftButtonSx,
+    hocColors,
+    hocDisplayFontFamily,
+    hocInputSx,
+} from "./hocTheme";
 
 /**
  * The arena's "gold on the line" box. Arms a stake for the NEXT ranked match: the gold escrows the
@@ -74,7 +80,19 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
     /* Nothing to stake and nothing armed: point at where gold comes from instead of a dead form. */
     if (total <= 0) {
         return (
-            <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 1.5, width: "100%", textAlign: "center" }}>
+            <Sheet
+                variant="outlined"
+                sx={{
+                    p: 1.5,
+                    alignSelf: "stretch",
+                    textAlign: "center",
+                    color: hocColors.parchment,
+                    borderRadius: "3px",
+                    borderColor: "rgba(112,75,42,0.62)",
+                    background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
+                    boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                }}
+            >
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
                     ⚔️{" "}
                     {tf("Win ranked games to earn {currency} — then stake it on your matches, winner takes all.", {
@@ -86,7 +104,18 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
     }
 
     return (
-        <Sheet variant="outlined" sx={{ ...hocPanelSx, p: 1.5, width: "100%" }}>
+        <Sheet
+            variant="outlined"
+            sx={{
+                p: { xs: 1.25, sm: 1.5 },
+                alignSelf: "stretch",
+                color: hocColors.parchment,
+                borderRadius: "3px",
+                borderColor: "rgba(112,75,42,0.62)",
+                background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
+                boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+            }}
+        >
             <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.75 }}>
                 <Typography
                     level="title-sm"
@@ -95,7 +124,9 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                         alignItems: "center",
                         gap: 0.5,
                         color: hocColors.gold,
-                        fontWeight: 800,
+                        fontFamily: hocDisplayFontFamily,
+                        fontWeight: 400,
+                        letterSpacing: "0.06em",
                     }}
                 >
                     <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
@@ -118,7 +149,12 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                     <Button
                         size="sm"
                         variant="outlined"
-                        sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
+                        sx={{
+                            ...hocActionSoftButtonSx,
+                            flexShrink: 0,
+                            minHeight: 38,
+                            fontFamily: hocDisplayFontFamily,
+                        }}
                         disabled={busy}
                         onClick={() => void apply(0)}
                     >
@@ -133,7 +169,17 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                             { currency: t(currency.name) },
                         )}
                     </Typography>
-                    <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Box
+                        sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                                xs: "repeat(3, minmax(0, 1fr))",
+                                sm: "minmax(190px, 1fr) repeat(3, minmax(58px, auto)) minmax(96px, auto)",
+                            },
+                            gap: 0.75,
+                            alignItems: "stretch",
+                        }}
+                    >
                         <Input
                             size="sm"
                             type="number"
@@ -148,14 +194,24 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                                     void apply(stake);
                                 }
                             }}
-                            sx={{ ...hocInputSx, flex: 1 }}
+                            sx={{
+                                ...hocInputSx,
+                                gridColumn: { xs: "1 / -1", sm: "auto" },
+                                minHeight: 42,
+                                borderRadius: "2px",
+                            }}
                         />
                         {[0.25, 0.5, 1].map((share) => (
                             <Button
                                 key={share}
                                 size="sm"
                                 variant="outlined"
-                                sx={hocSoftButtonSx}
+                                sx={{
+                                    ...hocActionSoftButtonSx,
+                                    minHeight: 42,
+                                    px: 1,
+                                    fontFamily: hocDisplayFontFamily,
+                                }}
                                 disabled={busy}
                                 onClick={() => setDraft(String(Math.max(1, Math.floor(total * share))))}
                             >
@@ -165,13 +221,18 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                         <Button
                             size="sm"
                             variant="solid"
-                            sx={hocPrimaryButtonSx}
+                            sx={{
+                                ...hocActionPrimaryButtonSx,
+                                gridColumn: { xs: "1 / -1", sm: "auto" },
+                                minHeight: 42,
+                                fontFamily: hocDisplayFontFamily,
+                            }}
                             disabled={!canStake}
                             onClick={() => void apply(stake)}
                         >
                             {t("Stake it")}
                         </Button>
-                    </Stack>
+                    </Box>
                 </>
             )}
             {error && (

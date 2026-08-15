@@ -5,7 +5,15 @@ import { getCreatureLevel, getFactionOf, ToFactionName, type CreatureId } from "
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
 import { t, useTranslation } from "../i18n/i18n";
-import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import {
+    hocActionSoftButtonSx,
+    hocColors,
+    hocDisplayFontFamily,
+    hocInputSx,
+    hocPanelSx,
+    hocPrimaryButtonSx,
+    hocSoftButtonSx,
+} from "./hocTheme";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { resolveUnitImage } from "./unitImage";
 
@@ -91,61 +99,112 @@ export const RankedBanPicker: React.FC = () => {
 
     return (
         <>
-            <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                justifyContent="center"
-                sx={{ width: "100%", maxWidth: 650, mt: 1.25 }}
+            <Sheet
+                variant="outlined"
+                sx={{
+                    alignSelf: "stretch",
+                    p: { xs: 1.25, sm: 1.5 },
+                    borderRadius: "3px",
+                    borderColor: "rgba(112,75,42,0.62)",
+                    background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
+                    boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                }}
             >
-                <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    {t("Ban a unit from your drafts:")}
-                </Typography>
-                {creatureId > 0 ? (
-                    <Sheet
-                        variant="outlined"
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 1, sm: 1.5 }}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Typography
+                        level="title-sm"
                         sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.75,
-                            px: 1,
-                            py: 0.4,
-                            borderRadius: "md",
-                            borderColor: "rgba(255,90,63,0.55)",
-                            bgcolor: "rgba(255,90,63,0.12)",
+                            color: hocColors.sidebarTitle,
+                            fontFamily: hocDisplayFontFamily,
+                            fontWeight: 400,
+                            letterSpacing: "0.08em",
+                            textAlign: "left",
+                            textTransform: "uppercase",
                         }}
                     >
-                        <img
-                            src={resolveUnitImage(undefined, creatureName)}
-                            alt=""
-                            width={26}
-                            height={26}
-                            style={{ borderRadius: 4, objectFit: "cover" }}
-                        />
-                        <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                            {creatureName}
-                        </Typography>
-                    </Sheet>
-                ) : (
-                    <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
-                        {t("Not picked")}
+                        {t("Ban a unit from your drafts:")}
                     </Typography>
-                )}
-                <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>
-                    {creatureId > 0 ? t("Change") : t("Choose")}
-                </Button>
-                {creatureId > 0 ? (
-                    <Button
-                        size="sm"
-                        variant="plain"
-                        sx={{ color: hocColors.muted }}
-                        disabled={busy}
-                        onClick={() => void choose(0)}
+                    <Stack
+                        direction="row"
+                        spacing={0.75}
+                        alignItems="center"
+                        justifyContent={{ xs: "stretch", sm: "flex-end" }}
+                        sx={{ minWidth: 0 }}
                     >
-                        {t("Clear")}
-                    </Button>
-                ) : null}
-            </Stack>
+                        {creatureId > 0 ? (
+                            <Sheet
+                                variant="outlined"
+                                sx={{
+                                    minWidth: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.75,
+                                    px: 0.9,
+                                    py: 0.35,
+                                    borderRadius: "2px",
+                                    borderColor: "rgba(255,90,63,0.5)",
+                                    bgcolor: "rgba(76,19,12,0.34)",
+                                }}
+                            >
+                                <img
+                                    src={resolveUnitImage(undefined, creatureName)}
+                                    alt=""
+                                    width={30}
+                                    height={30}
+                                    style={{ borderRadius: 2, objectFit: "cover" }}
+                                />
+                                <Typography level="body-sm" noWrap sx={{ color: hocColors.parchment, minWidth: 0 }}>
+                                    {creatureName}
+                                </Typography>
+                            </Sheet>
+                        ) : (
+                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                                {t("Not picked")}
+                            </Typography>
+                        )}
+                        <Button
+                            size="sm"
+                            variant="outlined"
+                            sx={{
+                                ...hocActionSoftButtonSx,
+                                minHeight: 38,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                fontFamily: hocDisplayFontFamily,
+                            }}
+                            onClick={() => setOpen(true)}
+                        >
+                            {creatureId > 0 ? t("Change") : t("Choose")}
+                        </Button>
+                        {creatureId > 0 ? (
+                            <Button
+                                size="sm"
+                                variant="outlined"
+                                sx={{
+                                    ...hocActionSoftButtonSx,
+                                    minHeight: 38,
+                                    color: hocColors.muted,
+                                    borderColor: "rgba(255,90,63,0.36)",
+                                    fontFamily: hocDisplayFontFamily,
+                                    "&:hover": {
+                                        color: hocColors.danger,
+                                        bgcolor: "rgba(255,90,63,0.1)",
+                                        borderColor: "rgba(255,90,63,0.68)",
+                                    },
+                                }}
+                                disabled={busy}
+                                onClick={() => void choose(0)}
+                            >
+                                {t("Clear")}
+                            </Button>
+                        ) : null}
+                    </Stack>
+                </Stack>
+            </Sheet>
 
             <Modal open={open} onClose={() => setOpen(false)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 880, maxWidth: "96vw" }}>

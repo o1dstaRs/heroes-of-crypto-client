@@ -54,6 +54,13 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
 
+const abilityIconAliases: Record<string, string> = {
+    "Double Throw": "Double Shot",
+};
+
+const abilityIcon = (name: string): string =>
+    `/assets/images/units/abilities/${slug(abilityIconAliases[name] ?? name)}_256.webp`;
+
 // Mirrors common's MAX_UNIT_STACK_POWER (constants.ts) — the ceiling chakramBounceBudget clamps to.
 const MAX_UNIT_STACK_POWER = 5;
 
@@ -66,6 +73,7 @@ const abilityDescriptionRuTemplates: Record<string, string[]> = {
     Backstab: ["Наносит на {}% больше урона при ударе со стороны зоны появления врага."],
     Handyman: ["Урон в ближнем бою не снижается."],
     "Double Shot": ["Наносит второй выстрел с {}% рассчитанного урона."],
+    "Double Throw": ["Метает второй валун с {}% рассчитанного урона."],
     "Shadow Touch": ["На атаки этого юнита нельзя ответить."],
     "One in the Field": ["Отвечает на каждую атаку."],
     "Endless Quiver": ["Бесконечный запас стрел."],
@@ -342,7 +350,7 @@ function buildUnit(faction: FactionName, raw: RawCreature): Unit {
         name,
         description: abilityDescription(name),
         descriptionRu: abilityDescription(name, "ru"),
-        icon: `/assets/images/units/abilities/${slug(name)}_256.webp`,
+        icon: abilityIcon(name),
         isAura: !!(abilitiesJson as Record<string, RawAbility>)[name]?.aura_effect,
         isCastable: !!(abilitiesJson as Record<string, RawAbility>)[name]?.can_be_cast,
         isStackPowered: !!(abilitiesJson as Record<string, RawAbility>)[name]?.stack_powered,
@@ -481,7 +489,7 @@ export const abilities: Ability[] = (() => {
             name: granted.name,
             description: abilityDescription(granted.name),
             descriptionRu: abilityDescription(granted.name, "ru"),
-            icon: `/assets/images/units/abilities/${slug(granted.name)}_256.webp`,
+            icon: abilityIcon(granted.name),
             type: raw.type ?? "",
             kind: raw.can_be_cast ? "active" : raw.aura_effect ? "aura" : "passive",
             isAura: !!raw.aura_effect,

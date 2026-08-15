@@ -7,6 +7,7 @@ import {
     CreatureByLevel,
     CreatureLevels,
     CreaturePoolByLevel,
+    AbilityHelper,
     CreatureVals,
     CustomEventSource,
     PickBanRequest,
@@ -231,7 +232,9 @@ const scoreCreature = (creatureId: number, intent: "pick" | "ban"): number => {
         maxDamage * (ranged ? 3 : 1.2) +
         shots * (ranged ? 5 : 0) +
         distance * (ranged ? 6 : 0) +
-        (abilityText.includes("Double Shot") ? 50 : 0) +
+        // The whole second-shot family carries this weight, or Gargantuan's Double Throw would read to the
+        // local draft model as a single-shot unit. Mirrors creature_score.ts in common.
+        (AbilityHelper.DOUBLE_SHOT_ABILITY_NAMES.some((name: string) => abilityText.includes(name)) ? 50 : 0) +
         (abilityText.includes("Through Shot") ? 70 : 0) +
         (abilityText.includes("Area Throw") ? 60 : 0) +
         (abilityText.includes("Large Caliber") ? 45 : 0);

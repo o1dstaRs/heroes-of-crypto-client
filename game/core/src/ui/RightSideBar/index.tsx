@@ -1,5 +1,6 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
 import { setVolumeSlot } from "../audio/volumeSlot";
+import { setSocialDockSlot } from "../social/socialDockSlot";
 import { FightLog } from "./FightLog";
 import DraggableToolbar, { toolbarColumnHeightPx } from "../DraggableToolbar";
 import { RIGHT_SIDEBAR_BG_IMAGE, SIDEBAR_BG, SIDEBAR_BG_REPEAT, SIDEBAR_BG_SIZE } from "../LeftSideBar";
@@ -74,6 +75,11 @@ export default function RightSideBar({
         setVolumeSlot(volumeSlotRef.current);
         return () => setVolumeSlot(null);
     }, []);
+    const socialDockSlotRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        setSocialDockSlot(gameStarted ? socialDockSlotRef.current : null);
+        return () => setSocialDockSlot(null);
+    }, [gameStarted]);
 
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
@@ -476,6 +482,22 @@ export default function RightSideBar({
                     {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
                     {!rankedPanel && <Divider />}
                     {showWallet && <WalletLinker />}
+                    {/* SocialDock is mounted above the router, but its three fight launchers belong here:
+                        centred at the bottom of the right sidebar and outside the battle-log scroller. The
+                        slot collapses completely for anonymous sandbox play, where SocialDock renders
+                        nothing, so it never steals height from the log. */}
+                    <Box
+                        ref={socialDockSlotRef}
+                        sx={{
+                            width: "100%",
+                            minHeight: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            "&:not(:empty)": { minHeight: "40px", mt: 0.25 },
+                        }}
+                    />
                     {/* Compact footer: fullscreen and music stay on the edges, while sandbox's exit action
                         occupies the centre instead of consuming a separate row above. The fight log receives
                         all of the height released by removing that row. */}

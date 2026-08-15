@@ -3628,8 +3628,7 @@ export class Sandbox extends PixiScene {
                 target.getId(),
                 attacker.getPosition(),
                 throughShot,
-                this.shouldPlayReplayDoubleShotProjectile() &&
-                    !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+                this.shouldPlayReplayDoubleShotProjectile() && AbilityHelper.hasDoubleShotAbility(attacker),
             );
             const firstProjectile = this.resolveRangeProjectilePlaybackTarget(projectilePlan[0], target);
             await this.playReplayProjectile(attacker, firstProjectile.target, firstProjectile.position);
@@ -8233,7 +8232,7 @@ export class Sandbox extends PixiScene {
             const intersections = this.grid.hasScatteredMountains()
                 ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
                 : [];
-            const hasDoubleShot = !!(unit.getAbility("Double Shot") ?? unit.getAbility("Crafted Double Shot"));
+            const hasDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
             const projectileHits = intersections.slice(0, hasDoubleShot ? 2 : 1);
             const actualHit = projectileHits.at(-1)?.position ?? cellCenter;
             const reachesAimedStone = actualHit.x === cellCenter.x && actualHit.y === cellCenter.y;
@@ -8392,8 +8391,7 @@ export class Sandbox extends PixiScene {
                 activeUnit.getAbility("Deep Wounds Level 2") ||
                 activeUnit.getAbility("Deep Wounds Level 3")
             );
-            doubleShot =
-                activeUnit.hasAbilityActive("Double Shot") || activeUnit.hasAbilityActive("Crafted Double Shot");
+            doubleShot = AbilityHelper.hasDoubleShotAbility(activeUnit);
             for (const affectedUnit of splashUnits) {
                 this.hoverManager.addTargetHighlight(affectedUnit);
                 if (affectedUnit.isDead()) {
@@ -8580,7 +8578,7 @@ export class Sandbox extends PixiScene {
             false,
             ignoresStructures,
         );
-        const hasDoubleShot = !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot"));
+        const hasDoubleShot = AbilityHelper.hasDoubleShotAbility(attacker);
         const obstacleIntersections =
             this.grid.hasScatteredMountains() && hasDoubleShot && !ignoresStructures
                 ? this.attackHandler.getObstacleIntersections(attacker.getPosition(), aimPosition).slice(0, 2)
@@ -8741,7 +8739,7 @@ export class Sandbox extends PixiScene {
         const muzzle = unit.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const areaThrowUnitName = unit.getName().trim().toLowerCase();
-        const isDoubleShot = unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot");
+        const isDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
         // Shot ONE. Double Shot's second projectile is fired below, AFTER wave 1's numbers, so each shot's
         // damage pops in sync with its own throw instead of both landing at the end.
         await this.rangedProjectiles.fire({
@@ -9275,7 +9273,7 @@ export class Sandbox extends PixiScene {
                     target.getId(),
                     attacker.getPosition(),
                     attacker.hasAbilityActive("Through Shot"),
-                    !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+                    AbilityHelper.hasDoubleShotAbility(attacker),
                 );
                 const secondImpact = projectilePlan[1];
                 if (secondImpact) {
@@ -11112,11 +11110,7 @@ export class Sandbox extends PixiScene {
                         }
 
                         // Double Shot Logic (Legacy check) — Crafted Double Shot behaves identically.
-                        if (
-                            isRangeAttackContext &&
-                            (this.currentActiveUnit.hasAbilityActive("Double Shot") ||
-                                this.currentActiveUnit.hasAbilityActive("Crafted Double Shot"))
-                        ) {
+                        if (isRangeAttackContext && AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit)) {
                             multiplier = 2; // Display double damage
                         }
 
@@ -11438,8 +11432,7 @@ export class Sandbox extends PixiScene {
                                 if (
                                     blockedByObstacle &&
                                     this.grid.hasScatteredMountains() &&
-                                    (this.currentActiveUnit.getAbility("Double Shot") ??
-                                        this.currentActiveUnit.getAbility("Crafted Double Shot"))
+                                    AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit)
                                 ) {
                                     doubleShotObstacleIntersections = this.attackHandler
                                         .getObstacleIntersections(this.currentActiveUnit.getPosition(), arrowEndPos!)

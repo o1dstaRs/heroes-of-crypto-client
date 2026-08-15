@@ -2898,9 +2898,16 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Double Shot
-        const doubleShotAbility = this.getAbility("Double Shot");
-        if (doubleShotAbility) {
+        // The second-shot family: Double Shot, its crafted twin, and Gargantuan's Double Throw. Each card
+        // shows the percentage its volley will ACTUALLY land — the ability's power plus this unit's luck,
+        // diluted by stack power only for the stack-powered members (Double Throw is not, so it reads a
+        // flat 100 + luck). Common runs the same pass on the shared properties for ranked; this override
+        // keeps the sandbox's live card in step.
+        for (const doubleShotAbilityName of AbilityHelper.DOUBLE_SHOT_ABILITY_NAMES) {
+            const doubleShotAbility = this.getAbility(doubleShotAbilityName);
+            if (!doubleShotAbility) {
+                continue;
+            }
             // Fold in the Dual Strike Charm artifact — the same helper the damage path uses — so the
             // hovered total is what the second strike actually lands, not just stack power and luck.
             const percentage = Number(
