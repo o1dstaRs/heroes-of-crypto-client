@@ -4,10 +4,13 @@ import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from ".
 import {
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    searchHitPresenceLabel,
+    searchPlayers,
     markFriendMessagesRead,
     sendFriendMessage,
     setFriendMuted,
     settledPredictionBetsForSeason,
+    type PlayerSearchHit,
     type PredictionBet,
     type PredictionMarket,
 } from "./social_client";
@@ -121,5 +124,44 @@ describe("prediction history", () => {
 
         expect(settledPredictionBetsForSeason(bets, 4).map((bet) => bet.gameId)).toEqual(["current-settled"]);
         expect(settledPredictionBetsForSeason(bets, undefined)).toEqual([]);
+    });
+});
+
+describe("add-friend search", () => {
+    const NOW = 1_700_000_000_000;
+
+    test("carries the server's presence through to the row caption", async () => {
+        const get = spyOn(axiosMMInstance, "get").mockResolvedValue({
+            data: {
+                players: [
+                    { id: "1", username: "live", online: true, lastOnlineAt: NOW },
+                    { id: "2", username: "dormant", online: false, lastOnlineAt: NOW - 3 * 86_400_000 },
+                ],
+            },
+        } as never);
+
+        const hits = await searchPlayers("  liv  ");
+        // The query is trimmed and URL-encoded onto the search endpoint.
+        expect(get.mock.calls[0]?.[0]).toBe(
+            buildApiUrl(HOST_MATCHMAKING_API, `${endpoints.social.playerSearch}?q=liv`),
+        );
+        expect(hits.map((hit) => searchHitPresenceLabel(hit, NOW))).toEqual(["Online", "3d ago"]);
+    });
+
+    test("a query under two characters never reaches the network", async () => {
+        const get = spyOn(axiosMMInstance, "get").mockResolvedValue({ data: { players: [] } } as never);
+        expect(await searchPlayers(" a ")).toEqual([]);
+        expect(get).not.toHaveBeenCalled();
+    });
+
+    test("a server that sends no presence reads as UNKNOWN, never as 'never'", () => {
+        // An older matchmaking build answers {id, username} only. Claiming such a player has never been
+        // online would be a confident lie; the row must simply omit the caption.
+        const legacy = { id: "1", username: "someone" } as PlayerSearchHit;
+        expect(searchHitPresenceLabel(legacy, NOW)).toBeUndefined();
+
+        // A server that DID answer and genuinely has no record still says "never" — that is not a guess.
+        const noRecord: PlayerSearchHit = { id: "2", username: "fresh", online: false, lastOnlineAt: 0 };
+        expect(searchHitPresenceLabel(noRecord, NOW)).toBe("never");
     });
 });

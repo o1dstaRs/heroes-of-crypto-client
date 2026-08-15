@@ -16,6 +16,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
+import { setVolumeSlot } from "../audio/volumeSlot";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
 import { DockPanelShell } from "./DockPanelShell";
@@ -27,6 +28,7 @@ import {
     fetchFriends,
     fetchNotifications,
     formatLastSeen,
+    searchHitPresenceLabel,
     markNotificationsSeen,
     removeFriend,
     searchPlayers,
@@ -37,6 +39,7 @@ import {
     unblockPlayer,
     type FriendsOverview,
     type FriendEntry,
+    type PlayerSearchHit,
     type SocialNotification,
 } from "../../api/social_client";
 import { useAuthContext } from "../auth/context/auth_context";
@@ -96,6 +99,22 @@ const OnlineDot: React.FC<{ online: boolean }> = ({ online }) => (
         }}
     />
 );
+
+/** Server-side minimum for a username prefix search; below it the endpoint returns nothing anyway. */
+const MIN_SEARCH_CHARS = 2;
+
+/**
+ * A search result row. Previously these were Joy `Chip`s carrying hocSoftButtonSx, but Joy resolves a
+ * Chip's fill and label colour from its own variant variables rather than from the root `sx`, so the
+ * outlined neutral chip rendered as near-white text on a near-white pill — unreadable on this panel.
+ * Drawn as a plain framed row instead, matching the friend rows underneath.
+ */
+const searchRowSx = {
+    p: 0.75,
+    borderRadius: 8,
+    border: `1px solid ${hocColors.orangeBorder}`,
+    bgcolor: hocColors.orangeSoft,
+} as const;
 
 interface NotificationsTrayProps {
     open: boolean;
@@ -259,7 +278,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
     const [overview, setOverview] = useState<FriendsOverview | null>(null);
     const [loading, setLoading] = useState(false);
     const [query, setQuery] = useState("");
-    const [suggestions, setSuggestions] = useState<{ id: string; username: string }[]>([]);
+    const [suggestions, setSuggestions] = useState<PlayerSearchHit[]>([]);
+    const [searching, setSearching] = useState(false);
     const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
     const searchTimer = useRef<number | undefined>(undefined);
@@ -293,14 +313,19 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
 
     useEffect(() => {
         window.clearTimeout(searchTimer.current);
-        if (query.trim().length < 2) {
+        if (query.trim().length < MIN_SEARCH_CHARS) {
             setSuggestions([]);
+            setSearching(false);
             return;
         }
+        // Announce the search the moment the player passes the threshold, not 300ms later: the heading
+        // appears immediately so typing never looks like it did nothing, and only the rows arrive late.
+        setSearching(true);
         searchTimer.current = window.setTimeout(() => {
             void searchPlayers(query)
                 .then(setSuggestions)
-                .catch(() => setSuggestions([]));
+                .catch(() => setSuggestions([]))
+                .finally(() => setSearching(false));
         }, 300);
         return () => window.clearTimeout(searchTimer.current);
     }, [query]);
@@ -368,6 +393,17 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
         </Typography>
     );
 
+    /** Whether a search hit is already a friend or already has a request in flight, so the row can say so. */
+    const relationTo = (playerId: string): "friend" | "requested" | "none" => {
+        if (overview?.friends.some((friend) => friend.playerId === playerId)) {
+            return "friend";
+        }
+        if (overview?.outgoing.some((request) => request.toPlayerId === playerId)) {
+            return "requested";
+        }
+        return "none";
+    };
+
     return (
         <DockPanelShell open={open} onClose={onClose} width={480}>
             <Typography level="title-lg" sx={{ color: hocColors.gold }}>
@@ -397,19 +433,69 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                     Add
                 </Button>
             </Stack>
-            {suggestions.length > 0 ? (
-                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                    {suggestions.map((hit) => (
-                        <Chip
-                            key={hit.id}
-                            size="sm"
-                            variant="outlined"
-                            sx={{ ...hocSoftButtonSx, cursor: "pointer" }}
-                            onClick={() => void submitRequest(hit.username)}
-                        >
-                            {hit.username}
-                        </Chip>
-                    ))}
+            {query.trim().length >= MIN_SEARCH_CHARS ? (
+                <Stack spacing={0.5}>
+                    {sectionTitle(
+                        searching
+                            ? `Searching for “${query.trim()}”…`
+                            : `Players matching “${query.trim()}” (${suggestions.length})`,
+                    )}
+                    {suggestions.length === 0 ? (
+                        searching ? null : (
+                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                                No players found — check the spelling, or invite them to the game.
+                            </Typography>
+                        )
+                    ) : (
+                        suggestions.map((hit) => {
+                            const relation = relationTo(hit.id);
+                            const status = searchHitPresenceLabel(hit);
+                            return (
+                                <Box key={hit.id} sx={searchRowSx}>
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        {hit.online === undefined ? null : <OnlineDot online={hit.online} />}
+                                        <Typography
+                                            level="body-sm"
+                                            sx={{ color: hocColors.parchment, flex: 1, minWidth: 0 }}
+                                            noWrap
+                                        >
+                                            {hit.username}
+                                        </Typography>
+                                        {status ? (
+                                            <Typography
+                                                level="body-xs"
+                                                sx={{
+                                                    color: hit.online ? hocColors.green : hocColors.muted,
+                                                    whiteSpace: "nowrap",
+                                                }}
+                                            >
+                                                {status}
+                                            </Typography>
+                                        ) : null}
+                                        {relation === "none" ? (
+                                            <Button
+                                                size="sm"
+                                                sx={hocPrimaryButtonSx}
+                                                disabled={busy}
+                                                onClick={() => void submitRequest(hit.username)}
+                                            >
+                                                Add
+                                            </Button>
+                                        ) : (
+                                            // Already connected: say so instead of offering an Add that the
+                                            // server would only reject.
+                                            <Typography
+                                                level="body-xs"
+                                                sx={{ color: hocColors.mutedStrong, whiteSpace: "nowrap" }}
+                                            >
+                                                {relation === "friend" ? "Friend" : "Requested"}
+                                            </Typography>
+                                        )}
+                                    </Stack>
+                                </Box>
+                            );
+                        })
+                    )}
                 </Stack>
             ) : null}
             {message ? (
@@ -611,8 +697,32 @@ export const SocialDock: React.FC = () => {
         getSocialDockSlot,
         getSocialDockSlotServerSnapshot,
     );
+    const floatingVolumeSlotRef = useRef<HTMLDivElement | null>(null);
 
+    /**
+     * Adopt the volume control into the FLOATING dock row.
+     *
+     * Both this dock and ThemeMusic fall back to the same fixed bottom-right corner when no fight sidebar
+     * is on screen (matchmaking, lobbies, the portal). The dock paints at z-index 1400 and the speaker at
+     * 60, so outside a fight the notification/friends buttons sat straight on top of the speaker and the
+     * player simply lost the volume control. Publishing a slot here puts it in the row instead, where the
+     * layout sizes itself and cannot collide.
+     *
+     * Only while floating: during a fight RightSideBar publishes both slots and owns the footer, so
+     * claiming the volume slot here would steal the control out of the sidebar.
+     */
     const active = authenticated && user?.is_active !== false;
+    // Depends on `active` too: a logged-out dock renders nothing, so the slot element only appears once the
+    // player is active. Without it in the deps the effect would never see that element and the speaker
+    // would stay in the corner it collides in.
+    useEffect(() => {
+        if (fightDockSlot || !active) {
+            return undefined;
+        }
+        setVolumeSlot(floatingVolumeSlotRef.current);
+        return () => setVolumeSlot(null);
+    }, [fightDockSlot, active]);
+
     const inGame = location.pathname.startsWith("/game/");
     if (!active) {
         return null;
@@ -644,6 +754,12 @@ export const SocialDock: React.FC = () => {
                 "&:hover": { opacity: 1 },
             }}
         >
+            {/* ThemeMusic portals the speaker in here while the dock floats. First in the row on purpose:
+                the control expands a volume slider to its right, so anchoring it at the left edge grows
+                the right-anchored row leftward into empty screen instead of shoving the buttons. */}
+            {!fightDockSlot ? (
+                <Box ref={floatingVolumeSlotRef} sx={{ display: "flex", alignItems: "center", flexShrink: 0 }} />
+            ) : null}
             <IconButton
                 aria-label="Predictions"
                 sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}

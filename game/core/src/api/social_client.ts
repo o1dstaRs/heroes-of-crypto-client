@@ -78,6 +78,14 @@ export interface FriendsOverview {
 export interface PlayerSearchHit {
     id: string;
     username: string;
+    /**
+     * Presence for the search row, same figures the friends list shows. OPTIONAL on purpose: a client can
+     * run against a matchmaking server that predates the enriched player-search response, and a missing
+     * field must read as "not known" rather than as "offline since never". Callers should branch on
+     * `undefined` instead of coercing to a boolean.
+     */
+    online?: boolean;
+    lastOnlineAt?: number;
 }
 
 const post = async <T>(path: string, body?: Record<string, unknown>): Promise<T> => {
@@ -310,6 +318,22 @@ export const formatLastSeen = (lastOnlineAt: number, now: number = Date.now()): 
         return `${hours}h ago`;
     }
     return `${Math.floor(hours / 24)}d ago`;
+};
+
+/**
+ * The presence caption for one add-friend search row: "Online", or the last-seen phrasing above.
+ *
+ * Returns undefined when the server sent no presence at all — a client can be talking to a matchmaking
+ * build that predates the enriched player-search response. That case means UNKNOWN and must render as
+ * nothing: labelling a player "never" because the field is missing would be a confident lie about
+ * somebody who might be online right now. `lastOnlineAt` of 0 is different — the server DID answer, and
+ * genuinely has no record — so it keeps formatLastSeen's honest "never".
+ */
+export const searchHitPresenceLabel = (hit: PlayerSearchHit, now: number = Date.now()): string | undefined => {
+    if (hit.online === undefined) {
+        return undefined;
+    }
+    return hit.online ? "Online" : formatLastSeen(hit.lastOnlineAt ?? 0, now);
 };
 
 /* ------------------------------------------------------------- ranked wagers */
