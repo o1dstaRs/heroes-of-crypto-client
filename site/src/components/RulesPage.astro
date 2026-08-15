@@ -319,9 +319,36 @@ const copy = isRu
                   text: "+1 или +2 шага. Иногда лишняя клетка важнее лишнего урона.",
               },
           ],
+          perksTitle: "Доктрины: обзор стоит очков",
+          perksIntro:
+              "Доктрина — самый первый выбор в драфте, и она действует весь драфт. Она определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртого варианта нет, и поменять доктрину позже нельзя.",
+          perksTableCaption: "Доктрины: обзор против очков апгрейдов",
+          perksColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
+          perks: [
+              {
+                  name: "Spymaster",
+                  sees: "Все выборы противника, по мере того как он их делает.",
+                  points: 5,
+                  note: "Полная информация, наименьший бюджет армии.",
+              },
+              {
+                  name: "Scout",
+                  sees: "Выборы противника в 3 случайных слотах, определённых в начале драфта.",
+                  points: 6,
+                  note: "Частичный обзор за средний бюджет.",
+              },
+              {
+                  name: "Blind Fury",
+                  sees: "Ничего. Состав противника скрыт до самого боя.",
+                  points: 7,
+                  note: "Драфт вслепую — зато самая сильная армия.",
+              },
+          ],
+          perksOutro:
+              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете существо, которое противник уже забрал, вас просто вернут к выбору — если только ваша доктрина не раскрывала этот слот.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
-              "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. Для каждой фракции вы выбираете один из двух бонусов.",
+              "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. У каждой фракции два возможных бонуса, и выбирать не нужно: какой из них действует в матче, определяется по идентификатору игры — ровно 50/50 для каждой фракции, независимо друг от друга, одинаково для вас и противника, и видно на панелях с первого экрана драфта.",
           synergyLevels: "Уровни силы",
           synergies: [
               {
@@ -342,7 +369,7 @@ const copy = isRu
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Юниты на поле: +1 / +2 / +3 выставленных стека", "Броня летающих юнитов: +10% / +20% / +30%"],
+                  options: ["Юниты на поле: +2 / +3 / +4 выставленных стека", "Броня летающих юнитов: +15% / +30% / +50%"],
               },
           ],
           placementTitle: "Расстановка: бой часто выигрывается до первого удара",
@@ -406,10 +433,45 @@ const copy = isRu
               "Обычное завершение хода после действия ничего не стоит. Каждый круг юнит с шансом примерно в свою мораль в процентах ходит лишний раз (при плюсе — ещё и бьёт чуть сильнее) или пропускает ход (при минусе).",
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
-              "Поле - сетка 16x16. В текущей ротации есть обычные карты, карты с лавовым центром и карты с заблокированным центром. Центральная гора может блокировать выстрелы и выдерживает 5 ударов; лавовый центр может дать смысл способностям Made of Fire.",
-              "На обычных картах сужение идет примерно каждые 3 круга. На картах с заблокированным центром - каждые 4 круга. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
-              "После 12-го круга начинается Армагеддон: четыре волны урона постепенно превращают затянутый бой в финал.",
+              "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём — и показывается обоим игрокам по ходу драфта. Бой затем идёт именно на ней: перед началом боя карта не перевыбирается.",
           ],
+          mapsTableCaption: "Три рейтинговые карты",
+          mapsColumns: ["Карта", "Центр", "Сужение", "Шанс"],
+          maps: [
+              {
+                  name: "Standard",
+                  center: "Открытое поле — без опасностей в центре.",
+                  narrows: "каждые 3 круга",
+                  chance: "1 из 3",
+              },
+              {
+                  name: "Lava",
+                  center: "Центр поля выжжен лавовым озером.",
+                  narrows: "каждые 3 круга",
+                  chance: "1 из 3",
+              },
+              {
+                  name: "Cemetery",
+                  center: "12 надгробий, случайно разбросанных по четырём центральным рядам — единого блока в центре нет.",
+                  narrows: "каждые 4 круга",
+                  chance: "1 из 3",
+              },
+          ],
+          mapsOutro:
+              "Четвёртая карта, Water, есть в движке, но в рейтинге отключена — она вам никогда не выпадет. Сужение превращает внешние клетки в дыры и толкает юнитов внутрь, а если места нет — убивает их. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
+          mapMechanicsTitle: "Два правила карт, о которых стоит знать до драфта",
+          mapMechanics: [
+              {
+                  title: "По лаве по умолчанию не ходят",
+                  text: "Сам по себе в центральную лаву не зайдёт никто. Артефакт 2-го уровня Lava Striders меняет это для всей вашей армии: юниты могут проходить по лаве и стоять в ней, а стоя в центральной лаве получают Made of Fire — +10% ко всем характеристикам, включая способности. На карте Lava это превращает опасность в землю, которой пользуетесь только вы.",
+              },
+              {
+                  title: "Стрельба сквозь Cemetery",
+                  text: "Надгробия — это постройки, и обычную дальнюю атаку останавливает первое же из них на линии. Double Shot тратит до двух своих снарядов на расчистку камней вместо попадания по цели. Cyclops (Large Caliber) и Gargantuan (Area Throw) игнорируют постройки полностью: их выстрелы проходят насквозь и уничтожают камни, попавшие в зону, — именно поэтому они и есть ответ на перекрытую линию в Cemetery.",
+              },
+          ],
+          mapArmageddon:
+              "После 12-го круга начинается Армагеддон: четыре нарастающие волны урона постепенно превращают затянутый бой в финал.",
           examplesTitle: "Мини-шпаргалка по ролям",
           examples: [
               "Black Dragon и Angel показывают силу крупных летающих финишеров, но им нужно место для 2x2 тела.",
@@ -559,9 +621,36 @@ const copy = isRu
                   text: "+1 or +2 movement steps. Sometimes one extra cell is worth more than another damage buff.",
               },
           ],
+          perksTitle: "Doctrines: what you see costs you points",
+          perksIntro:
+              "Your doctrine is the very first pick of the draft, and it lasts the whole draft. It decides how much of the opponent's roster you watch — and it pays you for looking away: the less you see, the larger your augment budget. There is no fourth option and you cannot change it later.",
+          perksTableCaption: "Doctrines: reveal versus augment points",
+          perksColumns: ["Doctrine", "What you see", "Augment points"],
+          perks: [
+              {
+                  name: "Spymaster",
+                  sees: "Every one of the opponent's picks, as they happen.",
+                  points: 5,
+                  note: "Full information, smallest army budget.",
+              },
+              {
+                  name: "Scout",
+                  sees: "The opponent's picks in 3 random slots, chosen at the start of the draft.",
+                  points: 6,
+                  note: "A partial read for a middling budget.",
+              },
+              {
+                  name: "Blind Fury",
+                  sees: "Nothing. The opponent's roster stays hidden until the fight.",
+                  points: 7,
+                  note: "Draft blind, field the strongest army.",
+              },
+          ],
+          perksOutro:
+              "Those points are the whole augment budget you spend before placement, so the doctrine is an army-size decision as much as an information one. Picking a creature the opponent already took simply sends you back to pick again — unless your doctrine revealed that slot.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
-              "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. For each faction, you choose one of two bonuses.",
+              "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. Each faction has two possible bonuses, and there is nothing to pick: which one a match fields is drawn from the game id — an even 50/50 per faction, drawn independently, identical for you and your opponent, and shown on the rails from the first screen of the draft.",
           synergyLevels: "Power by level",
           synergies: [
               {
@@ -582,7 +671,7 @@ const copy = isRu
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Board units: +1 / +2 / +3 fielded stacks", "Flying armor: +10% / +20% / +30%"],
+                  options: ["Board units: +2 / +3 / +4 fielded stacks", "Flying armor: +15% / +30% / +50%"],
               },
           ],
           placementTitle: "Placement: many fights are won before the first hit",
@@ -646,10 +735,45 @@ const copy = isRu
               "Ending your turn normally after acting costs nothing. Each lap a unit rolls about its morale value in percent: a positive hit lets it act an extra time (and hit a little harder), a negative hit gets it skipped.",
           mapTitle: "The map does not wait forever",
           mapParagraphs: [
-              "The board is a 16x16 grid. The current random map rotation includes normal, lava-center, and block-center maps. The center mountain can block shots and has 5 hits; lava-center maps make Made of Fire matter.",
-              "Normal maps narrow roughly every 3 laps. Block-center maps narrow every 4 laps. If neither army closes distance or deals damage, the engine can add extra narrowing pressure.",
-              "After lap 12, Armageddon starts: four damage waves gradually force a stalled fight to end.",
+              "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created — each equally likely, one chance in three — and reveals it to both players mid-draft. The fight is then played on exactly that map; it is never re-rolled at the start of combat.",
           ],
+          mapsTableCaption: "The three ranked maps",
+          mapsColumns: ["Map", "Center", "Narrows", "Chance"],
+          maps: [
+              {
+                  name: "Standard",
+                  center: "Open field — no central hazard.",
+                  narrows: "every 3 laps",
+                  chance: "1 in 3",
+              },
+              {
+                  name: "Lava",
+                  center: "A lava pool scars the center of the board.",
+                  narrows: "every 3 laps",
+                  chance: "1 in 3",
+              },
+              {
+                  name: "Cemetery",
+                  center: "12 tombstones scattered at random across the middle four rows — no single central block.",
+                  narrows: "every 4 laps",
+                  chance: "1 in 3",
+              },
+          ],
+          mapsOutro:
+              "A fourth map, Water, exists in the engine but is disabled in ranked, so you will never be dealt it. Narrowing turns outer cells into holes and pushes units inward — or kills them when there is no room. If neither army closes distance or deals damage, the engine can add extra narrowing pressure.",
+          mapMechanicsTitle: "Two map rules worth knowing before you draft",
+          mapMechanics: [
+              {
+                  title: "Lava is not walkable by default",
+                  text: "Nothing may enter the central lava on its own. The Tier-2 artifact Lava Striders changes that for your entire army: your units may move over and stand in lava, and while they stand in central lava they gain Made of Fire — +10% to all stats, abilities included. On a Lava map that turns the hazard into ground only you can use.",
+              },
+              {
+                  title: "Shooting through the Cemetery",
+                  text: "Tombstones are structures, and an ordinary ranged attack is stopped by the first one in its lane. Double Shot spends up to two of its projectiles clearing stones instead of hitting the target. Cyclops (Large Caliber) and Gargantuan (Area Throw) ignore structures outright — their shots pass straight through and destroy the stones caught in the blast, which is what makes them the answer to a Cemetery lane.",
+              },
+          ],
+          mapArmageddon:
+              "After lap 12, Armageddon starts: four escalating damage waves gradually force a stalled fight to end.",
           examplesTitle: "Role cheat sheet",
           examples: [
               "Black Dragon and Angel show what large flying finishers can do, but both need room for a 2x2 body.",
@@ -684,6 +808,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Драфт" },
                   { href: "#rule-unit-stats", label: "Характеристики" },
                   { href: "#rule-augments", label: "Апгрейды" },
+                  { href: "#rule-perks", label: "Доктрины" },
                   { href: "#rule-synergies", label: "Синергии" },
                   { href: "#rule-placement", label: "Расстановка" },
               ],
@@ -711,6 +836,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Draft" },
                   { href: "#rule-unit-stats", label: "Unit statistics" },
                   { href: "#rule-augments", label: "Augments" },
+                  { href: "#rule-perks", label: "Doctrines" },
                   { href: "#rule-synergies", label: "Synergies" },
                   { href: "#rule-placement", label: "Placement" },
               ],
@@ -1018,6 +1144,41 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
     </section>
 
+    <section class="section rules-section" id="rule-perks" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Доктрины" : "Doctrines"}</p>
+                <SectionTitle class="rules-section-title">{copy.perksTitle}</SectionTitle>
+                <p>{copy.perksIntro}</p>
+            </div>
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-perk-table-title" tabindex="0">
+                <table class="rules-aug-table">
+                    <caption id="rules-perk-table-title">{copy.perksTableCaption}</caption>
+                    <thead>
+                        <tr>
+                            {copy.perksColumns.map((column) => <th scope="col">{column}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {copy.perks.map((perk) => (
+                            <tr>
+                                <th scope="row" class="rules-aug-name">
+                                    <div>
+                                        <strong>{perk.name}</strong>
+                                        <em>{perk.note}</em>
+                                    </div>
+                                </th>
+                                <td>{perk.sees}</td>
+                                <td>{perk.points}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p class="rules-reading-width">{copy.perksOutro}</p>
+        </div>
+    </section>
+
     <section class="section rules-band" id="rule-synergies" tabindex="-1">
         <div class="page-shell">
             <div class="section-heading rules-reading-width">
@@ -1140,6 +1301,43 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <span class="map-ring two"></span>
                 <span class="map-ring three"></span>
             </div>
+        </div>
+        <div class="page-shell">
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-map-table-title" tabindex="0">
+                <table class="rules-aug-table">
+                    <caption id="rules-map-table-title">{copy.mapsTableCaption}</caption>
+                    <thead>
+                        <tr>
+                            {copy.mapsColumns.map((column) => <th scope="col">{column}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {copy.maps.map((map) => (
+                            <tr>
+                                <th scope="row" class="rules-aug-name">
+                                    <div><strong>{map.name}</strong></div>
+                                </th>
+                                <td>{map.center}</td>
+                                <td>{map.narrows}</td>
+                                <td>{map.chance}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p class="rules-reading-width">{copy.mapsOutro}</p>
+            <div class="rules-mechanics-block">
+                <ItemTitle>{copy.mapMechanicsTitle}</ItemTitle>
+                <div class="rules-action-grid">
+                    {copy.mapMechanics.map((mechanic) => (
+                        <article class="rules-card compact">
+                            <ItemTitle>{mechanic.title}</ItemTitle>
+                            <p>{mechanic.text}</p>
+                        </article>
+                    ))}
+                </div>
+            </div>
+            <p class="rules-reading-width">{copy.mapArmageddon}</p>
         </div>
     </section>
 
