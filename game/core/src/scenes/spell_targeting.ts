@@ -27,6 +27,9 @@ export const isTargetedSpellReachable = (
     from: HoCMath.XY,
     to: HoCMath.XY,
     isTransparentUnit?: TransparencyPredicate,
+    // The target's whole footprint. Feeds the shared visible-edge gate: a throw lands on the center of a
+    // visible edge, so a unit covered on every side cannot be aimed at. Omit for a cell-targeted cast.
+    targetCells?: readonly HoCMath.XY[],
 ): boolean => {
     const settings = grid.getSettings();
     return SpellHelper.isTargetedSpellLineOfSightClear(
@@ -36,6 +39,7 @@ export const isTargetedSpellReachable = (
         from,
         to,
         isTransparentUnit,
+        targetCells,
     );
 };
 

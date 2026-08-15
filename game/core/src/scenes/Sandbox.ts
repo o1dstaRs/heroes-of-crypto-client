@@ -162,8 +162,9 @@ export const offensiveSpellPreviewDamage = (
     );
 
 /**
- * Spell Flesh Shield damage was added to GameEvent after the original client event union. The structural
- * read keeps the client backward-compatible with older journals while giving both sandbox and ranked one
+ * Spell secondary damage (today: Water Shield absorbs) was added to GameEvent after the original client
+ * event union. The structural read keeps the client backward-compatible with older journals — including
+ * ones recorded when Flesh Shield still soaked spell damage — while giving both sandbox and ranked one
  * typed path to the optional secondary-damage payload.
  */
 export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["secondary"] =>
@@ -6820,6 +6821,7 @@ export class Sandbox extends PixiScene {
                 caster.getBaseCell(),
                 targetUnit.getBaseCell(),
                 this.throwTransparency(spell.getName(), caster),
+                targetUnit.getCells(),
             )
         ) {
             return false;
@@ -7706,6 +7708,7 @@ export class Sandbox extends PixiScene {
             caster.getBaseCell(),
             target.getBaseCell(),
             this.throwTransparency(spell.getName(), caster),
+            target.getCells(),
         );
     }
     /**
@@ -7753,9 +7756,8 @@ export class Sandbox extends PixiScene {
             if (!event.damaged?.length && !secondary?.length) {
                 continue;
             }
-            // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
-            // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
-            this.showFleshShieldAbsorbedDamage(secondary, casterPosition);
+            // Flesh Shield is deliberately absent here: the Abomination's aura soaks physical damage only,
+            // so no cast spell is ever transferred to it. Water Shield is the one absorb a spell can trigger.
             this.showWaterShieldAbsorbs(secondary, casterPosition);
             // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
             // Strike, Meteor Shower) have nothing to travel and just burst where they land. Ring of Fire is
@@ -8869,9 +8871,13 @@ export class Sandbox extends PixiScene {
 
         const gs = this.sc_sceneSettings.getGridSettings();
         // Aim at the same visible edge a real shot resolves to, so the line and the falloff band match
-        // what the shooter would actually get rather than a centre-to-centre approximation.
-        const aim = this.resolveRangeAimForTarget(shooter, hoveredUnit, hoveredUnit.getPosition())?.position;
-        const aimPos = aim ?? hoveredUnit.getPosition();
+        // what the shooter would actually get rather than a centre-to-centre approximation. No visible
+        // edge means that shooter simply cannot shoot this unit — preview nothing rather than drawing a
+        // centre-aimed threat that could never happen.
+        const aimPos = this.resolveRangeAimForTarget(shooter, hoveredUnit, hoveredUnit.getPosition())?.position;
+        if (!aimPos) {
+            return false;
+        }
 
         // Who the shot really meets: a plain shot stops at the FIRST unit on the line, so a teammate
         // standing in front turns this into a screen rather than a hit on the hovered unit.
@@ -8934,6 +8940,11 @@ export class Sandbox extends PixiScene {
         }
         return undefined;
     }
+    /**
+     * The visible edge of `target` this shot aims at, or undefined when the target presents none — in
+     * which case the shot is not allowed at all. A ranged shot always lands on a visible-edge center; it
+     * never falls back to the target's geometric center.
+     */
     private resolveRangeAimForTarget(
         attacker: RenderableUnit,
         target: Unit,
@@ -8941,7 +8952,10 @@ export class Sandbox extends PixiScene {
     ): GridMath.IClosestSideCenter | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const arrowStartPos = !attacker.isSmallSize() ? attacker.getVisualCenter(gs) : attacker.getCenter();
-        return GridMath.getClosestSideCenterDetailed(
+        // Through Shot pierces bodies, so for a piercing shooter only a hard BLOCK obstacle hides an edge —
+        // the flag has to travel with every edge query or Tsar Cannon loses shots it can legally take.
+        const isThroughShot = attacker.hasAbilityActive("Through Shot");
+        const cursorAimed = GridMath.getClosestSideCenterDetailed(
             this.grid.getMatrix(),
             gs,
             // The "mouse" position selects the aimed cell/side. For a human shot this is the live
@@ -8953,7 +8967,21 @@ export class Sandbox extends PixiScene {
             attacker.isSmallSize(),
             target.isSmallSize(),
             attacker.getTeam(),
-            attacker.hasAbilityActive("Through Shot"),
+            isThroughShot,
+        );
+        if (cursorAimed) {
+            return cursorAimed;
+        }
+        // The cursor pointed somewhere with no selectable side (it also gates on attacker-vs-target
+        // geometry, and only ever looks at the ONE hovered cell). The target may still expose an edge on
+        // another cell — clamp to the nearest one, exactly as the engine does, instead of aiming center.
+        return GridMath.resolveRangeAttackAimEdge(
+            this.grid.getMatrix(),
+            gs,
+            target.getCells(),
+            arrowStartPos,
+            attacker.getTeam(),
+            isThroughShot,
         );
     }
     /**
@@ -9158,6 +9186,14 @@ export class Sandbox extends PixiScene {
                 target,
                 replayAction?.type === "range_attack" ? replayAction : undefined,
             );
+            // No visible edge means there is nothing legal to aim at — the target is covered on every side
+            // by its own team and/or mountains. Drop a locally-initiated shot here rather than sending an
+            // aimless action the engine now rejects. A replay/authoritative action still goes through: its
+            // own recorded aim governs, and rewriting history from the local board would desync it.
+            if (!aim && !replayAction) {
+                this.sc_moveBlocked = false;
+                return false;
+            }
             const aggrBlockedTarget = replayAction ? undefined : this.isRangeAttackBlockedByAggr(target, aim?.position);
             if (aggrBlockedTarget) {
                 this.sc_moveBlocked = false;
@@ -10721,7 +10757,19 @@ export class Sandbox extends PixiScene {
                         // and ranked leaves the debuff OBJECT arrays empty, so the plain check is always
                         // false there and the client kept offering ranged attacks the server refuses. The
                         // aura above is safe either way — auras are reconciled from the snapshot.
-                        !this.currentActiveUnit.hasStatusApplied("Rangebane");
+                        !this.currentActiveUnit.hasStatusApplied("Rangebane") &&
+                        // A shot lands on the center of a VISIBLE EDGE of the target, never on its center,
+                        // so a unit covered on every side (boxed in by its own allies and/or mountains) has
+                        // no legal aim point and cannot be shot at all. Gating the whole range CONTEXT here
+                        // — not just the static-target set — keeps the long-range visual relaxation below
+                        // from re-offering a shot the engine now rejects. Through Shot pierces bodies, so a
+                        // piercing shooter only loses an edge to a hard BLOCK obstacle.
+                        GridMath.hasObservableRangeAttackEdge(
+                            this.grid.getMatrix(),
+                            targetUnit.getCells(),
+                            this.currentActiveUnit.getTeam(),
+                            this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                        );
 
                     // 1. Static Range Priority
                     // Relaxed check: Allow visualization even if technically out of 'shot_distance' (for Penalty logic)
@@ -10906,11 +10954,24 @@ export class Sandbox extends PixiScene {
                             );
                         }
 
-                        // Fallback when getClosestSideCenter can't pick a side (e.g. the attacker is
-                        // aligned with the target and the near cell reads blocked). Legacy drew no line
-                        // here; snapping to the target CENTER made the trajectory read center-to-center.
-                        // Aim at the target's NEAR EDGE along the attacker -> target line instead, so it
-                        // stays "center -> the edge we pointed at".
+                        // getClosestSideCenter only ever considers the ONE hovered cell and additionally
+                        // gates on attacker-vs-target geometry, so it can come up empty while the target
+                        // still exposes an edge elsewhere. Clamp to the nearest observable edge — the exact
+                        // rule the engine applies to the committed shot — rather than deriving a point from
+                        // the target's center, which would preview a trajectory the engine cannot produce.
+                        if (!arrowEndPos && isRangeAttackContext) {
+                            arrowEndPos = GridMath.resolveRangeAttackAimEdge(
+                                this.grid.getMatrix(),
+                                gs,
+                                targetUnit.getCells(),
+                                arrowStartPos,
+                                this.currentActiveUnit.getTeam(),
+                                this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                            )?.position;
+                        }
+
+                        // Melee still lands on the body, so a point derived from the target's center is
+                        // right here: aim at its NEAR EDGE along the attacker -> target line.
                         if (!arrowEndPos) {
                             const rawPos =
                                 targetUnit instanceof RenderableUnit
@@ -14665,9 +14726,24 @@ export class Sandbox extends PixiScene {
                     // const rangeDist = this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP; // Unused
                     // const attackerPos = this.currentActiveUnit.getPosition(); // Unused
 
+                    // Through Shot pierces bodies: for a piercing shooter only a hard BLOCK obstacle covers
+                    // an edge, so it keeps targets a plain shooter cannot see.
+                    const isThroughShot = this.currentActiveUnit.hasAbilityActive("Through Shot");
                     for (const enemy of enemyTeam) {
                         // Relaxed: Allow long range shots (penalty applied later).
-                        if (!enemy.hasBuffActive("Hidden")) {
+                        if (
+                            !enemy.hasBuffActive("Hidden") &&
+                            // A shot lands on the center of a VISIBLE EDGE, so a unit whose every edge is
+                            // covered — boxed in by its own allies and/or mountains — offers nothing legal to
+                            // aim at and is not a target. Same rule the engine enforces, so the client never
+                            // offers a shot the server would reject.
+                            GridMath.hasObservableRangeAttackEdge(
+                                this.grid.getMatrix(),
+                                enemy.getCells(),
+                                this.currentActiveUnit.getTeam(),
+                                isThroughShot,
+                            )
+                        ) {
                             // Additionally check if unit is hittable (e.g. not dead, effectively already checked by being in enemyTeam mostly)
                             this.canAttackByRangeTargets.add(enemy.getId());
                         }
