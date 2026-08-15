@@ -237,9 +237,15 @@ describe("RenderableUnit revealed roster card", () => {
     // Revealed units carry a ColorMatrixFilter (the B&W pass), whose constructor probes a WebGL context
     // through the DOM adapter. Headless bun has no document; hand it a canvas stub whose getContext
     // returns null, which pixi already handles by falling back to mediump precision.
+    // The stub is a PROCESS-WIDE global that outlives this file, so every later import in the same bun run
+    // sees a `document` that exists and takes the browser branch. MUI's StyledEngineProvider is the one that
+    // bites: at module scope it looks for an emotion insertion point and, finding none, builds a <meta> and
+    // asks for <head>. Answering querySelector with null and giving created elements a setAttribute lets it
+    // finish on a headless run; without them, importing any MUI page after this file dies between tests.
     if (!("document" in globalThis)) {
         (globalThis as { document?: unknown }).document = {
-            createElement: () => ({ getContext: () => null }),
+            createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
+            querySelector: () => null,
         };
     }
 

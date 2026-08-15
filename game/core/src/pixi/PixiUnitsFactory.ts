@@ -139,7 +139,12 @@ export enum TextureType {
     LARGE = 1,
 }
 
-const UNIT_ATLAS_ANIMATION_EXCLUSIONS = new Set(["Ash Moth"]);
+/**
+ * Units whose atlas art must NEVER replace their static chip, independently of the global switch below.
+ * Exported so the exclusion stays under test while UNIT_ATLAS_ANIMATION_ENABLED is off and every unit
+ * renders statically anyway — otherwise flipping the switch back on could silently animate Ash Moth.
+ */
+export const UNIT_ATLAS_ANIMATION_EXCLUSIONS: ReadonlySet<string> = new Set(["Ash Moth"]);
 
 // Unit board atlas animation is disabled per owner (2026-08-14): every unit renders as the framed
 // circular chip (the pre-rollout look) instead of the full-body animated sprite. Flip
