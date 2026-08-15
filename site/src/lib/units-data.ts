@@ -54,12 +54,7 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
 
-const abilityIconAliases: Record<string, string> = {
-    "Double Throw": "Double Shot",
-};
-
-const abilityIcon = (name: string): string =>
-    `/assets/images/units/abilities/${slug(abilityIconAliases[name] ?? name)}_256.webp`;
+const abilityIcon = (name: string): string => `/assets/images/units/abilities/${slug(name)}_256.webp`;
 
 // Mirrors common's MAX_UNIT_STACK_POWER (constants.ts) — the ceiling chakramBounceBudget clamps to.
 const MAX_UNIT_STACK_POWER = 5;
