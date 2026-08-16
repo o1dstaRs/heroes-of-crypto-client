@@ -3,12 +3,17 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
 const lang = "ru";
 const sandboxPath = (url: string) => url.replace(/\/play\/?$/, "/");
-const remoteGameClientUrls = [
+// A configured client wins outright over the production default, and VITE_HOST_GAME_CLIENT counts
+// here as well as locally — a staging build sets that one, and without it the sandbox kept sending
+// testers to production no matter how the build was configured.
+const configuredRemoteGameClientUrls = [
     import.meta.env.VITE_GAME_CLIENT_SANDBOX,
-    "https://app.heroesofcrypto.io/",
-]
-    .filter(Boolean)
-    .map((url) => sandboxPath(String(url)));
+    import.meta.env.VITE_HOST_GAME_CLIENT,
+    import.meta.env.VITE_GAME_CLIENT,
+].filter(Boolean);
+const remoteGameClientUrls = (
+    configuredRemoteGameClientUrls.length ? configuredRemoteGameClientUrls : ["https://app.heroesofcrypto.io/"]
+).map((url) => sandboxPath(String(url)));
 const localGameClientUrls = [
     import.meta.env.VITE_HOST_GAME_CLIENT,
     import.meta.env.VITE_GAME_CLIENT,
