@@ -65,6 +65,13 @@ export interface IFightStatsSample {
     /** Percentage of that team's starting army killed so far (0..100). */
     lowerKilledPct: number;
     upperKilledPct: number;
+    /**
+     * Percentage of that team's own starting HEALTH still standing (0..100), so both sides open at 100
+     * however their armies were built. Feeds the board-share line in the end-of-fight overlay. Optional:
+     * series recorded before this existed (older replays, fixtures) simply have no HP view.
+     */
+    lowerHpPct?: number;
+    upperHpPct?: number;
     /** Optional HP-based damage series for live ranked overlays. */
     lowerDamage?: number;
     upperDamage?: number;

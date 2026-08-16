@@ -2,7 +2,8 @@ import Box from "@mui/joy/Box";
 import React, { useLayoutEffect, useRef, useState } from "react";
 
 import { IFightStatsSample } from "../../scenes/VisibleState";
-import { CasualtyChart, GOLD } from "./CasualtyChart";
+import { BoardShareChart } from "./BoardShareChart";
+import { GOLD } from "./CasualtyChart";
 
 /** Below this the plot is more axis than data, so the panel hides rather than draw a sliver. */
 const MIN_USEFUL_H = 96;
@@ -115,7 +116,7 @@ export const CasualtyChartPanel: React.FC<{
         >
             {roomy && innerW > 0 && (
                 <Box sx={{ position: "absolute", inset: 0, zIndex: 1 }}>
-                    <CasualtyChart series={series} viewWidth={innerW} viewHeight={innerH} drawDurationSec={1.1} />
+                    <BoardShareChart series={series} viewWidth={innerW} viewHeight={innerH} drawDurationSec={1.1} />
                 </Box>
             )}
         </Box>

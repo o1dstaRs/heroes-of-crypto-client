@@ -32,11 +32,54 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     fightStats: {
         winner: TeamVals.UPPER,
         series: [
-            { lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 },
-            { lap: 2, lowerKilled: 74, upperKilled: 80, lowerKilledPct: 37, upperKilledPct: 40 },
-            { lap: 3, lowerKilled: 128, upperKilled: 126, lowerKilledPct: 64, upperKilledPct: 63 },
-            { lap: 4, lowerKilled: 160, upperKilled: 152, lowerKilledPct: 80, upperKilledPct: 76 },
-            { lap: 5, lowerKilled: 171, upperKilled: 200, lowerKilledPct: 86, upperKilledPct: 100 },
+            // HP percentages carry the board-share line: green edges ahead early, red takes the fight back
+            // and closes it out — a swing rather than a straight slide, so the preview shows the shape the
+            // chart exists to show.
+            {
+                lap: 1,
+                lowerKilled: 0,
+                upperKilled: 0,
+                lowerKilledPct: 0,
+                upperKilledPct: 0,
+                lowerHpPct: 100,
+                upperHpPct: 100,
+            },
+            {
+                lap: 2,
+                lowerKilled: 74,
+                upperKilled: 80,
+                lowerKilledPct: 37,
+                upperKilledPct: 40,
+                lowerHpPct: 78,
+                upperHpPct: 62,
+            },
+            {
+                lap: 3,
+                lowerKilled: 128,
+                upperKilled: 126,
+                lowerKilledPct: 64,
+                upperKilledPct: 63,
+                lowerHpPct: 40,
+                upperHpPct: 52,
+            },
+            {
+                lap: 4,
+                lowerKilled: 160,
+                upperKilled: 152,
+                lowerKilledPct: 80,
+                upperKilledPct: 76,
+                lowerHpPct: 18,
+                upperHpPct: 44,
+            },
+            {
+                lap: 5,
+                lowerKilled: 171,
+                upperKilled: 200,
+                lowerKilledPct: 86,
+                upperKilledPct: 100,
+                lowerHpPct: 0,
+                upperHpPct: 26,
+            },
         ],
         lowerDeaths: [
             { name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: TeamVals.LOWER },
