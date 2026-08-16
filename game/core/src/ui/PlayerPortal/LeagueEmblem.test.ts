@@ -11,7 +11,7 @@ describe("leagueEmblemKey", () => {
     });
 
     it("uses the question-mark crest for calibration and unknown leagues", () => {
-        expect(leagueEmblemKey(0)).toBe("league_calibration_512");
+        expect(leagueEmblemKey(0)).toBe("league_calibration_black_512");
         expect(leagueEmblemKey(99)).toBe(leagueEmblemKey(0));
     });
 });

@@ -1,5 +1,5 @@
 const LEAGUE_EMBLEM_FILENAMES = [
-    "league_calibration_512.webp",
+    "league_calibration_black_512.webp",
     "league_aspirant_512.webp",
     "league_vanguard_512.webp",
     "league_marshal_512.webp",

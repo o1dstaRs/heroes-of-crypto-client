@@ -4,7 +4,7 @@ import React from "react";
 import { images } from "../../generated/image_imports";
 
 const LEAGUE_EMBLEM_KEYS = {
-    0: "league_calibration_512",
+    0: "league_calibration_black_512",
     1: "league_aspirant_512",
     2: "league_vanguard_512",
     3: "league_marshal_512",
