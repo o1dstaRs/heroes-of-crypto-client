@@ -1,4 +1,15 @@
+import { rankedArenaCopy } from "./ranked-arena-copy";
 import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
+
+/** Fallback display name when a payload omits it — the English table the server also serves. */
+const fallbackLeagueName = (league: number): string =>
+    rankedArenaCopy.en.leagueNames[league - 1] ?? rankedArenaCopy.en.unranked;
+
+/**
+ * The richest third of a league. Its name is a noun ("Whale"), so it TRAILS the league name while
+ * the two lower tiers lead it — see the standing helpers in ranked-arena-client / ProfilePage.
+ */
+export const TOP_WEALTH = 3;
 
 export type ArenaTab = "players" | "games" | "leagues";
 export type PlayerSort = "rank" | "player" | "rating" | "winRate" | "wins" | "streak" | "gold";
@@ -16,6 +27,9 @@ export interface RankedPlayer {
     gold: number;
     league: number;
     leagueName: string;
+    // Which third of their league they sit in by gold: 1 Ragged, 2 Stacked, 3 Whale (0 = unplaced).
+    // The server recomputes it on every ladder read, so it moves with the balance, not with placement.
+    wealth: number;
     leaderboardRank: number;
     wins: number;
     losses: number;
@@ -101,6 +115,8 @@ export interface LiveGamePlayer {
         state: string;
         mmr: number;
         league: number;
+        /** Gold third inside the league (1 Ragged .. 3 Whale); 0 when the seat is not placed. */
+        wealth: number;
         leaderboardRank: number;
         /** Newest-first ranked outcomes, capped at five by the public live-games API. */
         recentResults: LiveGameResult[];
@@ -183,7 +199,8 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         mmr: Math.max(0, asInteger(row.mmr)),
         gold: Math.max(0, asInteger(row.gold)),
         league,
-        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leagueName: asString(row.leagueName, fallbackLeagueName(league)),
+        wealth: Math.max(0, Math.min(3, asInteger(row.wealth))),
         leaderboardRank: Math.max(0, asInteger(row.leaderboardRank)),
         wins: Math.max(0, asInteger(row.wins)),
         losses: Math.max(0, asInteger(row.losses)),
@@ -228,7 +245,7 @@ export function normalizeStandingsResponse(value: unknown): RankedStandingsRespo
                 .filter((player): player is RankedPlayer => player !== null);
             return {
                 league,
-                name: asString(leagueRow.name, `League ${league}`),
+                name: asString(leagueRow.name, fallbackLeagueName(league)),
                 isTopLeague: asBoolean(leagueRow.isTopLeague),
                 playerCount: Math.max(0, asInteger(leagueRow.playerCount)),
                 minMmr: Math.max(0, asInteger(leagueRow.minMmr)),
@@ -325,6 +342,7 @@ const normalizeLivePlayer = (value: unknown): LiveGamePlayer | null => {
                   state: rankedState || (rankedMmr > 0 || rankedLeague > 0 ? "placed" : "unranked"),
                   mmr: rankedMmr,
                   league: rankedLeague,
+                  wealth: Math.max(0, Math.min(3, asInteger(rawRanked.wealth))),
                   leaderboardRank: Math.max(0, asInteger(rawRanked.leaderboardRank)),
                   recentResults: normalizeLiveGameResults(rawRanked.recentResults),
               }

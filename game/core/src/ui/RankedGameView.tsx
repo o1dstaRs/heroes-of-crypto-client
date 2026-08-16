@@ -47,6 +47,7 @@ import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "
 import { axiosMMInstance, endpoints } from "../api/axios";
 import { images } from "../generated/image_imports";
 import { t, tf, useTranslation } from "../i18n/i18n";
+import { standingLabel } from "../i18n/standing";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { SceneEntry } from "../pixi/PixiScene";
 import {
@@ -2159,6 +2160,9 @@ interface IObserverIdentity {
     username: string;
     mmr: number;
     leagueName: string;
+    /** Gold third inside that league (0 while calibrating — no cohort, so no wealth standing). */
+    wealth: number;
+    wealthName: string;
     placed: boolean;
 }
 
@@ -2181,6 +2185,8 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
                         username?: string;
                         mmr?: number;
                         leagueName?: string;
+                        wealth?: number;
+                        wealthName?: string;
                         state?: string;
                     };
                     setIdentities((current) => ({
@@ -2189,6 +2195,9 @@ const useObserverIdentities = (snapshot: PlaySnapshot): Record<string, IObserver
                             username: data.username ?? "",
                             mmr: data.mmr ?? 0,
                             leagueName: data.leagueName ?? "",
+                            // Their gold third within that league, absent while calibrating.
+                            wealth: data.wealth ?? 0,
+                            wealthName: data.wealthName ?? "",
                             placed: data.state === "placed",
                         },
                     }));
@@ -2207,7 +2216,7 @@ const observerIdentityLine = (identity: IObserverIdentity | undefined): string =
         return "";
     }
     return identity.placed
-        ? `${identity.username} · ${identity.mmr} MMR (${identity.leagueName})`
+        ? `${identity.username} · ${identity.mmr} ${t("MMR")} (${standingLabel(identity.wealth, identity.wealthName, identity.leagueName)})`
         : `${identity.username} · ${t("Calibrating")}`;
 };
 

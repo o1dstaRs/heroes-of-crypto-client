@@ -25,7 +25,7 @@ const player = (overrides: Partial<RankedPlayer> = {}): RankedPlayer => ({
     mmr: 1800,
     gold: 420,
     league: 5,
-    leagueName: "5th League",
+    leagueName: "Demigod",
     leaderboardRank: 1,
     wins: 12,
     losses: 4,
@@ -80,7 +80,7 @@ describe("ranked arena response normalization", () => {
                 { league: 1, players: [] },
                 {
                     league: 5,
-                    name: "5th League",
+                    name: "Demigod",
                     playerCount: 1,
                     minMmr: 1800,
                     maxMmr: 1800,
@@ -215,6 +215,8 @@ describe("ranked arena response normalization", () => {
             state: "placed",
             mmr: 803,
             league: 1,
+            // The payload carried no wealth third for this seat; it degrades to "no tier".
+            wealth: 0,
             leaderboardRank: 17,
             recentResults: ["win", "loss", "draw", "win", "loss"],
         });
@@ -242,7 +244,7 @@ describe("ranked arena discovery", () => {
             username: "Green Knight",
             mmr: 1710,
             league: 4,
-            leagueName: "4th League",
+            leagueName: "Overlord",
             wins: 22,
             totalGames: 40,
             gold: 700,
@@ -256,7 +258,7 @@ describe("ranked arena discovery", () => {
             username: "Árcher Queen",
             mmr: 1660,
             league: 4,
-            leagueName: "4th League",
+            leagueName: "Overlord",
             wins: 18,
             totalGames: 20,
             gold: 50,
@@ -306,7 +308,7 @@ describe("ranked arena discovery", () => {
     test("flattens league rosters once and lets league search find a member", () => {
         const league = {
             league: 5,
-            name: "5th League",
+            name: "Demigod",
             isTopLeague: true,
             playerCount: 2,
             minMmr: 1700,
@@ -338,15 +340,30 @@ describe("ranked arena display helpers", () => {
         expect(Object.keys(rankedArenaCopy.en).sort()).toEqual(Object.keys(rankedArenaCopy.ru).sort());
 
         for (const key of Object.keys(rankedArenaCopy.en) as Array<keyof typeof rankedArenaCopy.en>) {
-            const english = rankedArenaCopy.en[key];
-            const russian = rankedArenaCopy.ru[key];
             const placeholders = (value: string): string[] =>
                 [...value.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]);
+            // Most entries are one string; the league names are a 1..5 list, so compare item by item.
+            const asList = (value: string | readonly string[]): readonly string[] =>
+                typeof value === "string" ? [value] : value;
+            const english = asList(rankedArenaCopy.en[key]);
+            const russian = asList(rankedArenaCopy.ru[key]);
 
-            expect(english.trim()).not.toBe("");
-            expect(russian.trim()).not.toBe("");
-            expect(placeholders(english).sort()).toEqual(placeholders(russian).sort());
+            expect(russian).toHaveLength(english.length);
+            for (const [index, value] of english.entries()) {
+                expect(value.trim()).not.toBe("");
+                expect(russian[index].trim()).not.toBe("");
+                expect(placeholders(value).sort()).toEqual(placeholders(russian[index]).sort());
+            }
         }
+    });
+
+    test("names all five leagues without reusing a creature, ability, or spell name", () => {
+        for (const copy of [rankedArenaCopy.en, rankedArenaCopy.ru]) {
+            expect(copy.leagueNames).toHaveLength(5);
+            expect(new Set(copy.leagueNames).size).toBe(5);
+        }
+        // Guard the rename rule: a league must not share its name with anything on the board.
+        expect(rankedArenaCopy.en.leagueNames).toEqual(["Aspirant", "Vanguard", "Marshal", "Overlord", "Demigod"]);
     });
 
     test("uses the compact matchup separator in English", () => {

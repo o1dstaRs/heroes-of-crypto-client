@@ -164,6 +164,11 @@ export interface RankedStanding {
     peakMmr: number;
     league: number;
     leagueName: string;
+    /** Gold third inside the league: 1 Ragged, 2 Stacked, 3 Whale (0 = unplaced). */
+    wealth: number;
+    wealthName: string;
+    /** Wealth and league in one line, as the server renders it: "Whale Marshal". */
+    standingTitle: string;
     leaderboardRank: number;
     calibration: {
         required: number;

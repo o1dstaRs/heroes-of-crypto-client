@@ -2,6 +2,7 @@ import { Box, Stack, Tooltip, Typography } from "@mui/joy";
 import React from "react";
 
 import { t } from "../../i18n/i18n";
+import { standingLabel } from "../../i18n/standing";
 import { hocColors } from "../hocTheme";
 import type { RankedStanding } from "../../api/social_client";
 
@@ -43,7 +44,9 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="baseline" flexWrap="wrap">
                     <Typography level={dense ? "title-md" : "title-lg"} sx={{ color: hocColors.parchment }}>
-                        {standing.leagueName}
+                        {/* Both halves arrive from the server in English (Ragged..Whale /
+                            Aspirant..Demigod); standingLabel() localizes each and joins them. */}
+                        {standingLabel(standing.wealth, standing.wealthName, standing.leagueName)}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: hocColors.muted }}>
                         {standing.mmr} {t("MMR")}
@@ -128,7 +131,7 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
             )}
             {recalibrating && standing.previous && (
                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                    {t("Previously")}: {standing.previous.leagueName} · {standing.previous.mmr} {t("MMR")}
+                    {t("Previously")}: {t(standing.previous.leagueName)} · {standing.previous.mmr} {t("MMR")}
                 </Typography>
             )}
         </Stack>

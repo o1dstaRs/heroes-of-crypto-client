@@ -73,7 +73,7 @@ describe("public ranked profile normalization", () => {
         expect(profile?.calibration).toEqual({ required: 5, gamesPlayed: 2, wins: 1, draws: 1, losses: 0 });
         expect(profile?.previous).toEqual({
             league: 4,
-            leagueName: "League 4",
+            leagueName: "Overlord",
             mmr: 1630,
         });
     });

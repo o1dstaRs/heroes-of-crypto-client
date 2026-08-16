@@ -1,4 +1,9 @@
+import { rankedArenaCopy } from "./ranked-arena-copy";
 import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
+
+/** Fallback display name when a payload omits it — the English table the server also serves. */
+const fallbackLeagueName = (league: number): string =>
+    rankedArenaCopy.en.leagueNames[league - 1] ?? rankedArenaCopy.en.unranked;
 
 export type RankedProfileState = "calibration" | "placed" | "recalibration";
 export type RankedMatchResult = "win" | "loss" | "draw";
@@ -186,6 +191,8 @@ export interface PublicRankedProfile {
     peakMmr: number;
     league: number;
     leagueName: string;
+    /** Gold third inside their league (1 Ragged .. 3 Whale); recomputed server-side on every read. */
+    wealth: number;
     leaderboardRank: number;
     calibration: RankedProfileCalibration;
     previous: RankedProfilePreviousStanding | null;
@@ -279,7 +286,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         previousRow && previousLeague > 0
             ? {
                   league: previousLeague,
-                  leagueName: asString(previousRow.leagueName, `League ${previousLeague}`),
+                  leagueName: asString(previousRow.leagueName, fallbackLeagueName(previousLeague)),
                   mmr: nonNegativeInteger(previousRow.mmr),
               }
             : null;
@@ -409,7 +416,8 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         mmr: nonNegativeInteger(row.mmr),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
-        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leagueName: asString(row.leagueName, fallbackLeagueName(league)),
+        wealth: Math.max(0, Math.min(3, nonNegativeInteger(row.wealth))),
         leaderboardRank: nonNegativeInteger(row.leaderboardRank),
         calibration: {
             required: Math.max(1, nonNegativeInteger(calibrationRow.required) || 5),
@@ -570,7 +578,7 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         gold: nonNegativeInteger(row.gold),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
-        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leagueName: asString(row.leagueName, fallbackLeagueName(league)),
         leaderboardRank: nonNegativeInteger(row.leaderboardRank),
         wins: nonNegativeInteger(row.wins),
         losses: nonNegativeInteger(row.losses),

@@ -169,6 +169,8 @@ const rankedApp = links.rankedApp;
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
+    import { rankedArenaCopy } from "../lib/ranked-arena-copy";
+    import { TOP_WEALTH } from "../lib/ranked-arena-data";
     import {
         buildRankedMatchPagePath,
         fetchPublicRankedMatch,
@@ -235,6 +237,8 @@ const rankedApp = links.rankedApp;
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
     const publicMode = profileSearchParams.has("playerId");
     const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+    // League + wealth names live with the arena copy so every surface names a standing identically.
+    const standingCopy = rankedArenaCopy[language];
 
     const escapeHtml = (value: string): string =>
         value.replace(
@@ -740,10 +744,17 @@ const rankedApp = links.rankedApp;
 
     function leagueLabel(league: number): string {
         if (!league) return copy.publicUnranked;
-        if (language === "ru") return `${league}-я ${copy.publicLeague.toLowerCase()}`;
-        const mod100 = league % 100;
-        const suffix = mod100 >= 11 && mod100 <= 13 ? "th" : league % 10 === 1 ? "st" : league % 10 === 2 ? "nd" : league % 10 === 3 ? "rd" : "th";
-        return `${league}${suffix} ${copy.publicLeague}`;
+        // Leagues are named, not numbered — the same table the arena and the game client render.
+        return standingCopy.leagueNames[league - 1] ?? copy.publicUnranked;
+    }
+
+    /** Their gold third joined to the league: "Ragged Aspirant", "Demigod Whale" (top tier trails). */
+    function standingLabel(league: number, wealth: number): string {
+        if (!league) return copy.publicUnranked;
+        const name = leagueLabel(league);
+        const tier = standingCopy.wealthNames[wealth - 1] ?? "";
+        if (!tier) return name;
+        return wealth === TOP_WEALTH ? `${name} ${tier}` : `${tier} ${name}`;
     }
 
     function publicStateLabel(state: PublicRankedProfile["state"]): string {
@@ -1179,12 +1190,12 @@ const rankedApp = links.rankedApp;
             standingEl.innerHTML = `
                 <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
                     <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
-                    <strong>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
+                    <strong>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
                     <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
                     ${seasonLine}
                 </div>
                 <dl class="ranked-standing__facts">
-                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
                     <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : copy.publicBanNotPicked)}</dd></div>

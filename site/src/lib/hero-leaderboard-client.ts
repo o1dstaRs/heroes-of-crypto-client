@@ -1,4 +1,4 @@
-import { playerInitials, type RankedPlayer, type RankedTopResponse } from "./ranked-arena-data";
+import { playerInitials, TOP_WEALTH, type RankedPlayer, type RankedTopResponse } from "./ranked-arena-data";
 import { rankedArenaCopy } from "./ranked-arena-copy";
 import { LEGACY_SEASON_CURRENCY, seasonCurrencyIconUrl, type SeasonCurrency } from "./season-currency";
 
@@ -104,7 +104,17 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
     let signature = "";
     let track: HTMLElement | null = null;
 
-    const leagueLabel = (league: number): string => replaceTemplate(copy.leagueTemplate, { n: league });
+    const leagueLabel = (league: number): string => copy.leagueNames[league - 1] ?? copy.unranked;
+    // The gold third they sit in inside that league: adjectives lead ("Ragged Aspirant"), the top
+    // tier is a noun and trails ("Demigod Whale").
+    const standingLabel = (player: RankedPlayer): string => {
+        const league = leagueLabel(player.league);
+        const tier = player.league > 0 ? (copy.wealthNames[player.wealth - 1] ?? "") : "";
+        if (!tier) {
+            return league;
+        }
+        return player.wealth === TOP_WEALTH ? `${league} ${tier}` : `${tier} ${league}`;
+    };
 
     const rankFor = (player: RankedPlayer, fallback: number): number =>
         player.position || player.leaderboardRank || fallback;
@@ -141,7 +151,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         row.dataset.heroPlayerId = player.playerId;
         row.setAttribute(
             "aria-label",
-            `${rank}. ${player.username}, ${leagueLabel(player.league)}, ${numberFormatter.format(player.mmr)} ${copy.rating}`,
+            `${rank}. ${player.username}, ${standingLabel(player)}, ${numberFormatter.format(player.mmr)} ${copy.rating}`,
         );
 
         const rankNode = el("span", "hero-ranked__rank", String(rank));
@@ -149,7 +159,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         const avatar = el("span", "hero-ranked__avatar", playerInitials(player.username));
         avatar.setAttribute("aria-hidden", "true");
         const identity = el("span", "hero-ranked__identity");
-        append(identity, el("strong", "", player.username), el("small", "", leagueLabel(player.league)));
+        append(identity, el("strong", "", player.username), el("small", "", standingLabel(player)));
         const rating = el("span", "hero-ranked__rating");
         append(rating, el("strong", "", numberFormatter.format(player.mmr)), el("small", "", copy.rating));
 

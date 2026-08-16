@@ -19,7 +19,14 @@ export interface RankedArenaCopy {
     filterLabel: string;
     sortLabel: string;
     allLeagues: string;
-    leagueTemplate: string;
+    /** Field label for a single standing ("League: Champion"). */
+    leagueLabel: string;
+    /** League display names indexed 1..5 (worst -> best), mirroring the server's LEAGUE_NAMES. */
+    leagueNames: readonly [string, string, string, string, string];
+    /** Field label for the gold third a player sits in inside their league. */
+    wealthLabel: string;
+    /** Wealth tier names indexed 1..3 (poorest -> richest), mirroring the server's WEALTH_NAMES. */
+    wealthNames: readonly [string, string, string];
     allStages: string;
     pickStage: string;
     placementStage: string;
@@ -137,7 +144,10 @@ export const rankedArenaCopy = {
         filterLabel: "Filter",
         sortLabel: "Sort by",
         allLeagues: "All leagues",
-        leagueTemplate: "League {n}",
+        leagueLabel: "League",
+        leagueNames: ["Aspirant", "Vanguard", "Marshal", "Overlord", "Demigod"],
+        wealthLabel: "Purse",
+        wealthNames: ["Ragged", "Stacked", "Whale"],
         allStages: "All stages",
         pickStage: "Picking",
         placementStage: "Placement",
@@ -255,7 +265,11 @@ export const rankedArenaCopy = {
         filterLabel: "Фильтр",
         sortLabel: "Сортировка",
         allLeagues: "Все лиги",
-        leagueTemplate: "Лига {n}",
+        leagueLabel: "Лига",
+        leagueNames: ["Новобранец", "Авангард", "Маршал", "Владыка", "Полубог"],
+        wealthLabel: "Кошелёк",
+        // Prefixed onto the league name ("Зажиточный Маршал"); "Кит" is the community's own term.
+        wealthNames: ["Нищий", "Зажиточный", "Кит"],
         allStages: "Все стадии",
         pickStage: "Выбор армии",
         placementStage: "Расстановка",

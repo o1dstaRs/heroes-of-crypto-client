@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, getLanguage, setLanguage, t, tf } from "./i18n";
 import { RU_TRANSLATIONS } from "./ru";
+import { standingLabel } from "./standing";
 
 afterEach(() => {
     setLanguage(DEFAULT_LANGUAGE);
@@ -134,5 +135,32 @@ describe("ranked flow localization", () => {
             "Map narrows next lap",
         ];
         expect(dynamicKeys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+
+    it("covers the league and wealth names the server renders into a standing", () => {
+        // These come back from the server already rendered (its LEAGUE_NAMES / WEALTH_NAMES tables,
+        // worst -> best) and reach t() as a variable, so the literal scan above cannot see them.
+        const leagueNames = ["Aspirant", "Vanguard", "Marshal", "Overlord", "Demigod", "Unranked"];
+        const wealthNames = ["Ragged", "Stacked", "Whale"];
+        expect([...leagueNames, ...wealthNames].filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
+    });
+});
+
+describe("standing label", () => {
+    it("leads with the adjective tiers and trails with the noun one, in the picked language", () => {
+        expect(standingLabel(1, "Ragged", "Aspirant")).toBe("Ragged Aspirant");
+        expect(standingLabel(2, "Stacked", "Marshal")).toBe("Stacked Marshal");
+        expect(standingLabel(3, "Whale", "Demigod")).toBe("Demigod Whale");
+        setLanguage("ru");
+        expect(standingLabel(1, "Ragged", "Aspirant")).toBe("Нищий Новобранец");
+        expect(standingLabel(3, "Whale", "Marshal")).toBe("Маршал Кит");
+    });
+
+    it("shows no wealth standing while the player has no league cohort", () => {
+        // Calibrating players come back as tier 0 with an empty wealth name.
+        expect(standingLabel(0, "", "Unranked")).toBe("Unranked");
+        expect(standingLabel(0, "", "Demigod")).toBe("Demigod");
+        expect(standingLabel(3, "Whale", "")).toBe("Whale");
+        expect(standingLabel(0, "", "")).toBe("");
     });
 });

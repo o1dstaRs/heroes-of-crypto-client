@@ -26,6 +26,7 @@ import {
     type RankedPlayer,
     type RankedStandingsResponse,
     type RankedTopResponse,
+    TOP_WEALTH,
 } from "./ranked-arena-data";
 import { isLoggedIn } from "./auth-state";
 import { fetchMyBets, impliedShare, placeBet, proposedReturn, type PredictionBet } from "./prediction-client";
@@ -281,7 +282,29 @@ const allRankedPlayers = (state: ArenaState): RankedPlayer[] => {
 };
 
 const localizedLeague = (copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy], league: number): string =>
-    replaceTemplate(copy.leagueTemplate, { n: league });
+    copy.leagueNames[league - 1] ?? copy.unranked;
+
+const localizedWealth = (copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy], wealth: number): string =>
+    copy.wealthNames[wealth - 1] ?? "";
+
+/**
+ * How a player's standing reads: their gold third joined to their league. The two lower tiers are
+ * adjectives and lead ("Ragged Aspirant"); the top tier is a noun and trails ("Demigod Whale").
+ * Falls back to the bare league while the ladder snapshot carries no tier for them — which is also
+ * every calibrating player, who has no league cohort to be measured against yet.
+ */
+const localizedStanding = (
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+    league: number,
+    wealth: number,
+): string => {
+    const name = localizedLeague(copy, league);
+    const tier = league > 0 ? localizedWealth(copy, wealth) : "";
+    if (!tier) {
+        return name;
+    }
+    return wealth === TOP_WEALTH ? `${name} ${tier}` : `${tier} ${name}`;
+};
 
 const localizedRelativeTime = (
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
@@ -462,7 +485,7 @@ const renderPlayerDetail = (
         name,
         el("span", "ranked-arena__detail-kicker", `#${player.position || player.leaderboardRank || "—"}`),
         el("h3", "", player.username),
-        el("p", "", localizedLeague(copy, player.league)),
+        el("p", "", localizedStanding(copy, player.league, player.wealth)),
     );
     append(identity, createAvatar(player.username, player.league), name);
 
@@ -632,7 +655,7 @@ const renderPlayers = (
         row.dataset.selected = String(player.playerId === selected!.playerId);
         row.setAttribute(
             "aria-label",
-            `${player.username}, ${localizedLeague(copy, player.league)}, ${player.mmr} ${copy.rating}, ${player.gold} ${currency.name}`,
+            `${player.username}, ${localizedStanding(copy, player.league, player.wealth)}, ${player.mmr} ${copy.rating}, ${player.gold} ${currency.name}`,
         );
         // Plain-hover affordance on top of the styled dossier: the balance in a native tooltip.
         row.title = `${currency.name}: ${numberFormatter.format(player.gold)}`;
@@ -640,7 +663,11 @@ const renderPlayers = (
         const rank = el("span", "ranked-arena__rank", `#${player.position || player.leaderboardRank || "—"}`);
         const identity = el("span", "ranked-arena__player-identity");
         const identityText = el("span");
-        append(identityText, el("strong", "", player.username), el("small", "", localizedLeague(copy, player.league)));
+        append(
+            identityText,
+            el("strong", "", player.username),
+            el("small", "", localizedStanding(copy, player.league, player.wealth)),
+        );
         append(identity, createAvatar(player.username, player.league), identityText);
         const dossierId = `ranked-arena-dossier-${index + 1}`;
         row.setAttribute("aria-describedby", dossierId);
@@ -881,7 +908,7 @@ const renderGameSeat = (
             : rankedState === "calibration"
               ? copy.calibratingHeading
               : ranked?.league
-                ? localizedLeague(copy, ranked.league)
+                ? localizedStanding(copy, ranked.league, ranked.wealth ?? 0)
                 : player.isBot
                   ? aiLabel
                   : copy.unranked;
@@ -908,10 +935,8 @@ const renderGameSeat = (
         dossier,
         metric(copy.rating, ranked?.mmr ? numberFormatter.format(ranked.mmr) : "—"),
         metric(copy.ladderRank, ladderRank ? `#${ladderRank}` : "—"),
-        metric(
-            labelFromTemplate(copy.leagueTemplate, "n"),
-            ranked?.league ? localizedLeague(copy, ranked.league) : "—",
-        ),
+        metric(copy.leagueLabel, ranked?.league ? localizedLeague(copy, ranked.league) : "—"),
+        metric(copy.wealthLabel, ranked?.wealth ? localizedWealth(copy, ranked.wealth) : "—"),
         metric(copy.recentForm, createLiveGameForm(ranked?.recentResults ?? [], copy)),
     );
     append(seat, dossier);

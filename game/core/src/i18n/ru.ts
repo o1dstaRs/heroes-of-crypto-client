@@ -163,6 +163,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{count}y ago": "{count} г назад",
 
     // ~~~ Player portal: statistics sections ~~~
+    "Winning strategies": "Победные стратегии",
     "Favourite combos": "Любимые связки",
     "Your most-played creature line-ups": "Ваши самые частые составы",
     "Play a few matches to build up combo stats.": "Сыграйте несколько матчей, чтобы набрать статистику связок.",
@@ -174,11 +175,13 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Field the same duo a few times to reveal your best pairings.":
         "Выставьте один и тот же дуэт несколько раз, чтобы увидеть лучшие пары.",
     "Win rate by artifact across your recent matches": "Процент побед по артефактам в последних матчах",
+    "Most played first · win rate across recent matches": "Сначала самые популярные · процент побед в последних матчах",
     "Artifact statistics": "Статистика артефактов",
     "Pick artifacts in ranked drafts to build up artifact stats.":
         "Выбирайте артефакты в рейтинговых драфтах, чтобы набрать статистику.",
     Creatures: "Существа",
     "Win rate by creature you field — best first": "Процент побед по существам — лучшие сверху",
+    "Most played first · win rate by creature": "Сначала самые популярные · процент побед по существам",
     "Creature statistics": "Статистика существ",
     "No creature stats yet.": "Пока нет статистики по существам.",
     Factions: "Фракции",
@@ -226,6 +229,20 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     // Rendered as `${remaining} ${t(...)}`, so it has to read as a suffix after a bare number.
     "calibration matches left": "матчей до конца калибровки",
     Previously: "Ранее",
+    // League names arrive from the server already rendered (English), so the dictionary keys are the
+    // server's LEAGUE_NAMES verbatim — worst to best — plus the "no league yet" label.
+    Aspirant: "Новобранец",
+    Vanguard: "Авангард",
+    Marshal: "Маршал",
+    Overlord: "Владыка",
+    Demigod: "Полубог",
+    Unranked: "Без рейтинга",
+    // Wealth third INSIDE the league, prefixed onto its name ("Золотой Владыка"). Masculine
+    // adjectives: every league name they attach to is a masculine noun.
+    Ragged: "Нищий",
+    Stacked: "Зажиточный",
+    // Russian crypto slang for a big holder, used untranslated by the community.
+    Whale: "Кит",
 
     // ~~~ Match history ~~~
     "Match history": "История матчей",
