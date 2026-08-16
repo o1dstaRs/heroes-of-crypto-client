@@ -19,12 +19,12 @@ import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
 import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
-import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
+import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
 import { ArenaChatPanel } from "./ArenaChatPanel";
 import { PublicLobbiesPanel } from "./PublicLobbiesPanel";
 import { RankedBanPicker } from "./RankedBanPicker";
 import { WagerStakeBox } from "./WagerStakeBox";
-import { Perk } from "@heroesofcrypto/common";
+import { Doctrine } from "@heroesofcrypto/common";
 import { useAuthContext } from "./auth/context/auth_context";
 import {
     hocActionPrimaryButtonSx,
@@ -35,8 +35,8 @@ import {
     hocPrimaryButtonSx,
     hocSoftButtonSx,
 } from "./hocTheme";
-import { PerkIcon } from "./PerkIcon";
-import { getPerkCopy } from "./perkCopy";
+import { DoctrineIcon } from "./DoctrineIcon";
+import { getDoctrineCopy } from "./doctrineCopy";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { useRankedSeason } from "./useRankedSeason";
@@ -136,9 +136,9 @@ export const MatchmakingRoute: React.FC = () => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
     const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
-    // Pre-game perk (scouting doctrine): free to toggle until the player queues/starts; the chosen
-    // value is locked into localStorage and read back by the in-game PERK pick phase to auto-commit.
-    const [preGamePerk, setPreGamePerkState] = useState<Perk.Perk>(() => getPreGamePerk());
+    // Pre-game doctrine (scouting doctrine): free to toggle until the player queues/starts; the chosen
+    // value is locked into localStorage and read back by the in-game DOCTRINE pick phase to auto-commit.
+    const [preGameDoctrine, setPreGameDoctrineState] = useState<Doctrine.Doctrine>(() => getPreGameDoctrine());
 
     // No-accept penalty: the server sets match_making_cooldown_till (ms epoch) when a player lets a found
     // match expire without accepting, and rejects re-queue until it passes. Surface it as a live countdown
@@ -1324,18 +1324,18 @@ export const MatchmakingRoute: React.FC = () => {
                                             gap: { xs: 1, sm: 1.25 },
                                         }}
                                     >
-                                        {[...Perk.PERK_LIST]
+                                        {[...Doctrine.DOCTRINE_LIST]
                                             .sort((a, b) => a.upgradePoints - b.upgradePoints)
                                             .map((p) => {
-                                                const isSelected = preGamePerk === p.id;
-                                                const copy = getPerkCopy(p.id);
+                                                const isSelected = preGameDoctrine === p.id;
+                                                const copy = getDoctrineCopy(p.id);
                                                 // The doctrine is locked in before the draft and quietly sets the
                                                 // augment budget spent much later at placement, so the full
                                                 // what/costs/why lives on hover rather than only in the card.
                                                 const hover = copy ? (
                                                     <Box sx={{ maxWidth: 320, p: 0.5, display: "grid", gap: 0.75 }}>
                                                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                            <PerkIcon perkId={p.id} size={38} />
+                                                            <DoctrineIcon doctrineId={p.id} size={38} />
                                                             <Typography level="title-sm" sx={{ color: "common.white" }}>
                                                                 {t(p.name)}
                                                             </Typography>
@@ -1356,9 +1356,9 @@ export const MatchmakingRoute: React.FC = () => {
                                                 ) : (
                                                     t(p.description)
                                                 );
-                                                const selectPerk = (): void => {
-                                                    setPreGamePerkState(p.id);
-                                                    setPreGamePerk(p.id);
+                                                const selectDoctrine = (): void => {
+                                                    setPreGameDoctrineState(p.id);
+                                                    setPreGameDoctrine(p.id);
                                                 };
                                                 return (
                                                     <Tooltip
@@ -1376,11 +1376,11 @@ export const MatchmakingRoute: React.FC = () => {
                                                             aria-checked={isSelected}
                                                             tabIndex={0}
                                                             variant="outlined"
-                                                            onClick={selectPerk}
+                                                            onClick={selectDoctrine}
                                                             onKeyDown={(event) => {
                                                                 if (event.key === "Enter" || event.key === " ") {
                                                                     event.preventDefault();
-                                                                    selectPerk();
+                                                                    selectDoctrine();
                                                                 }
                                                             }}
                                                             sx={{
@@ -1442,7 +1442,7 @@ export const MatchmakingRoute: React.FC = () => {
                                                                         : "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
                                                                 }}
                                                             >
-                                                                <PerkIcon perkId={p.id} />
+                                                                <DoctrineIcon doctrineId={p.id} />
                                                             </Box>
                                                             <Typography
                                                                 level="title-md"
@@ -1541,8 +1541,10 @@ export const MatchmakingRoute: React.FC = () => {
                                 waiting without navigating away from the arena. */}
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
                                 <Stack spacing={1} sx={{ pt: 0.5 }}>
-                                    <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
-                                    <PublicLobbiesPanel dense />
+                                    {/* Its own box, and only when somebody is actually waiting: an empty
+                                        "no open lobbies" card is column space spent on absence. The browse
+                                        button above still reaches the full list and the create control. */}
+                                    <PublicLobbiesPanel dense boxed hideWhenEmpty />
                                     <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
                                     <ArenaChatPanel selfUsername={user?.username} />
                                 </Stack>

@@ -142,7 +142,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               [
                   "Доктрины",
                   "Три доктрины драфта: сколько состава противника вы видите и сколько очков апгрейдов это приносит.",
-                  "rules-perks",
+                  "rules-doctrines",
                   "перки разведка очки Scout Spymaster Blind Fury",
               ],
               [
@@ -210,8 +210,8 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               [
                   "Doctrines",
                   "The three draft doctrines: how much of the opponent you see, and the augment points it pays.",
-                  "rules-perks",
-                  "perks scout spymaster blind fury points",
+                  "rules-doctrines",
+                  "doctrines scout spymaster blind fury points",
               ],
               [
                   "Faction synergies",

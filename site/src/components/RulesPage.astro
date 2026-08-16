@@ -319,12 +319,12 @@ const copy = isRu
                   text: "+1 или +2 шага. Иногда лишняя клетка важнее лишнего урона.",
               },
           ],
-          perksTitle: "Доктрины: обзор стоит очков",
-          perksIntro:
+          doctrinesTitle: "Доктрины: обзор стоит очков",
+          doctrinesIntro:
               "Доктрина — самый первый выбор в драфте, и она действует весь драфт. Она определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртого варианта нет, и поменять доктрину позже нельзя.",
-          perksTableCaption: "Доктрины: обзор против очков апгрейдов",
-          perksColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
-          perks: [
+          doctrinesTableCaption: "Доктрины: обзор против очков апгрейдов",
+          doctrinesColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
+          doctrines: [
               {
                   name: "Spymaster",
                   sees: "Все выборы противника, по мере того как он их делает.",
@@ -344,7 +344,7 @@ const copy = isRu
                   note: "Драфт вслепую — зато самая сильная армия.",
               },
           ],
-          perksOutro:
+          doctrinesOutro:
               "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете существо, которое противник уже забрал, вас просто вернут к выбору — если только ваша доктрина не раскрывала этот слот.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
@@ -621,12 +621,12 @@ const copy = isRu
                   text: "+1 or +2 movement steps. Sometimes one extra cell is worth more than another damage buff.",
               },
           ],
-          perksTitle: "Doctrines: what you see costs you points",
-          perksIntro:
+          doctrinesTitle: "Doctrines: what you see costs you points",
+          doctrinesIntro:
               "Your doctrine is the very first pick of the draft, and it lasts the whole draft. It decides how much of the opponent's roster you watch — and it pays you for looking away: the less you see, the larger your augment budget. There is no fourth option and you cannot change it later.",
-          perksTableCaption: "Doctrines: reveal versus augment points",
-          perksColumns: ["Doctrine", "What you see", "Augment points"],
-          perks: [
+          doctrinesTableCaption: "Doctrines: reveal versus augment points",
+          doctrinesColumns: ["Doctrine", "What you see", "Augment points"],
+          doctrines: [
               {
                   name: "Spymaster",
                   sees: "Every one of the opponent's picks, as they happen.",
@@ -646,7 +646,7 @@ const copy = isRu
                   note: "Draft blind, field the strongest army.",
               },
           ],
-          perksOutro:
+          doctrinesOutro:
               "Those points are the whole augment budget you spend before placement, so the doctrine is an army-size decision as much as an information one. Picking a creature the opponent already took simply sends you back to pick again — unless your doctrine revealed that slot.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
@@ -808,7 +808,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Драфт" },
                   { href: "#rule-unit-stats", label: "Характеристики" },
                   { href: "#rule-augments", label: "Апгрейды" },
-                  { href: "#rule-perks", label: "Доктрины" },
+                  { href: "#rule-doctrines", label: "Доктрины" },
                   { href: "#rule-synergies", label: "Синергии" },
                   { href: "#rule-placement", label: "Расстановка" },
               ],
@@ -836,7 +836,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Draft" },
                   { href: "#rule-unit-stats", label: "Unit statistics" },
                   { href: "#rule-augments", label: "Augments" },
-                  { href: "#rule-perks", label: "Doctrines" },
+                  { href: "#rule-doctrines", label: "Doctrines" },
                   { href: "#rule-synergies", label: "Synergies" },
                   { href: "#rule-placement", label: "Placement" },
               ],
@@ -1144,38 +1144,38 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
     </section>
 
-    <section class="section rules-section" id="rule-perks" tabindex="-1">
+    <section class="section rules-section" id="rule-doctrines" tabindex="-1">
         <div class="page-shell">
             <div class="section-heading rules-reading-width">
                 <p class="eyebrow">{isRu ? "Доктрины" : "Doctrines"}</p>
-                <SectionTitle class="rules-section-title">{copy.perksTitle}</SectionTitle>
-                <p>{copy.perksIntro}</p>
+                <SectionTitle class="rules-section-title">{copy.doctrinesTitle}</SectionTitle>
+                <p>{copy.doctrinesIntro}</p>
             </div>
-            <div class="rules-table-scroll" role="region" aria-labelledby="rules-perk-table-title" tabindex="0">
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-doctrine-table-title" tabindex="0">
                 <table class="rules-aug-table">
-                    <caption id="rules-perk-table-title">{copy.perksTableCaption}</caption>
+                    <caption id="rules-doctrine-table-title">{copy.doctrinesTableCaption}</caption>
                     <thead>
                         <tr>
-                            {copy.perksColumns.map((column) => <th scope="col">{column}</th>)}
+                            {copy.doctrinesColumns.map((column) => <th scope="col">{column}</th>)}
                         </tr>
                     </thead>
                     <tbody>
-                        {copy.perks.map((perk) => (
+                        {copy.doctrines.map((doctrine) => (
                             <tr>
                                 <th scope="row" class="rules-aug-name">
                                     <div>
-                                        <strong>{perk.name}</strong>
-                                        <em>{perk.note}</em>
+                                        <strong>{doctrine.name}</strong>
+                                        <em>{doctrine.note}</em>
                                     </div>
                                 </th>
-                                <td>{perk.sees}</td>
-                                <td>{perk.points}</td>
+                                <td>{doctrine.sees}</td>
+                                <td>{doctrine.points}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <p class="rules-reading-width">{copy.perksOutro}</p>
+            <p class="rules-reading-width">{copy.doctrinesOutro}</p>
         </div>
     </section>
 

@@ -34,7 +34,7 @@ describe("site to game auth handoff", () => {
     test("adds the selected live bearer while preserving query and unrelated fragment values", () => {
         const raw = token(Math.floor(Date.now() / 1000) + 3600);
         values.set("accessToken", raw);
-        const target = new URL("https://beta.heroesofcrypto.io/play?mode=ranked#view=compact");
+        const target = new URL("https://app.heroesofcrypto.io/play?mode=ranked#view=compact");
         const result = withGameAuthToken(target);
 
         expect(result.search).toBe("?mode=ranked");
@@ -48,7 +48,7 @@ describe("site to game auth handoff", () => {
         values.set("accessToken", token(Math.floor(Date.now() / 1000) - 3600));
         values.set("hocAuthUser", '{"username":"stale"}');
         const target = new URL(
-            "https://beta.heroesofcrypto.io/play?vol=0.4&muted=0#access_token=Bearer+stale.jwt.token&view=compact",
+            "https://app.heroesofcrypto.io/play?vol=0.4&muted=0#access_token=Bearer+stale.jwt.token&view=compact",
         );
         const result = withGameAuthToken(target);
         const hash = new URLSearchParams(result.hash.slice(1));
@@ -62,7 +62,7 @@ describe("site to game auth handoff", () => {
     test("replaces either legacy handoff key with the selected token", () => {
         const raw = token(Math.floor(Date.now() / 1000) + 3600);
         values.set("accessToken", `Bearer ${raw}`);
-        const target = new URL("https://beta.heroesofcrypto.io/#accessToken=old.jwt.token");
+        const target = new URL("https://app.heroesofcrypto.io/#accessToken=old.jwt.token");
         const result = withGameAuthToken(target);
         const hash = new URLSearchParams(result.hash.slice(1));
 
@@ -73,7 +73,9 @@ describe("site to game auth handoff", () => {
     test("sends production lobbies to the game client rather than the authenticated game API", async () => {
         const source = await Bun.file(new URL("../pages/play/lobbies.astro", import.meta.url)).text();
 
-        expect(source).toContain('? ["https://beta.heroesofcrypto.io"]');
+        // The client lives at app.; game. is the authenticated game API. Sending players to the API
+        // hostname would hand them a 401 instead of a lobby, which is the mistake this guards.
+        expect(source).toContain('? ["https://app.heroesofcrypto.io"]');
         expect(source).not.toContain('? ["https://game.heroesofcrypto.io"]');
     });
 });

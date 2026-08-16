@@ -44,6 +44,20 @@ export const lobbyStatusLabel = (status: number | undefined): string => {
 export interface PublicLobbiesPanelProps {
     /** Compact rows for the arena column; the standalone browse screen uses the roomier default. */
     dense?: boolean;
+    /**
+     * Draw inside a panel box of its own. The arena stacks several unrelated blocks in one column, so
+     * the lobbies need a visible container to read as their own thing rather than more queue chrome;
+     * the standalone browse page already IS the box and passes this off.
+     */
+    boxed?: boolean;
+    /**
+     * Render nothing at all when there is nothing to show.
+     *
+     * For the arena: an empty box that says "no open lobbies" is column space spent on absence. Only
+     * safe where another route to lobbies survives — the arena keeps its browse button, which reaches
+     * the standalone page and its create control.
+     */
+    hideWhenEmpty?: boolean;
 }
 
 /**
@@ -56,7 +70,11 @@ export interface PublicLobbiesPanelProps {
  * Creating is NOT free: the host is charged ceil(season human gold / 1000) and never refunded, so the
  * price is quoted on the button and inside the dialog rather than sprung as an error after the click.
  */
-export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({ dense = false }) => {
+export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
+    dense = false,
+    boxed = false,
+    hideWhenEmpty = false,
+}) => {
     const navigate = useNavigate();
     useTranslation();
     // The purse, so the button can refuse before the server has to. Null while it loads (or if the
@@ -163,7 +181,14 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({ dense = 
               ? t("Free while the season has minted no gold")
               : `${price} G · ${t("non-refundable")}`;
 
-    return (
+    // Nothing to show and the caller does not want the empty state: disappear entirely, including the
+    // box. Deliberately NOT hidden while still loading or after an error — flashing in on every poll,
+    // or swallowing "failed to load lobbies", would both read as a broken panel rather than an empty one.
+    if (hideWhenEmpty && !loading && !error && lobbies.length === 0) {
+        return null;
+    }
+
+    const body = (
         <>
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                 <Typography level="title-md" sx={{ color: hocColors.sidebarTitle }}>
@@ -295,5 +320,22 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({ dense = 
                 </ModalDialog>
             </Modal>
         </>
+    );
+
+    if (!boxed) {
+        return body;
+    }
+    return (
+        <Sheet
+            variant="outlined"
+            sx={{
+                ...hocPanelSx,
+                p: dense ? 1.25 : 2,
+                borderRadius: "12px",
+                borderColor: hocColors.orangeBorder,
+            }}
+        >
+            <Stack spacing={dense ? 0.75 : 1.25}>{body}</Stack>
+        </Sheet>
     );
 };

@@ -17,7 +17,7 @@ import {
     GridSettings,
     GridVals,
     HoCConfig,
-    Perk,
+    Doctrine,
     PlacementPositionType,
     RectanglePlacement,
     TeamType,
@@ -254,11 +254,11 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         centerDried: false,
         upNext: [],
         damageStats: [],
-        // The doctrine sets the augment budget the sidebar recaps. The opponent's perk, artifacts and
+        // The doctrine sets the augment budget the sidebar recaps. The opponent's doctrine, artifacts and
         // augments stay 0 before the fight starts — that redaction is the server's, and copying it keeps
         // the preview from showing information the real screen hides.
-        lowerPerk: viewerIsLower ? Perk.Perk.THREE_REVEALS : 0,
-        upperPerk: viewerIsLower ? 0 : Perk.Perk.THREE_REVEALS,
+        lowerDoctrine: viewerIsLower ? Doctrine.Doctrine.THREE_REVEALS : 0,
+        upperDoctrine: viewerIsLower ? 0 : Doctrine.Doctrine.THREE_REVEALS,
         lowerArtifactTier1: viewerIsLower ? 1 : 0,
         lowerArtifactTier2: viewerIsLower ? 1 : 0,
         upperArtifactTier1: viewerIsLower ? 0 : 1,

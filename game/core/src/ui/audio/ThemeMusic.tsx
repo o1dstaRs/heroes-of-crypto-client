@@ -24,6 +24,20 @@ import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from 
  */
 const VOLUME_KEY = "hoc:themeVolume";
 const MUTED_KEY = "hoc:themeMuted";
+/**
+ * Which generation of DEFAULT_VOLUME a browser has already adopted.
+ *
+ * The stored volume is written on FIRST LOAD, before the player has touched anything (see the persist
+ * effect below), so the default of the day gets burned into every browser that ever opened the game.
+ * Lowering DEFAULT_VOLUME therefore reached nobody who had visited before: they kept opening at the old
+ * 0.5 and had no idea it was a stale default rather than a choice they had made.
+ *
+ * Bump this whenever DEFAULT_VOLUME changes and existing browsers should be pulled to the new value.
+ * It resets a deliberately-chosen volume once, which is the price of fixing the far more common case of
+ * a value nobody ever chose.
+ */
+const VOLUME_REVISION_KEY = "hoc:themeVolumeRev";
+const VOLUME_REVISION = "2";
 // 10% (owner call, down from a "medium" 0.5, and re-confirmed 2026-08-16): the menu theme opened far
 // louder than most players wanted on first load, so it starts quiet and is turned UP by anyone who wants
 // it. This is the FIRST-LOAD value only — readInitialSettings prefers a stored hoc:themeVolume, so
@@ -78,7 +92,11 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
     let muted = false;
     try {
         const storedVolume = window.localStorage.getItem(VOLUME_KEY);
-        if (storedVolume !== null && Number.isFinite(Number(storedVolume))) {
+        // A browser that has not adopted this revision keeps whatever default was current when it first
+        // loaded — take DEFAULT_VOLUME instead of that stale value. The persist effect writes the new
+        // revision alongside the volume, so this happens exactly once per browser.
+        const adopted = window.localStorage.getItem(VOLUME_REVISION_KEY) === VOLUME_REVISION;
+        if (adopted && storedVolume !== null && Number.isFinite(Number(storedVolume))) {
             volume = clamp01(Number(storedVolume));
         }
         muted = window.localStorage.getItem(MUTED_KEY) === "1";
@@ -269,6 +287,8 @@ export const ThemeMusic: React.FC = () => {
         try {
             window.localStorage.setItem(VOLUME_KEY, String(volume));
             window.localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
+            // Stamped with the volume it belongs to, so a browser is only pulled to a new default once.
+            window.localStorage.setItem(VOLUME_REVISION_KEY, VOLUME_REVISION);
         } catch {
             // The choice just will not outlive the session.
         }

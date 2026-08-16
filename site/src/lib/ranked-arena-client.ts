@@ -117,7 +117,7 @@ const gameApiBaseUrl = String(
     sameHostApiOrigin ||
         import.meta.env.VITE_HOST_GAME_API ||
         import.meta.env.VITE_GAME_API ||
-        (isProduction ? "https://game.heroesofcrypto.io" : "http://localhost:3001"),
+        (isProduction ? "https://app.heroesofcrypto.io" : "http://localhost:3001"),
 ).replace(/\/+$/, "");
 
 const rawGameClientUrl = String(
@@ -125,7 +125,7 @@ const rawGameClientUrl = String(
         import.meta.env.VITE_GAME_CLIENT_RANKED ||
         import.meta.env.VITE_GAME_CLIENT ||
         import.meta.env.VITE_HOST_GAME_CLIENT ||
-        (isProduction ? "https://beta.heroesofcrypto.io" : "http://localhost:5174"),
+        (isProduction ? "https://app.heroesofcrypto.io" : "http://localhost:5174"),
 ).replace(/\/+$/, "");
 
 export const gameClientRoot = rawGameClientUrl.replace(/\/play$/, "");

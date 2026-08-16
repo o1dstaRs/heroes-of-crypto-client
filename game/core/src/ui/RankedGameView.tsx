@@ -3,7 +3,7 @@ import {
     AttackVals,
     Augment,
     FightStateManager,
-    Perk,
+    Doctrine,
     TeamVals,
     type GameAction,
     type TeamType,
@@ -380,10 +380,10 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     // FightProperties so the client's applyArtifacts / applyAugments (run when the scene hydrates units
     // from the snapshot -> refreshUnits) reproduce the same per-unit "System" buffs and boosted stats the
     // server computed. Without this the left sidebar shows base stats and no artifact/augment buffs, since
-    // the ranked client never picks these locally. Perk also drives the placement augment sidebar's
+    // the ranked client never picks these locally. Doctrine also drives the placement augment sidebar's
     // upgrade-point budget. Defined BEFORE the snapshot-apply effect below, so FightProperties is populated
     // before hydration. Opponent values are hidden (0) during placement and revealed at fight start, so we
-    // sync each team verbatim (0 clears to NO_ARTIFACT / NO_AUGMENT / NO_PERK).
+    // sync each team verbatim (0 clears to NO_ARTIFACT / NO_AUGMENT / NO_DOCTRINE).
     useEffect(() => {
         if (!snapshot) {
             return;
@@ -391,7 +391,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         const fp = FightStateManager.getInstance().getFightProperties();
         const syncTeam = (team: TeamType, side: "lower" | "upper"): void => {
             const s = snapshot;
-            fp.setPerkPerTeam(team, ((side === "lower" ? s.lowerPerk : s.upperPerk) || Perk.Perk.NO_PERK) as Perk.Perk);
+            fp.setDoctrinePerTeam(
+                team,
+                ((side === "lower" ? s.lowerDoctrine : s.upperDoctrine) ||
+                    Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine,
+            );
             fp.setArtifactPerTeam(
                 team,
                 Artifact.ArtifactTier.TIER_1,
@@ -2066,11 +2070,11 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
 // straight off the authoritative snapshot. Participants have richer interactive panels for their
 // own side; spectators get this compact two-column recap instead — values appear exactly when the
 // server reveals them (opponent artifacts at fight start, synergies once the fight begins).
-const observerPerkName = (perkId?: number): string => {
-    if (!perkId) {
+const observerDoctrineName = (doctrineId?: number): string => {
+    if (!doctrineId) {
         return t("None");
     }
-    const raw = (Perk.Perk as unknown as Record<number, string>)[perkId] ?? `#${perkId}`;
+    const raw = (Doctrine.Doctrine as unknown as Record<number, string>)[doctrineId] ?? `#${doctrineId}`;
     const pretty = raw.replaceAll("_", " ").toLowerCase();
     return pretty.charAt(0).toUpperCase() + pretty.slice(1);
 };
@@ -2087,7 +2091,7 @@ const ObserverTeamSetup: React.FC<{
     snapshot: PlaySnapshot;
     side: "lower" | "upper";
 }> = ({ label, identityLine, snapshot, side }) => {
-    const perkId = side === "lower" ? snapshot.lowerPerk : snapshot.upperPerk;
+    const doctrineId = side === "lower" ? snapshot.lowerDoctrine : snapshot.upperDoctrine;
     const tier1 = (side === "lower" ? snapshot.lowerArtifactTier1 : snapshot.upperArtifactTier1) ?? 0;
     const tier2 = (side === "lower" ? snapshot.lowerArtifactTier2 : snapshot.upperArtifactTier2) ?? 0;
     const synergies = (side === "lower" ? snapshot.lowerSynergies : snapshot.upperSynergies) ?? [];
@@ -2123,7 +2127,7 @@ const ObserverTeamSetup: React.FC<{
                 </Typography>
             )}
             <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                {tf("Doctrine: {name}", { name: t(observerPerkName(perkId)) })}
+                {tf("Doctrine: {name}", { name: t(observerDoctrineName(doctrineId)) })}
             </Typography>
             {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
             {augments.length > 0 && (
@@ -2395,7 +2399,7 @@ const RankedAugmentSummary: React.FC<{
         { label: "Movement", level: pick(snapshot.lowerAugmentMovement, snapshot.upperAugmentMovement) },
     ];
     // Point cost equals the augment level value (Placement LEVEL_1 == 0 == free); the server enforces
-    // the same sum against the perk budget (getUpgradePoints / canAugment).
+    // the same sum against the doctrine budget (getUpgradePoints / canAugment).
     const spent = rows.reduce((total, r) => total + r.level, 0);
     const synergies = FightStateManager.getInstance().getFightProperties().getSynergiesPerTeam(userTeam);
     // Placement always resolves to at least LEVEL_1 (value 0); other categories start at NO_AUGMENT (0).
@@ -2755,10 +2759,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
 }) => {
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
-    // The perk sets the upgrade-point budget (5/6/7 via getUpgradePoints).
-    const userPerkId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerPerk : snapshot?.upperPerk) ||
-        Perk.Perk.NO_PERK) as Perk.Perk;
-    const augmentBudget = Perk.getUpgradePoints(userPerkId);
+    // The doctrine sets the upgrade-point budget (5/6/7 via getUpgradePoints).
+    const userDoctrineId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerDoctrine : snapshot?.upperDoctrine) ||
+        Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine;
+    const augmentBudget = Doctrine.getUpgradePoints(userDoctrineId);
     // Ranked placement opens the augment step as its own screen; the player picks there, locks in, and
     // the chosen upgrades collapse to a read-only sidebar summary. null = not yet interacted -> open by
     // default at placement start.
@@ -3016,10 +3020,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                         }}
                                     >
                                         <MyDraftBar
-                                            perk={
+                                            doctrine={
                                                 (userTeam === TeamVals.LOWER
-                                                    ? snapshot.lowerPerk
-                                                    : snapshot.upperPerk) ?? 0
+                                                    ? snapshot.lowerDoctrine
+                                                    : snapshot.upperDoctrine) ?? 0
                                             }
                                             picked={snapshot.units
                                                 .filter((unit) => unit.team === userTeam && !unit.dead)

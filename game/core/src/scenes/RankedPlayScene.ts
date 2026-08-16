@@ -2238,7 +2238,7 @@ export class RankedPlayScene extends Sandbox {
     /**
      * Ranked routes placement-time augment spending through the authoritative server: send an `augment`
      * action for the viewer's own team. The server validates the upgrade-point budget (canAugment against
-     * the seeded perk), stores it, resizes the placement grid / applies stats, and re-broadcasts the
+     * the seeded doctrine), stores it, resizes the placement grid / applies stats, and re-broadcasts the
      * snapshot. We optimistically apply locally too so the sidebar's remaining-points + selection update
      * immediately; the next authoritative snapshot reconciles. Only the viewer's own team, never the opponent.
      */

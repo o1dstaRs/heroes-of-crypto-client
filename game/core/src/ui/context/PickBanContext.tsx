@@ -27,7 +27,7 @@ export const PickBanEventProvider: React.FC<{
     const [revealsRemaining, setRevealsRemaining] = useState<number>(0);
     const [initialBundles, setInitialBundles] = useState<[number, number, number][]>([]);
     const [tier2Offers, setTier2Offers] = useState<number[]>([]);
-    const [perk, setPerk] = useState<number>(0);
+    const [doctrine, setDoctrine] = useState<number>(0);
     const [upgradePoints, setUpgradePoints] = useState<number>(0);
     const [artifactTier1, setArtifactTier1] = useState<number>(0);
     const [artifactTier2, setArtifactTier2] = useState<number>(0);
@@ -95,7 +95,7 @@ export const PickBanEventProvider: React.FC<{
             setError(null);
             setInitialBundles(event.ip);
             setTier2Offers(event.t2 ?? []);
-            setPerk(event.pk ?? 0);
+            setDoctrine(event.pk ?? 0);
             setUpgradePoints(event.up ?? 0);
             // event.art is [tier, artifactId] pairs (tier 1 or 2); split into the two slots for display.
             const artifacts = event.art ?? [];
@@ -142,7 +142,7 @@ export const PickBanEventProvider: React.FC<{
             revealsRemaining,
             initialBundles,
             tier2Offers,
-            perk,
+            doctrine,
             upgradePoints,
             artifactTier1,
             artifactTier2,
@@ -166,7 +166,7 @@ export const PickBanEventProvider: React.FC<{
             revealsRemaining,
             initialBundles,
             tier2Offers,
-            perk,
+            doctrine,
             upgradePoints,
             artifactTier1,
             artifactTier2,

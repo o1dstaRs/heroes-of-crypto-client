@@ -5,7 +5,7 @@ const lang = "en";
 const sandboxPath = (url: string) => url.replace(/\/play\/?$/, "/");
 const remoteGameClientUrls = [
     import.meta.env.VITE_GAME_CLIENT_SANDBOX,
-    "https://beta.heroesofcrypto.io/",
+    "https://app.heroesofcrypto.io/",
 ]
     .filter(Boolean)
     .map((url) => sandboxPath(String(url)));

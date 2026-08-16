@@ -16,7 +16,7 @@ const configuredGameClientUrls = [
     .filter(Boolean)
     .map((url) => clientRoot(String(url)));
 const fallbackGameClientUrls = isProd
-    ? ["https://beta.heroesofcrypto.io"]
+    ? ["https://app.heroesofcrypto.io"]
     : [
           "http://127.0.0.1:5175",
           "http://localhost:5175",
@@ -25,7 +25,11 @@ const fallbackGameClientUrls = isProd
           "http://127.0.0.1:5173",
           "http://localhost:5173",
       ];
-const gameClientRoots = [...new Set([...configuredGameClientUrls, ...fallbackGameClientUrls])];
+// An EXPLICIT VITE_GAME_CLIENT* build wins outright rather than being a suggestion: a staging
+// build that still carried the production URL as a fallback would quietly send testers to prod.
+const gameClientRoots = configuredGameClientUrls.length
+    ? [...new Set(configuredGameClientUrls)]
+    : [...new Set(fallbackGameClientUrls)];
 const fallbackUrl = `${gameClientRoots[0]}/lobbies`;
 ---
 

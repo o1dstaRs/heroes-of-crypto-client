@@ -24,7 +24,7 @@ const POLL_MS = 3_000;
 const SLOT_LEVELS = ["L1", "L1", "L2", "L2", "L3", "L4"] as const;
 
 const PHASE_LABELS: Record<string, string> = {
-    PERK: "Choosing doctrines",
+    DOCTRINE: "Choosing doctrines",
     INITIAL_PICK: "Opening bundles",
     PICK: "Picking creatures",
     BAN: "Banning creatures",

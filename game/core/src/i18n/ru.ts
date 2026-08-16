@@ -311,7 +311,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "Усиления и синергии для этого старого матча не записаны.",
     "Combat setup not recorded": "Боевая настройка не записана",
     "None recorded": "Не записано",
-    Perk: "Перк",
+    Doctrine: "Перк",
     "{count} pts": "{count} оч.",
     Placement: "Расстановка",
     Empower: "Усиление",

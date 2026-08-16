@@ -39,7 +39,7 @@ const copy = isRu
           noDamage: "Нет сохранённой статистики урона.",
           armySetup: "Подготовка армий",
           artifacts: "Артефакты",
-          perk: "Доктрина",
+          doctrine: "Доктрина",
           augments: "Усиления",
           synergies: "Синергии",
           noSetup: "Подготовка этой армии не была сохранена в старом отчёте.",
@@ -86,7 +86,7 @@ const copy = isRu
           noDamage: "No unit damage was recorded.",
           armySetup: "Army setup",
           artifacts: "Artifacts",
-          perk: "Doctrine",
+          doctrine: "Doctrine",
           augments: "Augments",
           synergies: "Synergies",
           noSetup: "This army's setup was not recorded for the older report.",
@@ -137,7 +137,7 @@ const copy = isRu
         type Tier1Artifact,
         type Tier2Artifact,
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
-    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+    import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import {
@@ -231,8 +231,8 @@ const copy = isRu
         return `<span class="artifact-chip"><img src="${escapeHtml(image)}" alt="" width="40" height="40" /><span><small>Tier ${tier}</small><strong>${escapeHtml(artifact.name)}</strong></span></span>`;
     };
 
-    const perkName = (id: number): string => {
-        const fallback = getPerkProperties(id as Perk).name;
+    const doctrineName = (id: number): string => {
+        const fallback = getDoctrineProperties(id as Doctrine).name;
         if (language !== "ru") return fallback;
         return ({ Scout: "Разведчик", Spymaster: "Шпион", "Blind Fury": "Слепая ярость", None: "Нет" } as Record<
             string,
@@ -362,7 +362,7 @@ const copy = isRu
                 <h3>${escapeHtml(player.username)}</h3>
                 <dl class="setup-list">
                     <div><dt>${escapeHtml(text("artifacts"))}</dt><dd class="artifact-list">${artifactCard(1, setup.artifactTier1)}${artifactCard(2, setup.artifactTier2)}</dd></div>
-                    <div><dt>${escapeHtml(text("perk"))}</dt><dd><span class="perk-chip">◈ ${escapeHtml(perkName(setup.perk))}</span></dd></div>
+                    <div><dt>${escapeHtml(text("doctrine"))}</dt><dd><span class="doctrine-chip">◈ ${escapeHtml(doctrineName(setup.doctrine))}</span></dd></div>
                     <div><dt>${escapeHtml(text("augments"))}</dt><dd class="augment-list">${augments || '<span class="setup-empty">—</span>'}</dd></div>
                     <div><dt>${escapeHtml(text("synergies"))}</dt><dd class="synergy-list">${synergies}</dd></div>
                 </dl>
@@ -415,7 +415,7 @@ const copy = isRu
                     <h2>${escapeHtml(headline)}</h2>
                     <span>${escapeHtml(orderedPlayers[0].username)} ${escapeHtml(text("versus"))} ${escapeHtml(orderedPlayers[1].username)}</span>
                 </div>
-                <a class="replay-button" href="${escapeHtml(replay)}">↻ ${escapeHtml(text("replay"))}</a>
+                <a class="replay-button" href="${escapeHtml(replay)}"><span class="replay-glyph" aria-hidden="true">↻</span>${escapeHtml(text("replay"))}</a>
             </section>
             <div class="match-facts">
                 <span><b>${escapeHtml(text("finished"))}</b>${escapeHtml(finished)}</span>
@@ -496,9 +496,14 @@ const copy = isRu
         color: #a99d8d;
     }
 
+    /* .replay-button lives in the innerHTML-injected hero, so it is styled globally further down — a scoped
+       rule here would never reach it. */
     .match-back,
-    .replay-button,
     .match-state--error button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
         border: 1px solid rgba(208, 151, 66, 0.48);
         border-radius: 3px;
         background: rgba(50, 31, 13, 0.56);
@@ -810,6 +815,50 @@ const copy = isRu
         color: #d8c3a0;
     }
 
+    /* Sized against the site-wide .button (48px tall, 8px radius) so the hero's primary action reads as a
+       button rather than the bare text link it degraded into while only a scoped rule targeted it. */
+    .match-page :global(.replay-button) {
+        display: inline-flex;
+        gap: 0.55rem;
+        align-items: center;
+        justify-content: center;
+        min-height: 52px;
+        padding: 0.85rem 1.7rem;
+        border: 1px solid rgba(220, 177, 88, 0.5);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(90, 55, 24, 0.7), rgba(48, 29, 12, 0.7));
+        color: var(--gold-soft, #efd49a);
+        font: inherit;
+        font-size: clamp(0.95rem, 1.35vw, 1.1rem);
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-decoration: none;
+        text-transform: uppercase;
+        white-space: nowrap;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+        transition:
+            transform 0.14s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease,
+            background 0.18s ease;
+    }
+
+    .match-page :global(.replay-glyph) {
+        font-size: 1.25em;
+        line-height: 1;
+    }
+
+    .match-page :global(.replay-button:hover) {
+        border-color: rgba(238, 199, 118, 0.82);
+        background: linear-gradient(180deg, rgba(112, 69, 30, 0.78), rgba(60, 37, 16, 0.78));
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
+        transform: translateY(-1px);
+    }
+
+    .match-page :global(.replay-button:active) {
+        transform: translateY(1px);
+    }
+
     .match-page :global(.performance-panel),
     .match-page :global(.setup-panel) {
         padding: 1.2rem;
@@ -887,7 +936,7 @@ const copy = isRu
 
     .match-page :global(.artifact-chip),
     .match-page :global(.augment-chip),
-    .match-page :global(.perk-chip),
+    .match-page :global(.doctrine-chip),
     .match-page :global(.synergy-chip) {
         display: inline-flex;
         align-items: center;
@@ -944,8 +993,11 @@ const copy = isRu
             align-items: start;
         }
 
-        .match-back,
-        .replay-button {
+        .match-back {
+            width: fit-content;
+        }
+
+        .match-page :global(.replay-button) {
             width: fit-content;
         }
 

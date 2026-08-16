@@ -1,4 +1,4 @@
-import { Artifact, Perk, SynergyKeysToPower, TeamVals } from "@heroesofcrypto/common";
+import { Artifact, Doctrine, SynergyKeysToPower, TeamVals } from "@heroesofcrypto/common";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
@@ -15,7 +15,7 @@ import { t, tf, useTranslation } from "../../i18n/i18n";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
-import { getPerkIconImage } from "../perkCopy";
+import { getDoctrineIconImage } from "../doctrineCopy";
 import {
     filterPortalMatches,
     formatMatchDamage,
@@ -440,7 +440,7 @@ const SetupSummary: React.FC<{
         );
     }
 
-    const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
+    const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
     const artifacts = artifactsForSetup(setup);
     return (
         <Box sx={{ mt: compact ? 0.65 : 0.8, minWidth: 0 }}>
@@ -451,13 +451,13 @@ const SetupSummary: React.FC<{
                 {t("Your build")}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: compact ? 0.7 : 0.9 }}>
-                <SetupSummaryGroup compact={compact} label={t("Perk")}>
+                <SetupSummaryGroup compact={compact} label={t("Doctrine")}>
                     <SetupSummaryIcon
-                        badge={`${perk.upgradePoints}`}
+                        badge={`${doctrine.upgradePoints}`}
                         compact={compact}
-                        detail={`${perk.name}: ${perk.description}`}
+                        detail={`${doctrine.name}: ${doctrine.description}`}
                         fallback={<ExploreRoundedIcon />}
-                        image={getPerkIconImage(setup.perk)}
+                        image={getDoctrineIconImage(setup.doctrine)}
                         roundImage
                     />
                 </SetupSummaryGroup>
@@ -552,7 +552,7 @@ const TeamBuildChoices: React.FC<{
         );
     }
 
-    const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
+    const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
     const artifacts = artifactsForSetup(setup);
 
     return (
@@ -561,13 +561,13 @@ const TeamBuildChoices: React.FC<{
                 {label}
             </Typography>
 
-            <SetupRow label={t("Perk")}>
+            <SetupRow label={t("Doctrine")}>
                 <SetupChoice
-                    detail={perk.description}
+                    detail={doctrine.description}
                     fallback={<ExploreRoundedIcon />}
-                    image={getPerkIconImage(setup.perk)}
-                    name={perk.name}
-                    badge={tf("{count} pts", { count: perk.upgradePoints })}
+                    image={getDoctrineIconImage(setup.doctrine)}
+                    name={doctrine.name}
+                    badge={tf("{count} pts", { count: doctrine.upgradePoints })}
                     roundImage
                 />
             </SetupRow>

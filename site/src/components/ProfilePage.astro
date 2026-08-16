@@ -176,7 +176,7 @@ const rankedApp = links.rankedApp;
         type Tier1Artifact,
         type Tier2Artifact,
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
-    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+    import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
     import { isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
@@ -465,7 +465,7 @@ const rankedApp = links.rankedApp;
     interface MatchSetupView {
         artifactTier1: number;
         artifactTier2: number;
-        perk: number;
+        doctrine: number;
         augments: Array<{ kind: string; level: number; slug: string }>;
         synergies: string[];
         available: boolean;
@@ -643,7 +643,7 @@ const rankedApp = links.rankedApp;
         return {
             artifactTier1: num(row?.artifact_tier_1),
             artifactTier2: num(row?.artifact_tier_2),
-            perk: num(row?.perk),
+            doctrine: num(row?.doctrine),
             augments: complete ? augments.filter((augment, index) => index === 0 || augment.level > 0) : [],
             synergies: complete && Array.isArray(row?.synergies) ? row.synergies.filter((entry): entry is string => typeof entry === "string") : [],
             available: !!row,
@@ -663,7 +663,7 @@ const rankedApp = links.rankedApp;
         return {
             artifactTier1: setup.artifactTier1,
             artifactTier2: setup.artifactTier2,
-            perk: setup.perk,
+            doctrine: setup.doctrine,
             augments: available ? augments.filter((augment, index) => index === 0 || augment.level > 0) : [],
             synergies: available ? setup.synergies : [],
             available,
@@ -676,12 +676,12 @@ const rankedApp = links.rankedApp;
             return `<section class="match-build"><h4>${escapeHtml(label)}</h4><p class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</p></section>`;
         }
         const artifactsMarkup = `${artifactChoice(1, setup.artifactTier1)}${artifactChoice(2, setup.artifactTier2)}`;
-        let perkMarkup = "";
+        let doctrineMarkup = "";
         try {
-            const perk = getPerkProperties(setup.perk as Perk);
-            if (perk?.name) perkMarkup = `<span class="match-choice"><span>${escapeHtml(perk.name)}</span></span>`;
+            const doctrine = getDoctrineProperties(setup.doctrine as Doctrine);
+            if (doctrine?.name) doctrineMarkup = `<span class="match-choice"><span>${escapeHtml(doctrine.name)}</span></span>`;
         } catch {
-            perkMarkup = "";
+            doctrineMarkup = "";
         }
         const augmentsMarkup = setup.augments
             .map(
@@ -692,7 +692,7 @@ const rankedApp = links.rankedApp;
         const synergiesMarkup = setup.synergies.map(synergyChoice).join("");
         const choiceRow = (title: string, value: string): string =>
             `<div><dt>${escapeHtml(title)}</dt><dd>${value || `<span class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</span>`}</dd></div>`;
-        return `<section class="match-build"><h4>${escapeHtml(label)}</h4><dl>${choiceRow(copy.matchPerk, perkMarkup)}${choiceRow(copy.matchArtifacts, artifactsMarkup)}${choiceRow(copy.matchAugments, setup.complete ? augmentsMarkup : "")}${choiceRow(copy.matchSynergies, setup.complete ? synergiesMarkup : "")}</dl></section>`;
+        return `<section class="match-build"><h4>${escapeHtml(label)}</h4><dl>${choiceRow(copy.matchDoctrine, doctrineMarkup)}${choiceRow(copy.matchArtifacts, artifactsMarkup)}${choiceRow(copy.matchAugments, setup.complete ? augmentsMarkup : "")}${choiceRow(copy.matchSynergies, setup.complete ? synergiesMarkup : "")}</dl></section>`;
     }
 
     function portalPerformances(value: unknown): Array<{ creatureId: number; damageDealt: number }> {
@@ -1129,7 +1129,15 @@ const rankedApp = links.rankedApp;
         if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
         const rating = placed ? numberFormatter.format(profile.mmr) : copy.publicRatingHidden;
-        const rank = placed && profile.leaderboardRank ? `#${numberFormatter.format(profile.leaderboardRank)}` : copy.publicUnranked;
+        // "Unranked" belongs to a player who has not been PLACED. A placed commander outside the top
+        // league has no ladder POSITION — ranked_math only numbers league 5 — and calling them unranked
+        // contradicted the RANKED badge and the league printed directly beneath it. A dash reads as "no
+        // position", which is the truth, and matches how the arena dossier renders the same missing rank.
+        const rank = !placed
+            ? copy.publicUnranked
+            : profile.leaderboardRank
+              ? `#${numberFormatter.format(profile.leaderboardRank)}`
+              : "—";
 
         if (nameEl) nameEl.textContent = profile.username;
         if (goldEl) {

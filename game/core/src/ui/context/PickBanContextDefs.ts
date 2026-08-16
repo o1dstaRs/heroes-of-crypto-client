@@ -10,9 +10,9 @@ export interface IPickPhaseEventData {
     ip: [number, number, number][];
     // Tier-2 artifacts offered to THIS player during ARTIFACT_2 (3 distinct ids of 12); empty otherwise.
     t2?: number[];
-    // perk chosen by THIS player (0 = not chosen)
+    // doctrine chosen by THIS player (0 = not chosen)
     pk?: number;
-    // upgrade (augment) point budget granted by THIS player's perk
+    // upgrade (augment) point budget granted by THIS player's doctrine
     up?: number;
     // required creature level for the current PICK phase (0 for non-pick phases)
     lv?: number;
@@ -85,8 +85,8 @@ export interface PickBanContextType {
     initialBundles: [number, number, number][];
     // Tier-2 artifacts offered to this player during ARTIFACT_2 (3 distinct ids of 12).
     tier2Offers: number[];
-    // This player's chosen perk (0 = none) and its upgrade-point budget.
-    perk: number;
+    // This player's chosen doctrine (0 = none) and its upgrade-point budget.
+    doctrine: number;
     upgradePoints: number;
     // This player's own picked artifacts so far (Tier1Artifact/Tier2Artifact enum ids; 0 = none yet).
     artifactTier1: number;
@@ -116,7 +116,7 @@ export const PickBanContext = createContext<PickBanContextType>({
     phaseIdentity: "pending",
     initialBundles: [],
     tier2Offers: [],
-    perk: 0,
+    doctrine: 0,
     upgradePoints: 0,
     artifactTier1: 0,
     artifactTier2: 0,
