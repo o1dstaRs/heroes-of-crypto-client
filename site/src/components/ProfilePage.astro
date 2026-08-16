@@ -2123,7 +2123,9 @@ const rankedApp = links.rankedApp;
 
     .season-row {
         display: grid;
-        grid-template-columns: minmax(140px, 1.5fr) 1.2fr 1fr 0.9fr 0.9fr 0.6fr 0.8fr;
+        grid-template-columns:
+            minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.6fr)
+            minmax(0, 0.8fr);
         gap: 10px;
         align-items: center;
         padding: 10px 14px;
@@ -2131,6 +2133,17 @@ const rankedApp = links.rankedApp;
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.24);
         font-size: 0.86rem;
+    }
+
+    /* Each field is a single value (a name, a record, a percentage…), never meant to break mid-word —
+       a narrow grid track wrapping "1 games" into "1" / "games" on two lines is the bug this guards
+       against. min-width: 0 lets a grid item shrink below its text's intrinsic width so the ellipsis can
+       actually take over instead of the row blowing out or wrapping. */
+    .season-row > span {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
     }
 
     .season-row .season-name {
@@ -2168,7 +2181,7 @@ const rankedApp = links.rankedApp;
 
     @media (max-width: 720px) {
         .season-row {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         }
 
         .season-row .season-games {
