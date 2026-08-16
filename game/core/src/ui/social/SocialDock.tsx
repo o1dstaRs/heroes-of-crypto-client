@@ -741,6 +741,10 @@ export const SocialDock: React.FC = () => {
         <Stack
             direction="row"
             spacing={inGame ? 0.6 : 1}
+            // DockPanelShell's click-outside dismissal skips anything inside this row: these buttons
+            // toggle their own panel, and letting the outside-click fire as well would close it on the
+            // way down and reopen it on the way up.
+            data-social-dock-button="true"
             sx={{
                 position: fightDockSlot ? "relative" : "fixed",
                 top: "auto",
@@ -763,7 +767,7 @@ export const SocialDock: React.FC = () => {
             <IconButton
                 aria-label="Predictions"
                 sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
-                onClick={() => setPredictionsOpen(true)}
+                onClick={() => setPredictionsOpen((wasOpen) => !wasOpen)}
             >
                 <span role="img" aria-hidden>
                     🎯
@@ -774,7 +778,7 @@ export const SocialDock: React.FC = () => {
                 sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
                 onClick={() => {
                     social.requestNotificationPermission();
-                    setFriendsOpen(true);
+                    setFriendsOpen((wasOpen) => !wasOpen);
                 }}
             >
                 <span role="img" aria-hidden>
@@ -787,7 +791,7 @@ export const SocialDock: React.FC = () => {
                     sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
                     onClick={() => {
                         social.requestNotificationPermission();
-                        setTrayOpen(true);
+                        setTrayOpen((wasOpen) => !wasOpen);
                     }}
                 >
                     <span role="img" aria-hidden>

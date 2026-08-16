@@ -24,10 +24,14 @@ import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from 
  */
 const VOLUME_KEY = "hoc:themeVolume";
 const MUTED_KEY = "hoc:themeMuted";
-// 10% (owner call, down from a "medium" 0.5): the menu theme opened far louder than most players wanted
-// on first load, so it now starts quiet and is turned UP by anyone who wants it. Must stay in step with
-// ThemeMusic.astro — a player who has never touched the slider crosses between the two origins with no
-// stored value, and a mismatch is an audible jump.
+// 10% (owner call, down from a "medium" 0.5, and re-confirmed 2026-08-16): the menu theme opened far
+// louder than most players wanted on first load, so it starts quiet and is turned UP by anyone who wants
+// it. This is the FIRST-LOAD value only — readInitialSettings prefers a stored hoc:themeVolume, so
+// lowering it changes nothing for anyone who has already touched the slider.
+//
+// The marketing site used to carry its own copy that had to be kept in step; its background music was
+// removed (site commit e71d0b7) and the game client is now the only thing that sings, so there is no
+// longer a second origin to match.
 const DEFAULT_VOLUME = 0.1;
 const FADE_MS = 900;
 
