@@ -1,5 +1,6 @@
 import { playerInitials, TOP_WEALTH, type RankedPlayer, type RankedTopResponse } from "./ranked-arena-data";
 import { rankedArenaCopy } from "./ranked-arena-copy";
+import { leagueEmblemPath } from "./league-emblems";
 import { LEGACY_SEASON_CURRENCY, seasonCurrencyIconUrl, type SeasonCurrency } from "./season-currency";
 
 export interface HeroLeaderboardUpdate {
@@ -158,6 +159,12 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         rankNode.setAttribute("aria-hidden", "true");
         const avatar = el("span", "hero-ranked__avatar", playerInitials(player.username));
         avatar.setAttribute("aria-hidden", "true");
+        const leagueEmblem = el("img", "hero-ranked__league-emblem");
+        leagueEmblem.src = leagueEmblemPath(player.league);
+        leagueEmblem.alt = "";
+        leagueEmblem.width = 22;
+        leagueEmblem.height = 22;
+        append(avatar, leagueEmblem);
         const identity = el("span", "hero-ranked__identity");
         append(identity, el("strong", "", player.username), el("small", "", standingLabel(player)));
         const rating = el("span", "hero-ranked__rating");

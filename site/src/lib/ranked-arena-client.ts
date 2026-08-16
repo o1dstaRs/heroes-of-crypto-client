@@ -29,6 +29,7 @@ import {
     TOP_WEALTH,
 } from "./ranked-arena-data";
 import { isLoggedIn } from "./auth-state";
+import { leagueEmblemPath } from "./league-emblems";
 import { fetchMyBets, impliedShare, placeBet, proposedReturn, type PredictionBet } from "./prediction-client";
 import { rankedArenaCopy } from "./ranked-arena-copy";
 import { initHeroLeaderboard, type HeroLeaderboardController } from "./hero-leaderboard-client";
@@ -359,6 +360,12 @@ const createAvatar = (username: string, league: number): HTMLElement => {
     const avatar = el("span", "ranked-arena__avatar", playerInitials(username));
     avatar.dataset.league = String(league);
     avatar.setAttribute("aria-hidden", "true");
+    const emblem = el("img", "ranked-arena__avatar-league");
+    emblem.src = leagueEmblemPath(league);
+    emblem.alt = "";
+    emblem.width = 24;
+    emblem.height = 24;
+    append(avatar, emblem);
     return avatar;
 };
 
@@ -1144,7 +1151,11 @@ const renderLeagues = (
         card.style.setProperty("--population", `${Math.max(4, (league.playerCount / maxPopulation) * 100)}%`);
 
         const header = el("div", "ranked-arena__league-header");
-        const crest = el("span", "ranked-arena__league-crest", String(league.league));
+        const crest = el("img", "ranked-arena__league-crest");
+        crest.src = leagueEmblemPath(league.league);
+        crest.alt = "";
+        crest.width = 62;
+        crest.height = 62;
         crest.setAttribute("aria-hidden", "true");
         const title = el("div");
         append(

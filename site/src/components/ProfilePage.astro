@@ -122,6 +122,19 @@ const rankedApp = links.rankedApp;
                     </details>
                 </section>
 
+                <section class="profile-section profile-section--predictions" data-profile-gold-section hidden>
+                    <details class="prediction-panel" data-profile-gold-panel>
+                        <summary class="prediction-panel__summary">
+                            <span class="prediction-panel__heading" role="heading" aria-level="2">{copy.goldHistoryTitle}</span>
+                            <span class="prediction-panel__metrics" data-profile-gold-summary></span>
+                            <span class="prediction-panel__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="prediction-panel__body">
+                            <div class="prediction-history" data-profile-gold-history></div>
+                        </div>
+                    </details>
+                </section>
+
                 <section class="profile-section" data-profile-self>
                     <h2>{copy.sectionCreatures}</h2>
                     <div class="bar-list" data-profile-creatures></div>
@@ -171,6 +184,7 @@ const rankedApp = links.rankedApp;
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import { rankedArenaCopy } from "../lib/ranked-arena-copy";
     import { TOP_WEALTH } from "../lib/ranked-arena-data";
+    import { leagueEmblemPath } from "../lib/league-emblems";
     import {
         buildRankedMatchPagePath,
         fetchPublicRankedMatch,
@@ -1187,12 +1201,16 @@ const rankedApp = links.rankedApp;
             const seasonLine = profile.season
                 ? `<small class="ranked-standing__season">${escapeHtml(`${profile.season.name} · ${currentCurrency.name}`)}</small>`
                 : "";
+            const emblemLabel = placed ? leagueLabel(profile.league) : publicStateLabel(profile.state);
             standingEl.innerHTML = `
                 <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
-                    <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
-                    <strong>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
-                    <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
-                    ${seasonLine}
+                    <img class="ranked-standing__emblem" src="${leagueEmblemPath(placed ? profile.league : 0)}" alt="${escapeHtml(emblemLabel)}" width="128" height="128" />
+                    <div class="ranked-standing__copy">
+                        <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
+                        <strong>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
+                        <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
+                        ${seasonLine}
+                    </div>
                 </div>
                 <dl class="ranked-standing__facts">
                     <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
@@ -1390,6 +1408,87 @@ const rankedApp = links.rankedApp;
                 wagerRows,
                 `<p class="prediction-history__empty">${escapeHtml(copy.wagerHistoryEmpty)}</p>`,
             );
+        }
+
+        // The purse timeline: every movement in one list, newest first. The prediction and wager
+        // panels above each show one KIND of gold; this is where a balance is actually explained —
+        // match winnings, the daily league reward, stakes going out and payouts coming back.
+        // Flat keys rather than a nested map so the copy object stays one level deep, like every
+        // other label on this page (it is serialized into the DOM and re-parsed by this script).
+        const goldKindLabel = (kind: string): string =>
+            ({
+                match: copy.goldKindMatch,
+                daily_league: copy.goldKindDailyLeague,
+                bet_placed: copy.goldKindBetPlaced,
+                bet_payout: copy.goldKindBetPayout,
+                bet_refund: copy.goldKindBetRefund,
+                wager_escrow: copy.goldKindWagerEscrow,
+                wager_payout: copy.goldKindWagerPayout,
+                wager_refund: copy.goldKindWagerRefund,
+                admin_adjust: copy.goldKindAdminAdjust,
+                season_reset: copy.goldKindSeasonReset,
+            })[kind] ?? kind;
+
+        const goldSection = document.querySelector<HTMLElement>("[data-profile-gold-section]");
+        const goldHistoryEl = document.querySelector<HTMLElement>("[data-profile-gold-history]");
+        const goldSummaryEl = document.querySelector<HTMLElement>("[data-profile-gold-summary]");
+        if (goldSection && goldHistoryEl) {
+            const movements = summaryOnly ? [] : profile.goldHistory;
+            goldSection.hidden = movements.length === 0;
+
+            if (goldSummaryEl) {
+                const earned = movements.filter((m) => m.delta > 0).reduce((sum, m) => sum + m.delta, 0);
+                const spent = movements.filter((m) => m.delta < 0).reduce((sum, m) => sum - m.delta, 0);
+                goldSummaryEl.innerHTML = `
+                    <span class="prediction-panel__metric positive"><b>${currencyMarkup(earned, "+", currentCurrency, true)}</b><span>${escapeHtml(copy.goldHistoryEarned)}</span></span>
+                    <span class="prediction-panel__metric negative"><b>${currencyMarkup(-spent, "", currentCurrency, true)}</b><span>${escapeHtml(copy.goldHistorySpent)}</span></span>`;
+            }
+
+            goldHistoryEl.innerHTML = movements.length
+                ? movements
+                      .map((movement) => {
+                          const label = goldKindLabel(movement.kind);
+                          const tone = movement.delta > 0 ? "positive" : "negative";
+                          const sign = movement.delta > 0 ? "+" : "";
+                          // A daily reward is the one movement with no match behind it, so it names
+                          // the league that earned it instead of a game id.
+                          const leagueName =
+                              typeof movement.detail?.leagueName === "string" ? movement.detail.leagueName : "";
+                          const context = leagueName
+                              ? escapeHtml(leagueName)
+                              : typeof movement.detail?.gameId === "string"
+                                ? `<code title="${escapeHtml(movement.detail.gameId)}">${escapeHtml(
+                                      movement.detail.gameId.slice(0, 8),
+                                  )}</code>`
+                                : "";
+                          const when = new Date(movement.at);
+                          const whenValid = Number.isFinite(when.getTime());
+                          const whenTime = whenValid
+                              ? `<time datetime="${escapeHtml(when.toISOString())}">${escapeHtml(
+                                    dateFormatter.format(when),
+                                )}</time>`
+                              : "—";
+                          const balance =
+                              movement.balanceAfter === null
+                                  ? ""
+                                  : `<span>${escapeHtml(copy.goldHistoryBalance)} ${currencyMarkup(movement.balanceAfter)}</span>`;
+                          return `
+                    <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${movement.delta}`)}">
+                        <div class="prediction-row__outcome">
+                            <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                            <strong class="prediction-outcome ${tone}">${currencyMarkup(movement.delta, sign, currentCurrency, true)}</strong>
+                        </div>
+                        <div class="prediction-row__bet">
+                            <strong>${context || escapeHtml(label)}</strong>
+                            ${balance}
+                        </div>
+                        <div class="prediction-row__context">
+                            <span class="prediction-row__placed">${whenTime}</span>
+                        </div>
+                    </article>`;
+                      })
+                      .join("")
+                : `<p class="prediction-history__empty">${escapeHtml(copy.goldHistoryEmpty)}</p>`;
         }
 
         // Previous seasons: the archived final standings (MMR resets each season; this is where the
@@ -2400,6 +2499,9 @@ const rankedApp = links.rankedApp;
     .ranked-standing :global(.ranked-standing__banner) {
         position: relative;
         display: grid;
+        grid-template-columns: 118px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
         align-content: center;
         min-height: 150px;
         padding: 18px 20px;
@@ -2410,6 +2512,19 @@ const rankedApp = links.rankedApp;
             radial-gradient(circle at 88% 12%, rgba(255, 143, 0, 0.2), transparent 40%),
             linear-gradient(145deg, rgba(70, 41, 17, 0.72), rgba(15, 10, 7, 0.94));
         box-shadow: inset 0 0 28px rgba(255, 143, 0, 0.05);
+    }
+
+    .ranked-standing :global(.ranked-standing__emblem) {
+        display: block;
+        width: 118px;
+        height: 118px;
+        object-fit: contain;
+        filter: drop-shadow(0 9px 12px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 10px rgba(220, 177, 88, 0.24));
+    }
+
+    .ranked-standing :global(.ranked-standing__copy) {
+        display: grid;
+        min-width: 0;
     }
 
     .ranked-standing :global(.ranked-standing__state) {
@@ -2957,6 +3072,17 @@ const rankedApp = links.rankedApp;
 
         .ranked-standing :global(.ranked-standing__facts) {
             grid-template-columns: 1fr;
+        }
+
+        .ranked-standing :global(.ranked-standing__banner) {
+            grid-template-columns: 88px minmax(0, 1fr);
+            gap: 10px;
+            padding: 14px;
+        }
+
+        .ranked-standing :global(.ranked-standing__emblem) {
+            width: 88px;
+            height: 88px;
         }
 
         .ranked-standing :global(.ranked-standing__previous) {

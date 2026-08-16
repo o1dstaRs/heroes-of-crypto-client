@@ -175,6 +175,67 @@ export interface WagerHistory {
     recent: WagerRecord[];
 }
 
+/**
+ * One movement of the purse. Every other history on this page shows a single KIND of gold — bets,
+ * wagers, per-season totals; this is the combined timeline, so a player can see where a balance
+ * actually came from rather than inferring it.
+ */
+export type GoldMovementKind =
+    | "match"
+    | "daily_league"
+    | "bet_placed"
+    | "bet_payout"
+    | "bet_refund"
+    | "wager_escrow"
+    | "wager_payout"
+    | "wager_refund"
+    | "admin_adjust"
+    | "season_reset";
+
+export interface GoldMovement {
+    at: number;
+    /** UTC calendar day the movement belongs to. */
+    dayKey: string;
+    kind: GoldMovementKind;
+    /** Signed: credits positive, debits (stakes, escrow) negative. */
+    delta: number;
+    /** Purse right after the movement, when the writing query could observe it. */
+    balanceAfter: number | null;
+    seasonSequence: number;
+    /** Kind-specific extras — `leagueName` for a daily grant, `gameId` for match/bet/wager rows. */
+    detail: Record<string, unknown>;
+}
+
+const GOLD_MOVEMENT_KINDS: readonly GoldMovementKind[] = [
+    "match",
+    "daily_league",
+    "bet_placed",
+    "bet_payout",
+    "bet_refund",
+    "wager_escrow",
+    "wager_payout",
+    "wager_refund",
+    "admin_adjust",
+    "season_reset",
+];
+
+const normalizeGoldHistory = (value: unknown): GoldMovement[] =>
+    (Array.isArray(value) ? value : [])
+        .map((row: Record<string, unknown>) => ({
+            at: asInteger(row?.at),
+            dayKey: asString(row?.dayKey),
+            kind: (GOLD_MOVEMENT_KINDS.includes(row?.kind as GoldMovementKind)
+                ? row?.kind
+                : "match") as GoldMovementKind,
+            // Debits are negative, so this is the one number here that must NOT be clamped at zero.
+            delta: asInteger(row?.delta),
+            balanceAfter: typeof row?.balanceAfter === "number" ? nonNegativeInteger(row.balanceAfter) : null,
+            seasonSequence: nonNegativeInteger(row?.seasonSequence),
+            detail: (row?.detail ?? {}) as Record<string, unknown>,
+        }))
+        .filter((entry) => entry.delta !== 0)
+        .sort((a, b) => b.at - a.at);
+
 export interface ProfileSeason {
     sequence: number;
     name: string;
@@ -217,6 +278,8 @@ export interface PublicRankedProfile {
     rankedBan: { creatureId: number; name: string } | null;
     predictions: PredictionHistory;
     wagers: WagerHistory;
+    // Every movement of the purse, newest first — the combined view the sections above only slice.
+    goldHistory: GoldMovement[];
     // The season the live numbers belong to (null = season-less/preseason ladder) and the final
     // standings of every season this player already finished, newest first.
     season: ProfileSeason | null;
@@ -445,6 +508,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         rankedBan: normalizeRankedBan(row.rankedBan),
         predictions: normalizePredictions(row.predictions),
         wagers: normalizeWagers(row.wagers),
+        goldHistory: normalizeGoldHistory(row.goldHistory),
         season: normalizeProfileSeason(row.season),
         seasonHistory: (Array.isArray(row.seasonHistory) ? row.seasonHistory : [])
             .map(normalizeSeasonHistoryEntry)

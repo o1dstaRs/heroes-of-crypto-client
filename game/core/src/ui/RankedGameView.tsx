@@ -88,6 +88,7 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { RankedFinishedActions } from "./RankedFinishedActions";
+import { LeagueTransitionReveal } from "./LeagueTransitionReveal";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
@@ -1794,6 +1795,13 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             onReplay={replayRankedFight}
                             onPlayAgainVsAi={isVsAiMatch && !isObserver ? handlePlayAgainVsAi : undefined}
                             onBackToLobby={handleBackToLobby}
+                        />
+                    )}
+                    {pixiReady && gameStarted && (
+                        <LeagueTransitionReveal
+                            active={snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished}
+                            enabled={!isObserver && !replayOnly && !replayPlaybackActive}
+                            gameId={gameId}
                         />
                     )}
                     {/* Persistent top-left post-match actions for the participant: quick access after the

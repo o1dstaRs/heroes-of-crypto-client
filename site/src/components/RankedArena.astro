@@ -773,6 +773,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__avatar {
+        position: relative;
         display: grid;
         place-items: center;
         width: 46px;
@@ -784,6 +785,17 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         font-size: 0.86rem;
         font-weight: 860;
         letter-spacing: 0.03em;
+    }
+
+    .ranked-arena .ranked-arena__avatar-league {
+        position: absolute;
+        right: -8px;
+        bottom: -8px;
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.78));
+        pointer-events: none;
     }
 
     .ranked-arena .ranked-arena__badge {
@@ -2025,17 +2037,11 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__league-crest {
-        display: grid;
-        place-items: center;
         flex: 0 0 auto;
-        width: 42px;
-        height: 48px;
-        clip-path: polygon(50% 0, 94% 20%, 84% 78%, 50% 100%, 16% 78%, 6% 20%);
-        background: linear-gradient(145deg, var(--gold-soft), #9d7526);
-        color: #1b1509;
-        font-size: 1rem;
-        font-weight: 900;
-        filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.3));
+        width: 62px;
+        height: 62px;
+        object-fit: contain;
+        filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.58));
     }
 
     .ranked-arena .ranked-arena__league-header > div {

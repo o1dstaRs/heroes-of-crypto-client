@@ -5,6 +5,7 @@ import { t } from "../../i18n/i18n";
 import { standingLabel } from "../../i18n/standing";
 import { hocColors } from "../hocTheme";
 import type { RankedStanding } from "../../api/social_client";
+import { LeagueEmblem } from "./LeagueEmblem";
 
 /**
  * Where the player stands on the ranked ladder, in one block used by BOTH in-game surfaces (the
@@ -38,24 +39,27 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
 
     if (placed) {
         return (
-            <Stack spacing={dense ? 0.4 : 0.75}>
-                <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
-                    {t("RANKED STANDING")}
-                </Typography>
-                <Stack direction="row" spacing={1} alignItems="baseline" flexWrap="wrap">
-                    <Typography level={dense ? "title-md" : "title-lg"} sx={{ color: hocColors.parchment }}>
-                        {/* Both halves arrive from the server in English (Ragged..Whale /
-                            Aspirant..Demigod); standingLabel() localizes each and joins them. */}
-                        {standingLabel(standing.wealth, standing.wealthName, standing.leagueName)}
+            <Stack direction="row" spacing={dense ? 1.1 : 1.75} alignItems="center">
+                <LeagueEmblem league={standing.league} label={t(standing.leagueName)} size={dense ? 54 : 82} />
+                <Stack spacing={dense ? 0.4 : 0.75} sx={{ minWidth: 0 }}>
+                    <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
+                        {t("RANKED STANDING")}
                     </Typography>
-                    <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                        {standing.mmr} {t("MMR")}
-                    </Typography>
-                    {standing.leaderboardRank > 0 && (
-                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                            · #{standing.leaderboardRank}
+                    <Stack direction="row" spacing={1} alignItems="baseline" flexWrap="wrap">
+                        <Typography level={dense ? "title-md" : "title-lg"} sx={{ color: hocColors.parchment }}>
+                            {/* Both halves arrive from the server in English (Ragged..Whale /
+                                Aspirant..Demigod); standingLabel() localizes each and joins them. */}
+                            {standingLabel(standing.wealth, standing.wealthName, standing.leagueName)}
                         </Typography>
-                    )}
+                        <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                            {standing.mmr} {t("MMR")}
+                        </Typography>
+                        {standing.leaderboardRank > 0 && (
+                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
+                                · #{standing.leaderboardRank}
+                            </Typography>
+                        )}
+                    </Stack>
                 </Stack>
             </Stack>
         );
@@ -68,72 +72,75 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
         : t("Finish these to be placed into a league. Your rating stays hidden until then.");
 
     return (
-        <Stack spacing={dense ? 0.5 : 0.85}>
-            <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={1}>
-                <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
-                    {headline}
-                </Typography>
-                <Typography level="body-sm" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
-                    {played} / {required}
-                </Typography>
-            </Stack>
-
-            {/* Pips read at a glance ("two more to go"). They ARE the progress bar — a second
-                LinearProgress underneath said the same thing twice and refused the theme tokens. */}
-            <Stack
-                direction="row"
-                spacing={0.5}
-                role="img"
-                aria-label={`${t("Calibration matches")}: ${played} / ${required}`}
-            >
-                {Array.from({ length: required }, (_, index) => (
-                    <Box
-                        key={index}
-                        sx={{
-                            flex: 1,
-                            height: dense ? 6 : 8,
-                            borderRadius: 999,
-                            bgcolor: pipColor(index, played),
-                            border: `1px solid ${index < played ? hocColors.gold : "rgba(220,177,88,0.55)"}`,
-                            transition: "background-color 200ms ease",
-                        }}
-                    />
-                ))}
-            </Stack>
-            <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
-                <Tooltip title={t("Wins · draws · losses in calibration")} size="sm" variant="soft">
-                    <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        <Box component="span" sx={{ color: hocColors.green, fontWeight: 800 }}>
-                            {calibration.wins}
-                        </Box>
-                        {" W · "}
-                        {calibration.draws}
-                        {" D · "}
-                        <Box component="span" sx={{ color: hocColors.danger, fontWeight: 800 }}>
-                            {calibration.losses}
-                        </Box>
-                        {" L"}
+        <Stack direction="row" spacing={dense ? 1.1 : 1.75} alignItems="center">
+            <LeagueEmblem league={0} label={t("Calibration")} size={dense ? 54 : 82} />
+            <Stack spacing={dense ? 0.5 : 0.85} sx={{ flex: 1, minWidth: 0 }}>
+                <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={1}>
+                    <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
+                        {headline}
                     </Typography>
-                </Tooltip>
-                {calibration.remaining > 0 && (
+                    <Typography level="body-sm" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                        {played} / {required}
+                    </Typography>
+                </Stack>
+
+                {/* Pips read at a glance ("two more to go"). They ARE the progress bar — a second
+                    LinearProgress underneath said the same thing twice and refused the theme tokens. */}
+                <Stack
+                    direction="row"
+                    spacing={0.5}
+                    role="img"
+                    aria-label={`${t("Calibration matches")}: ${played} / ${required}`}
+                >
+                    {Array.from({ length: required }, (_, index) => (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: 1,
+                                height: dense ? 6 : 8,
+                                borderRadius: 999,
+                                bgcolor: pipColor(index, played),
+                                border: `1px solid ${index < played ? hocColors.gold : "rgba(220,177,88,0.55)"}`,
+                                transition: "background-color 200ms ease",
+                            }}
+                        />
+                    ))}
+                </Stack>
+                <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
+                    <Tooltip title={t("Wins · draws · losses in calibration")} size="sm" variant="soft">
+                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                            <Box component="span" sx={{ color: hocColors.green, fontWeight: 800 }}>
+                                {calibration.wins}
+                            </Box>
+                            {" W · "}
+                            {calibration.draws}
+                            {" D · "}
+                            <Box component="span" sx={{ color: hocColors.danger, fontWeight: 800 }}>
+                                {calibration.losses}
+                            </Box>
+                            {" L"}
+                        </Typography>
+                    </Tooltip>
+                    {calibration.remaining > 0 && (
+                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                            {calibration.remaining === 1
+                                ? t("1 calibration match left")
+                                : `${calibration.remaining} ${t("calibration matches left")}`}
+                        </Typography>
+                    )}
+                </Stack>
+
+                {!dense && (
+                    <Typography level="body-xs" sx={{ color: hocColors.muted, opacity: 0.85 }}>
+                        {explainer}
+                    </Typography>
+                )}
+                {recalibrating && standing.previous && (
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        {calibration.remaining === 1
-                            ? t("1 calibration match left")
-                            : `${calibration.remaining} ${t("calibration matches left")}`}
+                        {t("Previously")}: {t(standing.previous.leagueName)} · {standing.previous.mmr} {t("MMR")}
                     </Typography>
                 )}
             </Stack>
-
-            {!dense && (
-                <Typography level="body-xs" sx={{ color: hocColors.muted, opacity: 0.85 }}>
-                    {explainer}
-                </Typography>
-            )}
-            {recalibrating && standing.previous && (
-                <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                    {t("Previously")}: {t(standing.previous.leagueName)} · {standing.previous.mmr} {t("MMR")}
-                </Typography>
-            )}
         </Stack>
     );
 };

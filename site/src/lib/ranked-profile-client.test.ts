@@ -189,6 +189,63 @@ describe("public ranked profile normalization", () => {
     });
 });
 
+describe("gold history normalization", () => {
+    const withHistory = (goldHistory: unknown) =>
+        normalizePublicRankedProfile({ playerId: PLAYER_ID, username: "Artemis", goldHistory }).goldHistory;
+
+    test("keeps debits NEGATIVE — a stake leaving the purse must not be clamped to zero", () => {
+        const [entry] = withHistory([
+            { at: 1000, dayKey: "2026-08-15", kind: "bet_placed", delta: -40, seasonSequence: 1 },
+        ]);
+        expect(entry.delta).toBe(-40);
+        expect(entry.kind).toBe("bet_placed");
+    });
+
+    test("orders newest first regardless of the order the server sent", () => {
+        const entries = withHistory([
+            { at: 1000, dayKey: "2026-08-15", kind: "match", delta: 10, seasonSequence: 1 },
+            { at: 3000, dayKey: "2026-08-17", kind: "daily_league", delta: 50, seasonSequence: 1 },
+            { at: 2000, dayKey: "2026-08-16", kind: "match", delta: 20, seasonSequence: 1 },
+        ]);
+        expect(entries.map((entry) => entry.at)).toEqual([3000, 2000, 1000]);
+    });
+
+    test("drops zero-delta rows, which say nothing about a purse", () => {
+        expect(withHistory([{ at: 1000, dayKey: "2026-08-15", kind: "match", delta: 0, seasonSequence: 1 }])).toEqual(
+            [],
+        );
+    });
+
+    test("falls back to a known kind rather than rendering an unknown string", () => {
+        const [entry] = withHistory([
+            { at: 1000, dayKey: "2026-08-15", kind: "not_a_real_kind", delta: 5, seasonSequence: 1 },
+        ]);
+        expect(entry.kind).toBe("match");
+    });
+
+    test("carries the daily grant's league through so the row can name it", () => {
+        const [entry] = withHistory([
+            {
+                at: 1000,
+                dayKey: "2026-08-15",
+                kind: "daily_league",
+                delta: 50,
+                seasonSequence: 1,
+                balanceAfter: 1250,
+                detail: { league: 5, leagueName: "Demigod", dayKey: "2026-08-15" },
+            },
+        ]);
+        expect(entry.delta).toBe(50);
+        expect(entry.balanceAfter).toBe(1250);
+        expect(entry.detail.leagueName).toBe("Demigod");
+    });
+
+    test("a missing or malformed history is an empty list, never a crash", () => {
+        expect(withHistory(undefined)).toEqual([]);
+        expect(withHistory("nonsense")).toEqual([]);
+    });
+});
+
 describe("public ranked profile URLs", () => {
     test("supports both human UUIDs and persistent ranked AI seat ids", () => {
         expect(isPublicRankedPlayerId(PLAYER_ID)).toBe(true);
