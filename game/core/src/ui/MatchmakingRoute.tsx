@@ -11,7 +11,7 @@ import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
 import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import ViewSidebarRoundedIcon from "@mui/icons-material/ViewSidebarRounded";
-import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Alert, Box, Button, Divider, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -20,6 +20,7 @@ import { createVsAiGame } from "../api/vs_ai_client";
 import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
+import { PublicLobbiesPanel } from "./PublicLobbiesPanel";
 import { RankedBanPicker } from "./RankedBanPicker";
 import { WagerStakeBox } from "./WagerStakeBox";
 import { Perk } from "@heroesofcrypto/common";
@@ -1523,6 +1524,16 @@ export const MatchmakingRoute: React.FC = () => {
                                     >
                                         {t("Practice vs AI")}
                                     </Button>
+                                </Stack>
+                            ) : null}
+
+                            {/* Open lobbies live right here rather than behind a separate browse screen: a
+                                player who does not want the ranked queue can see a human is already
+                                waiting without navigating away from the arena. */}
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                                <Stack spacing={1} sx={{ pt: 0.5 }}>
+                                    <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+                                    <PublicLobbiesPanel dense />
                                 </Stack>
                             ) : null}
 

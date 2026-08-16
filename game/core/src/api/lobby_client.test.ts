@@ -13,6 +13,7 @@ import { axiosMMInstance, endpoints } from "./axios";
 import {
     createLobby,
     fetchLobby,
+    fetchLobbyPriceBreakdown,
     fetchPublicLobbies,
     joinLobby,
     leaveLobby,
@@ -173,5 +174,49 @@ describe("lobby client", () => {
         await expect(
             openLobbyEventStream("unavailable", () => undefined, new AbortController().signal),
         ).rejects.toThrow("Lobby event stream failed: 503");
+    });
+});
+
+describe("lobby creation price", () => {
+    test("reads the price and the figures behind it from the JSON endpoint", async () => {
+        const get = spyOn(axiosMMInstance, "get").mockResolvedValue({
+            data: { price: 42, seasonGold: 84_000, calibratedPlayers: 200, perCalibratedPlayer: 10 },
+        } as never);
+        expect(await fetchLobbyPriceBreakdown()).toEqual({
+            price: 42,
+            seasonGold: 84_000,
+            calibratedPlayers: 200,
+            perCalibratedPlayer: 10,
+        });
+        expect(String(get.mock.calls[0]?.[0])).toContain(endpoints.mm.lobbyPrice);
+    });
+
+    test("0 means the season has no economy yet and lobbies are still free", async () => {
+        spyOn(axiosMMInstance, "get").mockResolvedValue({
+            data: { price: 0, seasonGold: 0, calibratedPlayers: 0, perCalibratedPlayer: 10 },
+        } as never);
+        expect((await fetchLobbyPriceBreakdown()).price).toBe(0);
+    });
+
+    test("a malformed answer reads as free rather than as a bogus charge", async () => {
+        // The quote is only DISPLAYED — the server charges what it charges — so a garbled body must
+        // not render as "costs NaN G" or, worse, as a negative price the UI reads as a credit.
+        for (const body of [{}, { price: "12" }, { price: -5 }, { price: Number.NaN }, null]) {
+            spyOn(axiosMMInstance, "get").mockResolvedValue({ data: body } as never);
+            expect((await fetchLobbyPriceBreakdown()).price).toBe(0);
+        }
+    });
+
+    test("keeps a sane per-player divisor even if the server omits it", async () => {
+        // The explanation reads "spread over N slots each"; a 0 there would be nonsense on screen.
+        spyOn(axiosMMInstance, "get").mockResolvedValue({ data: { price: 5 } } as never);
+        expect((await fetchLobbyPriceBreakdown()).perCalibratedPlayer).toBe(10);
+    });
+
+    test("floors fractional figures so the UI never shows a part-coin price", async () => {
+        spyOn(axiosMMInstance, "get").mockResolvedValue({
+            data: { price: 7.9, seasonGold: 100.5, calibratedPlayers: 3.2, perCalibratedPlayer: 10 },
+        } as never);
+        expect(await fetchLobbyPriceBreakdown()).toMatchObject({ price: 7, seasonGold: 100, calibratedPlayers: 3 });
     });
 });

@@ -203,6 +203,7 @@ export const endpoints = {
         lobby: IS_PROD ? "/v1/lobby" : "/v1/mm/lobby",
         lobbyEvents: IS_PROD ? "/v1/lobby-events" : "/v1/mm/lobby-events",
         lobbyCreate: IS_PROD ? "/v1/lobby-create" : "/v1/mm/lobby-create",
+        lobbyPrice: IS_PROD ? "/v1/lobby-price" : "/v1/mm/lobby-price",
         lobbyJoin: IS_PROD ? "/v1/lobby-join" : "/v1/mm/lobby-join",
         lobbyReady: IS_PROD ? "/v1/lobby-ready" : "/v1/mm/lobby-ready",
         lobbyStart: IS_PROD ? "/v1/lobby-start" : "/v1/mm/lobby-start",

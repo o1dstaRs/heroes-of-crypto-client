@@ -43,6 +43,38 @@ export const fetchPublicLobbies = async (): Promise<LobbyObject[]> => {
     return LobbyList.deserializeBinary(toBytes(response.data)).toObject().lobbies ?? [];
 };
 
+/** The lobby-creation price and the two season figures it is derived from. */
+export interface LobbyPriceBreakdown {
+    price: number;
+    seasonGold: number;
+    calibratedPlayers: number;
+    perCalibratedPlayer: number;
+}
+
+const nonNegativeInt = (value: unknown): number =>
+    typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+
+/**
+ * What opening a lobby costs right now — ceil(season gold / (calibrated players x 10)) — together
+ * with its inputs, so the lobbies screen can EXPLAIN the charge instead of asserting a number that
+ * moves on its own. Charged to the host and never returned. Plain JSON rather than protobuf: none of
+ * this belongs on a lobby message.
+ *
+ * Every field is floored at 0. The quote is only ever displayed — the server charges what it charges
+ * — so a garbled body must render as "free", never as "costs NaN G" or as a negative the UI would
+ * read as a credit.
+ */
+export const fetchLobbyPriceBreakdown = async (): Promise<LobbyPriceBreakdown> => {
+    const response = await axiosMMInstance.get(buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.lobbyPrice));
+    const body = (response.data ?? {}) as Record<string, unknown>;
+    return {
+        price: nonNegativeInt(body.price),
+        seasonGold: nonNegativeInt(body.seasonGold),
+        calibratedPlayers: nonNegativeInt(body.calibratedPlayers),
+        perCalibratedPlayer: nonNegativeInt(body.perCalibratedPlayer) || 10,
+    };
+};
+
 export const fetchLobby = async (lobbyId: string): Promise<LobbyObject> => {
     const response = await axiosMMInstance.get(appendEncodedPath(endpoints.mm.lobby, lobbyId), {
         responseType: "arraybuffer",
