@@ -17,6 +17,8 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
 import { setVolumeSlot } from "../audio/volumeSlot";
+import { CurrencyIcon } from "../GoldCurrencyIcon";
+import { useRankedSeason } from "../useRankedSeason";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
 import { DockPanelShell } from "./DockPanelShell";
@@ -84,6 +86,46 @@ const notificationText = (notification: SocialNotification): string => {
         default:
             return notification.body ?? "Notification";
     }
+};
+
+/**
+ * Season gold on a friend row or a search hit, so you can tell how rich someone is before you send the
+ * request and afterwards without leaving the panel.
+ *
+ * `undefined` is NOT zero: an older matchmaking server does not send the field, and a player who has
+ * never entered ranked has no season profile to read it from. Both draw a dash — claiming someone has 0
+ * gold when we simply do not know would be a lie about their account.
+ */
+const GoldBadge: React.FC<{ amount?: number }> = ({ amount }) => {
+    const { currency } = useRankedSeason();
+    if (amount === undefined) {
+        return (
+            <Typography
+                level="body-xs"
+                title="No season profile yet"
+                sx={{ color: hocColors.muted, whiteSpace: "nowrap", flexShrink: 0 }}
+            >
+                —
+            </Typography>
+        );
+    }
+    const whole = Number.isFinite(amount) ? Math.max(0, Math.trunc(amount)) : 0;
+    return (
+        <Stack
+            component="span"
+            direction="row"
+            spacing={0.3}
+            alignItems="center"
+            aria-label={`${currency.name}: ${whole}`}
+            title={`${currency.name} (${currency.symbol})`}
+            sx={{ flexShrink: 0, color: hocColors.gold }}
+        >
+            <CurrencyIcon iconSvg={currency.iconSvg} size={12} />
+            <Typography level="body-xs" sx={{ color: "inherit", fontWeight: 800 }}>
+                {whole.toLocaleString("en-US")}
+            </Typography>
+        </Stack>
+    );
 };
 
 const OnlineDot: React.FC<{ online: boolean }> = ({ online }) => (
@@ -461,6 +503,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                         >
                                             {hit.username}
                                         </Typography>
+                                        <GoldBadge amount={hit.gold} />
                                         {status ? (
                                             <Typography
                                                 level="body-xs"
@@ -577,6 +620,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                                             {friend.unreadCount > 99 ? "99+" : friend.unreadCount}
                                         </Chip>
                                     ) : null}
+                                    <GoldBadge amount={friend.gold} />
                                     <Typography
                                         level="body-xs"
                                         sx={{

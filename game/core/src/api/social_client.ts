@@ -50,6 +50,12 @@ export interface FriendEntry {
     lastOnlineAt: number;
     muted: boolean;
     unreadCount: number;
+    /**
+     * Season gold. OPTIONAL for the same reason presence is: an older matchmaking server does not send it,
+     * and a player who has never entered ranked has no season profile to read it from. Both cases mean
+     * "no figure", which the row draws as a dash — never as a zero the player has not earned.
+     */
+    gold?: number;
 }
 
 export interface FriendMessage {
@@ -86,6 +92,8 @@ export interface PlayerSearchHit {
      */
     online?: boolean;
     lastOnlineAt?: number;
+    /** Season gold, on the same optional terms as the presence pair above. */
+    gold?: number;
 }
 
 const post = async <T>(path: string, body?: Record<string, unknown>): Promise<T> => {
