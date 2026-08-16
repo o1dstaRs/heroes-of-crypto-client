@@ -1,4 +1,10 @@
-import { playerInitials, TOP_WEALTH, type RankedPlayer, type RankedTopResponse } from "./ranked-arena-data";
+import {
+    playerInitials,
+    relativeArenaTime,
+    TOP_WEALTH,
+    type RankedPlayer,
+    type RankedTopResponse,
+} from "./ranked-arena-data";
 import { rankedArenaCopy } from "./ranked-arena-copy";
 import { leagueEmblemPath } from "./league-emblems";
 import { LEGACY_SEASON_CURRENCY, seasonCurrencyIconUrl, type SeasonCurrency } from "./season-currency";
@@ -46,6 +52,21 @@ const currencyAmount = (
 
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
     Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), template);
+
+// Mirrors ranked-arena-client's own copy of this: that file imports FROM here, so the helper can't be
+// shared the other way without a cycle.
+const localizedRelativeTime = (
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+    timestamp: number,
+): string => {
+    const relative = relativeArenaTime(timestamp);
+    if (!relative) return "";
+    if (relative === "now") return copy.timeNow;
+    const value = Number.parseInt(relative, 10);
+    if (relative.endsWith("m")) return replaceTemplate(copy.timeMinutes, { n: value });
+    if (relative.endsWith("h")) return replaceTemplate(copy.timeHours, { n: value });
+    return replaceTemplate(copy.timeDays, { n: value });
+};
 
 const chunks = <T>(items: T[], size: number): T[][] => {
     const result: T[][] = [];
@@ -184,9 +205,12 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         append(
             dossier,
             metric(copy.rating, numberFormatter.format(player.mmr)),
-            metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
+            metric(copy.leagueLabel, leagueLabel(player.league)),
             metric(currency.name, currencyAmount(player.gold, numberFormatter, currency)),
-            metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
+            metric(
+                copy.lastBattle,
+                player.lastRankedGameAt ? localizedRelativeTime(copy, player.lastRankedGameAt) : "—",
+            ),
         );
         append(row, rankNode, avatar, identity, rating, dossier);
         return append(item, row);
