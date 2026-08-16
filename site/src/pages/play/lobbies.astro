@@ -57,20 +57,6 @@ const fallbackUrl = `${gameClientRoots[0]}/lobbies`;
             target.searchParams.set(key, value);
         }
 
-        // Carry the music volume across the origin boundary. The game client is a different origin, so it
-        // cannot read this site's localStorage — without this the player sets the volume here and the lobby
-        // screen next door starts over at the default. Keys match ThemeMusic.astro and the client's
-        // themeMusic module; absent values simply mean "never set one", so the client keeps its own.
-        try {
-            const storedVolume = localStorage.getItem("hoc:themeVolume");
-            if (storedVolume !== null) {
-                target.searchParams.set("vol", storedVolume);
-                target.searchParams.set("muted", localStorage.getItem("hoc:themeMuted") === "1" ? "1" : "0");
-            }
-        } catch {
-            // Storage unavailable — the client falls back to its own stored setting or the default.
-        }
-
         return withGameAuthToken(target);
     }
 

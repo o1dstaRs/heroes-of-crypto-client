@@ -1,6 +1,5 @@
 ---
 import ProfilePage from "../../components/ProfilePage.astro";
-import ThemeMusic from "../../components/ThemeMusic.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { content } from "../../lib/site-data";
 
@@ -10,5 +9,4 @@ const copy = content[lang];
 
 <BaseLayout lang={lang} title={`${copy.profile.title} · Heroes of Crypto`} description={copy.profile.subtitle}>
     <ProfilePage lang={lang} />
-    <ThemeMusic />
 </BaseLayout>
