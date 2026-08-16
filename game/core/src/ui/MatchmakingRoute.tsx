@@ -39,6 +39,7 @@ import { getPerkCopy } from "./perkCopy";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { useRankedSeason } from "./useRankedSeason";
+import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
 import {
     isAcceptedMatchHandoff,
     isAmbiguousConfirmFailure,
@@ -93,6 +94,10 @@ export const MatchmakingRoute: React.FC = () => {
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
     const { currency, snapshot: seasonSnapshot } = useRankedSeason();
+    // Only a PLACED commander may stake. Treated as "cannot" until the standing actually loads, so the
+    // control never flashes into view for a calibrating player on a slow request.
+    const rankedStanding = useRankedStanding();
+    const canStake = rankedStanding?.state === "placed";
 
     useEffect(() => {
         if (isMockPortalEnabled()) {
@@ -1484,7 +1489,10 @@ export const MatchmakingRoute: React.FC = () => {
                                 the AI seat never sets one, so gold armed on the way into a vs-AI match can
                                 never ride it — it just sits escrowed until a human turns up. Hence "idle"
                                 and "error" but not "starting-ai". */}
-                            {!needsActivation && (state === "idle" || state === "error") && (
+                            {/* Calibration games never stake (owner call 2026-08-16): the server refuses both
+                                the intent and the wager for an unplaced player, so offering the control here
+                                could only ever produce a refusal. Hidden until they are placed. */}
+                            {!needsActivation && (state === "idle" || state === "error") && canStake && (
                                 <WagerStakeBox currency={currency} />
                             )}
 
