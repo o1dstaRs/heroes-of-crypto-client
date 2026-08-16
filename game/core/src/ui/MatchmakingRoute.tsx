@@ -20,6 +20,7 @@ import { createVsAiGame } from "../api/vs_ai_client";
 import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
+import { ArenaChatPanel } from "./ArenaChatPanel";
 import { PublicLobbiesPanel } from "./PublicLobbiesPanel";
 import { RankedBanPicker } from "./RankedBanPicker";
 import { WagerStakeBox } from "./WagerStakeBox";
@@ -1542,6 +1543,8 @@ export const MatchmakingRoute: React.FC = () => {
                                 <Stack spacing={1} sx={{ pt: 0.5 }}>
                                     <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
                                     <PublicLobbiesPanel dense />
+                                    <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+                                    <ArenaChatPanel selfUsername={user?.username} />
                                 </Stack>
                             ) : null}
 

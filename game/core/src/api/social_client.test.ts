@@ -4,6 +4,7 @@ import { axiosMMInstance, buildApiUrl, endpoints, HOST_MATCHMAKING_API } from ".
 import {
     eligiblePredictionMarkets,
     fetchFriendMessages,
+    chatSegments,
     searchHitPresenceLabel,
     searchPlayers,
     markFriendMessagesRead,
@@ -163,5 +164,35 @@ describe("add-friend search", () => {
         // A server that DID answer and genuinely has no record still says "never" — that is not a guess.
         const noRecord: PlayerSearchHit = { id: "2", username: "fresh", online: false, lastOnlineAt: 0 };
         expect(searchHitPresenceLabel(noRecord, NOW)).toBe("never");
+    });
+});
+
+describe("arena chat rendering", () => {
+    test("highlights tags and marks the viewer's own", () => {
+        const segments = chatSegments("hey @alice and @bob", "BOB");
+        expect(segments.filter((s) => s.kind === "mention").map((s) => s.text)).toEqual(["@alice", "@bob"]);
+        // Case-insensitive: the tag reads @bob, the account is BOB, and it is still "me".
+        expect(segments.find((s) => s.kind === "mention" && s.text === "@bob")).toMatchObject({ isSelf: true });
+        expect(segments.find((s) => s.kind === "mention" && s.text === "@alice")).toMatchObject({ isSelf: false });
+    });
+
+    test("renders a link as a link and gives a scheme-less host one", () => {
+        const withScheme = chatSegments("see https://heroesofcrypto.io/play");
+        expect(withScheme.find((s) => s.kind === "link")).toMatchObject({ href: "https://heroesofcrypto.io/play" });
+        const bare = chatSegments("see www.heroesofcrypto.io/play");
+        expect(bare.find((s) => s.kind === "link")).toMatchObject({ href: "https://www.heroesofcrypto.io/play" });
+    });
+
+    test("keeps ordinary text intact and loses nothing", () => {
+        const body = "gg wp @alice nice game";
+        expect(
+            chatSegments(body)
+                .map((s) => s.text)
+                .join(""),
+        ).toBe(body);
+    });
+
+    test("an email is not a tag", () => {
+        expect(chatSegments("write to me@example.com").some((s) => s.kind === "mention")).toBe(false);
     });
 });

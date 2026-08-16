@@ -393,3 +393,91 @@ export const callWager = async (gameId: string): Promise<void> => {
 export const raiseWager = async (gameId: string, amount: number): Promise<void> => {
     await post(endpoints.social.wagerRaise, { gameId, amount });
 };
+
+/* --------------------------------------------------------------- arena chat */
+
+export interface ArenaChatMessage {
+    id: string;
+    playerId: string;
+    username: string;
+    body: string;
+    /** Player ids this line tagged — already resolved server-side against real accounts. */
+    mentions: string[];
+    /** How many upvotes the line has. The voter IDS stay on the server — see youVoted. */
+    upvotes: number;
+    /** Whether YOU voted, resolved server-side so the client never needs its own player id. */
+    youVoted: boolean;
+    /** Whether YOU reported. Other people's reports are nobody else's business and are not sent. */
+    youReported: boolean;
+    seasonSequence: number;
+    createdAt: number;
+}
+
+/**
+ * The arena room's history, oldest-first. `after` is the newest createdAt already held, which makes
+ * this the polling cursor: an open arena pulls only what landed since, not the whole backlog.
+ */
+export const fetchArenaChat = async (after = 0): Promise<ArenaChatMessage[]> => {
+    const query = after > 0 ? `?after=${encodeURIComponent(String(after))}` : "";
+    const result = await get<{ messages?: ArenaChatMessage[] }>(`${endpoints.social.arenaChat}${query}`);
+    return Array.isArray(result.messages) ? result.messages : [];
+};
+
+/**
+ * Post one line. The server refuses stop words, external links, over-long text and too-fast posting
+ * with a human message — surface it with socialErrorMessage rather than inventing wording here, so
+ * the player is told which rule they hit.
+ */
+/** Toggle your upvote. A second call removes it — the vote is set membership, not a counter. */
+export const upvoteArenaChat = (messageId: string): Promise<{ upvotes: number; voted: boolean }> =>
+    post(endpoints.social.arenaChatUpvote, { messageId });
+
+/** Report a line. Hidden for everyone once enough distinct players report it. */
+export const reportArenaChat = (messageId: string): Promise<{ reports: number; hidden: boolean }> =>
+    post(endpoints.social.arenaChatReport, { messageId });
+
+export const postArenaChat = (body: string): Promise<{ message: ArenaChatMessage; mentioned: string[] }> =>
+    post(endpoints.social.arenaChatPost, { body });
+
+/** One rendered run of a chat line: plain text, a resolved @tag, or an internal link. */
+export type ChatSegment =
+    | { kind: "text"; text: string }
+    | { kind: "mention"; text: string; isSelf: boolean }
+    | { kind: "link"; text: string; href: string };
+
+/**
+ * Split a message into renderable runs.
+ *
+ * Only two things are ever given special treatment, and both are safe by construction: an @tag
+ * (plain highlighting, no navigation) and a link — which the SERVER has already guaranteed is
+ * internal, since an external one could not have been posted. This function therefore never has to
+ * decide whether a URL is safe to render; it only has to find it.
+ */
+export const chatSegments = (body: string, selfUsername?: string): ChatSegment[] => {
+    const segments: ChatSegment[] = [];
+    const pattern = /(?<![\w@])@([A-Za-z0-9][A-Za-z0-9_.-]{2,49})|((?:https?:\/\/|www\.)[^\s<>"']+)/g;
+    let cursor = 0;
+    for (const match of body.matchAll(pattern)) {
+        const index = match.index ?? 0;
+        if (index > cursor) {
+            segments.push({ kind: "text", text: body.slice(cursor, index) });
+        }
+        if (match[1]) {
+            const handle = match[1].replace(/[.]+$/, "");
+            segments.push({
+                kind: "mention",
+                text: `@${handle}`,
+                isSelf: !!selfUsername && handle.toLowerCase() === selfUsername.toLowerCase(),
+            });
+            cursor = index + 1 + handle.length;
+        } else {
+            const raw = match[2];
+            segments.push({ kind: "link", text: raw, href: /^https?:\/\//i.test(raw) ? raw : `https://${raw}` });
+            cursor = index + raw.length;
+        }
+    }
+    if (cursor < body.length) {
+        segments.push({ kind: "text", text: body.slice(cursor) });
+    }
+    return segments;
+};
