@@ -87,24 +87,44 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                                 lineHeight: 0,
                                 borderRadius: 0,
                                 border: "none !important",
-                                backgroundColor: "transparent !important",
-                                boxShadow: "none !important",
                                 outline: "none !important",
                                 cursor: "default !important",
                                 overflow: "visible",
+                                // The picked artifact has to read as picked. Same amber the augment
+                                // togglers use for a chosen radio (SandboxToggleContainer), so the two
+                                // halves of this sidebar speak one language. Painted with !important
+                                // because the button reset here strips frames in every state, hover
+                                // included, and would otherwise swallow the selected frame too.
+                                backgroundColor: isSelected
+                                    ? "rgba(255, 143, 0, 0.14) !important"
+                                    : "transparent !important",
+                                boxShadow: isSelected
+                                    ? "inset 0 0 0 1px rgba(255, 176, 83, 0.85), 0 0 8px rgba(255, 143, 0, 0.45) !important"
+                                    : "none !important",
                                 "& img": {
                                     display: "block",
                                     transition: "transform 0.16s ease, filter 0.16s ease",
                                     transformOrigin: "center",
+                                    // Unpicked artifacts sit back rather than go dark: this grid is a
+                                    // catalogue you read, not a set of disabled controls.
+                                    filter: isSelected
+                                        ? "brightness(1.15) drop-shadow(0 0 6px rgba(255, 143, 0, 0.8))"
+                                        : "brightness(0.82)",
                                 },
                                 "&:hover img": {
                                     transform: "scale(1.05)",
-                                    filter: "drop-shadow(0 0 5px rgba(224, 176, 83, 0.72))",
+                                    filter: isSelected
+                                        ? "brightness(1.22) drop-shadow(0 0 8px rgba(255, 176, 83, 0.95))"
+                                        : "brightness(1) drop-shadow(0 0 5px rgba(224, 176, 83, 0.72))",
                                 },
                                 "&:hover, &:active, &:focus, &:focus-visible": {
-                                    backgroundColor: "transparent !important",
+                                    backgroundColor: isSelected
+                                        ? "rgba(255, 143, 0, 0.14) !important"
+                                        : "transparent !important",
                                     border: "none !important",
-                                    boxShadow: "none !important",
+                                    boxShadow: isSelected
+                                        ? "inset 0 0 0 1px rgba(255, 176, 83, 0.85), 0 0 8px rgba(255, 143, 0, 0.45) !important"
+                                        : "none !important",
                                     outline: "none !important",
                                 },
                                 "@media (max-height: 800px)": {

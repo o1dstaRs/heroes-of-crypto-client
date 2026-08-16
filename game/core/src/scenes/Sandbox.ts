@@ -5238,10 +5238,16 @@ export class Sandbox extends PixiScene {
      * Recompute the active unit's reachable cells and shot ring from its CURRENT stats — the same pair
      * selectNextUnit computes on a handoff, just re-run in place because the stats moved under a unit that
      * is already active. No active unit (the usual case while augments are still being picked at
-     * placement) means there is no reach to redraw, so this is a no-op.
+     * placement) falls back to the unit the player has SELECTED on the board, which is the one whose
+     * reach is on screen while augments are being picked. Neither means there is nothing to redraw.
      */
     private refreshActiveUnitReach(): void {
-        const activeUnit = this.currentActiveUnit;
+        // During placement there is no ACTIVE unit — the player has a unit SELECTED on the board and is
+        // still choosing augments. That is precisely when the reach has to be redrawn: picking
+        // "+1 Movement steps" changes the very ring the player is looking at. Falling back to the
+        // selected unit is what makes the augment land on screen the moment it is clicked instead of at
+        // the start of the fight.
+        const activeUnit = this.currentActiveUnit ?? this.selectedBoardUnit;
         if (!activeUnit) {
             return;
         }

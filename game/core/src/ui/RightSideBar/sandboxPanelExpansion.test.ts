@@ -38,13 +38,21 @@ describe("sandbox right-sidebar panel expansion", () => {
         expect(sandboxSidebarOverflowsVertically({ clientHeight: 0, scrollHeight: 900 })).toBe(false);
     });
 
-    test("keeps both defaults when they fit and folds only Artifacts when they do not", () => {
+    test("leaves Artifacts expanded even when the setup tools overflow", () => {
         const initial = { ...DEFAULT_SANDBOX_PANEL_EXPANSION };
 
         expect(fitSandboxPanelExpansion(initial, { clientHeight: 900, scrollHeight: 820 })).toEqual(initial);
-        expect(fitSandboxPanelExpansion(initial, { clientHeight: 700, scrollHeight: 820 })).toEqual({
-            augmentsOpen: true,
-            artifactsOpen: false,
-        });
+        // Used to fold Artifacts here, so they closed themselves on any short viewport. The region
+        // scrolls, so overflow costs a scroll and nothing is hidden.
+        expect(fitSandboxPanelExpansion(initial, { clientHeight: 700, scrollHeight: 820 })).toEqual(initial);
+    });
+
+    test("never closes a panel the player deliberately opened", () => {
+        const bothOpen = { augmentsOpen: true, artifactsOpen: true };
+        const artifactsOnly = { augmentsOpen: false, artifactsOpen: true };
+        const tight = { clientHeight: 300, scrollHeight: 1400 };
+
+        expect(fitSandboxPanelExpansion(bothOpen, tight)).toEqual(bothOpen);
+        expect(fitSandboxPanelExpansion(artifactsOnly, tight)).toEqual(artifactsOnly);
     });
 });

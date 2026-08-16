@@ -17,17 +17,21 @@ export const toggleSandboxPanel = (current: SandboxPanelExpansion, panel: Sandbo
         ? { ...current, augmentsOpen: !current.augmentsOpen }
         : { ...current, artifactsOpen: !current.artifactsOpen };
 
-/** A one-pixel tolerance avoids collapsing a panel for fractional browser-layout rounding. */
+/** A one-pixel tolerance avoids reacting to fractional browser-layout rounding. */
 export const sandboxSidebarOverflowsVertically = ({
     clientHeight,
     scrollHeight,
 }: Pick<HTMLElement, "clientHeight" | "scrollHeight">): boolean => clientHeight > 0 && scrollHeight > clientHeight + 1;
 
-/** Keep both defaults when they fit; otherwise preserve Augments and fold the larger Artifact grid. */
+/**
+ * Both tools stay as the player left them, overflow or not.
+ *
+ * This used to fold the Artifact grid the moment the setup tools outgrew the viewport, which meant
+ * Artifacts silently closed themselves on shorter screens and the player had to re-open them every time.
+ * The region they live in scrolls (FightControlToggler's `data-sandbox-scroll-region`, overflowY: auto),
+ * so an overflow costs a scroll rather than clipping anything — there is nothing to protect them from.
+ */
 export const fitSandboxPanelExpansion = (
     current: SandboxPanelExpansion,
-    metrics: Pick<HTMLElement, "clientHeight" | "scrollHeight">,
-): SandboxPanelExpansion =>
-    current.artifactsOpen && sandboxSidebarOverflowsVertically(metrics)
-        ? { ...current, artifactsOpen: false }
-        : current;
+    _metrics: Pick<HTMLElement, "clientHeight" | "scrollHeight">,
+): SandboxPanelExpansion => current;
