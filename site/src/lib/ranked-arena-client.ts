@@ -117,7 +117,10 @@ const gameApiBaseUrl = String(
     sameHostApiOrigin ||
         import.meta.env.VITE_HOST_GAME_API ||
         import.meta.env.VITE_GAME_API ||
-        (isProduction ? "https://app.heroesofcrypto.io" : "http://localhost:3001"),
+        // game., NOT the client host. This fed /v1/games-live into the static client, which 404s and
+        // surfaced as "Some arena data is unavailable" — only SOME, because the other two feeds sit on
+        // matchmakingBaseUrl and were resolving correctly.
+        (isProduction ? "https://game.heroesofcrypto.io" : "http://localhost:3001"),
 ).replace(/\/+$/, "");
 
 const rawGameClientUrl = String(
