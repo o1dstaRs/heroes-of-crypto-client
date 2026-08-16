@@ -3,19 +3,21 @@ import React from "react";
 
 import { images } from "../../generated/image_imports";
 
-const LEAGUE_EMBLEM_SOURCES = {
-    0: images.league_calibration_512,
-    1: images.league_aspirant_512,
-    2: images.league_vanguard_512,
-    3: images.league_marshal_512,
-    4: images.league_overlord_512,
-    5: images.league_demigod_512,
+const LEAGUE_EMBLEM_KEYS = {
+    0: "league_calibration_512",
+    1: "league_aspirant_512",
+    2: "league_vanguard_512",
+    3: "league_marshal_512",
+    4: "league_overlord_512",
+    5: "league_demigod_512",
 } as const;
 
-export const leagueEmblemSource = (league: number): string => {
+export const leagueEmblemKey = (league: number): (typeof LEAGUE_EMBLEM_KEYS)[keyof typeof LEAGUE_EMBLEM_KEYS] => {
     const normalized = Math.trunc(Number(league));
-    return LEAGUE_EMBLEM_SOURCES[normalized as keyof typeof LEAGUE_EMBLEM_SOURCES] ?? LEAGUE_EMBLEM_SOURCES[0];
+    return LEAGUE_EMBLEM_KEYS[normalized as keyof typeof LEAGUE_EMBLEM_KEYS] ?? LEAGUE_EMBLEM_KEYS[0];
 };
+
+export const leagueEmblemSource = (league: number): string => images[leagueEmblemKey(league)];
 
 export const leagueEmblemGlow = (league: number): string => {
     switch (Math.trunc(Number(league))) {
