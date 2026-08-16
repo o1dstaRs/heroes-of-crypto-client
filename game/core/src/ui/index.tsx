@@ -207,7 +207,9 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
                     <UpNextOverlay />
                     <FightFinishedOverlay />
-                    {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
+                    {!isLoading && started && aiToggleOn && !replayPlaybackActive && (
+                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
+                    )}
                     {!isLoading && started && <NextLapHazardBadge />}
                     {!isLoading && replayPlaybackActive && (
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.

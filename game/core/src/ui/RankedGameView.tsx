@@ -1764,9 +1764,11 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     )}
                     {pixiReady && gameStarted && <UpNextOverlay />}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
-                    {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
-                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
-                    )}
+                    {pixiReady &&
+                        gameStarted &&
+                        (aiToggleOn || !!myPlayer?.aiControlled) &&
+                        !replayOnly &&
+                        !replayPlaybackActive && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.
                         <ExitReplayBadge
