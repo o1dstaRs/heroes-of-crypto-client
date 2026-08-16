@@ -6708,7 +6708,7 @@ export class Sandbox extends PixiScene {
                 // Mass-cast / summon spells apply immediately (no target click needed).
                 this.castMassOrSummonSpell(hovered, this.currentActiveUnit);
             } else {
-                // FREE_CELL / AUTO / NO_TYPE are not wired yet (see PIXI_GAMEPLAY_PARITY_PLAN.md).
+                // Any remaining target category cannot be cast directly.
                 this.sc_sceneLog.updateLog(`${hovered.getName()}: this spell type is not supported yet`);
             }
             return;
