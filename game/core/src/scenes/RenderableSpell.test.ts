@@ -45,10 +45,16 @@ describe("PixiRenderableSpell stack-requirement line", () => {
 });
 
 describe("PixiRenderableSpell magic-damage hover", () => {
-    test("shows the same combined Empower and Sylvan bonus used by the engine", () => {
+    const hoverOf = (
+        faction: string,
+        name: string,
+        ownerStackPower: number,
+        casterAmountAlive: number,
+        magicDamageBonusPercentage = 0,
+    ): string => {
         const layer = new Container();
         const spell = new PixiRenderableSpell(
-            { spellProperties: HoCConfig.getSpellConfig("Nature", "Lightning Strike"), amount: 1 },
+            { spellProperties: HoCConfig.getSpellConfig(faction, name), amount: 1 },
             layer,
             { spell_cell_260: Texture.WHITE },
             Texture.WHITE,
@@ -56,11 +62,32 @@ describe("PixiRenderableSpell magic-damage hover", () => {
         );
 
         try {
-            const hover = spell.getHoverInfo(5, 2, 1, 0, 15).join("\n");
-            expect(hover).toContain("dealing 345 damage");
+            return spell.getHoverInfo(ownerStackPower, casterAmountAlive, 1, 0, magicDamageBonusPercentage).join("\n");
         } finally {
             spell.destroy();
             layer.destroy();
         }
+    };
+
+    test("shows the same combined Empower and Sylvan bonus used by the engine", () => {
+        expect(hoverOf("Nature", "Lightning Strike", 5, 2, 15)).toContain("dealing 345 damage");
+    });
+
+    // The card's damage is PRE-DEFENCE and always was, but it used to be printed bare — and against the
+    // element a spell counters it is not even an upper bound: a card reading 300 lands 450 on a Water
+    // Element (4,967 of 5,624 measured casts disagreed with the bare figure). So the card now states the
+    // band the cast can actually land in, computed from the same element table the cast resolves through.
+    test("states the band a target can actually take, not just the pre-defence figure", () => {
+        // Battle Mage x50: Fire Strike is 6 per caster = 300, and a Water Element takes half again as much.
+        const fireStrike = hoverOf("Chaos", "Fire Strike", 5, 50);
+        expect(fireStrike).toContain("dealing 300 damage");
+        expect(fireStrike).toContain("A target takes 0 to 450 of it, by its element and magic resistance.");
+
+        // Stack-powered book, same treatment: 30 * 2 * 5 = 300, +15% = 345, countered element 517.
+        expect(hoverOf("Nature", "Lightning Strike", 5, 2, 15)).toContain("A target takes 0 to 517 of it");
+    });
+
+    test("a spell with no damage of its own gets no band line", () => {
+        expect(hoverOf("Life", "Spiritual Armor", 5, 10)).not.toContain("A target takes 0 to");
     });
 });
