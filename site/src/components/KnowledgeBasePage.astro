@@ -219,7 +219,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             {
                 navigationSections.map((section, index) => (
                     <a
-                        class:list={["kb-section-tab", { active: section === "overview" }]}
+                        class:list={["kb-section-tab", section, { active: section === "overview" }]}
                         id={`kb-tab-${section}`}
                         href={section === "overview" ? knowledgePath(lang) : knowledgePath(lang, { section })}
                         data-kb-tab={section}
@@ -695,14 +695,42 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
 <style>
     .knowledge-base {
-        --kb-surface: #0d1216;
-        --kb-surface-raised: #121920;
-        --kb-line: rgba(236, 203, 120, 0.17);
+        --kb-surface: #0d0a08;
+        --kb-surface-raised: #15100c;
+        --kb-line: rgba(220, 177, 88, 0.2);
         --kb-muted: rgba(246, 241, 230, 0.64);
         min-height: 100vh;
-        background:
-            radial-gradient(circle at 72% 8%, rgba(212, 158, 52, 0.09), transparent 30%),
-            #080b0d;
+        background: linear-gradient(180deg, #080605, #100b08 46%, #080605);
+    }
+
+    :is(.kb-section-tab, .kb-category-card, .kb-heading-icon).overview {
+        --kb-accent: #e0b85f;
+        --kb-accent-rgb: 224, 184, 95;
+    }
+
+    :is(.kb-section-tab, .kb-category-card, .kb-heading-icon).rules {
+        --kb-accent: #dcae52;
+        --kb-accent-rgb: 220, 174, 82;
+    }
+
+    :is(.kb-section-tab, .kb-category-card, .kb-heading-icon).units {
+        --kb-accent: #d66d52;
+        --kb-accent-rgb: 214, 109, 82;
+    }
+
+    :is(.kb-section-tab, .kb-category-card, .kb-heading-icon).abilities {
+        --kb-accent: #64b39e;
+        --kb-accent-rgb: 100, 179, 158;
+    }
+
+    :is(.kb-section-tab, .kb-category-card, .kb-heading-icon).spells {
+        --kb-accent: #77a8dc;
+        --kb-accent-rgb: 119, 168, 220;
+    }
+
+    :is(.kb-section-tab, .kb-category-card, .kb-heading-icon).artifacts {
+        --kb-accent: #d7c48b;
+        --kb-accent-rgb: 215, 196, 139;
     }
 
     .kb-skip-link {
@@ -732,9 +760,9 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         position: absolute;
         z-index: -2;
         inset: 0;
-        background: url("/assets/images/preview_game.webp") center 38% / cover;
-        filter: saturate(0.55) contrast(1.08);
-        opacity: 0.3;
+        background: url("/assets/images/knowledge-base/codex-war-room-hero.webp") center / cover;
+        filter: saturate(0.82) contrast(1.06);
+        opacity: 0.78;
     }
 
     .kb-hero::after {
@@ -743,8 +771,8 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         inset: 0;
         content: "";
         background:
-            linear-gradient(90deg, #080b0d 2%, rgba(8, 11, 13, 0.9) 43%, rgba(8, 11, 13, 0.45)),
-            linear-gradient(0deg, #080b0d, transparent 42%);
+            linear-gradient(90deg, #080605 2%, rgba(8, 6, 5, 0.94) 38%, rgba(8, 6, 5, 0.12) 72%),
+            linear-gradient(0deg, #080605, transparent 45%);
     }
 
     .kb-hero-shell {
@@ -772,10 +800,10 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
     .kb-hero h1 {
         margin: 0 0 18px;
-        font-size: clamp(3.2rem, 8vw, 6.6rem);
+        font-size: clamp(3rem, 6vw, 5.1rem);
         font-weight: 860;
-        line-height: 0.9;
-        letter-spacing: -0.045em;
+        line-height: 0.95;
+        letter-spacing: 0.035em;
     }
 
     .kb-hero-copy > p:last-child {
@@ -834,7 +862,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         padding: 22px;
         border: 1px solid rgba(241, 200, 97, 0.28);
         border-radius: 16px;
-        background: rgba(15, 21, 26, 0.96);
+        background: rgba(18, 13, 9, 0.96);
         box-shadow: 0 24px 56px rgba(0, 0, 0, 0.34);
         backdrop-filter: blur(18px);
     }
@@ -856,7 +884,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         padding: 0 13px 0 16px;
         border: 1px solid rgba(241, 200, 97, 0.19);
         border-radius: 10px;
-        background: #080c0f;
+        background: #090705;
         transition: border-color 160ms ease, box-shadow 160ms ease;
     }
 
@@ -937,12 +965,15 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     .kb-search-filters button {
+        display: inline-flex;
         flex: 0 0 auto;
+        gap: 7px;
+        align-items: center;
         min-height: 42px;
         padding: 8px 14px;
         color: rgba(247, 244, 235, 0.68);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 999px;
+        border-radius: 6px;
         background: rgba(255, 255, 255, 0.035);
         font: inherit;
         font-size: 0.85rem;
@@ -950,8 +981,8 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         cursor: pointer;
     }
 
-    .kb-search-filters button span {
-        margin-left: 6px;
+    .kb-filter-count {
+        margin-left: 1px;
         opacity: 0.58;
         font-size: 0.72rem;
         font-variant-numeric: tabular-nums;
@@ -981,7 +1012,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         padding: 9px;
         border: 1px solid var(--kb-line);
         border-radius: 13px;
-        background: rgba(13, 18, 22, 0.94);
+        background: rgba(15, 11, 8, 0.94);
         box-shadow: 0 18px 40px rgba(0, 0, 0, 0.19);
         backdrop-filter: blur(14px);
     }
@@ -995,7 +1026,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         padding: 8px 10px;
         color: rgba(246, 241, 230, 0.66);
         border: 1px solid transparent;
-        border-radius: 9px;
+        border-radius: 6px;
         text-decoration: none;
         transition: 150ms ease;
     }
@@ -1022,16 +1053,17 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         display: grid;
         width: 34px;
         height: 34px;
-        overflow: hidden;
         place-items: center;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.05);
+        color: var(--kb-accent);
+        border: 1px solid rgba(var(--kb-accent-rgb), 0.2);
+        border-radius: 5px;
+        background: rgba(var(--kb-accent-rgb), 0.07);
     }
 
-    .kb-tab-icon img {
-        width: 30px;
-        height: 30px;
-        object-fit: cover;
+    .kb-section-tab.active .kb-tab-icon {
+        border-color: rgba(var(--kb-accent-rgb), 0.46);
+        background: rgba(var(--kb-accent-rgb), 0.14);
+        box-shadow: inset 0 0 12px rgba(var(--kb-accent-rgb), 0.08);
     }
 
     .kb-section-tab > span:nth-child(2) {
@@ -1083,9 +1115,31 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         align-items: center;
         padding: 30px clamp(22px, 4vw, 42px);
         border-bottom: 1px solid var(--kb-line);
-        background:
-            radial-gradient(circle at 90% 0, rgba(237, 185, 66, 0.1), transparent 42%),
-            linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent);
+        background: linear-gradient(145deg, rgba(220, 177, 88, 0.065), rgba(255, 255, 255, 0.018) 52%, transparent);
+    }
+
+    .kb-heading-group {
+        display: flex;
+        gap: 17px;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .kb-heading-group > div {
+        min-width: 0;
+    }
+
+    .kb-heading-icon {
+        display: grid;
+        width: 60px;
+        height: 60px;
+        flex: 0 0 auto;
+        place-items: center;
+        color: var(--kb-accent);
+        border: 1px solid rgba(var(--kb-accent-rgb), 0.34);
+        border-radius: 7px;
+        background: linear-gradient(145deg, rgba(var(--kb-accent-rgb), 0.16), rgba(var(--kb-accent-rgb), 0.035));
+        box-shadow: inset 0 0 22px rgba(var(--kb-accent-rgb), 0.07);
     }
 
     .kb-panel-header.compact {
@@ -1133,9 +1187,9 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         min-height: 178px;
         overflow: hidden;
         color: #f8f4e8;
-        border: 1px solid rgba(255, 255, 255, 0.09);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(var(--kb-accent-rgb), 0.2);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(var(--kb-accent-rgb), 0.09), rgba(255, 255, 255, 0.018) 58%);
         text-decoration: none;
         transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
@@ -1145,8 +1199,8 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     .kb-category-card:hover {
-        border-color: rgba(242, 199, 93, 0.34);
-        background: rgba(242, 199, 93, 0.055);
+        border-color: rgba(var(--kb-accent-rgb), 0.52);
+        background: linear-gradient(135deg, rgba(var(--kb-accent-rgb), 0.15), rgba(255, 255, 255, 0.028) 58%);
         transform: translateY(-2px);
     }
 
@@ -1155,27 +1209,34 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         display: grid;
         overflow: hidden;
         place-items: center;
-        background: linear-gradient(145deg, rgba(242, 199, 93, 0.13), rgba(5, 7, 8, 0.4));
+        color: var(--kb-accent);
+        border-right: 1px solid rgba(var(--kb-accent-rgb), 0.16);
+        background:
+            linear-gradient(90deg, transparent 49%, rgba(var(--kb-accent-rgb), 0.1) 50%, transparent 51%),
+            linear-gradient(0deg, transparent 49%, rgba(var(--kb-accent-rgb), 0.1) 50%, transparent 51%),
+            linear-gradient(145deg, rgba(var(--kb-accent-rgb), 0.16), rgba(5, 4, 3, 0.55));
     }
 
-    .kb-category-art::after {
+    .kb-category-sigil {
         position: absolute;
-        inset: 0;
+        display: grid;
+        width: 88px;
+        height: 88px;
+        place-items: center;
+        filter: drop-shadow(0 8px 13px rgba(0, 0, 0, 0.48));
+    }
+
+    .kb-category-sigil::before {
+        position: absolute;
+        inset: 9px;
+        border: 1px solid rgba(var(--kb-accent-rgb), 0.22);
         content: "";
-        background: linear-gradient(90deg, transparent 60%, rgba(13, 18, 22, 0.85));
+        transform: rotate(45deg);
     }
 
-    .kb-category-art img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        filter: saturate(0.78);
-    }
-
-    .kb-category-card:not(.rules) .kb-category-art img {
-        width: 92%;
-        height: 92%;
-        object-fit: contain;
+    .kb-category-sigil :global(svg) {
+        position: relative;
+        z-index: 1;
     }
 
     .kb-category-copy {
@@ -1433,9 +1494,19 @@ const sectionLabels: Record<KnowledgeSection, string> = {
             height: 30px;
         }
 
-        .kb-tab-icon img {
+        .kb-tab-icon :global(svg) {
             width: 27px;
             height: 27px;
+        }
+
+        .kb-heading-icon {
+            width: 48px;
+            height: 48px;
+        }
+
+        .kb-heading-icon :global(svg) {
+            width: 30px;
+            height: 30px;
         }
 
         .kb-panel,
