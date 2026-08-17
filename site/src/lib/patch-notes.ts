@@ -94,8 +94,7 @@ export const patchNotes = {
             commit: "4ae07ea",
             href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/4ae07ea9afd848d021664be9dd6d2e5e3e4a3448",
             title: "A new engine, ranked play, and an expanded battlefield",
-            impact:
-                "The largest Heroes of Crypto update yet: the battle client now runs on PixiJS, online ranked play is live, and every army has more ways to fight and progress.",
+            impact: "The largest Heroes of Crypto update yet: the battle client now runs on PixiJS, online ranked play is live, and every army has more ways to fight and progress.",
             stats: [
                 { value: "57", label: "creatures" },
                 { value: "110", label: "abilities" },
@@ -358,8 +357,7 @@ export const patchNotes = {
             commit: "4ae07ea",
             href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/4ae07ea9afd848d021664be9dd6d2e5e3e4a3448",
             title: "Новый движок, рейтинговый режим и расширенное поле боя",
-            impact:
-                "Крупнейшее обновление Heroes of Crypto: боевой клиент перешел на PixiJS, открылся рейтинговый режим, а у каждой армии стало больше вариантов для боя и развития.",
+            impact: "Крупнейшее обновление Heroes of Crypto: боевой клиент перешел на PixiJS, открылся рейтинговый режим, а у каждой армии стало больше вариантов для боя и развития.",
             stats: [
                 { value: "57", label: "существ" },
                 { value: "110", label: "способностей" },
