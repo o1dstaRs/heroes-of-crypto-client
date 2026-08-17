@@ -110,6 +110,8 @@ export const content = {
             lobbiesSectionTitle: "Open lobbies",
             startLabel: "Start game",
             modeTitle: "Choose how to play",
+            // Meta description for /play only — no longer printed on the page. The ranked and sandbox
+            // cards below say what each mode is; repeating it in a paragraph above them was filler.
             modeBody:
                 "Start ranked matchmaking when you want a real opponent, or open the sandbox beta when you want to test armies and board states.",
             signedInAs: "Signed in as",
@@ -426,7 +428,6 @@ export const content = {
             primaryCta: "Play",
             secondaryCta: "Read rules",
             availability: "Ranked and sandbox beta",
-            highlights: ["No download", "No wallet gate", "Ranked or sandbox beta"],
             stats: [
                 { value: "4", label: "Factions" },
                 { value: String(unitCount), label: "Combat units" },
@@ -821,6 +822,7 @@ export const content = {
             lobbiesSectionTitle: "Открытые лобби",
             startLabel: "Запуск игры",
             modeTitle: "Выберите режим",
+            // Meta description for /play only — see the English note above.
             modeBody:
                 "Запускайте рейтинговый матч против реального соперника или открывайте песочницу для тестов армий и состояний поля.",
             signedInAs: "Вы вошли как",
@@ -1137,7 +1139,6 @@ export const content = {
             primaryCta: "Играть",
             secondaryCta: "Читать правила",
             availability: "Рейтинг и песочница",
-            highlights: ["Без скачивания", "Без привязки кошелька", "Рейтинг или песочница"],
             stats: [
                 { value: "4", label: "Фракции" },
                 { value: String(unitCount), label: "Боевых юнитов" },
