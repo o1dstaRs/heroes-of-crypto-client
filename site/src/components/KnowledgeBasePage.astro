@@ -1,10 +1,11 @@
 ---
 import AbilitiesPage from "./AbilitiesPage.astro";
 import ArtifactsPage from "./ArtifactsPage.astro";
+import KnowledgeIcon from "./KnowledgeIcon.astro";
 import RulesPage from "./RulesPage.astro";
 import SpellsPage from "./SpellsPage.astro";
 import UnitsPage from "./UnitsPage.astro";
-import { artifacts, artifactsCount } from "../lib/artifacts-data";
+import { artifactsCount } from "../lib/artifacts-data";
 import {
     buildKnowledgeEntries,
     knowledgeEntryId,
@@ -12,9 +13,9 @@ import {
     type KnowledgeCatalogSection,
     type KnowledgeSection,
 } from "../lib/knowledge-base";
-import { spells, spellsCount } from "../lib/spells-data";
+import { spellsCount } from "../lib/spells-data";
 import type { Language } from "../lib/site-data";
-import { abilities, abilitiesCount, allUnits, unitCount } from "../lib/units-data";
+import { abilitiesCount, unitCount } from "../lib/units-data";
 
 interface Props {
     lang: Language;
@@ -138,14 +139,6 @@ const categoryCounts: Record<KnowledgeCatalogSection, number> = {
     artifacts: artifactsCount,
 };
 
-const categoryImages: Record<KnowledgeCatalogSection, string> = {
-    rules: "/assets/images/preview_game.webp",
-    units: allUnits.find((unit) => unit.name === "Black Dragon")?.icon ?? allUnits[0]?.icon ?? "",
-    abilities: abilities.find((ability) => ability.name === "Lucky Strike")?.icon ?? abilities[0]?.icon ?? "",
-    spells: spells.find((spell) => spell.name === "Meteor Shower")?.icon ?? spells[0]?.icon ?? "",
-    artifacts: artifacts[0]?.icon ?? "",
-};
-
 const categorySections: KnowledgeCatalogSection[] = ["rules", "units", "abilities", "spells", "artifacts"];
 const navigationSections: KnowledgeSection[] = ["overview", ...categorySections];
 const sectionLabels: Record<KnowledgeSection, string> = {
@@ -207,12 +200,12 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <div class="kb-search-filters" role="group" aria-label={copy.filterLabel}>
                 <button type="button" class="active" data-kb-search-filter="all" aria-pressed="true">
-                    {copy.all}<span>{totalCount}</span>
+                    <KnowledgeIcon section="overview" size={17} /><span class="kb-filter-text">{copy.all}</span><span class="kb-filter-count">{totalCount}</span>
                 </button>
                 {
                     categorySections.map((section) => (
                         <button type="button" data-kb-search-filter={section} aria-pressed="false">
-                            {sectionLabels[section]}<span>{categoryCounts[section]}</span>
+                            <KnowledgeIcon section={section} size={17} /><span class="kb-filter-text">{sectionLabels[section]}</span><span class="kb-filter-count">{categoryCounts[section]}</span>
                         </button>
                     ))
                 }
@@ -233,11 +226,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                         aria-current={section === "overview" ? "page" : undefined}
                     >
                         <span class="kb-tab-icon" aria-hidden="true">
-                            {section === "overview" ? (
-                                <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="30" height="30" />
-                            ) : (
-                                <img src={categoryImages[section]} alt="" width="30" height="30" loading="lazy" />
-                            )}
+                            <KnowledgeIcon section={section} size={25} />
                         </span>
                         <span>{sectionLabels[section]}</span>
                         <em>{section === "overview" ? totalCount : categoryCounts[section]}</em>
@@ -249,10 +238,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         <div class="kb-content" id="kb-content">
             <section class="kb-search-results" data-kb-search-results aria-labelledby="kb-results-title" hidden>
                 <header class="kb-panel-header compact">
-                    <div>
-                        <p class="eyebrow">{copy.eyebrow}</p>
-                        <h2 id="kb-results-title">{copy.searchResults}</h2>
-                        <p>{copy.searchResultsBody}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon overview" aria-hidden="true"><KnowledgeIcon section="overview" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.eyebrow}</p>
+                            <h2 id="kb-results-title">{copy.searchResults}</h2>
+                            <p>{copy.searchResultsBody}</p>
+                        </div>
                     </div>
                     <strong data-kb-visible-count>0</strong>
                 </header>
@@ -310,10 +302,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <section class="kb-panel kb-overview" id="overview" data-kb-panel="overview" aria-labelledby="kb-tab-overview">
                 <header class="kb-panel-header">
-                    <div>
-                        <p class="eyebrow">{copy.eyebrow}</p>
-                        <h2>{copy.browseTitle}</h2>
-                        <p>{copy.browseBody}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon overview" aria-hidden="true"><KnowledgeIcon section="overview" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.eyebrow}</p>
+                            <h2>{copy.browseTitle}</h2>
+                            <p>{copy.browseBody}</p>
+                        </div>
                     </div>
                     <strong>{totalCount}</strong>
                 </header>
@@ -326,7 +321,9 @@ const sectionLabels: Record<KnowledgeSection, string> = {
                                 data-kb-section-link={section}
                             >
                                 <span class="kb-category-art">
-                                    <img src={categoryImages[section]} alt="" width="180" height="180" loading="lazy" />
+                                    <span class="kb-category-sigil" aria-hidden="true">
+                                        <KnowledgeIcon section={section} size={82} />
+                                    </span>
                                 </span>
                                 <span class="kb-category-copy">
                                     <span class="eyebrow">{copy.sectionEyebrows[section]}</span>
@@ -343,10 +340,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <section class="kb-panel" id="rules" data-kb-panel="rules" aria-labelledby="kb-tab-rules">
                 <header class="kb-panel-header">
-                    <div>
-                        <p class="eyebrow">{copy.sectionEyebrows.rules}</p>
-                        <h2>{copy.rules}</h2>
-                        <p>{copy.categoryDescriptions.rules}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon rules" aria-hidden="true"><KnowledgeIcon section="rules" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.sectionEyebrows.rules}</p>
+                            <h2>{copy.rules}</h2>
+                            <p>{copy.categoryDescriptions.rules}</p>
+                        </div>
                     </div>
                     <strong>{categoryCounts.rules}</strong>
                 </header>
@@ -355,10 +355,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <section class="kb-panel" id="units" data-kb-panel="units" aria-labelledby="kb-tab-units">
                 <header class="kb-panel-header">
-                    <div>
-                        <p class="eyebrow">{copy.sectionEyebrows.units}</p>
-                        <h2>{copy.units}</h2>
-                        <p>{copy.categoryDescriptions.units}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon units" aria-hidden="true"><KnowledgeIcon section="units" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.sectionEyebrows.units}</p>
+                            <h2>{copy.units}</h2>
+                            <p>{copy.categoryDescriptions.units}</p>
+                        </div>
                     </div>
                     <strong>{categoryCounts.units}</strong>
                 </header>
@@ -367,10 +370,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <section class="kb-panel" id="abilities" data-kb-panel="abilities" aria-labelledby="kb-tab-abilities">
                 <header class="kb-panel-header">
-                    <div>
-                        <p class="eyebrow">{copy.sectionEyebrows.abilities}</p>
-                        <h2>{copy.abilities}</h2>
-                        <p>{copy.categoryDescriptions.abilities}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon abilities" aria-hidden="true"><KnowledgeIcon section="abilities" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.sectionEyebrows.abilities}</p>
+                            <h2>{copy.abilities}</h2>
+                            <p>{copy.categoryDescriptions.abilities}</p>
+                        </div>
                     </div>
                     <strong>{categoryCounts.abilities}</strong>
                 </header>
@@ -379,10 +385,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <section class="kb-panel" id="spells" data-kb-panel="spells" aria-labelledby="kb-tab-spells">
                 <header class="kb-panel-header">
-                    <div>
-                        <p class="eyebrow">{copy.sectionEyebrows.spells}</p>
-                        <h2>{copy.spells}</h2>
-                        <p>{copy.categoryDescriptions.spells}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon spells" aria-hidden="true"><KnowledgeIcon section="spells" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.sectionEyebrows.spells}</p>
+                            <h2>{copy.spells}</h2>
+                            <p>{copy.categoryDescriptions.spells}</p>
+                        </div>
                     </div>
                     <strong>{categoryCounts.spells}</strong>
                 </header>
@@ -391,10 +400,13 @@ const sectionLabels: Record<KnowledgeSection, string> = {
 
             <section class="kb-panel" id="artifacts" data-kb-panel="artifacts" aria-labelledby="kb-tab-artifacts">
                 <header class="kb-panel-header">
-                    <div>
-                        <p class="eyebrow">{copy.sectionEyebrows.artifacts}</p>
-                        <h2>{copy.artifacts}</h2>
-                        <p>{copy.categoryDescriptions.artifacts}</p>
+                    <div class="kb-heading-group">
+                        <span class="kb-heading-icon artifacts" aria-hidden="true"><KnowledgeIcon section="artifacts" size={36} /></span>
+                        <div>
+                            <p class="eyebrow">{copy.sectionEyebrows.artifacts}</p>
+                            <h2>{copy.artifacts}</h2>
+                            <p>{copy.categoryDescriptions.artifacts}</p>
+                        </div>
                     </div>
                     <strong>{categoryCounts.artifacts}</strong>
                 </header>

@@ -45,6 +45,11 @@ export interface ILingeringTrack {
 
 export interface IGameplayDrawContext {
     fightProps: FightProperties;
+    /**
+     * Shot ranges are carried as `distance` = half-width of the FULL-DAMAGE square in world units
+     * (GridMath.getFullDamageSquareHalfExtent), not as a circle radius: the board floors the unit's
+     * fractional shot_distance stat to whole cells, so the drawn edge lands on a cell border.
+     */
     currentActiveShotRange?: { xy: HoCMath.XY; distance: number };
     shiftSelectedShotRange?: { xy: HoCMath.XY; distance: number }; // [NEW] Shift-click range
     hoveredShotRange?: { xy: HoCMath.XY; distance: number };
@@ -57,7 +62,7 @@ export interface IGameplayDrawContext {
     hoverManager: HoverManager;
     sidebarUnitRanges?: {
         xy: HoCMath.XY;
-        attackRange: number; // World distance radius
+        attackRange: number; // Half-width of the full-damage square, in world units
         auraRanges: { range: number; isBuff: boolean }[]; // Range in cells
         isSmall: boolean;
     };
@@ -137,11 +142,11 @@ export class SandboxDrawer {
             const { xy, distance } = hoveredShotRange;
             // Use Yellow (same as Active) for consistent "Expected Range" visualization
             // even in placement mode.
-            SandboxDrawer.drawRangeRing(
+            SandboxDrawer.drawShotRangeSquare(
                 g,
                 xy,
                 distance,
-                gs.getCellSize(),
+                gs,
                 hoverGlowPhase,
                 0xffff00, // Yellow
                 fightStarted,
@@ -151,22 +156,13 @@ export class SandboxDrawer {
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
             const { xy, attackRange, auraRanges, isSmall } = sidebarUnitRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(
-                g,
-                xy,
-                attackRange,
-                auraRanges,
-                isSmall,
-                gs.getCellSize(),
-                hoverGlowPhase,
-                0.7,
-            );
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, isSmall, gs, hoverGlowPhase, 0.7);
         }
 
         // 0.51 Hovered Aura Ranges
         if (hoveredAuraRanges) {
             const { xy, auraRanges, isSmall } = hoveredAuraRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), hoverGlowPhase, 0.7);
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs, hoverGlowPhase, 0.7);
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
@@ -182,29 +178,20 @@ export class SandboxDrawer {
                 const xy = currentActiveUnit.getVisualCenter(gs);
                 const isSmall = currentActiveUnit.isSmallSize();
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
-                SandboxDrawer.drawAuraAndAttackRanges(
-                    g,
-                    xy,
-                    0,
-                    auraRanges,
-                    isSmall,
-                    gs.getCellSize(),
-                    hoverGlowPhase,
-                    0.5,
-                );
+                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs, hoverGlowPhase, 0.5);
             }
         }
 
         // 1. Shift Selected Shot Range (Same style as Active)
         if (shiftSelectedShotRange) {
             const { xy, distance } = shiftSelectedShotRange;
-            SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
         }
 
-        // 2. Shot range ring (Active Unit)
+        // 2. Full-damage shot square (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
             const { xy, distance } = currentActiveShotRange;
-            SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
         }
 
         const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
@@ -308,18 +295,23 @@ export class SandboxDrawer {
         attackRange: number,
         auraRanges: { range: number; isBuff: boolean }[],
         isSmall: boolean,
-        cellSize: number,
+        gs: GridSettings,
         pulsePhase: number,
         alphaMultiplier = 1.0,
     ): void {
-        // Attack Range
+        const cellSize = gs.getCellSize();
+
+        // Attack Range: the same whole-cell full-damage square the active unit gets, in a thin cyan
+        // so the sidebar's read-only inspection stays distinct from the unit whose turn it is.
         if (attackRange > 0) {
-            // Style: Thin white/cyan ring, distinct from active unit
-            g.circle(xy.x, xy.y, attackRange).stroke({
-                width: 1.5,
-                color: 0x00ffff, // Cyan
-                alpha: 0.5 * alphaMultiplier,
-            });
+            const bounds = SandboxDrawer.clampSquareToBoard(xy, attackRange, gs);
+            if (bounds) {
+                g.rect(bounds.left, bounds.bottom, bounds.width, bounds.height).stroke({
+                    width: 1.5,
+                    color: 0x00ffff, // Cyan
+                    alpha: 0.5 * alphaMultiplier,
+                });
+            }
         }
 
         // Aura ranges are soft energy fields. The edge stays slightly inside the outer grid separators,
@@ -364,61 +356,93 @@ export class SandboxDrawer {
             }
         }
     }
-    private static drawRangeRing(
+    /**
+     * The part of the shot square that is actually on the board. Cells outside the arena do not exist,
+     * so a shooter standing near an edge gets a truthful (clipped) area instead of a box hanging off
+     * the field. Returns undefined when nothing is left to draw.
+     */
+    private static clampSquareToBoard(
+        xy: HoCMath.XY,
+        halfExtent: number,
+        gs: GridSettings,
+    ): { left: number; bottom: number; width: number; height: number } | undefined {
+        const left = Math.max(xy.x - halfExtent, gs.getMinX());
+        const right = Math.min(xy.x + halfExtent, gs.getMaxX());
+        const bottom = Math.max(xy.y - halfExtent, gs.getMinY());
+        const top = Math.min(xy.y + halfExtent, gs.getMaxY());
+        const width = right - left;
+        const height = top - bottom;
+        if (width <= 0 || height <= 0) {
+            return undefined;
+        }
+
+        return { left, bottom, width, height };
+    }
+    /**
+     * The shooter's FULL-DAMAGE area: every cell inside this square takes an undivided 1/1 arrow, the
+     * next square band out takes 1/2, and so on (AttackHandler.getRangeAttackDivisor). It is a square of
+     * whole cells rather than a circle, so its border always falls on cell edges and the player can
+     * count the cells it covers - which is the whole point of showing it.
+     */
+    private static drawShotRangeSquare(
         g: Graphics,
         xy: HoCMath.XY,
-        distance: number,
-        cellSize: number,
+        halfExtent: number,
+        gs: GridSettings,
         pulsePhase: number,
         color: number,
         fightStarted: boolean,
     ): void {
-        const ringWidth = fightStarted ? 3 : 2;
+        const bounds = SandboxDrawer.clampSquareToBoard(xy, halfExtent, gs);
+        if (!bounds) {
+            return;
+        }
+        const { left, bottom, width, height } = bounds;
+        const cellSize = gs.getCellSize();
+        const pulse = (Math.sin(pulsePhase) + 1) / 2;
 
-        // Main Ring
-        g.circle(xy.x, xy.y, distance).stroke({
-            width: ringWidth,
-            color: color,
+        // The halo feathers INWARD. The old ring could bleed its glow outward because a circle never
+        // claimed to end on a cell; this border does, and past the arena edge there is nothing to glow.
+        const featherLayers = 6;
+        const feather = Math.min(cellSize * 0.7, Math.min(width, height) * 0.4);
+        for (let layer = 1; layer <= featherLayers; layer++) {
+            const inset = (feather * layer) / featherLayers;
+            if (width - inset * 2 <= 0 || height - inset * 2 <= 0) {
+                break;
+            }
+            g.rect(left + inset, bottom + inset, width - inset * 2, height - inset * 2).stroke({
+                width: 1.5,
+                color,
+                alpha: (fightStarted ? 0.16 : 0.12) * (1 - layer / (featherLayers + 1)) * (0.7 + 0.3 * pulse),
+            });
+        }
+
+        g.rect(left, bottom, width, height).stroke({
+            width: fightStarted ? 3 : 2,
+            color,
             alpha: fightStarted ? 0.95 : 0.8,
         });
 
-        const pulse = (Math.sin(pulsePhase) + 1) / 2;
-
-        // Ticks
-        const steps = 8;
-        const tickLen = cellSize * (0.25 + 0.15 * pulse);
-        for (let i = 0; i < steps; i++) {
-            const angle = (Math.PI * 2 * i) / steps;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const r0 = distance - tickLen * 0.5;
-            const r1 = distance + tickLen * 0.5;
-            const x0 = xy.x + cos * r0;
-            const y0 = xy.y + sin * r0;
-            const x1 = xy.x + cos * r1;
-            const y1 = xy.y + sin * r1;
-            g.moveTo(x0, y0)
-                .lineTo(x1, y1)
+        // Corner brackets carry the pulse the ring's radial ticks used to, and they read as "area"
+        // at a glance instead of as a decorative frame.
+        const bracket = Math.min(cellSize * (0.5 + 0.2 * pulse), Math.min(width, height) * 0.45);
+        const right = left + width;
+        const top = bottom + height;
+        const corners: [number, number, number, number][] = [
+            [left, bottom, 1, 1],
+            [right, bottom, -1, 1],
+            [left, top, 1, -1],
+            [right, top, -1, -1],
+        ];
+        for (const [cornerX, cornerY, towardX, towardY] of corners) {
+            g.moveTo(cornerX + towardX * bracket, cornerY)
+                .lineTo(cornerX, cornerY)
+                .lineTo(cornerX, cornerY + towardY * bracket)
                 .stroke({
-                    width: 1.5,
-                    color: color,
-                    alpha: 0.6 + 0.3 * pulse,
+                    width: 2.5,
+                    color,
+                    alpha: 0.6 + 0.35 * pulse,
                 });
-        }
-
-        // Glow
-        const glowSteps = 12;
-        const glowSpread = cellSize * 0.8;
-        const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
-        for (let i = 1; i <= glowSteps; i++) {
-            const fraction = i / glowSteps;
-            const glowRadius = distance + fraction * glowSpread;
-            const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
-            g.circle(xy.x, xy.y, glowRadius).stroke({
-                width: 1.5,
-                color: color,
-                alpha: glowAlpha,
-            });
         }
     }
 }

@@ -1,6 +1,3 @@
-import LanguageRoundedIcon from "@mui/icons-material/LanguageRounded";
-import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
-import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import { Box, Button, CircularProgress, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
 import React, { useMemo } from "react";
@@ -12,6 +9,7 @@ import { images } from "../../generated/image_imports";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { LeagueTransitionReveal } from "../LeagueTransitionReveal";
+import { LanguageNavIcon, RankedNavIcon, RefreshNavIcon } from "../svg/navigation";
 import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
@@ -626,7 +624,7 @@ export const PlayerPortalPage: React.FC = () => {
                                     }
                                 }}
                                 variant="soft"
-                                startDecorator={<LanguageRoundedIcon />}
+                                startDecorator={<LanguageNavIcon sx={{ fontSize: 22 }} />}
                                 aria-label={t("Language")}
                                 sx={{ ...hocSoftButtonSx, minWidth: { sm: 140 }, whiteSpace: "nowrap" }}
                             >
@@ -639,7 +637,7 @@ export const PlayerPortalPage: React.FC = () => {
                             <Button
                                 fullWidth
                                 variant="soft"
-                                startDecorator={<RefreshRoundedIcon />}
+                                startDecorator={<RefreshNavIcon sx={{ fontSize: 22 }} />}
                                 sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
                                 onClick={reload}
                                 disabled={loading}
@@ -649,7 +647,7 @@ export const PlayerPortalPage: React.FC = () => {
                             <Button
                                 fullWidth
                                 variant="solid"
-                                startDecorator={<SportsEsportsRoundedIcon />}
+                                startDecorator={<RankedNavIcon sx={{ fontSize: 22 }} />}
                                 sx={{ ...hocPrimaryButtonSx, minWidth: { sm: 154 }, whiteSpace: "nowrap" }}
                                 onClick={() => navigate("/play")}
                             >

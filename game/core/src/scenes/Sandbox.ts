@@ -2127,7 +2127,7 @@ export class Sandbox extends PixiScene {
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
-        _isSmallUnit: boolean,
+        isSmallUnit: boolean,
         position: HoCMath.XY,
         rangeShotDistance = 0,
         _auraRanges: number[] = [],
@@ -2136,7 +2136,11 @@ export class Sandbox extends PixiScene {
         if (rangeShotDistance > 0) {
             this.sc_currentActiveShotRange = {
                 xy: position,
-                distance: rangeShotDistance * GridConstants.STEP,
+                distance: GridMath.getFullDamageSquareHalfExtent(
+                    rangeShotDistance,
+                    isSmallUnit ? 1 : 2,
+                    GridConstants.STEP,
+                ),
             };
         } else {
             this.sc_currentActiveShotRange = undefined;
@@ -5261,7 +5265,14 @@ export class Sandbox extends PixiScene {
         const rangeShotCells = activeUnit.getRangeShotDistance();
         this.sc_currentActiveShotRange =
             rangeShotCells > 0
-                ? { xy: activeUnit.getPosition(), distance: rangeShotCells * GridConstants.STEP }
+                ? {
+                      xy: activeUnit.getPosition(),
+                      distance: GridMath.getFullDamageSquareHalfExtent(
+                          rangeShotCells,
+                          activeUnit.getSize(),
+                          GridConstants.STEP,
+                      ),
+                  }
                 : undefined;
     }
     protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
@@ -10406,7 +10417,11 @@ export class Sandbox extends PixiScene {
                     if (dist > 0) {
                         this.sc_hoveredShotRange = {
                             xy: hoverTargetUnit.getPosition(),
-                            distance: dist * GridConstants.STEP,
+                            distance: GridMath.getFullDamageSquareHalfExtent(
+                                dist,
+                                hoverTargetUnit.getSize(),
+                                GridConstants.STEP,
+                            ),
                         };
                     }
                 }
@@ -12114,7 +12129,11 @@ export class Sandbox extends PixiScene {
                 shotDist > 0
                     ? {
                           xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
-                          distance: shotDist * GridConstants.STEP,
+                          distance: GridMath.getFullDamageSquareHalfExtent(
+                              shotDist,
+                              targetUnit.getSize(),
+                              GridConstants.STEP,
+                          ),
                       }
                     : undefined;
         } else {
@@ -13114,7 +13133,11 @@ export class Sandbox extends PixiScene {
                                           ),
                                       );
                                   }
-                                  return u.getRangeShotDistance() * GridConstants.STEP;
+                                  return GridMath.getFullDamageSquareHalfExtent(
+                                      u.getRangeShotDistance(),
+                                      u.getSize(),
+                                      GridConstants.STEP,
+                                  );
                               })()
                             : 0,
                     auraRanges,
@@ -13130,7 +13153,11 @@ export class Sandbox extends PixiScene {
             if (dist > 0) {
                 shiftSelectedShotRange = {
                     xy: this.currentShiftedUnit.getPosition(),
-                    distance: dist * GridConstants.STEP,
+                    distance: GridMath.getFullDamageSquareHalfExtent(
+                        dist,
+                        this.currentShiftedUnit.getSize(),
+                        GridConstants.STEP,
+                    ),
                 };
             }
         }
@@ -14496,7 +14523,11 @@ export class Sandbox extends PixiScene {
         if (rangeShotCells > 0) {
             this.sc_currentActiveShotRange = {
                 xy: nextUnit.getPosition(),
-                distance: rangeShotCells * GridConstants.STEP,
+                distance: GridMath.getFullDamageSquareHalfExtent(
+                    rangeShotCells,
+                    nextUnit.getSize(),
+                    GridConstants.STEP,
+                ),
             };
         } else {
             this.sc_currentActiveShotRange = undefined;

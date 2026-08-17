@@ -1,17 +1,10 @@
 import { CustomEventSource } from "@heroesofcrypto/common";
-import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
-import MeetingRoomRoundedIcon from "@mui/icons-material/MeetingRoomRounded";
-import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
-import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
-import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
-import ViewSidebarRoundedIcon from "@mui/icons-material/ViewSidebarRounded";
-import { Alert, Box, Button, Divider, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
+import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -41,6 +34,15 @@ import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { useRankedSeason } from "./useRankedSeason";
 import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
+import {
+    LobbyNavIcon,
+    PracticeAiIcon,
+    ProfileNavIcon,
+    RankedNavIcon,
+    RankedSearchIcon,
+    SandboxNavIcon,
+    StatsPanelIcon,
+} from "./svg/navigation";
 import {
     isAcceptedMatchHandoff,
     isAmbiguousConfirmFailure,
@@ -777,7 +779,7 @@ export const MatchmakingRoute: React.FC = () => {
                             size="sm"
                             variant="soft"
                             aria-current="page"
-                            startDecorator={<SportsEsportsRoundedIcon />}
+                            startDecorator={<RankedNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 ...hocSoftButtonSx,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -795,7 +797,7 @@ export const MatchmakingRoute: React.FC = () => {
                             disabled={navigationLocked}
                             onClick={() => navigate("/lobbies")}
                             title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
-                            startDecorator={<MeetingRoomRoundedIcon />}
+                            startDecorator={<LobbyNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -815,7 +817,7 @@ export const MatchmakingRoute: React.FC = () => {
                             disabled={navigationLocked}
                             onClick={() => navigate("/")}
                             title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
-                            startDecorator={<HomeRoundedIcon />}
+                            startDecorator={<SandboxNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -834,7 +836,7 @@ export const MatchmakingRoute: React.FC = () => {
                             disabled={navigationLocked}
                             onClick={() => navigate("/portal")}
                             title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
-                            startDecorator={<AccountCircleRoundedIcon />}
+                            startDecorator={<ProfileNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -1045,7 +1047,7 @@ export const MatchmakingRoute: React.FC = () => {
                                         aria-expanded={profileSummaryOpen}
                                         aria-controls="ranked-profile-summary"
                                         onClick={() => setProfileSummaryOpen((open) => !open)}
-                                        startDecorator={<ViewSidebarRoundedIcon />}
+                                        startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
                                         sx={{
                                             minHeight: 38,
                                             px: 1.15,
@@ -1163,7 +1165,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 ) : state === "accepted" ? (
                                     <CheckCircleRoundedIcon />
                                 ) : state === "starting-ai" ? (
-                                    <SmartToyRoundedIcon />
+                                    <PracticeAiIcon />
                                 ) : queueElapsedLabel ? (
                                     // Ticking text is hidden from the aria-live region above so screen
                                     // readers get the status line instead of a reading every second.
@@ -1190,7 +1192,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 ) : needsActivation || state === "error" ? (
                                     <ShieldRoundedIcon />
                                 ) : (
-                                    <PersonSearchRoundedIcon />
+                                    <RankedSearchIcon />
                                 )}
                             </Box>
                         </Box>
@@ -1291,11 +1293,12 @@ export const MatchmakingRoute: React.FC = () => {
                                     sx={{
                                         alignSelf: "stretch",
                                         mt: showStatusPresentation || !profileSummaryOpen ? 2.5 : 0,
-                                        p: { xs: 1.25, sm: 1.5 },
-                                        border: "1px solid rgba(112,75,42,0.62)",
-                                        borderRadius: "4px",
-                                        background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
-                                        boxShadow: "0 8px 22px rgba(0,0,0,0.48), inset 0 0 0 1px rgba(150,130,98,0.12)",
+                                        // The doctrine tiles are already outlined, so wrapping them in
+                                        // a second outlined, shadowed, gradient-filled card put three
+                                        // borders between the page and a radio button. The heading and
+                                        // the spacing group them; the frame was redundant.
+                                        px: 0,
+                                        py: { xs: 0.25, sm: 0.5 },
                                     }}
                                 >
                                     <Typography
@@ -1504,7 +1507,7 @@ export const MatchmakingRoute: React.FC = () => {
                                         variant="solid"
                                         disabled={state === "starting-ai" || penalized}
                                         onClick={handleStart}
-                                        startDecorator={<PersonSearchRoundedIcon />}
+                                        startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
                                         endDecorator={!penalized ? <ArrowForwardRoundedIcon /> : undefined}
                                         sx={{
                                             ...hocActionPrimaryButtonSx,
@@ -1523,7 +1526,7 @@ export const MatchmakingRoute: React.FC = () => {
                                         loading={state === "starting-ai"}
                                         disabled={state === "starting-ai"}
                                         onClick={handlePlayAi}
-                                        startDecorator={<SmartToyRoundedIcon />}
+                                        startDecorator={<PracticeAiIcon sx={{ fontSize: 24 }} />}
                                         sx={{
                                             ...hocActionSoftButtonSx,
                                             minHeight: 58,
@@ -1540,14 +1543,12 @@ export const MatchmakingRoute: React.FC = () => {
                                 player who does not want the ranked queue can see a human is already
                                 waiting without navigating away from the arena. */}
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
-                                <Stack spacing={1} sx={{ pt: 0.5 }}>
+                                <Box sx={{ pt: 0.5 }}>
                                     {/* Its own box, and only when somebody is actually waiting: an empty
                                         "no open lobbies" card is column space spent on absence. The browse
                                         button above still reaches the full list and the create control. */}
-                                    <PublicLobbiesPanel dense boxed hideWhenEmpty />
-                                    <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
-                                    <ArenaChatPanel selfUsername={user?.username} />
-                                </Stack>
+                                    <PublicLobbiesPanel dense boxed hideWhenEmpty hideCreate />
+                                </Box>
                             ) : null}
 
                             {state === "searching" ? (
@@ -1631,6 +1632,16 @@ export const MatchmakingRoute: React.FC = () => {
                         <PlayerPortalSidebar navigationDisabled={navigationLocked} />
                     </Box>
                 )}
+
+                {/* The room belongs to the arena, not to the queue card — nesting it inside the card made
+                    a conversation look like one more step of matchmaking, and it inherited the card's
+                    narrow column. Spanning every grid column keeps it below both the card and the stats
+                    sidebar whichever of them is open. */}
+                {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                    <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                        <ArenaChatPanel selfUsername={user?.username} />
+                    </Box>
+                ) : null}
             </Box>
         </Box>
     );

@@ -58,6 +58,14 @@ export interface PublicLobbiesPanelProps {
      * the standalone page and its create control.
      */
     hideWhenEmpty?: boolean;
+    /**
+     * Drop the create control (and the pricing chatter that only exists to explain its cost).
+     *
+     * The arena shows this list purely as "somebody is already waiting" — creating a lobby is a
+     * different intent that belongs on the browse screen its button already leads to. Only safe
+     * where such a route survives; the standalone screen must never pass this.
+     */
+    hideCreate?: boolean;
 }
 
 /**
@@ -74,6 +82,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     dense = false,
     boxed = false,
     hideWhenEmpty = false,
+    hideCreate = false,
 }) => {
     const navigate = useNavigate();
     useTranslation();
@@ -194,30 +203,32 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                 <Typography level="title-md" sx={{ color: hocColors.sidebarTitle }}>
                     {`${t("Open lobbies")}${lobbies.length ? ` (${lobbies.length})` : ""}`}
                 </Typography>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                    {priceNote ? (
-                        <Typography level="body-xs" sx={{ color: hocColors.muted, whiteSpace: "nowrap" }}>
-                            {priceNote}
-                        </Typography>
-                    ) : null}
-                    <Button
-                        size="sm"
-                        sx={{ ...hocPrimaryButtonSx, flexShrink: 0 }}
-                        disabled={tooPoor}
-                        onClick={() => setCreateOpen(true)}
-                    >
-                        {t("Create lobby")}
-                    </Button>
-                </Stack>
+                {hideCreate ? null : (
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                        {priceNote ? (
+                            <Typography level="body-xs" sx={{ color: hocColors.muted, whiteSpace: "nowrap" }}>
+                                {priceNote}
+                            </Typography>
+                        ) : null}
+                        <Button
+                            size="sm"
+                            sx={{ ...hocPrimaryButtonSx, flexShrink: 0 }}
+                            disabled={tooPoor}
+                            onClick={() => setCreateOpen(true)}
+                        >
+                            {t("Create lobby")}
+                        </Button>
+                    </Stack>
+                )}
             </Stack>
 
-            {priceExplanation ? (
+            {priceExplanation && !hideCreate ? (
                 <Typography level="body-xs" sx={{ color: hocColors.muted, lineHeight: 1.45 }}>
                     {priceExplanation}
                 </Typography>
             ) : null}
 
-            {tooPoor ? (
+            {tooPoor && !hideCreate ? (
                 <Typography level="body-xs" sx={{ color: hocColors.danger }}>
                     {`${t("Opening a lobby costs")} ${price} G — ${t("your purse holds")} ${purse} G`}
                 </Typography>
@@ -231,12 +242,24 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                 </Stack>
             ) : lobbies.length === 0 ? (
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    {t("No open lobbies right now — open one and invite a friend.")}
+                    {hideCreate
+                        ? t("No open lobbies right now.")
+                        : t("No open lobbies right now — open one and invite a friend.")}
                 </Typography>
             ) : (
                 <Stack spacing={dense ? 0.75 : 2} sx={dense ? { maxHeight: 260, overflowY: "auto", pr: 0.5 } : {}}>
                     {lobbies.map((lobby) => (
-                        <Sheet key={lobby.id} sx={{ ...hocPanelSx, p: dense ? 1 : 2, borderRadius: "8px" }}>
+                        <Sheet
+                            key={lobby.id}
+                            sx={{
+                                ...hocPanelSx,
+                                p: dense ? 1 : 2,
+                                borderRadius: "8px",
+                                // Inside the dense arena box these rows are already nested two deep;
+                                // a drop shadow per row turns a list into a stack of cards.
+                                ...(dense ? { boxShadow: "none", bgcolor: "rgba(255,255,255,0.035)" } : {}),
+                            }}
+                        >
                             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                                 <Box sx={{ minWidth: 0 }}>
                                     <Typography
@@ -266,59 +289,61 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                 </Stack>
             )}
 
-            <Modal open={createOpen} onClose={() => !creating && setCreateOpen(false)}>
-                <ModalDialog sx={hocPanelSx}>
-                    <Typography level="h3" sx={{ color: hocColors.parchment }}>
-                        {t("Create a lobby")}
-                    </Typography>
-                    {priceExplanation ? (
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.5, lineHeight: 1.45 }}>
-                            {price !== undefined && price > 0
-                                ? `${t("Opening a lobby costs")} ${price} G. ${priceExplanation}`
-                                : priceExplanation}
+            {hideCreate ? null : (
+                <Modal open={createOpen} onClose={() => !creating && setCreateOpen(false)}>
+                    <ModalDialog sx={hocPanelSx}>
+                        <Typography level="h3" sx={{ color: hocColors.parchment }}>
+                            {t("Create a lobby")}
                         </Typography>
-                    ) : null}
-                    <Stack spacing={2} sx={{ mt: 2, minWidth: 320 }}>
-                        <Input
-                            placeholder={t("Lobby name (optional)")}
-                            value={name}
-                            onChange={(e) => setName(e.target.value.slice(0, 64))}
-                        />
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                            <Switch checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
-                            <Typography sx={{ color: hocColors.parchment }}>
-                                {t("Private (join by link + PIN)")}
+                        {priceExplanation ? (
+                            <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.5, lineHeight: 1.45 }}>
+                                {price !== undefined && price > 0
+                                    ? `${t("Opening a lobby costs")} ${price} G. ${priceExplanation}`
+                                    : priceExplanation}
                             </Typography>
-                        </Stack>
-                        {isPrivate ? (
-                            <Input
-                                placeholder={t("4-digit PIN")}
-                                value={pin}
-                                onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                                slotProps={{ input: { inputMode: "numeric", maxLength: 4 } }}
-                            />
                         ) : null}
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button
-                                variant="plain"
-                                disabled={creating}
-                                onClick={() => setCreateOpen(false)}
-                                sx={hocSoftButtonSx}
-                            >
-                                {t("Cancel")}
-                            </Button>
-                            <Button
-                                sx={hocPrimaryButtonSx}
-                                loading={creating}
-                                disabled={tooPoor}
-                                onClick={() => void handleCreate()}
-                            >
-                                {price !== undefined && price > 0 ? `${t("Create")} · ${price} G` : t("Create")}
-                            </Button>
+                        <Stack spacing={2} sx={{ mt: 2, minWidth: 320 }}>
+                            <Input
+                                placeholder={t("Lobby name (optional)")}
+                                value={name}
+                                onChange={(e) => setName(e.target.value.slice(0, 64))}
+                            />
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Switch checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+                                <Typography sx={{ color: hocColors.parchment }}>
+                                    {t("Private (join by link + PIN)")}
+                                </Typography>
+                            </Stack>
+                            {isPrivate ? (
+                                <Input
+                                    placeholder={t("4-digit PIN")}
+                                    value={pin}
+                                    onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                                    slotProps={{ input: { inputMode: "numeric", maxLength: 4 } }}
+                                />
+                            ) : null}
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button
+                                    variant="plain"
+                                    disabled={creating}
+                                    onClick={() => setCreateOpen(false)}
+                                    sx={hocSoftButtonSx}
+                                >
+                                    {t("Cancel")}
+                                </Button>
+                                <Button
+                                    sx={hocPrimaryButtonSx}
+                                    loading={creating}
+                                    disabled={tooPoor}
+                                    onClick={() => void handleCreate()}
+                                >
+                                    {price !== undefined && price > 0 ? `${t("Create")} · ${price} G` : t("Create")}
+                                </Button>
+                            </Stack>
                         </Stack>
-                    </Stack>
-                </ModalDialog>
-            </Modal>
+                    </ModalDialog>
+                </Modal>
+            )}
         </>
     );
 
@@ -327,12 +352,16 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     }
     return (
         <Sheet
-            variant="outlined"
+            variant="plain"
             sx={{
-                ...hocPanelSx,
                 p: dense ? 1.25 : 2,
                 borderRadius: "12px",
-                borderColor: hocColors.orangeBorder,
+                // Still its own region, but a tint rather than an outlined card — inside the arena
+                // card an extra border reads as a frame in a frame.
+                border: "none",
+                boxShadow: "none",
+                bgcolor: "rgba(12,8,5,0.55)",
+                color: hocColors.parchment,
             }}
         >
             <Stack spacing={dense ? 0.75 : 1.25}>{body}</Stack>

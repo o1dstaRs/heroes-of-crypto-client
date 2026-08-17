@@ -100,14 +100,16 @@ export const RankedBanPicker: React.FC = () => {
     return (
         <>
             <Sheet
-                variant="outlined"
+                variant="plain"
                 sx={{
                     alignSelf: "stretch",
-                    p: { xs: 1.25, sm: 1.5 },
-                    borderRadius: "3px",
-                    borderColor: "rgba(112,75,42,0.62)",
-                    background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
-                    boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                    // One row of label + button does not need a card of its own; it sits inside the
+                    // arena card already. Matches the doctrine section above it.
+                    px: 0,
+                    py: { xs: 0.5, sm: 0.75 },
+                    border: "none",
+                    boxShadow: "none",
+                    background: "transparent",
                 }}
             >
                 <Stack

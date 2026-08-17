@@ -849,4 +849,21 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Continue: "Продолжить",
     "Home screen": "Главный экран",
     "Starting…": "Запуск…",
+
+    "No open lobbies right now.": "Открытых лобби сейчас нет.",
+
+    // ~~~ Arena chat ~~~
+    "Arena chat": "Чат арены",
+    quiet: "тихо",
+    "{count} talking": "участников: {count}",
+    "Nothing said yet — say hello, or tag someone with @.":
+        "Пока тихо — поздоровайтесь или упомяните кого-нибудь через @.",
+    "Message the arena — @name to tag someone": "Написать на арену — @имя, чтобы упомянуть",
+    Send: "Отправить",
+    Upvote: "Поддержать",
+    Report: "Пожаловаться",
+    Reported: "Жалоба отправлена",
+    "Could not send that message": "Не удалось отправить сообщение",
+    "Could not register that vote": "Не удалось учесть голос",
+    "Could not report that message": "Не удалось отправить жалобу",
 };
