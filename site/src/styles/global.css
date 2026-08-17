@@ -104,10 +104,6 @@ a {
     border-radius: 2px;
 }
 
-:where(button:not(:disabled), a[href], [role="button"], input[type="range"], label[for], select) {
-    cursor: url("/assets/images/ui/cursor_interactive_point_x.webp") 0 0, pointer;
-}
-
 main {
     min-height: 70vh;
 }
