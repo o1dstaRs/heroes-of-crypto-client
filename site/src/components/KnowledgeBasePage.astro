@@ -217,7 +217,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     <div class="page-shell kb-layout">
         <nav class="kb-section-nav" data-kb-tablist aria-label={copy.sectionNav}>
             {
-                navigationSections.map((section, index) => (
+                navigationSections.map((section) => (
                     <a
                         class:list={["kb-section-tab", section, { active: section === "overview" }]}
                         id={`kb-tab-${section}`}
@@ -832,7 +832,7 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         justify-content: space-between;
         min-height: 116px;
         padding: 17px;
-        background: rgba(9, 13, 16, 0.9);
+        background: rgba(10, 7, 5, 0.92);
     }
 
     .kb-hero-stats dt {
@@ -986,6 +986,34 @@ const sectionLabels: Record<KnowledgeSection, string> = {
         opacity: 0.58;
         font-size: 0.72rem;
         font-variant-numeric: tabular-nums;
+    }
+
+    .kb-search-filters button[data-kb-search-filter="all"] {
+        --kb-filter-accent: #e0b85f;
+    }
+
+    .kb-search-filters button[data-kb-search-filter="rules"] {
+        --kb-filter-accent: #dcae52;
+    }
+
+    .kb-search-filters button[data-kb-search-filter="units"] {
+        --kb-filter-accent: #d66d52;
+    }
+
+    .kb-search-filters button[data-kb-search-filter="abilities"] {
+        --kb-filter-accent: #64b39e;
+    }
+
+    .kb-search-filters button[data-kb-search-filter="spells"] {
+        --kb-filter-accent: #77a8dc;
+    }
+
+    .kb-search-filters button[data-kb-search-filter="artifacts"] {
+        --kb-filter-accent: #d7c48b;
+    }
+
+    .kb-search-filters button:not(.active) :global(.knowledge-icon) {
+        color: var(--kb-filter-accent);
     }
 
     .kb-search-filters button:hover,
@@ -1439,6 +1467,17 @@ const sectionLabels: Record<KnowledgeSection, string> = {
     }
 
     @media (max-width: 760px) {
+        .kb-hero-image {
+            background-position: 65% center;
+            opacity: 0.5;
+        }
+
+        .kb-hero::after {
+            background:
+                linear-gradient(90deg, rgba(8, 6, 5, 0.96), rgba(8, 6, 5, 0.72)),
+                linear-gradient(0deg, #080605, transparent 48%);
+        }
+
         .kb-hero-shell {
             min-height: 0;
             padding-top: 58px;
