@@ -1,3 +1,6 @@
+import CasinoRoundedIcon from "@mui/icons-material/CasinoRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import {
     Alert,
     Box,
@@ -61,17 +64,61 @@ import {
  * popups, while leaving conversations available on demand.
  */
 
-const dockButtonSx = {
-    width: 46,
-    height: 46,
+const dockButtonTones = {
+    predictions: {
+        color: "#d3ad67",
+        background: "rgba(42, 31, 16, 0.94)",
+        backgroundHover: "rgba(54, 40, 20, 0.98)",
+        border: "rgba(211, 173, 103, 0.34)",
+        glow: "rgba(211, 173, 103, 0.1)",
+    },
+    friends: {
+        color: "#71aaa6",
+        background: "rgba(16, 38, 37, 0.94)",
+        backgroundHover: "rgba(21, 49, 47, 0.98)",
+        border: "rgba(113, 170, 166, 0.32)",
+        glow: "rgba(113, 170, 166, 0.09)",
+    },
+    notifications: {
+        color: "#c98272",
+        background: "rgba(47, 27, 23, 0.94)",
+        backgroundHover: "rgba(59, 34, 29, 0.98)",
+        border: "rgba(201, 130, 114, 0.32)",
+        glow: "rgba(201, 130, 114, 0.09)",
+    },
+} as const;
+
+const dockButtonSx = (
+    tone: (typeof dockButtonTones)[keyof typeof dockButtonTones],
+    active: boolean,
+    compact: boolean,
+) => ({
+    width: compact ? 38 : 46,
+    height: compact ? 38 : 46,
+    minWidth: compact ? 38 : 46,
+    minHeight: compact ? 38 : 46,
     borderRadius: "50%",
-    fontSize: 20,
-    bgcolor: hocColors.panel,
-    border: `1px solid ${hocColors.orangeBorder}`,
-    color: hocColors.parchment,
-    boxShadow: "0 6px 18px rgba(0,0,0,0.5)",
-    "&:hover": { bgcolor: hocColors.panelSoft, borderColor: hocColors.orange },
-};
+    color: tone.color,
+    bgcolor: tone.background,
+    border: `1px solid ${tone.border}`,
+    boxShadow: active
+        ? `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px ${tone.glow}, 0 6px 16px rgba(0,0,0,0.48)`
+        : "inset 0 1px 0 rgba(255,255,255,0.05), 0 5px 14px rgba(0,0,0,0.42)",
+    transition: "transform 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+    "& svg": {
+        fontSize: compact ? 20 : 24,
+        filter: `drop-shadow(0 0 3px ${tone.glow})`,
+    },
+    "&:hover": {
+        color: tone.color,
+        bgcolor: tone.backgroundHover,
+        borderColor: tone.border,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px ${tone.glow}, 0 6px 18px rgba(0,0,0,0.5)`,
+    },
+    "&:active": {
+        transform: "translateY(1px)",
+    },
+});
 
 const notificationText = (notification: SocialNotification): string => {
     switch (notification.type) {
@@ -743,24 +790,13 @@ export const SocialDock: React.FC = () => {
     );
     const floatingVolumeSlotRef = useRef<HTMLDivElement | null>(null);
 
-    /**
-     * Adopt the volume control into the FLOATING dock row.
-     *
-     * Both this dock and ThemeMusic fall back to the same fixed bottom-right corner when no fight sidebar
-     * is on screen (matchmaking, lobbies, the portal). The dock paints at z-index 1400 and the speaker at
-     * 60, so outside a fight the notification/friends buttons sat straight on top of the speaker and the
-     * player simply lost the volume control. Publishing a slot here puts it in the row instead, where the
-     * layout sizes itself and cannot collide.
-     *
-     * Only while floating: during a fight RightSideBar publishes both slots and owns the footer, so
-     * claiming the volume slot here would steal the control out of the sidebar.
-     */
+    /** Keep music beside the three social controls both while floating and in the fight sidebar. */
     const active = authenticated && user?.is_active !== false;
     // Depends on `active` too: a logged-out dock renders nothing, so the slot element only appears once the
     // player is active. Without it in the deps the effect would never see that element and the speaker
     // would stay in the corner it collides in.
-    useEffect(() => {
-        if (fightDockSlot || !active) {
+    React.useLayoutEffect(() => {
+        if (!active) {
             return undefined;
         }
         setVolumeSlot(floatingVolumeSlotRef.current);
@@ -802,45 +838,48 @@ export const SocialDock: React.FC = () => {
                 "&:hover": { opacity: 1 },
             }}
         >
-            {/* ThemeMusic portals the speaker in here while the dock floats. First in the row on purpose:
+            {/* ThemeMusic portals the speaker in here. First in the row on purpose:
                 the control expands a volume slider to its right, so anchoring it at the left edge grows
                 the right-anchored row leftward into empty screen instead of shoving the buttons. */}
-            {!fightDockSlot ? (
-                <Box ref={floatingVolumeSlotRef} sx={{ display: "flex", alignItems: "center", flexShrink: 0 }} />
-            ) : null}
+            <Box
+                ref={floatingVolumeSlotRef}
+                data-volume-control="social-dock"
+                data-volume-size={inGame ? "compact" : "default"}
+                sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}
+            />
             <IconButton
-                aria-label="Predictions"
-                sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
+                aria-label="Bets and predictions"
+                aria-pressed={predictionsOpen}
+                title="Bets and predictions"
+                sx={dockButtonSx(dockButtonTones.predictions, predictionsOpen, inGame)}
                 onClick={() => setPredictionsOpen((wasOpen) => !wasOpen)}
             >
-                <span role="img" aria-hidden>
-                    🎯
-                </span>
+                <CasinoRoundedIcon aria-hidden="true" />
             </IconButton>
             <IconButton
                 aria-label="Friends"
-                sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
+                aria-pressed={friendsOpen}
+                title="Friends"
+                sx={dockButtonSx(dockButtonTones.friends, friendsOpen, inGame)}
                 onClick={() => {
                     social.requestNotificationPermission();
                     setFriendsOpen((wasOpen) => !wasOpen);
                 }}
             >
-                <span role="img" aria-hidden>
-                    👥
-                </span>
+                <GroupsRoundedIcon aria-hidden="true" />
             </IconButton>
             <Box sx={{ position: "relative" }}>
                 <IconButton
                     aria-label="Notifications"
-                    sx={{ ...dockButtonSx, ...(inGame ? { width: 38, height: 38, fontSize: 16 } : {}) }}
+                    aria-pressed={trayOpen}
+                    title="Notifications"
+                    sx={dockButtonSx(dockButtonTones.notifications, trayOpen, inGame)}
                     onClick={() => {
                         social.requestNotificationPermission();
                         setTrayOpen((wasOpen) => !wasOpen);
                     }}
                 >
-                    <span role="img" aria-hidden>
-                        🔔
-                    </span>
+                    <NotificationsRoundedIcon aria-hidden="true" />
                 </IconButton>
                 {social.unseenCount > 0 ? (
                     <Box
@@ -854,6 +893,8 @@ export const SocialDock: React.FC = () => {
                             borderRadius: 10,
                             bgcolor: hocColors.danger,
                             color: "#fff",
+                            border: "2px solid #160b07",
+                            boxShadow: "0 3px 10px rgba(0,0,0,0.55)",
                             fontSize: 11,
                             fontWeight: 700,
                             display: "flex",

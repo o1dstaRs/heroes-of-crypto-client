@@ -72,9 +72,14 @@ export default function RightSideBar({
     // publishes WHERE it should appear, and ThemeMusic portals it in. See ui/audio/volumeSlot.
     const volumeSlotRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
+        // Signed-in players get sound as the fourth uniform SocialDock control. Anonymous sandbox play
+        // has no SocialDock, so it keeps this footer fallback.
+        if (authenticated) {
+            return undefined;
+        }
         setVolumeSlot(volumeSlotRef.current);
         return () => setVolumeSlot(null);
-    }, []);
+    }, [authenticated]);
     const socialDockSlotRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         setSocialDockSlot(gameStarted ? socialDockSlotRef.current : null);
@@ -550,8 +555,17 @@ export default function RightSideBar({
                             <Box />
                         )}
                         <Box
-                            ref={volumeSlotRef}
-                            sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", minWidth: 0 }}
+                            ref={authenticated ? undefined : volumeSlotRef}
+                            sx={{
+                                position: "relative",
+                                width: 32,
+                                height: 32,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "flex-end",
+                                minWidth: 0,
+                                overflow: "visible",
+                            }}
                         />
                     </Box>
                 </List>

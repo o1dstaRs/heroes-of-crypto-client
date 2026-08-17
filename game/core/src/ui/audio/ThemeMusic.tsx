@@ -1,3 +1,5 @@
+import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
+import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
@@ -295,18 +297,59 @@ export const ThemeMusic: React.FC = () => {
     }, [volume, muted]);
 
     const silent = muted || volume === 0;
+    const socialDockControl = dockSlot?.dataset.volumeControl === "social-dock";
+    const compactSocialDockControl = socialDockControl && dockSlot?.dataset.volumeSize === "compact";
+    const medallionControl = socialDockControl || !dockSlot;
+    const medallionSize = compactSocialDockControl ? 38 : 46;
+    const medallionButtonSize = medallionSize - 2;
+    const medallionIconSize = compactSocialDockControl ? 20 : 23;
 
-    // Docked, the control is nothing but the speaker and whatever slider it opens: no disc, no rim, no
-    // backdrop, matching the fullscreen toggle it sits opposite. The pill only exists in the floating
-    // fallback, where the control has bare screen under it and needs something to read against.
+    // The social row and standalone fallback use the same coloured medallion as their neighbouring controls.
+    // Inside the fight sidebar the speaker remains bare so it still matches the fullscreen toggle opposite it.
     const containerStyle: React.CSSProperties = dockSlot
-        ? {
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-              gap: volumeExpanded ? "0.5rem" : 0,
-              color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
-          }
+        ? socialDockControl
+            ? {
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  boxSizing: "border-box",
+                  width: volumeExpanded ? "auto" : medallionSize,
+                  height: medallionSize,
+                  gap: volumeExpanded ? "0.5rem" : 0,
+                  padding: volumeExpanded ? "0 0.65rem 0 0" : 0,
+                  overflow: "hidden",
+                  borderRadius: "999px",
+                  background: volumeExpanded ? "rgba(38, 48, 25, 0.98)" : "rgba(31, 40, 22, 0.94)",
+                  border: `1px solid ${silent ? "rgba(145, 173, 112, 0.2)" : "rgba(145, 173, 112, 0.36)"}`,
+                  boxShadow: volumeExpanded
+                      ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(145,173,112,0.08), 0 6px 18px rgba(0,0,0,0.5)"
+                      : "inset 0 1px 0 rgba(255,255,255,0.05), 0 5px 14px rgba(0,0,0,0.42)",
+                  color: silent ? "rgba(145, 173, 112, 0.42)" : "#91ad70",
+                  transition:
+                      "width 140ms ease, padding 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+              }
+            : {
+                  position: "absolute",
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 2,
+                  display: "flex",
+                  flexDirection: "row-reverse",
+                  alignItems: "center",
+                  boxSizing: "border-box",
+                  width: volumeExpanded ? "8.5rem" : 32,
+                  height: 32,
+                  gap: volumeExpanded ? "0.5rem" : 0,
+                  padding: volumeExpanded ? "0 0.25rem" : 0,
+                  overflow: "hidden",
+                  borderRadius: "999px",
+                  background: volumeExpanded ? "rgba(12, 9, 6, 0.96)" : "transparent",
+                  border: volumeExpanded ? "1px solid rgba(220, 177, 88, 0.28)" : "1px solid transparent",
+                  boxShadow: volumeExpanded ? "0 6px 18px rgba(0,0,0,0.55)" : "none",
+                  color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
+                  transition:
+                      "width 140ms ease, padding 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+              }
         : {
               position: "fixed",
               right: "1rem",
@@ -314,14 +357,22 @@ export const ThemeMusic: React.FC = () => {
               zIndex: 60,
               display: "flex",
               alignItems: "center",
+              boxSizing: "border-box",
+              width: volumeExpanded ? "auto" : 46,
+              height: 46,
               gap: volumeExpanded ? "0.5rem" : 0,
-              padding: volumeExpanded ? "0.25rem 0.6rem 0.25rem 0.25rem" : 0,
+              padding: volumeExpanded ? "0 0.65rem 0 0" : 0,
+              overflow: "hidden",
               borderRadius: "999px",
-              background: volumeExpanded ? "rgba(12, 14, 20, 0.72)" : "transparent",
-              border: volumeExpanded ? "1px solid rgba(255, 255, 255, 0.12)" : "none",
-              backdropFilter: volumeExpanded ? "blur(6px)" : "none",
-              transition: "padding 140ms ease, background 140ms ease",
-              color: silent ? "#8d8778" : "#e8e2d4",
+              background: volumeExpanded ? "rgba(38, 48, 25, 0.98)" : "rgba(31, 40, 22, 0.94)",
+              border: `1px solid ${silent ? "rgba(145, 173, 112, 0.2)" : "rgba(145, 173, 112, 0.36)"}`,
+              boxShadow: volumeExpanded
+                  ? "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(145,173,112,0.08), 0 6px 18px rgba(0,0,0,0.5)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.05), 0 5px 14px rgba(0,0,0,0.42)",
+              backdropFilter: "blur(6px)",
+              color: silent ? "rgba(145, 173, 112, 0.42)" : "#91ad70",
+              transition:
+                  "width 140ms ease, padding 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
           };
 
     const control = (
@@ -359,39 +410,41 @@ export const ThemeMusic: React.FC = () => {
                 style={{
                     display: "grid",
                     placeItems: "center",
-                    width: 32,
-                    height: 32,
+                    width: medallionControl ? medallionButtonSize : 32,
+                    height: medallionControl ? medallionButtonSize : 32,
                     flex: "0 0 auto",
                     padding: 0,
-                    // Docked it is just the glyph, like the fullscreen toggle beside it. The disc is for
-                    // the floating fallback only, where there is bare screen behind the icon.
+                    // The fight sidebar keeps a bare glyph; floating and social controls use the medallion.
                     borderRadius: 0,
                     border: "none",
                     background: "transparent",
-                    color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
+                    color: medallionControl
+                        ? silent
+                            ? "rgba(145, 173, 112, 0.42)"
+                            : "#91ad70"
+                        : silent
+                          ? "rgba(220, 177, 88, 0.45)"
+                          : "#dcb158",
                     cursor: "pointer",
                 }}
             >
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                    <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
-                    {silent ? (
-                        <path
-                            d="M16 9.5l5 5m0-5l-5 5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                        />
-                    ) : (
-                        <path
-                            d="M16.5 8.5a4.5 4.5 0 0 1 0 7M19 6a8 8 0 0 1 0 12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                        />
-                    )}
-                </svg>
+                {silent ? (
+                    <VolumeOffRoundedIcon
+                        aria-hidden="true"
+                        sx={{
+                            fontSize: medallionControl ? medallionIconSize : 18,
+                            filter: "drop-shadow(0 0 3px rgba(145,173,112,0.1))",
+                        }}
+                    />
+                ) : (
+                    <VolumeUpRoundedIcon
+                        aria-hidden="true"
+                        sx={{
+                            fontSize: medallionControl ? medallionIconSize : 18,
+                            filter: "drop-shadow(0 0 3px rgba(145,173,112,0.12))",
+                        }}
+                    />
+                )}
             </button>
             <input
                 type="range"
@@ -431,7 +484,7 @@ export const ThemeMusic: React.FC = () => {
                     minWidth: 0,
                     overflow: "hidden",
                     transition: "width 140ms ease, opacity 140ms ease",
-                    accentColor: "#ffd88a",
+                    accentColor: medallionControl ? "#91ad70" : "#dcb158",
                     cursor: "pointer",
                 }}
             />

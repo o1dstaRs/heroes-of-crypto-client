@@ -4036,13 +4036,22 @@ export class Sandbox extends PixiScene {
         const shotsShownPerUnit = new Map<string, number>();
         let rendered = false;
         for (const entry of splash) {
-            if (entry.amount <= 0) {
-                continue;
-            }
             const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const center = splashUnit ? splashUnit.getVisualCenter(gs) : entry.position;
             const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
             const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
+            if (entry.missed) {
+                // A dodged unit in the blast gets the MISS label a dodged single-target shot gets — the
+                // entry carries no damage precisely so it can say that. Ranked already popped it; this
+                // path dropped it, so a dodge inside a volley read as nothing having happened at all.
+                // It matters most for Zena: a dodged throw is why the chakram never bounced onward.
+                this.combatVisuals.showMissLabel(pos, dir);
+                rendered = true;
+                continue;
+            }
+            if (entry.amount <= 0) {
+                continue;
+            }
             const shotIndex = shotsShownPerUnit.get(entry.unitId) ?? 0;
             shotsShownPerUnit.set(entry.unitId, shotIndex + 1);
             if (shotIndex === 0) {
@@ -7452,16 +7461,33 @@ export class Sandbox extends PixiScene {
         // The engine PRECOMPUTED the flight AND the damage from ONE roll, so the disc's cells and the victims
         // never disagree on which way it curled. Per-victim amounts (for the numbers landed AS the disc
         // arrives) come from that same authoritative splash — never a client re-roll.
-        const splashByUnit = new Map<string, { amount: number; unitsDied: number }>();
+        // `missed` rides along because a dodge is the one case where the disc reaches a unit and draws no
+        // wound: the engine ends the flight there (chakram_ability.resolveChakramFlightMisses), and blood
+        // on a unit that stepped out of the way would read as the hit that never happened.
+        const splashByUnit = new Map<string, { amount: number; unitsDied: number; missed?: boolean }>();
         for (const entry of damage?.splash ?? []) {
-            splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
+            splashByUnit.set(entry.unitId, {
+                amount: entry.amount,
+                unitsDied: entry.unitsDied,
+                missed: entry.missed,
+            });
         }
+        /** Pop MISS under a unit the disc reached but never touched, drifting the way the disc came in. */
+        const popChakramMiss = (unit: RenderableUnit, center: HoCMath.XY, dir: HoCMath.XY): void => {
+            this.combatVisuals?.showMissLabel(
+                { x: center.x, y: center.y - cellSize * (unit.isSmallSize() ? 0.85 : 1.25) },
+                dir,
+            );
+        };
 
         // This runs at the exact moment the thrown disc lands on the PRIMARY target (both call sites await
         // the throw first), so the primary's wound opens right here — then each ricochet victim bleeds AS
         // the disc reaches it, never all at once.
         const attackerCenter = attacker.getVisualCenter(gs);
-        if (primaryTarget && !damage?.missed) {
+        // A splash-borne dodge never sets damage.missed (that flag belongs to the single-target path), so
+        // the primary's own entry is what says whether the throw actually connected.
+        const primaryDodged = !!(primaryTarget && splashByUnit.get(primaryTarget.getId())?.missed);
+        if (primaryTarget && !damage?.missed && !primaryDodged) {
             const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as RenderableUnit | undefined;
             if (primary && !primary.isDead()) {
                 const center = primary.getVisualCenter(gs);
@@ -7507,6 +7533,12 @@ export class Sandbox extends PixiScene {
                 }
                 const center = unit.getVisualCenter(gs);
                 const dmg = splashByUnit.get(unitId);
+                if (dmg?.missed) {
+                    // The disc arrived and was dodged. This is the last hop the engine flew, so the flight
+                    // simply ends here — no wound, no shove, just the MISS the dodge earned.
+                    popChakramMiss(unit, center, lastDir);
+                    continue;
+                }
                 if (dmg && dmg.amount > 0) {
                     this.combatVisuals?.showFloatingDamage(center, dmg.amount, lastDir, dmg.unitsDied);
                 }
