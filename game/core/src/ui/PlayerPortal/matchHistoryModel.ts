@@ -1,4 +1,5 @@
 import { PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
+import { siteUrlBase } from "../../api/site_origin";
 
 type PortalMatchBase = NonNullable<ResponsePlayerPortalObject["recent_matches"]>[number];
 
@@ -252,7 +253,7 @@ export const matchOpponentProfileHref = (match: PortalMatchData, language: strin
     }
 
     const path = language === "ru" ? "/ru/profile/" : "/profile/";
-    const url = new URL(path, "https://heroesofcrypto.io");
+    const url = new URL(path, siteUrlBase());
     url.searchParams.set("playerId", playerId);
     const username = (match.opponent_username ?? "").trim();
     if (username) {

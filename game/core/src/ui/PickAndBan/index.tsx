@@ -53,6 +53,7 @@ import { SwordIcon } from "../svg/sword";
 import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
+import { siteUrl } from "../../api/site_origin";
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
@@ -477,7 +478,7 @@ const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.ARTIFACT_2]: "One of three. Both players choose at the same time.",
 };
 
-const RULES_URL = "https://heroesofcrypto.io/rules";
+const RULES_URL = siteUrl("/rules");
 
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {

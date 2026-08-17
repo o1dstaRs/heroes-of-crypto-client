@@ -126,6 +126,7 @@ import {
     vsAiDifficultyLabel,
     type VsAiDifficulty,
 } from "../utils/aiOpponent";
+import { siteUrl } from "../api/site_origin";
 
 export { fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 
@@ -866,7 +867,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             if (cameFromLobby) {
                 navigate(observerOrigin?.lobbyId ? `/lobby/${observerOrigin.lobbyId}` : "/lobbies");
             } else {
-                window.location.assign("https://heroesofcrypto.io");
+                window.location.assign(siteUrl("/"));
             }
             return;
         }
