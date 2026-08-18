@@ -7678,9 +7678,9 @@ export class Sandbox extends PixiScene {
         spell: Spell,
         caster: Unit,
         victims: readonly { unit: Unit; landed: number }[],
-    ): { damage: number; kills: number; chancePercent: number; mirrors: number } | undefined {
+    ): { damage: number; kills: number; reflectionPercent: number; mirrors: number } | undefined {
         let damage = 0;
-        let chancePercent = 0;
+        let reflectionPercent = 0;
         let mirrors = 0;
         // The caster's own Water Shield is a ONE-shot absorb: it eats the first rebound whole and breaks, so
         // a second mirror in the same blast lands in full. Tracked across the loop because each projection
@@ -7701,23 +7701,24 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             damage += rebound.landed;
-            // Two mirrors in one blast hit the caster twice, each on its own roll — so the label states the
-            // full price and the HIGHEST of the odds rather than pretending the two are one event.
-            chancePercent = Math.max(chancePercent, rebound.chancePercent);
+            // Two mirrors in one blast hit the caster twice — so the label states the full price and the
+            // LARGEST share rather than pretending the two are one event.
+            reflectionPercent = Math.max(reflectionPercent, rebound.reflectionPercent);
             mirrors += 1;
         }
         if (!mirrors) {
             return undefined;
         }
-        return { damage, kills: caster.calculatePossibleLosses(damage), chancePercent, mirrors };
+        return { damage, kills: caster.calculatePossibleLosses(damage), reflectionPercent, mirrors };
     }
     /**
      * Label the caster with what this cast would cost IT, when any creature it touches carries Magic
      * Reflection. Drawn over the caster because that is where the damage lands.
      *
-     * Stated as "-90 (45% rebound)": the price and the odds, because unlike everything else on a spell hover
-     * a rebound is a ROLL — the mirror's share is both how much comes back and how often. Silence here read
-     * as "this cast is free", which is exactly what a Magic Dragon punishes.
+     * Stated as "-90 (45% rebound)": the price and the mirror's SHARE of what landed. A spell buff returns
+     * that share every time; the Magic Reflection passive rolls separately before the engine projects, so the
+     * hover shows what comes back when it does. Silence here read as "this cast is free", which is exactly
+     * what a Magic Dragon punishes.
      */
     private drawSpellReboundPreview(
         spell: Spell,
@@ -7734,7 +7735,7 @@ export class Sandbox extends PixiScene {
         const dying = rebound.kills > 0 ? `, ${rebound.kills} die` : "";
         this.hoverManager.addAOEDamageLabel(
             casterCenter,
-            `-${rebound.damage} (${rebound.chancePercent}% rebound${dying})`,
+            `-${rebound.damage} (${rebound.reflectionPercent}% rebound${dying})`,
             !caster.isSmallSize(),
         );
     }

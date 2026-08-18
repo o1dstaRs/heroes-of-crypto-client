@@ -37,6 +37,8 @@ const unitLike = (params: {
     stackPower?: number;
     luck?: number;
     magicReflectionPower?: number;
+    /** Buff powers by name, as Unit.getBuffPower reports them: absent buff -> undefined, never 0. */
+    buffPowers?: Record<string, number>;
 }): Unit => {
     const abilities = new Set(params.abilities ?? []);
     if (params.magicReflectionPower) {
@@ -50,6 +52,10 @@ const unitLike = (params: {
         getMagicResist: () => params.magicResist ?? 0,
         getMagicDamageBonusPercentage: () => 0,
         getAbilityPower: () => params.magicReflectionPower ?? 0,
+        // getMagicMirrorPower reads Magic Mirror / Mass Magic Mirror through this. Returning undefined
+        // for an absent buff is the real contract — 0 would read as a buff that reflects nothing, which
+        // is a different statement — and these fixtures carry the dragon's ABILITY, not the mage's buff.
+        getBuffPower: (name: string) => params.buffPowers?.[name],
         hasAbilityActive: (name: string) => abilities.has(name),
         // Mirrors Unit.willWaterShieldAbsorb: an intact shield eats anything but a Fire Element's hit.
         willWaterShieldAbsorb: (attacker?: { hasAbilityActive: (name: string) => boolean }) =>
@@ -298,7 +304,7 @@ describe("Magic Reflection rebound projection", () => {
                 landedOnHolder: 600,
             });
 
-            expect(rebound?.chancePercent).toBe(15);
+            expect(rebound?.reflectionPercent).toBe(15);
             expect(rebound?.damage).toBe(expected);
         }
     });
