@@ -109,9 +109,9 @@
         "typescript": "^5.9.3",
         "vite": "^8.0.16"
     },
-    "packageManager": "bun@^1.1.0",
+    "packageManager": "bun@^1.4.0",
     "engines": {
-        "bun": ">=1.3.2"
+        "bun": ">=1.4.0"
     },
     "staticFiles": {
         "staticPath": "game/core/src/heroes/configuration"
