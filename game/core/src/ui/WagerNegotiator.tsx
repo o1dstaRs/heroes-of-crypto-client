@@ -1,4 +1,4 @@
-import { Button, Input, Sheet, Stack, Typography } from "@mui/joy";
+import { Box, Button, Input, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { isInsufficientSeasonCurrencyError } from "../api/ranked_season_client";
@@ -168,15 +168,22 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
             >
                 {intent.amount > 0 ? (
                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                        <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                            <Stack component="span" direction="row" spacing={0.5} alignItems="center">
-                                <CurrencyIcon iconSvg={currency.iconSvg} size={15} />
-                                <span>
-                                    <b style={{ color: hocColors.gold }}>{intent.amount}</b>{" "}
+                        <Stack direction="row" spacing={0.8} alignItems="center" sx={{ minWidth: 0 }}>
+                            <CurrencyIcon iconSvg={currency.iconSvg} prominent size={34} />
+                            <Box sx={{ minWidth: 0 }}>
+                                <Stack direction="row" spacing={0.35} alignItems="baseline">
+                                    <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                        {intent.amount.toLocaleString()}
+                                    </Typography>
+                                    <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                        {currency.symbol}
+                                    </Typography>
+                                </Stack>
+                                <Typography level="body-xs" sx={{ color: hocColors.muted }}>
                                     {t("on the table — if your opponent stakes too, the wager opens right here.")}
-                                </span>
-                            </Stack>
-                        </Typography>
+                                </Typography>
+                            </Box>
+                        </Stack>
                         <Button
                             size="sm"
                             variant="outlined"
@@ -189,16 +196,14 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                     </Stack>
                 ) : (
                     <>
-                        <Typography level="body-sm" sx={{ color: hocColors.parchment, mb: 0.75 }}>
-                            <Stack component="span" direction="row" spacing={0.5} alignItems="center">
-                                <CurrencyIcon iconSvg={currency.iconSvg} size={15} />
-                                <span>
-                                    {tf("Stake {currency} on THIS match — winner takes the pot.", {
-                                        currency: t(currency.name),
-                                    })}
-                                </span>
-                            </Stack>
-                        </Typography>
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.75 }}>
+                            <CurrencyIcon iconSvg={currency.iconSvg} prominent size={30} />
+                            <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
+                                {tf("Stake {currency} on THIS match — winner takes the pot.", {
+                                    currency: t(currency.name),
+                                })}
+                            </Typography>
+                        </Stack>
                         <Stack direction="row" spacing={0.75} alignItems="center">
                             <Input
                                 size="sm"
@@ -317,8 +322,8 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 }}
             >
                 <Typography level="body-sm" sx={{ color: hocColors.gold, fontWeight: 700 }}>
-                    <Stack component="span" direction="row" spacing={0.5} alignItems="center">
-                        <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
+                    <Stack component="span" direction="row" spacing={0.7} alignItems="center">
+                        <CurrencyIcon iconSvg={currency.iconSvg} prominent size={28} />
                         <span>{text}</span>
                     </Stack>
                 </Typography>
@@ -365,20 +370,13 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 boxShadow: "0 16px 50px rgba(0,0,0,0.6), 0 0 30px rgba(255,183,0,0.12)",
             }}
         >
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline">
-                <Typography
-                    level="title-md"
-                    sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        color: hocColors.gold,
-                        fontWeight: 800,
-                    }}
-                >
-                    <CurrencyIcon iconSvg={currency.iconSvg} size={17} />
-                    {tf("{currency} on the line", { currency: t(currency.name) })}
-                </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" spacing={0.75} alignItems="center">
+                    <CurrencyIcon iconSvg={currency.iconSvg} prominent size={34} />
+                    <Typography level="title-md" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                        {tf("{currency} on the line", { currency: t(currency.name) })}
+                    </Typography>
+                </Stack>
                 {secondsLeft > 0 && (
                     <Typography
                         level="body-sm"
@@ -389,13 +387,41 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 )}
             </Stack>
 
-            <Stack direction="row" spacing={2} sx={{ mt: 0.75, mb: 1 }}>
-                <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                    {t("Your stake")}: <b>{wager.myStake}</b>
-                </Typography>
-                <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                    {t("Opponent")}: <b>{wager.opponentStake}</b>
-                </Typography>
+            <Stack direction="row" spacing={0.75} sx={{ mt: 0.85, mb: 1 }}>
+                {[
+                    { label: t("Your stake"), amount: wager.myStake },
+                    { label: t("Opponent"), amount: wager.opponentStake },
+                ].map(({ label, amount }) => (
+                    <Sheet
+                        key={label}
+                        variant="soft"
+                        sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            px: 1,
+                            py: 0.65,
+                            border: "1px solid rgba(220,177,88,0.22)",
+                            borderRadius: "3px",
+                            bgcolor: "rgba(220,177,88,0.06)",
+                        }}
+                    >
+                        <Typography
+                            level="body-xs"
+                            sx={{ color: hocColors.muted, letterSpacing: "0.06em", textTransform: "uppercase" }}
+                        >
+                            {label}
+                        </Typography>
+                        <Stack direction="row" spacing={0.45} alignItems="center">
+                            <CurrencyIcon iconSvg={currency.iconSvg} prominent size={21} />
+                            <Typography level="title-md" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                                {amount.toLocaleString()}
+                            </Typography>
+                            <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                {currency.symbol}
+                            </Typography>
+                        </Stack>
+                    </Sheet>
+                ))}
             </Stack>
 
             {isRaised ? (

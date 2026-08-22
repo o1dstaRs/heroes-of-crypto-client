@@ -81,88 +81,166 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
     if (total <= 0) {
         return (
             <Sheet
-                variant="outlined"
+                variant="plain"
                 sx={{
-                    p: 1.5,
+                    p: { xs: 1.25, sm: 1.5 },
                     alignSelf: "stretch",
                     textAlign: "center",
                     color: hocColors.parchment,
-                    borderRadius: "3px",
-                    borderColor: "rgba(112,75,42,0.62)",
-                    background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
-                    boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                    border: "none",
+                    borderTop: "1px solid rgba(112,75,42,0.46)",
+                    borderRadius: 0,
+                    background: "radial-gradient(circle at 7% 50%, rgba(220,177,88,0.1), transparent 38%)",
+                    boxShadow: "none",
                 }}
             >
-                <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    ⚔️{" "}
-                    {tf("Win ranked games to earn {currency} — then stake it on your matches, winner takes all.", {
-                        currency: t(currency.name),
-                    })}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                    <CurrencyIcon iconSvg={currency.iconSvg} prominent size={34} />
+                    <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "left" }}>
+                        {tf("Win ranked games to earn {currency} — then stake it on your matches, winner takes all.", {
+                            currency: t(currency.name),
+                        })}
+                    </Typography>
+                </Stack>
             </Sheet>
         );
     }
 
     return (
         <Sheet
-            variant="outlined"
+            variant="plain"
             sx={{
                 p: { xs: 1.25, sm: 1.5 },
                 alignSelf: "stretch",
                 color: hocColors.parchment,
-                borderRadius: "3px",
-                borderColor: "rgba(112,75,42,0.62)",
-                background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
-                boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                border: "none",
+                borderTop: "1px solid rgba(112,75,42,0.46)",
+                borderRadius: 0,
+                background: "radial-gradient(circle at 7% 48%, rgba(220,177,88,0.1), transparent 38%)",
+                boxShadow: "none",
             }}
         >
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.75 }}>
-                <Typography
-                    level="title-sm"
-                    sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        color: hocColors.gold,
-                        fontFamily: hocDisplayFontFamily,
-                        fontWeight: 400,
-                        letterSpacing: "0.06em",
-                    }}
-                >
-                    <CurrencyIcon iconSvg={currency.iconSvg} size={16} />
-                    {tf("{currency} on the line", { currency: t(currency.name) })}
-                </Typography>
-                <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                    {t("Purse")}: {gold} {currency.symbol}
-                </Typography>
-            </Stack>
-
             {armed > 0 ? (
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                    <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                        <b style={{ color: hocColors.gold }}>{armed}</b>{" "}
-                        {tf(
-                            "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.",
-                            { currency: t(currency.name) },
-                        )}
-                    </Typography>
-                    <Button
-                        size="sm"
-                        variant="outlined"
-                        sx={{
-                            ...hocActionSoftButtonSx,
-                            flexShrink: 0,
-                            minHeight: 38,
-                            fontFamily: hocDisplayFontFamily,
-                        }}
-                        disabled={busy}
-                        onClick={() => void apply(0)}
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 1, sm: 2 }}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Stack direction="row" spacing={1.2} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                        <CurrencyIcon iconSvg={currency.iconSvg} prominent size={48} />
+                        <Box sx={{ minWidth: 0, textAlign: "left" }}>
+                            <Typography
+                                level="body-xs"
+                                sx={{
+                                    color: hocColors.gold,
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontWeight: 700,
+                                    letterSpacing: "0.12em",
+                                    textTransform: "uppercase",
+                                }}
+                            >
+                                {tf("{currency} on the line", { currency: t(currency.name) })}
+                            </Typography>
+                            <Stack direction="row" spacing={0.45} alignItems="baseline">
+                                <Typography
+                                    level="h2"
+                                    sx={{ color: hocColors.parchment, fontFamily: hocDisplayFontFamily, lineHeight: 1 }}
+                                >
+                                    {armed.toLocaleString()}
+                                </Typography>
+                                <Typography level="title-sm" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                    {currency.symbol}
+                                </Typography>
+                            </Stack>
+                            <Typography level="body-xs" sx={{ mt: 0.35, color: hocColors.muted, lineHeight: 1.4 }}>
+                                {tf(
+                                    "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.",
+                                    { currency: t(currency.name) },
+                                )}
+                            </Typography>
+                        </Box>
+                    </Stack>
+                    <Stack
+                        direction={{ xs: "row", sm: "column" }}
+                        spacing={0.65}
+                        alignItems={{ xs: "center", sm: "flex-end" }}
+                        justifyContent={{ xs: "space-between", sm: "center" }}
+                        sx={{ flexShrink: 0 }}
                     >
-                        {t("Take it back")}
-                    </Button>
+                        <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+                            <Typography
+                                level="body-xs"
+                                sx={{ color: hocColors.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}
+                            >
+                                {t("Purse")}
+                            </Typography>
+                            <Stack
+                                direction="row"
+                                spacing={0.45}
+                                alignItems="center"
+                                justifyContent={{ xs: "flex-start", sm: "flex-end" }}
+                            >
+                                <CurrencyIcon iconSvg={currency.iconSvg} prominent size={26} />
+                                <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 700 }}>
+                                    {gold.toLocaleString()}
+                                </Typography>
+                                <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                    {currency.symbol}
+                                </Typography>
+                            </Stack>
+                        </Box>
+                        <Button
+                            size="sm"
+                            variant="outlined"
+                            sx={{
+                                ...hocActionSoftButtonSx,
+                                minHeight: 36,
+                                fontFamily: hocDisplayFontFamily,
+                            }}
+                            disabled={busy}
+                            onClick={() => void apply(0)}
+                        >
+                            {t("Take it back")}
+                        </Button>
+                    </Stack>
                 </Stack>
             ) : (
                 <>
+                    <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={{ xs: 0.75, sm: 1 }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "stretch", sm: "center" }}
+                        sx={{ mb: 0.75 }}
+                    >
+                        <Stack direction="row" spacing={0.8} alignItems="center">
+                            <CurrencyIcon iconSvg={currency.iconSvg} prominent size={34} />
+                            <Typography
+                                level="title-sm"
+                                sx={{
+                                    color: hocColors.gold,
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontWeight: 400,
+                                    letterSpacing: "0.06em",
+                                }}
+                            >
+                                {tf("{currency} on the line", { currency: t(currency.name) })}
+                            </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={0.45} alignItems="center">
+                            <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                                {t("Purse")}
+                            </Typography>
+                            <CurrencyIcon iconSvg={currency.iconSvg} prominent size={26} />
+                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 700 }}>
+                                {gold.toLocaleString()}
+                            </Typography>
+                            <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
+                                {currency.symbol}
+                            </Typography>
+                        </Stack>
+                    </Stack>
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mb: 0.75 }}>
                         {tf(
                             "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.",

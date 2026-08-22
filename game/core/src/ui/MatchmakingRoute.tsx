@@ -1486,20 +1486,28 @@ export const MatchmakingRoute: React.FC = () => {
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <RankedBanPicker />
+                                <Sheet
+                                    variant="outlined"
+                                    sx={{
+                                        alignSelf: "stretch",
+                                        overflow: "hidden",
+                                        borderRadius: "3px",
+                                        borderColor: "rgba(112,75,42,0.62)",
+                                        background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
+                                        boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                                    }}
+                                >
+                                    <RankedBanPicker />
+                                    {/* No stake against a bot: a wager only forms when BOTH seats hold an intent and
+                                        the AI seat never sets one, so gold armed on the way into a vs-AI match can
+                                        never ride it — it just sits escrowed until a human turns up. Hence "idle"
+                                        and "error" but not "starting-ai". Calibration games never stake either: the
+                                        server refuses the intent until the player is placed. */}
+                                    {(state === "idle" || state === "error") && canStake ? (
+                                        <WagerStakeBox currency={currency} />
+                                    ) : null}
+                                </Sheet>
                             )}
-
-                            {/* No stake against a bot: a wager only forms when BOTH seats hold an intent and
-                                the AI seat never sets one, so gold armed on the way into a vs-AI match can
-                                never ride it — it just sits escrowed until a human turns up. Hence "idle"
-                                and "error" but not "starting-ai". */}
-                            {/* Calibration games never stake (owner call 2026-08-16): the server refuses both
-                                the intent and the wager for an unplaced player, so offering the control here
-                                could only ever produce a refusal. Hidden until they are placed. */}
-                            {!needsActivation && (state === "idle" || state === "error") && canStake && (
-                                <WagerStakeBox currency={currency} />
-                            )}
-
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
                                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.15}>
                                     <Button

@@ -1,3 +1,4 @@
+import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import { Box, Button, Input, Modal, ModalDialog, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -103,10 +104,8 @@ export const RankedBanPicker: React.FC = () => {
                 variant="plain"
                 sx={{
                     alignSelf: "stretch",
-                    // One row of label + button does not need a card of its own; it sits inside the
-                    // arena card already. Matches the doctrine section above it.
-                    px: 0,
-                    py: { xs: 0.5, sm: 0.75 },
+                    px: { xs: 1.25, sm: 1.5 },
+                    py: { xs: 1.1, sm: 1.25 },
                     border: "none",
                     boxShadow: "none",
                     background: "transparent",
@@ -139,63 +138,66 @@ export const RankedBanPicker: React.FC = () => {
                         sx={{ minWidth: 0 }}
                     >
                         {creatureId > 0 ? (
-                            <Sheet
+                            <Button
+                                size="sm"
                                 variant="outlined"
+                                aria-label={`${t("Change")}: ${creatureName}`}
+                                startDecorator={
+                                    <img
+                                        src={resolveUnitImage(undefined, creatureName)}
+                                        alt=""
+                                        width={30}
+                                        height={30}
+                                        style={{ borderRadius: 2, objectFit: "cover" }}
+                                    />
+                                }
+                                endDecorator={<EditRoundedIcon sx={{ fontSize: 16 }} />}
+                                onClick={() => setOpen(true)}
                                 sx={{
                                     minWidth: 0,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.75,
+                                    minHeight: 38,
                                     px: 0.9,
-                                    py: 0.35,
                                     borderRadius: "2px",
                                     borderColor: "rgba(255,90,63,0.5)",
                                     bgcolor: "rgba(76,19,12,0.34)",
+                                    color: hocColors.parchment,
+                                    fontFamily: hocDisplayFontFamily,
+                                    fontWeight: 400,
+                                    textTransform: "none",
+                                    "&:hover": {
+                                        borderColor: "rgba(255,90,63,0.76)",
+                                        bgcolor: "rgba(95,25,15,0.46)",
+                                    },
                                 }}
                             >
-                                <img
-                                    src={resolveUnitImage(undefined, creatureName)}
-                                    alt=""
-                                    width={30}
-                                    height={30}
-                                    style={{ borderRadius: 2, objectFit: "cover" }}
-                                />
-                                <Typography level="body-sm" noWrap sx={{ color: hocColors.parchment, minWidth: 0 }}>
-                                    {creatureName}
-                                </Typography>
-                            </Sheet>
+                                {creatureName}
+                            </Button>
                         ) : (
-                            <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                {t("Not picked")}
-                            </Typography>
-                        )}
-                        <Button
-                            size="sm"
-                            variant="outlined"
-                            sx={{
-                                ...hocActionSoftButtonSx,
-                                minHeight: 38,
-                                flex: { xs: 1, sm: "0 0 auto" },
-                                fontFamily: hocDisplayFontFamily,
-                            }}
-                            onClick={() => setOpen(true)}
-                        >
-                            {creatureId > 0 ? t("Change") : t("Choose")}
-                        </Button>
-                        {creatureId > 0 ? (
                             <Button
                                 size="sm"
                                 variant="outlined"
                                 sx={{
                                     ...hocActionSoftButtonSx,
                                     minHeight: 38,
+                                    flex: { xs: 1, sm: "0 0 auto" },
+                                    fontFamily: hocDisplayFontFamily,
+                                }}
+                                onClick={() => setOpen(true)}
+                            >
+                                {t("Choose")}
+                            </Button>
+                        )}
+                        {creatureId > 0 ? (
+                            <Button
+                                size="sm"
+                                variant="plain"
+                                sx={{
+                                    minHeight: 38,
                                     color: hocColors.muted,
-                                    borderColor: "rgba(255,90,63,0.36)",
                                     fontFamily: hocDisplayFontFamily,
                                     "&:hover": {
                                         color: hocColors.danger,
                                         bgcolor: "rgba(255,90,63,0.1)",
-                                        borderColor: "rgba(255,90,63,0.68)",
                                     },
                                 }}
                                 disabled={busy}
