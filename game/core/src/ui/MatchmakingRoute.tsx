@@ -1644,8 +1644,10 @@ export const MatchmakingRoute: React.FC = () => {
                 {/* The room belongs to the arena, not to the queue card — nesting it inside the card made
                     a conversation look like one more step of matchmaking, and it inherited the card's
                     narrow column. Spanning every grid column keeps it below both the card and the stats
-                    sidebar whichever of them is open. */}
-                {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                    sidebar whichever of them is open. Mounted through EVERY queue state on purpose:
+                    waiting in the search queue is prime talking time, and a room that vanishes when you
+                    press Find reads as a bug (it once did, via a state gate that hid it mid-search). */}
+                {!needsActivation ? (
                     <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
                         <ArenaChatPanel selfUsername={user?.username} />
                     </Box>
