@@ -1,11 +1,13 @@
 import { Assets, Texture, loadTextures } from "pixi.js";
+import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 import { images as rawImages } from "../generated/image_imports";
 
 // Decode textures via <img> instead of createImageBitmap. Chrome intermittently throws
 // "InvalidStateError: The source image could not be decoded" from createImageBitmap when many large
-// WebP atlases decode concurrently — and our core bundle preloads every `_atlas_quarter` at once, so a
-// single flaky decode aborts the whole bundle and blocks init. The <img> path (img.decode()) is a hair
-// slower but reliable and still off the main thread, with no createImageBitmap/worker concurrency flake.
+// WebP atlases decode concurrently — a single flaky decode aborts the whole bundle (historically the
+// core bundle carried every `_atlas_quarter`; today the supplementary bundle still decodes hundreds of
+// atlases at once). The <img> path (img.decode()) is a hair slower but reliable and still off the main
+// thread, with no createImageBitmap/worker concurrency flake.
 if (loadTextures.config) {
     loadTextures.config.preferWorkers = false;
     loadTextures.config.preferCreateImageBitmap = false;
@@ -83,8 +85,11 @@ function getSplitBundles() {
 
     for (const [k, v] of Object.entries(rawImages)) {
         const src = normalizeUrl(v, k);
-        // Tier 2: Animations (_atlas)
-        if (k.endsWith("_atlas")) {
+        // Tier 2 (supplementary): every UNIT animation atlas, ALL size variants — the fight plays
+        // fine without them, so none of them belongs behind the loading screen. Terrain atlases and
+        // everything else are Tier 1: the board wants those at first paint. See unitAtlasKeys for
+        // why the split keys off the generated atlas index rather than a name suffix.
+        if (isUnitAnimationAtlasKey(k)) {
             animations[k] = { src };
         } else {
             // Tier 1: Core
