@@ -27,6 +27,7 @@
         "build": "bun run lint:fix && bun run lint && bun run check:images && bun run build:ws",
         "build:common": "bun run --cwd game/heroes-of-crypto-common build",
         "build:core": "bun run --cwd game/core build",
+        "build:core:test": "bun run --cwd game/core build:test",
         "build:game": "bun workspace @heroesofcrypto/common build && bun workspace @heroesofcrypto/core build",
         "build:mcp": "bun run --cwd game/mcp build",
         "build:site": "bun run --cwd site build",
