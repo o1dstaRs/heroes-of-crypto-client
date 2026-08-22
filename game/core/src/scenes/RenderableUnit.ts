@@ -80,7 +80,12 @@ const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
 const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
 const ACTIVE_TURN_FIRE_FRAME_MS = 1000 / 18;
-const ACTIVE_TURN_FIRE_URL = images.active_turn_blue_fire_atlas;
+// OPTIONAL lookup on purpose: the effect below is disabled and its 500 KB atlas lives in the
+// review-source Dropbox staging area (over the 120 KB static-image ceiling), so the generated image
+// manifest does not carry the key. A typed property access here made the whole client build demand
+// art the images folder deliberately does not ship (the 2026-08-22 deploy abort). Restoring the
+// effect means promoting the atlas back into the images folder — this lookup then finds it again.
+const ACTIVE_TURN_FIRE_URL = (images as Partial<Record<string, string>>).active_turn_blue_fire_atlas ?? "";
 // Prepared from the blue-fire source video. Keep the implementation/assets ready, but leave the
 // effect visually disabled until the owner asks to restore it.
 const ACTIVE_TURN_FIRE_ENABLED = false;
@@ -95,6 +100,11 @@ export function activeTurnFireFrameForElapsed(elapsedMs: number): number {
 
 function getActiveTurnFireFrames(): Texture[] {
     if (activeTurnFireFramesCache !== undefined) return activeTurnFireFramesCache ?? [];
+    if (!ACTIVE_TURN_FIRE_URL) {
+        // Atlas not shipped (see ACTIVE_TURN_FIRE_URL) — same vector-aura fallback as a failed decode.
+        activeTurnFireFramesCache = null;
+        return [];
+    }
     try {
         const parentTexture = Texture.from(ACTIVE_TURN_FIRE_URL);
         const source = parentTexture.source;
