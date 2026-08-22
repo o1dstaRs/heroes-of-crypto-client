@@ -45,6 +45,9 @@ export interface WagerNegotiatorProps {
 const POLL_MS = 2000;
 const MAX_WAGER = 1_000_000;
 
+/** The ✕ glyph, shared by every dismissible wager surface. */
+const dismissButtonSx = { color: hocColors.muted, minHeight: 0, py: 0.25 } as const;
+
 export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active }) => {
     const { currency } = useRankedSeason();
     const [wager, setWager] = useState<WagerState | null>(null);
@@ -55,6 +58,9 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
     const [error, setError] = useState("");
     const [nowTick, setNowTick] = useState(Date.now());
     const [dismissed, setDismissed] = useState(false);
+    // Scoped to the late-arm surface only: hiding the offer to stake must never hide a wager
+    // that actually opens later in the draft.
+    const [armHidden, setArmHidden] = useState(false);
     const lastStatusRef = useRef<string>("");
 
     const reload = useCallback(async (): Promise<void> => {
@@ -146,8 +152,8 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 setBusy(false);
             }
         };
-        if (purse <= 0) {
-            return null; // nothing to stake and nothing armed — stay out of the draft's way
+        if (purse <= 0 || armHidden) {
+            return null; // nothing to stake, nothing armed, or waved away — stay out of the draft's way
         }
         return (
             <Sheet
@@ -184,15 +190,20 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                                 </Typography>
                             </Box>
                         </Stack>
-                        <Button
-                            size="sm"
-                            variant="outlined"
-                            sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
-                            disabled={busy}
-                            onClick={() => void armHere(0)}
-                        >
-                            {t("Take it back")}
-                        </Button>
+                        <Stack direction="row" spacing={0.25} alignItems="center" sx={{ flexShrink: 0 }}>
+                            <Button
+                                size="sm"
+                                variant="outlined"
+                                sx={hocSoftButtonSx}
+                                disabled={busy}
+                                onClick={() => void armHere(0)}
+                            >
+                                {t("Take it back")}
+                            </Button>
+                            <Button size="sm" variant="plain" sx={dismissButtonSx} onClick={() => setArmHidden(true)}>
+                                ✕
+                            </Button>
+                        </Stack>
                     </Stack>
                 ) : (
                     <>
@@ -203,6 +214,14 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                                     currency: t(currency.name),
                                 })}
                             </Typography>
+                            <Button
+                                size="sm"
+                                variant="plain"
+                                sx={{ ...dismissButtonSx, ml: "auto", flexShrink: 0 }}
+                                onClick={() => setArmHidden(true)}
+                            >
+                                ✕
+                            </Button>
                         </Stack>
                         <Stack direction="row" spacing={0.75} alignItems="center">
                             <Input
@@ -327,12 +346,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                         <span>{text}</span>
                     </Stack>
                 </Typography>
-                <Button
-                    size="sm"
-                    variant="plain"
-                    sx={{ color: hocColors.muted, minHeight: 0, py: 0.25 }}
-                    onClick={() => setDismissed(true)}
-                >
+                <Button size="sm" variant="plain" sx={dismissButtonSx} onClick={() => setDismissed(true)}>
                     ✕
                 </Button>
             </Sheet>
