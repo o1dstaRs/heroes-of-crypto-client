@@ -2800,7 +2800,7 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Poison auras (Poison Cloud / Venom Cloud): flat base % + the unit's own luck (luck-dependent
+        // Poison auras (Venom Cloud today): flat base % + the unit's own luck (luck-dependent
         // though not stack-powered).
         for (const poisonAuraAbilityName of HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES) {
             const poisonCloudAbility = this.getAbility(poisonAuraAbilityName);
@@ -3260,7 +3260,7 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Poison auras (Poison Cloud / Venom Cloud) — {} is the base % plus this unit's luck (combined,
+        // Poison auras (Venom Cloud today) — {} is the base % plus this unit's luck (combined,
         // like the other aura tooltips); the per-ally luck is what actually applies at hit time
         // (processPoisonAuraAbility).
         for (const poisonAuraEffectName of HoCConfig.POISON_ON_HIT_AURA_EFFECT_NAMES) {
