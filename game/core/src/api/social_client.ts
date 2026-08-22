@@ -32,7 +32,14 @@ export interface PresencePingResult {
 
 export interface SocialNotification {
     id: string;
-    type: "friend_request" | "friend_accepted" | "friend_message" | "lobby_invite" | "system";
+    type:
+        | "friend_request"
+        | "friend_accepted"
+        | "friend_message"
+        | "lobby_invite"
+        | "chat_mention"
+        | "chat_reply"
+        | "system";
     fromPlayerId?: string;
     fromUsername?: string;
     requestId?: string;
@@ -411,6 +418,12 @@ export interface ArenaChatMessage {
     youReported: boolean;
     seasonSequence: number;
     createdAt: number;
+    /** Present when this line replies to another. The quote is denormalized at post time on the
+     * server, so it renders even after the original left the room. */
+    replyToId?: string;
+    replyToPlayerId?: string;
+    replyToUsername?: string;
+    replyToSnippet?: string;
 }
 
 /**
@@ -436,8 +449,11 @@ export const upvoteArenaChat = (messageId: string): Promise<{ upvotes: number; v
 export const reportArenaChat = (messageId: string): Promise<{ reports: number; hidden: boolean }> =>
     post(endpoints.social.arenaChatReport, { messageId });
 
-export const postArenaChat = (body: string): Promise<{ message: ArenaChatMessage; mentioned: string[] }> =>
-    post(endpoints.social.arenaChatPost, { body });
+export const postArenaChat = (
+    body: string,
+    replyToMessageId?: string,
+): Promise<{ message: ArenaChatMessage; mentioned: string[] }> =>
+    post(endpoints.social.arenaChatPost, { body, ...(replyToMessageId ? { replyToMessageId } : {}) });
 
 /** One rendered run of a chat line: plain text, a resolved @tag, or an internal link. */
 export type ChatSegment =

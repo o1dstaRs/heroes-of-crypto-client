@@ -1,5 +1,7 @@
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
+import ReplyRoundedIcon from "@mui/icons-material/ReplyRounded";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import ThumbUpOutlinedIcon from "@mui/icons-material/ThumbUpOutlined";
 import { Box, IconButton, Input, Sheet, Stack, Typography } from "@mui/joy";
@@ -21,7 +23,11 @@ const POLL_INTERVAL_MS = 4000;
 const MAX_LENGTH = 300;
 /** Keep the rendered room bounded however long the tab stays open. */
 const MAX_RENDERED = 120;
-const COLLAPSE_KEY = "hoc:arenaChatOpen";
+/** Exported so a chat notification can force the room open before navigating to the arena. */
+export const ARENA_CHAT_OPEN_KEY = "hoc:arenaChatOpen";
+const COLLAPSE_KEY = ARENA_CHAT_OPEN_KEY;
+/** How long a jumped-to original stays highlighted after clicking a reply's quote. */
+const FLASH_MS = 1400;
 
 const timeLabel = (createdAt: number): string =>
     new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -58,9 +64,15 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
     const [error, setError] = useState("");
     const [sending, setSending] = useState(false);
     const [open, setOpen] = useState<boolean>(() => window.localStorage.getItem(COLLAPSE_KEY) !== "0");
+    /** The message the next send answers, shown as a chip over the input until sent or cancelled. */
+    const [replyTo, setReplyTo] = useState<ArenaChatMessage | null>(null);
+    /** Briefly highlights the original after clicking a reply's quote, so the jump lands somewhere. */
+    const [flashId, setFlashId] = useState("");
     const mountedRef = useRef(true);
     const newestRef = useRef(0);
     const scrollRef = useRef<HTMLDivElement | null>(null);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const flashTimerRef = useRef(0);
 
     const merge = useCallback((incoming: ArenaChatMessage[]) => {
         if (!incoming.length) {
@@ -133,9 +145,10 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
         setSending(true);
         setError("");
         try {
-            const posted = await postArenaChat(body);
+            const posted = await postArenaChat(body, replyTo?.id);
             merge([posted.message]);
             setDraft("");
+            setReplyTo(null);
         } catch (err) {
             // The server's wording names the rule that was hit — a blocked word, an outside link, or
             // posting too fast — which is the only useful thing to show here.
@@ -145,7 +158,28 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                 setSending(false);
             }
         }
-    }, [draft, sending, merge]);
+    }, [draft, sending, merge, replyTo]);
+
+    const beginReply = useCallback((message: ArenaChatMessage) => {
+        setReplyTo(message);
+        inputRef.current?.focus();
+    }, []);
+
+    /** Scroll a reply's original into view, if it is still in the rendered room. */
+    const jumpToMessage = useCallback((messageId: string) => {
+        const row = scrollRef.current?.querySelector(`[data-mid="${messageId}"]`);
+        if (!row) {
+            return;
+        }
+        row.scrollIntoView({ block: "center", behavior: "smooth" });
+        setFlashId(messageId);
+        window.clearTimeout(flashTimerRef.current);
+        flashTimerRef.current = window.setTimeout(() => {
+            if (mountedRef.current) {
+                setFlashId("");
+            }
+        }, FLASH_MS);
+    }, []);
 
     /** Apply a server result to the one message it concerns, without disturbing the rest of the room. */
     const patch = useCallback((messageId: string, change: Partial<ArenaChatMessage>) => {
@@ -283,6 +317,7 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                                     return (
                                         <Stack
                                             key={message.id}
+                                            data-mid={message.id}
                                             direction="row"
                                             alignItems="flex-start"
                                             spacing={0.5}
@@ -292,71 +327,151 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                                                 mx: -0.5,
                                                 borderRadius: "6px",
                                                 transition: "background-color 120ms ease",
-                                                "&:hover": { bgcolor: "rgba(255,255,255,0.04)" },
+                                                bgcolor: flashId === message.id ? "rgba(255,143,0,0.16)" : undefined,
+                                                "&:hover": {
+                                                    bgcolor:
+                                                        flashId === message.id
+                                                            ? "rgba(255,143,0,0.16)"
+                                                            : "rgba(255,255,255,0.04)",
+                                                },
                                                 // Actions stay out of the way until the row is under the pointer. On a
                                                 // touch screen there is no hover to wait for, so they are always shown.
                                                 "&:hover .hoc-chat-action": { opacity: 1 },
                                                 "@media (hover: none)": { ".hoc-chat-action": { opacity: 1 } },
                                             }}
                                         >
-                                            <Typography
-                                                level="body-sm"
-                                                sx={{ color: hocColors.parchment, flex: 1, minWidth: 0 }}
-                                            >
-                                                <Box
-                                                    component="span"
-                                                    sx={{ color: hocColors.muted, mr: 0.75, fontSize: "0.78em" }}
-                                                >
-                                                    {timeLabel(message.createdAt)}
-                                                </Box>
-                                                <Box
-                                                    component="span"
-                                                    sx={{
-                                                        color: speakerColor(message.username),
-                                                        fontWeight: 700,
-                                                        mr: 0.5,
-                                                    }}
-                                                >
-                                                    {message.username}
-                                                </Box>
-                                                {chatSegments(message.body, selfUsername).map((segment, index) => {
-                                                    const key = `${message.id}:${index}`;
-                                                    if (segment.kind === "mention") {
-                                                        return (
+                                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                {message.replyToId ? (
+                                                    // The quoted original: a slim accent-barred line above the reply,
+                                                    // carried on the message itself so it renders even after the
+                                                    // original left the room. Clicking jumps to the original if it is
+                                                    // still on screen.
+                                                    <Stack
+                                                        direction="row"
+                                                        alignItems="center"
+                                                        spacing={0.5}
+                                                        onClick={() =>
+                                                            message.replyToId && jumpToMessage(message.replyToId)
+                                                        }
+                                                        sx={{
+                                                            mt: 0.25,
+                                                            pl: 0.75,
+                                                            py: 0.1,
+                                                            borderLeft: `2px solid ${speakerColor(
+                                                                message.replyToUsername ?? "",
+                                                            )}`,
+                                                            borderRadius: "2px",
+                                                            cursor: "pointer",
+                                                            opacity: 0.85,
+                                                            "&:hover": { opacity: 1 },
+                                                        }}
+                                                    >
+                                                        <ReplyRoundedIcon
+                                                            sx={{ fontSize: 12, color: hocColors.muted, flexShrink: 0 }}
+                                                        />
+                                                        <Typography
+                                                            level="body-xs"
+                                                            sx={{
+                                                                minWidth: 0,
+                                                                overflow: "hidden",
+                                                                textOverflow: "ellipsis",
+                                                                whiteSpace: "nowrap",
+                                                            }}
+                                                        >
                                                             <Box
-                                                                key={key}
                                                                 component="span"
                                                                 sx={{
-                                                                    color: segment.isSelf
-                                                                        ? hocColors.green
-                                                                        : hocColors.orange,
-                                                                    fontWeight: segment.isSelf ? 800 : 600,
+                                                                    color: speakerColor(message.replyToUsername ?? ""),
+                                                                    fontWeight: 700,
+                                                                    mr: 0.5,
                                                                 }}
                                                             >
-                                                                {segment.text}
+                                                                {message.replyToUsername}
                                                             </Box>
-                                                        );
-                                                    }
-                                                    if (segment.kind === "link") {
+                                                            <Box component="span" sx={{ color: hocColors.muted }}>
+                                                                {message.replyToSnippet}
+                                                            </Box>
+                                                        </Typography>
+                                                    </Stack>
+                                                ) : null}
+                                                <Typography
+                                                    level="body-sm"
+                                                    sx={{ color: hocColors.parchment, minWidth: 0 }}
+                                                >
+                                                    <Box
+                                                        component="span"
+                                                        sx={{ color: hocColors.muted, mr: 0.75, fontSize: "0.78em" }}
+                                                    >
+                                                        {timeLabel(message.createdAt)}
+                                                    </Box>
+                                                    <Box
+                                                        component="span"
+                                                        sx={{
+                                                            color: speakerColor(message.username),
+                                                            fontWeight: 700,
+                                                            mr: 0.5,
+                                                        }}
+                                                    >
+                                                        {message.username}
+                                                    </Box>
+                                                    {chatSegments(message.body, selfUsername).map((segment, index) => {
+                                                        const key = `${message.id}:${index}`;
+                                                        if (segment.kind === "mention") {
+                                                            return (
+                                                                <Box
+                                                                    key={key}
+                                                                    component="span"
+                                                                    sx={{
+                                                                        color: segment.isSelf
+                                                                            ? hocColors.green
+                                                                            : hocColors.orange,
+                                                                        fontWeight: segment.isSelf ? 800 : 600,
+                                                                    }}
+                                                                >
+                                                                    {segment.text}
+                                                                </Box>
+                                                            );
+                                                        }
+                                                        if (segment.kind === "link") {
+                                                            return (
+                                                                <Box
+                                                                    key={key}
+                                                                    component="a"
+                                                                    href={segment.href}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    sx={{
+                                                                        color: hocColors.orange,
+                                                                        textDecoration: "underline",
+                                                                    }}
+                                                                >
+                                                                    {segment.text}
+                                                                </Box>
+                                                            );
+                                                        }
                                                         return (
-                                                            <Box
-                                                                key={key}
-                                                                component="a"
-                                                                href={segment.href}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                sx={{
-                                                                    color: hocColors.orange,
-                                                                    textDecoration: "underline",
-                                                                }}
-                                                            >
-                                                                {segment.text}
-                                                            </Box>
+                                                            <React.Fragment key={key}>{segment.text}</React.Fragment>
                                                         );
-                                                    }
-                                                    return <React.Fragment key={key}>{segment.text}</React.Fragment>;
-                                                })}
-                                            </Typography>
+                                                    })}
+                                                </Typography>
+                                            </Box>
+                                            <IconButton
+                                                className="hoc-chat-action"
+                                                size="sm"
+                                                variant="plain"
+                                                title={t("Reply")}
+                                                onClick={() => beginReply(message)}
+                                                sx={{
+                                                    opacity: 0,
+                                                    transition: "opacity 120ms ease",
+                                                    color: hocColors.muted,
+                                                    minHeight: 20,
+                                                    px: 0.4,
+                                                    "&:hover": { color: hocColors.orange },
+                                                }}
+                                            >
+                                                <ReplyRoundedIcon sx={{ fontSize: 14 }} />
+                                            </IconButton>
                                             <IconButton
                                                 className="hoc-chat-action"
                                                 size="sm"
@@ -409,15 +524,69 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                             </Typography>
                         ) : null}
 
+                        {replyTo ? (
+                            // The armed reply, pinned over the input until sent or dismissed (× or
+                            // Escape). Styled like the quote a sent reply will carry, so what you see
+                            // here is what the room gets.
+                            <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={0.5}
+                                sx={{
+                                    pl: 0.75,
+                                    py: 0.3,
+                                    borderLeft: `2px solid ${hocColors.orange}`,
+                                    borderRadius: "2px",
+                                    bgcolor: "rgba(255,143,0,0.08)",
+                                }}
+                            >
+                                <ReplyRoundedIcon sx={{ fontSize: 13, color: hocColors.orange, flexShrink: 0 }} />
+                                <Typography
+                                    level="body-xs"
+                                    sx={{
+                                        flex: 1,
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    <Box component="span" sx={{ color: hocColors.orange, fontWeight: 700, mr: 0.5 }}>
+                                        {tf("Replying to {name}", { name: replyTo.username })}
+                                    </Box>
+                                    <Box component="span" sx={{ color: hocColors.muted }}>
+                                        {replyTo.body}
+                                    </Box>
+                                </Typography>
+                                <IconButton
+                                    size="sm"
+                                    variant="plain"
+                                    title={t("Cancel reply")}
+                                    onClick={() => setReplyTo(null)}
+                                    sx={{ minHeight: 18, px: 0.3, color: hocColors.muted }}
+                                >
+                                    <CloseRoundedIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                            </Stack>
+                        ) : null}
+
                         <Input
                             size="sm"
-                            placeholder={t("Message the arena — @name to tag someone")}
+                            slotProps={{ input: { ref: inputRef } }}
+                            placeholder={
+                                replyTo
+                                    ? tf("Reply to {name}…", { name: replyTo.username })
+                                    : t("Message the arena — @name to tag someone")
+                            }
                             value={draft}
                             onChange={(event) => setDraft(event.target.value.slice(0, MAX_LENGTH))}
                             onKeyDown={(event) => {
                                 if (event.key === "Enter" && !event.shiftKey) {
                                     event.preventDefault();
                                     void send();
+                                }
+                                if (event.key === "Escape" && replyTo) {
+                                    setReplyTo(null);
                                 }
                             }}
                             endDecorator={

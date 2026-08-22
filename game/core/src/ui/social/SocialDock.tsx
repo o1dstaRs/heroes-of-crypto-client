@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
+import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { setVolumeSlot } from "../audio/volumeSlot";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { useRankedSeason } from "../useRankedSeason";
@@ -130,6 +131,10 @@ const notificationText = (notification: SocialNotification): string => {
             return `${notification.fromUsername ?? "Someone"}: ${notification.body ?? "New message"}`;
         case "lobby_invite":
             return `${notification.fromUsername ?? "Someone"} invited you to a lobby`;
+        case "chat_mention":
+            return `${notification.fromUsername ?? "Someone"} mentioned you in the Arena chat: ${notification.body ?? ""}`;
+        case "chat_reply":
+            return `${notification.fromUsername ?? "Someone"} replied to you in the Arena chat: ${notification.body ?? ""}`;
         default:
             return notification.body ?? "Notification";
     }
@@ -218,10 +223,13 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
     const [loading, setLoading] = useState(false);
 
     // Which tray entries do something when clicked, and what that is. Messages open the conversation;
-    // lobby invites route straight into the lobby room.
+    // lobby invites route straight into the lobby room; chat replies and mentions land in the arena
+    // with its chat forced open.
     const isClickable = (notification: SocialNotification): boolean =>
         (notification.type === "friend_message" && !!notification.fromPlayerId) ||
-        (notification.type === "lobby_invite" && !!notification.lobbyId);
+        (notification.type === "lobby_invite" && !!notification.lobbyId) ||
+        notification.type === "chat_reply" ||
+        notification.type === "chat_mention";
 
     const activate = (notification: SocialNotification): void => {
         if (notification.type === "friend_message" && notification.fromPlayerId) {
@@ -236,6 +244,11 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
         } else if (notification.type === "lobby_invite" && notification.lobbyId) {
             onClose();
             navigate(`/lobby/${notification.lobbyId}`);
+        } else if (notification.type === "chat_reply" || notification.type === "chat_mention") {
+            // The room reads this key on mount, so a collapsed chat opens itself for the arrival.
+            window.localStorage.setItem(ARENA_CHAT_OPEN_KEY, "1");
+            onClose();
+            navigate("/play");
         }
     };
 
