@@ -3,6 +3,12 @@ export interface PatchNote {
     date: string;
     commit: string;
     href: string;
+    /** Per-repo release commits (e.g. client + common); rendered instead of the single commit link. */
+    commits?: Array<{
+        label: string;
+        commit: string;
+        href: string;
+    }>;
     title: string;
     impact: string;
     stats: Array<{
@@ -91,8 +97,20 @@ export const patchNotes = {
         {
             version: "v0.1.5",
             date: "08/16/2026",
-            commit: "4ae07ea",
-            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/4ae07ea9afd848d021664be9dd6d2e5e3e4a3448",
+            commit: "2c4952f6",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+            commits: [
+                {
+                    label: "client",
+                    commit: "2c4952f6",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+                },
+                {
+                    label: "common",
+                    commit: "68b879b",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/68b879bc779904e8d469be053ef28b129af74167",
+                },
+            ],
             title: "A new engine, ranked play, and an expanded battlefield",
             impact: "The largest Heroes of Crypto update yet: the battle client now runs on PixiJS, online ranked play is live, and every army has more ways to fight and progress.",
             stats: [
@@ -354,8 +372,20 @@ export const patchNotes = {
         {
             version: "v0.1.5",
             date: "16.08.2026",
-            commit: "4ae07ea",
-            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/4ae07ea9afd848d021664be9dd6d2e5e3e4a3448",
+            commit: "2c4952f6",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+            commits: [
+                {
+                    label: "клиент",
+                    commit: "2c4952f6",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+                },
+                {
+                    label: "common",
+                    commit: "68b879b",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/68b879bc779904e8d469be053ef28b129af74167",
+                },
+            ],
             title: "Новый движок, рейтинговый режим и расширенное поле боя",
             impact: "Крупнейшее обновление Heroes of Crypto: боевой клиент перешел на PixiJS, открылся рейтинговый режим, а у каждой армии стало больше вариантов для боя и развития.",
             stats: [

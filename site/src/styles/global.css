@@ -1949,6 +1949,10 @@ html.reveal-on .patches-section {
     font-weight: 780;
 }
 
+.patch-meta a {
+    display: block;
+}
+
 .patch-body {
     min-width: 0;
     overflow: visible;
