@@ -31,8 +31,10 @@ describe("Cemetery barrel danger highlights", () => {
 
     test("hovering a standing barrel highlights it before attack-type gating", () => {
         const hover = sliceFrom(sceneSource(), "private updateObstacleHover(): boolean", 7_000);
-        const highlightIndex = hover.indexOf("this.dungeonVisuals.highlightScatteredMountains([hoveredObstacleCenter])");
-        const magicGateIndex = hover.indexOf('unit.getAttackTypeSelection() === AttackVals.MAGIC');
+        const highlightIndex = hover.indexOf(
+            "this.dungeonVisuals.highlightScatteredMountains([hoveredObstacleCenter])",
+        );
+        const magicGateIndex = hover.indexOf("unit.getAttackTypeSelection() === AttackVals.MAGIC");
         expect(highlightIndex).toBeGreaterThan(-1);
         expect(magicGateIndex).toBeGreaterThan(highlightIndex);
     });

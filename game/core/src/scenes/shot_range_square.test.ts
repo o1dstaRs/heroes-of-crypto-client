@@ -37,6 +37,7 @@ const recorder = () => {
             return graphics;
         },
         circle: () => graphics,
+        poly: () => graphics,
         moveTo: () => graphics,
         lineTo: () => graphics,
         stroke: () => graphics,
@@ -59,6 +60,7 @@ const drawnBorder = (shotDistance: number, unitSize: number, cell: { x: number; 
         },
         isActiveUnitMoving: false,
         gridSettings,
+        hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
         hoverGlowPhase: 0,
         sc_isAnimating: false,
     } as unknown as IGameplayDrawContext;
@@ -78,6 +80,7 @@ const drawnRectangles = (shotDistance: number, unitSize: number, cell: { x: numb
         },
         isActiveUnitMoving: false,
         gridSettings,
+        hoverManager: { drawHoverBattlefieldFootprint: () => undefined },
         hoverGlowPhase: 0,
         sc_isAnimating: false,
     } as unknown as IGameplayDrawContext;

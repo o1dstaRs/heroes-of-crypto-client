@@ -60,6 +60,9 @@ const UPPER_ARMY = [1, 21, 4, 34, 27, 42];
 
 const PLACEMENT_SECONDS = 120;
 
+/** Long-bodied comparison art spans two cells even while the stable engine catalog remains one-cell. */
+const HORIZONTAL_COMPARISON_FOOTPRINTS = new Set(["Wolf", "Centaur", "Wolf Rider", "Nomad"]);
+
 /** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout perk's whole 6-point budget. */
 const LOWER_AUGMENTS = { placement: 2, armor: 2, might: 1, empower: 0, sniper: 0, movement: 1 } as const;
 
@@ -120,7 +123,7 @@ const buildUnit = (creatureId: number, team: TeamType, index: number): PreviewUn
         maxHp: properties.max_hp,
         attackType: properties.attack_type_selected,
         size: properties.size,
-        footprintWidth: properties.footprint_width,
+        footprintWidth: HORIZONTAL_COMPARISON_FOOTPRINTS.has(name) ? 2 : properties.footprint_width,
         footprintHeight: properties.footprint_height,
         previewSlotIndex: index,
         // Deployed by deployTeam() below, before the snapshot is ever served.

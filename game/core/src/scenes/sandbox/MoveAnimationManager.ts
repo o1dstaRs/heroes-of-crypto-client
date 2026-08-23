@@ -506,10 +506,7 @@ export class MoveAnimationManager {
     private projectDirection(point: HoCMath.XY, dirX: number, dirY: number, gs: GridSettings): HoCMath.XY {
         if (Math.abs(dirX) + Math.abs(dirY) < 1e-9) return { x: 0, y: 0 };
         const from = projectBattlefieldPoint(point, gs);
-        const to = projectBattlefieldPoint(
-            { x: point.x + dirX * gs.getStep(), y: point.y + dirY * gs.getStep() },
-            gs,
-        );
+        const to = projectBattlefieldPoint({ x: point.x + dirX * gs.getStep(), y: point.y + dirY * gs.getStep() }, gs);
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const length = Math.hypot(dx, dy);

@@ -20,12 +20,7 @@ export const visibleAuraRanges = (
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
-import {
-    projectBattlefieldPoint,
-    projectedCellPoints,
-    projectedPolyline,
-    projectedRectPoints,
-} from "./sandbox/BattlefieldVisualGrid";
+import { projectedCellPoints, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 
 /**
  * Red used across the board to signal "it is the enemy's turn" in ranked play — the active-unit
@@ -33,6 +28,7 @@ import {
  */
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
 const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
+const SHOT_RANGE_COLOR = 0xe7bc6a;
 
 export interface ILingeringTrack {
     x: number;
@@ -149,15 +145,7 @@ export class SandboxDrawer {
             const { xy, distance } = hoveredShotRange;
             // Use Yellow (same as Active) for consistent "Expected Range" visualization
             // even in placement mode.
-            SandboxDrawer.drawRangeRing(
-                g,
-                xy,
-                distance,
-                gs,
-                hoverGlowPhase,
-                0xffff00, // Yellow
-                fightStarted,
-            );
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
         }
 
         // 0.5 Sidebar Unit Range (New Feature)
@@ -194,13 +182,13 @@ export class SandboxDrawer {
         // 1. Shift Selected Shot Range (Same style as Active)
         if (shiftSelectedShotRange) {
             const { xy, distance } = shiftSelectedShotRange;
-            SandboxDrawer.drawRangeRing(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
         }
 
         // 2. Shot range ring (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
             const { xy, distance } = currentActiveShotRange;
-            SandboxDrawer.drawRangeRing(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
         }
 
         const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
@@ -363,60 +351,58 @@ export class SandboxDrawer {
             }
         }
     }
-    private static drawRangeRing(
+    private static clampSquareToBoard(
+        xy: HoCMath.XY,
+        halfExtent: number,
+        gs: GridSettings,
+    ): { left: number; bottom: number; width: number; height: number } | undefined {
+        const left = Math.max(xy.x - halfExtent, gs.getMinX());
+        const right = Math.min(xy.x + halfExtent, gs.getMaxX());
+        const bottom = Math.max(xy.y - halfExtent, gs.getMinY());
+        const top = Math.min(xy.y + halfExtent, gs.getMaxY());
+        const width = right - left;
+        const height = top - bottom;
+        return width > 0 && height > 0 ? { left, bottom, width, height } : undefined;
+    }
+    private static drawShotRangeSquare(
         g: Graphics,
         xy: HoCMath.XY,
-        distance: number,
+        halfExtent: number,
         gs: GridSettings,
         pulsePhase: number,
         color: number,
         fightStarted: boolean,
     ): void {
-        const ringWidth = fightStarted ? 3 : 2;
-
-        // Main Ring
-        SandboxDrawer.drawProjectedRing(g, xy, distance, gs, {
-            width: ringWidth,
-            color: color,
-            alpha: fightStarted ? 0.95 : 0.8,
-        });
-
+        const bounds = SandboxDrawer.clampSquareToBoard(xy, halfExtent, gs);
+        if (!bounds) return;
+        const { left, bottom, width, height } = bounds;
         const pulse = (Math.sin(pulsePhase) + 1) / 2;
         const cellSize = gs.getCellSize();
 
-        // Ticks
-        const steps = 8;
-        const tickLen = cellSize * (0.25 + 0.15 * pulse);
-        for (let i = 0; i < steps; i++) {
-            const angle = (Math.PI * 2 * i) / steps;
-            const cos = Math.cos(angle);
-            const sin = Math.sin(angle);
-            const r0 = distance - tickLen * 0.5;
-            const r1 = distance + tickLen * 0.5;
-            const p0 = projectBattlefieldPoint({ x: xy.x + cos * r0, y: xy.y + sin * r0 }, gs);
-            const p1 = projectBattlefieldPoint({ x: xy.x + cos * r1, y: xy.y + sin * r1 }, gs);
-            g.moveTo(p0.x, p0.y)
-                .lineTo(p1.x, p1.y)
-                .stroke({
-                    width: 1.5,
-                    color: color,
-                    alpha: 0.6 + 0.3 * pulse,
-                });
-        }
+        g.rect(left, bottom, width, height).stroke({
+            width: Math.max(1, cellSize * 0.012),
+            color,
+            alpha: (fightStarted ? 0.28 : 0.2) + pulse * 0.04,
+        });
 
-        // Glow
-        const glowSteps = 12;
-        const glowSpread = cellSize * 0.8;
-        const glowBaseAlpha = fightStarted ? 0.25 : 0.2;
-        for (let i = 1; i <= glowSteps; i++) {
-            const fraction = i / glowSteps;
-            const glowRadius = distance + fraction * glowSpread;
-            const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
-            SandboxDrawer.drawProjectedRing(g, xy, glowRadius, gs, {
-                width: 1.5,
-                color: color,
-                alpha: glowAlpha,
-            });
+        const bracket = Math.min(cellSize * (0.22 + 0.04 * pulse), Math.min(width, height) * 0.18);
+        const right = left + width;
+        const top = bottom + height;
+        const corners: [number, number, number, number][] = [
+            [left, bottom, 1, 1],
+            [right, bottom, -1, 1],
+            [left, top, 1, -1],
+            [right, top, -1, -1],
+        ];
+        for (const [cornerX, cornerY, towardX, towardY] of corners) {
+            g.moveTo(cornerX + towardX * bracket, cornerY)
+                .lineTo(cornerX, cornerY)
+                .lineTo(cornerX, cornerY + towardY * bracket)
+                .stroke({
+                    width: Math.max(1.25, cellSize * 0.014),
+                    color,
+                    alpha: 0.4 + 0.12 * pulse,
+                });
         }
     }
     private static drawProjectedRing(

@@ -3862,10 +3862,9 @@ export class Sandbox extends PixiScene {
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
         // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
         // cleanup, and re-noting would leave a stale blow that could color a resurrected unit's next death.
-        this.applyReplayEvents(
-            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events,
-            record.stateAfter,
-        );
+        const replayEvents =
+            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events;
+        this.applyReplayEvents(replayEvents, record.stateAfter);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -7631,16 +7630,27 @@ export class Sandbox extends PixiScene {
         // The engine PRECOMPUTED the flight AND the damage from ONE roll, so the disc's cells and the victims
         // never disagree on which way it curled. Per-victim amounts (for the numbers landed AS the disc
         // arrives) come from that same authoritative splash — never a client re-roll.
-        const splashByUnit = new Map<string, { amount: number; unitsDied: number }>();
+        const splashByUnit = new Map<string, { amount: number; unitsDied: number; missed?: boolean }>();
         for (const entry of damage?.splash ?? []) {
-            splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
+            splashByUnit.set(entry.unitId, {
+                amount: entry.amount,
+                unitsDied: entry.unitsDied,
+                missed: entry.missed,
+            });
         }
+        const popChakramMiss = (unit: RenderableUnit, center: HoCMath.XY, dir: HoCMath.XY): void => {
+            this.combatVisuals?.showMissLabel(
+                { x: center.x, y: center.y - cellSize * (unit.isSmallSize() ? 0.85 : 1.25) },
+                dir,
+            );
+        };
 
         // This runs at the exact moment the thrown disc lands on the PRIMARY target (both call sites await
         // the throw first), so the primary's wound opens right here — then each ricochet victim bleeds AS
         // the disc reaches it, never all at once.
         const attackerCenter = attacker.getVisualCenter(gs);
-        if (primaryTarget && !damage?.missed) {
+        const primaryDodged = !!(primaryTarget && splashByUnit.get(primaryTarget.getId())?.missed);
+        if (primaryTarget && !damage?.missed && !primaryDodged) {
             const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as RenderableUnit | undefined;
             if (primary && !primary.isDead()) {
                 const center = primary.getVisualCenter(gs);
@@ -7689,6 +7699,10 @@ export class Sandbox extends PixiScene {
                 }
                 const center = unit.getVisualCenter(gs);
                 const dmg = splashByUnit.get(unitId);
+                if (dmg?.missed) {
+                    popChakramMiss(unit, center, lastDir);
+                    continue;
+                }
                 if (dmg && dmg.amount > 0) {
                     this.combatVisuals?.showFloatingDamage(center, dmg.amount, lastDir, dmg.unitsDied);
                 }
