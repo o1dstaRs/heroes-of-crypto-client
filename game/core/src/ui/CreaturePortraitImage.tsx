@@ -1,7 +1,7 @@
 import Box, { type BoxProps } from "@mui/joy/Box";
 import React from "react";
 
-import { resolveCreaturePortraitArtPlacement, resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
+import { resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 
 export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
@@ -47,14 +47,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     const { framing, background: portraitBackground, backgroundOpacity, backgroundShadeAlpha, source } = visual;
     const creatureSource = artSource ?? source;
     const creatureFit = artFit ?? framing.fit;
-    const artPlacement = resolveCreaturePortraitArtPlacement(framing, {
-        independentSource: artSource !== undefined,
-        baseScale: artBaseScale,
-        scale: artScale,
-        offsetX: artOffsetX,
-        offsetY: artOffsetY,
-    });
-    const creatureScale = artPlacement.scale;
+    const creatureScale = (artBaseScale ?? framing.scale) * artScale;
     const creatureScaleX = Math.abs(artScaleX);
     const creatureDirectionX = artScaleX < 0 ? -1 : 1;
 
@@ -127,8 +120,8 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
                     ...(highQualityArt
                         ? {
                               inset: "auto",
-                              left: `calc(50% + ${artPlacement.offsetX}%)`,
-                              top: `calc(50% + ${artPlacement.offsetY}%)`,
+                              left: `calc(50% + ${framing.offsetX + artOffsetX}%)`,
+                              top: `calc(50% + ${framing.offsetY + artOffsetY}%)`,
                               width: `${creatureScale * creatureScaleX * 100}%`,
                               height: `${creatureScale * 100}%`,
                               transform: `translate(-50%, -50%) scaleX(${creatureDirectionX}) translateZ(0)`,
@@ -137,7 +130,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
                               inset: 0,
                               width: "100%",
                               height: "100%",
-                              transform: `translate(${artPlacement.offsetX}%, ${artPlacement.offsetY}%) scale(${creatureScale}) scaleX(${artScaleX})`,
+                              transform: `translate(${framing.offsetX + artOffsetX}%, ${framing.offsetY + artOffsetY}%) scale(${creatureScale}) scaleX(${artScaleX})`,
                           }),
                     zIndex: 3,
                     display: "block",
