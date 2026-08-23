@@ -825,6 +825,25 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                             step={0.01}
                             onChange={(offsetYCells) => updateFraming({ offsetYCells })}
                         />
+                        <Typography level="title-sm" sx={{ mt: 0.75, color: "#ffd15a" }}>
+                            Флаг над существом
+                        </Typography>
+                        <ValueSlider
+                            label="Флаг X"
+                            value={framing.flagOffsetXCells ?? 0}
+                            min={-2}
+                            max={2}
+                            step={0.01}
+                            onChange={(flagOffsetXCells) => updateFraming({ flagOffsetXCells })}
+                        />
+                        <ValueSlider
+                            label="Флаг Y"
+                            value={framing.flagOffsetYCells ?? 0}
+                            min={-2}
+                            max={2}
+                            step={0.01}
+                            onChange={(flagOffsetYCells) => updateFraming({ flagOffsetYCells })}
+                        />
                     </Box>
 
                     <Box sx={{ mt: 1.5, display: "flex", gap: 0.75, flexWrap: "wrap" }}>

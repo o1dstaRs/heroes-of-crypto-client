@@ -3903,6 +3903,9 @@ export class RenderableUnit extends Unit {
             x = pos.x;
             y = pos.y + iconSide * unitSizeInCells * 0.5 + geometry.flagHeight * 0.5 + margin;
         }
+        const flagFraming = resolveStoredBattlefieldCreatureFraming(props.name);
+        x += (flagFraming.flagOffsetXCells ?? 0) * gs.getCellSize();
+        y -= (flagFraming.flagOffsetYCells ?? 0) * gs.getCellSize();
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (container.scale.x !== this.badgeEmphasisScale || container.scale.y !== this.badgeEmphasisScale) {
             container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);

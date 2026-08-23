@@ -159,11 +159,119 @@ const FRENZIED_BOAR_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
     contactShadowVisible: true,
 });
 
+// Recovered from the owner's final v7 editor draft. The large positive Y offset is intentional: it
+// pulls the flattened spider silhouette back under the many-legged figure instead of leaving it as a
+// detached pair of dark shapes farther down the board.
+const ARACHNA_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.815,
+        widthScale: 1.021,
+        alpha: 0.45,
+        offsetXCells: 0.183,
+        offsetYCells: 1.606,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const MANTIS_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.814,
+        widthScale: 0.904,
+        alpha: 0.45,
+        offsetXCells: 0.052,
+        offsetYCells: 0.51,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const HYDRA_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.759,
+        widthScale: 0.971,
+        alpha: 0.45,
+        offsetXCells: 0.017,
+        offsetYCells: 0.49,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const BEHEMOTH_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 1.042,
+        widthScale: 0.994,
+        alpha: 0.45,
+        offsetXCells: 0.097,
+        offsetYCells: 1.251,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const GARGANTUAN_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.776,
+        widthScale: 0.939,
+        alpha: 0.45,
+        offsetXCells: 0.038,
+        offsetYCells: 0.478,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const ABOMINATION_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.825,
+        widthScale: 0.915,
+        alpha: 0.45,
+        offsetXCells: -0.008,
+        offsetYCells: 0.608,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const MAGIC_DRAGON_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.868,
+        widthScale: 0.91,
+        alpha: 0.45,
+        offsetXCells: 0.08,
+        offsetYCells: 0.531,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
 export const BATTLEFIELD_SHADOW_TUNING_BY_CREATURE: Readonly<Record<string, BattlefieldShadowTuning>> = Object.freeze(
     Object.fromEntries([
         ...LEVEL_ONE_CREATURE_NAMES.map((name) => [name, DEFAULT_BATTLEFIELD_SHADOW_TUNING] as const),
         ["Black Dragon", BLACK_DRAGON_SHADOW_TUNING],
         ["Frenzied Boar", FRENZIED_BOAR_SHADOW_TUNING],
+        ["Arachna Queen", ARACHNA_SHADOW_TUNING],
+        ["Mantis", MANTIS_SHADOW_TUNING],
+        ["Hydra", HYDRA_SHADOW_TUNING],
+        ["Behemoth", BEHEMOTH_SHADOW_TUNING],
+        ["Gargantuan", GARGANTUAN_SHADOW_TUNING],
+        ["Abomination", ABOMINATION_SHADOW_TUNING],
+        ["Magic Dragon", MAGIC_DRAGON_SHADOW_TUNING],
     ]),
 );
 

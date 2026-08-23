@@ -57,7 +57,7 @@ import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhase
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
-const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v2;
+const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v5;
 const pickCommitTextureImage = images.ui_draft_action_stone_texture_v1;
 const OPPONENT_ARMY_BACKGROUND = "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))";
 const OPPONENT_ARMY_TEXT_COLOR = "#f0e7e9";

@@ -5,6 +5,10 @@ export interface BattlefieldCreatureFraming {
     offsetXCells: number;
     /** Positive values move the creature down, in cell units. */
     offsetYCells: number;
+    /** Positive values move the battlefield count flag right, in cell units. */
+    flagOffsetXCells?: number;
+    /** Positive values move the battlefield count flag down, in cell units. */
+    flagOffsetYCells?: number;
 }
 
 export interface BattlefieldCreatureVisualBounds {
@@ -26,6 +30,8 @@ export const DEFAULT_BATTLEFIELD_CREATURE_FRAMING: BattlefieldCreatureFraming = 
     scaleY: 1,
     offsetXCells: 0,
     offsetYCells: 0,
+    flagOffsetXCells: 0,
+    flagOffsetYCells: 0,
 });
 
 /**
@@ -105,6 +111,8 @@ export const normalizeBattlefieldCreatureFraming = (
     scaleY: clamp(value?.scaleY, 1, 0.25, 3),
     offsetXCells: clamp(value?.offsetXCells, 0, -2, 2),
     offsetYCells: clamp(value?.offsetYCells, 0, -2, 2),
+    flagOffsetXCells: clamp(value?.flagOffsetXCells, 0, -2, 2),
+    flagOffsetYCells: clamp(value?.flagOffsetYCells, 0, -2, 2),
 });
 
 let storedCache: Record<string, BattlefieldCreatureFraming> | undefined;

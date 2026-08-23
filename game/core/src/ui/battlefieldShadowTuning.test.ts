@@ -90,6 +90,58 @@ describe("battlefield shadow tuning", () => {
         });
     });
 
+    test("keeps the recovered Arachna Queen profile under the spider figure", () => {
+        const expected = {
+            bottom: {
+                lengthScale: 0.69275,
+                widthScale: 0.926023,
+                alpha: 0.332143,
+                offsetXCells: 0.183,
+                offsetYCells: 1.606,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            top: {
+                lengthScale: 0.815,
+                widthScale: 1.021,
+                alpha: 0.45,
+                offsetXCells: 0.183,
+                offsetYCells: 1.606,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            contactAlpha: 0.15,
+            contactShadowVisible: true,
+        };
+
+        expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE["Arachna Queen"]).toEqual(expected);
+    });
+
+    test("keeps every other recovered v7 individual profile", () => {
+        const expectedTopRows = {
+            Mantis: [0.052, 0.51, 0.814, 0.904],
+            Hydra: [0.017, 0.49, 0.759, 0.971],
+            Behemoth: [0.097, 1.251, 1.042, 0.994],
+            Gargantuan: [0.038, 0.478, 0.776, 0.939],
+            Abomination: [-0.008, 0.608, 0.825, 0.915],
+            "Magic Dragon": [0.08, 0.531, 0.868, 0.91],
+        } as const;
+
+        for (const [name, [offsetXCells, offsetYCells, lengthScale, widthScale]] of Object.entries(expectedTopRows)) {
+            expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[name]?.top).toEqual({
+                lengthScale,
+                widthScale,
+                alpha: 0.45,
+                offsetXCells,
+                offsetYCells,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            });
+            expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[name]?.contactAlpha).toBe(0.15);
+            expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE[name]?.contactShadowVisible).toBe(true);
+        }
+    });
+
     test("allows twice the previous vertical editing range", () => {
         expect(normalizeBattlefieldShadowTuning({ top: { offsetYCells: 1.75 } }).top.offsetYCells).toBe(1.75);
         expect(normalizeBattlefieldShadowTuning({ top: { offsetYCells: -1.75 } }).top.offsetYCells).toBe(-1.75);

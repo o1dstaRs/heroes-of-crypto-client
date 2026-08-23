@@ -158,6 +158,8 @@ describe("battlefield creature framing drafts", () => {
             scaleY: 0.25,
             offsetXCells: 2,
             offsetYCells: 0,
+            flagOffsetXCells: 0,
+            flagOffsetYCells: 0,
         });
     });
 
@@ -194,6 +196,8 @@ describe("battlefield creature framing drafts", () => {
             scaleY: 0.9,
             offsetXCells: 0.1,
             offsetYCells: -0.2,
+            flagOffsetXCells: 0,
+            flagOffsetYCells: 0,
         });
     });
 });
