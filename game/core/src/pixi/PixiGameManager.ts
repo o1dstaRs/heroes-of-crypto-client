@@ -415,6 +415,41 @@ export class PixiGameManager {
             this.initEventCleanups.push(() =>
                 debugCanvas.removeEventListener("pointerdown", forwardOverlayInteraction),
             );
+            const canvasPoint = (clientX: number, clientY: number) => {
+                const cr = debugCanvas.getBoundingClientRect();
+                return {
+                    x: (clientX - cr.left) * (debugCanvas.width / cr.width),
+                    y: (clientY - cr.top) * (debugCanvas.height / cr.height),
+                };
+            };
+            this.addInitEventListener(
+                debugCanvas,
+                "wheel",
+                (event) => {
+                    if (!(event instanceof WheelEvent) || this.started) return;
+                    const overlay = getUnitsOverlayFromScene(this.m_scene);
+                    if (!overlay) return;
+                    const point = canvasPoint(event.clientX, event.clientY);
+                    const lineScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 24 : 1;
+                    const pageScale = event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? debugCanvas.width : 1;
+                    const deltaScale = lineScale * pageScale;
+                    if (overlay.handleWheel(point.x, point.y, event.deltaX * deltaScale, event.deltaY * deltaScale)) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                },
+                { passive: false },
+            );
+            this.addInitEventListener(window, "pointermove", (event) => {
+                if (!(event instanceof PointerEvent) || this.started) return;
+                const overlay = getUnitsOverlayFromScene(this.m_scene);
+                if (!overlay) return;
+                const point = canvasPoint(event.clientX, event.clientY);
+                if (overlay.handlePointerMove(point.x, point.y)) event.preventDefault();
+            });
+            this.addInitEventListener(window, "pointerup", () => {
+                getUnitsOverlayFromScene(this.m_scene)?.handlePointerUp();
+            });
             this.forwardOverlayInteraction = forwardOverlayInteraction; // For cleanup if needed
             this.overlayDebugCanvas = debugCanvas;
         }

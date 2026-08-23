@@ -76,6 +76,7 @@ import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
 import { PixiScene, PixiSceneContext, registerScene } from "../pixi/PixiScene";
 import { setSpawnFlowPhase } from "../pixi/PixiDrawablePlacement";
+import { isBattlefieldShadowEditorActive } from "../ui/battlefieldShadowTuning";
 import { PlacementManager } from "./PlacementManager";
 import {
     animatableEffectNames,
@@ -84,16 +85,25 @@ import {
     type EffectFlash,
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
-import { RenderableUnit } from "./RenderableUnit";
+import {
+    placementFacingDirectionForTeam,
+    preservesFacingForPureVerticalSingleCellAttack,
+    RenderableUnit,
+} from "./RenderableUnit";
+import { resolveCreatureHeadPriorityDepths } from "./battlefieldCreatureDepthSort";
 import { projectPlacementSplitStackPowers } from "./placementSplitPower";
 import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
-import { HoverManager, meleeSwordTargetPoint } from "./HoverManager";
+import {
+    combatFootprintCellsForBase,
+    HoverManager,
+    meleeSwordFacingAngle,
+    meleeSwordTargetPoint,
+} from "./HoverManager";
 import { ButtonManager } from "./ButtonManager";
 import { SpellBookOverlay } from "./SpellBookOverlay";
 import { AIController, cloneAIKnownPaths } from "./AIController";
 import { DungeonVisuals } from "./sandbox/DungeonVisuals";
-import { DungeonVfxLayer } from "./sandbox/DungeonVfxLayer";
 import { SmokeLayer } from "./sandbox/SmokeLayer";
 import { SmokeCloudLayer, type ISmokeCloudCell } from "./sandbox/SmokeCloudLayer";
 import { VineLayer, type IVineCell } from "./sandbox/VineLayer";
@@ -105,6 +115,14 @@ import { LightingLayer } from "./sandbox/LightingLayer";
 import { MoveAnimationManager } from "./sandbox/MoveAnimationManager";
 import { CombatVisuals } from "./sandbox/CombatVisuals";
 import { RangedProjectiles, BIG_PROJECTILE_UNITS } from "./sandbox/RangedProjectiles";
+import {
+    projectBattlefieldPoint,
+    projectedBattlefieldMetricsAtPoint,
+    projectedCellPoints,
+    projectedRangeAttackCellSideCenter,
+    rangeAttackCellSideCenter,
+    unprojectBattlefieldPoint,
+} from "./sandbox/BattlefieldVisualGrid";
 import {
     type IRangeProjectileImpact,
     resolveLiveRangeProjectileTracePosition,
@@ -586,6 +604,8 @@ export class Sandbox extends PixiScene {
     // it only fires on a genuine hang. On a rare overrun it just snaps the animation to its end and
     // reconciles via the next authoritative snapshot — never a correctness issue, only a visual one.
     private static readonly REPLAY_HANG_WATCHDOG_MS = 5000;
+    // Placement cells are shown on the battlefield and projected onto the authored stone seams.
+    private static readonly DRAW_TEAM_PLACEMENT_ZONES = true;
     protected readonly grid: Grid;
     private readonly pathHelper: PathHelper;
     private canAttackByMeleeTargets?: IAttackTargets;
@@ -625,6 +645,10 @@ export class Sandbox extends PixiScene {
     /** Ids of revealed opponent units shown in the opponent placement area; excluded from start checks. */
     private readonly revealedOpponentUnitIds = new Set<string>();
     private selectedBoardUnit?: RenderableUnit;
+    // Pointer as received from Pixi, before the painted battlefield is mapped back to the square
+    // mechanics grid. Board interaction uses sc_mouseWorld (logical); world-space UI such as the
+    // spellbook still needs this unmodified visual point.
+    private pointerVisualWorld: HoCMath.XY = { x: 0, y: 0 };
     private isActiveUnitMoving = false;
     private gridMatrix: number[][];
     private gridMatrixNoUnits: number[][];
@@ -650,6 +674,9 @@ export class Sandbox extends PixiScene {
     private replayPlaybackActive = false;
     // Attack events whose kills were already attributed to CombatVisuals (see noteDeathBlowsFromAttackEvent).
     private readonly notedDeathBlowEvents = new WeakSet<object>();
+    // A dead stack leaves the simulation immediately, but its authored death atlas must keep ticking
+    // until the final ember frame. These detached renderables are updated separately from UnitsHolder.
+    private readonly dyingVisualUnits = new Set<RenderableUnit>();
     // The unit whose turn header is currently open in the scene log (sandbox text channel only;
     // ranked builds its headers from the journal). Cleared by that unit's turn_completed.
     private sandboxTurnLogHeaderUnitId?: string;
@@ -675,6 +702,11 @@ export class Sandbox extends PixiScene {
     /** Active-board-selection state (move existing unit) */
     private draggingUnitId?: string;
     private draggingUnitTeam?: TeamType;
+    // A newly picked-up board unit must initially render its placement copy at the unit's own ground
+    // point, not at whichever part of the tall sprite happened to receive the click. Once the pointer
+    // actually moves, normal cursor-snapped placement resumes.
+    private placementDragPointerOrigin?: HoCMath.XY;
+    private placementDragPointerMoved = false;
     // --- Placement split-drag: shift-press a placed stack and drag out to peel models into a new
     // stack (default peels 1, source keeps N-1; dragging further past the target grows the peel). ---
     private splitDragActive = false;
@@ -688,6 +720,11 @@ export class Sandbox extends PixiScene {
     private shiftHeld = false;
     // Live preview of the split-off stack (an actual unit with its real team flag), shown at the target.
     private placementSplitPreviewUnit?: RenderableUnit;
+    // Detached visual-only unit for the first hover after selecting a creature from UnitsOverlay. It is
+    // never added to UnitsHolder or the grid; it exists solely to resolve the refreshed idle atlas/frame,
+    // authored anchor and scale before the real stack is created on click.
+    private overlayPlacementPreviewUnit?: RenderableUnit;
+    private overlayPlacementPreviewRoot?: Container;
     // Hover hint ("Shift + drag to split"): rolled once per splittable-unit hover (~1/3 chance).
     private splitHintText?: Text;
     private splitHintUnitId?: string;
@@ -790,7 +827,6 @@ export class Sandbox extends PixiScene {
     private fireWallAimOrientation: number = FireWallHelper.FireWallOrientation.HORIZONTAL;
     private windLayer?: WindLayer;
     private lightingLayer?: LightingLayer;
-    private dungeonAmbientLayer?: DungeonVfxLayer;
     protected combatVisuals: CombatVisuals;
     private rangedProjectiles: RangedProjectiles;
     // Screen-shake state (e.g. Armageddon wave): offsets the world root with a decaying jitter.
@@ -834,11 +870,6 @@ export class Sandbox extends PixiScene {
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
         });
 
-        // Shader-free floor ambience. These are ordinary transparent Pixi objects below terrain and units,
-        // so a WebGL/filter failure can never replace the board with the black stage again.
-        // Installed after the base scene is confirmed ready (see ensureDungeonAmbientLayer). Loading large
-        // VFX textures into the camera during its constructor can invalidate Pixi's first render pass.
-
         // The grid type is already decided by now (the scene may open ON the mountain board without anyone
         // touching the map picker), and setGridType — the only other place that rolls — is not called for
         // that opening choice. Without this the board came up with no scattered rock at all, which
@@ -863,7 +894,7 @@ export class Sandbox extends PixiScene {
         // Procedural smoke for movement tracks — its own layer so the fBM shader only touches dust.
         this.smokeLayer = new SmokeLayer();
         this.attachToWorldRoot(this.smokeLayer.getContainer(), 50);
-        // Spell smoke (Ash Moth). Above the movement dust but below the units, so a creature standing in
+        // Spell smoke (Wandering Mage). Above the movement dust but below the units, so a creature standing in
         // a cloud is still readable — the cloud is a rule about the cell, not something to hide behind.
         this.smokeCloudLayer = new SmokeCloudLayer();
         this.attachToWorldRoot(this.smokeCloudLayer.getContainer(), 51);
@@ -939,7 +970,7 @@ export class Sandbox extends PixiScene {
         this.spellBookBackdrop.zIndex = -1;
         this.spellBookContainer.addChild(this.spellBookBackdrop);
         // Add Book Background Graphic
-        const bookTex = this.texAny("book_1024");
+        const bookTex = this.texAny("book_1024_clean_pages_v1");
         if (bookTex) {
             const bookSprite = new Sprite(bookTex);
             bookSprite.anchor.set(0.5);
@@ -981,6 +1012,8 @@ export class Sandbox extends PixiScene {
                 if (props) {
                     this.selectionFromOverlay = true;
                     this.hasActiveSelection = true;
+                    this.placementDragPointerOrigin = undefined;
+                    this.placementDragPointerMoved = false;
                     this.sc_selectedFactionType = FactionVals.NO_FACTION as FactionType;
                     this.sc_factionNameUpdateNeeded = true;
                     if (this.selectedBoardUnit) {
@@ -1021,8 +1054,10 @@ export class Sandbox extends PixiScene {
             getMouseWorld: () => this.sc_mouseWorld,
             getCurrentActiveUnit: () => this.currentActiveUnit,
             getCurrentActivePathHashes: () => this.currentActivePathHashes,
+            getCurrentActiveKnownPaths: () => this.currentActiveKnownPaths,
             getDraggingUnitId: () => this.draggingUnitId,
             getDraggingUnitTeam: () => this.draggingUnitTeam,
+            getPlacementPreviewUnit: () => this.getPlacementPreviewUnit(),
             getSelectedUnitProperties: () => this.sc_selectedUnitProperties,
             hasActiveSelection: () => this.hasActiveSelection,
         });
@@ -1145,7 +1180,7 @@ export class Sandbox extends PixiScene {
             };
             // Why the floor's firelight is not moving: see getFireLightDiagnostics.
             w.__hocFloorLight = () => this.dungeonVisuals.getFireLightDiagnostics();
-            w.__hocAtmosphere = () => this.dungeonAmbientLayer?.getDiagnostics() ?? { available: false };
+            w.__hocAtmosphere = () => ({ available: false });
             w.__hocSetAI = (active: boolean) => {
                 this.sc_isAIActive = active;
                 this.aiController.isAIActive = active;
@@ -1390,6 +1425,8 @@ export class Sandbox extends PixiScene {
         this.selectionFromOverlay = false;
         this.draggingUnitId = unit.getId();
         this.draggingUnitTeam = unit.getTeam();
+        this.placementDragPointerOrigin = { ...this.sc_mouseWorld };
+        this.placementDragPointerMoved = false;
         this.sc_selectedUnitProperties = unit.getUnitProperties();
         this.setSelectedUnitProperties(this.sc_selectedUnitProperties);
         this.sc_unitPropertiesUpdateNeeded = true;
@@ -1935,6 +1972,7 @@ export class Sandbox extends PixiScene {
             x: position.x + this.placementBenchSlideOffsetX,
             y: position.y,
         };
+        unit.setBattlefieldVisualProjection(false);
         unit.setVisualScaleMultiplier(scale);
         unit.setPosition(visualPosition.x, visualPosition.y);
         unit.ensureVisual(worldRoot, gs);
@@ -1960,8 +1998,15 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const worldRoot = this.drawer.getUnitsContainer();
         // Set the mode BEFORE the visual passes so the very first rendered frame is already B&W.
+        // These silhouettes now stand on real deployment-cell centres, so use the same perspective
+        // projection as normal placed units. Leaving projection off made their logical positions correct
+        // while their screen positions visibly drifted away from the painted grid.
+        unit.setBattlefieldVisualProjection(true);
         unit.setVisualRevealed(true);
         unit.setVisualScaleMultiplier(this.getRevealedOpponentUnitScale(total));
+        // Baseline teams deploy on opposite horizontal sides: red/UPPER faces left toward green,
+        // green/LOWER faces right toward red. Force this even for models without a walk atlas.
+        unit.setBoardFacing(placementFacingDirectionForTeam(unit.getTeam()));
         unit.setPosition(position.x, position.y);
         unit.ensureVisual(worldRoot, gs);
         unit.syncVisual(worldRoot, gs);
@@ -2102,6 +2147,10 @@ export class Sandbox extends PixiScene {
         }
         return undefined;
     }
+    /** Map the pointer painted on the trapezoid battlefield back to the square mechanics board. */
+    private getLogicalBattlefieldPoint(worldPos: HoCMath.XY): HoCMath.XY {
+        return unprojectBattlefieldPoint(worldPos, this.sc_sceneSettings.getGridSettings()) ?? worldPos;
+    }
     protected canSelectUnitForPlacement(_unit: Unit): boolean {
         return true;
     }
@@ -2158,19 +2207,6 @@ export class Sandbox extends PixiScene {
     private ensureBackgroundSprite(): void {
         this.dungeonVisuals.ensureBackgroundSprite();
     }
-    /** Install the authored fog only after the camera owns a valid first render target. */
-    private ensureDungeonAmbientLayer(): void {
-        if (this.dungeonAmbientLayer) return;
-        const fog = this.texAny("dungeon_volumetric_fog_v2");
-        if (!fog || fog.width <= 1) return;
-        try {
-            this.dungeonAmbientLayer = new DungeonVfxLayer(this.sc_sceneSettings.getGridSettings(), fog);
-            this.attachToWorldRoot(this.dungeonAmbientLayer.getContainer(), 15);
-        } catch (error) {
-            console.warn("Failed to install dungeon VFX layer", error);
-            return;
-        }
-    }
     private layoutBackgroundSquare(): void {
         this.dungeonVisuals.layoutBackgroundSquare(this.atmosphereAlpha);
     }
@@ -2216,6 +2252,7 @@ export class Sandbox extends PixiScene {
             false,
         );
         const renderableUnit = RenderableUnit.fromBase(unit, this.texAny);
+        renderableUnit.setBattlefieldVisualProjection(true);
         if (!this.unitsHolder.getAllUnits().has(unit.getId())) {
             this.unitsHolder.addUnit(renderableUnit);
         }
@@ -2239,6 +2276,59 @@ export class Sandbox extends PixiScene {
             this.unitsHolder.addUnit(renderableUnit);
         }
         return renderableUnit;
+    }
+    private getPlacementPreviewUnit(): RenderableUnit | undefined {
+        const existing = this.draggingUnitId
+            ? (this.unitsHolder.getAllUnits().get(this.draggingUnitId) as RenderableUnit | undefined)
+            : this.selectedBoardUnit;
+        if (existing) return existing;
+
+        const selected = this.sc_selectedUnitProperties;
+        if (!this.selectionFromOverlay || !selected) return undefined;
+        const cachedProps = this.overlayPlacementPreviewUnit?.getUnitProperties();
+        const cachedSize = cachedProps?.size === 2 ? 2 : 1;
+        const selectedSize = selected.size === 2 ? 2 : 1;
+        if (!this.overlayPlacementPreviewUnit || cachedProps?.name !== selected.name || cachedSize !== selectedSize) {
+            this.overlayPlacementPreviewUnit?.destroyVisuals();
+            this.overlayPlacementPreviewRoot?.destroy({ children: true });
+
+            const previewBase = Unit.createUnit(
+                structuredClone({
+                    ...selected,
+                    id: HoCLib.createSecureUuid(),
+                    team: TeamVals.NO_TEAM,
+                }),
+                this.sc_sceneSettings.getGridSettings(),
+                TeamVals.NO_TEAM,
+                UnitVals.CREATURE,
+                this.abilityFactory,
+                this.abilityFactory.getEffectsFactory(),
+                false,
+            );
+            this.overlayPlacementPreviewUnit = RenderableUnit.fromBase(previewBase, this.texAny);
+            this.overlayPlacementPreviewUnit.setBattlefieldVisualProjection(true);
+            this.overlayPlacementPreviewRoot = new Container();
+            this.overlayPlacementPreviewRoot.visible = false;
+            this.drawer.getUnitsContainer().addChild(this.overlayPlacementPreviewRoot);
+        }
+
+        this.overlayPlacementPreviewUnit.ensureVisual(
+            this.overlayPlacementPreviewRoot!,
+            this.sc_sceneSettings.getGridSettings(),
+        );
+        return this.overlayPlacementPreviewUnit;
+    }
+    private getPlacementPreviewPoint(): HoCMath.XY {
+        if (
+            !this.selectionFromOverlay &&
+            this.draggingUnitId &&
+            this.placementDragPointerOrigin &&
+            !this.placementDragPointerMoved
+        ) {
+            const unit = this.unitsHolder.getAllUnits().get(this.draggingUnitId);
+            if (unit) return unit.getPosition();
+        }
+        return this.sc_mouseWorld;
     }
     private createSummonedRenderableUnit(
         team: TeamType,
@@ -2264,6 +2354,7 @@ export class Sandbox extends PixiScene {
             true,
         );
         const renderableUnit = RenderableUnit.fromBase(baseUnit, this.texAny);
+        renderableUnit.setBattlefieldVisualProjection(true);
         if (renderableUnit.getSpellsCount() > 0) {
             this.ensureDigitTextures();
             if (this.digitTextures) {
@@ -2298,6 +2389,7 @@ export class Sandbox extends PixiScene {
             false,
         );
         const renderableUnit = RenderableUnit.fromBase(baseUnit, this.texAny);
+        renderableUnit.setBattlefieldVisualProjection(true);
         if (renderableUnit.getSpellsCount() > 0) {
             this.ensureDigitTextures();
             if (this.digitTextures) {
@@ -2528,15 +2620,15 @@ export class Sandbox extends PixiScene {
                     gs.getStep(),
                     gs.getHalfStep(),
                 );
-                if (unit.isSmallSize()) {
-                    position = cornerCenter;
-                } else {
-                    position = { x: cornerCenter.x - gs.getHalfStep(), y: cornerCenter.y - gs.getHalfStep() };
-                    const rebuilt = GridMath.getCellsAroundPosition(gs, position);
-                    if (rebuilt.length === 4) {
-                        cells = rebuilt;
-                    }
-                }
+                const rebuilt = GridMath.getFootprintCellsForPosition(
+                    gs,
+                    cornerCenter,
+                    unit.getFootprintWidth(),
+                    unit.getFootprintHeight(),
+                );
+                const rebuiltPosition = GridMath.getPositionForCells(gs, rebuilt);
+                position = rebuiltPosition ?? cornerCenter;
+                if (rebuilt.length === unit.getFootprintWidth() * unit.getFootprintHeight()) cells = rebuilt;
             }
             if (position) {
                 unit.setPosition(position.x, position.y);
@@ -2551,6 +2643,7 @@ export class Sandbox extends PixiScene {
             this.grid.occupyCells(cells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
 
             if (!unitState.dead) {
+                unit.setBattlefieldVisualProjection(true);
                 unit.ensureVisual(unitsContainer, gs);
                 unit.syncVisual(unitsContainer, gs);
             }
@@ -2626,6 +2719,7 @@ export class Sandbox extends PixiScene {
             summoned,
         );
         const renderableUnit = RenderableUnit.fromBase(base, this.texAny);
+        renderableUnit.setBattlefieldVisualProjection(true);
         if (renderableUnit.getSpellsCount() > 0) {
             this.ensureDigitTextures();
             if (this.digitTextures) {
@@ -3323,10 +3417,15 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const centerOf = (unitId: string, fallback: HoCMath.XY): HoCMath.XY => {
             const u = this.unitsHolder.getAllUnits().get(unitId) as RenderableUnit | undefined;
-            return u && typeof u.getVisualCenter === "function" ? u.getVisualCenter(gs) : fallback;
+            return u && typeof u.getVisualCenter === "function"
+                ? u.getVisualCenter(gs)
+                : projectBattlefieldPoint(fallback, gs);
         };
         const attackerCenter = attacker.getVisualCenter(gs);
-        const targetCenter = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const targetCenter =
+            target instanceof RenderableUnit
+                ? target.getVisualCenter(gs)
+                : projectBattlefieldPoint(target.getPosition(), gs);
         const points: HoCMath.XY[] = [attackerCenter, targetCenter];
         const skewerUnits: (RenderableUnit | undefined)[] = [];
         for (const hit of skewerHits) {
@@ -3383,7 +3482,10 @@ export class Sandbox extends PixiScene {
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const attackerCenter = attacker.getVisualCenter(gs);
-        const targetCenter = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const targetCenter =
+            target instanceof RenderableUnit
+                ? target.getVisualCenter(gs)
+                : projectBattlefieldPoint(target.getPosition(), gs);
         const dir = { x: targetCenter.x - attackerCenter.x, y: targetCenter.y - attackerCenter.y };
         this.combatVisuals?.spawnSlash(targetCenter, gs.getCellSize(), dir);
     }
@@ -3399,7 +3501,10 @@ export class Sandbox extends PixiScene {
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const from = attacker.getVisualCenter(gs);
-        const tCenter = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const tCenter =
+            target instanceof RenderableUnit
+                ? target.getVisualCenter(gs)
+                : projectBattlefieldPoint(target.getPosition(), gs);
         const dx = tCenter.x - from.x;
         const dy = tCenter.y - from.y;
         const len = Math.hypot(dx, dy);
@@ -3440,7 +3545,8 @@ export class Sandbox extends PixiScene {
                 // Resolved at spawn time so a unit that moved in the meantime burns where it is now
                 // (and one the burn killed still burns where the engine says it was hit).
                 const unit = this.unitsHolder.getAllUnits().get(burn.unitId) as RenderableUnit | undefined;
-                const position = unit && !unit.isDead() ? unit.getVisualCenter(gs) : burn.position;
+                const position =
+                    unit && !unit.isDead() ? unit.getVisualCenter(gs) : projectBattlefieldPoint(burn.position, gs);
                 this.combatVisuals?.spawnFireBurn(position, cellSize, burn.scale);
             };
             if (delayMs > 0) {
@@ -3467,7 +3573,7 @@ export class Sandbox extends PixiScene {
                 attacker.getVisualCenter(gs),
                 typeof targetRenderable.getVisualCenter === "function"
                     ? targetRenderable.getVisualCenter(gs)
-                    : target.getPosition(),
+                    : projectBattlefieldPoint(target.getPosition(), gs),
             ];
             const seen = new Set<string>([target.getId()]);
             for (const u of chain) {
@@ -3476,7 +3582,11 @@ export class Sandbox extends PixiScene {
                 }
                 seen.add(u.getId());
                 const ru = u as RenderableUnit;
-                points.push(typeof ru.getVisualCenter === "function" ? ru.getVisualCenter(gs) : u.getPosition());
+                points.push(
+                    typeof ru.getVisualCenter === "function"
+                        ? ru.getVisualCenter(gs)
+                        : projectBattlefieldPoint(u.getPosition(), gs),
+                );
             }
             this.combatVisuals.spawnChainLightning(points, gs.getCellSize());
         } catch (err) {
@@ -3502,7 +3612,9 @@ export class Sandbox extends PixiScene {
         const victim = (this.unitsHolder.getAllUnits().get(victimId) as RenderableUnit | undefined) ?? target;
         const rVictim = victim as RenderableUnit;
         const vCenter =
-            typeof rVictim.getVisualCenter === "function" ? rVictim.getVisualCenter(gs) : victim.getPosition();
+            typeof rVictim.getVisualCenter === "function"
+                ? rVictim.getVisualCenter(gs)
+                : projectBattlefieldPoint(victim.getPosition(), gs);
         const dir = { x: vCenter.x - aCenter.x, y: vCenter.y - aCenter.y };
         const len = Math.hypot(dir.x, dir.y);
 
@@ -3555,7 +3667,10 @@ export class Sandbox extends PixiScene {
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = gs.getCellSize();
-        const center = typeof target.getVisualCenter === "function" ? target.getVisualCenter(gs) : target.getPosition();
+        const center =
+            typeof target.getVisualCenter === "function"
+                ? target.getVisualCenter(gs)
+                : projectBattlefieldPoint(target.getPosition(), gs);
         const above = { x: center.x, y: center.y + (target.isSmallSize() ? cell * 0.75 : cell * 1.15) };
         const direction = casterPosition
             ? { x: center.x - casterPosition.x, y: center.y - casterPosition.y }
@@ -3608,6 +3723,7 @@ export class Sandbox extends PixiScene {
         this.sc_moveBlocked = true;
 
         if (attackEvent.attackType === "range") {
+            await this.playDirectionalAttackOneShot(attacker, target, 360, false);
             // A plain (non-piercing) shot stops at the FIRST unit on its trajectory. When a unit
             // intercepts the shot before the aimed target, the damage lands on that intercepting unit —
             // the authoritative engine records each outgoing shot's victim in its ordered animation.
@@ -3644,7 +3760,7 @@ export class Sandbox extends PixiScene {
             if (attackEvent.attackType === "melee") {
                 this.spawnFireBreathVfx(attacker, target, attackEvent.damage);
             }
-            await this.playReplayOneShot(attacker, "attack", 360);
+            await this.playDirectionalAttackOneShot(attacker, target, 360, true);
         }
 
         if (attackEvent.damage.missed) {
@@ -3808,10 +3924,12 @@ export class Sandbox extends PixiScene {
         let toPos = anchorPos;
         let targetCells: HoCMath.XY[] = [];
         if (anchorPos && !attacker.isSmallSize()) {
-            const footprint = GridMath.getCellsAroundPosition(gs, {
-                x: anchorPos.x - gs.getHalfStep(),
-                y: anchorPos.y - gs.getHalfStep(),
-            });
+            const footprint = GridMath.getFootprintCellsForPosition(
+                gs,
+                anchorPos,
+                attacker.getFootprintWidth(),
+                attacker.getFootprintHeight(),
+            );
             const footprintCenter = GridMath.getPositionForCells(gs, footprint);
             if (footprintCenter) {
                 toPos = footprintCenter;
@@ -3829,10 +3947,12 @@ export class Sandbox extends PixiScene {
             if (startAnchor) {
                 fromPos = startAnchor;
                 if (!attacker.isSmallSize()) {
-                    const startFootprint = GridMath.getCellsAroundPosition(gs, {
-                        x: startAnchor.x - gs.getHalfStep(),
-                        y: startAnchor.y - gs.getHalfStep(),
-                    });
+                    const startFootprint = GridMath.getFootprintCellsForPosition(
+                        gs,
+                        startAnchor,
+                        attacker.getFootprintWidth(),
+                        attacker.getFootprintHeight(),
+                    );
                     const startCenter = GridMath.getPositionForCells(gs, startFootprint);
                     if (startCenter) {
                         fromPos = startCenter;
@@ -3874,6 +3994,22 @@ export class Sandbox extends PixiScene {
             unit.playOneShotAnimation(stateName, finish);
         });
     }
+    private prepareDirectionalAttackState(attacker: RenderableUnit, target: Unit, melee: boolean): string {
+        const attackerCells = attacker.getCells();
+        const targetCells = target.getCells();
+        if (!preservesFacingForPureVerticalSingleCellAttack(attackerCells, targetCells)) {
+            attacker.faceBoardTarget(target.getPosition());
+        }
+        return attacker.getAttackAnimationStateForTarget(target.getPosition(), melee ? "melee" : "range", targetCells);
+    }
+    private playDirectionalAttackOneShot(
+        attacker: RenderableUnit,
+        target: Unit,
+        timeoutMs: number,
+        melee = false,
+    ): Promise<void> {
+        return this.playReplayOneShot(attacker, this.prepareDirectionalAttackState(attacker, target, melee), timeoutMs);
+    }
     /**
      * Floating-number colour for a secondary-damage source, matching the live sandbox styling:
      * Petrifying Gaze grey, Chain Lightning purple, Fire Shield amber, everything else plain red.
@@ -3909,7 +4045,8 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(this.sc_sceneSettings.getGridSettings()) ?? entry.position;
+            const gs = this.sc_sceneSettings.getGridSettings();
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             this.combatVisuals?.showHealPop(pos, entry.amount);
             unit?.flashBuffApplied();
         }
@@ -3953,7 +4090,7 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
             const show = (): void => {
                 this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction, entry.unitsDied);
@@ -3982,7 +4119,7 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             const direction = attackerCenter ? { x: pos.x - attackerCenter.x, y: pos.y - attackerCenter.y } : undefined;
             const show = (): void => {
                 this.combatVisuals.showFloatingAbsorbed(pos, entry.amount, direction);
@@ -4016,7 +4153,7 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const points = splash.map((entry) => {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            return unit?.getVisualCenter(gs) ?? entry.position;
+            return unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
         });
         const center = {
             x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
@@ -4044,7 +4181,7 @@ export class Sandbox extends PixiScene {
                 continue;
             }
             const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const center = splashUnit ? splashUnit.getVisualCenter(gs) : entry.position;
+            const center = splashUnit ? splashUnit.getVisualCenter(gs) : projectBattlefieldPoint(entry.position, gs);
             const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
             const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
             const shotIndex = shotsShownPerUnit.get(entry.unitId) ?? 0;
@@ -4097,9 +4234,9 @@ export class Sandbox extends PixiScene {
             .forEach((entry, index) => {
                 if (entry.amount <= 0 && entry.unitsDied <= 0) return;
                 const sUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-                const sCenter = sUnit ? sUnit.getVisualCenter(gs) : entry.position;
+                const sCenter = sUnit ? sUnit.getVisualCenter(gs) : projectBattlefieldPoint(entry.position, gs);
                 const sDir = { x: sCenter.x - attackerCenter.x, y: sCenter.y - attackerCenter.y };
-                const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : entry.position;
+                const sPos = sUnit ? this.offsetReplayDamagePosition(sCenter, sUnit, sDir) : sCenter;
                 const style = this.getSecondaryDamageStyle(entry.source);
                 setTimeout(
                     () => {
@@ -4163,7 +4300,7 @@ export class Sandbox extends PixiScene {
         const direction = { x: victimCenter.x - attackerCenter.x, y: victimCenter.y - attackerCenter.y };
         // Intercepted shot: keep the number on the screen, not on the unit standing behind it.
         const spawnPos = this.offsetReplayDamagePosition(
-            damage.unitPosition ?? victimCenter,
+            damage.unitPosition ? projectBattlefieldPoint(damage.unitPosition, gs) : victimCenter,
             victim,
             direction,
             damageUnitId === attackEvent.targetId,
@@ -4342,6 +4479,20 @@ export class Sandbox extends PixiScene {
         const magnitude = gs.getCellSize() * 0.22;
         unit.applyRecoil((dx / len) * magnitude, (dy / len) * magnitude);
     }
+    /** Keep an authored death sequence alive after the logical stack has left UnitsHolder. */
+    protected playCustomDeathAnimation(unit: RenderableUnit): boolean {
+        if (!unit.hasAnimationState("death")) {
+            return false;
+        }
+        this.dyingVisualUnits.add(unit);
+        if (!unit.isPlayingOneShotAnimation("death")) {
+            unit.playOneShotAnimation("death", () => {
+                this.dyingVisualUnits.delete(unit);
+                unit.destroyVisuals();
+            });
+        }
+        return true;
+    }
     /** Tear down only the renderable side of replay deaths; the recorded event still applies logical cleanup. */
     private destroyReplayAttackUnitsAtImpact(unitIds: readonly string[]): void {
         if (!unitIds.length) {
@@ -4351,6 +4502,9 @@ export class Sandbox extends PixiScene {
         for (const unitId of unitIds) {
             const unit = unitSnapshot.get(unitId);
             if (!unit) {
+                continue;
+            }
+            if (this.playCustomDeathAnimation(unit)) {
                 continue;
             }
             const shatterInfo = unit.getShatterInfo();
@@ -4417,6 +4571,8 @@ export class Sandbox extends PixiScene {
         }
 
         this.sc_sceneLog.updateLog(`${target.getName()} resp ${attacker.getName()} (${responseDamage.amount})`);
+
+        await this.playDirectionalAttackOneShot(target, attacker, 360, attackEvent.attackType === "melee");
 
         if (attackEvent.attackType === "range") {
             // A ranged attack only ever provokes a ranged response, so fire the return shot back at the
@@ -4490,7 +4646,7 @@ export class Sandbox extends PixiScene {
                     const started = this.executeMoveSequence(
                         unit,
                         action.path!,
-                        unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(action.attackFrom!),
+                        unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(unit, action.attackFrom!),
                         resolve,
                     );
                     if (!started) {
@@ -4565,6 +4721,17 @@ export class Sandbox extends PixiScene {
         this.currentActiveUnit = caster;
         const gs = this.sc_sceneSettings.getGridSettings();
         const unitSnapshot = this.snapshotRenderableUnits();
+        const facingTarget = action.targetId
+            ? this.unitsHolder.getAllUnits().get(action.targetId)?.getPosition()
+            : action.targetCell
+              ? GridMath.getPositionForCell(action.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
+              : undefined;
+        if (facingTarget) {
+            caster.faceBoardTarget(facingTarget);
+        }
+        if (caster.hasAnimationState("cast")) {
+            await this.playReplayOneShot(caster, "cast", 720);
+        }
 
         // Craft (ALLIES_AREA area cast): capture the pre-cast state NOW so the forge result pops can diff it
         // after the engine applies — mirroring the live castAreaSpellAtCell path so a Craft resolved through
@@ -4584,8 +4751,8 @@ export class Sandbox extends PixiScene {
         const craftCasterPos = { ...caster.getPosition() };
         const craftTargetPos =
             isCraftCast && action.targetCell
-                ? (this.getAreaSpellVisualCenter("Craft", action.targetCell) ?? craftCasterPos)
-                : craftCasterPos;
+                ? (this.getAreaSpellVisualCenter("Craft", action.targetCell) ?? caster.getVisualCenter(gs))
+                : caster.getVisualCenter(gs);
 
         // Castling (POSITION_CHANGE) swaps the caster with a target. Re-running the engine during
         // replay is unreliable here (validateTurnAction can reject — the turn has handed over), so apply
@@ -4604,11 +4771,14 @@ export class Sandbox extends PixiScene {
         // center, not the baseCell corner (which would leave it half a cell off diagonally).
         const cellToPos = (cell: HoCMath.XY, unit: RenderableUnit): HoCMath.XY | undefined => {
             const p = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            if (p && !unit.isSmallSize()) {
-                p.x -= gs.getHalfStep();
-                p.y -= gs.getHalfStep();
-            }
-            return p;
+            if (!p || unit.isSmallSize()) return p;
+            const footprint = GridMath.getFootprintCellsForPosition(
+                gs,
+                p,
+                unit.getFootprintWidth(),
+                unit.getFootprintHeight(),
+            );
+            return GridMath.getPositionForCells(gs, footprint) ?? p;
         };
         const newCasterPos = casterAfter?.baseCell ? cellToPos(casterAfter.baseCell, caster) : undefined;
         const newTargetPos = targetAfter?.baseCell && target ? cellToPos(targetAfter.baseCell, target) : undefined;
@@ -4847,6 +5017,7 @@ export class Sandbox extends PixiScene {
                     false,
                 );
                 const unit = RenderableUnit.fromBase(base, this.texAny);
+                unit.setBattlefieldVisualProjection(true);
                 this.unitsHolder.addUnit(unit);
 
                 if (unit.getSpellsCount() > 0) {
@@ -5098,45 +5269,51 @@ export class Sandbox extends PixiScene {
         // the blow direction and left every real melee cleave on its random near-vertical fallback. The
         // event itself preserves the impact-time positions: the attacker's own animation entry (a melee
         // strike records `toPosition` = where it struck from) and the damage payload's per-unit positions.
-        const attackerAnimPos =
+        const attackerAnimLogical =
             event.type === "unit_attacked"
                 ? event.animations.find((animation) => animation.affectedUnitId === event.attackerId)?.toPosition
                 : undefined;
+        const attackerAnimPos = attackerAnimLogical ? projectBattlefieldPoint(attackerAnimLogical, gs) : undefined;
         const damagePositionOf = (unitId: string): HoCMath.XY | undefined => {
             if (event.type !== "unit_attacked") {
                 return undefined;
             }
             const damage = event.damage;
             if (damage.unitId === unitId && damage.unitPosition) {
-                return damage.unitPosition;
+                return projectBattlefieldPoint(damage.unitPosition, gs);
             }
-            return (
+            const position =
                 damage.splash?.find((entry) => entry.unitId === unitId)?.position ??
-                damage.secondary?.find((entry) => entry.unitId === unitId)?.position
-            );
+                damage.secondary?.find((entry) => entry.unitId === unitId)?.position;
+            return position ? projectBattlefieldPoint(position, gs) : undefined;
         };
         const attackerPos = centerOf(event.attackerId) ?? attackerAnimPos;
         const primaryPos =
             event.type === "unit_attacked"
                 ? (centerOf(event.targetId) ?? damagePositionOf(event.targetId))
-                : event.targetPosition;
+                : projectBattlefieldPoint(event.targetPosition, gs);
         // A ranged death "dissolve" should punch through along the projectile's ACTUAL travel angle, not the
         // attacker-center -> victim-center line. The shot flies from the attacker's visual center (the muzzle,
         // == attackerPos, matching RangedProjectiles.fire) to its aimed edge (unit_attacked
         // animations[0].toPosition) or, for area throws, the area center — so aim the blow at that, not the
         // dead unit's own center.
         const rangeAim =
-            event.type === "area_attacked" ? event.targetPosition : (event.animations[0]?.toPosition ?? primaryPos);
+            event.type === "area_attacked"
+                ? projectBattlefieldPoint(event.targetPosition, gs)
+                : event.animations[0]?.toPosition
+                  ? projectBattlefieldPoint(event.animations[0].toPosition, gs)
+                  : primaryPos;
         // A ranged RESPONSE that kills the initiating attacker should dissolve along the RETURN shot's actual
         // path — the responder's muzzle (primaryPos) to the attacker's aimed edge — exactly as the primary kill
         // aims at animations[0].toPosition. The engine records that return shot as the one animation whose
         // affectedUnitId is the attacker (the same entry playReplayRetaliation fires the counter at). Falls back
         // to the attacker's center when there's no return projectile (Fire Shield recoil, or a melee
         // retaliation — which already reads fine center-to-center).
-        const responseAim =
+        const responseAimLogical =
             event.type === "unit_attacked"
                 ? event.animations.find((animation) => animation.affectedUnitId === event.attackerId)?.toPosition
                 : undefined;
+        const responseAim = responseAimLogical ? projectBattlefieldPoint(responseAimLogical, gs) : undefined;
         for (const unitId of event.unitIdsDied) {
             // The attacker itself dying (melee retaliation or ranged response) is a blow FROM the target's side.
             const isAttackerDeath = unitId === event.attackerId;
@@ -5180,14 +5357,17 @@ export class Sandbox extends PixiScene {
                 // 3) Remove Pixi visuals + selection
                 // Spawn the "broken mirror" shatter from the unit's current sprite before tearing it
                 // down (only for real deaths — not placement/force cleanup or resurrections).
-                if (isDead) {
+                const customDeathPlaying = isDead && this.playCustomDeathAnimation(utd);
+                if (isDead && !customDeathPlaying) {
                     const shatterInfo = utd.getShatterInfo();
                     if (shatterInfo) {
                         this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, utd.hasStatusEffect("Freeze"));
                     }
                 }
                 // console.log(`Sandbox: calling destroyVisuals for ${unitId}`);
-                utd.destroyVisuals();
+                if (!customDeathPlaying) {
+                    utd.destroyVisuals();
+                }
                 if (this.selectedBoardUnit === utd) {
                     this.selectedBoardUnit = undefined;
                 }
@@ -5755,9 +5935,8 @@ export class Sandbox extends PixiScene {
      * Drop SCATTERED_MOUNTAIN_COUNT single-cell mountains at random over the neutral band, each wearing a
      * random variant from the art pool. A no-op (and a full clear) on any board that is not Mountains.
      *
-     * The band is derived from the placement zones rather than written down as row numbers: their height is
-     * a setting (3..6 rows) and an augment can raise it, so a hardcoded range would start dropping rock into
-     * someone's back line the moment either changed. Whatever neither team may stand on is fair game.
+     * The spawn lane is deliberately fixed at the four central columns for every placement preset, as the
+     * Cemetery map design reserves that full-height strip between the left and right deployment fields.
      */
     private rollScatteredMountains(): void {
         if (!this.scatteredMountainsAutoRoll()) {
@@ -5770,18 +5949,14 @@ export class Sandbox extends PixiScene {
             this.dungeonVisuals?.setScatteredMountains([]);
             return;
         }
-        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width — a fixed strip rather than
-        // "wherever nobody may stand". Those are not the same: a height-3 placement zone is inset a column
-        // at each side and a row at the board edge, so the looser rule scattered rock down the flanks and
-        // along the very bottom, beside and behind the armies instead of in the empty middle.
-        //
-        // Fixed is also safe against the placement setting: the tallest zone is 6 rows, so twelve of the
-        // sixteen rows can belong to the armies at most and these four are neutral for every height.
+        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS columns, full height — a fixed strip rather than
+        // "wherever nobody may stand". Those are not the same: the looser rule previously scattered slabs
+        // across a horizontal 16x4 belt and even into the deployment fields instead of between them.
         const free: HoCMath.XY[] = [];
         const size = GridConstants.GRID_SIZE;
         const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
-        for (let x = 0; x < size; x++) {
-            for (let y = bandStart; y < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; y++) {
+        for (let x = bandStart; x < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; x++) {
+            for (let y = 0; y < size; y++) {
                 free.push({ x, y });
             }
         }
@@ -5931,6 +6106,8 @@ export class Sandbox extends PixiScene {
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
         this.draggingUnitTeam = undefined;
+        this.placementDragPointerOrigin = undefined;
+        this.placementDragPointerMoved = false;
         this.sc_selectedUnitProperties = undefined;
         this.hoverManager.resetHover(true);
         this.hoverManager.resetBoardHoverState();
@@ -6058,6 +6235,7 @@ export class Sandbox extends PixiScene {
         const placeEvent = placementResult.events.find((event) => event.type === "unit_placed");
         const placedPosition = placeEvent?.type === "unit_placed" ? placeEvent.position : placePos;
         unit.setPosition(placedPosition.x, placedPosition.y);
+        unit.setBattlefieldVisualProjection(true);
         // A unit dragged in from the placement bench keeps the enlarged bench scale on its instance;
         // reset it to normal board size now that it lives on the grid (ranked skips the post-place
         // re-hydrate, so nothing else would correct it).
@@ -6120,6 +6298,8 @@ export class Sandbox extends PixiScene {
         this.rotateFireWallAim();
     }
     public override ShiftMouseDown(p: HoCMath.XY): void {
+        this.pointerVisualWorld = p;
+        p = this.getLogicalBattlefieldPoint(p);
         this.sc_mouseWorld = p;
         if (this.sc_isAnimating) return;
 
@@ -6179,7 +6359,9 @@ export class Sandbox extends PixiScene {
     }
     /** MouseDown from screen coords (already converted to world if needed by caller) */
     public override MouseDown(p: HoCMath.XY): void {
-        this.sc_mouseWorld = p;
+        this.pointerVisualWorld = p;
+        const logicalPoint = this.getLogicalBattlefieldPoint(p);
+        this.sc_mouseWorld = logicalPoint;
 
         // A click-committed split (started by Shift after a stack was picked up) drops on this click.
         if (this.splitDragActive && this.splitCommitOnClick) {
@@ -6194,6 +6376,10 @@ export class Sandbox extends PixiScene {
             this.handleSpellbookClick(p);
             return;
         }
+
+        // Everything below this point targets the board, so clicks, occupancy and rendered figures
+        // must all use the same logical coordinate system.
+        p = logicalPoint;
 
         const fightProps = FightStateManager.getInstance().getFightProperties();
         // 1. FIGHT STARTED INTERACTION
@@ -6306,14 +6492,15 @@ export class Sandbox extends PixiScene {
                                 // Gargantuan) reading as "needs to move", so it searched for a route to its
                                 // own cell, found none, and silently never fired. Offset the comparison so
                                 // "already in place" is detected and the shot fires immediately.
-                                const compareX = this.currentActiveUnit.isSmallSize()
-                                    ? targetPos.x
-                                    : targetPos.x - gs.getHalfStep();
-                                const compareY = this.currentActiveUnit.isSmallSize()
-                                    ? targetPos.y
-                                    : targetPos.y - gs.getHalfStep();
-                                const dx = Math.abs(currentPos.x - compareX);
-                                const dy = Math.abs(currentPos.y - compareY);
+                                const attackFootprint = GridMath.getFootprintCellsForPosition(
+                                    gs,
+                                    targetPos,
+                                    this.currentActiveUnit.getFootprintWidth(),
+                                    this.currentActiveUnit.getFootprintHeight(),
+                                );
+                                const attackPosition = GridMath.getPositionForCells(gs, attackFootprint) ?? targetPos;
+                                const dx = Math.abs(currentPos.x - attackPosition.x);
+                                const dy = Math.abs(currentPos.y - attackPosition.y);
                                 if (dx < 0.1 && dy < 0.1) {
                                     isAtTarget = true;
                                 }
@@ -6343,7 +6530,7 @@ export class Sandbox extends PixiScene {
                                 const props = this.currentActiveUnit.getUnitProperties();
 
                                 // Large Unit Logic (Adapted from test_heroes.ts "AI" working logic)
-                                if (props.size === 2) {
+                                if (!this.currentActiveUnit.isSmallSize()) {
                                     const key = (attackFrom.x << 4) | attackFrom.y;
                                     const routes = this.currentActiveKnownPaths?.get(key);
 
@@ -6362,10 +6549,12 @@ export class Sandbox extends PixiScene {
                                         if (!position) {
                                             return;
                                         }
-                                        const candidate = GridMath.getCellsAroundPosition(gs, {
-                                            x: position.x - gs.getHalfStep(),
-                                            y: position.y - gs.getHalfStep(),
-                                        });
+                                        const candidate = GridMath.getFootprintCellsForPosition(
+                                            gs,
+                                            position,
+                                            this.currentActiveUnit.getFootprintWidth(),
+                                            this.currentActiveUnit.getFootprintHeight(),
+                                        );
 
                                         this.executeMoveSequence(
                                             this.currentActiveUnit,
@@ -6429,9 +6618,8 @@ export class Sandbox extends PixiScene {
             if (this.currentActiveUnit && this.currentActiveKnownPaths && !this.sc_moveBlocked) {
                 const cell = GridMath.getCellForPosition(gs, p);
                 if (!cell) return;
-                const props = this.currentActiveUnit.getUnitProperties();
                 const currentPos = this.currentActiveUnit.getPosition();
-                if (props.size === 2) {
+                if (!this.currentActiveUnit.isSmallSize()) {
                     const candidate = this.hoverManager.findLargeUnitMoveCandidate(cell);
                     if (!candidate) return;
                     const targetPos = GridMath.getPositionForCells(gs, candidate);
@@ -6536,7 +6724,7 @@ export class Sandbox extends PixiScene {
         }
 
         // 3. UNIT SELECTION (Clicking a unit on board)
-        const unit = this.getUnitAtPosition(p);
+        const unit = unitUnderMouse;
         if (unit) {
             const ru = unit as RenderableUnit;
             if (this.selectedBoardUnit && this.selectedBoardUnit !== ru) {
@@ -6550,10 +6738,14 @@ export class Sandbox extends PixiScene {
             this.selectionFromOverlay = false;
             this.draggingUnitId = unit.getId();
             this.draggingUnitTeam = unit.getTeam();
+            this.placementDragPointerOrigin = { ...p };
+            this.placementDragPointerMoved = false;
             this.sc_selectedUnitProperties = props;
             this.setSelectedUnitProperties(props);
             this.hoverManager.resetBoardHoverState();
-            this.hoverManager.updateHoverPlacementCell(p);
+            // At press time the copy sits exactly behind the live unit. Using `p` here selected the grid
+            // cell under the clicked torso/head, which could place the copy one cell away before a drag.
+            this.hoverManager.updateHoverPlacementCell(unit.getPosition());
 
             // Force immediate visual update to show ranges instantly
             this.gameplayGraphics?.clear();
@@ -6727,6 +6919,8 @@ export class Sandbox extends PixiScene {
                 caster.isSmallSize(),
                 caster.canTraverseLava(),
                 caster.hasAbilityActive("In Its Own World"),
+                caster.getFootprintWidth(),
+                caster.getFootprintHeight(),
             ).cells;
             const enemies: HoCMath.XY[] = [];
             for (const c of moveCells) {
@@ -6813,6 +7007,10 @@ export class Sandbox extends PixiScene {
         if (!result.completed) {
             return false;
         }
+        caster.faceBoardTarget(targetUnit.getPosition());
+        if (caster.hasAnimationState("cast")) {
+            caster.playOneShotAnimation("cast");
+        }
         // Heal numbers + restorative burst. Shared with the ranked replay path (see renderHealVfx).
         this.renderHealVfx(result.events);
         // Fire Strike's fireball + damage number. Same sharing rule as the heal above.
@@ -6887,7 +7085,9 @@ export class Sandbox extends PixiScene {
                     case "stun":
                         break;
                     case "nothing":
-                        this.combatVisuals?.showCraftFail(unit.getPosition());
+                        this.combatVisuals?.showCraftFail(
+                            unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                        );
                         break;
                     case "enchanted":
                     case "failed":
@@ -6910,7 +7110,7 @@ export class Sandbox extends PixiScene {
             target.flashBuffApplied();
         }
         this.combatVisuals?.spawnEnchantResult(
-            target.getPosition(),
+            target.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
             this.sc_sceneSettings.getGridSettings().getCellSize(),
             {
                 tint: isArmor ? 0x59b6ff : 0xff7a3c,
@@ -6955,6 +7155,7 @@ export class Sandbox extends PixiScene {
         }
 
         const casterPos = { ...caster.getPosition() };
+        const gs = this.sc_sceneSettings.getGridSettings();
 
         const action: GameAction = {
             type: "cast_spell",
@@ -6974,6 +7175,13 @@ export class Sandbox extends PixiScene {
             this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()} here`);
             return false;
         }
+        const castTargetPosition = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        if (castTargetPosition) {
+            caster.faceBoardTarget(castTargetPosition);
+        }
+        if (caster.hasAnimationState("cast")) {
+            caster.playOneShotAnimation("cast");
+        }
         // Mass heal: one "+N" per ally the cast actually restored. Shared with the ranked replay path.
         this.renderHealVfx(result.events);
         // Meteorite's impact burst + one damage number per enemy caught under the 2x2.
@@ -6981,10 +7189,10 @@ export class Sandbox extends PixiScene {
 
         // Craft-only theatrics: the forge cast (anvil + hammer) over the selected 2x2, then each ally's
         // crafted result once it finishes. Gated on the spell — Smoke shares this cast path but has no
-        // forge and no per-ally outcome, and playing the anvil over an Ash Moth would be nonsense. Its own
+        // forge and no per-ally outcome, and playing the anvil over a Wandering Mage would be nonsense. Its own
         // visual is the ground cloud, which SmokeCloudLayer picks up from the authoritative store.
         if (spell.getName() === "Craft") {
-            const forgePos = this.getAreaSpellVisualCenter(spell.getName(), cell) ?? casterPos;
+            const forgePos = this.getAreaSpellVisualCenter(spell.getName(), cell) ?? caster.getVisualCenter(gs);
             const forgeMs =
                 this.combatVisuals?.spawnCraftForge(forgePos, this.sc_sceneSettings.getGridSettings().getCellSize()) ??
                 0;
@@ -7053,6 +7261,9 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
+                if (caster.hasAnimationState("cast")) {
+                    caster.playOneShotAnimation("cast");
+                }
                 this.cleanupAfterSpell(result.events, unitSnapshot);
             } else {
                 this.sc_sceneLog.updateLog(result.message ?? `Cannot cast ${spell.getName()}`);
@@ -7079,6 +7290,9 @@ export class Sandbox extends PixiScene {
             const unitSnapshot = this.snapshotRenderableUnits();
             const result = this.createActionEngine().apply(action);
             if (result.completed) {
+                if (caster.hasAnimationState("cast")) {
+                    caster.playOneShotAnimation("cast");
+                }
                 this.cleanupAfterSpell(result.events, unitSnapshot);
             } else {
                 this.sc_sceneLog.updateLog(`Cannot cast ${spell.getName()}`);
@@ -7435,6 +7649,9 @@ export class Sandbox extends PixiScene {
             const points = arc.cells
                 .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
                 .filter((position): position is HoCMath.XY => !!position);
+            for (let index = 0; index < points.length; index++) {
+                points[index] = projectBattlefieldPoint(points[index], gs);
+            }
             if (!points.length) {
                 continue;
             }
@@ -7472,11 +7689,9 @@ export class Sandbox extends PixiScene {
         // Home to Zena at the very end — the engine owns every sweep, so there is no client-side loop or random
         // flank here. A throw with no bounce (no arcs) flies back from the primary impact.
         if (!discEnd && primaryTarget) {
-            discEnd = GridMath.getPositionForCell(
-                primaryTarget.getBaseCell(),
-                gs.getMinX(),
-                gs.getStep(),
-                gs.getHalfStep(),
+            discEnd = projectBattlefieldPoint(
+                GridMath.getPositionForCell(primaryTarget.getBaseCell(), gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+                gs,
             );
         }
         if (discEnd) {
@@ -7511,13 +7726,14 @@ export class Sandbox extends PixiScene {
         if (!deepWounds?.length || !this.combatVisuals) {
             return;
         }
-        const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cellSize = gs.getCellSize();
         for (const dw of deepWounds) {
             const woundedUnit = this.unitsHolder.getAllUnits().get(dw.unitId) as RenderableUnit | undefined;
             if (!woundedUnit) {
                 continue;
             }
-            this.combatVisuals.spawnClawSlash(woundedUnit.getPosition(), cellSize, dw.power);
+            this.combatVisuals.spawnClawSlash(woundedUnit.getVisualCenter(gs), cellSize, dw.power);
         }
     }
     /**
@@ -7643,7 +7859,8 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const positions = cellTargetedSpellBlockCells(spellName, origin)
             .map((cell) => GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()))
-            .filter((position): position is HoCMath.XY => !!position);
+            .filter((position): position is HoCMath.XY => !!position)
+            .map((position) => projectBattlefieldPoint(position, gs));
         if (!positions.length) return undefined;
         return {
             x: positions.reduce((sum, position) => sum + position.x, 0) / positions.length,
@@ -7676,13 +7893,16 @@ export class Sandbox extends PixiScene {
         if (holder && !holder.isDead() && typeof holder.getVisualCenter === "function") {
             return holder.getVisualCenter(this.sc_sceneSettings.getGridSettings());
         }
-        return damaged.find((entry) => entry.unitId === holderUnitId)?.position;
+        const fallback = damaged.find((entry) => entry.unitId === holderUnitId)?.position;
+        return fallback ? projectBattlefieldPoint(fallback, this.sc_sceneSettings.getGridSettings()) : undefined;
     }
     protected renderSpellDamageVfx(events: readonly GameEvent[], casterPosition?: HoCMath.XY): void {
         if (!this.combatVisuals) {
             return;
         }
-        const cellSize = this.sc_sceneSettings.getGridSettings().getCellSize();
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cellSize = gs.getCellSize();
+        const visualCasterPosition = casterPosition ? projectBattlefieldPoint(casterPosition, gs) : undefined;
         for (const event of events) {
             if (event.type !== "spell_cast") {
                 continue;
@@ -7696,12 +7916,9 @@ export class Sandbox extends PixiScene {
             // not shift it.
             const isRing = event.spellName === "Ring of Fire";
             if (isRing && event.targetCell) {
-                const gs = this.sc_sceneSettings.getGridSettings();
-                const ringCenter = GridMath.getPositionForCell(
-                    event.targetCell,
-                    gs.getMinX(),
-                    gs.getStep(),
-                    gs.getHalfStep(),
+                const ringCenter = projectBattlefieldPoint(
+                    GridMath.getPositionForCell(event.targetCell, gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+                    gs,
                 );
                 this.combatVisuals.spawnFireRing(ringCenter, cellSize);
             }
@@ -7710,13 +7927,14 @@ export class Sandbox extends PixiScene {
             }
             // A spell can hand part (or all) of each primary hit to an Abomination. Render that transfer
             // through the same grouped yellow ABSORBED path attacks use; never duplicate it as red damage.
-            this.showFleshShieldAbsorbedDamage(secondary, casterPosition);
-            this.showWaterShieldAbsorbs(secondary, casterPosition);
+            this.showFleshShieldAbsorbedDamage(secondary, visualCasterPosition);
+            this.showWaterShieldAbsorbs(secondary, visualCasterPosition);
             // Thrown spells sweep embers from the caster to each victim; the called-down ones (Lightning
             // Strike, Meteor Shower) have nothing to travel and just burst where they land. Ring of Fire is
             // excluded from the per-victim sweep (its flame is the circle drawn above).
             const isThrown = isThrownOffensiveSpell(event.spellName);
             for (const hit of event.damaged ?? []) {
+                const hitPosition = projectBattlefieldPoint(hit.position, gs);
                 // A Magic Reflection sent part of the spell back: the caster's own entry gets the mirror
                 // treatment instead of the spell's fire — a pane of glass flashing on the holder and a shard
                 // driving back into the caster — so the player can see WHY the caster took damage from its
@@ -7727,11 +7945,11 @@ export class Sandbox extends PixiScene {
                         ? this.reboundMirrorPosition(hit.reboundedFromUnitId, event.damaged ?? [])
                         : undefined;
                     if (holderPosition) {
-                        this.combatVisuals.spawnMagicMirrorRebound(holderPosition, hit.position, cellSize);
+                        this.combatVisuals.spawnMagicMirrorRebound(holderPosition, hitPosition, cellSize);
                     }
                     if (hit.amount > 0) {
                         this.combatVisuals.showFloatingDamage(
-                            hit.position,
+                            hitPosition,
                             hit.amount,
                             undefined,
                             hit.unitsDied,
@@ -7741,12 +7959,12 @@ export class Sandbox extends PixiScene {
                     }
                     continue;
                 }
-                if (isThrown && !isRing && casterPosition) {
-                    this.combatVisuals.spawnFireSweep(casterPosition, hit.position, cellSize);
+                if (isThrown && !isRing && visualCasterPosition) {
+                    this.combatVisuals.spawnFireSweep(visualCasterPosition, hitPosition, cellSize);
                 }
-                this.combatVisuals.spawnFireBurn(hit.position, cellSize, isThrown ? 0.9 : 1.3);
+                this.combatVisuals.spawnFireBurn(hitPosition, cellSize, isThrown ? 0.9 : 1.3);
                 if (hit.amount > 0) {
-                    this.combatVisuals.showFloatingDamage(hit.position, hit.amount, undefined, hit.unitsDied);
+                    this.combatVisuals.showFloatingDamage(hitPosition, hit.amount, undefined, hit.unitsDied);
                 }
             }
         }
@@ -7838,7 +8056,13 @@ export class Sandbox extends PixiScene {
         if (!iconTexture) {
             return;
         }
-        this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, abilityName, stackIndex, "buff");
+        this.combatVisuals?.spawnDebuffPop(
+            unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+            iconTexture,
+            abilityName,
+            stackIndex,
+            "buff",
+        );
     }
     protected popEffectOnUnit(
         unit: RenderableUnit,
@@ -7855,7 +8079,13 @@ export class Sandbox extends PixiScene {
         if (!iconTexture) {
             return;
         }
-        this.combatVisuals?.spawnDebuffPop(unit.getPosition(), iconTexture, effectName, stackIndex, kind);
+        this.combatVisuals?.spawnDebuffPop(
+            unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+            iconTexture,
+            effectName,
+            stackIndex,
+            kind,
+        );
     }
     /** Hook fired whenever the manual AI toggle changes. Sandbox no-ops; ranked persists it. */
     protected onAiToggleChanged(_active: boolean): void {}
@@ -7956,7 +8186,7 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        const footprint = unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(attackFromCell);
+        const footprint = unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(unit, attackFromCell);
         if (!unit.isSmallSize() && !footprint) {
             return false;
         }
@@ -8105,22 +8335,39 @@ export class Sandbox extends PixiScene {
         if (!position) {
             return undefined;
         }
-        if (!unit.isSmallSize()) {
-            position.x -= gs.getHalfStep();
-            position.y -= gs.getHalfStep();
-        }
-        return position;
+        if (unit.isSmallSize()) return position;
+        const footprint = GridMath.getFootprintCellsForPosition(
+            gs,
+            position,
+            unit.getFootprintWidth(),
+            unit.getFootprintHeight(),
+        );
+        return GridMath.getPositionForCells(gs, footprint) ?? position;
     }
-    private getLargeUnitObstacleFootprint(attackFromCell: HoCMath.XY): HoCMath.XY[] | undefined {
+    private getLargeUnitObstacleFootprint(unit: Unit, attackFromCell: HoCMath.XY): HoCMath.XY[] | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const position = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         if (!position) {
             return undefined;
         }
-        return GridMath.getCellsAroundPosition(gs, {
-            x: position.x - gs.getHalfStep(),
-            y: position.y - gs.getHalfStep(),
-        });
+        return GridMath.getFootprintCellsForPosition(gs, position, unit.getFootprintWidth(), unit.getFootprintHeight());
+    }
+    /**
+     * Reuse the exact obstacle ray test from committed ranged attacks for every visible aiming line.
+     * Cemetery barrels then speak the same red-target language whether the line came from a shot, a
+     * spell, or an incoming-threat preview. Returning the intersections lets specialised callers retain
+     * their existing stop/double-shot rules while this helper owns only the shared visual state.
+     */
+    private highlightScatteredObstaclesAlongTrajectory(
+        from: HoCMath.XY | undefined,
+        to: HoCMath.XY | undefined,
+    ): IAttackObstacle[] {
+        if (!from || !to || !this.grid.hasScatteredMountains()) {
+            return [];
+        }
+        const intersections = this.attackHandler.getObstacleIntersections(from, to);
+        this.dungeonVisuals.highlightScatteredMountains(intersections.map((obstacle) => obstacle.position));
+        return intersections;
     }
     /**
      * Mountain hover: mirrors hovering a 2x2 ENEMY. Ranged units preview a shot in place; melee
@@ -8165,6 +8412,17 @@ export class Sandbox extends PixiScene {
         if (!hoveredCell || !centerCells.some((c) => c.x === hoveredCell.x && c.y === hoveredCell.y)) {
             return notHovering();
         }
+        const hoveredObstacleCenter = GridMath.getPositionForCell(
+            hoveredCell,
+            gs.getMinX(),
+            gs.getStep(),
+            gs.getHalfStep(),
+        );
+        // Hover alone is enough to expose a barrel's red target silhouette. Attack-specific cursor and
+        // path logic below still decides whether a click can actually strike it.
+        if (this.grid.hasScatteredMountains()) {
+            this.dungeonVisuals.highlightScatteredMountains([hoveredObstacleCenter]);
+        }
         this.hoverManager.clearAttackVisuals();
 
         // Ranged attackers shoot the mountain in place (unless pinned into melee). Same
@@ -8175,8 +8433,8 @@ export class Sandbox extends PixiScene {
         );
         if (unit.getAttackTypeSelection() === AttackVals.RANGE && canRangeObstacle) {
             this.hoverManager.hoverAttackFromCell = undefined;
-            const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            const shotStart = unit.getVisualCenter(gs);
+            const cellCenter = hoveredObstacleCenter;
+            const shotStart = projectBattlefieldPoint(unit.getPosition(), gs);
             const intersections = this.grid.hasScatteredMountains()
                 ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
                 : [];
@@ -8185,7 +8443,11 @@ export class Sandbox extends PixiScene {
             const actualHit = projectileHits.at(-1)?.position ?? cellCenter;
             const reachesAimedStone = actualHit.x === cellCenter.x && actualHit.y === cellCenter.y;
             this.hoverRangeAttackObstacle = projectileHits.at(-1);
-            this.hoverManager.drawAttackArrow(shotStart, actualHit, reachesAimedStone ? undefined : cellCenter);
+            this.hoverManager.drawAttackArrow(
+                shotStart,
+                projectBattlefieldPoint(actualHit, gs),
+                reachesAimedStone ? undefined : projectBattlefieldPoint(cellCenter, gs),
+            );
             this.hoverManager.highlightObstacles(
                 projectileHits.length ? projectileHits.map((obstacle) => obstacle.position) : [cellCenter],
                 gs.getCellSize(),
@@ -8206,32 +8468,35 @@ export class Sandbox extends PixiScene {
             return true;
         }
         if (unit.getAttackTypeSelection() === AttackVals.MAGIC || unit.hasAbilityActive("No Melee")) {
-            return notHovering();
+            return this.grid.hasScatteredMountains() || notHovering();
         }
 
         const attackFromCell = this.resolveMountainAttackFrom(this.sc_mouseWorld);
         if (!attackFromCell) {
-            return notHovering();
+            return this.grid.hasScatteredMountains() || notHovering();
         }
         this.hoverManager.hoverAttackFromCell = attackFromCell;
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
-        const cellCenter = GridMath.getPositionForCell(hoveredCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const cellCenter = hoveredObstacleCenter;
         if (attackFromPos) {
             this.hoverManager.updateHoverSilhouette(attackFromPos);
-            // Aim at the TARGET's own footprint, not at the raw pointer. The sword's length is normalised
-            // for diagonals on the assumption of cell geometry (see meleeSwordDisplayLength), and mouse
-            // coordinates do not obey it — feeding them in is what made the diagonal icon grow. The
-            // unit-vs-unit path already aims this way; only the obstacle path was passing the cursor.
+            // Aim at the target's own grid anchor, not the raw pointer. The sword keeps one fixed cell-size
+            // scale, while the projected endpoints determine only its position and facing.
             //
             // Suppressed once the swing is committed: the marker is redrawn every frame while the pointer
             // rests on the target, so clearing it once at attack time was immediately undone.
             if (!this.isStrikeInFlight()) {
+                const attackPreview = unit.getBattlefieldPreviewAt(attackFromPos, gs);
                 this.hoverManager.drawAttackArrow(
-                    attackFromPos,
-                    meleeSwordTargetPoint(attackFromPos, cellCenter, gs.getHalfStep()),
+                    attackPreview
+                        ? { x: attackPreview.x, y: attackPreview.y }
+                        : projectBattlefieldPoint(attackFromPos, gs),
+                    projectBattlefieldPoint(cellCenter, gs),
                     undefined,
                     undefined,
                     "melee",
+                    true,
+                    meleeSwordFacingAngle(attackFromPos, cellCenter),
                 );
             }
         }
@@ -8302,7 +8567,11 @@ export class Sandbox extends PixiScene {
                 ? GridMath.getPositionForCell(impactCell, gs.getMinX(), gs.getStep(), gs.getHalfStep())
                 : undefined;
             if (impactPos) {
-                this.hoverManager.drawAttackArrow(activeUnit.getVisualCenter(gs), impactPos);
+                this.hoverManager.drawAttackArrow(
+                    projectBattlefieldPoint(activeUnit.getPosition(), gs),
+                    projectBattlefieldPoint(impactPos, gs),
+                );
+                this.highlightScatteredObstaclesAlongTrajectory(activeUnit.getPosition(), impactPos);
                 divisor = this.attackHandler.getRangeAttackDivisor(activeUnit, impactPos);
             }
         }
@@ -8754,8 +9023,8 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         // Aim at the same visible edge a real shot resolves to, so the line and the falloff band match
         // what the shooter would actually get rather than a centre-to-centre approximation.
-        const aim = this.resolveRangeAimForTarget(shooter, hoveredUnit, hoveredUnit.getPosition())?.position;
-        const aimPos = aim ?? hoveredUnit.getPosition();
+        const aim = this.resolveRangeAimForTarget(shooter, hoveredUnit, hoveredUnit.getPosition());
+        const aimPos = aim?.position ?? hoveredUnit.getPosition();
 
         // Who the shot really meets: a plain shot stops at the FIRST unit on the line, so a teammate
         // standing in front turns this into a screen rather than a hit on the hovered unit.
@@ -8771,22 +9040,26 @@ export class Sandbox extends PixiScene {
         const interceptor = evaluation.affectedUnits?.[0]?.[0];
         const screened = !!interceptor && interceptor.getId() !== hoveredUnit.getId();
         const impactUnit = (interceptor ?? hoveredUnit) as RenderableUnit;
-        const impactPos =
-            typeof impactUnit.getVisualCenter === "function"
-                ? impactUnit.getVisualCenter(gs)
-                : impactUnit.getPosition();
+        const impactAim = screened ? this.resolveRangeAimForTarget(shooter, impactUnit, impactUnit.getPosition()) : aim;
+        const impactLogical = impactAim?.position ?? impactUnit.getPosition();
+        const impactPos = impactAim
+            ? projectedRangeAttackCellSideCenter(impactAim.cell, impactAim.side, gs)
+            : projectBattlefieldPoint(impactLogical, gs);
 
         // Falloff the SHOOTER would apply on THIS ray — taken from the evaluation above so it includes
         // smoke (a ray crossing a smoked cell doubles the divisor, capped at 1/8), not just distance.
         const divisor = evaluation.rangeAttackDivisors[0] ?? this.attackHandler.getRangeAttackDivisor(shooter, aimPos);
 
-        const shooterCenter = shooter.getVisualCenter(gs);
+        const shooterLogical = shooter.getPosition();
+        const shooterCenter = projectBattlefieldPoint(shooterLogical, gs);
+        const smokeLogical = this.resolveSmokeEntryPoint(shooterLogical, impactLogical);
         this.hoverManager.drawAttackArrow(
             shooterCenter,
             impactPos,
             undefined,
-            this.resolveSmokeEntryPoint(shooterCenter, impactPos),
+            smokeLogical ? projectBattlefieldPoint(smokeLogical, gs) : undefined,
         );
+        this.highlightScatteredObstaclesAlongTrajectory(shooterLogical, impactLogical);
         this.hoverManager.addTargetHighlight(impactUnit);
 
         const line = screened
@@ -8824,7 +9097,6 @@ export class Sandbox extends PixiScene {
         aimAt: HoCMath.XY = this.sc_mouseWorld,
     ): GridMath.IClosestSideCenter | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
-        const arrowStartPos = !attacker.isSmallSize() ? attacker.getVisualCenter(gs) : attacker.getCenter();
         return GridMath.getClosestSideCenterDetailed(
             this.grid.getMatrix(),
             gs,
@@ -8832,7 +9104,7 @@ export class Sandbox extends PixiScene {
             // cursor; AI/replay shots pass the target itself so the edge is resolved from the shot's
             // own geometry, not from wherever the human cursor happens to sit.
             aimAt,
-            arrowStartPos,
+            attacker.getPosition(),
             target.getPosition(),
             attacker.isSmallSize(),
             target.isSmallSize(),
@@ -8891,7 +9163,10 @@ export class Sandbox extends PixiScene {
 
         // Pre-calculate primary attack direction (Target - Attacker) for uniform visuals
         const gs = this.sc_sceneSettings.getGridSettings();
-        const tVis = target instanceof RenderableUnit ? target.getVisualCenter(gs) : target.getPosition();
+        const tVis =
+            target instanceof RenderableUnit
+                ? target.getVisualCenter(gs)
+                : projectBattlefieldPoint(target.getPosition(), gs);
         // Use 'attackFrom' cell to ensure direction is accurate even if unit moves during sequence
         const attPos = GridMath.getPositionForCell(attackFrom, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         const primaryAttackDir = attPos ? { x: tVis.x - attPos.x, y: tVis.y - attPos.y } : { x: 0, y: -1 };
@@ -8915,7 +9190,10 @@ export class Sandbox extends PixiScene {
                 hp: u.getHp(),
                 maxHp: u.getMaxHp(),
                 pos: { ...u.getPosition() }, // Clone position
-                visualCenter: u instanceof RenderableUnit ? { ...u.getVisualCenter(gs) } : { ...u.getPosition() },
+                visualCenter:
+                    u instanceof RenderableUnit
+                        ? { ...u.getVisualCenter(gs) }
+                        : projectBattlefieldPoint(u.getPosition(), gs),
             });
         }
 
@@ -9062,11 +9340,13 @@ export class Sandbox extends PixiScene {
                 return this.submitActionForAuthoritativeReplay(action);
             }
 
+            await this.playDirectionalAttackOneShot(attacker, target, 360, false);
+
             // Fire the projectile BEFORE applying damage so the stack-count drop, damage
             // number and death skull all land in sync with the projectile's arrival. It flies to the
             // aimed visible-edge center (what the engine resolves the shot to), NOT the target's
             // geometric center — otherwise the arrow points at an edge but the projectile lands center.
-            const muzzle = attacker.getVisualCenter(gs);
+            const muzzle = projectBattlefieldPoint(attacker.getPosition(), gs);
             // A plain (non-piercing) shot stops at the first unit on its trajectory. If a unit
             // intercepts the shot before the aimed target, land the projectile on THAT unit (where the
             // damage lands) instead of the aimed edge behind it. Through Shot pierces, so it still flies
@@ -9075,10 +9355,15 @@ export class Sandbox extends PixiScene {
                 ? undefined
                 : this.resolveFirstRangeHitUnit(target, aim?.position);
             const intercepted = !!interceptUnit && interceptUnit.getId() !== target.getId();
-            const shotTarget =
+            const interceptAim =
                 intercepted && interceptUnit instanceof RenderableUnit
-                    ? interceptUnit.getVisualCenter(gs)
-                    : (aim?.position ?? tVis);
+                    ? this.resolveRangeAimForTarget(attacker, interceptUnit, interceptUnit.getPosition())
+                    : undefined;
+            const shotTarget = interceptAim
+                ? projectedRangeAttackCellSideCenter(interceptAim.cell, interceptAim.side, gs)
+                : aim
+                  ? projectedRangeAttackCellSideCenter(aim.cell, aim.side, gs)
+                  : projectBattlefieldPoint(target.getPosition(), gs);
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
             // ABILITY Chakram (Zena): throw the spinning disc instead of a bolt. Gated on the ABILITY, not
             // the creature name, so a stolen/granted Chakram throws one too — and a Broken one does not.
@@ -9140,6 +9425,7 @@ export class Sandbox extends PixiScene {
                 target instanceof RenderableUnit &&
                 liveAttackEvent.animations.some((animation) => animation.affectedUnitId === attacker.getId())
             ) {
+                target.playOneShotAnimation(this.prepareDirectionalAttackState(target, attacker, false));
                 const responseMuzzle = target.getVisualCenter(gs);
                 // Fire the counter at the attacker's aimed edge (the response animation's toPosition),
                 // not its center, to match the primary shot.
@@ -9195,6 +9481,8 @@ export class Sandbox extends PixiScene {
             if (!applyAttackActionResult(this.createActionEngine().apply(localMeleeAction))) {
                 return false;
             }
+
+            await this.playDirectionalAttackOneShot(attacker, target, 360, true);
 
             // Melee landed: lunge the attacker a touch toward the target along the attack trajectory,
             // then spring back (applyRecoil's out-and-back envelope) so the strike reads as committed
@@ -9308,10 +9596,10 @@ export class Sandbox extends PixiScene {
             const tVis =
                 damageForAnimation.unitPosition &&
                 (damageForAnimation.unitPosition.x || damageForAnimation.unitPosition.y)
-                    ? damageForAnimation.unitPosition
+                    ? projectBattlefieldPoint(damageForAnimation.unitPosition, gs)
                     : typeof rTarget.getVisualCenter === "function"
                       ? rTarget.getVisualCenter(gs)
-                      : damagedUnit.getPosition();
+                      : projectBattlefieldPoint(damagedUnit.getPosition(), gs);
 
             // Calculate trajectory direction (Attacker -> Target)
             const dir = { x: tVis.x - aCenter.x, y: tVis.y - aCenter.y };
@@ -9455,7 +9743,9 @@ export class Sandbox extends PixiScene {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const rTarget = target as any;
                 const tVis =
-                    typeof rTarget.getVisualCenter === "function" ? rTarget.getVisualCenter(gs) : target.getPosition();
+                    typeof rTarget.getVisualCenter === "function"
+                        ? rTarget.getVisualCenter(gs)
+                        : projectBattlefieldPoint(target.getPosition(), gs);
 
                 // Direction: Target -> Attacker
                 const dir = { x: aVis.x - tVis.x, y: aVis.y - tVis.y };
@@ -9482,6 +9772,9 @@ export class Sandbox extends PixiScene {
                 const lossesNotAbsorbed = Math.max(0, stackLost - (attackerFleshShield?.unitsDied ?? 0));
                 const pureDamage = Math.max(0, damageTaken - attackerFireShield - (attackerFleshShield?.amount ?? 0));
                 if (pureDamage > 0) {
+                    if (!isRange && target instanceof RenderableUnit) {
+                        target.playOneShotAnimation(this.prepareDirectionalAttackState(target, attacker, true));
+                    }
                     this.combatVisuals.showFloatingDamage(spawnPos, pureDamage, dir, lossesNotAbsorbed);
                 }
                 if (attackerFireShield > 0) {
@@ -9737,6 +10030,7 @@ export class Sandbox extends PixiScene {
     /** Clear transient pointer previews as soon as a move/attack command is accepted. */
     private clearCommittedBoardActionPreview(): void {
         this.hoverManager.clearAttackVisuals();
+        this.dungeonVisuals.clearScatteredMountainHighlight();
         // Move animation locks silhouettes so its completion cannot be disturbed by hover updates. Force
         // this pre-lock clear: a normal clear after setSilhouetteLocked(true) is deliberately ignored.
         this.hoverManager.clearHoverSilhouette(true);
@@ -9761,9 +10055,10 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cellSize = gs.getCellSize();
         const isLargeUnit = !unit.isSmallSize();
-        const hasFootprintOverride = !!overrideFootprint && overrideFootprint.length === 4;
+        const footprintCellCount = unit.getFootprintWidth() * unit.getFootprintHeight();
+        const hasFootprintOverride = !!overrideFootprint && overrideFootprint.length === footprintCellCount;
 
-        // Large direct moves pass the final 2x2 footprint as `path`; large move-attacks pass a real route.
+        // Multi-cell direct moves pass the final footprint as `path`; move-attacks pass a real route.
         const pathLooksLikeFootprintOnly =
             isLargeUnit &&
             hasFootprintOverride &&
@@ -9783,13 +10078,14 @@ export class Sandbox extends PixiScene {
             if (hasFootprintOverride) {
                 cellsToOccupy = overrideFootprint!;
             } else {
-                // Fallback if we somehow don't get a footprint override.
-                cellsToOccupy = [
-                    { x: destCell.x, y: destCell.y },
-                    { x: destCell.x + 1, y: destCell.y },
-                    { x: destCell.x, y: destCell.y + 1 },
-                    { x: destCell.x + 1, y: destCell.y + 1 },
-                ];
+                // Fallback if we somehow don't get a footprint override. Preserve the unit's configured
+                // rectangle: treating every multi-cell body as 2x2 makes a legal 2x1 move (including the
+                // approach step of a melee attack) fail engine validation with `invalid_move`.
+                cellsToOccupy = combatFootprintCellsForBase(
+                    destCell,
+                    unit.getFootprintWidth(),
+                    unit.getFootprintHeight(),
+                );
             }
         } else {
             cellsToOccupy = [destCell];
@@ -10058,6 +10354,7 @@ export class Sandbox extends PixiScene {
     }
     private clearBoardHoverPreviews(): void {
         this.hoverManager.clearAttackVisuals();
+        this.dungeonVisuals.clearScatteredMountainHighlight();
         this.hoverManager.clearHoverSilhouette();
         this.hoverManager.clearAuraVisuals();
         this.hoverManager.clearAOEArea();
@@ -10124,7 +10421,7 @@ export class Sandbox extends PixiScene {
         if (canDriveActiveUnit && this.sc_renderSpellBookOverlay && this.currentActiveUnit && this.sc_mouseWorld) {
             if (this.currentActiveUnit instanceof RenderableUnit) {
                 const hoveredSpell = this.currentActiveUnit.getHoveredSpell(
-                    this.spellbookGlobalFromWorld(this.sc_mouseWorld),
+                    this.spellbookGlobalFromWorld(this.pointerVisualWorld),
                     true,
                 );
                 this.setHoveredSpell(hoveredSpell, this.currentActiveUnit);
@@ -10193,9 +10490,7 @@ export class Sandbox extends PixiScene {
                     );
                     if (finalAuras.length > 0) {
                         this.sc_hoveredAuraRanges = {
-                            xy: (hoverTargetUnit as RenderableUnit).getVisualCenter(
-                                this.sc_sceneSettings.getGridSettings(),
-                            ),
+                            xy: hoverTargetUnit.getPosition(),
                             auraRanges: finalAuras,
                             isSmall: hoverTargetUnit.isSmallSize(),
                         };
@@ -10247,6 +10542,8 @@ export class Sandbox extends PixiScene {
                         hoverTargetUnit.isSmallSize(),
                         hoverTargetUnit.canTraverseLava(),
                         hoverTargetUnit.hasAbilityActive("In Its Own World"),
+                        hoverTargetUnit.getFootprintWidth(),
+                        hoverTargetUnit.getFootprintHeight(),
                     );
                     this.sc_hoveredMoveRange = movePath.cells;
                     // Whether the hovered unit is an ENEMY of the active unit. Drives the active path's
@@ -10323,6 +10620,7 @@ export class Sandbox extends PixiScene {
                     spell.getSpellTargetType() !== SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
 
                 let targetCenter: HoCMath.XY | undefined;
+                let trajectoryEnd: HoCMath.XY | undefined;
                 if (isSwap && this.currentEnemiesCellsWithinMovementRange) {
                     // Highlight every small enemy within movement range so the player sees all options.
                     for (const c of this.currentEnemiesCellsWithinMovementRange) {
@@ -10353,6 +10651,7 @@ export class Sandbox extends PixiScene {
                         )
                     ) {
                         targetCenter = rTarget.getVisualCenter(gs2);
+                        trajectoryEnd = hoveredUnit.getPosition();
                     }
                 } else if (
                     hoveredUnit &&
@@ -10386,7 +10685,8 @@ export class Sandbox extends PixiScene {
                     targetCenter =
                         typeof rTarget.getVisualCenter === "function"
                             ? rTarget.getVisualCenter(gs2)
-                            : impactUnit.getPosition();
+                            : projectBattlefieldPoint(impactUnit.getPosition(), gs2);
+                    trajectoryEnd = impactUnit.getPosition();
 
                     // Offensive spells preview their damage exactly like an attack hover does, so the player
                     // chooses a target on a number rather than on the spellbook's generic card text.
@@ -10412,7 +10712,7 @@ export class Sandbox extends PixiScene {
                             const labelPos =
                                 splashed instanceof RenderableUnit
                                     ? splashed.getVisualCenter(gs2)
-                                    : splashed.getPosition();
+                                    : projectBattlefieldPoint(splashed.getPosition(), gs2);
                             this.hoverManager.addTargetHighlight(splashed, spellColor);
                             this.hoverManager.addAOEDamageLabel(labelPos, `${splashDamage}`, !splashed.isSmallSize());
                         }
@@ -10441,13 +10741,18 @@ export class Sandbox extends PixiScene {
                         }
                         labelled.add(under.getId());
                         this.hoverManager.addAOEDamageLabel(
-                            under instanceof RenderableUnit ? under.getVisualCenter(gs2) : under.getPosition(),
+                            under instanceof RenderableUnit
+                                ? under.getVisualCenter(gs2)
+                                : projectBattlefieldPoint(under.getPosition(), gs2),
                             `${blockDamage}`,
                             !under.isSmallSize(),
                         );
                     }
                 }
 
+                if (!hideDirectStatusArrow && trajectoryEnd) {
+                    this.highlightScatteredObstaclesAlongTrajectory(caster.getPosition(), trajectoryEnd);
+                }
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
                     targetPos: hideDirectStatusArrow ? undefined : targetCenter,
@@ -10556,18 +10861,10 @@ export class Sandbox extends PixiScene {
 
                     const canPerformRangeAttack =
                         this.currentActiveUnit.getAttackTypeSelection() === AttackVals.RANGE &&
-                        this.currentActiveUnit.getRangeShots() > 0 &&
-                        !this.attackHandler.canBeAttackedByMelee(
-                            this.currentActiveUnit.getPosition(),
-                            this.currentActiveUnit.isSmallSize(),
+                        this.attackHandler.canLandRangeAttack(
+                            this.currentActiveUnit,
                             this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
-                        ) &&
-                        !this.currentActiveUnit.hasDebuffActive("Range Null Field Aura") &&
-                        // hasStatusApplied, not hasDebuffActive: Rangebane is applied in COMBAT (Spit Ball),
-                        // and ranked leaves the debuff OBJECT arrays empty, so the plain check is always
-                        // false there and the client kept offering ranged attacks the server refuses. The
-                        // aura above is safe either way — auras are reconciled from the snapshot.
-                        !this.currentActiveUnit.hasStatusApplied("Rangebane");
+                        );
 
                     // 1. Static Range Priority
                     // Relaxed check: Allow visualization even if technically out of 'shot_distance' (for Penalty logic)
@@ -10680,8 +10977,13 @@ export class Sandbox extends PixiScene {
                                 gs.getHalfStep(),
                             );
                             if (!this.currentActiveUnit.isSmallSize()) {
-                                attackFromPos.x -= gs.getHalfStep();
-                                attackFromPos.y -= gs.getHalfStep();
+                                const attackFootprint = GridMath.getFootprintCellsForPosition(
+                                    gs,
+                                    attackFromPos,
+                                    this.currentActiveUnit.getFootprintWidth(),
+                                    this.currentActiveUnit.getFootprintHeight(),
+                                );
+                                attackFromPos = GridMath.getPositionForCells(gs, attackFootprint) ?? attackFromPos;
                             }
 
                             this.hoverManager.updateHoverSilhouette(attackFromPos);
@@ -10717,39 +11019,49 @@ export class Sandbox extends PixiScene {
                             damageUnit instanceof RenderableUnit
                                 ? damageUnit.getVisualCenter(gs)
                                 : damageUnit.getPosition();
+                        const arrowStartLogical = attackFromPos ?? this.currentActiveUnit.getPosition();
                         let arrowStartPos: HoCMath.XY;
 
-                        if (!attackFromPos) {
-                            // PRIORITIZE VISUAL CENTER if available (matches sprite exactly)
-                            if (!this.currentActiveUnit.isSmallSize()) {
-                                arrowStartPos = { ...this.currentActiveUnit.getVisualCenter(gs) };
-                            } else {
-                                arrowStartPos = { ...this.currentActiveUnit.getCenter() };
-                            }
+                        if (!isRangeAttackContext) {
+                            // Melee facing belongs to the selected logical landing cell. Do not start
+                            // from the full-body sprite's shifted foot anchor: it can collapse adjacent
+                            // right and bottom-right sides into the same visual direction.
+                            arrowStartPos = projectBattlefieldPoint(arrowStartLogical, gs);
                         } else {
-                            arrowStartPos = { ...attackFromPos };
+                            // A ranged trajectory starts at the exact centre of the shooter's logical cell.
+                            // The unit preview is foot-anchored and therefore must not be used as line origin.
+                            arrowStartPos = projectBattlefieldPoint(arrowStartLogical, gs);
                         }
 
                         let arrowEndPos: HoCMath.XY | undefined;
+                        let arrowEndVisual: HoCMath.XY | undefined;
 
                         if (!isRangeAttackContext && attackFromPos) {
-                            arrowEndPos = meleeSwordTargetPoint(
-                                arrowStartPos,
-                                tVis,
-                                gs.getHalfStep() * (targetUnit.isSmallSize() ? 1 : 2),
+                            // Pick one of eight stable anchors around the target footprint (four edge
+                            // midpoints + four corners), then project that logical anchor through the same
+                            // transform as the painted grid. This matches the side selected by the pointer.
+                            const targetHalfExtent = gs.getHalfStep() * (targetUnit.isSmallSize() ? 1 : 2);
+                            arrowEndPos = projectBattlefieldPoint(
+                                meleeSwordTargetPoint(attackFromPos, targetUnit.getPosition(), targetHalfExtent),
+                                gs,
                             );
+                            arrowEndVisual = arrowEndPos;
                         } else {
-                            arrowEndPos = GridMath.getClosestSideCenter(
+                            const rangeAim = GridMath.getClosestSideCenterDetailed(
                                 this.grid.getMatrix(),
                                 gs,
                                 this.sc_mouseWorld,
-                                arrowStartPos,
+                                arrowStartLogical,
                                 targetUnit.getPosition(),
                                 this.currentActiveUnit.isSmallSize(),
                                 targetUnit.isSmallSize(),
                                 this.currentActiveUnit.getTeam(),
                                 this.currentActiveUnit.hasAbilityActive("Through Shot"),
                             );
+                            arrowEndPos = rangeAim?.position;
+                            arrowEndVisual = rangeAim
+                                ? projectedRangeAttackCellSideCenter(rangeAim.cell, rangeAim.side, gs)
+                                : undefined;
                         }
 
                         // Fallback when getClosestSideCenter can't pick a side (e.g. the attacker is
@@ -10758,23 +11070,26 @@ export class Sandbox extends PixiScene {
                         // Aim at the target's NEAR EDGE along the attacker -> target line instead, so it
                         // stays "center -> the edge we pointed at".
                         if (!arrowEndPos) {
-                            const rawPos =
-                                targetUnit instanceof RenderableUnit
-                                    ? targetUnit.getVisualCenter(gs)
-                                    : targetUnit.getPosition();
-                            const targetCenter = { ...rawPos };
-                            if (!(targetUnit instanceof RenderableUnit)) {
-                                targetCenter.x += gs.getHalfStep();
-                                targetCenter.y += gs.getHalfStep();
-                            }
-                            const dx = arrowStartPos.x - targetCenter.x;
-                            const dy = arrowStartPos.y - targetCenter.y;
-                            const len = Math.hypot(dx, dy) || 1;
-                            const reach = gs.getHalfStep() * (targetUnit.isSmallSize() ? 1 : 2);
-                            arrowEndPos = {
-                                x: targetCenter.x + (dx / len) * reach,
-                                y: targetCenter.y + (dy / len) * reach,
-                            };
+                            const targetCell =
+                                GridMath.getCellForPosition(gs, this.sc_mouseWorld) ?? targetUnit.getBaseCell();
+                            const targetCenter = GridMath.getPositionForCell(
+                                targetCell,
+                                gs.getMinX(),
+                                gs.getStep(),
+                                gs.getHalfStep(),
+                            );
+                            const dx = targetCenter.x - arrowStartLogical.x;
+                            const dy = targetCenter.y - arrowStartLogical.y;
+                            const fallbackSide =
+                                Math.abs(dx) >= Math.abs(dy)
+                                    ? dx >= 0
+                                        ? GridMath.RangeAttackCellSide.LEFT
+                                        : GridMath.RangeAttackCellSide.RIGHT
+                                    : dy >= 0
+                                      ? GridMath.RangeAttackCellSide.DOWN
+                                      : GridMath.RangeAttackCellSide.UP;
+                            arrowEndPos = rangeAttackCellSideCenter(targetCell, fallbackSide, gs);
+                            arrowEndVisual = projectedRangeAttackCellSideCenter(targetCell, fallbackSide, gs);
                         }
                         let finalArrowEndPos = arrowEndPos!;
                         // Through Shot keeps flying past the aimed target to the field edge, so the
@@ -10782,13 +11097,15 @@ export class Sandbox extends PixiScene {
                         if (this.currentActiveUnit.hasAbilityActive("Through Shot")) {
                             finalArrowEndPos = GridMath.projectLineToFieldEdge(
                                 gs,
-                                arrowStartPos.x,
-                                arrowStartPos.y,
+                                arrowStartLogical.x,
+                                arrowStartLogical.y,
                                 finalArrowEndPos.x,
                                 finalArrowEndPos.y,
                             );
                         }
-                        tVis = finalArrowEndPos;
+                        tVis = this.currentActiveUnit.hasAbilityActive("Through Shot")
+                            ? projectBattlefieldPoint(finalArrowEndPos, gs)
+                            : (arrowEndVisual ?? projectBattlefieldPoint(finalArrowEndPos, gs));
 
                         // Calculate projected damage
                         const attackRate = this.currentActiveUnit.getAttack();
@@ -10970,14 +11287,9 @@ export class Sandbox extends PixiScene {
                         let effectiveAttackRate = attackRate;
 
                         if (warAngerAuraEffect) {
-                            const cells: HoCMath.XY[] = attackFromCell
-                                ? [attackFromCell]
+                            const cells = attackFromCell
+                                ? this.currentActiveUnit.getFootprintCellsForBase(attackFromCell)
                                 : this.currentActiveUnit.getCells();
-                            if (!this.currentActiveUnit.isSmallSize() && attackFromCell) {
-                                cells.push({ x: attackFromCell.x + 1, y: attackFromCell.y });
-                                cells.push({ x: attackFromCell.x, y: attackFromCell.y + 1 });
-                                cells.push({ x: attackFromCell.x + 1, y: attackFromCell.y + 1 });
-                            }
 
                             const newAttackRate =
                                 attackRate -
@@ -11245,13 +11557,15 @@ export class Sandbox extends PixiScene {
                             // Arrow to the mountain (what actually takes the hit), plus a faint dashed
                             // continuation on to the intended unit so the whole projection still reads, and
                             // a red glow on the mountain as the real target (the unit behind takes no damage).
+                            const blockedVisual = projectBattlefieldPoint(blockedByObstacle.position, gs);
+                            const blockedSmokeLogical = isRangeAttackContext
+                                ? this.resolveSmokeEntryPoint(arrowStartLogical, blockedByObstacle.position)
+                                : undefined;
                             this.hoverManager.drawAttackArrow(
                                 arrowStartPos,
-                                blockedByObstacle.position,
+                                blockedVisual,
                                 tVis,
-                                isRangeAttackContext
-                                    ? this.resolveSmokeEntryPoint(arrowStartPos, blockedByObstacle.position)
-                                    : undefined,
+                                blockedSmokeLogical ? projectBattlefieldPoint(blockedSmokeLogical, gs) : undefined,
                             );
                             if (this.grid.hasScatteredMountains()) {
                                 this.hoverManager.clearObstacleHighlight();
@@ -11291,12 +11605,19 @@ export class Sandbox extends PixiScene {
                                 !damageUnit.isSmallSize(), // isLargeTarget
                                 iconPath,
                             );
+                            const smokeLogical = isRangeAttackContext
+                                ? this.resolveSmokeEntryPoint(arrowStartLogical, finalArrowEndPos)
+                                : undefined;
                             this.hoverManager.drawAttackArrow(
                                 arrowStartPos,
                                 tVis,
                                 undefined,
-                                isRangeAttackContext ? this.resolveSmokeEntryPoint(arrowStartPos, tVis) : undefined,
+                                smokeLogical ? projectBattlefieldPoint(smokeLogical, gs) : undefined,
                                 isRangeAttackContext ? "arrow" : "melee",
+                                true,
+                                !isRangeAttackContext && attackFromPos
+                                    ? meleeSwordFacingAngle(attackFromPos, targetUnit.getPosition())
+                                    : undefined,
                             );
                             isAttacking = true;
 
@@ -11353,7 +11674,7 @@ export class Sandbox extends PixiScene {
         // CASE 1: Active selection from OVERLAY (New Unit)
         if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.selectionFromOverlay) {
             this.hoverManager.hoveredUnitHighlight = undefined;
-            this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
+            this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
             return;
         }
         // CASE 2: Active selection from BOARD (Moving existing unit)
@@ -11364,7 +11685,7 @@ export class Sandbox extends PixiScene {
             this.draggingUnitId
         ) {
             this.hoverManager.calculateActiveSelectionHighlight();
-            this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
+            this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
             return;
         }
         // CASE 3: No active selection → just passive hover highlight (mouse over unit)
@@ -11406,7 +11727,7 @@ export class Sandbox extends PixiScene {
             this.sc_hoveredShotRange =
                 shotDist > 0
                     ? {
-                          xy: targetUnit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                          xy: targetUnit.getPosition(),
                           distance: shotDist * GridConstants.STEP,
                       }
                     : undefined;
@@ -11438,15 +11759,11 @@ export class Sandbox extends PixiScene {
                         this.sc_lastCalcRef.layoutVersion !== key.layoutVersion
                     ) {
                         const tempMatrix = this.gridMatrix.map((row) => [...row]);
-                        const size = targetUnit.isSmallSize() ? 1 : 2;
                         const gsVal = this.sc_sceneSettings.getGridSettings().getGridSize();
-                        for (let i = 0; i < size; i++) {
-                            for (let j = 0; j < size; j++) {
-                                const cx = cell.x + i;
-                                const cy = cell.y + j;
-                                if (cx >= 0 && cx < gsVal && cy >= 0 && cy < gsVal) {
-                                    tempMatrix[cx][cy] = 0; // Treat self footprint as free for pathfinding starts
-                                }
+                        for (const occupiedCell of targetUnit.getCells()) {
+                            const { x: cx, y: cy } = occupiedCell;
+                            if (cx >= 0 && cx < gsVal && cy >= 0 && cy < gsVal) {
+                                tempMatrix[cx][cy] = 0; // Treat self footprint as free for pathfinding starts
                             }
                         }
 
@@ -11459,6 +11776,8 @@ export class Sandbox extends PixiScene {
                             targetUnit.isSmallSize(),
                             targetUnit.canTraverseLava(),
                             targetUnit.hasAbilityActive("In Its Own World"),
+                            targetUnit.getFootprintWidth(),
+                            targetUnit.getFootprintHeight(),
                         );
                         this.sc_placementMoveRange = movePath.cells;
                         this.sc_lastCalcRef = key;
@@ -11474,6 +11793,13 @@ export class Sandbox extends PixiScene {
         }
     }
     public override MouseMove(p: HoCMath.XY, leftDrag: boolean): void {
+        this.pointerVisualWorld = p;
+        p = this.getLogicalBattlefieldPoint(p);
+        if (this.placementDragPointerOrigin && !this.placementDragPointerMoved) {
+            const dx = p.x - this.placementDragPointerOrigin.x;
+            const dy = p.y - this.placementDragPointerOrigin.y;
+            this.placementDragPointerMoved = dx * dx + dy * dy >= 1;
+        }
         if (this.splitDragActive) {
             this.updatePlacementSplitFromCursor(p);
             return;
@@ -11550,6 +11876,8 @@ export class Sandbox extends PixiScene {
         this.selectionFromOverlay = false;
         this.draggingUnitId = undefined;
         this.draggingUnitTeam = undefined;
+        this.placementDragPointerOrigin = undefined;
+        this.placementDragPointerMoved = false;
         this.hoverManager.hoverPlacementCell = undefined;
         this.hoverManager.hoverPlacementCellTeam = undefined;
         this.hoverManager.hoverSelectedCells = undefined;
@@ -11836,12 +12164,9 @@ export class Sandbox extends PixiScene {
         const g = this.placementGraphics;
         if (!g || !this.splitDragActive) return;
         const gs = this.sc_sceneSettings.getGridSettings();
-        const size = gs.getCellSize();
-        const half = size / 2;
         const outline = (cells: HoCMath.XY[], color: number, fillAlpha: number): void => {
             for (const c of cells) {
-                const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+                g.poly(projectedCellPoints(c, gs, 1 / gs.getCellSize()))
                     .stroke({ width: 2.5, color, alpha: 0.95 })
                     .fill({ color, alpha: fillAlpha });
             }
@@ -12142,11 +12467,6 @@ export class Sandbox extends PixiScene {
         // ==========================================================================================
         // The localized spill around the lava pool stays alive during placement as well as combat.
         this.dungeonVisuals.updateFireLight();
-        this.ensureDungeonAmbientLayer();
-        // The same authored dungeon fog now belongs to every active map, including Lava.
-        this.dungeonAmbientLayer?.setVisible(true);
-        this.dungeonAmbientLayer?.update();
-
         if (fightStarted) {
             // Atmosphere Transition & Animation
             if (this.atmosphereAlpha < 1 || this.dungeonVisuals.hasAtmosphereLights()) {
@@ -12223,13 +12543,20 @@ export class Sandbox extends PixiScene {
             this.smokeLayer?.update(timeStep, lingeringTracks);
             this.windLayer?.update(timeStep, lingeringTracks);
             const terrainGridSettings = this.sc_sceneSettings.getGridSettings();
-            const terrainCellToWorld = (cell: HoCMath.XY) =>
-                GridMath.getPositionForCell(
+            const terrainCellToWorld = (cell: HoCMath.XY) => {
+                const logical = GridMath.getPositionForCell(
                     cell,
                     terrainGridSettings.getMinX(),
                     terrainGridSettings.getStep(),
                     terrainGridSettings.getHalfStep(),
                 );
+                const metrics = projectedBattlefieldMetricsAtPoint(logical, terrainGridSettings);
+                return {
+                    ...metrics.center,
+                    cellSize: metrics.cellSize,
+                    cellPoints: projectedCellPoints(cell, terrainGridSettings, 0.12),
+                };
+            };
             // Spell smoke is read straight from the authoritative store rather than from the
             // smoke_placed/dispel/expired events, so sandbox and ranked share one path: the ranked client
             // already carries smokeClouds on every snapshot, exactly like narrowing and terrain.
@@ -12283,7 +12610,7 @@ export class Sandbox extends PixiScene {
             this.checkStartCondition();
             this.hoverManager.update(timeStep);
             if (this.hasActiveSelection && this.sc_selectedUnitProperties && this.sc_mouseWorld) {
-                this.hoverManager.updateHoverPlacementCell(this.sc_mouseWorld);
+                this.hoverManager.updateHoverPlacementCell(this.getPlacementPreviewPoint());
             }
             if (this.placementGraphics) {
                 this.placementGraphics.visible = true;
@@ -12310,16 +12637,47 @@ export class Sandbox extends PixiScene {
             );
         }
 
+        const depthSortableUnits: RenderableUnit[] = [];
         for (const unit of this.unitsHolder.getAllUnits().values()) {
             const rUnit = unit as RenderableUnit;
             rUnit.setHoverTurnAura(!fightProps.hasFightStarted() && this.hoverManager.hoveredUnitId === rUnit.getId());
+            if (!fightProps.hasFightStarted()) {
+                // Placement is a face-off: red/UPPER models are mirrored toward the left, while
+                // green/LOWER models keep facing right. Re-assert every frame so dragging or hydration
+                // cannot leave a unit with stale combat-facing from a previous scene state.
+                rUnit.setBoardFacing(placementFacingDirectionForTeam(rUnit.getTeam()));
+            }
             // Use PixiDrawer's unit container (Z=1000), not worldRoot directly.
             // This ensures units are ALWAYS above terrain (Z=20) and overlay (Z=60) but depth sorted inside.
             rUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            depthSortableUnits.push(rUnit);
+            // Animation atlases must keep ticking while the unit moves. Previously the moving branch
+            // skipped this call and only applied the generic bob/tilt, leaving Wandering Mage's authored
+            // walking atlas frozen forever on frame zero in a live battle.
+            rUnit.stepSpawnAnimation(timeStep);
             if (this.isActiveUnitMoving && this.moveAnimManager.getMovingUnit() === rUnit) {
                 rUnit.applyMoveEffect(this.spawnPulsePhase);
-            } else {
-                rUnit.stepSpawnAnimation(timeStep);
+            }
+        }
+        // Logical death removes a stack from UnitsHolder immediately. Keep only its detached authored
+        // death atlas advancing until the final frame, with the same world anchor/scaling as live units.
+        for (const dyingUnit of [...this.dyingVisualUnits]) {
+            if (this.unitsHolder.getAllUnits().get(dyingUnit.getId()) === dyingUnit) {
+                continue;
+            }
+            dyingUnit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+            dyingUnit.stepSpawnAnimation(timeStep);
+            depthSortableUnits.push(dyingUnit);
+        }
+
+        const depthCandidates = depthSortableUnits
+            .map((unit, stableOrder) => unit.getCreatureDepthSortCandidate(stableOrder))
+            .filter((candidate) => !!candidate);
+        const headPriorityDepths = resolveCreatureHeadPriorityDepths(depthCandidates);
+        if (headPriorityDepths.size) {
+            for (const unit of depthSortableUnits) {
+                const depth = headPriorityDepths.get(String(unit.getId()));
+                if (depth !== undefined) unit.applyCreatureHeadPriorityDepth(depth);
             }
         }
 
@@ -12470,6 +12828,7 @@ export class Sandbox extends PixiScene {
     private hasGameplayVisuals(): boolean {
         if (this.sc_placementMoveRange?.length || this.sc_hoveredMoveRange?.length) return true;
         if (this.sc_hoveredShotRange || this.sc_hoveredAuraRanges || this.sc_currentActiveShotRange) return true;
+        if (this.hoverManager.hoverBattlefieldFootprintCells?.length) return true;
         if (this.currentActivePath?.length || this.currentShiftedUnit || this.selectedBoardUnit) return true;
         if (this.currentActiveSpell) return true;
 
@@ -12619,15 +12978,18 @@ export class Sandbox extends PixiScene {
 
         // Origin is the mage's VISUAL centre (a large caster's base cell sits in its corner); the far end is
         // the victim's centre, or the blocking terrain cell when there is no victim.
-        const origin = caster.getPosition();
-        const end = victim?.getPosition() ?? cellPos(impact.cell);
-        const aimedEnd = target.getPosition();
-        if (!origin || !end || !aimedEnd) {
+        const logicalOrigin = caster.getPosition();
+        const logicalEnd = victim?.getPosition() ?? cellPos(impact.cell);
+        const logicalAimedEnd = target.getPosition();
+        if (!logicalOrigin || !logicalEnd || !logicalAimedEnd) {
             return;
         }
+        this.highlightScatteredObstaclesAlongTrajectory(logicalOrigin, logicalEnd);
+        const origin = projectBattlefieldPoint(logicalOrigin, gs);
+        const end = projectBattlefieldPoint(logicalEnd, gs);
+        const aimedEnd = projectBattlefieldPoint(logicalAimedEnd, gs);
 
         const size = gs.getCellSize();
-        const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
         const refused = impact.blockedByTerrain;
 
@@ -12648,12 +13010,12 @@ export class Sandbox extends PixiScene {
 
         // The impact itself: a filled square on the struck cell under a ring, so the answer to "who burns"
         // survives even when the victim's own sprite is busy with other highlights.
-        const impactPos = victim?.getPosition() ?? cellPos(impact.cell);
+        const impactPos = projectBattlefieldPoint(victim?.getPosition() ?? cellPos(impact.cell), gs);
         if (impactPos) {
-            g.rect(impactPos.x - half + 1, impactPos.y - half + 1, size - 2, size - 2)
+            g.poly(projectedCellPoints(impact.cell, gs, 1 / size))
                 .fill({ color: refused ? 0x8f3a3a : 0xb03000, alpha: 0.28 + 0.16 * pulse })
                 .stroke({ width: 2, color: refused ? 0xff9a9a : 0xffd04a, alpha: 0.85 });
-            g.circle(impactPos.x, impactPos.y, half * (0.72 + 0.1 * pulse)).stroke({
+            g.circle(impactPos.x, impactPos.y, (size / 2) * (0.72 + 0.1 * pulse)).stroke({
                 width: 2,
                 color: trailColor,
                 alpha: 0.6 + 0.3 * pulse,
@@ -12689,13 +13051,8 @@ export class Sandbox extends PixiScene {
         const lastDrawnIndex = blockedIndex >= 0 ? blockedIndex : pathCells.length - 1;
 
         const size = gs.getCellSize();
-        const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
         for (let i = 0; i <= lastDrawnIndex; i += 1) {
-            const pos = GridMath.getPositionForCell(pathCells[i], gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            if (!pos) {
-                continue;
-            }
             // The struck creature's cell reads brightest — it takes the snare debuff on top of the vine.
             // On a blocked lane the interceptor's cell is the bright one instead: that is the answer to
             // "why can't I hit them", and the lane behind it is never reached.
@@ -12703,7 +13060,7 @@ export class Sandbox extends PixiScene {
             const fillAlpha = (isEndCell ? 0.3 : 0.18) + 0.14 * pulse;
             const fillColor = blockedIndex >= 0 ? 0x8f3a3a : 0x3f8f3a;
             const strokeColor = blockedIndex >= 0 ? (isEndCell ? 0xff9a9a : 0xd16a6a) : isEndCell ? 0xbff59a : 0x86d16a;
-            g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+            g.poly(projectedCellPoints(pathCells[i], gs, 1 / size))
                 .fill({ color: fillColor, alpha: fillAlpha })
                 .stroke({ width: 2, color: strokeColor, alpha: 0.75 });
         }
@@ -12742,7 +13099,6 @@ export class Sandbox extends PixiScene {
         }
         const cells = this.cellTargetedSpellBlock(spell, origin);
         const size = gs.getCellSize();
-        const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
         const casterTeam = this.currentActiveUnit?.getTeam();
         const enemyOn = (c: HoCMath.XY): boolean => {
@@ -12767,7 +13123,6 @@ export class Sandbox extends PixiScene {
             return;
         }
         for (const c of cells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
             const occupantId = this.grid.getOccupantUnitId(c);
             const occupant = occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined;
             const isAlly = !!occupant && !occupant.isDead() && occupant.getTeam() === casterTeam;
@@ -12783,7 +13138,7 @@ export class Sandbox extends PixiScene {
             // Slate for smoke, blue for the forge, ember for the meteor — each matches its own board VFX.
             const fill = isMeteorite ? 0xff6a1e : isSmoke ? 0x8b93a3 : 0x49b6ff;
             const stroke = isMeteorite ? 0xffc46b : isSmoke ? 0xd2d8e4 : 0x9fe0ff;
-            g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+            g.poly(projectedCellPoints(c, gs, 1 / size))
                 .fill({ color: fill, alpha: fillAlpha })
                 .stroke({ width: 2, color: stroke, alpha: 0.7 });
         }
@@ -12810,18 +13165,22 @@ export class Sandbox extends PixiScene {
             return;
         }
         const size = gs.getCellSize();
-        const half = size / 2;
         const pulse = (Math.sin(this.hoverGlowPhase) + 1) / 2;
         for (const c of cells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            g.rect(pos.x - half + 1, pos.y - half + 1, size - 2, size - 2)
+            g.poly(projectedCellPoints(c, gs, 1 / size))
                 .fill({ color: 0xb03000, alpha: 0.3 + 0.16 * pulse })
                 .stroke({ width: 2, color: 0xff8a2b, alpha: 0.8 });
         }
         // A tick along the wall's own axis, drawn through all three cells, so a vertical wall and a diagonal
         // one are told apart instantly instead of by reading three separate squares.
-        const first = GridMath.getPositionForCell(cells[0], gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        const last = GridMath.getPositionForCell(cells[cells.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep());
+        const first = projectBattlefieldPoint(
+            GridMath.getPositionForCell(cells[0], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            gs,
+        );
+        const last = projectBattlefieldPoint(
+            GridMath.getPositionForCell(cells[cells.length - 1], gs.getMinX(), gs.getStep(), gs.getHalfStep()),
+            gs,
+        );
         g.moveTo(first.x, first.y)
             .lineTo(last.x, last.y)
             .stroke({ width: 3, color: 0xffd04a, alpha: 0.5 + 0.3 * pulse, cap: "round" });
@@ -12925,6 +13284,7 @@ export class Sandbox extends PixiScene {
         this.currentActivePathHashes = undefined;
         this.hoverManager.clearHoverSilhouette();
         this.hoverManager.clearAttackVisuals();
+        this.dungeonVisuals.clearScatteredMountainHighlight();
         this.hoverManager.hoverAttackFromCell = undefined;
         this.sc_moveBlocked = false;
         this.sc_visibleStateUpdateNeeded = true;
@@ -13027,7 +13387,7 @@ export class Sandbox extends PixiScene {
      * in both Sandbox and ranked play instead of drifting Sandbox-only.
      */
     protected renderPoisonTickVfx(unit: RenderableUnit, damage: number, unitsDied: number): void {
-        const pos = unit.getPosition();
+        const pos = unit.getVisualCenter(this.sc_sceneSettings.getGridSettings());
         this.combatVisuals?.showFloatingDamage(pos, damage, undefined, unitsDied, "#7be639", "#123d0a");
         this.combatVisuals?.spawnPoisonCloud(pos, this.sc_sceneSettings.getGridSettings().getCellSize());
     }
@@ -13037,13 +13397,18 @@ export class Sandbox extends PixiScene {
      * identically to the sandbox (the recurring "works in sandbox, missing in ranked" trap).
      */
     protected renderResurrectionVfx(position: HoCMath.XY, raisedCount?: number): void {
-        const cell = this.sc_sceneSettings.getGridSettings().getCellSize();
-        this.combatVisuals?.spawnResurrectionBurst(position, cell);
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const cell = gs.getCellSize();
+        const visualPosition = projectBattlefieldPoint(position, gs);
+        this.combatVisuals?.spawnResurrectionBurst(visualPosition, cell);
         // A cast can restore HP without raising a whole unit (amount 0) — the burst alone covers that;
         // the head-count label only appears when stacks actually came back.
         if (raisedCount && raisedCount > 0) {
             // Above the ground rings (world +y is up) so the count rides the light column, not the unit.
-            this.combatVisuals?.showResurrectedCount({ x: position.x, y: position.y + cell * 1.4 }, raisedCount);
+            this.combatVisuals?.showResurrectedCount(
+                { x: visualPosition.x, y: visualPosition.y + cell * 1.4 },
+                raisedCount,
+            );
         }
     }
     private applyTurnEngineEvents(events: GameEvent[], unitSnapshot: ReadonlyMap<string, RenderableUnit>): void {
@@ -13108,7 +13473,7 @@ export class Sandbox extends PixiScene {
                     // Read the position off the EVENT, not off the unit: a stack that burned to death is
                     // already gone from the holder by the time this runs, and it still owes a damage number.
                     this.combatVisuals?.showFloatingDamage(
-                        event.position,
+                        projectBattlefieldPoint(event.position, this.sc_sceneSettings.getGridSettings()),
                         event.amount,
                         undefined,
                         event.unitsDied,
@@ -13163,7 +13528,7 @@ export class Sandbox extends PixiScene {
                         const unit = unitSnapshot.get(event.unitId);
                         if (unit) {
                             this.combatVisuals.showFloatingDamage(
-                                unit.getPosition(),
+                                unit.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
                                 event.damage,
                                 undefined,
                                 event.unitsDied,
@@ -13508,15 +13873,20 @@ export class Sandbox extends PixiScene {
             return;
         }
 
-        // Death visuals (mirror shatter, or a kill-specific cleave/dissolve when the lethal blow was
-        // noted) from the unit's current sprite before tearing it down.
-        const shatterInfo = unit.getShatterInfo();
-        if (shatterInfo) {
-            this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasStatusEffect("Freeze"));
+        const customDeathPlaying = this.playCustomDeathAnimation(unit);
+        if (!customDeathPlaying) {
+            // Death visuals (mirror shatter, or a kill-specific cleave/dissolve when the lethal blow was
+            // noted) from the unit's current sprite before tearing it down.
+            const shatterInfo = unit.getShatterInfo();
+            if (shatterInfo) {
+                this.combatVisuals?.spawnDeathVfx(shatterInfo, unitId, unit.hasStatusEffect("Freeze"));
+            }
         }
 
         this.layoutVersion++;
-        unit.destroyVisuals();
+        if (!customDeathPlaying) {
+            unit.destroyVisuals();
+        }
         if (this.selectedBoardUnit === unit) {
             this.selectedBoardUnit = undefined;
         }
@@ -13661,12 +14031,14 @@ export class Sandbox extends PixiScene {
             this.draggingUnitTeam = undefined;
         }
 
-        if (this.currentActiveUnit) {
+        if (this.currentActiveUnit && !reactivatingSameUnit) {
             this.currentActiveUnit.setActiveTurn(false);
             this.currentActiveUnit.syncVisual(worldRoot, gs);
         }
         this.currentActiveUnit = nextUnit;
-        nextUnit.setActiveTurn(true);
+        if (!reactivatingSameUnit) {
+            nextUnit.setActiveTurn(true);
+        }
         // Red aura on the enemy's turn, white on yours, so the pulsing ring telegraphs whose turn it is.
         nextUnit.setActiveAuraColor(this.isEnemyActiveTurn() ? ENEMY_TURN_HIGHLIGHT_COLOR : 0xffffff);
         nextUnit.syncVisual(worldRoot, gs);
@@ -13876,6 +14248,7 @@ export class Sandbox extends PixiScene {
             placementGraphics: this.placementGraphics,
             placementFrameContainer: this.placementFrameContainer,
             restrictToTeam: this.getPlacementDrawTeam(),
+            showTeamPlacementZones: Sandbox.DRAW_TEAM_PLACEMENT_ZONES && !isBattlefieldShadowEditorActive(),
         });
         this.drawPlacementSplitOverlay();
     }
@@ -14041,6 +14414,7 @@ export class Sandbox extends PixiScene {
         // unit's turn — reading as e.g. a melee Behemoth aiming a long ranged arrow. The stale
         // hoverRangeAttackObstacle is also an input hazard: MouseDown routes clicks to it.
         this.hoverManager.clearAttackVisuals();
+        this.dungeonVisuals.clearScatteredMountainHighlight();
         this.hoverManager.hoverAttackFromCell = undefined;
         this.hoverRangeAttackObstacle = undefined;
 
@@ -14211,6 +14585,8 @@ export class Sandbox extends PixiScene {
                     this.currentActiveUnit.isSmallSize(),
                     this.currentActiveUnit.canTraverseLava(),
                     this.currentActiveUnit.hasAbilityActive("In Its Own World"),
+                    this.currentActiveUnit.getFootprintWidth(),
+                    this.currentActiveUnit.getFootprintHeight(),
                 );
             } else {
                 // Immobilized (Paralysis or Arachna Queen's Web Aura): can't move, but treat as staying at the

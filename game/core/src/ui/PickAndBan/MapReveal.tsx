@@ -18,19 +18,13 @@ const REVEAL_KEYFRAMES = `
     100% { transform: scale(1); opacity: 1; }
 }`;
 
-const MAP_THUMB_KEY: Record<string, string> = {
-    Standard: "map_pick_normal_4x4",
-    Lava: "map_pick_lava_4x4",
-    Cemetery: "map_pick_cemetery_4x4",
-};
-
 const MapThumb: React.FC<{ display: IMapDisplay; size: number; radius: number }> = ({ display, size, radius }) => {
-    const thumb = images[MAP_THUMB_KEY[display.name] ?? "map_pick_normal_4x4"];
+    const thumb = images[display.imageKey];
     return (
         <Box
             component="img"
             src={thumb}
-            alt=""
+            alt={`${display.name} map`}
             sx={{
                 width: size,
                 height: size,
@@ -60,7 +54,8 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
                     width: 65,
                     flex: "0 0 auto",
                     borderRadius: "10px",
-                    bgcolor: "rgba(23,26,35,.2)",
+                    background:
+                        "radial-gradient(circle at 50% 46%, rgba(121,87,43,.14) 0%, rgba(23,26,35,.24) 58%, rgba(8,8,10,.38) 100%)",
                     border: "1px solid rgba(151,103,52,.66)",
                     boxShadow: "inset 0 0 0 1px rgba(10,8,5,.88), 0 1px 3px rgba(0,0,0,.65)",
                     "&::after": {
@@ -76,7 +71,7 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
                 }}
             >
                 {display ? (
-                    <MapThumb display={display} size={59} radius={10} />
+                    <MapThumb display={display} size={59} radius={7} />
                 ) : (
                     <Box
                         sx={{
@@ -148,7 +143,6 @@ export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
                 <Box
                     sx={{
                         borderRadius: "14px",
-                        border: `2px solid ${display.accent}`,
                         boxShadow: `0 0 30px ${display.accent}66`,
                         animation: "hocMapRevealPop 0.55s ease-out",
                         lineHeight: 0,

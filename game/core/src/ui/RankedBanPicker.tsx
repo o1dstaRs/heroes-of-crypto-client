@@ -4,9 +4,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
+import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
-import { resolveUnitImage } from "./unitImage";
 
 /**
  * Pre-game ranked ban: the ONE unit this player never wants to see offered in their ranked drafts.
@@ -107,12 +107,10 @@ export const RankedBanPicker: React.FC = () => {
                             bgcolor: "rgba(255,90,63,0.12)",
                         }}
                     >
-                        <img
-                            src={resolveUnitImage(undefined, creatureName)}
+                        <CreaturePortraitImage
+                            creatureId={creatureId}
                             alt=""
-                            width={26}
-                            height={26}
-                            style={{ borderRadius: 4, objectFit: "cover" }}
+                            sx={{ width: 26, height: 26, borderRadius: 4 }}
                         />
                         <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
                             {creatureName}
@@ -211,13 +209,10 @@ export const RankedBanPicker: React.FC = () => {
                                             },
                                         }}
                                     >
-                                        <img
-                                            src={resolveUnitImage(undefined, creature.name)}
+                                        <CreaturePortraitImage
+                                            creatureId={creature.id}
                                             alt=""
-                                            width={52}
-                                            height={52}
-                                            style={{ borderRadius: 6, objectFit: "cover" }}
-                                            loading="lazy"
+                                            sx={{ width: 52, height: 52, borderRadius: 6 }}
                                         />
                                         <Typography
                                             level="body-xs"

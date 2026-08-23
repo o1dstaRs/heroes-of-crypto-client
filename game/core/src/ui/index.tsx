@@ -21,7 +21,7 @@ import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter as Router, Route, Routes, useParams } from "react-router";
+import { BrowserRouter as Router, Route, Routes, useNavigate, useParams } from "react-router";
 import { TextStyle } from "pixi.js";
 
 import { usePixiManager } from "../pixi/PixiGameManager";
@@ -38,12 +38,18 @@ import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
-import { PlayRankedBadge } from "./PlayRankedBadge";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { AugmentStepPreview } from "./AugmentStepPreview";
 import { PlacementStepPreview } from "./PlacementStepPreview";
+import { PortraitFramingEditor } from "./PortraitFramingEditor";
+import { LeftSidebarPortraitEditor } from "./LeftSidebarPortraitEditor";
+import { BattlefieldCreatureFramingEditor } from "./BattlefieldCreatureFramingEditor";
+import { BattlefieldShadowEditor } from "./BattlefieldShadowEditor";
+import { AmbientFireTuningEditor } from "./AmbientFireTuningEditor";
+import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
+import { LavaAnimationTuningEditor } from "./LavaAnimationTuningEditor";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
@@ -65,6 +71,8 @@ import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
+
+const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -152,10 +160,19 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     gameActionTransport,
 }) => {
     const manager = usePixiManager();
+    const navigate = useNavigate();
     const [started, setStarted] = useState(false);
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+
+    const closeSandbox = useCallback(() => {
+        if (window.history.length > 1) {
+            navigate(-1);
+            return;
+        }
+        navigate("/play", { replace: true });
+    }, [navigate]);
 
     // Themed in-game cursor (applied globally via document.body.style.cursor). Mounted at the app
     // root so the cursor covers the whole screen, not just the battle canvas.
@@ -200,7 +217,13 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                 <CssVarsProvider>
                     <CssBaseline />
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
-                    {!isLoading && <RightSideBar gameStarted={started} windowSize={windowSize} />}
+                    {!isLoading && (
+                        <RightSideBar
+                            gameStarted={started}
+                            windowSize={windowSize}
+                            onClose={!started && !replayPlaybackActive ? closeSandbox : undefined}
+                        />
+                    )}
                     <UpNextOverlay />
                     <FightFinishedOverlay />
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
@@ -209,7 +232,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />
                     )}
-                    {!isLoading && !replayPlaybackActive && <PlayRankedBadge left={aiBadgeLeft(windowSize)} />}
                 </CssVarsProvider>
                 <Main />
                 <Popover />
@@ -252,7 +274,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
 
 const BUNDLE_PREVIEW_MAP_TYPES: Record<string, number> = {
     normal: GridVals.NORMAL,
-    cemetery: GridVals.BLOCK_CENTER,
+    barrels: GridVals.BLOCK_CENTER,
     lava: GridVals.LAVA_CENTER,
 };
 
@@ -991,6 +1013,41 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
             <Route path="/preview/augments" element={<AugmentStepPreview />} />
             {/* Backend-free pre-fight placement: the ranked board+sidebar driven by an in-memory session. */}
             <Route path="/preview/placement" element={<PlacementStepPreview windowSize={windowSize} />} />
+            {/* Local-only visual calibration tool. Draft values persist in localStorage until exported. */}
+            <Route path="/dev/portrait-framing" element={<PortraitFramingEditor />} />
+            {/* Per-creature art crop and linked portrait/stat sizing for the left sandbox/battle sidebar only. */}
+            <Route path="/dev/left-sidebar-portraits" element={<LeftSidebarPortraitEditor />} />
+            {/* Real-map model calibration: direct drag, independent X/Y scale and local draft export. */}
+            <Route
+                path="/dev/battlefield-framing"
+                element={<BattlefieldCreatureFramingEditor windowSize={windowSize} />}
+            />
+            {/* Live top/bottom endpoint tuning for animated battlefield silhouette shadows. */}
+            <Route path="/dev/shadow-editor" element={<BattlefieldShadowEditor windowSize={windowSize} />} />
+            {/* Real-map ambient-fire calibration with live position, size and glow controls. */}
+            <Route path="/dev/fire-editor" element={<AmbientFireTuningEditor windowSize={windowSize} />} />
+            {/* Side-brazier-only calibration using the pit-style video fire requested for the map edges. */}
+            <Route
+                path="/dev/side-fire-editor"
+                element={
+                    <AmbientFireTuningEditor
+                        windowSize={windowSize}
+                        definitions={SIDE_FIRE_DEFINITIONS}
+                        title="SIDE FIRE EDITOR"
+                    />
+                }
+            />
+            {/* Live 60-frame lava-atlas calibration: playback, color, geometry, light and procedural splashes. */}
+            <Route path="/dev/lava-editor" element={<LavaAnimationTuningEditor windowSize={windowSize} />} />
+            {/* Real loading-screen preview with independently tunable overall and lower fire zones. */}
+            <Route
+                path="/dev/loading-fire-editor"
+                element={
+                    <React.Suspense fallback={null}>
+                        <LoadingScreenFireEditor />
+                    </React.Suspense>
+                }
+            />
             {/* Online routes require authentication */}
             <Route
                 path="/play"

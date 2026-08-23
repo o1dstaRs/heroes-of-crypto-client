@@ -56,7 +56,16 @@
 
     <label class="theme-music-slider">
         <span class="sr-only">Music volume</span>
-        <input type="range" min="0" max="100" step="1" value="50" data-theme-volume aria-label="Music volume" />
+        <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="50"
+            data-theme-volume
+            aria-label="Music volume"
+            aria-orientation="vertical"
+        />
     </label>
 </div>
 
@@ -293,25 +302,34 @@
         height: 1.15rem;
     }
 
-    .theme-music[data-silent="true"] {
-        color: rgba(239, 228, 204, 0.42);
-    }
-
-    /* The slider stays out of the way until the control is wanted, so it does not sit over the art. On
-       touch, where there is no hover, it is always available. */
+    /* Keep the speaker anchored while the same 5.5rem slider opens vertically above it. Rotating the
+       native horizontal control makes its minimum sit at the bottom and its maximum at the top. */
     .theme-music-slider {
-        width: 0;
-        overflow: hidden;
-        transition: width 160ms ease;
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 0.35rem);
+        width: 2.1rem;
+        height: 5.5rem;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%);
+        transition: opacity 160ms ease;
     }
 
     .theme-music:hover .theme-music-slider,
     .theme-music:focus-within .theme-music-slider {
-        width: 5.5rem;
+        opacity: 1;
+        pointer-events: auto;
     }
 
     .theme-music-slider input {
+        position: absolute;
+        top: 50%;
+        left: 50%;
         width: 5.5rem;
+        margin: 0;
+        transform: translate(-50%, -50%) rotate(-90deg);
+        transform-origin: center;
         accent-color: var(--gold, #dcb158);
         cursor: pointer;
     }

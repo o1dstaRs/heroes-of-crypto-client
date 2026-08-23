@@ -27,7 +27,7 @@ export interface IFireWallCell {
     l: number;
 }
 
-type ToWorld = (cell: HoCMath.XY) => HoCMath.XY | undefined;
+type ToWorld = (cell: HoCMath.XY) => (HoCMath.XY & { cellSize?: number }) | undefined;
 
 /** Seconds a wall takes to catch when cast, and to burn down once the engine drops it. */
 const IGNITE_SECONDS = 0.32;
@@ -148,8 +148,9 @@ export class FireWallLayer {
                 continue;
             }
 
+            const localCellSize = pos.cellSize ?? cellSize;
             const isLastLap = visual.lapsRemaining <= 1;
-            const half = cellSize * 0.5;
+            const half = localCellSize * 0.5;
             const life = visual.life;
             // The whole cell breathes on its own phase, so a 3-cell wall never pulses as one block.
             const breath = 0.82 + 0.18 * Math.sin(this.time * 6.1 + visual.phase);
@@ -172,14 +173,15 @@ export class FireWallLayer {
             for (let i = 0; i < TONGUES; i++) {
                 const spread = (i / (TONGUES - 1) - 0.5) * 2; // -1..1 across the cell
                 const tongueSeed = FireWallLayer.seed(key, i + 2);
-                const wobble = Math.sin(this.time * (4.3 + tongueSeed * 2.6) + visual.phase + i) * cellSize * 0.07;
+                const wobble =
+                    Math.sin(this.time * (4.3 + tongueSeed * 2.6) + visual.phase + i) * localCellSize * 0.07;
                 const baseX = pos.x + spread * half * 0.72;
                 const baseY = pos.y + half * 0.34;
                 // Middle tongues stand tallest, so the cell silhouettes as a flame rather than a hedge.
                 const tongueHeight = height * (0.55 + 0.45 * (1 - Math.abs(spread))) * (0.75 + tongueSeed * 0.5);
                 const tipX = baseX + wobble;
                 const tipY = baseY - tongueHeight;
-                const width = cellSize * 0.15 * (0.6 + tongueSeed * 0.6) * life;
+                const width = localCellSize * 0.15 * (0.6 + tongueSeed * 0.6) * life;
 
                 // Outer, cooler body of the tongue.
                 flames
@@ -211,12 +213,12 @@ export class FireWallLayer {
                 for (let i = 0; i < EMBERS; i++) {
                     const emberSeed = FireWallLayer.seed(key, i + 12);
                     const t = (this.time * (0.55 + emberSeed * 0.5) + emberSeed) % 1;
-                    const driftX = Math.sin(this.time * 2.1 + emberSeed * 9.4) * cellSize * 0.16;
-                    const ex = pos.x + (emberSeed - 0.5) * cellSize * 0.6 + driftX * t;
+                    const driftX = Math.sin(this.time * 2.1 + emberSeed * 9.4) * localCellSize * 0.16;
+                    const ex = pos.x + (emberSeed - 0.5) * localCellSize * 0.6 + driftX * t;
                     const ey = pos.y + half * 0.3 - t * (height + half * 0.5);
                     const fade = (1 - t) * alpha * 0.9;
                     flames
-                        .circle(ex, ey, cellSize * 0.035 * (1 - t * 0.6) * life)
+                        .circle(ex, ey, localCellSize * 0.035 * (1 - t * 0.6) * life)
                         .fill({ color: t < 0.45 ? FLAME_CORE : FLAME_YELLOW, alpha: fade });
                 }
             }
@@ -224,7 +226,7 @@ export class FireWallLayer {
             // 4. A charred base line so the cell still reads as "on fire" even at the bottom of the ignite
             //    animation, before any tongue is tall enough to be visible.
             flames
-                .rect(pos.x - half * 0.78, pos.y + half * 0.3, half * 1.56, cellSize * 0.06)
+                .rect(pos.x - half * 0.78, pos.y + half * 0.3, half * 1.56, localCellSize * 0.06)
                 .fill({ color: EMBER_RED, alpha: alpha * 0.55 });
         }
     }

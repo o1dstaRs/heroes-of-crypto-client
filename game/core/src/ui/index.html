@@ -16,7 +16,11 @@
             crossorigin="anonymous"
         />
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- viewport-fit=cover: without it a notched Mac in fullscreen lays the page out BELOW the
+             camera housing and leaves a black band across the top. Opting in lets the viewport run
+             edge to edge; the notch then simply covers whatever is behind it, which is what we want
+             here — the board is centred and has nothing to lose up there. -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <title>Play Heroes of Crypto</title>
     </head>
     <body>

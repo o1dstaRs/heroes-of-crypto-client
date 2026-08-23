@@ -7,7 +7,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchPickObserveSnapshot, type PickObserveSnapshot, type PickObserveTeam } from "../../api/ranked_play_client";
 import { images as rawImages } from "../../generated/image_imports";
-import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { observedDraftArtifactSlots, type ObservedDraftArtifactSlot } from "./observerPickArtifacts";
 
 const images = rawImages as Record<string, string>;
@@ -40,14 +41,12 @@ const phaseLabel = (snapshot: PickObserveSnapshot): string => {
 };
 
 const CreatureSlot: React.FC<{ creatureId: number; levelLabel: string }> = ({ creatureId, levelLabel }) => {
-    const img = creatureId ? UNIT_ID_TO_IMAGE[creatureId] : undefined;
     const name = creatureId ? (UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`) : "Hidden";
     return (
         <Stack spacing={0.5} alignItems="center" sx={{ width: 92 }}>
-            {img ? (
-                <Box
-                    component="img"
-                    src={img}
+            {creatureId ? (
+                <CreaturePortraitImage
+                    creatureId={creatureId}
                     alt={name}
                     sx={{
                         width: 72,
@@ -347,19 +346,17 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                                 {bans.map((creatureId) => (
                                     <Stack key={creatureId} spacing={0.25} alignItems="center" sx={{ width: 64 }}>
                                         <Box sx={{ position: "relative", width: 44, height: 44 }}>
-                                            {UNIT_ID_TO_IMAGE[creatureId] && (
-                                                <Box
-                                                    component="img"
-                                                    src={UNIT_ID_TO_IMAGE[creatureId]}
+                                            {creatureId > 0 && (
+                                                <CreaturePortraitImage
+                                                    creatureId={creatureId}
                                                     alt={UNIT_ID_TO_NAME[creatureId] ?? `#${creatureId}`}
                                                     sx={{
                                                         width: 44,
                                                         height: 44,
                                                         borderRadius: "50%",
-                                                        objectFit: "cover",
                                                         border: "2px solid rgba(178,66,66,0.7)",
-                                                        filter: "grayscale(0.8)",
                                                     }}
+                                                    imageStyle={{ filter: "grayscale(0.8)" }}
                                                 />
                                             )}
                                             {images.x_mark_2_512 && (

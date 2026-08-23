@@ -1226,6 +1226,8 @@ export class AIController {
                     caster.isSmallSize(),
                     caster.canTraverseLava(),
                     caster.hasAbilityActive("In Its Own World"),
+                    caster.getFootprintWidth(),
+                    caster.getFootprintHeight(),
                 )
                 .cells.map((c) => (c.x << 4) | c.y),
         );
@@ -1854,9 +1856,14 @@ export class AIController {
         let moveFootprint: HoCMath.XY[] | undefined;
         if (attackFromPos) {
             if (!currentUnit.isSmallSize()) {
-                attackFromPos.x -= gs.getHalfStep();
-                attackFromPos.y -= gs.getHalfStep();
-                moveFootprint = GridMath.getCellsAroundPosition(gs, attackFromPos);
+                moveFootprint = GridMath.getFootprintCellsForPosition(
+                    gs,
+                    attackFromPos,
+                    currentUnit.getFootprintWidth(),
+                    currentUnit.getFootprintHeight(),
+                );
+                const center = GridMath.getPositionForCells(gs, moveFootprint);
+                if (center) Object.assign(attackFromPos, center);
             }
             this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), attackFromPos);
         }
@@ -2176,9 +2183,14 @@ export class AIController {
         // (Always computed — it feeds the action's targetCells regardless of whether we draw a silhouette.)
         let moveFootprint: HoCMath.XY[] | undefined;
         if (moveToPos && !currentUnit.isSmallSize()) {
-            moveToPos.x -= gs.getHalfStep();
-            moveToPos.y -= gs.getHalfStep();
-            moveFootprint = GridMath.getCellsAroundPosition(gs, moveToPos);
+            moveFootprint = GridMath.getFootprintCellsForPosition(
+                gs,
+                moveToPos,
+                currentUnit.getFootprintWidth(),
+                currentUnit.getFootprintHeight(),
+            );
+            const center = GridMath.getPositionForCells(gs, moveFootprint);
+            if (center) Object.assign(moveToPos, center);
         }
 
         const moveAction = this.modelAction(currentUnit, {

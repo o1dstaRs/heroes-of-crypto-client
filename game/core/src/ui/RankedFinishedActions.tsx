@@ -36,7 +36,7 @@ const FinishedActionButton: React.FC<{
             fontWeight: 800,
             fontSize: 14,
             letterSpacing: 0.3,
-            cursor: disabled ? "not-allowed" : "pointer",
+            cursor: disabled ? "not-allowed" : "var(--hoc-cursor-interactive), pointer",
             opacity: disabled ? 0.5 : 1,
             pointerEvents: "auto",
             boxShadow: primary ? `0 0 16px ${GOLD}66` : "0 0 14px rgba(246, 216, 124, 0.2)",

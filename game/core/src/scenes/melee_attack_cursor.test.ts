@@ -3,7 +3,13 @@ import { describe, expect, test } from "bun:test";
 import { AttackVals } from "@heroesofcrypto/common";
 
 import { resolveMeleeAttackFromPointer, resolveMeleeCursorDirection } from "./Sandbox";
-import { meleeSwordDisplayLength, meleeSwordTargetPoint, snapMeleeSwordAngle } from "./HoverManager";
+import {
+    meleeSwordDisplayLength,
+    meleeSwordFacingAngle,
+    meleeSwordSpriteCenter,
+    meleeSwordTargetPoint,
+    snapMeleeSwordAngle,
+} from "./HoverManager";
 
 const attackFrom = { x: 4, y: 5 };
 
@@ -38,15 +44,49 @@ describe("pointer-driven unit melee targeting", () => {
         const target = { x: 100, y: 100 };
         expect(meleeSwordTargetPoint({ x: 50, y: 100 }, target, 20)).toEqual({ x: 80, y: 100 });
         expect(meleeSwordTargetPoint({ x: 150, y: 100 }, target, 20)).toEqual({ x: 120, y: 100 });
+        expect(meleeSwordTargetPoint({ x: 100, y: 50 }, target, 20)).toEqual({ x: 100, y: 80 });
+        expect(meleeSwordTargetPoint({ x: 100, y: 150 }, target, 20)).toEqual({ x: 100, y: 120 });
         expect(meleeSwordTargetPoint({ x: 50, y: 50 }, target, 20)).toEqual({ x: 80, y: 80 });
+        expect(meleeSwordTargetPoint({ x: 150, y: 50 }, target, 20)).toEqual({ x: 120, y: 80 });
+        expect(meleeSwordTargetPoint({ x: 50, y: 150 }, target, 20)).toEqual({ x: 80, y: 120 });
         expect(meleeSwordTargetPoint({ x: 150, y: 150 }, target, 20)).toEqual({ x: 120, y: 120 });
     });
 
-    test("keeps diagonal swords the same size as horizontal and vertical swords", () => {
-        const cardinalLength = 80;
-        expect(meleeSwordDisplayLength(cardinalLength, 0)).toBeCloseTo(cardinalLength);
-        expect(meleeSwordDisplayLength(cardinalLength * Math.SQRT2, Math.PI / 4)).toBeCloseTo(cardinalLength);
-        expect(meleeSwordDisplayLength(cardinalLength * Math.SQRT2, -Math.PI / 4)).toBeCloseTo(cardinalLength);
+    test("keeps the original compact half-cell sword size for every attack side", () => {
+        expect(meleeSwordDisplayLength(80)).toBe(40);
+        expect(meleeSwordDisplayLength(128)).toBe(64);
+    });
+
+    test("keeps all eight logical attack sides distinct, including right and bottom-right", () => {
+        const target = { x: 100, y: 100 };
+        const landings = [
+            { point: { x: 50, y: 50 }, expected: Math.PI / 4 },
+            { point: { x: 100, y: 50 }, expected: Math.PI / 2 },
+            { point: { x: 150, y: 50 }, expected: (3 * Math.PI) / 4 },
+            { point: { x: 150, y: 100 }, expected: Math.PI },
+            { point: { x: 150, y: 150 }, expected: (-3 * Math.PI) / 4 },
+            { point: { x: 100, y: 150 }, expected: -Math.PI / 2 },
+            { point: { x: 50, y: 150 }, expected: -Math.PI / 4 },
+            { point: { x: 50, y: 100 }, expected: 0 },
+        ];
+        for (const { point, expected } of landings) {
+            const actual = meleeSwordFacingAngle(point, target);
+            expect(Math.cos(actual)).toBeCloseTo(Math.cos(expected));
+            expect(Math.sin(actual)).toBeCloseTo(Math.sin(expected));
+        }
+    });
+
+    test("pins the blade tip to all eight target anchors and keeps the sword outside the target", () => {
+        const anchor = { x: 100, y: 100 };
+        const length = 80;
+        for (let facing = -4; facing < 4; facing += 1) {
+            const angle = facing * (Math.PI / 4);
+            const center = meleeSwordSpriteCenter(anchor, angle, length);
+            expect(Math.hypot(anchor.x - center.x, anchor.y - center.y)).toBeCloseTo(length / 2);
+            expect((anchor.x - center.x) * Math.cos(angle) + (anchor.y - center.y) * Math.sin(angle)).toBeCloseTo(
+                length / 2,
+            );
+        }
     });
 
     test("returns the pointer-selected landing for a legal melee target", () => {

@@ -4,6 +4,7 @@ import { GridSettings, HoCMath, GridMath, UnitProperties, UnitsHolder } from "@h
 import { RenderableUnit } from "../RenderableUnit";
 import { images } from "../../generated/image_imports";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../../fontFamilies";
+import { projectBattlefieldPoint } from "./BattlefieldVisualGrid";
 
 export interface ICombatVisualsContext {
     getGridSettings(): GridSettings;
@@ -4128,12 +4129,17 @@ export class CombatVisuals {
                         gs.getHalfStep(),
                     );
                     if (attPos) {
-                        const center = u instanceof RenderableUnit ? u.getVisualCenter(gs) : u.getPosition();
-                        direction = { x: center.x - attPos.x, y: center.y - attPos.y };
+                        const visualAttacker = projectBattlefieldPoint(attPos, gs);
+                        const center =
+                            u instanceof RenderableUnit
+                                ? u.getVisualCenter(gs)
+                                : projectBattlefieldPoint(u.getPosition(), gs);
+                        direction = { x: center.x - visualAttacker.x, y: center.y - visualAttacker.y };
                     }
                 }
 
-                const center = u instanceof RenderableUnit ? u.getVisualCenter(gs) : u.getPosition();
+                const center =
+                    u instanceof RenderableUnit ? u.getVisualCenter(gs) : projectBattlefieldPoint(u.getPosition(), gs);
                 // console.log(`[DEBUG] showDamageVisualsFromDiff: Showing damage for ${id}, diff=${diff}`);
                 this.showFloatingDamage(center, diff, direction, unitsDied);
 

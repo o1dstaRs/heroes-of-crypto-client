@@ -16,13 +16,17 @@ describe("mountain HP bar layout", () => {
         expect(layout.height).toBeGreaterThan(0);
     });
 
-    test.each([48, 96, 165])("keeps a tombstone's one-hit pip compact at a %ipx cell size", (cellSize) => {
-        const layout = getScatteredMountainHitBarLayout(cellSize);
+    test.each([48, 96, 165])(
+        "keeps a Cemetery barrel's one-hit bar compact and readable at a %ipx cell size",
+        (cellSize) => {
+            const layout = getScatteredMountainHitBarLayout(cellSize);
 
-        expect(layout.width).toBeCloseTo(cellSize * 0.306);
-        expect(layout.height).toBeLessThanOrEqual(cellSize * 0.09);
-        expect(layout.centerOffset + layout.height / 2).toBeLessThan(cellSize * 0.42);
-    });
+            expect(layout.width).toBeCloseTo(cellSize * 0.48);
+            expect(layout.height).toBeLessThanOrEqual(cellSize * 0.09);
+            expect(layout.centerOffset).toBeGreaterThan(layout.height / 2);
+            expect(layout.centerOffset + layout.height / 2 + layout.framePadding).toBeLessThan(cellSize * 0.12);
+        },
+    );
 });
 
 describe("mountain collapse animation", () => {

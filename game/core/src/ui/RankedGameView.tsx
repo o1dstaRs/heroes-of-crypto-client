@@ -86,7 +86,8 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { RankedFinishedActions } from "./RankedFinishedActions";
-import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "./unit_ui_constants";
+import { CreaturePortraitImage } from "./CreaturePortraitImage";
+import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import {
@@ -95,8 +96,10 @@ import {
     hocDisplayFontFamily,
     hocDisplayLetterSpacing,
     hocPanelSx,
+    hocSidebarImageButtonSx,
     hocSidebarSectionSx,
     hocSoftButtonSx,
+    hocSplitterSliderSx,
     hocSpinnerSx,
 } from "./hocTheme";
 import {
@@ -325,6 +328,50 @@ const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Pa
         }
     }
     return actions;
+};
+
+/**
+ * Put a freshly drafted army straight onto its own edge in one readable horizontal line. The line is
+ * centred, keeps a one-cell gap whenever the complete roster fits with gaps, and aligns 2x2 creatures to
+ * the same outer baseline as 1x1 creatures. Reconnects that already contain manually placed stacks fall
+ * back to the collision-safe tactical anchors above instead of moving the player's existing layout.
+ */
+const createInitialPlayerPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Partial<PlayAction>[] => {
+    const aliveTeamUnits = snapshot.units.filter((unit) => unit.team === team && !unit.dead);
+    const unplaced = aliveTeamUnits.filter((unit) => !unit.placed || !unit.cells.length);
+    if (!unplaced.length) {
+        return [];
+    }
+    if (aliveTeamUnits.some((unit) => unit.placed && unit.cells.length)) {
+        return createModelPlacementActions(snapshot, team);
+    }
+
+    const availableWidth = 14;
+    const unitWidth = (unit: PlayUnitState): number => (unit.size > 1 ? 2 : 1);
+    const occupiedWidth = unplaced.reduce((sum, unit) => sum + unitWidth(unit), 0);
+    const gap = occupiedWidth + Math.max(0, unplaced.length - 1) <= availableWidth ? 1 : 0;
+    const lineWidth = occupiedWidth + gap * Math.max(0, unplaced.length - 1);
+    let x = 1 + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
+
+    return unplaced.map((unit) => {
+        const large = unit.size > 1;
+        const anchor = {
+            x,
+            // Start on the zone row nearest the battlefield centre. Lower's top available row is 3;
+            // a 2x2 stack anchors on 2 so its upper cells also land on 3. Upper mirrors that front line
+            // on row 12 (a large stack then extends one row outward, toward its own edge).
+            y: team === TeamVals.UPPER ? 12 : large ? 2 : 3,
+        };
+        const cells = cellsForSnapshotUnitAt(unit, anchor);
+        x += unitWidth(unit) + gap;
+        return {
+            type: PlayActionType.PLACE_UNIT,
+            unitId: unit.id,
+            team,
+            unitName: unit.name,
+            cells,
+        };
+    });
 };
 
 type Props = {
@@ -1536,6 +1583,34 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     }, [manager, gameId, isObserver, userTeam]);
 
     const modelPlacementRunKeyRef = useRef("");
+    const playerInitialPlacementRunKeyRef = useRef("");
+    useEffect(() => {
+        if (
+            replayOnly ||
+            isObserver ||
+            !snapshot ||
+            snapshot.phase !== PlayPhase.PLACEMENT ||
+            (snapshot.placementSplit && snapshot.placementStage !== 1)
+        ) {
+            return;
+        }
+        const player = snapshot.players.find((candidate) => candidate.team === userTeam);
+        if (!player || snapshot.readyPlayerIds.includes(player.playerId)) {
+            return;
+        }
+        const runKey = `${snapshot.gameId}:${player.playerId}:${snapshot.placementSplit ? snapshot.placementStage : "legacy"}`;
+        if (playerInitialPlacementRunKeyRef.current === runKey) {
+            return;
+        }
+        playerInitialPlacementRunKeyRef.current = runKey;
+
+        void (async () => {
+            for (const action of createInitialPlayerPlacementActions(snapshot, userTeam)) {
+                await submitProtocolAction(action);
+            }
+        })();
+    }, [isObserver, replayOnly, snapshot, submitProtocolAction, userTeam]);
+
     useEffect(() => {
         if (
             !effectiveLocalModelConfig.enabled ||
@@ -1723,6 +1798,17 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             isObserver={isObserver}
         />
     );
+    const rankedFooter =
+        snapshot.phase === PlayPhase.PLACEMENT &&
+        !isObserver &&
+        (!snapshot.placementSplit || snapshot.placementStage === 1) ? (
+            <RankedReadyPlacementButton
+                canSubmit={canSubmit}
+                ready={ready}
+                snapshot={snapshot}
+                submitProtocolAction={submitProtocolAction}
+            />
+        ) : undefined;
 
     return (
         <ButtonProvider>
@@ -1750,7 +1836,12 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                         </ViewerTeamContext.Provider>
                     )}
                     {pixiReady && (
-                        <RightSideBar gameStarted={gameStarted} windowSize={windowSize} rankedPanel={rankedPanel} />
+                        <RightSideBar
+                            gameStarted={gameStarted}
+                            windowSize={windowSize}
+                            rankedPanel={rankedPanel}
+                            rankedFooter={rankedFooter}
+                        />
                     )}
                     {pixiReady && gameStarted && <UpNextOverlay />}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
@@ -1828,7 +1919,6 @@ interface RankedPlacementStackActionsProps {
     selectedUnit: PlayUnitState;
     snapshot: PlaySnapshot;
     submitGameAction: (action: GameAction) => Promise<void>;
-    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
     userTeam: TeamType;
 }
 
@@ -1837,7 +1927,6 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     selectedUnit,
     snapshot,
     submitGameAction,
-    submitProtocolAction,
     userTeam,
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
@@ -1857,67 +1946,107 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
         setSplitAmount(1);
     }, [amountAlive, selectedUnit.id]);
 
+    if (maxSplitAmount < 1) return null;
+
     return (
-        <Stack spacing={0.75}>
-            {maxSplitAmount >= 1 && (
-                <Sheet
-                    variant="soft"
+        <Box
+            sx={{
+                width: "93%",
+                mx: "auto",
+                mt: 0.5,
+                mb: 0.25,
+                px: 0.75,
+                pt: 1,
+                pb: 0.75,
+                border: "1px solid rgba(222,176,91,.58)",
+                borderRadius: "8px",
+                background: "linear-gradient(180deg, rgba(52,37,19,.13), rgba(5,5,5,.12))",
+                boxShadow:
+                    "inset 0 0 0 1px rgba(13,9,6,.96), inset 0 0 0 3px rgba(134,91,49,.34), inset 0 0 14px rgba(221,166,75,.05), 0 2px 7px rgba(0,0,0,.5)",
+            }}
+        >
+            <Stack
+                spacing={1.25}
+                alignItems="center"
+                sx={{
+                    px: "16px",
+                    "& .MuiTypography-root": {
+                        color: "rgba(216,194,156,.7)",
+                        fontFamily: hocDisplayFontFamily,
+                        fontSynthesis: "none",
+                        transition: "color .2s ease",
+                    },
+                    "&:hover .MuiTypography-root": { color: hocColors.orange },
+                }}
+            >
+                <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                    <Typography level="body-sm">{sliderValue}</Typography>
+                    <Typography level="body-sm">{amountAlive - sliderValue}</Typography>
+                </Box>
+                <Slider
+                    sx={hocSplitterSliderSx}
+                    min={1}
+                    max={Math.max(1, maxSplitAmount)}
+                    value={sliderValue}
+                    disabled={!canSplit}
+                    step={1}
+                    aria-label="Ranked unit split slider"
+                    onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
+                />
+            </Stack>
+            <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", mt: 1.5 }}>
+                <Button
+                    variant="plain"
+                    size="sm"
+                    disabled={!canSplit}
+                    onClick={() =>
+                        void submitGameAction({
+                            type: "split_unit",
+                            unitId: selectedUnit.id,
+                            amount: sliderValue,
+                        })
+                    }
                     sx={{
-                        p: 1,
-                        borderRadius: 6,
-                        bgcolor: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        ...hocSidebarImageButtonSx("neutral"),
+                        flex: 1,
+                        minWidth: 0,
+                        height: "29.25px",
+                        minHeight: "29.25px",
+                        maxHeight: "29.25px",
+                        py: 0,
                     }}
                 >
-                    <Stack spacing={0.5}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography level="body-sm" textColor={hocColors.parchment}>
-                                Split stack
-                            </Typography>
-                            <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                {sliderValue} / {amountAlive - sliderValue}
-                            </Typography>
-                        </Stack>
-                        <Slider
-                            size="sm"
-                            min={1}
-                            max={Math.max(1, maxSplitAmount)}
-                            value={sliderValue}
-                            disabled={!canSplit}
-                            onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
-                        />
-                        <Button
-                            variant="soft"
-                            disabled={!canSplit}
-                            onClick={() =>
-                                void submitGameAction({
-                                    type: "split_unit",
-                                    unitId: selectedUnit.id,
-                                    amount: sliderValue,
-                                })
-                            }
-                        >
-                            Split Selected
-                        </Button>
-                        {!hasStackCapacity && maxUnits > 0 && (
-                            <Typography level="body-xs" textColor={hocColors.muted}>
-                                Board stack limit reached ({teamUnitCount}/{maxUnits})
-                            </Typography>
-                        )}
-                    </Stack>
-                </Sheet>
+                    Split
+                </Button>
+                <Button
+                    variant="plain"
+                    size="sm"
+                    disabled={!canSubmit}
+                    onClick={() =>
+                        void submitGameAction({
+                            type: "delete_unit",
+                            unitId: selectedUnit.id,
+                        })
+                    }
+                    sx={{
+                        ...hocSidebarImageButtonSx("danger"),
+                        flex: 1,
+                        minWidth: 0,
+                        height: "29.25px",
+                        minHeight: "29.25px",
+                        maxHeight: "29.25px",
+                        py: 0,
+                    }}
+                >
+                    Delete
+                </Button>
+            </Stack>
+            {!hasStackCapacity && maxUnits > 0 && (
+                <Typography level="body-xs" sx={{ mt: 0.75, px: 1.5, textAlign: "center", color: hocColors.muted }}>
+                    Board stack limit reached ({teamUnitCount}/{maxUnits})
+                </Typography>
             )}
-            <Button
-                variant="soft"
-                color="danger"
-                disabled={!canSubmit}
-                onClick={() =>
-                    void submitProtocolAction({ type: PlayActionType.UNPLACE_UNIT, unitId: selectedUnit.id })
-                }
-            >
-                Remove Selected
-            </Button>
-        </Stack>
+        </Box>
     );
 };
 
@@ -2397,10 +2526,17 @@ const RankedRosterRow: React.FC<{
             {title}
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, flex: "1 1 auto", minWidth: 0 }}>
+            <Box
+                sx={{
+                    display: "flex",
+                    flexWrap: "nowrap",
+                    gap: 0.375,
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                }}
+            >
                 {ROSTER_LEVEL_SLOTS.map((level, index) => {
                     const creatureId = creatureIds[index] ?? 0;
-                    const src = creatureId ? UNIT_ID_TO_IMAGE[creatureId] : undefined;
                     const name = creatureId
                         ? (UNIT_ID_TO_NAME[creatureId] ?? `Creature ${creatureId}`)
                         : "Not revealed";
@@ -2409,8 +2545,9 @@ const RankedRosterRow: React.FC<{
                             <Box
                                 sx={{
                                     width: 38,
-                                    height: 38,
-                                    borderRadius: "8px",
+                                    height: "auto",
+                                    aspectRatio: "190 / 256",
+                                    borderRadius: "9px",
                                     overflow: "hidden",
                                     border: `1px solid ${borderColor}`,
                                     display: "flex",
@@ -2422,12 +2559,11 @@ const RankedRosterRow: React.FC<{
                                     fontWeight: 700,
                                 }}
                             >
-                                {src ? (
-                                    <Box
-                                        component="img"
-                                        src={src}
+                                {creatureId ? (
+                                    <CreaturePortraitImage
+                                        creatureId={creatureId}
                                         alt={name}
-                                        sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                        sx={{ width: "100%", height: "100%" }}
                                     />
                                 ) : (
                                     "?"
@@ -2539,76 +2675,119 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     );
 };
 
-// The compact stone READY plate requested for ranked placement. Its 9-slice keeps the authored corners
-// sharp at the sidebar's full width; the right-hand clock uses the same rigid divider and urgent blink as
-// the bundle-pick action bar without replacing this plate's established look.
+// The READY action occupies the same bottom-centre footer slot as EXIT FIGHT. Unlike the compact exit
+// control it stretches across the complete centre column, while the green halo makes the positive lock-in
+// action unmistakable against the dark sidebar material.
 const rankedReadyPlacementButtonSx = {
-    position: "relative",
-    zIndex: 4,
-    // A further two per cent over the previous 105% footprint: 1.05 * 1.02 = 1.071.
-    width: "calc(107.1% - 12.852px)",
-    height: "clamp(3rem, 13.8cqw, 4.3rem)",
-    minHeight: "clamp(3rem, 13.8cqw, 4.3rem)",
-    maxHeight: "clamp(3rem, 13.8cqw, 4.3rem)",
-    mx: "auto",
-    alignSelf: "center",
+    ...hocSidebarImageButtonSx("neutral"),
+    width: "94%",
+    minWidth: 0,
+    height: "39.48px",
+    minHeight: "39.48px",
+    maxHeight: "39.48px",
+    justifySelf: "center",
     py: 0,
     px: 0,
-    boxSizing: "border-box",
-    overflow: "visible !important",
-    borderStyle: "solid",
-    borderColor: "transparent",
-    borderWidth: "3.69px",
-    borderRadius: 0,
-    borderImageSource: `url(${images.ui_start_button_plate_gray_50})`,
-    // One real 9-slice surface: only its continuous centre band expands, while the authored orange
-    // corners and rails remain at their original proportions. This avoids the visible copied squares
-    // produced by `round` repetition.
-    borderImageSlice: "64 120 fill",
-    borderImageWidth: "3.69px",
-    borderImageOutset: 0,
-    borderImageRepeat: "stretch",
-    background: "transparent",
-    opacity: 1,
-    color: "#cda078",
-    fontFamily: hocDisplayFontFamily,
-    fontSize: "clamp(.64rem, 6.15cqw, 1.722rem)",
-    fontStyle: "normal",
-    fontWeight: 800,
-    fontSynthesis: "weight",
-    letterSpacing: hocDisplayLetterSpacing,
-    textTransform: "uppercase",
+    fontSize: "clamp(.72rem, 4.65cqw, 1.08rem)",
+    fontWeight: 880,
     whiteSpace: "nowrap",
-    lineHeight: 1,
     display: "flex",
     alignItems: "stretch",
-    justifyContent: "center",
     gap: 0,
-    WebkitTextStroke: "0.045em rgba(43,25,15,.96)",
-    paintOrder: "stroke fill",
-    textShadow: "0 .075em 0 #070504, 0 -.022em 0 rgba(255,222,178,.24), 0 .12em .08em rgba(0,0,0,.82)",
-    boxShadow: "none",
-    filter: "brightness(.92) saturate(.9)",
-    transition: "filter 140ms ease, transform 80ms ease",
-    marginTop: "auto !important",
+    backgroundImage: `linear-gradient(rgba(24,92,39,.46),rgba(24,92,39,.46)), url(${images.ui_start_button_plate_trimmed})`,
+    backgroundBlendMode: "color, normal",
+    boxShadow: "0 0 0 1px rgba(70,209,96,.48), 0 0 13px rgba(70,209,96,.42), 0 0 26px rgba(70,209,96,.16)",
+    filter: "brightness(.96) saturate(.94) drop-shadow(0 0 5px rgba(70,209,96,.3))",
+    transition: "filter 140ms ease, transform 80ms ease, box-shadow 160ms ease",
     "&:hover:not(:disabled)": {
-        background: "transparent",
+        backgroundColor: "transparent",
         color: "#d8ab80",
-        filter: "brightness(1.09) contrast(1.04) drop-shadow(0 0 7px rgba(224,83,34,.38))",
+        filter: "brightness(1.1) contrast(1.04) drop-shadow(0 0 8px rgba(70,209,96,.58))",
+        boxShadow: "0 0 0 1px rgba(70,209,96,.72), 0 0 17px rgba(70,209,96,.62), 0 0 32px rgba(70,209,96,.24)",
         transform: "translateY(-1px)",
     },
     "&:active": { transform: "translateY(1px)" },
     "&.Mui-disabled": {
-        opacity: 1,
-        color: "#c69a72",
-        background: "transparent",
-        filter: "brightness(.7) saturate(.72)",
+        opacity: 0.68,
+        color: "rgba(232,211,173,.72)",
+        filter: "grayscale(.3) brightness(.82)",
+        boxShadow: "0 0 0 1px rgba(70,209,96,.32), 0 0 12px rgba(70,209,96,.28)",
     },
     "@keyframes hocRankedPlacementTimerBlink": {
         "0%, 100%": { opacity: 1 },
         "50%": { opacity: 0.25 },
     },
 } as const;
+
+const RankedReadyPlacementButton: React.FC<{
+    canSubmit: boolean;
+    ready: boolean;
+    snapshot: PlaySnapshot;
+    submitProtocolAction: (action: Partial<PlayAction>) => Promise<void>;
+}> = ({ canSubmit, ready, snapshot, submitProtocolAction }) => {
+    const [nowMs, setNowMs] = useState(Date.now());
+    useEffect(() => {
+        const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+    const secondsLeft =
+        snapshot.placementDeadlineMs > 0 ? Math.max(0, Math.ceil((snapshot.placementDeadlineMs - nowMs) / 1000)) : -1;
+
+    return (
+        <Button
+            variant="plain"
+            disabled={!canSubmit || ready}
+            onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
+            sx={rankedReadyPlacementButtonSx}
+        >
+            <Box
+                component="span"
+                sx={{
+                    flex: "1 1 auto",
+                    display: "grid",
+                    alignItems: "center",
+                    justifyItems: "center",
+                    textAlign: "center",
+                    minWidth: 0,
+                    overflow: "hidden",
+                    fontSize: "93%",
+                    transform: "translateX(2%)",
+                }}
+            >
+                {ready ? "READY" : "READY PLACEMENT"}
+            </Box>
+            {secondsLeft >= 0 && (
+                <Box
+                    component="span"
+                    sx={{
+                        position: "relative",
+                        width: "22%",
+                        minWidth: 0,
+                        flex: "0 0 22%",
+                        display: "grid",
+                        alignItems: "center",
+                        justifyItems: "center",
+                        fontVariantNumeric: "tabular-nums",
+                        color: secondsLeft <= 15 ? "#ff3b2f" : "#c0b7a6",
+                        textShadow: secondsLeft <= 15 ? "0 0 12px rgba(255,59,47,.75)" : "none",
+                        animation: secondsLeft <= 15 ? "hocRankedPlacementTimerBlink 1s ease-in-out infinite" : "none",
+                        "&::before": {
+                            content: '\"\"',
+                            position: "absolute",
+                            left: 0,
+                            top: "10%",
+                            bottom: "10%",
+                            width: "1px",
+                            background: "rgba(121, 91, 65, .82)",
+                        },
+                    }}
+                >
+                    {`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`}
+                </Box>
+            )}
+        </Button>
+    );
+};
 
 const RankedOverlay: React.FC<RankedOverlayProps> = ({
     busy,
@@ -3043,72 +3222,8 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 selectedUnit={selectedUnit}
                                 snapshot={snapshot}
                                 submitGameAction={submitGameAction}
-                                submitProtocolAction={submitProtocolAction}
                                 userTeam={userTeam}
                             />
-                        )}
-                        {inBoardStage && (
-                            <Button
-                                variant="plain"
-                                disabled={!canSubmit || ready}
-                                onClick={() => void submitProtocolAction({ type: PlayActionType.READY_PLACEMENT })}
-                                sx={rankedReadyPlacementButtonSx}
-                            >
-                                <Box
-                                    component="span"
-                                    sx={{
-                                        flex: "1 1 auto",
-                                        display: "grid",
-                                        alignItems: "center",
-                                        justifyItems: "center",
-                                        textAlign: "center",
-                                        px: 0,
-                                        minWidth: 0,
-                                        overflow: "hidden",
-                                    }}
-                                >
-                                    {ready ? "READY" : "READY PLACEMENT"}
-                                </Box>
-                                {augmentSecondsLeft >= 0 && (
-                                    <Box
-                                        component="span"
-                                        sx={{
-                                            position: "relative",
-                                            width: "22%",
-                                            minWidth: 0,
-                                            flex: "0 0 22%",
-                                            display: "grid",
-                                            alignItems: "center",
-                                            justifyItems: "center",
-                                            ml: 0,
-                                            pl: 0,
-                                            pr: 0,
-                                            borderLeft: 0,
-                                            boxShadow: "none",
-                                            fontVariantNumeric: "tabular-nums",
-                                            color: augmentSecondsLeft <= 15 ? "#ff3b2f" : "#c0b7a6",
-                                            textShadow:
-                                                augmentSecondsLeft <= 15 ? "0 0 12px rgba(255,59,47,.75)" : "none",
-                                            animation:
-                                                augmentSecondsLeft <= 15
-                                                    ? "hocRankedPlacementTimerBlink 1s ease-in-out infinite"
-                                                    : "none",
-                                            "&::before": {
-                                                content: '\"\"',
-                                                position: "absolute",
-                                                left: 0,
-                                                top: "10%",
-                                                bottom: "10%",
-                                                width: "1px",
-                                                background: "rgba(121, 91, 65, .82)",
-                                                boxShadow: "none",
-                                            },
-                                        }}
-                                    >
-                                        {`${Math.floor(augmentSecondsLeft / 60)}:${String(augmentSecondsLeft % 60).padStart(2, "0")}`}
-                                    </Box>
-                                )}
-                            </Button>
                         )}
                     </Stack>
                 )}

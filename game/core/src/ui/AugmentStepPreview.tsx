@@ -14,8 +14,9 @@
  *   /preview/augments?perk=spymaster -> 5 points   (also: scout, blind_fury, or the numeric perk id)
  *   /preview/augments?points=3       -> any budget, clamped to MAX_AUGMENT_POINTS, for pricing experiments
  *   /preview/augments?team=upper     -> the red seat
+ *   /preview/augments?map=barrels    -> also: lava or normal
  */
-import { HoCConstants, Perk, TeamType, TeamVals } from "@heroesofcrypto/common";
+import { GridVals, HoCConstants, Perk, TeamType, TeamVals } from "@heroesofcrypto/common";
 import { Box, Stack } from "@mui/joy";
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -64,6 +65,12 @@ const PREVIEW_PERKS: Record<string, Perk.Perk> = {
 // wrong slot and one heading ends up empty.
 const PREVIEW_ARMY = [12, 33, 24, 51, 17, 40];
 
+const PREVIEW_MAP_TYPES: Record<string, number> = {
+    barrels: GridVals.BLOCK_CENTER,
+    lava: GridVals.LAVA_CENTER,
+    normal: GridVals.NORMAL,
+};
+
 export const AugmentStepPreview: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const perkId = PREVIEW_PERKS[params.get("perk")?.toLowerCase() ?? ""] ?? Perk.Perk.THREE_REVEALS;
@@ -72,6 +79,7 @@ export const AugmentStepPreview: React.FC = () => {
         ? Math.max(0, Math.min(HoCConstants.MAX_AUGMENT_POINTS, requestedPoints))
         : Perk.getUpgradePoints(perkId);
     const userTeam = (params.get("team")?.toLowerCase() === "upper" ? TeamVals.UPPER : TeamVals.LOWER) as TeamType;
+    const mapType = PREVIEW_MAP_TYPES[params.get("map")?.toLowerCase() ?? ""] ?? GridVals.NORMAL;
 
     const draftScale = useDraftScale();
     const [ready, setReady] = useState(false);
@@ -132,7 +140,7 @@ export const AugmentStepPreview: React.FC = () => {
                                 gameId="augment-step-preview"
                             />
                             <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
-                                <MapBadge mapType={0} />
+                                <MapBadge mapType={mapType} />
                             </Box>
                             <OpponentDraftBar
                                 opponentPicked={PREVIEW_ARMY}

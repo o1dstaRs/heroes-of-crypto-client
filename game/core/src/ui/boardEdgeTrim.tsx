@@ -11,6 +11,7 @@
 
 import React from "react";
 
+import { battleSidebarWidth } from "../pixi/boardFit";
 import { IWindowSize } from "../scenes/VisibleState";
 
 /**
@@ -49,13 +50,11 @@ const TRIM_BANDS_DARK = [
 ].join(", ");
 
 /**
- * Where the drawn board's left and right edges fall, in window pixels. Mirrors the sizing the sidebars already
- * do (see LeftSideBar.adjustBarSize): the board is a 2048 square scaled to fit and centred.
+ * Where the drawn board's left and right edges fall, in window pixels. This reads the same shared width as
+ * both sidebars and the camera, so the trim stays on their seam after the 15% sidebar reduction.
  */
 export const boardEdges = (windowSize: IWindowSize): { left: number; right: number } => {
-    const scaleRatio = Math.min(windowSize.width / 2048, windowSize.height / 2048);
-    const scaledBoardSize = 2048 * scaleRatio;
-    const margin = Math.max(0, Math.round((windowSize.width - scaledBoardSize) / 2));
+    const margin = battleSidebarWidth(windowSize.width, windowSize.height);
     return { left: margin, right: windowSize.width - margin };
 };
 

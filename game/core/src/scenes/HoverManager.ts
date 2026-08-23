@@ -1,4 +1,4 @@
-import { Assets, Sprite, Graphics, BlurFilter, Texture, Text } from "pixi.js";
+import { Assets, Sprite, Graphics, Texture, Text } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -14,14 +14,20 @@ import {
     GridMath,
     HoCLib,
     GridConstants,
+    type IWeightedRoute,
 } from "@heroesofcrypto/common";
 import { SceneSettings } from "./SceneSettings";
 import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
+import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
+import type { BattlefieldUnitPreview } from "./RenderableUnit";
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
+// Dedicated top layer for pointer-like attack markers. They must remain above units, badges, projected
+// damage and spell overlays regardless of which battlefield object the pointer is currently crossing.
+const ATTACK_CURSOR_MARKER_Z = 1_000_000;
 // The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
 const MELEE_SWORD_ART_LENGTH = 29;
 // The source is 20x24, so its painted blade is not geometrically aligned to a perfect 45-degree
@@ -29,14 +35,60 @@ const MELEE_SWORD_ART_LENGTH = 29;
 // horizontal/vertical marker visibly lean by several degrees.
 const MELEE_SWORD_NATIVE_WORLD_ANGLE = Math.atan2(23, -18);
 
+// cursor_ranged.webp is a 22x24 arrow drawn along the up-left diagonal. Measured off the actual
+// artwork — opaque tip at (1, 0), tail at (21, 20) — so the axis lands on exactly 135 degrees once
+// the world's Y flip is accounted for, and its drawn length is 28.3px rather than the 22 or 24 a
+// glance at the canvas would suggest.
+const RANGED_ARROW_ART_LENGTH = 28.3;
+const RANGED_ARROW_NATIVE_WORLD_ANGLE = Math.atan2(20, -20);
+const RANGED_ARROW_TIP_ANCHOR_X = 1 / 22;
+const RANGED_ARROW_TIP_ANCHOR_Y = 0;
+// Roughly the span the old triangular head occupied, so replacing it does not change how far down
+// the flight line the marker reaches.
+const RANGED_ARROW_DISPLAY_LENGTH = 36;
+const THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO = 186 / 192;
+
+const usesTallThiefPreview = (props: UnitProperties): boolean =>
+    props.size === 1 && (props.name === "Thief" || props.name === "Scavenger");
+
+const unitPreviewScale = (props: UnitProperties, texture: Texture, cellSize: number): number => {
+    if (usesTallThiefPreview(props)) {
+        return (cellSize * 1.5) / (Math.max(1, texture.height) * THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO);
+    }
+    return (props.size === 2 ? 256 : 128) / Math.max(1, texture.width);
+};
+
+const unitPreviewY = (props: UnitProperties, centerY: number, cellSize: number): number =>
+    usesTallThiefPreview(props) ? centerY + cellSize * 0.5 : centerY;
+
+/** Cells occupied by a unit whose battlefield anchor is the top-right cell of its footprint. */
+export const combatFootprintCellsForBase = (base: HoCMath.XY, width: number, height = width): HoCMath.XY[] => {
+    const cells: HoCMath.XY[] = [];
+    for (let dy = 0; dy < height; dy++) {
+        for (let dx = 0; dx < width; dx++) cells.push({ x: base.x - dx, y: base.y - dy });
+    }
+    return cells;
+};
+
 export const snapMeleeSwordAngle = (angle: number): number =>
     Math.round(angle / MELEE_SWORD_ANGLE_STEP) * MELEE_SWORD_ANGLE_STEP;
 
-export const meleeSwordDisplayLength = (segmentLength: number, snappedAngle: number): number => {
-    const facing = Math.round(snappedAngle / MELEE_SWORD_ANGLE_STEP);
-    const isDiagonal = Math.abs(facing) % 2 === 1;
-    return isDiagonal ? segmentLength / Math.SQRT2 : segmentLength;
-};
+/** Compact original cursor: half a cell, regardless of side, projection, or attacker offset. */
+export const meleeSwordDisplayLength = (cellSize: number): number => cellSize * 0.5;
+
+/** Resolve the eight-way facing from logical cells, never from an authored sprite's shifted foot anchor. */
+export const meleeSwordFacingAngle = (landingCenter: HoCMath.XY, targetCenter: HoCMath.XY): number =>
+    snapMeleeSwordAngle(Math.atan2(targetCenter.y - landingCenter.y, targetCenter.x - landingCenter.x));
+
+/** Keep the blade tip on the target anchor while the sword body stays outside the target footprint. */
+export const meleeSwordSpriteCenter = (
+    targetAnchor: HoCMath.XY,
+    snappedAngle: number,
+    displayLength: number,
+): HoCMath.XY => ({
+    x: targetAnchor.x - Math.cos(snappedAngle) * (displayLength / 2),
+    y: targetAnchor.y - Math.sin(snappedAngle) * (displayLength / 2),
+});
 
 /**
  * Intersection of the landing-cell -> target-centre ray with the target's square footprint.
@@ -75,8 +127,10 @@ export interface ISandboxHoverContext {
     getMouseWorld(): HoCMath.XY;
     getCurrentActiveUnit(): Unit | undefined;
     getCurrentActivePathHashes(): Set<number> | undefined;
+    getCurrentActiveKnownPaths(): Map<number, IWeightedRoute[]> | undefined;
     getDraggingUnitId(): string | undefined;
     getDraggingUnitTeam(): TeamType | undefined;
+    getPlacementPreviewUnit(): Unit | undefined;
     getSelectedUnitProperties(): UnitProperties | undefined;
     hasActiveSelection(): boolean;
 }
@@ -88,6 +142,7 @@ export class HoverManager {
     public hoverPlacementCellTeam?: TeamType = undefined;
     public hoverSelectedCells?: HoCMath.XY[];
     public hoverSelectedCellsSwitchToRed = false;
+    public hoverBattlefieldFootprintCells?: HoCMath.XY[];
     // AI Support
     public hoverAttackUnits?: Unit[][];
     public hoverAttackFromCell?: HoCMath.XY = undefined;
@@ -119,6 +174,8 @@ export class HoverManager {
     private auraGraphics: Graphics;
     private aoeGraphics: Graphics;
     private hoverAttackSwordTexture?: Texture;
+    private hoverRangedArrowTexture?: Texture;
+    private hoverRangedArrowHead?: Sprite;
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
@@ -130,6 +187,12 @@ export class HoverManager {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
+        });
+        // Same treatment for the ranged marker: the flight line ends in this arrow instead of a
+        // drawn triangle, so the shot reads as an actual arrow in flight rather than a pointer.
+        void Assets.load<Texture>(images.cursor_ranged).then((texture) => {
+            texture.source.scaleMode = "nearest";
+            this.hoverRangedArrowTexture = texture;
         });
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
@@ -157,6 +220,43 @@ export class HoverManager {
         } catch {
             return false;
         }
+    }
+    private getLiveUnitPreview(
+        props: UnitProperties,
+        logicalPosition: HoCMath.XY,
+        preferredUnit?: Unit,
+    ): BattlefieldUnitPreview | undefined {
+        const active = (preferredUnit ?? this.context.getCurrentActiveUnit()) as
+            | (Unit & {
+                  getBattlefieldPreviewAt?: (
+                      position: HoCMath.XY,
+                      gridSettings: ReturnType<SceneSettings["getGridSettings"]>,
+                  ) => BattlefieldUnitPreview | undefined;
+              })
+            | undefined;
+        if (!active?.getBattlefieldPreviewAt) return undefined;
+        const activeProps = active.getUnitProperties();
+        const activeSize = activeProps.size === 2 ? 2 : 1;
+        const requestedSize = props.size === 2 ? 2 : 1;
+        if (activeProps.name !== props.name || activeSize !== requestedSize) return undefined;
+        return active.getBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
+    }
+    private applyLiveUnitPreview(
+        sprite: Sprite,
+        outline: Sprite,
+        preview: BattlefieldUnitPreview,
+        outlineGrowth = 1.06,
+    ): void {
+        sprite.texture = preview.texture;
+        outline.texture = preview.texture;
+        sprite.anchor.set(preview.anchorX, preview.anchorY);
+        outline.anchor.set(preview.anchorX, preview.anchorY);
+        sprite.scale.set(preview.scaleX, preview.scaleY);
+        outline.scale.set(preview.scaleX * outlineGrowth, preview.scaleY * outlineGrowth);
+        sprite.position.set(preview.x, preview.y);
+        outline.position.set(preview.x, preview.y);
+        sprite.rotation = preview.rotation;
+        outline.rotation = preview.rotation;
     }
     private ensureAuraGraphics(): Graphics | undefined {
         if (this.isGraphicsUsable(this.auraGraphics)) {
@@ -222,7 +322,7 @@ export class HoverManager {
         }
         if (!Number.isFinite(minX)) return;
         aoeGraphics
-            .rect(minX + 1, minY + 1, maxX - minX - 2, maxY - minY - 2)
+            .poly(projectedRectPoints(minX + 1, minY + 1, maxX - 1, maxY - 1, gs))
             .fill({ color: 0xff3333, alpha: 0.18 })
             .stroke({ width: 2, color: 0xff6666, alpha: 0.85 });
     }
@@ -231,6 +331,7 @@ export class HoverManager {
         this.hoverAttackFromCell = undefined;
         this.hoverPlacementCell = undefined;
         this.hoverSelectedCells = undefined;
+        this.hoverBattlefieldFootprintCells = undefined;
         this.hoverSpellCell = undefined;
         this.hoverAbilityCell = undefined;
         this.hoverAttackTargetUnit = undefined;
@@ -259,7 +360,7 @@ export class HoverManager {
         const auraGraphics = this.ensureAuraGraphics();
         if (!auraGraphics) return;
         auraGraphics
-            .rect(center.x - extent, center.y - extent, extent * 2, extent * 2)
+            .poly(projectedRectPoints(center.x - extent, center.y - extent, center.x + extent, center.y + extent, gs))
             .fill({ color: fillColor, alpha: fillAlpha })
             .stroke({ width: strokeWidth, color: color, alpha: strokeAlpha });
     }
@@ -270,7 +371,17 @@ export class HoverManager {
 
         const auraGraphics = this.ensureAuraGraphics();
         if (!auraGraphics) return;
-        auraGraphics.circle(center.x, center.y, radius).stroke({ width: width, color: color, alpha: alpha });
+        const points: HoCMath.XY[] = [];
+        const segments = 96;
+        for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI * 2;
+            points.push({ x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius });
+        }
+        auraGraphics.poly(projectedPolyline(points, this.context.sceneSettings.getGridSettings())).stroke({
+            width,
+            color,
+            alpha,
+        });
     }
     public update(dt: number): void {
         this.hoverGlowPhase += dt * (5 / 3);
@@ -309,38 +420,38 @@ export class HoverManager {
             this.updateBoardHoverSilhouette(this.boardHoverProps, this.boardHoverCenter);
         }
     }
-    public drawHoverPlacementCell(gfx: Graphics): void {
-        const cells = this.hoverSelectedCells;
-        if (!cells || cells.length === 0) return;
-        // The placement silhouette already previews a valid drop, so we only draw a square to flag an
-        // INVALID position (red). No white square for valid cells — it's redundant clutter.
-        if (!this.hoverSelectedCellsSwitchToRed) return;
+    private drawFootprintCells(gfx: Graphics, cells: HoCMath.XY[], invalid: boolean): void {
         const gs = this.context.sceneSettings.getGridSettings();
         const size = gs.getCellSize();
         const half = size / 2;
-        const strokeColor = 0xff5555;
-        const fillColor = 0xff3333;
-        const fillAlpha = 0.25;
-        let minX = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
+        const inset = Math.max(2, size * 0.055);
+        const pulse = (Math.sin(this.hoverGlowPhase * 1.2) + 1) / 2;
+        const strokeColor = invalid ? 0xff5555 : 0xffe2a0;
+        const fillColor = invalid ? 0xff3333 : 0xffc85a;
+        const fillAlpha = invalid ? 0.25 : 0.16 + pulse * 0.06;
+        const strokeAlpha = invalid ? 1 : 0.82 + pulse * 0.18;
+
         for (const c of cells) {
             const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
             const left = pos.x - half;
             const right = pos.x + half;
             const bottom = pos.y - half;
             const top = pos.y + half;
-            if (left < minX) minX = left;
-            if (right > maxX) maxX = right;
-            if (bottom < minY) minY = bottom;
-            if (top > maxY) maxY = top;
+
+            gfx.poly(projectedRectPoints(left + inset, bottom + inset, right - inset, top - inset, gs))
+                .fill({ color: fillColor, alpha: fillAlpha })
+                .stroke({ width: Math.max(2, size * 0.035), color: strokeColor, alpha: strokeAlpha });
         }
-        const w = maxX - minX - 2;
-        const h = maxY - minY - 2;
-        gfx.rect(minX + 1, minY + 1, w, h)
-            .stroke({ width: 2, color: strokeColor, alpha: 1 })
-            .fill({ color: fillColor, alpha: fillAlpha });
+    }
+    public drawHoverPlacementCell(gfx: Graphics): void {
+        const cells = this.hoverSelectedCells;
+        if (!cells || cells.length === 0) return;
+        this.drawFootprintCells(gfx, cells, this.hoverSelectedCellsSwitchToRed);
+    }
+    public drawHoverBattlefieldFootprint(gfx: Graphics): void {
+        const cells = this.hoverBattlefieldFootprintCells;
+        if (!cells || cells.length === 0) return;
+        this.drawFootprintCells(gfx, cells, false);
     }
     public isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
@@ -352,19 +463,17 @@ export class HoverManager {
         const props = currentActiveUnit.getUnitProperties();
         const hash = (x: number, y: number) => (x << 4) | y;
 
-        // Size-1 units: simple membership check
-        if (props.size === 1) {
+        if (props.footprint_width === 1 && props.footprint_height === 1) {
             return currentActivePathHashes.has(hash(cell.x, cell.y));
         }
 
-        // Size-2 units: cell is reachable only if there is a valid 2×2 footprint
-        // fully contained in `currentActivePathHashes`.
         return this.findLargeUnitMoveCandidate(cell) !== null;
     }
     // Copied from Sandbox (assumed private there)
     public findLargeUnitMoveCandidate(cell: HoCMath.XY): HoCMath.XY[] | null {
         const currentActiveUnit = this.context.getCurrentActiveUnit();
         const currentActivePathHashes = this.context.getCurrentActivePathHashes();
+        const currentActiveKnownPaths = this.context.getCurrentActiveKnownPaths();
         if (!currentActiveUnit || !currentActivePathHashes) return null;
 
         const hash = (x: number, y: number) => (x << 4) | y;
@@ -380,45 +489,37 @@ export class HoverManager {
         // const inBounds = (c: HoCMath.XY) =>
         //     c.x >= minX && c.x <= maxX && c.y >= minY && c.y <= maxY;
 
-        // 4 possible 2×2 footprints where `cell` is one of the tiles
-        const footprints: HoCMath.XY[][] = [
-            // anchor at (x, y)
-            [
-                { x: cell.x, y: cell.y },
-                { x: cell.x + 1, y: cell.y },
-                { x: cell.x, y: cell.y + 1 },
-                { x: cell.x + 1, y: cell.y + 1 },
-            ],
-            // anchor at (x-1, y)
-            [
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-                { x: cell.x - 1, y: cell.y + 1 },
-                { x: cell.x, y: cell.y + 1 },
-            ],
-            // anchor at (x, y-1)
-            [
-                { x: cell.x, y: cell.y - 1 },
-                { x: cell.x + 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y },
-                { x: cell.x + 1, y: cell.y },
-            ],
-            // anchor at (x-1, y-1)
-            [
-                { x: cell.x - 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y - 1 },
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-            ],
-        ];
+        const props = currentActiveUnit.getUnitProperties();
+        const footprints: HoCMath.XY[][] = [];
+        for (let cursorDx = 0; cursorDx < props.footprint_width; cursorDx++) {
+            for (let cursorDy = 0; cursorDy < props.footprint_height; cursorDy++) {
+                const minX = cell.x - cursorDx;
+                const minY = cell.y - cursorDy;
+                const footprint: HoCMath.XY[] = [];
+                for (let dx = 0; dx < props.footprint_width; dx++) {
+                    for (let dy = 0; dy < props.footprint_height; dy++) {
+                        footprint.push({ x: minX + dx, y: minY + dy });
+                    }
+                }
+                footprints.push(footprint);
+            }
+        }
 
         for (const footprint of footprints) {
             // If you want explicit grid-bounds checking:
             // if (!footprint.every(inBounds)) continue;
 
-            // ✅ Only accept this footprint if *all* 4 cells are in the path hash set
             const allInPath = footprint.every((c) => inBounds(c) && currentActivePathHashes.has(hash(c.x, c.y)));
             if (!allInPath) continue;
+
+            const anchor = footprint.reduce(
+                (current, candidate) => ({
+                    x: Math.max(current.x, candidate.x),
+                    y: Math.max(current.y, candidate.y),
+                }),
+                { x: Number.MIN_SAFE_INTEGER, y: Number.MIN_SAFE_INTEGER },
+            );
+            if (!currentActiveKnownPaths?.has(hash(anchor.x, anchor.y))) continue;
 
             return footprint;
         }
@@ -585,12 +686,14 @@ export class HoverManager {
         if (this.hoverTargetSilhouette) {
             this.hoverTargetSilhouette.visible = false;
         }
+        if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
         if (this.hoverAttackArrow) {
             this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
         }
         this.animatedRangeArrow = undefined;
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+        this.hoverBattlefieldFootprintCells = undefined;
         this.hoverAttackFromCell = undefined;
         this.hoverAttackTargetUnit = undefined;
     }
@@ -606,11 +709,13 @@ export class HoverManager {
         if (this.hoverTargetSilhouette) {
             this.hoverTargetSilhouette.visible = false;
         }
+        if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
         if (this.hoverAttackArrow) {
             this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
         }
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+        this.hoverBattlefieldFootprintCells = undefined;
     }
     private hoverDamageText?: Text;
     private hoverKillText?: Text;
@@ -772,7 +877,7 @@ export class HoverManager {
     private hoverTargetSilhouettes: Sprite[] = [];
     private silhouettePool: Sprite[] = [];
     private highlightedUnits: Unit[] = [];
-    public addTargetHighlight(targetUnit: Unit, tint: number = 0xaa0000): void {
+    public addTargetHighlight(targetUnit: Unit, tint: number = 0xff3030): void {
         this.hoverAttackTargetUnit = targetUnit; // Keep referring to last added (primary usually added first, but overwritten here is fine for now as long as we track all in highlightedUnits)
         this.highlightedUnits.push(targetUnit);
 
@@ -783,12 +888,14 @@ export class HoverManager {
             rUnit.setStackVisibility(false);
         }
 
+        const targetProps = targetUnit.getUnitProperties();
+        const livePreview = this.getLiveUnitPreview(targetProps, targetUnit.getPosition(), targetUnit);
         const texName = unitToTextureName(
             targetUnit.getName(),
             targetUnit.getSize() === 2 ? TextureType.LARGE : TextureType.SMALL,
             targetUnit.getSize(),
         );
-        const tex = this.context.texAny(texName);
+        const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) return;
 
         let silhouette: Sprite;
@@ -800,24 +907,32 @@ export class HoverManager {
             silhouette.anchor.set(0.5);
             this.context.attachToWorldRoot(silhouette, 2100); // Above units (Z=1000)
             silhouette.scale.y = -1;
-            // Static blur as requested (set once if creating)
-            silhouette.filters = [new BlurFilter({ strength: 4 })];
         }
+        // The old blurred legacy portrait produced an amorphous red spot. Use the current authored
+        // frame and exact live transform so the creature itself is what turns red.
+        silhouette.filters = [];
 
-        // Use new helper on RenderableUnit if available, else fallback
-        let centerPos = targetUnit.getPosition();
-        if (typeof rUnit.getVisualCenter === "function") {
-            centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
+        if (livePreview) {
+            silhouette.texture = livePreview.texture;
+            silhouette.anchor.set(livePreview.anchorX, livePreview.anchorY);
+            silhouette.scale.set(livePreview.scaleX, livePreview.scaleY);
+            silhouette.position.set(livePreview.x, livePreview.y);
+            silhouette.rotation = livePreview.rotation;
+        } else {
+            let centerPos = targetUnit.getPosition();
+            if (typeof rUnit.getVisualCenter === "function") {
+                centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
+            }
+            const baseWidth = tex.width || 1;
+            const targetSize = targetUnit.getSize() === 2 ? 256 : 128;
+            const scale = targetSize / baseWidth;
+            silhouette.anchor.set(0.5);
+            silhouette.scale.set(scale, -scale);
+            silhouette.position.set(centerPos.x, centerPos.y);
+            silhouette.rotation = 0;
         }
-
-        const baseWidth = tex.width || 1;
-        const targetSize = targetUnit.getSize() === 2 ? 256 : 128; // Standard sizes
-        const scale = targetSize / baseWidth;
-
-        silhouette.scale.set(scale, -scale);
-        silhouette.position.set(centerPos.x, centerPos.y);
         silhouette.visible = true;
-        silhouette.alpha = 0.8;
+        silhouette.alpha = 0.72;
         // Caller-chosen tint: dark red for harmful targets, green for buff/heal spell targets.
         silhouette.tint = tint;
 
@@ -876,12 +991,14 @@ export class HoverManager {
         smokeFrom?: HoCMath.XY,
         marker: "arrow" | "melee" = "arrow",
         rememberAnimation = true,
+        meleeFacingAngle?: number,
     ): void {
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
             if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
             if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+            if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
             return;
         }
 
@@ -889,32 +1006,34 @@ export class HoverManager {
         if (marker === "melee") {
             this.animatedRangeArrow = undefined;
             if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
+            if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
             if (!this.hoverAttackSwordTexture) return;
             if (!this.hoverAttackSword || this.hoverAttackSword.destroyed) {
                 this.hoverAttackSword = new Sprite(this.hoverAttackSwordTexture);
                 this.hoverAttackSword.anchor.set(0.5);
                 // The marker crosses the unit portrait by design. Keep it above units and their hover
                 // silhouettes; at the old arrow layer the compact sprite disappeared underneath them.
-                this.context.attachToWorldRoot(this.hoverAttackSword, 5600);
+                this.context.attachToWorldRoot(this.hoverAttackSword, ATTACK_CURSOR_MARKER_Z);
             }
             const sword = this.hoverAttackSword;
             sword.visible = true;
             // Melee landings occupy the eight cells around a target. Snap to those eight 45-degree
             // facings so the marker never wobbles with tiny pointer movements inside the same cell.
-            // A diagonal cell is farther away by sqrt(2), but the icon must not grow with that distance:
-            // normalize it back to the cardinal length and keep its blade pinned to the target edge.
-            const snappedAngle = snapMeleeSwordAngle(angle);
-            const displayLength = meleeSwordDisplayLength(dist, snappedAngle);
+            // Projection and authored foot anchors make the measured segment differ by side. Resolve the
+            // eight-way melee facing from logical cells when supplied, while keeping the cursor compact.
+            const snappedAngle = snapMeleeSwordAngle(meleeFacingAngle ?? angle);
+            const displayLength = meleeSwordDisplayLength(this.context.sceneSettings.getGridSettings().getCellSize());
             const swordScale = displayLength / MELEE_SWORD_ART_LENGTH;
             sword.scale.set(swordScale, -swordScale);
             // Negative Y keeps the PNG upright inside the inverted world. Rotate from the artwork's
             // measured axis rather than assuming its non-square 20x24 canvas has a perfect 45° diagonal.
             sword.rotation = snappedAngle - MELEE_SWORD_NATIVE_WORLD_ANGLE;
             sword.roundPixels = true;
-            sword.position.set(
-                to.x - Math.cos(snappedAngle) * (displayLength / 2),
-                to.y - Math.sin(snappedAngle) * (displayLength / 2),
-            );
+            // `to` is one of the eight projected edge/corner anchors around the target. It marks the
+            // BLADE TIP from the user's sketch, not the sprite centre: keep the whole sword on the
+            // attacker's side instead of letting half of it cross the target figure.
+            const swordCenter = meleeSwordSpriteCenter(to, snappedAngle, displayLength);
+            sword.position.set(swordCenter.x, swordCenter.y);
             return;
         }
         if (rememberAnimation) {
@@ -1004,34 +1123,37 @@ export class HoverManager {
                 .stroke({ width: 4, color: 0xff8a8a, alpha: 0.95 });
         }
 
-        // Filled triangular arrowhead. Its actual geometry breathes, so the pulse remains visible rather
-        // than being a tiny alpha change that disappears against a bright unit portrait.
+        // The head is the cursor_ranged arrow itself, rotated onto the flight line so it reads as a
+        // continuation of it. Keep its geometry fixed: pulsing the scale moved the painted tip even when
+        // the intended endpoint stayed still.
         const headPulse = (Math.sin(this.hoverGlowPhase * 6) + 1) / 2;
-        const headLen = 22 + headPulse * 7;
-        const headHalfWidth = 8 + headPulse * 4;
-        const nx = Math.cos(angle + Math.PI / 2);
-        const ny = Math.sin(angle + Math.PI / 2);
-        const baseX = endX - Math.cos(angle) * headLen;
-        const baseY = endY - Math.sin(angle) * headLen;
-        const glowWidth = headHalfWidth + 6;
-        g.poly([
-            endX + Math.cos(angle) * 3,
-            endY + Math.sin(angle) * 3,
-            baseX + nx * glowWidth,
-            baseY + ny * glowWidth,
-            baseX - nx * glowWidth,
-            baseY - ny * glowWidth,
-        ]).fill({ color: 0xff3b24, alpha: 0.22 + headPulse * 0.12 });
-        g.poly([
-            endX,
-            endY,
-            baseX + nx * headHalfWidth,
-            baseY + ny * headHalfWidth,
-            baseX - nx * headHalfWidth,
-            baseY - ny * headHalfWidth,
-        ])
-            .fill({ color: 0xffd28a, alpha: 0.96 })
-            .stroke({ width: 2, color: 0xffffed, alpha: 1, join: "round" });
+        const headLen = RANGED_ARROW_DISPLAY_LENGTH;
+        // A soft ember behind the sprite. Without it the arrow loses its silhouette on lit tiles —
+        // the old head kept its own glow polygon for the same reason.
+        g.circle(endX - Math.cos(angle) * headLen * 0.35, endY - Math.sin(angle) * headLen * 0.35, 13).fill({
+            color: 0xff3b24,
+            alpha: 0.2 + headPulse * 0.12,
+        });
+
+        if (this.hoverRangedArrowTexture) {
+            if (!this.hoverRangedArrowHead || this.hoverRangedArrowHead.destroyed) {
+                this.hoverRangedArrowHead = new Sprite(this.hoverRangedArrowTexture);
+                // The painted tip is at (1, 0) in the 22x24 source. Anchor that exact pixel to the target
+                // edge instead of estimating it by backing a canvas-centred sprite up half its length.
+                this.hoverRangedArrowHead.anchor.set(RANGED_ARROW_TIP_ANCHOR_X, RANGED_ARROW_TIP_ANCHOR_Y);
+                // Same layer as the melee sword: the marker is meant to cross the target portrait,
+                // and at the arrow graphics' own depth it slid underneath units and silhouettes.
+                this.context.attachToWorldRoot(this.hoverRangedArrowHead, ATTACK_CURSOR_MARKER_Z);
+            }
+            const head = this.hoverRangedArrowHead;
+            head.visible = true;
+            const headScale = headLen / RANGED_ARROW_ART_LENGTH;
+            // Negative Y keeps the artwork upright inside the inverted world, exactly as the sword does.
+            head.scale.set(headScale, -headScale);
+            head.rotation = angle - RANGED_ARROW_NATIVE_WORLD_ANGLE;
+            head.roundPixels = true;
+            head.position.set(endX, endY);
+        }
 
         // Optional faint dashed continuation PAST the arrow tip. Used when a ranged shot is stopped by a
         // mountain: the arrow ends at the rock, then this thin dotted line traces where the shot WOULD
@@ -1084,28 +1206,40 @@ export class HoverManager {
             // the art. A soft outer trace breathes around a crisp inner rim, so crossed obstacles read
             // as interactive trajectory hits rather than enemy targets or selected board cells.
             for (const position of positions) {
-                g.roundRect(
+                const points = projectedRectPoints(
                     position.x - cellSize * 0.5 + inset,
                     position.y - cellSize * 0.5 + inset,
-                    cellSize - inset * 2,
-                    cellSize - inset * 2,
-                    cellSize * 0.12,
-                ).stroke({ width: 5 + pulse * 2, color: 0xffffff, alpha: 0.08 + pulse * 0.12 });
-                g.roundRect(
-                    position.x - cellSize * 0.5 + inset,
-                    position.y - cellSize * 0.5 + inset,
-                    cellSize - inset * 2,
-                    cellSize - inset * 2,
-                    cellSize * 0.12,
-                ).stroke({ width: 1.5 + pulse * 0.7, color: 0xffffff, alpha: 0.72 + pulse * 0.25 });
+                    position.x + cellSize * 0.5 - inset,
+                    position.y + cellSize * 0.5 - inset,
+                    this.context.sceneSettings.getGridSettings(),
+                );
+                g.poly(points).stroke({ width: 5 + pulse * 2, color: 0xffffff, alpha: 0.08 + pulse * 0.12 });
+                g.poly(points).stroke({
+                    width: 1.5 + pulse * 0.7,
+                    color: 0xffffff,
+                    alpha: 0.72 + pulse * 0.25,
+                });
             }
             return;
         }
-        const r = cellSize * 0.72;
         for (const position of positions) {
-            g.circle(position.x, position.y, r * 1.25).fill({ color: 0xaa0000, alpha: 0.22 });
-            g.circle(position.x, position.y, r).fill({ color: 0xff2a2a, alpha: 0.3 });
-            g.circle(position.x, position.y, r).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
+            const outer = projectedRectPoints(
+                position.x - cellSize * 0.48,
+                position.y - cellSize * 0.48,
+                position.x + cellSize * 0.48,
+                position.y + cellSize * 0.48,
+                this.context.sceneSettings.getGridSettings(),
+            );
+            const inner = projectedRectPoints(
+                position.x - cellSize * 0.42,
+                position.y - cellSize * 0.42,
+                position.x + cellSize * 0.42,
+                position.y + cellSize * 0.42,
+                this.context.sceneSettings.getGridSettings(),
+            );
+            g.poly(outer).fill({ color: 0xaa0000, alpha: 0.22 });
+            g.poly(inner).fill({ color: 0xff2a2a, alpha: 0.3 });
+            g.poly(inner).stroke({ width: 3, color: 0xff4444, alpha: 0.85 });
         }
     }
     public clearObstacleHighlight(): void {
@@ -1279,6 +1413,7 @@ export class HoverManager {
         }
         if (this.hoverAttackArrow && !this.hoverAttackFromCell) {
             this.hoverAttackArrow.visible = false;
+            if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
         }
         if (this.hoverAttackSword && !this.hoverAttackFromCell) {
             this.hoverAttackSword.visible = false;
@@ -1286,10 +1421,17 @@ export class HoverManager {
 
         // 1. If we have an attack-from cell, we behave differently:
         if (this.hoverAttackFromCell && selected) {
+            this.hoverBattlefieldFootprintCells = combatFootprintCellsForBase(
+                this.hoverAttackFromCell,
+                selected.footprint_width,
+                selected.footprint_height,
+            );
             // We force red tint for attack
             this.ensureHoverSilhouetteParams(selected, boundsCenter, true);
             return;
         }
+
+        this.hoverBattlefieldFootprintCells = undefined;
 
         if (!selected || this.hoverSelectedCellsSwitchToRed || !this.hoverSelectedCells?.length) {
             this.clearHoverSilhouette();
@@ -1298,9 +1440,17 @@ export class HoverManager {
 
         this.ensureHoverSilhouetteParams(selected, boundsCenter, false);
     }
-    private ensureHoverSilhouetteParams(selected: UnitProperties, boundsCenter: HoCMath.XY, isAttack: boolean): void {
+    private ensureHoverSilhouetteParams(
+        selected: UnitProperties,
+        boundsCenter: HoCMath.XY,
+        isAttack: boolean,
+        previewUnit?: Unit,
+        exactPlacementCopy = false,
+    ): void {
+        const outlineGrowth = exactPlacementCopy ? 1 : 1.06;
+        const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit);
         const texName = unitToTextureName(selected.name, TextureType.SMALL, selected.size);
-        const tex = this.context.texAny(texName);
+        const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) {
             this.clearHoverSilhouette();
             return;
@@ -1324,21 +1474,32 @@ export class HoverManager {
         this.hoverSilhouetteKey = texName;
         const sprite = this.hoverSilhouette;
         const outline = this.hoverSilhouetteOutline;
-        const targetSize = selected.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-        sprite.x = boundsCenter.x;
-        sprite.y = boundsCenter.y;
-        outline.x = boundsCenter.x;
-        outline.y = boundsCenter.y;
+        const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+        if (livePreview) {
+            this.applyLiveUnitPreview(sprite, outline, livePreview, outlineGrowth);
+        } else {
+            const projectedCenter = projectBattlefieldPoint(boundsCenter, this.context.sceneSettings.getGridSettings());
+            const scale = unitPreviewScale(selected, tex, cellSize);
+            const outlineScale = scale * outlineGrowth;
+            sprite.anchor.set(0.5);
+            outline.anchor.set(0.5);
+            sprite.scale.set(scale, -scale);
+            outline.scale.set(outlineScale, -outlineScale);
+            sprite.x = projectedCenter.x;
+            sprite.y = unitPreviewY(selected, projectedCenter.y, cellSize);
+            outline.x = projectedCenter.x;
+            outline.y = sprite.y;
+            sprite.rotation = 0;
+            outline.rotation = 0;
+        }
         outline.visible = true;
-        outline.alpha = 0.9;
+        // With identical placement scales the white backing sits inside the live-sized silhouette rather
+        // than enlarging it. Let a little more of it show through the black layer so the copy remains
+        // readable after it leaves the source, while the live unit fully occludes it at the start point.
+        outline.alpha = exactPlacementCopy ? 0.72 : 0.9;
         outline.tint = 0xffffff;
         sprite.visible = true;
-        sprite.alpha = 0.8;
+        sprite.alpha = exactPlacementCopy ? 0.58 : 0.8;
 
         if (isAttack) {
             // User requested standard silhouette for attacker, so no red tint here.
@@ -1363,8 +1524,9 @@ export class HoverManager {
      * local player's own hover silhouette.
      */
     public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
+        const livePreview = this.getLiveUnitPreview(props, position);
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.context.texAny(texName);
+        const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) {
             this.clearOpponentIntentSilhouette();
             return;
@@ -1388,16 +1550,24 @@ export class HoverManager {
         this.opponentIntentKey = texName;
         const sprite = this.opponentIntentSilhouette;
         const outline = this.opponentIntentOutline;
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-        sprite.x = position.x;
-        sprite.y = position.y;
-        outline.x = position.x;
-        outline.y = position.y;
+        const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+        if (livePreview) {
+            this.applyLiveUnitPreview(sprite, outline, livePreview);
+        } else {
+            const projectedCenter = projectBattlefieldPoint(position, this.context.sceneSettings.getGridSettings());
+            const scale = unitPreviewScale(props, tex, cellSize);
+            const outlineScale = scale * 1.06;
+            sprite.anchor.set(0.5);
+            outline.anchor.set(0.5);
+            sprite.scale.set(scale, -scale);
+            outline.scale.set(outlineScale, -outlineScale);
+            sprite.x = projectedCenter.x;
+            sprite.y = unitPreviewY(props, projectedCenter.y, cellSize);
+            outline.x = projectedCenter.x;
+            outline.y = sprite.y;
+            sprite.rotation = 0;
+            outline.rotation = 0;
+        }
         outline.visible = true;
         outline.alpha = 0.7;
         outline.tint = 0xffffff;
@@ -1439,12 +1609,11 @@ export class HoverManager {
         this.hoverSilhouetteKey = texName;
         const sprite = this.hoverSilhouette;
         const outline = this.hoverSilhouetteOutline;
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const baseScale = targetSize / baseWidth;
+        const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
+        const baseScale = unitPreviewScale(props, tex, cellSize);
         const scale = baseScale * this.boardHoverScale;
         const outlineScale = scale * 1.08;
-        const y = center.y + this.boardHoverYOffset;
+        const y = unitPreviewY(props, center.y, cellSize) + this.boardHoverYOffset;
         sprite.scale.set(scale, -scale);
         outline.scale.set(outlineScale, -outlineScale);
         sprite.x = center.x;
@@ -1471,8 +1640,9 @@ export class HoverManager {
         const props = currentActiveUnit.getUnitProperties();
 
         let centerPos: HoCMath.XY | undefined;
+        let footprintCells: HoCMath.XY[];
 
-        if (props.size === 2) {
+        if (props.footprint_width > 1 || props.footprint_height > 1) {
             const candidate = this.findLargeUnitMoveCandidate(cell);
             if (!candidate) {
                 this.clearHoverSilhouette();
@@ -1480,12 +1650,14 @@ export class HoverManager {
             }
             // candidate is HoCMath.XY[] (footprint)
             // We need center.
+            footprintCells = candidate;
             centerPos = GridMath.getPositionForCells(gs, candidate);
         } else {
             if (!this.isCellReachableForActiveUnit(cell)) {
                 this.clearHoverSilhouette();
                 return;
             }
+            footprintCells = [cell];
             centerPos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         }
 
@@ -1494,59 +1666,14 @@ export class HoverManager {
             return;
         }
 
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
-        const tex = this.context.texAny(texName);
-        if (!tex) {
-            this.clearHoverSilhouette();
-            return;
-        }
-
-        if (!this.hoverSilhouette) {
-            this.hoverSilhouette = new Sprite(tex);
-            this.hoverSilhouette.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.hoverSilhouette, 110);
-            this.hoverSilhouette.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouette.texture = tex;
-        }
-
-        if (!this.hoverSilhouetteOutline) {
-            this.hoverSilhouetteOutline = new Sprite(tex);
-            this.hoverSilhouetteOutline.anchor.set(0.5);
-            this.context.attachToWorldRoot(this.hoverSilhouetteOutline, 109);
-            this.hoverSilhouetteOutline.scale.y = -1;
-        } else if (this.hoverSilhouetteKey !== texName) {
-            this.hoverSilhouetteOutline.texture = tex;
-        }
-
-        this.hoverSilhouetteKey = texName;
-
-        const sprite = this.hoverSilhouette;
-        const outline = this.hoverSilhouetteOutline;
-
-        const targetSize = props.size === 2 ? 256 : 128;
-        const baseWidth = tex.width || 1;
-        const scale = targetSize / baseWidth;
-        const outlineScale = scale * 1.06;
-
-        sprite.scale.set(scale, -scale);
-        outline.scale.set(outlineScale, -outlineScale);
-
-        sprite.x = centerPos.x;
-        sprite.y = centerPos.y;
-        outline.x = centerPos.x;
-        outline.y = centerPos.y;
-
-        outline.visible = true;
-        outline.alpha = 0.9;
-        outline.tint = 0xffffff;
-
-        sprite.visible = true;
-        sprite.alpha = 0.8;
-        sprite.tint = 0x000000;
+        this.hoverBattlefieldFootprintCells = footprintCells;
+        this.ensureHoverSilhouetteParams(props, centerPos, false);
     }
     public updateHoverPlacementCell(worldPos: HoCMath.XY): void {
         const gs = this.context.sceneSettings.getGridSettings();
+        // Sandbox stores the pointer in logical board coordinates. Re-unprojecting an already logical
+        // point shifts the chosen cell a second time and makes the ghost land beside the cursor.
+        const logicalWorldPos = worldPos;
         const selected = this.context.getSelectedUnitProperties();
         const fightProps = FightStateManager.getInstance().getFightProperties();
 
@@ -1564,14 +1691,14 @@ export class HoverManager {
             return;
         }
 
-        const cell = GridMath.getCellForPosition(gs, worldPos);
+        const cell = GridMath.getCellForPosition(gs, logicalWorldPos);
         this.clearAuraVisuals();
         if (!cell) {
             this.clearHoverSilhouette();
             return;
         }
 
-        const isLarge = selected.size === 2;
+        const isLarge = selected.footprint_width > 1 || selected.footprint_height > 1;
         const cellHash = (cell.x << 4) | cell.y;
 
         let teamFromPlacement: TeamType | undefined;
@@ -1614,15 +1741,45 @@ export class HoverManager {
             const allowedForPath =
                 this.context.placementManager.getAllowedPlacementCellHashesForTeam(targetTeamForPath);
 
+            // Let the square finder skip terrain and other stacks while still allowing a dragged 2x2
+            // creature to overlap its own current footprint. Previously this list was always empty, so
+            // hovering beside lava/another unit selected the blocked square first and made otherwise
+            // available placement cells impossible to use.
+            const draggedUnit = draggingUnitId ? this.context.unitsHolder.getAllUnits().get(draggingUnitId) : undefined;
+            const ownCells = draggedUnit?.getCells();
             const occupiedKeys: string[] = [];
+            for (let x = 0; x < gs.getGridSize(); x += 1) {
+                for (let y = 0; y < gs.getGridSize(); y += 1) {
+                    const occupantId = this.context.grid.getOccupantUnitId({ x, y });
+                    if (occupantId && occupantId !== draggingUnitId) occupiedKeys.push(`${x}:${y}`);
+                }
+            }
+            const ownKeys = new Set(ownCells?.map((own) => `${own.x}:${own.y}`) ?? []);
+            const blocked = new Set(occupiedKeys);
+            const footprints: HoCMath.XY[][] = [];
+            for (let cursorDx = 0; cursorDx < selected.footprint_width; cursorDx++) {
+                for (let cursorDy = 0; cursorDy < selected.footprint_height; cursorDy++) {
+                    const footprint: HoCMath.XY[] = [];
+                    for (let dx = 0; dx < selected.footprint_width; dx++) {
+                        for (let dy = 0; dy < selected.footprint_height; dy++) {
+                            footprint.push({ x: cell.x - cursorDx + dx, y: cell.y - cursorDy + dy });
+                        }
+                    }
+                    footprints.push(footprint);
+                }
+            }
             candidateCells =
-                this.context.pathHelper.getClosestSquareCellIndices(
-                    this.context.getMouseWorld(),
-                    allowedForPath,
-                    occupiedKeys,
-                    undefined,
-                    undefined,
-                    undefined,
+                footprints.find((footprint) =>
+                    footprint.every(
+                        (candidate) =>
+                            candidate.x >= 0 &&
+                            candidate.y >= 0 &&
+                            candidate.x < gs.getGridSize() &&
+                            candidate.y < gs.getGridSize() &&
+                            allowedForPath?.has((candidate.x << 4) | candidate.y) &&
+                            (!blocked.has(`${candidate.x}:${candidate.y}`) ||
+                                ownKeys.has(`${candidate.x}:${candidate.y}`)),
+                    ),
                 ) ?? [];
 
             // Fallback if pathing fails (e.g. void): just use the cell under mouse
@@ -1670,9 +1827,15 @@ export class HoverManager {
 
         // Check 2: Large Unit Shape
         if (!invalid && isLarge) {
-            if (candidateCells.length !== 4) {
+            if (candidateCells.length !== selected.footprint_width * selected.footprint_height) {
                 invalid = true; // Should ideally limit to valid cells, but if we can't find 4, it's invalid
-            } else if (!this.context.pathHelper.areCellsFormingSquare(candidateCells)) {
+            } else if (
+                !this.context.pathHelper.areCellsFormingFootprint(
+                    candidateCells,
+                    selected.footprint_width,
+                    selected.footprint_height,
+                )
+            ) {
                 invalid = true;
             }
         }
@@ -1688,15 +1851,15 @@ export class HoverManager {
             }
         }
 
-        // Check 4: Occupied by other unit (that isn't self)
+        // Check 4: Occupied by another stack or terrain (that isn't the dragged unit itself).
+        // The old check ignored terrain ids such as lava/water/mountains because they aren't in
+        // UnitsHolder. That painted a green valid preview which the grid then rejected on click.
         if (!invalid) {
             for (const c of candidateCells) {
                 const occId = this.context.grid.getOccupantUnitId(c);
-                if (occId && this.context.unitsHolder.getAllUnits().has(occId)) {
-                    if (!(draggingUnitId && occId === draggingUnitId)) {
-                        invalid = true;
-                        break;
-                    }
+                if (occId && occId !== draggingUnitId) {
+                    invalid = true;
+                    break;
                 }
             }
         }
@@ -1743,33 +1906,21 @@ export class HoverManager {
         // Success case used generic drawHoverPlacementCell in SandboxDrawer?
         // No, SandboxDrawer draws hoverPlacementCell.
         if (!invalid && candidateCells.length > 0) {
-            const size = gs.getCellSize();
-            const half = size / 2;
-
-            let minX = Number.POSITIVE_INFINITY;
-            let maxX = Number.NEGATIVE_INFINITY;
-            let minY = Number.POSITIVE_INFINITY;
-            let maxY = Number.NEGATIVE_INFINITY;
-
-            for (const c of candidateCells) {
-                const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-                if (pos) {
-                    const left = pos.x - half;
-                    const right = pos.x + half;
-                    const bottom = pos.y - half;
-                    const top = pos.y + half;
-
-                    if (left < minX) minX = left;
-                    if (right > maxX) maxX = right;
-                    if (bottom < minY) minY = bottom;
-                    if (top > maxY) maxY = top;
-                }
+            const logicalCenter = GridMath.getPositionForCells(gs, candidateCells);
+            if (logicalCenter) {
+                // Placement has no combat-active unit. Use the actual selected board/bench instance so
+                // the preview clones its refreshed idle frame and framing instead of the legacy portrait.
+                this.ensureHoverSilhouetteParams(
+                    selected,
+                    logicalCenter,
+                    false,
+                    this.context.getPlacementPreviewUnit(),
+                    // Placement is a literal copy of the live creature. Growing the white backing sprite
+                    // made the combined preview look larger than the unit and exposed it while both were
+                    // at the same cell. Keep both layers at the exact live scale.
+                    true,
+                );
             }
-
-            const centerX = (minX + maxX) * 0.5;
-            const centerY = (minY + maxY) * 0.5;
-
-            this.updateHoverSilhouette({ x: centerX, y: centerY });
         } else {
             this.clearHoverSilhouette();
         }

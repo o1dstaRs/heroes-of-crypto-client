@@ -527,14 +527,9 @@ export class HeadlessMatch {
 
         for (const y of rowOrder) {
             for (const x of columnOrder) {
-                const cells = unit.isSmallSize()
-                    ? [{ x, y }]
-                    : [
-                          { x, y },
-                          { x: x + 1, y },
-                          { x, y: y + 1 },
-                          { x: x + 1, y: y + 1 },
-                      ];
+                const cells = Array.from({ length: unit.getFootprintWidth() }).flatMap((_, dx) =>
+                    Array.from({ length: unit.getFootprintHeight() }, (__, dy) => ({ x: x + dx, y: y + dy })),
+                );
                 if (
                     this.grid.canOccupyCells(
                         cells,

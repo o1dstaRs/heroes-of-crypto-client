@@ -1,5 +1,5 @@
 import { Container, Graphics } from "pixi.js";
-import { FightProperties, FightStateManager, GridMath, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
+import { FightProperties, FightStateManager, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
 
 /**
  * The aura rings a unit should DISPLAY: real auras only, each widened by the team's "+N aura range"
@@ -20,12 +20,19 @@ export const visibleAuraRanges = (
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
+import {
+    projectBattlefieldPoint,
+    projectedCellPoints,
+    projectedPolyline,
+    projectedRectPoints,
+} from "./sandbox/BattlefieldVisualGrid";
 
 /**
  * Red used across the board to signal "it is the enemy's turn" in ranked play — the active-unit
  * aura, the movement highlight, and the board-edge glow all share this color for a consistent cue.
  */
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
+const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
 
 export interface ILingeringTrack {
     x: number;
@@ -97,6 +104,11 @@ export interface IPlacementDrawContext {
      * never sees the opponent's placement area — revealed enemy units are shown there instead.
      */
     restrictToTeam?: TeamType;
+    /**
+     * Visual-only switch for the red/green deployment fields. Placement rules and hover validation
+     * remain active when this is false, so the zones can be restored without changing game logic.
+     */
+    showTeamPlacementZones?: boolean;
 }
 
 export class SandboxDrawer {
@@ -141,7 +153,7 @@ export class SandboxDrawer {
                 g,
                 xy,
                 distance,
-                gs.getCellSize(),
+                gs,
                 hoverGlowPhase,
                 0xffff00, // Yellow
                 fightStarted,
@@ -151,22 +163,13 @@ export class SandboxDrawer {
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
             const { xy, attackRange, auraRanges, isSmall } = sidebarUnitRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(
-                g,
-                xy,
-                attackRange,
-                auraRanges,
-                isSmall,
-                gs.getCellSize(),
-                hoverGlowPhase,
-                0.7,
-            );
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, isSmall, gs, hoverGlowPhase, 0.7);
         }
 
         // 0.51 Hovered Aura Ranges
         if (hoveredAuraRanges) {
             const { xy, auraRanges, isSmall } = hoveredAuraRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs.getCellSize(), hoverGlowPhase, 0.7);
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs, hoverGlowPhase, 0.7);
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
@@ -179,32 +182,25 @@ export class SandboxDrawer {
                     .getAdditionalAuraRangePerTeam(currentActiveUnit.getTeam()),
             );
             if (auraRanges.length > 0) {
-                const xy = currentActiveUnit.getVisualCenter(gs);
+                // The range drawer performs the battlefield projection itself. Passing the sprite's
+                // already projected centre here bent the active aura a second time.
+                const xy = currentActiveUnit.getPosition();
                 const isSmall = currentActiveUnit.isSmallSize();
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
-                SandboxDrawer.drawAuraAndAttackRanges(
-                    g,
-                    xy,
-                    0,
-                    auraRanges,
-                    isSmall,
-                    gs.getCellSize(),
-                    hoverGlowPhase,
-                    0.5,
-                );
+                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs, hoverGlowPhase, 0.5);
             }
         }
 
         // 1. Shift Selected Shot Range (Same style as Active)
         if (shiftSelectedShotRange) {
             const { xy, distance } = shiftSelectedShotRange;
-            SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawRangeRing(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
         }
 
         // 2. Shot range ring (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
             const { xy, distance } = currentActiveShotRange;
-            SandboxDrawer.drawRangeRing(g, xy, distance, gs.getCellSize(), hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawRangeRing(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
         }
 
         const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
@@ -219,19 +215,22 @@ export class SandboxDrawer {
             SandboxDrawer.drawMovementArea(movementGraphics, currentActivePath, gs, movementColor, hoverGlowPhase);
         }
 
-        // An explicitly inspected ally needs a dark tile body plus a contrasting grey edge. A uniformly
-        // near-black low-alpha colour disappears into the floor and the green aura, as the screenshots show.
+        // Ally inspection stays seamless, but uses an antique brown-gold wash so it cannot be mistaken for
+        // the active unit's authoritative white movement range.
         if (hasHoveredMovement && !ctx.hoveredUnitMoveRangeIsEnemy) {
             SandboxDrawer.drawMovementArea(
                 movementGraphics,
                 hoveredUnitMoveRange!,
                 gs,
-                0x4d4d4d,
+                ALLY_MOVEMENT_INSPECTION_COLOR,
                 hoverGlowPhase,
-                1,
-                true,
+                2,
             );
         }
+
+        // The silhouette shows the creature, while these cells show the exact board footprint it will
+        // occupy after a move or a melee approach. This is especially important for 2x2 creatures.
+        ctx.hoverManager.drawHoverBattlefieldFootprint(g);
 
         // 3. Active unit indication is the pulsing light-wave aura rendered on the unit itself
         //    (see RenderableUnit.updateActiveAura) — no separate highlight glow here.
@@ -247,6 +246,7 @@ export class SandboxDrawer {
             placementGraphics,
             placementFrameContainer,
             restrictToTeam,
+            showTeamPlacementZones = true,
         } = ctx;
         if (!placementGraphics || !placementFrameContainer) return;
         const g = placementGraphics;
@@ -256,7 +256,9 @@ export class SandboxDrawer {
         // Pixi v8 deprecates adding display-object children directly to Graphics.
         placementFrameContainer.removeChildren();
         if (!fightProps.hasFightStarted()) {
-            placementManager.draw(g, placementFrameContainer, restrictToTeam);
+            if (showTeamPlacementZones) {
+                placementManager.draw(g, placementFrameContainer, restrictToTeam);
+            }
             hoverManager.drawHoverPlacementCell(g);
         }
     }
@@ -266,39 +268,20 @@ export class SandboxDrawer {
         gs: GridSettings,
         color: number,
         phase: number,
-        intensity = 1,
-        allyInspection = false,
+        opacityScale = 1,
     ): void {
         if (!cells.length) return;
-        const half = gs.getStep() * 0.5;
-        const edgeInset = gs.getCellSize() * 0.055;
         const pulse = (Math.sin(phase * 0.65) + 1) * 0.5;
-        const boundsFor = (cell: HoCMath.XY) => {
-            const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            return {
-                left: pos.x - half + edgeInset,
-                right: pos.x + half - edgeInset,
-                bottom: pos.y - half + edgeInset,
-                top: pos.y + half - edgeInset,
-            };
-        };
-        const radius = Math.max(2, gs.getCellSize() * 0.025);
+        // The board's own dark seams provide the cell boundaries. A moderately visible white wash
+        // keeps the reachable area readable without bringing back the opaque grey outlined grid.
+        const movementFillAlpha = 0.05 + pulse * 0.01;
 
         for (const cell of cells) {
-            const { left, right, bottom, top } = boundsFor(cell);
-            g.roundRect(left, bottom, right - left, top - bottom, radius).fill({
-                color: allyInspection ? 0x11151a : color,
-                alpha: allyInspection ? 0.2 + pulse * 0.04 : (0.052 + pulse * 0.018) * intensity,
-            });
-            g.roundRect(left, bottom, right - left, top - bottom, radius).stroke({
-                width: Math.max(3, gs.getCellSize() * 0.055),
-                color: allyInspection ? 0x59616a : color,
-                alpha: allyInspection ? 0.2 + pulse * 0.05 : (0.045 + pulse * 0.025) * intensity,
-            });
-            g.roundRect(left, bottom, right - left, top - bottom, radius).stroke({
-                width: Math.max(1, gs.getCellSize() * 0.012),
-                color: allyInspection ? 0xa0a5ab : color,
-                alpha: allyInspection ? 0.5 + pulse * 0.12 : (0.16 + pulse * 0.06) * intensity,
+            // Use the full projected cell so every movement edge sits on the painted stone seam.
+            const polygon = projectedCellPoints(cell, gs);
+            g.poly(polygon).fill({
+                color,
+                alpha: movementFillAlpha * opacityScale,
             });
         }
     }
@@ -308,16 +291,16 @@ export class SandboxDrawer {
         attackRange: number,
         auraRanges: { range: number; isBuff: boolean }[],
         isSmall: boolean,
-        cellSize: number,
+        gs: GridSettings,
         pulsePhase: number,
         alphaMultiplier = 1.0,
     ): void {
         // Attack Range
         if (attackRange > 0) {
             // Style: Thin white/cyan ring, distinct from active unit
-            g.circle(xy.x, xy.y, attackRange).stroke({
+            SandboxDrawer.drawProjectedRing(g, xy, attackRange, gs, {
                 width: 1.5,
-                color: 0x00ffff, // Cyan
+                color: 0x00ffff,
                 alpha: 0.5 * alphaMultiplier,
             });
         }
@@ -332,6 +315,7 @@ export class SandboxDrawer {
                 // Calculate half-extent based on range cells
                 // Formula: (Range + (UnitSizeCells / 2)) * CellSize
                 const unitHalfSizeCells = isSmall ? 0.5 : 1.0;
+                const cellSize = gs.getCellSize();
                 const extent = (range + unitHalfSizeCells) * cellSize - cellSize * 0.055;
                 const feather = Math.min(cellSize * 0.28, extent * 0.12);
 
@@ -341,7 +325,15 @@ export class SandboxDrawer {
                     const inset = (feather * layer) / (featherLayers - 1);
                     const layerExtent = extent - inset;
                     const layerAlpha = (0.022 + layer * 0.006) * alphaMultiplier;
-                    g.rect(xy.x - layerExtent, xy.y - layerExtent, layerExtent * 2, layerExtent * 2).fill({
+                    g.poly(
+                        projectedRectPoints(
+                            xy.x - layerExtent,
+                            xy.y - layerExtent,
+                            xy.x + layerExtent,
+                            xy.y + layerExtent,
+                            gs,
+                        ),
+                    ).fill({
                         color,
                         alpha: layerAlpha,
                     });
@@ -354,8 +346,15 @@ export class SandboxDrawer {
                     const progress = (cycle + waveIndex / 3) % 1;
                     const waveExtent = Math.max(cellSize * 0.42, extent * progress);
                     const fade = Math.sin(progress * Math.PI);
-                    const radius = Math.min(cellSize * 0.18, waveExtent * 0.12);
-                    g.roundRect(xy.x - waveExtent, xy.y - waveExtent, waveExtent * 2, waveExtent * 2, radius).stroke({
+                    g.poly(
+                        projectedRectPoints(
+                            xy.x - waveExtent,
+                            xy.y - waveExtent,
+                            xy.x + waveExtent,
+                            xy.y + waveExtent,
+                            gs,
+                        ),
+                    ).stroke({
                         width: Math.max(2, cellSize * (0.035 - progress * 0.012)),
                         color,
                         alpha: fade * 0.3 * alphaMultiplier,
@@ -368,7 +367,7 @@ export class SandboxDrawer {
         g: Graphics,
         xy: HoCMath.XY,
         distance: number,
-        cellSize: number,
+        gs: GridSettings,
         pulsePhase: number,
         color: number,
         fightStarted: boolean,
@@ -376,13 +375,14 @@ export class SandboxDrawer {
         const ringWidth = fightStarted ? 3 : 2;
 
         // Main Ring
-        g.circle(xy.x, xy.y, distance).stroke({
+        SandboxDrawer.drawProjectedRing(g, xy, distance, gs, {
             width: ringWidth,
             color: color,
             alpha: fightStarted ? 0.95 : 0.8,
         });
 
         const pulse = (Math.sin(pulsePhase) + 1) / 2;
+        const cellSize = gs.getCellSize();
 
         // Ticks
         const steps = 8;
@@ -393,12 +393,10 @@ export class SandboxDrawer {
             const sin = Math.sin(angle);
             const r0 = distance - tickLen * 0.5;
             const r1 = distance + tickLen * 0.5;
-            const x0 = xy.x + cos * r0;
-            const y0 = xy.y + sin * r0;
-            const x1 = xy.x + cos * r1;
-            const y1 = xy.y + sin * r1;
-            g.moveTo(x0, y0)
-                .lineTo(x1, y1)
+            const p0 = projectBattlefieldPoint({ x: xy.x + cos * r0, y: xy.y + sin * r0 }, gs);
+            const p1 = projectBattlefieldPoint({ x: xy.x + cos * r1, y: xy.y + sin * r1 }, gs);
+            g.moveTo(p0.x, p0.y)
+                .lineTo(p1.x, p1.y)
                 .stroke({
                     width: 1.5,
                     color: color,
@@ -414,11 +412,26 @@ export class SandboxDrawer {
             const fraction = i / glowSteps;
             const glowRadius = distance + fraction * glowSpread;
             const glowAlpha = glowBaseAlpha * (1 - fraction) * (0.7 + 0.3 * pulse);
-            g.circle(xy.x, xy.y, glowRadius).stroke({
+            SandboxDrawer.drawProjectedRing(g, xy, glowRadius, gs, {
                 width: 1.5,
                 color: color,
                 alpha: glowAlpha,
             });
         }
+    }
+    private static drawProjectedRing(
+        g: Graphics,
+        center: HoCMath.XY,
+        radius: number,
+        gs: GridSettings,
+        style: { width: number; color: number; alpha: number },
+    ): void {
+        const segments = 72;
+        const points: HoCMath.XY[] = [];
+        for (let i = 0; i < segments; i++) {
+            const angle = (Math.PI * 2 * i) / segments;
+            points.push({ x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius });
+        }
+        g.poly(projectedPolyline(points, gs)).stroke(style);
     }
 }

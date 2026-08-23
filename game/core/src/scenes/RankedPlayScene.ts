@@ -61,6 +61,7 @@ import type { AuthoritativeSnapshotOptions } from "../pixi/PixiScene";
 import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
+import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -171,6 +172,77 @@ export const revealedOpponentRowY = (
  */
 export const revealedOpponentRowScale = (total: number): number =>
     total <= 6 ? 0.85 : Math.max(0.55, (0.85 * 6) / total);
+
+/**
+ * Cell footprints for a centred default deployment line on the zone row nearest the battlefield.
+ * One-cell gaps are kept whenever the full roster fits; 2x2 creatures consume two horizontal cells and
+ * extend away from the battlefield so their front edge stays aligned with every 1x1 creature.
+ */
+export const centeredPlacementLineCells = (
+    sizes: readonly number[],
+    minCellX: number,
+    maxCellX: number,
+    frontRowY: number,
+    isUpper: boolean,
+): HoCMath.XY[][] => {
+    const widths = sizes.map((size) => (size > 1 ? 2 : 1));
+    const availableWidth = Math.max(0, maxCellX - minCellX + 1);
+    const occupiedWidth = widths.reduce((sum, width) => sum + width, 0);
+    const gap = occupiedWidth + Math.max(0, widths.length - 1) <= availableWidth ? 1 : 0;
+    const lineWidth = occupiedWidth + gap * Math.max(0, widths.length - 1);
+    let x = minCellX + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
+
+    return widths.map((width) => {
+        const y = width > 1 && !isUpper ? frontRowY - 1 : frontRowY;
+        const cells =
+            width > 1
+                ? [
+                      { x, y },
+                      { x: x + 1, y },
+                      { x, y: y + 1 },
+                      { x: x + 1, y: y + 1 },
+                  ]
+                : [{ x, y }];
+        x += width + gap;
+        return cells;
+    });
+};
+
+/**
+ * Vertical twin of centeredPlacementLineCells for the live left/right rectangular deployment zones.
+ * The red baseline zone is a narrow strip on the board's right edge, so its roster must run along Y;
+ * trying to fit six stacks across the strip's three X columns silently discarded half of the army.
+ * Large creatures occupy two rows and extend away from the battlefield into the zone's second column.
+ */
+export const centeredPlacementColumnCells = (
+    sizes: readonly number[],
+    minCellY: number,
+    maxCellY: number,
+    frontColumnX: number,
+    isRight: boolean,
+): HoCMath.XY[][] => {
+    const heights = sizes.map((size) => (size > 1 ? 2 : 1));
+    const availableHeight = Math.max(0, maxCellY - minCellY + 1);
+    const occupiedHeight = heights.reduce((sum, height) => sum + height, 0);
+    const gap = occupiedHeight + Math.max(0, heights.length - 1) <= availableHeight ? 1 : 0;
+    const columnHeight = occupiedHeight + gap * Math.max(0, heights.length - 1);
+    let y = minCellY + Math.max(0, Math.floor((availableHeight - columnHeight) / 2));
+
+    return heights.map((height) => {
+        const x = height > 1 && !isRight ? frontColumnX - 1 : frontColumnX;
+        const cells =
+            height > 1
+                ? [
+                      { x, y },
+                      { x: x + 1, y },
+                      { x, y: y + 1 },
+                      { x: x + 1, y: y + 1 },
+                  ]
+                : [{ x, y }];
+        y += height + gap;
+        return cells;
+    });
+};
 
 /** Minimal grid surface the occupancy audit needs (see reconcileRankedGridOccupancy). */
 export interface IOccupancyAuditGrid {
@@ -1260,7 +1332,9 @@ export class RankedPlayScene extends Sandbox {
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
                 const target = this.unitsHolder.getAllUnits().get(event.targetId) as RenderableUnit | undefined;
-                const pos = target?.getPosition() ?? event.damage?.unitPosition ?? { x: 0, y: 0 };
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const logicalFallback = event.damage?.unitPosition ?? { x: 0, y: 0 };
+                const pos = target?.getVisualCenter(gs) ?? projectBattlefieldPoint(logicalFallback, gs);
                 const dir = this.getAttackDirection(event.attackerId, event.targetId);
                 if (event.damage.hits?.length) {
                     for (const hit of event.damage.hits) {
@@ -1274,7 +1348,11 @@ export class RankedPlayScene extends Sandbox {
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
-                const centerPos = event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 };
+                const gs = this.sc_sceneSettings.getGridSettings();
+                const centerPos = projectBattlefieldPoint(
+                    event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 },
+                    gs,
+                );
                 if (event.damage.hits?.length) {
                     for (const hit of event.damage.hits) {
                         this.combatVisuals?.showFloatingDamage(centerPos, hit.amount, undefined, hit.unitsDied);
@@ -1285,7 +1363,12 @@ export class RankedPlayScene extends Sandbox {
             } else if (event.type === "armageddon_applied") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 if (u)
-                    this.combatVisuals?.showFloatingDamage(u.getPosition(), event.damage, undefined, event.unitsDied);
+                    this.combatVisuals?.showFloatingDamage(
+                        u.getVisualCenter(this.sc_sceneSettings.getGridSettings()),
+                        event.damage,
+                        undefined,
+                        event.unitsDied,
+                    );
                 this.triggerScreenShake(12 + event.wave * 3, 0.5);
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
@@ -1298,8 +1381,11 @@ export class RankedPlayScene extends Sandbox {
         const a = this.unitsHolder.getAllUnits().get(attackerId) as RenderableUnit | undefined;
         const t = this.unitsHolder.getAllUnits().get(targetId) as RenderableUnit | undefined;
         if (!a || !t) return undefined;
-        const dx = t.getPosition().x - a.getPosition().x;
-        const dy = t.getPosition().y - a.getPosition().y;
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const aCenter = a.getVisualCenter(gs);
+        const tCenter = t.getVisualCenter(gs);
+        const dx = tCenter.x - aCenter.x;
+        const dy = tCenter.y - aCenter.y;
         const len = Math.hypot(dx, dy);
         return len < 0.001 ? undefined : { x: dx / len, y: dy / len };
     }
@@ -1323,7 +1409,7 @@ export class RankedPlayScene extends Sandbox {
         const attackerPos = attacker?.getVisualCenter(gs);
         for (const entry of splash) {
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {
                 const dx = pos.x - attackerPos.x;
@@ -1368,11 +1454,11 @@ export class RankedPlayScene extends Sandbox {
         if (chainEntries.length && attackerPos) {
             const points: HoCMath.XY[] = [attackerPos];
             if (damage?.unitPosition) {
-                points.push(damage.unitPosition);
+                points.push(projectBattlefieldPoint(damage.unitPosition, gs));
             }
             for (const entry of chainEntries) {
                 const bounced = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-                points.push(bounced?.getVisualCenter(gs) ?? entry.position);
+                points.push(bounced?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs));
             }
             this.combatVisuals?.spawnChainLightning(points, gs.getCellSize());
         }
@@ -1382,7 +1468,7 @@ export class RankedPlayScene extends Sandbox {
             if (entry.source === "flesh_shield" || entry.source === "devour_essence") continue;
             if (entry.amount <= 0 && entry.unitsDied <= 0) continue;
             const unit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
-            const pos = unit?.getVisualCenter(gs) ?? entry.position;
+            const pos = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(entry.position, gs);
             let dir: HoCMath.XY | undefined;
             if (attackerPos) {
                 const dx = pos.x - attackerPos.x;
@@ -2054,8 +2140,8 @@ export class RankedPlayScene extends Sandbox {
     }
     /**
      * During placement the opponent's placement zone is never drawn (see getPlacementDrawTeam). Instead,
-     * lay the opponent's revealed roster out in a centered horizontal row INSIDE the footprint of their
-     * placement zone, so the units sit where the opponent's army will actually deploy. The zone geometry
+     * lay the opponent's revealed roster out in a centered vertical column INSIDE the footprint of their
+     * left/right placement zone, so the units sit where the opponent's army will actually deploy. The geometry
      * comes from the client-side PlacementManager, which during ranked placement always holds the
      * opponent's BASELINE (LEVEL_1) zone — their real Placement augment is sanitized to 0 by the server
      * until fight start. These are synthetic display positions — the opponent's real placement cells
@@ -2084,8 +2170,6 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const gs = this.sc_sceneSettings.getGridSettings();
-        const total = revealedUnits.length;
-
         // Bound the opponent zone from the cells it may place on (covers both the single RECTANGLE zone
         // and the two-square corner layout, whichever the fight uses). possibleCellPositions returns CELL
         // INDICES, not world coordinates — the previous layout fed them straight into unit positions,
@@ -2099,34 +2183,70 @@ export class RankedPlayScene extends Sandbox {
             }
         }
         const isOpponentUpper = opponentTeam === TeamVals.UPPER;
-        const edgeY = isOpponentUpper ? gs.getMaxY() : gs.getMinY();
-        let zoneOuterEdgeY = edgeY;
-        if (zoneCells.length) {
-            // The zone's outer boundary: half a step past the center of the outermost row it can use.
-            const outermostCenterY = zoneCells.reduce(
-                (best, cell) => {
-                    const centerY = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep()).y;
-                    return isOpponentUpper ? Math.max(best, centerY) : Math.min(best, centerY);
-                },
-                isOpponentUpper ? -Infinity : Infinity,
-            );
-            zoneOuterEdgeY = outermostCenterY + (isOpponentUpper ? gs.getHalfStep() : -gs.getHalfStep());
+        if (!zoneCells.length) {
+            return positions;
         }
-
-        const rowY = revealedOpponentRowY(edgeY, zoneOuterEdgeY, gs.getStep(), isOpponentUpper);
+        const uniqueXs = new Set(zoneCells.map((cell) => cell.x));
+        const uniqueYs = new Set(zoneCells.map((cell) => cell.y));
+        // Rectangle placement zones are vertical strips: green on the left, red on the right. Use the
+        // inner/front column and spread all six silhouettes along its full height. The former horizontal
+        // layout saw only three cells across the baseline red zone and dropped every footprint that did
+        // not fit, which is why only part of the opponent army appeared near the bottom-right corner.
+        // Two-corner square zones are wider than they are tall, so retain their horizontal formation.
+        let footprints: HoCMath.XY[][];
+        if (uniqueYs.size >= uniqueXs.size) {
+            const frontColumnX = zoneCells.reduce(
+                (front, cell) => (isOpponentUpper ? Math.min(front, cell.x) : Math.max(front, cell.x)),
+                isOpponentUpper ? Infinity : -Infinity,
+            );
+            const frontColumnYs = zoneCells.filter((cell) => cell.x === frontColumnX).map((cell) => cell.y);
+            if (!frontColumnYs.length) {
+                return positions;
+            }
+            footprints = centeredPlacementColumnCells(
+                revealedUnits.map((unit) => unit.properties.size),
+                Math.min(...frontColumnYs),
+                Math.max(...frontColumnYs),
+                frontColumnX,
+                isOpponentUpper,
+            );
+        } else {
+            const frontRowY = zoneCells.reduce(
+                (front, cell) => (isOpponentUpper ? Math.min(front, cell.y) : Math.max(front, cell.y)),
+                isOpponentUpper ? Infinity : -Infinity,
+            );
+            const frontRowXs = zoneCells.filter((cell) => cell.y === frontRowY).map((cell) => cell.x);
+            if (!frontRowXs.length) {
+                return positions;
+            }
+            footprints = centeredPlacementLineCells(
+                revealedUnits.map((unit) => unit.properties.size),
+                Math.min(...frontRowXs),
+                Math.max(...frontRowXs),
+                frontRowY,
+                isOpponentUpper,
+            );
+        }
+        const allowed = new Set(zoneCells.map((cell) => `${cell.x}:${cell.y}`));
         revealedUnits.forEach((unit, index) => {
-            positions.set(unit.properties.id, {
-                x: revealedOpponentRowX(index, total, gs.getMinX(), gs.getMaxX()),
-                y: rowY,
-            });
+            const footprint = footprints[index];
+            if (!footprint?.length || !footprint.every((cell) => allowed.has(`${cell.x}:${cell.y}`))) {
+                return;
+            }
+            const position = GridMath.getPositionForCells(gs, footprint);
+            if (position) {
+                positions.set(unit.properties.id, position);
+            }
         });
         return positions;
     }
     protected override getRevealedOpponentUnitScale(total: number): number {
         return revealedOpponentRowScale(total);
     }
-    protected override shouldRenderUnplacedUnitBench(unitState: SandboxSceneUnitState): boolean {
-        return this.viewerTeam !== undefined && unitState.team === this.viewerTeam;
+    protected override shouldRenderUnplacedUnitBench(_unitState: SandboxSceneUnitState): boolean {
+        // Ranked board placement starts with the full army already deployed. There is no intermediate
+        // centre-board bench: hiding unplaced remnants also guarantees its backdrop is never drawn.
+        return false;
     }
     /**
      * Spread the placement roster evenly across the full board width (like the sandbox
@@ -2157,7 +2277,9 @@ export class RankedPlayScene extends Sandbox {
         return this.viewerTeam !== undefined && unitState.team !== this.viewerTeam;
     }
     protected override shouldShowPlacementBenchToggle(): boolean {
-        return this.viewerTeam !== undefined;
+        // With no placement bench there is nothing to collapse or restore, so the centre arrow control
+        // must not be created either.
+        return false;
     }
     protected override shouldGhostCurrentPlacementBenchUnit(unit: Unit): boolean {
         return this.viewerTeam !== undefined && unit.getTeam() !== this.viewerTeam;
@@ -3182,6 +3304,9 @@ export class RankedPlayScene extends Sandbox {
             // No live sprite (never shown, or the replay already shattered + tore it down) → nothing to do.
             const shatterInfo = renderable.getShatterInfo();
             if (!shatterInfo) {
+                continue;
+            }
+            if (this.playCustomDeathAnimation(renderable)) {
                 continue;
             }
             this.combatVisuals?.spawnDeathVfx(shatterInfo, renderable.getId(), renderable.hasStatusEffect("Freeze"));

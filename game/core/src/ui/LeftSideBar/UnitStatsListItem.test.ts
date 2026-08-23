@@ -4,6 +4,7 @@ import { FactionVals, type UnitProperties } from "@heroesofcrypto/common";
 
 import { formatSidebarStat } from "./sidebarMetrics";
 import { areUnitStatsPropsEqual } from "./unitStatsMemo";
+import { DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING } from "../leftSidebarPortraitTuning";
 import type { IVisibleOverallImpact } from "../../scenes/VisibleState";
 
 const impact = (): IVisibleOverallImpact => ({ abilities: [], buffs: [], debuffs: [] });
@@ -52,4 +53,10 @@ test("sidebar stats preserve meaningful decimals and omit trailing zeroes", () =
     expect(formatSidebarStat(7.75)).toBe("7.75");
     expect(formatSidebarStat(10.04)).toBe("10.04");
     expect(formatSidebarStat(2.4000000953674316)).toBe("2.4");
+});
+
+test("left battle portrait uses the approved inset and seven-percent creature reduction", () => {
+    expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.containerOffsetX).toBe(1);
+    expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.containerWidth).toBe(99);
+    expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.artScale).toBe(0.93);
 });

@@ -133,8 +133,45 @@ select {
 }
 
 /* HoMM-style pointer for clickable UI. Keep disabled controls honest, and let the battle cursor's
-   temporary `cursor: none !important` rule continue to win while a melee target is being aimed at. */
-:where(button:not(:disabled), a[href], [role="button"], input[type="range"], label[for]) {
+   temporary `cursor: none !important` rule continue to win while a melee target is being aimed at.
+   MUI's own classes are listed explicitly: components set `cursor: pointer` through `sx`, which
+   compiles to a generated class, and no plain element selector reaches those. The tooltip carriers
+   are here too — anything that pops a description on hover should read as touchable, which is the
+   whole point of the themed pointer. */
+:where(
+    button:not(:disabled),
+    a[href],
+    summary,
+    select,
+    label[for],
+    input[type="range"],
+    input[type="checkbox"],
+    input[type="radio"],
+    [role="button"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="option"],
+    [role="switch"],
+    [role="checkbox"],
+    [role="radio"],
+    [title],
+    [data-tooltip],
+    .MuiButton-root:not(.Mui-disabled),
+    .MuiIconButton-root:not(.Mui-disabled),
+    .MuiListItemButton-root,
+    .MuiMenuItem-root,
+    .MuiOption-root,
+    .MuiTab-root,
+    .MuiCard-root,
+    .MuiChip-clickable,
+    .MuiSwitch-root,
+    .MuiSlider-root,
+    .MuiSlider-thumb,
+    .MuiCheckbox-root,
+    .MuiRadio-root,
+    .MuiSelect-root,
+    .MuiAutocomplete-option
+) {
     cursor: var(--hoc-cursor-interactive), pointer !important;
 }
 

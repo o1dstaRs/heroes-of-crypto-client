@@ -8,7 +8,7 @@
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
@@ -19,7 +19,6 @@ import {
     DEFAULT_SANDBOX_PANEL_EXPANSION,
     SandboxPanel,
     SandboxPanelExpansion,
-    fitSandboxPanelExpansion,
     toggleSandboxPanel,
 } from "./sandboxPanelExpansion";
 
@@ -40,12 +39,12 @@ const AUGMENT_BUTTONS: ReadonlyArray<{
     alt: string;
     img: string;
 }> = [
-    { kind: "Placement", title: "Augment board placements", alt: "Placement Icon", img: augmentIcon(augmentBoardImg) },
-    { kind: "Armor", title: "Augment armor", alt: "Armor Icon", img: augmentIcon(augmentArmorImg) },
-    { kind: "Might", title: "Augment melee attack", alt: "Might Icon", img: augmentIcon(augmentMightImg) },
-    { kind: "Empower", title: "Augment magic damage", alt: "Empower Icon", img: augmentIcon(augmentEmpowerImg) },
-    { kind: "Sniper", title: "Augment ranged attack", alt: "Sniper Icon", img: augmentIcon(augmentSniperImg) },
-    { kind: "Movement", title: "Augment movement", alt: "Movement Icon", img: augmentIcon(augmentMovementImg) },
+    { kind: "Placement", title: "Board Placement", alt: "Placement Icon", img: augmentIcon(augmentBoardImg) },
+    { kind: "Armor", title: "Armor", alt: "Armor Icon", img: augmentIcon(augmentArmorImg) },
+    { kind: "Might", title: "Might", alt: "Might Icon", img: augmentIcon(augmentMightImg) },
+    { kind: "Empower", title: "Empower", alt: "Empower Icon", img: augmentIcon(augmentEmpowerImg) },
+    { kind: "Sniper", title: "Sniper", alt: "Sniper Icon", img: augmentIcon(augmentSniperImg) },
+    { kind: "Movement", title: "Movement", alt: "Movement Icon", img: augmentIcon(augmentMovementImg) },
 ];
 
 // Above the board's gold edge trim (zIndex 2) and the sidebars (zIndex 1). At the old zIndex 1 the label
@@ -116,7 +115,7 @@ const PlacementToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Augment Board Placement</FormLabel>
+                    <FormLabel>Board Placement</FormLabel>
                     <RadioGroup
                         name={`${title}-placement-type`}
                         onChange={handleSelectionChange}
@@ -181,13 +180,13 @@ const ArmorToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Augment Armor</FormLabel>
+                    <FormLabel>Armor</FormLabel>
                     <RadioGroup
                         name={`${title}-armor-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.ArmorAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="No Augment" />
+                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
                             label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_1)}
@@ -247,13 +246,13 @@ const MightToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Augment Might</FormLabel>
+                    <FormLabel>Might</FormLabel>
                     <RadioGroup
                         name={`${title}-might-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.MightAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.MightAugment.NO_AUGMENT} label="No Augment" />
+                        <Radio value={Augment.MightAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.MightAugment.LEVEL_1}
                             label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_1)}% Melee attack`}
@@ -313,13 +312,13 @@ const EmpowerToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Augment Empower</FormLabel>
+                    <FormLabel>Empower</FormLabel>
                     <RadioGroup
                         name={`${title}-empower-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.EmpowerAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label="No Augment" />
+                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.EmpowerAugment.LEVEL_1}
                             label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_1)}% Magic damage`}
@@ -377,13 +376,13 @@ const SniperToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Augment Sniper</FormLabel>
+                    <FormLabel>Sniper</FormLabel>
                     <RadioGroup
                         name={`${title}-sniper-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.SniperAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label="No Augment" />
+                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.SniperAugment.LEVEL_1}
                             label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[0]}% attack/+${
@@ -447,13 +446,13 @@ const MovementToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Augment Movement</FormLabel>
+                    <FormLabel>Movement</FormLabel>
                     <RadioGroup
                         name={`${title}-movement-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.MovementAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label="No Augment" />
+                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label="None" />
                         <Radio
                             value={Augment.MovementAugment.LEVEL_1}
                             label={`+${Augment.getMovementPower(Augment.MovementAugment.LEVEL_1)} Movement steps`}
@@ -506,62 +505,15 @@ const SandboxToggleContainer = ({
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
 
-    // Both tools are useful side by side and no longer form a radio-style accordion. Start with both open,
-    // then use the browser's actual wrapped layout to close Artifacts only when the active team drawer would
-    // overflow vertically. Once the player changes either header, their choice wins over auto-fit.
+    // Land directly on the compact state that fits the sidebar: Augments open, Artifacts folded. Previously
+    // both mounted open and a delayed layout measurement folded Artifacts 240ms later, so the first team click
+    // briefly showed a scrollbar and then looked as if the panel had reset itself.
     const [panelExpansion, setPanelExpansion] = useState<SandboxPanelExpansion>(() => ({
         ...DEFAULT_SANDBOX_PANEL_EXPANSION,
     }));
-    const panelContainerRef = useRef<HTMLDivElement>(null);
-    const userSetPanelExpansion = useRef(false);
-    const autoFitResolved = useRef(false);
     const { artifactsOpen, augmentsOpen } = panelExpansion;
 
-    useLayoutEffect(() => {
-        if (!showArtifactPicker || autoFitResolved.current) return;
-
-        const container = panelContainerRef.current;
-        const togglerBody = container?.closest<HTMLElement>('[data-hoc-toggler-body="true"]');
-        const scrollRegion = container?.closest<HTMLElement>('[data-sandbox-scroll-region="true"]');
-        if (!container || !togglerBody || !scrollRegion) return;
-
-        // The parent team drawer animates for 200ms. Debounce its ResizeObserver notifications so the fit
-        // decision sees the final open drawer after the previously open Army/Board drawer has closed.
-        let settleTimer: number | undefined;
-        const measureSettledLayout = () => {
-            settleTimer = undefined;
-            if (autoFitResolved.current || userSetPanelExpansion.current || togglerBody.dataset.open !== "true") {
-                return;
-            }
-
-            autoFitResolved.current = true;
-            setPanelExpansion((current) => fitSandboxPanelExpansion(current, scrollRegion));
-        };
-        const scheduleMeasurement = () => {
-            if (autoFitResolved.current || userSetPanelExpansion.current) return;
-            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
-            settleTimer = window.setTimeout(measureSettledLayout, 240);
-        };
-
-        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasurement);
-        observer?.observe(togglerBody);
-        observer?.observe(container);
-        observer?.observe(scrollRegion);
-        togglerBody.addEventListener("transitionend", scheduleMeasurement);
-        window.addEventListener("resize", scheduleMeasurement);
-        scheduleMeasurement();
-
-        return () => {
-            observer?.disconnect();
-            togglerBody.removeEventListener("transitionend", scheduleMeasurement);
-            window.removeEventListener("resize", scheduleMeasurement);
-            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
-        };
-    }, [showArtifactPicker]);
-
     const handlePanelToggle = (panel: SandboxPanel) => {
-        userSetPanelExpansion.current = true;
-        autoFitResolved.current = true;
         setPanelExpansion((current) => toggleSandboxPanel(current, panel));
     };
     // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
@@ -586,7 +538,6 @@ const SandboxToggleContainer = ({
 
     return (
         <Box
-            ref={panelContainerRef}
             sx={{
                 display: "flex",
                 flexDirection: "column",

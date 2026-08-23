@@ -2,15 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 
-import { HoCConfig, ToFactionType } from "@heroesofcrypto/common";
+import { HoCConfig } from "@heroesofcrypto/common";
 
-import { getSpellCornerFrameTextureKey, PixiRenderableSpell } from "./RenderableSpell";
-
-test("maps each magic school to the selected corner-frame artwork", () => {
-    expect(getSpellCornerFrameTextureKey(ToFactionType.Chaos)).toBe("spell_corner_chaos_a");
-    expect(getSpellCornerFrameTextureKey(ToFactionType.Nature)).toBe("spell_corner_nature_b");
-    expect(getSpellCornerFrameTextureKey(ToFactionType.Life)).toBe("spell_corner_life_b");
-});
+import { PixiRenderableSpell } from "./RenderableSpell";
 
 describe("PixiRenderableSpell stack-requirement line", () => {
     const cardLines = (faction: string, name: string, ownerStackPower: number): string => {
@@ -32,11 +26,11 @@ describe("PixiRenderableSpell stack-requirement line", () => {
 
     test("a real minimum shows on the card even when the caster already meets it", () => {
         // Meteorite requires stack power 5 — the card must teach the gate BEFORE the player fails it.
-        expect(cardLines("Chaos", "Meteorite", 5)).toContain("Requires stack power 5");
+        expect(cardLines("Nature", "Meteorite", 5)).toContain("Requires stack power 5");
     });
 
     test("an unmet minimum also states the caster's own power", () => {
-        expect(cardLines("Chaos", "Meteorite", 2)).toContain("Requires stack power 5 — yours is 2");
+        expect(cardLines("Nature", "Meteorite", 2)).toContain("Requires stack power 5 — yours is 2");
     });
 
     test("a trivial minimum of 1 stays silent", () => {
@@ -58,6 +52,38 @@ describe("PixiRenderableSpell magic-damage hover", () => {
         try {
             const hover = spell.getHoverInfo(5, 2, 1, 0, 15).join("\n");
             expect(hover).toContain("dealing 345 damage");
+        } finally {
+            spell.destroy();
+            layer.destroy();
+        }
+    });
+});
+
+describe("PixiRenderableSpell card hit area", () => {
+    test("the spell icon remains hoverable on both tilted pages when the idle frame has no fill", () => {
+        const layer = new Container();
+        const spell = new PixiRenderableSpell(
+            { spellProperties: HoCConfig.getSpellConfig("Nature", "Lightning Strike"), amount: 1 },
+            layer,
+            { spell_cell_260: Texture.WHITE },
+            Texture.WHITE,
+            new Map(),
+        );
+
+        try {
+            for (const page of [1, 4]) {
+                spell.renderOnPage(page, 5);
+                const iconBounds = spell.getSprite().getBounds();
+                expect(
+                    spell.isHover(
+                        {
+                            x: (iconBounds.minX + iconBounds.maxX) / 2,
+                            y: (iconBounds.minY + iconBounds.maxY) / 2,
+                        },
+                        5,
+                    ),
+                ).toBeTrue();
+            }
         } finally {
             spell.destroy();
             layer.destroy();

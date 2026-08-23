@@ -6,8 +6,7 @@ import Typography from "@mui/joy/Typography";
 import Slider from "@mui/joy/Slider";
 import Button from "@mui/joy/Button";
 import Tooltip from "@mui/joy/Tooltip";
-import { images } from "../../generated/image_imports";
-import { hocDisplayFontFamily, hocSidebarImageButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily, hocSidebarImageButtonSx, hocSplitterSliderSx } from "../hocTheme";
 
 interface IUnitSplitterProps {
     totalUnits: number;
@@ -108,42 +107,7 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                 </Box>
 
                 <Slider
-                    sx={{
-                        color: "#693012",
-                        padding: "4px 0",
-                        height: 10,
-                        "&:hover": {
-                            filter: "brightness(1.12) saturate(1.02)",
-                        },
-                        "& .MuiSlider-thumb": {
-                            width: 24,
-                            height: 24,
-                            backgroundColor: "transparent",
-                            backgroundImage: `url(${images.slider_dot})`,
-                            backgroundSize: "contain",
-                            backgroundRepeat: "no-repeat",
-                            backgroundPosition: "center",
-                            boxShadow: "none",
-                            filter: "brightness(.9) saturate(.88) drop-shadow(0 0 4px rgba(224,83,34,.24))",
-                            "&::before": {
-                                display: "none",
-                            },
-                        },
-                        "& .MuiSlider-rail": {
-                            height: 6.5,
-                            opacity: 1,
-                            background:
-                                "linear-gradient(180deg,#28130a 0%,#080504 62%,#693012 63%,#693012 80%,#28130a 81%)",
-                            border: "1px solid rgba(205,160,120,.58)",
-                            boxShadow: "inset 0 1px 3px #000, 0 1px 2px rgba(224,83,34,.2)",
-                        },
-                        "& .MuiSlider-track": {
-                            height: 6.5,
-                            border: "1px solid rgba(205,160,120,.72)",
-                            background: "linear-gradient(180deg,#87411e,#43190a 55%,#693012)",
-                            boxShadow: "inset 0 1px 2px rgba(216,171,128,.26)",
-                        },
-                    }}
+                    sx={hocSplitterSliderSx}
                     value={hasSelectedUnit ? splitValue : 0}
                     onChange={handleSliderChange}
                     min={hasSelectedUnit ? 1 : 0}

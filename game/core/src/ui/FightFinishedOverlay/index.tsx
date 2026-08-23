@@ -1,5 +1,7 @@
 import { TeamVals, TeamType } from "@heroesofcrypto/common";
 
+import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
+import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
@@ -11,6 +13,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IFightDeathEntry, IFightStatsReport, IVisibleState } from "../../scenes/VisibleState";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
@@ -67,10 +71,57 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
 const CasualtyColumn: React.FC<{
     team: TeamType;
     deaths: IFightDeathEntry[];
-}> = ({ team, deaths }) => {
+    killedTotal: number;
+    startTotal: number;
+    fallbackPct: number;
+}> = ({ team, deaths, killedTotal, startTotal, fallbackPct }) => {
     const color = teamColor(team);
+    const fellPct = Math.round(
+        Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)),
+    );
     return (
         <Box sx={{ flex: 1, minWidth: 220 }}>
+            <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: "center", mb: 0.75, minHeight: 22, whiteSpace: "nowrap" }}
+            >
+                <Box
+                    aria-hidden
+                    sx={{
+                        width: 11,
+                        height: 11,
+                        flexShrink: 0,
+                        borderRadius: "50%",
+                        backgroundColor: color,
+                        boxShadow: `0 0 7px ${color}`,
+                    }}
+                />
+                <Typography
+                    sx={{
+                        color: PARCHMENT,
+                        fontFamily: HOC_GAME_FONT_FAMILY,
+                        fontSize: "0.82rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.025em",
+                        lineHeight: 1,
+                    }}
+                >
+                    {teamName(team).toUpperCase()} ARMY
+                </Typography>
+                <Typography
+                    sx={{
+                        color,
+                        fontFamily: HOC_GAME_FONT_FAMILY,
+                        fontSize: "0.82rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.025em",
+                        lineHeight: 1,
+                    }}
+                >
+                    {fellPct}% FELL
+                </Typography>
+            </Stack>
             <Box
                 sx={{
                     position: "relative",
@@ -79,22 +130,22 @@ const CasualtyColumn: React.FC<{
                     gap: 1,
                     p: 0.75,
                     borderRadius: "14px",
-                    border: "2px solid rgba(145,104,67,.82)",
+                    border: "2px solid rgba(55,52,49,.9)",
                     backgroundColor: "transparent",
-                    height: 68,
-                    minHeight: 68,
-                    maxHeight: 68,
+                    height: 92,
+                    minHeight: 92,
+                    maxHeight: 92,
                     overflowX: "auto",
                     overflowY: "hidden",
                     overscrollBehaviorX: "contain",
                     scrollbarWidth: "thin",
-                    scrollbarColor: "rgba(145,104,67,.58) transparent",
+                    scrollbarColor: "rgba(74,67,60,.58) transparent",
                     boxShadow:
-                        "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)",
+                        "inset 0 0 0 1px rgba(6,6,6,.98), inset 0 0 0 3px rgba(82,72,62,.12), 0 3px 8px rgba(0,0,0,.7)",
                     "&::-webkit-scrollbar": { height: "4px" },
                     "&::-webkit-scrollbar-track": { background: "transparent" },
                     "&::-webkit-scrollbar-thumb": {
-                        backgroundColor: "rgba(145,104,67,.58)",
+                        backgroundColor: "rgba(74,67,60,.58)",
                         borderRadius: "2px",
                     },
                     "&::before": {
@@ -104,9 +155,9 @@ const CasualtyColumn: React.FC<{
                         zIndex: 0,
                         pointerEvents: "none",
                         background: "linear-gradient(160deg, rgba(30,18,7,.62), rgba(9,6,2,.62))",
-                        // Let 13% more of the battlefield show through the loss well without fading its
-                        // portraits, counters or forged frame.
-                        opacity: 0.87,
+                        // Combined with the 62%-alpha warm gradient, this leaves the loss well about 51%
+                        // transparent without fading its portraits, counters or forged frame.
+                        opacity: 0.79,
                         borderRadius: "10px",
                     },
                     "&::after": {
@@ -116,7 +167,7 @@ const CasualtyColumn: React.FC<{
                         zIndex: 3,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        border: "1px solid rgba(52,44,38,.92)",
+                        border: "1px solid rgba(40,39,37,.92)",
                         borderRadius: "11px",
                     },
                 }}
@@ -141,17 +192,31 @@ const CasualtyColumn: React.FC<{
                         }}
                     >
                         <Box sx={{ position: "relative", zIndex: 1, flexShrink: 0 }}>
-                            <Avatar
-                                src={imgSrc(d.smallTextureName)}
-                                variant="plain"
-                                sx={{
-                                    width: 60,
-                                    height: 52,
-                                    borderRadius: "14%",
-                                    border: "none",
-                                    filter: "grayscale(55%) brightness(0.82)",
-                                }}
-                            />
+                            {UNIT_NAME_TO_ID[d.name.trim()] !== undefined ? (
+                                <CreaturePortraitImage
+                                    creatureId={UNIT_NAME_TO_ID[d.name.trim()]}
+                                    alt={d.name}
+                                    sx={{
+                                        width: 60,
+                                        height: 80,
+                                        borderRadius: "7px",
+                                        border: "none",
+                                        filter: "grayscale(55%) brightness(0.82)",
+                                    }}
+                                />
+                            ) : (
+                                <Avatar
+                                    src={imgSrc(d.smallTextureName)}
+                                    variant="plain"
+                                    sx={{
+                                        width: 60,
+                                        height: 80,
+                                        borderRadius: "7px",
+                                        border: "none",
+                                        filter: "grayscale(55%) brightness(0.82)",
+                                    }}
+                                />
+                            )}
                             <Box
                                 sx={{
                                     position: "absolute",
@@ -206,6 +271,7 @@ const ActionButton: React.FC<{
     const resolvedTone = tone ?? (primary ? "gold" : "gray");
     const resolvedFrameTone = frameTone ?? resolvedTone;
     const resolvedBackgroundOpacity = backgroundOpacity ?? visualOpacity;
+    const backgroundBrightness = Math.min(1, resolvedBackgroundOpacity + 0.35);
     const hasWarmText = resolvedTone !== "gray";
     const plateImage = imgSrc("ui_start_button_plate_trimmed");
     const backgroundImage =
@@ -230,21 +296,21 @@ const ActionButton: React.FC<{
                   : `linear-gradient(180deg, rgba(255,224,142,.38), rgba(172,105,18,.2)), url(${plateImage})`;
     const edgeColor =
         resolvedFrameTone === "gray"
-            ? "rgba(119,113,106,.92)"
+            ? "rgba(61,60,58,.92)"
             : resolvedFrameTone === "brown"
-              ? "rgba(132,82,51,.82)"
+              ? "rgba(60,53,47,.86)"
               : resolvedFrameTone === "olive"
-                ? "rgba(146,128,68,.88)"
-                : "rgba(218,164,73,.96)";
+                ? "rgba(65,62,51,.88)"
+                : "rgba(78,65,50,.92)";
     const textColor = resolvedTone === "brown" ? "#d8b77f" : resolvedTone === "olive" ? "#dfcf91" : "#f3d08a";
     const restingShadow =
         resolvedTone === "brown"
-            ? "inset 0 0 0 1px rgba(190,129,82,.1), 0 3px 8px rgba(0,0,0,.58)"
+            ? "inset 0 0 0 1px rgba(190,129,82,.05), 0 3px 8px rgba(0,0,0,.72)"
             : resolvedTone === "olive"
-              ? "inset 0 0 0 1px rgba(207,190,113,.13), 0 0 8px rgba(121,108,51,.2)"
+              ? "inset 0 0 0 1px rgba(207,190,113,.06), 0 3px 8px rgba(0,0,0,.68)"
               : hasWarmText
-                ? `inset 0 0 0 1px rgba(255,221,139,.2), 0 0 13px ${GOLD}55`
-                : "inset 0 0 0 1px rgba(214,158,101,.14), 0 3px 7px rgba(0,0,0,.5)";
+                ? "inset 0 0 0 1px rgba(255,221,139,.06), 0 3px 8px rgba(0,0,0,.72)"
+                : "inset 0 0 0 1px rgba(214,158,101,.05), 0 3px 8px rgba(0,0,0,.7)";
     const hoverShadow = `0 0 20px ${GOLD}aa`;
 
     return (
@@ -259,10 +325,11 @@ const ActionButton: React.FC<{
                 position: "relative",
                 borderRadius: "10px",
                 overflow: "hidden",
-                cursor: disabled ? "not-allowed" : "pointer",
+                cursor: disabled ? "not-allowed" : "var(--hoc-cursor-interactive), pointer",
                 fontWeight: 800,
                 letterSpacing: "0.04em",
-                fontSize: "14px",
+                // Enlarge only the label/icon content by 20%; the fixed button dimensions stay unchanged.
+                fontSize: "16.8px",
                 fontFamily: HOC_GAME_FONT_FAMILY,
                 display: "flex",
                 alignItems: "center",
@@ -294,7 +361,8 @@ const ActionButton: React.FC<{
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center",
                     backgroundSize: "100% 100%",
-                    opacity: 0.62,
+                    opacity: 0.32,
+                    filter: "brightness(.5) saturate(.45)",
                     WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
                     WebkitMaskComposite: "xor",
                     maskComposite: "exclude",
@@ -317,10 +385,9 @@ const ActionButton: React.FC<{
                     zIndex: 0,
                     pointerEvents: "none",
                     opacity: resolvedBackgroundOpacity,
-                    // The plate and the card beneath it are both almost the same dark brown, so alpha
-                    // alone is visually lost. Reduce only the field's luminance by the same factor to
-                    // make the requested 10/20/30% progression readable without fading the frame.
-                    filter: `brightness(${resolvedBackgroundOpacity})`,
+                    // Keep the translucent field readable against the newly lighter results panel;
+                    // the frame and label remain on separate, fully crisp layers.
+                    filter: `brightness(${backgroundBrightness})`,
                     backgroundImage,
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "center",
@@ -380,7 +447,7 @@ const ResultsSectionPlaque: React.FC<{ label: string }> = ({ label }) => (
             sx={{
                 flex: 1,
                 height: "1px",
-                background: "linear-gradient(90deg, transparent, rgba(123,72,34,.76))",
+                background: "linear-gradient(90deg, transparent, rgba(66,59,52,.45))",
             }}
         />
         <Box
@@ -429,11 +496,95 @@ const ResultsSectionPlaque: React.FC<{ label: string }> = ({ label }) => (
             sx={{
                 flex: 1,
                 height: "1px",
-                background: "linear-gradient(90deg, rgba(123,72,34,.76), transparent)",
+                background: "linear-gradient(90deg, rgba(66,59,52,.45), transparent)",
             }}
         />
     </Stack>
 );
+
+const SummaryStatCard: React.FC<{
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+    valueColor: string;
+}> = ({ icon, label, value, valueColor }) => (
+    <Box
+        sx={{
+            position: "relative",
+            flex: 1,
+            minWidth: 0,
+            height: 104,
+            px: 1,
+            py: 1.1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            borderRadius: "9px",
+            border: "1px solid rgba(53,51,48,.86)",
+            backgroundColor: "transparent",
+            isolation: "isolate",
+            boxShadow: "inset 0 0 0 2px rgba(0,0,0,.82), inset 0 0 0 3px rgba(82,72,62,.1), 0 3px 8px rgba(0,0,0,.68)",
+            "&::before": {
+                content: '\"\"',
+                position: "absolute",
+                inset: 0,
+                zIndex: -1,
+                borderRadius: "inherit",
+                opacity: 0.9,
+                backgroundImage: `linear-gradient(180deg, rgba(17,17,16,.82), rgba(7,7,7,.94)), url(${imgSrc(
+                    "fight_results_dragonfire_panel_texture",
+                )})`,
+                backgroundRepeat: "no-repeat, repeat",
+                backgroundSize: "cover, 160px 80px",
+                pointerEvents: "none",
+            },
+            "&::after": {
+                content: '\"\"',
+                position: "absolute",
+                inset: 4,
+                zIndex: 1,
+                border: "1px solid rgba(45,44,42,.62)",
+                borderRadius: "6px",
+                pointerEvents: "none",
+            },
+        }}
+    >
+        <Box sx={{ height: 30, display: "flex", alignItems: "center", justifyContent: "center", mb: 0.15 }}>{icon}</Box>
+        <Typography
+            sx={{
+                color: "#bfa56f",
+                fontFamily: HOC_GAME_FONT_FAMILY,
+                fontSize: "0.67rem",
+                fontWeight: 700,
+                letterSpacing: "0.035em",
+                lineHeight: 1.15,
+                whiteSpace: "nowrap",
+            }}
+        >
+            {label}
+        </Typography>
+        <Typography
+            sx={{
+                mt: 0.35,
+                color: valueColor,
+                fontFamily: HOC_GAME_FONT_FAMILY,
+                fontSize: "1.42rem",
+                fontWeight: 500,
+                letterSpacing: "0.025em",
+                lineHeight: 1,
+                textShadow: `0 0 9px ${valueColor}40, 0 2px 2px #000`,
+                whiteSpace: "nowrap",
+            }}
+        >
+            {value}
+        </Typography>
+    </Box>
+);
+
+const fellPercentage = (killedTotal: number, startTotal: number, fallbackPct: number): number =>
+    Math.round(Math.min(100, Math.max(0, startTotal > 0 ? (killedTotal / startTotal) * 100 : fallbackPct)));
 
 interface FightFinishedOverlayProps {
     mode?: "sandbox" | "ranked";
@@ -523,6 +674,18 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const canReplay = previewMode || (canReplayOverride ?? canSandboxReplay);
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
+    const finalSample = stats.series.at(-1);
+    const lowerFellPct = fellPercentage(
+        stats.lowerKilledTotal,
+        stats.lowerStartTotal,
+        finalSample?.lowerKilledPct ?? 0,
+    );
+    const upperFellPct = fellPercentage(
+        stats.upperKilledTotal,
+        stats.upperStartTotal,
+        finalSample?.upperKilledPct ?? 0,
+    );
+    const topDamage = Math.max(0, ...(stats.damageByUnit ?? []).map((entry) => entry.damage));
     const resultsBackground = previewBackground ?? imgSrc("fight_results_moonlit_castle_background");
     const splitBackgroundImage = previewBackground
         ? `url(${resultsBackground})`
@@ -609,44 +772,64 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 transition={{ type: "spring", stiffness: 220, damping: 24 }}
                 sx={{
                     position: "relative",
-                    top: "-1.2vh",
                     zIndex: 2,
-                    width: "92%",
-                    maxWidth: 880,
-                    // Fixed footprint — the card is always the size it used to be when the chart
-                    // filled it (content overflowed, so it sat at maxHeight). Pinning height instead
-                    // of maxHeight keeps it identical from fight to fight: a 2-creature skirmish and
-                    // a 16-creature brawl now open the same box instead of the card jumping in size.
-                    height: "78vh",
-                    maxHeight: "78vh",
+                    width: "94.5%",
+                    maxWidth: 960,
+                    // The reference is a compact, almost-square forged results plaque. Keep that
+                    // silhouette on large screens while still respecting short laptop viewports.
+                    height: "min(97.5vh, 940px)",
+                    maxHeight: "97.5vh",
                     display: "flex",
                     flexDirection: "column",
                     overflow: "hidden",
+                    isolation: "isolate",
                     textTransform: "uppercase",
-                    borderRadius: "12px",
+                    borderRadius: "11px",
                     border: "none",
-                    // Near-black with a warm cast, matching the game's other panels. The 74% opacity lets
-                    // the battlefield texture read
-                    // through the results content without reducing the opacity of text or charts.
-                    background: "linear-gradient(160deg, rgba(30,18,7,0.74) 0%, rgba(9,6,2,0.74) 100%)",
-                    boxShadow: "0 16px 48px rgba(0,0,0,0.85)",
-                    padding: "28px 32px",
-                    // Use one continuous metal edge on all four sides. The previous 9-slice artwork
-                    // gave the horizontal and vertical edges visibly different weights.
+                    backgroundColor: "transparent",
+                    boxShadow: "0 22px 60px rgba(0,0,0,.92), 0 0 24px rgba(0,0,0,.72)",
+                    padding: "18px 22px 16px",
                     "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: -1,
+                        pointerEvents: "none",
+                        borderRadius: "11px",
+                        // Keep only a warm tint from the dense raster while the battlefield remains clearly visible.
+                        // 30% opaque means 70% transparent.
+                        // Foreground UI stays fully opaque.
+                        opacity: 0.3,
+                        backgroundImage: `url(${imgSrc("fight_results_burnished_bronze_panel_background_v1")})`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
+                        backgroundSize: "cover",
+                    },
+                    "&::after": {
                         content: '""',
                         position: "absolute",
                         inset: 0,
                         zIndex: 5,
                         pointerEvents: "none",
                         boxSizing: "border-box",
-                        border: "1px solid rgba(126,91,61,.88)",
-                        borderRadius: "12px",
+                        border: "2px solid rgba(48,47,45,.94)",
+                        borderRadius: "11px",
                         boxShadow:
-                            "inset 0 0 0 1px rgba(35,28,22,.92), inset 0 0 0 2px rgba(157,112,72,.22), 0 0 5px rgba(0,0,0,.85)",
+                            "inset 0 0 0 2px rgba(3,3,3,.99), inset 0 0 0 4px rgba(82,72,62,.1), inset 0 0 18px rgba(0,0,0,.86)",
                     },
                 }}
             >
+                <Box
+                    aria-hidden
+                    sx={{
+                        position: "absolute",
+                        inset: 9,
+                        zIndex: 4,
+                        pointerEvents: "none",
+                        border: "1px solid rgba(42,41,39,.66)",
+                        borderRadius: "5px",
+                    }}
+                />
                 {/* Close button */}
                 <Box
                     component="button"
@@ -659,7 +842,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         width: 27,
                         height: 27,
                         p: 0,
-                        border: "1px solid rgba(158,111,63,.78)",
+                        border: "1px solid rgba(88,67,47,.72)",
                         borderRadius: "50%",
                         background: "linear-gradient(180deg, rgba(44,32,23,.96), rgba(17,13,10,.98))",
                         color: "#d7b77a",
@@ -670,7 +853,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        cursor: "pointer",
+                        cursor: "var(--hoc-cursor-interactive), pointer",
                         zIndex: 6,
                         boxShadow: "inset 0 0 0 1px rgba(226,182,111,.08), 0 2px 4px rgba(0,0,0,.72)",
                         transition:
@@ -686,40 +869,127 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     ×
                 </Box>
 
-                {/* Winner banner (or draw banner — armageddon can wipe both sides on the same lap) */}
-                {/* The cup sits BESIDE the headline, not over it. Stacked, it cost the card a whole line of
-                    height at the top — and this card has a fixed footprint, so that line came straight out
-                    of the roster at the bottom, which ended up under the action buttons. */}
-                <Stack sx={{ alignItems: "center", textAlign: "center", mb: 1.25, flexShrink: 0 }}>
-                    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", justifyContent: "center" }}>
-                        {isDraw ? (
-                            <Typography sx={{ fontSize: "2.2rem", lineHeight: 1 }}>⚖️</Typography>
-                        ) : (
-                            <Box
-                                component="img"
-                                src={imgSrc("fight_results_trophy_v1")}
-                                alt="Victory trophy"
-                                sx={{ width: 52, height: 52, objectFit: "contain", flexShrink: 0 }}
-                            />
-                        )}
-                        <Typography
+                {/* Trophy medallion overlaps a restrained metal title plate, matching the compact
+                    forged header in the selected results-screen direction. */}
+                <Box sx={{ height: 76, flexShrink: 0, display: "flex", justifyContent: "center", mb: 1.1 }}>
+                    <Box sx={{ position: "relative", width: "68%", minWidth: 520, maxWidth: 650, height: 72 }}>
+                        <Box
                             sx={{
-                                color: winnerColor,
-                                fontWeight: 900,
-                                fontFamily: HOC_GAME_FONT_FAMILY,
-                                letterSpacing: "0.08em",
-                                fontSize: "2rem",
-                                textShadow: `0 0 18px ${winnerColor}aa`,
+                                position: "absolute",
+                                inset: "6px 0 4px 54px",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                pl: 2.5,
+                                border: "1px solid rgba(48,47,44,.78)",
+                                backgroundColor: "transparent",
+                                isolation: "isolate",
+                                boxShadow:
+                                    "inset 0 0 0 2px rgba(0,0,0,.84), inset 0 0 0 3px rgba(82,72,62,.08), 0 5px 12px rgba(0,0,0,.62)",
+                                "&::before": {
+                                    content: '\"\"',
+                                    position: "absolute",
+                                    inset: 0,
+                                    zIndex: -1,
+                                    opacity: 0.9,
+                                    backgroundImage: `linear-gradient(180deg, rgba(18,18,17,.91), rgba(8,8,8,.96)), url(${imgSrc(
+                                        "fight_results_dragonfire_panel_texture",
+                                    )})`,
+                                    backgroundRepeat: "no-repeat, repeat",
+                                    backgroundSize: "cover, 160px 80px",
+                                    pointerEvents: "none",
+                                },
                             }}
                         >
-                            {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
-                        </Typography>
-                    </Stack>
-                    {opponentLabel && (
-                        <Typography sx={{ color: GOLD, opacity: 0.9, fontSize: "0.85rem", fontWeight: 700, mt: 0.25 }}>
-                            vs {opponentLabel}
-                        </Typography>
-                    )}
+                            <Typography
+                                sx={{
+                                    color: winnerColor,
+                                    fontWeight: 600,
+                                    fontFamily: HOC_GAME_FONT_FAMILY,
+                                    letterSpacing: "0.075em",
+                                    fontSize: "clamp(1.65rem, 4vw, 2.25rem)",
+                                    lineHeight: 1,
+                                    textShadow: `0 0 14px ${winnerColor}72, 0 2px 2px #000`,
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {isDraw ? "DRAW" : `${teamName(stats.winner).toUpperCase()} TEAM WINS`}
+                            </Typography>
+                            {opponentLabel && (
+                                <Typography
+                                    sx={{ color: GOLD, opacity: 0.82, fontSize: "0.67rem", fontWeight: 700, mt: 0.35 }}
+                                >
+                                    vs {opponentLabel}
+                                </Typography>
+                            )}
+                        </Box>
+
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                left: 0,
+                                top: -2,
+                                width: 78,
+                                height: 78,
+                                borderRadius: "50%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background:
+                                    "radial-gradient(circle at 48% 38%, rgba(57,48,39,.96), rgba(9,9,9,.98) 68%)",
+                                border: "2px solid rgba(59,55,50,.9)",
+                                boxShadow:
+                                    "inset 0 0 0 3px rgba(0,0,0,.88), inset 0 0 0 5px rgba(88,72,57,.1), 0 5px 12px rgba(0,0,0,.8)",
+                                zIndex: 2,
+                            }}
+                        >
+                            {isDraw ? (
+                                <Typography sx={{ color: GOLD, fontSize: "2rem", lineHeight: 1 }}>⚖</Typography>
+                            ) : (
+                                <Box
+                                    component="img"
+                                    src={imgSrc("fight_results_trophy_v1")}
+                                    alt="Victory trophy"
+                                    sx={{ width: 55, height: 55, objectFit: "contain" }}
+                                />
+                            )}
+                        </Box>
+                    </Box>
+                </Box>
+
+                <Stack direction="row" spacing={1.25} sx={{ flexShrink: 0, mb: 1.5, px: 0.25 }}>
+                    <SummaryStatCard
+                        label="BATTLE LENGTH"
+                        value={`L${Math.max(0, stats.totalLaps)}`}
+                        valueColor="#d8bd83"
+                        icon={<HourglassTopRoundedIcon sx={{ color: "#b69254", fontSize: 29 }} />}
+                    />
+                    <SummaryStatCard
+                        label={`${teamName(TeamVals.LOWER as TeamType).toUpperCase()} LOSSES`}
+                        value={`${lowerFellPct}% FELL`}
+                        valueColor={teamColor(TeamVals.LOWER as TeamType)}
+                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.LOWER as TeamType), fontSize: 30 }} />}
+                    />
+                    <SummaryStatCard
+                        label={`${teamName(TeamVals.UPPER as TeamType).toUpperCase()} LOSSES`}
+                        value={`${upperFellPct}% FELL`}
+                        valueColor={teamColor(TeamVals.UPPER as TeamType)}
+                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.UPPER as TeamType), fontSize: 30 }} />}
+                    />
+                    <SummaryStatCard
+                        label="TOP DAMAGE"
+                        value={Math.round(topDamage).toLocaleString("en-US")}
+                        valueColor="#d5ad61"
+                        icon={
+                            <Typography
+                                aria-hidden
+                                sx={{ color: "#b69254", fontFamily: HOC_GAME_FONT_FAMILY, fontSize: 27, lineHeight: 1 }}
+                            >
+                                ⚔
+                            </Typography>
+                        }
+                    />
                 </Stack>
 
                 {/* The middle band itself never moves. Only the damage list may scroll, so the chart,
@@ -751,11 +1021,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 overflowX: "hidden",
                                 overscrollBehavior: "contain",
                                 scrollbarWidth: "thin",
-                                scrollbarColor: "rgba(145,104,67,.58) transparent",
+                                scrollbarColor: "rgba(74,67,60,.58) transparent",
                                 "&::-webkit-scrollbar": { width: "5px" },
                                 "&::-webkit-scrollbar-track": { background: "transparent" },
                                 "&::-webkit-scrollbar-thumb": {
-                                    backgroundColor: "rgba(145,104,67,.58)",
+                                    backgroundColor: "rgba(74,67,60,.58)",
                                     borderRadius: "3px",
                                 },
                             }}
@@ -775,15 +1045,26 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                     height: "1.8px",
                                     my: 2,
                                     background:
-                                        "linear-gradient(90deg, transparent, rgba(118,56,29,.72) 6%, #bd6537 50%, rgba(118,56,29,.72) 94%, transparent)",
-                                    boxShadow: "0 2px 8px rgba(211,70,26,.2), 0 -1px 0 rgba(0,0,0,.9)",
+                                        "linear-gradient(90deg, transparent, rgba(53,47,42,.6) 6%, rgba(73,59,47,.65) 50%, rgba(53,47,42,.6) 94%, transparent)",
+                                    boxShadow: "0 2px 8px rgba(0,0,0,.34), 0 -1px 0 rgba(0,0,0,.94)",
                                 }}
                             />
 
-                            <ResultsSectionPlaque label="LOSSES" />
                             <Stack direction="row" spacing={3}>
-                                <CasualtyColumn team={TeamVals.LOWER as TeamType} deaths={stats.lowerDeaths} />
-                                <CasualtyColumn team={TeamVals.UPPER as TeamType} deaths={stats.upperDeaths} />
+                                <CasualtyColumn
+                                    team={TeamVals.LOWER as TeamType}
+                                    deaths={stats.lowerDeaths}
+                                    killedTotal={stats.lowerKilledTotal}
+                                    startTotal={stats.lowerStartTotal}
+                                    fallbackPct={stats.series.at(-1)?.lowerKilledPct ?? 0}
+                                />
+                                <CasualtyColumn
+                                    team={TeamVals.UPPER as TeamType}
+                                    deaths={stats.upperDeaths}
+                                    killedTotal={stats.upperKilledTotal}
+                                    startTotal={stats.upperStartTotal}
+                                    fallbackPct={stats.series.at(-1)?.upperKilledPct ?? 0}
+                                />
                             </Stack>
                         </Box>
                     </Box>
@@ -800,7 +1081,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             labelColor="#dfcf91"
                             tone="gray"
                             frameTone="brown"
-                            backgroundOpacity={0.7}
+                            backgroundOpacity={0.5}
                             visualOpacity={0.9}
                             onClick={replayFight}
                         />
@@ -812,7 +1093,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             labelColor="#dfcf91"
                             primary
                             tone="olive"
-                            backgroundOpacity={0.8}
+                            backgroundOpacity={0.56}
                             visualOpacity={0.8}
                             onClick={() => {
                                 if (previewMode) return;
@@ -828,7 +1109,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             label="+ NEW BATTLE"
                             labelColor="#dfcf91"
                             tone="brown"
-                            backgroundOpacity={0.8}
+                            backgroundOpacity={0.5}
                             visualOpacity={0.7}
                             onClick={() => {
                                 if (previewMode) return;

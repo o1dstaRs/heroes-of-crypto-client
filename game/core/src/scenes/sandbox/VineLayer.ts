@@ -37,7 +37,9 @@ export interface IVineCell {
 }
 
 /** Resolve a board cell to its world centre; returns undefined for a cell that is off-grid. */
-export type ToWorld = (cell: HoCMath.XY) => HoCMath.XY | undefined;
+export type ToWorld = (
+    cell: HoCMath.XY,
+) => (HoCMath.XY & { cellSize?: number; cellPoints?: number[] }) | undefined;
 
 /** Seconds a vine takes to creep in when thrown / wither out once the engine drops it. */
 const CREEP_SECONDS = 0.42;
@@ -74,6 +76,8 @@ interface ITrackedVine {
     cell: HoCMath.XY;
     x: number;
     y: number;
+    cellSize: number;
+    cellPoints?: number[];
     /** Stable per-cell seed so a vine's wobble and thorns never flicker between frames. */
     seed: number;
     lapsRemaining: number;
@@ -171,6 +175,8 @@ export class VineLayer {
                 existing.lapsRemaining = c.l;
                 existing.x = world.x;
                 existing.y = world.y;
+                existing.cellSize = world.cellSize ?? cellSize;
+                existing.cellPoints = world.cellPoints;
                 if (existing.order !== index) {
                     existing.order = index;
                     this.topologyDirty = true;
@@ -181,6 +187,8 @@ export class VineLayer {
                 cell: { x: c.x, y: c.y },
                 x: world.x,
                 y: world.y,
+                cellSize: world.cellSize ?? cellSize,
+                cellPoints: world.cellPoints,
                 // Mixing both axes keeps neighbouring cells from sharing a shape.
                 seed: Math.abs(hash(c.x * 1.7, c.y * 2.3)) * 1000,
                 lapsRemaining: c.l,
@@ -302,12 +310,6 @@ export class VineLayer {
      * "about to let go" tell the body already carries is on the footprint too.
      */
     private drawCellFootprint(g: Graphics, cellSize: number): void {
-        const half = cellSize * 0.5;
-        // Inset so neighbouring vined cells read as two marks rather than one merged slab.
-        const inset = cellSize * 0.12;
-        const reach = half - inset;
-        // Corner arms: a bit over a third of the side, which is enough to imply the square without closing it.
-        const arm = reach * 0.42;
         // One shared breath for the whole layer, so the vined area pulses as a single patch of terrain.
         const breath = 0.85 + 0.15 * Math.sin(this.time * 1.8);
 
@@ -319,27 +321,21 @@ export class VineLayer {
             const rim = dry ? DRY_RIM : BARK_RIM;
             const wash = dry ? DRY_MID : MOSS;
             const alpha = vine.presence * breath;
+            const localCellSize = vine.cellSize || cellSize;
 
-            // Faint wash so the tile itself reads as overgrown, not just ringed.
-            g.rect(vine.x - reach, vine.y - reach, reach * 2, reach * 2).fill({
-                color: wash,
-                alpha: 0.1 * alpha,
-            });
-
-            // Four corner brackets.
-            const width = Math.max(1, cellSize * 0.028);
-            for (const [sx, sy] of [
-                [-1, -1],
-                [1, -1],
-                [-1, 1],
-                [1, 1],
-            ] as const) {
-                const cx = vine.x + sx * reach;
-                const cy = vine.y + sy * reach;
-                g.moveTo(cx - sx * arm, cy)
-                    .lineTo(cx, cy)
-                    .lineTo(cx, cy - sy * arm)
-                    .stroke({ color: rim, width, alpha: 0.75 * alpha, cap: "round", join: "round" });
+            const footprint = vine.cellPoints;
+            if (footprint?.length) {
+                g.poly(footprint).fill({ color: wash, alpha: 0.1 * alpha });
+                g.poly(footprint).stroke({
+                    color: rim,
+                    width: Math.max(1, localCellSize * 0.028),
+                    alpha: 0.5 * alpha,
+                });
+            } else {
+                const reach = localCellSize * 0.38;
+                g.rect(vine.x - reach, vine.y - reach, reach * 2, reach * 2)
+                    .fill({ color: wash, alpha: 0.1 * alpha })
+                    .stroke({ color: rim, width: Math.max(1, localCellSize * 0.028), alpha: 0.5 * alpha });
             }
         }
     }
@@ -440,12 +436,14 @@ export class VineLayer {
         this.drawCellFootprint(g, cellSize);
 
         for (const chain of this.chains) {
-            const samples = this.sampleChain(chain, cellSize, this.sampleScratch);
+            const localCellSize =
+                chain.reduce((sum, vine) => sum + (vine.cellSize || cellSize), 0) / Math.max(1, chain.length);
+            const samples = this.sampleChain(chain, localCellSize, this.sampleScratch);
             const dry = samples[0]?.dry ?? false;
             const darkColour = dry ? DRY_DARK : BARK_DARK;
             const midColour = dry ? DRY_MID : BARK_MID;
             const rimColour = dry ? DRY_RIM : BARK_RIM;
-            const baseWidth = cellSize * (dry ? 0.16 : 0.21);
+            const baseWidth = localCellSize * (dry ? 0.16 : 0.21);
 
             // Only draw as far as the vine has actually grown, so the creep reads as movement along the
             // chain rather than a global fade.
@@ -528,7 +526,7 @@ export class VineLayer {
             this.strokePolyline(g, highlight, (p) => widthAt(p) * 0.2, rimColour, 0.4);
 
             this.drawThorns(g, grown, widthAt, rimColour, dry);
-            this.drawLeaves(g, grown, cellSize, dry);
+            this.drawLeaves(g, grown, localCellSize, dry);
         }
     }
     private strokePolyline(

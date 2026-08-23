@@ -82,11 +82,11 @@ export const CasualtyChartPanel: React.FC<{
                 // No padding on purpose either — the chart insets its own plot with axis gutters.
                 borderRadius: ornateResultsFrame ? "14px" : "10px",
                 border: ornateResultsFrame
-                    ? "2px solid rgba(145,104,67,.82)"
+                    ? "2px solid rgba(55,52,49,.9)"
                     : `1px solid ${roomy ? `${GOLD}55` : "transparent"}`,
                 backgroundColor: "transparent",
                 boxShadow: ornateResultsFrame
-                    ? "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.32), 0 3px 8px rgba(0,0,0,.58)"
+                    ? "inset 0 0 0 1px rgba(6,6,6,.98), inset 0 0 0 3px rgba(82,72,62,.12), 0 3px 8px rgba(0,0,0,.7)"
                     : "none",
                 ...(ornateResultsFrame && roomy
                     ? {
@@ -106,7 +106,7 @@ export const CasualtyChartPanel: React.FC<{
                               zIndex: 3,
                               pointerEvents: "none",
                               boxSizing: "border-box",
-                              border: "1px solid rgba(52,44,38,.92)",
+                              border: "1px solid rgba(40,39,37,.92)",
                               borderRadius: "11px",
                           },
                       }

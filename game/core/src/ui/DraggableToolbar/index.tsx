@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Sheet, Box, Tooltip } from "@mui/joy";
+import { Box, Tooltip } from "@mui/joy";
 import { styled } from "@mui/system";
 
 import { images } from "../../generated/image_imports";
@@ -7,7 +7,6 @@ import { TRIM_WIDTH_PX as BOARD_EDGE_TRIM_WIDTH_PX } from "../boardEdgeTrim";
 
 const spellbookIconImage = images.combat_toolbar_ember_spellbook;
 const hourglassIconImage = images.combat_toolbar_ember_hourglass;
-const timeDenialIconImage = images.time_denial_256;
 const swordIconImage = images.combat_toolbar_ember_sword;
 const bowIconImage = images.combat_toolbar_ember_bow;
 const scepterIconImage = images.combat_toolbar_ember_scepter;
@@ -16,8 +15,6 @@ const skipIconImage = images.combat_toolbar_ember_next;
 const luckShieldIconImage = images.combat_toolbar_ember_luck;
 const activeOptionIconImage = new URL("../../../images/icon_active_option.webp", import.meta.url).toString();
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
-const toolbarPanelImage = images.combat_toolbar_panel;
-
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
 
@@ -26,7 +23,7 @@ let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
 const BUTTON_NAME_TO_ICON_IMAGE: Record<string, string> = {
     [`Spellbook${VisibleButtonState.FIRST}`]: spellbookIconImage,
     [`Hourglass${VisibleButtonState.FIRST}`]: hourglassIconImage,
-    [`TimeDenial${VisibleButtonState.FIRST}`]: timeDenialIconImage,
+    [`TimeDenial${VisibleButtonState.FIRST}`]: hourglassIconImage,
     [`AttackType${VisibleButtonState.FIRST}`]: swordIconImage,
     [`AttackType${VisibleButtonState.SECOND}`]: bowIconImage,
     [`AttackType${VisibleButtonState.THIRD}`]: scepterIconImage,
@@ -45,7 +42,6 @@ const GLYPH_CROP_DEFAULT = { zoom: 100, inset: 0 };
 const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
     [spellbookIconImage]: false,
     [hourglassIconImage]: true,
-    [timeDenialIconImage]: false,
     [swordIconImage]: false,
     [scepterIconImage]: false,
     [aiIconImage]: false,
@@ -60,49 +56,36 @@ const ICON_IMAGE_NEED_ROTATE: Record<string, boolean> = {
 /**
  * The height the sidebar reserves for the button column.
  *
- * Six slots — the whole roster is Spellbook, Hourglass, AttackType, AI, Next and LuckShield — plus the
- * frame's padding and rim. It is a RESERVATION, not a measurement: buttons come and go as the turn changes
- * (none of them apply on the opponent's turn, and the frame hides itself entirely), and a row sized to
- * whatever happens to be visible would drag the damage table and the fight log up and down all fight. The
- * frame itself still hugs its buttons inside this box; what is fixed is the space the box occupies.
+ * Six slots — the whole roster is Spellbook, Hourglass, AttackType, AI, Next and LuckShield. It is a
+ * RESERVATION, not a measurement: buttons come and go as the turn changes
+ * (none of them apply on the opponent's turn, and the column hides itself entirely), and a row sized to
+ * whatever happens to be visible would drag the damage table and the fight log up and down all fight. What
+ * stays fixed is the vertical space reserved for the complete set of medallions.
  */
 export const toolbarColumnHeightPx = (): number => {
     const screenRatio = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
     const slots = 6;
     const gap = 8; // the column's `gap: 1`
-    const framePadding = 22; // 11px above the first button, 11px below the last
-    const frameRim = 0; // the approved frame is painted inside that padding
-    // Each medallion now sits in a square bronze cell, matching the compact combat-sidebar mockup.
+    // Only the circular medallions remain; there is no surrounding panel or frame padding.
     const cellSize = 57;
-    return Math.round(cellSize * screenRatio * slots + gap * (slots - 1) + framePadding + frameRim);
+    return Math.round(cellSize * screenRatio * slots + gap * (slots - 1));
 };
 
 const GLYPH_FILTER = "drop-shadow(0 2px 3px rgba(0,0,0,.85))";
 const ACTIVE_ICON_FILTER = "brightness(1.15)";
 const ACTIVE_ICON_FILTER_BRIGHT = "brightness(1.27) drop-shadow(0 2px 5px rgba(243,212,136,.35))";
 
-// Obsidian shell from the fight-sidebar handoff. The old bronze-trimmed stone panel read as another gold
-// frame competing with the board; this one recedes and lets the ember glyphs carry the colour.
-const StyledSheet = styled(Sheet)(() => ({
-    // One complete raster panel: frame and field are precomposed from the approved second mockup, so no
-    // independently stretched rails can bow, drift, or leave seams at their corners.
-    backgroundImage: `url(${toolbarPanelImage})`,
-    backgroundPosition: "center",
-    backgroundSize: "100% 100%",
-    backgroundRepeat: "no-repeat",
-    padding: "19px 10px 13px",
+// Transparent layout-only column. The medallions now sit directly on the right sidebar's own texture.
+const StyledSheet = styled(Box)(() => ({
+    background: "transparent",
+    padding: 0,
     boxSizing: "border-box",
-    alignSelf: "stretch",
-    height: "calc(100% + 19px)",
-    // Collapse the unused side gutters around the 57px medallions. The row beside us is flexible, so every
-    // pixel removed here is handed directly to the DAMAGE panel while this panel's left edge stays fixed.
-    aspectRatio: "124 / 684",
-    marginTop: "-7px",
-    marginBottom: "-12px",
+    alignSelf: "flex-start",
+    height: "auto",
+    width: "max-content",
     borderRadius: 0,
-    // The four rails above are literal crops from the approved concept, not a CSS approximation.
     border: 0,
-    boxShadow: "0 6px 20px rgba(0,0,0,.75), inset 0 0 16px rgba(0,0,0,.72)",
+    boxShadow: "none",
 }));
 
 const StyledIconButton = styled("button", {
@@ -212,6 +195,8 @@ interface ButtonComponentProps {
     isAttackType?: boolean;
     /** Draws the "ON" badge over the artwork; the artwork itself stays put. */
     showOnBadge?: boolean;
+    /** Keeps the canonical hourglass art and crosses it out while Nightmare's Time Denial is active. */
+    showDeniedSlash?: boolean;
 }
 
 const ButtonComponent: React.FC<ButtonComponentProps> = ({
@@ -226,6 +211,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
     selectedOption = 1,
     isAttackType = false,
     showOnBadge = false,
+    showDeniedSlash = false,
 }) => {
     const [rotationDegrees, setRotationDegrees] = useState(0);
     const [transfusionEffect, setTransfusionEffect] = useState(false);
@@ -292,7 +278,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                 <Tooltip title={text} placement="top">
                     {/* A disabled native button does not emit hover events. Keep the descriptive wrapper so
                         Time Denial (and every other disabled combat control) still explains itself. */}
-                    <Box component="span" sx={{ display: "inline-flex" }}>
+                    <Box component="span" sx={{ display: "inline-flex", position: "relative" }}>
                         <StyledIconButton
                             onClick={handleClick}
                             disabled={isDisabled}
@@ -319,6 +305,25 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                                 iconImage !== spellbookIconImage && iconImage !== hourglassIconImage
                             }
                         />
+                        {showDeniedSlash && (
+                            <Box
+                                aria-hidden
+                                sx={{
+                                    position: "absolute",
+                                    top: "50%",
+                                    left: "12%",
+                                    width: "76%",
+                                    height: `${4 * SCREEN_RATIO}px`,
+                                    borderRadius: "999px",
+                                    background: "linear-gradient(180deg, #ff5148 0%, #c31313 52%, #650606 100%)",
+                                    boxShadow: `0 0 ${2.5 * SCREEN_RATIO}px rgba(255, 34, 25, 0.9), 0 ${1 * SCREEN_RATIO}px ${1.5 * SCREEN_RATIO}px rgba(0, 0, 0, 0.95)`,
+                                    transform: "translateY(-50%) rotate(-48deg)",
+                                    transformOrigin: "center",
+                                    pointerEvents: "none",
+                                    zIndex: 5,
+                                }}
+                            />
+                        )}
                     </Box>
                 </Tooltip>
                 {showOnBadge && (
@@ -481,12 +486,13 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                         isVisible={button.isVisible}
                         isDisabled={button.isDisabled}
                         onClick={() => propagateClick(button.name, button.state)}
-                        isHourglass={button.name === "Hourglass"}
+                        isHourglass={button.name === "Hourglass" || button.name === "TimeDenial"}
                         customSpriteName={button.customSpriteName}
                         numberOfOptions={button.numberOfOptions}
                         selectedOption={button.selectedOption}
                         isAttackType={button.name === "AttackType"}
                         showOnBadge={button.name === "AI" && button.state === VisibleButtonState.SECOND}
+                        showDeniedSlash={button.name === "TimeDenial"}
                     />
                 ))}
             </Box>
@@ -496,17 +502,15 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
     );
 
     // Every button hides itself when it is not applicable (ButtonComponent returns null), so on the
-    // opponent's turn the group is non-empty but renders nothing — which used to leave an empty framed
-    // column sitting in the sidebar. Drop the frame too when there is nothing inside it.
+    // opponent's turn the group is non-empty but renders nothing. Drop the layout column too when there is
+    // nothing inside it.
     const hasVisibleButton = buttonGroup.some((button) => button.isVisible);
 
     return hasVisibleButton ? (
         <StyledSheet
             sx={{
-                // In-flow inside the right sidebar. It used to float over the board — first wherever the
-                // player had dragged it, then pinned to the board's right edge — and either way it sat on
-                // cells that have to be clickable to move and attack. Sized to the button column so the
-                // damage table sits beside it rather than under it.
+                // In-flow inside the right sidebar. This wrapper only positions the medallions; it paints
+                // no panel, cell or background of its own.
                 position: "relative",
                 width: "auto",
                 flex: "none",
@@ -515,9 +519,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                 alignItems: "center",
                 gap: 1,
                 userSelect: "none",
-                // A pure shift: no compensating padding, so the panel keeps its own width and simply moves
-                // over. The damage table next to it is the flexible item in the row, so the width freed at
-                // this panel's far edge goes to the table rather than to empty space.
+                // A pure shift: no compensating padding, so the column keeps its own width and simply moves.
                 ...(flushToTrim
                     ? {
                           marginLeft: `-${TRIM_OVERHANG_PX}px`,
@@ -525,11 +527,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                           // over the full height of the row (which claims the bar's slack), so the column
                           // runs from the top of the screen to the top of the log.
                           marginTop: `-${TOOLBAR_TOP_LIFT_PX}px`,
-                          // Height comes from the buttons and nothing else. Stretching the frame over the
-                          // row's full height left a long dead tail under the last medallion — the panel
-                          // reached the fight log while the buttons stopped a third of the way down. The
-                          // frame's own 12px padding now closes it off under the last button exactly as it
-                          // opens above the first.
+                          // Height comes from the buttons and nothing else.
                           alignSelf: "flex-start",
                       }
                     : {}),

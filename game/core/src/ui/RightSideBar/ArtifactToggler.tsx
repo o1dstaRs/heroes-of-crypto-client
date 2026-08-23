@@ -39,11 +39,14 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
         </Typography>
         <Box
             sx={{
-                display: isOpen ? "flex" : "none",
-                flexWrap: "wrap",
+                display: isOpen ? "grid" : "none",
+                gridTemplateColumns: "repeat(4, 52px)",
                 justifyContent: "center",
                 gap: 0.5,
-                "@media (max-height: 800px)": { gap: 0.25 },
+                "@media (max-height: 800px)": {
+                    gridTemplateColumns: "repeat(4, 35px)",
+                    gap: 0.25,
+                },
             }}
         >
             {artifacts.map((artifact) => {

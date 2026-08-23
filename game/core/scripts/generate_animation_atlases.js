@@ -2,15 +2,28 @@
 /* eslint-disable no-console */
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+
+// Approved animation art that must never be silently replaced by an older export. The Scavenger
+// walk was tuned frame-by-frame (including which leg stays in the foreground), so accepting any
+// other bytes here would visibly restore the rejected gait on the next image-generation pass.
+const PINNED_ATLAS_SHA256 = Object.freeze({
+    "thief_walk_atlas.webp": "975b76a8fe56fe7b9d8a4c94c8a77b9edcffdf68115b5754918ed37970e62be0",
+    "thief_walk_atlas_quarter.webp": "379d5657f086a3bdc726002df1f0f27cbf15a94591ea25e9070c78744a880970",
+});
+
+function sha256(file) {
+    return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
 
 // Root directory where all meta.jsons live (you can override via CLI)
+const localAnimationsRoot = path.resolve(__dirname, "../../../../heroesofcrypto-assets/animations/output");
+const configuredAnimationsRoot = process.env.HOC_ANIMATIONS_LOC;
 const animationsRoot =
-    process.argv[2] || (process.env.HOC_ANIMATIONS_LOC ? path.join(process.env.HOC_ANIMATIONS_LOC, "output") : null);
-
-if (!animationsRoot) {
-    console.error("Animations root not specified. Provide a path as the first CLI argument or set HOC_ANIMATIONS_LOC.");
-    process.exit(1);
-}
+    process.argv[2] ||
+    (configuredAnimationsRoot && !configuredAnimationsRoot.includes("Dropbox")
+        ? path.join(configuredAnimationsRoot, "output")
+        : localAnimationsRoot);
 
 // TARGET IMAGES DIR: ../images from this script location
 const imagesDir = path.resolve(__dirname, "../images");
@@ -52,6 +65,15 @@ function toUnitName(base) {
 function parseMetaFileName(filePath) {
     const fileName = path.basename(filePath, ".json"); // e.g. "angel_default_meta"
     const withoutMeta = fileName.replace(/_meta$/, ""); // "angel_default"
+    // Directional action names contain an underscore. Match those suffixes before the legacy
+    // final-token parser so `ash_moth_attack_up` remains unit "Ash Moth", state "attack_up".
+    for (const state of ["melee_attack_up", "melee_attack_down", "melee_attack", "attack_up", "attack_down"]) {
+        const suffix = `_${state}`;
+        if (withoutMeta.endsWith(suffix)) {
+            const base = withoutMeta.slice(0, -suffix.length);
+            return base ? { unitName: toUnitName(base), state } : null;
+        }
+    }
     const parts = withoutMeta.split("_");
     if (parts.length < 2) {
         return null;
@@ -142,8 +164,8 @@ function main() {
     lines.push("/**");
     lines.push(" * One atlas entry per unit per animation state. Typed as an EXPLICIT record on purpose:");
     lines.push(" * the old `as const` + distributed-keyof types collapsed every indexed lookup to `never`");
-    lines.push(" * the moment the art in Dropbox went heterogeneous (a unit shipping only an \"attack\"");
-    lines.push(" * atlas while the rest carry \"default\"), which broke the client build at deploy time");
+    lines.push(' * the moment the art in Dropbox went heterogeneous (a unit shipping only an "attack"');
+    lines.push(' * atlas while the rest carry "default"), which broke the client build at deploy time');
     lines.push(" * even though CI — with no Dropbox — stayed green. Consumers already resolve units and");
     lines.push(" * states at runtime (`name in animationAtlases`, `Object.keys(...)`), so string keys");
     lines.push(" * with a strict value shape is the honest contract.");
@@ -156,17 +178,33 @@ function main() {
     lines.push("    frameCount: number;");
     lines.push("    fps: number;");
     lines.push("    frameDurationSec: number;");
+    lines.push("    frameDurationsMs?: number[];");
     lines.push("    totalDurationSec: number;");
     lines.push("    layout: { cols: number; rows: number };");
+    lines.push("    footAnchorY?: number;");
+    lines.push("    phases?: {");
+    lines.push(
+        "        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
+    );
+    lines.push(
+        "        flight: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
+    );
+    lines.push(
+        "        landing: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
+    );
+    lines.push("    };");
     lines.push("    loopDurationMs: number;");
     lines.push("    pauseMs: number;");
     lines.push("}");
     lines.push("");
-    lines.push("export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =");
+    lines.push(
+        "export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =",
+    );
     lines.push(JSON.stringify(atlasMap, null, 2) + ";");
     lines.push("");
     lines.push("export type AnimationUnitName = string;");
     lines.push("export type AnimationStateName<_U extends AnimationUnitName = AnimationUnitName> = string;");
+    lines.push("export type AnimationAtlasMeta = IAtlasAnimationMeta;");
     lines.push("");
 
     fs.writeFileSync(outputFile, lines.join("\n"), "utf8");
@@ -175,7 +213,17 @@ function main() {
     // --- Copy atlas .webp files into ../images ------------------------------
     let copied = 0;
     for (const file of atlasWebps) {
-        const dest = path.join(imagesDir, path.basename(file));
+        const basename = path.basename(file);
+        const pinnedHash = PINNED_ATLAS_SHA256[basename];
+        if (pinnedHash) {
+            const actualHash = sha256(file);
+            if (actualHash !== pinnedHash) {
+                throw new Error(
+                    `Refusing to replace approved ${basename}: expected sha256 ${pinnedHash}, got ${actualHash} from ${file}`,
+                );
+            }
+        }
+        const dest = path.join(imagesDir, basename);
         try {
             fs.copyFileSync(file, dest);
             copied++;

@@ -1,0 +1,124 @@
+/* Final fight-results alignment pass (2026-08-07). */
+
+/* Make the inner results surface 20% more transparent without fading its content. */
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2),
+.container .css-10gn0dp {
+  background-color: rgba(20, 11, 5, 0.64) !important;
+}
+
+/* Larger close glyph in a tighter circular frame. */
+.container button[aria-label="Close fight results"] {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 3px !important;
+  border-radius: 50% !important;
+  font-size: 130% !important;
+  line-height: 1 !important;
+}
+
+.container button[aria-label="Close fight results"] > svg,
+.container button[aria-label="Close fight results"] > span,
+.container button[aria-label="Close fight results"] > img {
+  width: 130% !important;
+  height: 130% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* Stretch the divider between the red and green damage columns. */
+.container .css-6su6fj > .MuiStack-root:nth-of-type(2) > :nth-child(2) {
+  align-self: stretch !important;
+  height: auto !important;
+  min-height: 100% !important;
+}
+
+/* Keep all three action-button centers on the same horizontal axis. */
+.container .css-14beif7-JoyStack-root {
+  align-items: center !important;
+}
+
+.container .css-14beif7-JoyStack-root > * {
+  align-self: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* New Battle: restrained dark bronze, distinct from the center action. */
+.container .css-14beif7-JoyStack-root > :nth-child(3) {
+  background-color: #25180f !important;
+  background-image: linear-gradient(180deg, rgba(92, 62, 37, 0.9), rgba(29, 17, 10, 0.96)) !important;
+  border-color: #8a5b30 !important;
+  color: #ead3a0 !important;
+  box-shadow: inset 0 1px 0 rgba(236, 184, 104, 0.22), 0 0 12px rgba(98, 48, 18, 0.2) !important;
+}
+/* Exact five-point pass from the 2026-08-07 fight-results review. */
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2) {
+  background-color: rgba(20, 11, 6, 0.64) !important;
+}
+
+button[aria-label="Close fight results"] {
+  width: 31px !important;
+  height: 31px !important;
+  min-width: 31px !important;
+  min-height: 31px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 130% !important;
+  line-height: 1 !important;
+}
+
+button[aria-label="Close fight results"] > * {
+  transform: scale(1.3) !important;
+  transform-origin: center !important;
+}
+
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2)
+  .MuiBox-root.css-6su6fj > .MuiStack-root:nth-of-type(2) {
+  position: relative !important;
+  align-items: stretch !important;
+}
+
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2)
+  .MuiBox-root.css-6su6fj > .MuiStack-root:nth-of-type(2)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(145, 87, 34, 0.12),
+    rgba(165, 99, 39, 0.78) 12%,
+    rgba(165, 99, 39, 0.78) 88%,
+    rgba(145, 87, 34, 0.12)
+  );
+  pointer-events: none;
+}
+
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2)
+  > .MuiStack-root:nth-of-type(3) {
+  align-items: center !important;
+}
+
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2)
+  > .MuiStack-root:nth-of-type(3) > .MuiBox-root {
+  align-self: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  transform: none !important;
+}
+
+.container > .MuiBox-root:nth-of-type(3) > .MuiBox-root:nth-of-type(2)
+  > .MuiStack-root:nth-of-type(3) > .MuiBox-root:nth-of-type(3) {
+  background: linear-gradient(180deg, #5b402e 0%, #3a251b 48%, #251710 100%) !important;
+  border-color: #94623c !important;
+  color: #efd29b !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 225, 174, 0.2),
+    inset 0 -1px 0 rgba(20, 8, 3, 0.75),
+    0 0 12px rgba(130, 72, 31, 0.18) !important;
+}

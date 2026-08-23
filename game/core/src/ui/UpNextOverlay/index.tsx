@@ -5,16 +5,16 @@ import Box from "@mui/joy/Box";
 import Stack from "@mui/joy/Stack";
 import Typography from "@mui/joy/Typography";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
+import { unitsOverlayTopBandLayout } from "../../scenes/UnitsOverlay";
 import { usePixiManager } from "../../pixi/PixiGameManager";
-import { nextLapHazard } from "../nextLapHazard";
-import { CasualtyChart, CasualtyPercents } from "../FightStats/CasualtyChart";
-import { meteorIconDataUrl } from "../meteorIcon";
+import { CreaturePortraitImage } from "../CreaturePortraitImage";
+import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
+import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { resolveUnitImage } from "../unitImage";
 import { TeamAmountFlag } from "../TeamAmountFlag";
+import { upNextWideSmokyChainsBackgroundSurface } from "../upNextBackground";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
-import ZoomInMapIcon from "@mui/icons-material/ZoomInMap";
-import { Tooltip } from "@mui/joy";
 
 // Copied from UnitStatsListItem.tsx / UpNext.tsx
 const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAura: boolean }> = ({
@@ -103,146 +103,170 @@ export const UpNextOverlay: React.FC = () => {
 
     if (!altPressed || visibleState.lapNumber <= 0) return null;
 
-    const maxVisibleUnits = Math.floor(window.innerWidth / 90); // Estimate based on each unit and space
-
-    const fightStats = visibleState.fightStats;
-    const lastSample = fightStats?.series?.length ? fightStats.series[fightStats.series.length - 1] : undefined;
-    const chartMetric =
-        lastSample?.lowerDamagePct !== undefined || lastSample?.upperDamagePct !== undefined ? "damage" : "casualties";
-    const lowerChartPct =
-        chartMetric === "damage" ? (lastSample?.lowerDamagePct ?? 0) : (lastSample?.lowerKilledPct ?? 0);
-    const upperChartPct =
-        chartMetric === "damage" ? (lastSample?.upperDamagePct ?? 0) : (lastSample?.upperKilledPct ?? 0);
-
-    // Same rule as the bottom-centre NextLapHazardBadge / the MessageBox icon (see nextLapHazard).
-    const hazard = nextLapHazard(visibleState);
-    let defaultIcon =
-        hazard?.kind === "narrowing" ? (
-            <Tooltip title="The map will narrow after this turn." placement="top" sx={{ zIndex: 9999 }}>
-                <ZoomInMapIcon sx={{ color: "white", pb: 2, width: 50, height: 50 }} />
-            </Tooltip>
-        ) : (
-            <React.Fragment />
-        );
-
-    if (hazard?.kind === "armageddon") {
-        defaultIcon = (
-            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ zIndex: 9999 }}>
-                <Box component="img" src={meteorIconDataUrl} sx={{ width: 50, height: 50, pb: 2 }} />
-            </Tooltip>
-        );
-    }
+    const topBand = unitsOverlayTopBandLayout(window.innerWidth, window.innerHeight);
+    // Keep the approved portrait aspect, but use the whole available band when the queue is short. Once
+    // fitting every portrait would make them too small to read, keep a comfortable card size and let the
+    // complete queue scroll instead. This also means a scrollbar exists only when it is genuinely useful.
+    const portraitGap = 8;
+    const displayedUnits = [...visibleUnits].reverse();
+    const availableRowWidth = Math.max(60, topBand.width - 32);
+    const maxPortraitHeight = Math.max(60, Math.floor(topBand.height - 86));
+    const fittedPortraitWidth = displayedUnits.length
+        ? Math.floor((availableRowWidth - portraitGap * Math.max(0, displayedUnits.length - 1)) / displayedUnits.length)
+        : Math.round(maxPortraitHeight * CREATURE_PORTRAIT_ASPECT);
+    const fittedPortraitHeight = Math.floor(fittedPortraitWidth / CREATURE_PORTRAIT_ASPECT);
+    const minimumReadableHeight = Math.min(maxPortraitHeight, 156);
+    const needsScroll = displayedUnits.length > 0 && fittedPortraitHeight < minimumReadableHeight;
+    const portraitHeight = needsScroll
+        ? Math.min(maxPortraitHeight, 256)
+        : Math.max(60, Math.min(maxPortraitHeight, fittedPortraitHeight));
+    const portraitWidth = Math.round(portraitHeight * CREATURE_PORTRAIT_ASPECT);
 
     return (
         <Box
             sx={{
                 position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                backgroundColor: "rgba(0, 0, 0, 0.92)",
-                backdropFilter: "blur(2px)",
+                top: topBand.y,
+                left: topBand.x,
+                width: topBand.width,
+                height: topBand.height,
                 padding: 2,
-                borderRadius: 2,
+                boxSizing: "border-box",
                 zIndex: 9998, // Increased z-index to ensure it's on top
-                overflowX: "auto",
+                overflow: "visible",
                 whiteSpace: "nowrap",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexDirection: "column",
+                backdropFilter: "brightness(0.72)",
+                WebkitBackdropFilter: "brightness(0.72)",
+                boxShadow: "inset 0 -24px 34px rgba(0, 0, 0, 0.22)",
+                ...upNextWideSmokyChainsBackgroundSurface,
             }}
         >
-            {fightStats && lastSample && (
-                <Box
-                    sx={{
-                        position: "absolute",
-                        top: 18,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: "min(440px, 82vw)",
-                        opacity: 1,
-                        pointerEvents: "none",
-                    }}
-                >
-                    <CasualtyPercents lowerKilledPct={lowerChartPct} upperKilledPct={upperChartPct} />
-                    <CasualtyChart series={fightStats.series} drawDurationSec={0.5} metric={chartMetric} />
-                </Box>
-            )}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Box
+                sx={{
+                    position: "relative",
+                    zIndex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                }}
+            >
                 <Typography
                     level="h4"
                     sx={{
                         color: "white",
                         mb: 2,
-                        mr: 2,
+                        textShadow: "0 2px 4px rgba(0, 0, 0, 0.95)",
                     }}
                 >
                     Lap {visibleState.lapNumber}
                 </Typography>
-                {defaultIcon}
             </Box>
             <Stack
                 direction="row"
                 spacing={1}
                 sx={{
-                    justifyContent: "center",
+                    position: "relative",
+                    zIndex: 1,
+                    justifyContent: needsScroll ? "flex-start" : "center",
+                    width: needsScroll ? "100%" : "auto",
+                    maxWidth: "100%",
+                    overflowX: needsScroll ? "auto" : "hidden",
+                    overflowY: "hidden",
+                    flexShrink: 0,
+                    scrollbarWidth: needsScroll ? "thin" : "none",
+                    scrollbarColor: needsScroll
+                        ? "rgba(177, 132, 57, 0.82) rgba(19, 12, 8, 0.72)"
+                        : "transparent transparent",
+                    "&::-webkit-scrollbar": {
+                        height: needsScroll ? "6px" : 0,
+                        display: needsScroll ? "block" : "none",
+                    },
+                    "&::-webkit-scrollbar-track": {
+                        background: "rgba(19, 12, 8, 0.72)",
+                        borderRadius: "3px",
+                        boxShadow: "inset 0 0 2px rgba(0, 0, 0, 0.9)",
+                    },
+                    "&::-webkit-scrollbar-thumb": {
+                        background: "linear-gradient(90deg, rgba(112, 76, 29, 0.92), rgba(190, 144, 66, 0.92))",
+                        border: "1px solid rgba(218, 174, 91, 0.45)",
+                        borderRadius: "3px",
+                    },
+                    "&::-webkit-scrollbar-thumb:hover": {
+                        background: "linear-gradient(90deg, rgba(137, 94, 35, 0.96), rgba(212, 166, 78, 0.96))",
+                    },
                 }}
             >
-                {[...visibleUnits]
-                    .slice(-maxVisibleUnits)
-                    .reverse()
-                    .map((unit, index) => (
-                        <Box key={index} sx={{ position: "relative" }}>
-                            <Box sx={{ position: "relative", display: "inline-block" }}>
+                {displayedUnits.map((unit, index) => (
+                    <Box key={index} sx={{ position: "relative" }}>
+                        <Box sx={{ position: "relative", display: "inline-block" }}>
+                            {unit.name && UNIT_NAME_TO_ID[unit.name.trim()] !== undefined ? (
+                                <CreaturePortraitImage
+                                    creatureId={UNIT_NAME_TO_ID[unit.name.trim()]}
+                                    alt={unit.name}
+                                    sx={{
+                                        width: `${portraitWidth}px`,
+                                        height: `${portraitHeight}px`,
+                                        flexShrink: 0,
+                                        borderRadius: "3px",
+                                        border: "1px solid rgba(180, 142, 74, 0.82)",
+                                        boxShadow: "0 5px 14px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(0, 0, 0, 0.82)",
+                                    }}
+                                />
+                            ) : (
                                 <Avatar
                                     // @ts-ignore: src params
                                     src={resolveUnitImage(unit.smallTextureName, unit.name)}
                                     variant="plain"
                                     sx={{
-                                        width: index === 0 ? "86.4px" : "72px",
-                                        height: index === 0 ? "86.4px" : "72px",
+                                        width: `${portraitWidth}px`,
+                                        height: `${portraitHeight}px`,
                                         flexShrink: 0,
-                                        borderRadius: "15%",
+                                        borderRadius: "3px",
+                                        border: "1px solid rgba(180, 142, 74, 0.82)",
+                                        boxShadow: "0 5px 14px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(0, 0, 0, 0.82)",
                                     }}
                                 />
-                                <StackPowerOverlay
-                                    stackPower={unit.isStackPowered ? unit.stackPower : 0}
-                                    teamType={unit.teamType}
-                                    isAura={false}
-                                />
-                            </Box>
-                            {unit.isSkipping ? (
-                                <img
-                                    src={stopImg}
-                                    alt="Skipping"
-                                    style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        width: "20px",
-                                        height: "20px",
-                                        zIndex: 2,
-                                    }}
-                                />
-                            ) : unit.isOnHourglass ? (
-                                <img
-                                    src={hourglassImg}
-                                    alt="On Hourglass"
-                                    style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: 0,
-                                        width: "20px",
-                                        height: "20px",
-                                        zIndex: 2,
-                                    }}
-                                />
-                            ) : null}
-                            <TeamAmountFlag amount={unit.amount} teamType={unit.teamType} />
+                            )}
+                            <StackPowerOverlay
+                                stackPower={unit.isStackPowered ? unit.stackPower : 0}
+                                teamType={unit.teamType}
+                                isAura={false}
+                            />
                         </Box>
-                    ))}
+                        {unit.isSkipping ? (
+                            <img
+                                src={stopImg}
+                                alt="Skipping"
+                                style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "20px",
+                                    height: "20px",
+                                    zIndex: 2,
+                                }}
+                            />
+                        ) : unit.isOnHourglass ? (
+                            <img
+                                src={hourglassImg}
+                                alt="On Hourglass"
+                                style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    width: "20px",
+                                    height: "20px",
+                                    zIndex: 2,
+                                }}
+                            />
+                        ) : null}
+                        <TeamAmountFlag amount={unit.amount} teamType={unit.teamType} />
+                    </Box>
+                ))}
             </Stack>
         </Box>
     );

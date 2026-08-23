@@ -1,14 +1,13 @@
 import React from "react";
 
+import { battleSidebarWidth } from "../pixi/boardFit";
+
 /**
  * Left position (px) for the AI badge so it sits at the bottom-left of the FIGHT board, not over the
- * left sidebar. The board is a centered 2048px square scaled to fit; its left edge is the sidebar
- * width = (viewportWidth - scaledBoard) / 2. A small inset is added.
+ * left sidebar. Its left edge is the shared, reduced sidebar width; a small inset is added.
  */
 export const aiBadgeLeft = (windowSize: { width: number; height: number }): number => {
-    const scale = Math.min(windowSize.width / 2048, windowSize.height / 2048);
-    const boardLeft = (windowSize.width - 2048 * scale) / 2;
-    return Math.max(0, Math.round(boardLeft)) + 16;
+    return battleSidebarWidth(windowSize.width, windowSize.height) + 16;
 };
 
 /**

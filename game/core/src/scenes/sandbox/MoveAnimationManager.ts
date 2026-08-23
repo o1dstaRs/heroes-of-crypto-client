@@ -2,6 +2,7 @@ import { RenderableUnit } from "../RenderableUnit";
 import { GridSettings, HoCMath, TeamType, GridMath } from "@heroesofcrypto/common";
 import { HoverManager } from "../HoverManager";
 import { Container, Sprite } from "pixi.js";
+import { projectBattlefieldPoint, projectedBattlefieldMetricsAtPoint } from "./BattlefieldVisualGrid";
 
 // Rapid Charge: a fast accelerating dash with a motion-blur streak instead of a flat-speed glide.
 const RC_MIN_SPEED_MULT = 0.7; // starts a touch slower than a normal move...
@@ -10,7 +11,6 @@ const RC_BLUR_BASE = 2; // gaussian blur on the live sprite at the start of the 
 const RC_BLUR_RANGE = 8; // extra blur added as it reaches top speed
 const RC_AFTERIMAGE_SPACING_CELLS = 0.4; // drop a ghost every ~0.4 cells travelled
 const RC_AFTERIMAGE_LIFE = 0.22; // seconds a ghost lingers before it has fully faded
-
 export interface IMoveAnimationContext {
     getGridSettings(): GridSettings;
     updateSceneLog(msg: string): void;
@@ -30,6 +30,9 @@ interface IMoveAnimationState {
     destCell: HoCMath.XY;
     lastTrackWorld: HoCMath.XY;
     onComplete?: () => void;
+    /** The route is an approach to a melee strike, so an authored flyer must land before releasing it. */
+    chainsIntoMeleeAttack: boolean;
+    waitingForLanding: boolean;
     // Rapid Charge: accelerate toward the destination + leave a blurred afterimage trail.
     rapidCharge: boolean;
     totalSegments: number;
@@ -99,7 +102,7 @@ export class MoveAnimationManager {
      */
     public forceFinish(): void {
         if (this.moveAnimation) {
-            this.finishMoveAnimation();
+            this.finishMoveAnimation(true);
         }
         if (this.swapAnimation) {
             const s = this.swapAnimation;
@@ -132,20 +135,41 @@ export class MoveAnimationManager {
 
         // Initial track anchor
         const start = worldPath[0];
+        const firstHorizontalSegment = worldPath.findIndex(
+            (point, index) => index > 0 && Math.abs(point.x - worldPath[index - 1].x) > 0.001,
+        );
+        const initialHorizontalDirection =
+            firstHorizontalSegment > 0
+                ? worldPath[firstHorizontalSegment].x - worldPath[firstHorizontalSegment - 1].x
+                : 0;
+        // Every worldPath segment is one accepted board step, matching moveTrackProgress below.
+        const travelDistanceCells = Math.max(0, worldPath.length - 1);
+        unit.startBoardWalkAnimation(initialHorizontalDirection, travelDistanceCells);
         // Rapid Charge dash (accelerate + motion blur) ONLY when this move leads into a melee attack —
         // the caller passes rapidCharge=true for a move+attack approach, never for a plain reposition —
         // AND the unit actually has the ability. Same gate for sandbox (live) and ranked (replay).
-        const useRapidCharge = rapidCharge && unit.hasAbilityActive("Rapid Charge");
+        // Scavenger's authored six-pose run must remain readable as one coherent figure. The generic
+        // Rapid Charge trail cloned the full-body sprite several times across the map and also changed
+        // the travel duration, so its frames could not stay synchronized to distance. Preserve the
+        // ability mechanically, but use the normal single-sprite movement presentation for Scavenger.
+        const useRapidCharge =
+            rapidCharge &&
+            unit.hasAbilityActive("Rapid Charge") &&
+            unit.getUnitProperties().name.trim() !== "Scavenger";
+        const baseVisualSpeed = unit.canFly() ? speed * 1.2 : speed;
         this.moveAnimation = {
             unit,
             worldPath,
             currentSegment: 0,
             t: 0,
-            // Flying units glide 20% faster than ground units.
-            speed: unit.canFly() ? speed * 1.2 : speed,
+            // Animation cadence is independent from interpolation. Authored walkers travel at the
+            // same speed as every other grounded unit; their sprite loop handles short paths itself.
+            speed: baseVisualSpeed,
             destCell,
             lastTrackWorld: { x: start.x, y: start.y },
             onComplete,
+            chainsIntoMeleeAttack: rapidCharge,
+            waitingForLanding: false,
             rapidCharge: useRapidCharge,
             totalSegments: Math.max(1, worldPath.length - 1),
             lastAfterimageWorld: { x: start.x, y: start.y },
@@ -239,6 +263,7 @@ export class MoveAnimationManager {
     private stepMoveAnimation(dt: number): void {
         const anim = this.moveAnimation;
         if (!anim) return;
+        if (anim.waitingForLanding) return;
 
         const gs = this.context.getGridSettings();
         const cellSize = gs.getCellSize();
@@ -280,6 +305,8 @@ export class MoveAnimationManager {
             const p1 = a.worldPath[segIndex + 1];
             const dx = p1.x - p0.x;
             const dy = p1.y - p0.y;
+            // At horizontal path corners Wandering Mage turns without restarting its footstep phase.
+            unit.setBoardFacingFromMovement(dx);
             const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6;
             const segRemaining = (1 - a.t) * segLen;
 
@@ -325,6 +352,9 @@ export class MoveAnimationManager {
             }
 
             this.moveTrackProgress = a.currentSegment + a.t;
+            // Synchronize spatially-authored phases to path progress: Fairy finishes take-off inside
+            // its opening distance span, while Wandering Mage/Troll keep their gait locked to cells.
+            unit.setBoardWalkDistanceCells(this.moveTrackProgress);
 
             // Rapid Charge: spill a fading afterimage every ~0.4 cells travelled — the trail of ghosts
             // behind the dashing unit is the "motion blur" of a fast charge.
@@ -348,18 +378,20 @@ export class MoveAnimationManager {
                     const cell = this.moveTrackPath[idx];
                     const pos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
                     if (pos) {
+                        const metrics = projectedBattlefieldMetricsAtPoint(pos, gs);
+                        const visualDirection = this.projectDirection(pos, dx / segLen, dy / segLen, gs);
                         this.lingeringTracks.push({
-                            x: pos.x,
-                            y: pos.y,
-                            radius: cellSize * 0.42,
+                            x: metrics.center.x,
+                            y: metrics.center.y,
+                            radius: metrics.cellSize * 0.42,
                             life: 0.25,
                             maxLife: 0.25,
                             phase: Math.random() * Math.PI * 2,
                             team: unit.getTeam(),
                             flying: unit.canFly(),
-                            dirX: dx / segLen,
-                            dirY: dy / segLen,
-                            cellSize,
+                            dirX: visualDirection.x,
+                            dirY: visualDirection.y,
+                            cellSize: metrics.cellSize,
                         });
                         this.lastTrackDropIndex = idx;
                     }
@@ -367,13 +399,39 @@ export class MoveAnimationManager {
             }
         }
     }
-    private finishMoveAnimation(): void {
+    private finishMoveAnimation(force = false): void {
         const anim = this.moveAnimation;
         if (!anim) return;
-        const { unit, worldPath, destCell, onComplete } = anim;
+        const { unit, worldPath } = anim;
         const end = worldPath[worldPath.length - 1] ?? unit.getPosition();
 
         unit.setPosition(end.x, end.y);
+
+        if (force) {
+            unit.stopBoardWalkAnimation();
+            this.completeMoveAnimation(anim);
+            return;
+        }
+
+        // Movement and a chained melee attack are separate visual beats for authored flyers. Keep
+        // the move blocked until the final landing pose has held for its full frame duration; only
+        // then release the callback that starts the strike. Plain moves retain their existing timing.
+        if (anim.chainsIntoMeleeAttack && unit.canFly()) {
+            anim.waitingForLanding = true;
+            const waitsForLanding = unit.finishBoardWalkAnimationAfterFullCycle(() => {
+                if (this.moveAnimation === anim) this.completeMoveAnimation(anim);
+            });
+            if (waitsForLanding) return;
+            anim.waitingForLanding = false;
+        } else {
+            unit.finishBoardWalkAnimationAfterFullCycle();
+        }
+
+        this.completeMoveAnimation(anim);
+    }
+    private completeMoveAnimation(anim: IMoveAnimationState): void {
+        if (this.moveAnimation !== anim) return;
+        const { unit, destCell, onComplete } = anim;
 
         // End of a Rapid Charge: drop the blur so the unit snaps back into crisp focus at its
         // destination. (Afterimages already spawned keep fading on their own via updateAfterimages.)
@@ -421,7 +479,8 @@ export class MoveAnimationManager {
         dirX = 0,
         dirY = 0,
     ): void {
-        const cellSize = gs.getCellSize();
+        const metrics = projectedBattlefieldMetricsAtPoint(worldPos, gs);
+        const visualDirection = this.projectDirection(worldPos, dirX, dirY, gs);
         // `worldPos` is already the large unit's visual (footprint) center, so drop one cohesive
         // puff right there — no grid round-trip, which only snapped the puff onto cell corners.
         //
@@ -431,17 +490,29 @@ export class MoveAnimationManager {
         // 1.05*cell pushed the contrails out to the footprint edges, so they appeared to stream from
         // each corner of the unit.
         this.lingeringTracks.push({
-            x: worldPos.x,
-            y: worldPos.y,
-            radius: cellSize * 0.84,
+            x: metrics.center.x,
+            y: metrics.center.y,
+            radius: metrics.cellSize * 0.84,
             life: 0.25,
             maxLife: 0.25,
             phase: Math.random() * Math.PI * 2,
             team: unit.getTeam(),
             flying: unit.canFly(),
-            dirX,
-            dirY,
-            cellSize,
+            dirX: visualDirection.x,
+            dirY: visualDirection.y,
+            cellSize: metrics.cellSize,
         });
+    }
+    private projectDirection(point: HoCMath.XY, dirX: number, dirY: number, gs: GridSettings): HoCMath.XY {
+        if (Math.abs(dirX) + Math.abs(dirY) < 1e-9) return { x: 0, y: 0 };
+        const from = projectBattlefieldPoint(point, gs);
+        const to = projectBattlefieldPoint(
+            { x: point.x + dirX * gs.getStep(), y: point.y + dirY * gs.getStep() },
+            gs,
+        );
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const length = Math.hypot(dx, dy);
+        return length > 1e-9 ? { x: dx / length, y: dy / length } : { x: 0, y: 0 };
     }
 }

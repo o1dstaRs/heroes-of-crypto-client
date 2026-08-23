@@ -166,12 +166,21 @@ Multiple agents run on this repo **at the same time**. Rules:
 
 ## Game image assets
 
-- Runtime game images are canonical only in the Dropbox directory referenced by HOC_IMAGES_LOC
-  (normally ~/Dropbox/heroesofcrypto/images). Animation atlases and metadata are canonical only under
-  HOC_ANIMATIONS_LOC/output (normally ~/Dropbox/heroesofcrypto/animations/output). Never add game art to
-  game/core/public or another tracked game directory.
-- Store static game images as compressed WebP files in the images Dropbox folder; store animation atlas
-  WebPs and *_meta.json files in the animations Dropbox output folder. Static images must be valid WebP
+- Creature balance, abilities, levels, factions, names, and roster changes must not alter existing portrait
+  sources, framing, mirroring, or backgrounds. Change creature portraits only when the user explicitly requests
+  a portrait change in the current task.
+- Every new file created for or used by this game must stay on local storage. This includes design concepts,
+  references, source artwork, generated images, textures, portraits, icons, sprites, animation frames, atlases,
+  audio, video, fonts, metadata, datasets, previews, screenshots, exports, backups, and intermediate work.
+  Do not save any of these files to Dropbox or another synchronized cloud folder unless the user explicitly asks.
+- Runtime game images are canonical only in the local workspace directory referenced by HOC_IMAGES_LOC
+  (normally ~/Workplace/heroesofcrypto-assets/images). Animation atlases and metadata are canonical only under
+  HOC_ANIMATIONS_LOC/output (normally ~/Workplace/heroesofcrypto-assets/animations/output). Never write new
+  game art or generated data to Dropbox or another synchronized cloud folder unless the user explicitly asks.
+  Never add game art to game/core/public or another tracked game directory.
+- Store intermediate image-generation work under game/core/tmp/imagegen. Store final static game images as
+  compressed WebP files in the local HOC_IMAGES_LOC folder; store animation atlas WebPs and *_meta.json files
+  in the local HOC_ANIMATIONS_LOC/output folder. Static images must be valid WebP
   files no larger than 1,766,026 bytes; animation atlas WebPs are exempt from only that size ceiling. Run
   bun run --cwd game/core check:image-assets (also enforced by build:images), then reference assets through
   src/generated/image_imports.ts or texAny(). Do not hard-code public image URLs such as
@@ -180,5 +189,5 @@ Multiple agents run on this repo **at the same time**. Rules:
 - The sole tracked game-image exception is game/core/public/favicon.ico. All other tracked images belong
   under site/public. Attach gameplay review
   screenshots to the PR or issue instead of committing them.
-- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from
-  Dropbox; do not force-add them.
+- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from the
+  local canonical asset directories; do not force-add them.

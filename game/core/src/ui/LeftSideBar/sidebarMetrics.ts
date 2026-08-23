@@ -11,6 +11,8 @@
 
 import { createContext, useContext } from "react";
 
+import { legacyBattleSidebarWidth } from "../../pixi/boardFit";
+
 /**
  * The sidebar fills whatever gap is left between the screen edge and the square board, so its width is
  * dictated by the screen and swings by a factor of six: ~128px on 1024x768, ~300px on a 1366x768 laptop,
@@ -78,13 +80,10 @@ export const formatSidebarStat = (value: number): string => Number(value.toFixed
  * The left frame rail is narrow, while the board-facing side has no matching inner ornament. Keep only
  * enough room to clear that rail: the card deliberately grows leftwards and keeps its right edge fixed.
  */
-export const sidebarFrameSideInsetPx = (barSize: number): number => clamp(Math.round(barSize * 0.035), 12, 18);
+export const sidebarFrameSideInsetPx = (barSize: number): number => clamp(Math.round(barSize * 0.035 * 0.7), 8, 13);
 
 /** The board-facing edge stays where it is; this is the existing small breathing room beside the board. */
-export const SIDEBAR_FRAME_RIGHT_INSET_PX = 6;
-
-/** The left border is part of the Sheet's border-box and therefore not usable content width. */
-export const SIDEBAR_FRAME_LEFT_BORDER_PX = 5;
+export const SIDEBAR_FRAME_RIGHT_INSET_PX = 4;
 
 /** Matches the compact square corner instead of the old full-image top stretch. */
 export const sidebarFrameTopInsetPx = (viewportHeight: number): number =>
@@ -123,10 +122,7 @@ export function computeSidebarMetrics(
 
     const padPx = density === "micro" ? 6 : density === "narrow" ? 10 : 14;
     const gapPx = density === "micro" ? 5 : density === "narrow" ? 7 : 10;
-    const contentWidth = Math.max(
-        48,
-        barSize - sidebarFrameSideInsetPx(barSize) - SIDEBAR_FRAME_RIGHT_INSET_PX - SIDEBAR_FRAME_LEFT_BORDER_PX,
-    );
+    const contentWidth = Math.max(48, barSize - sidebarFrameSideInsetPx(barSize) - SIDEBAR_FRAME_RIGHT_INSET_PX);
 
     // Past ~620px of bar (a 3440x1440 ultrawide leaves 1000) the panel starts looking sparse at default
     // sizes, so text and art scale up a notch instead of floating in the middle of a huge column.
@@ -192,6 +188,42 @@ export function computeSidebarMetrics(
         synergyIcon,
         portraitMax,
         startButtonScale,
+    };
+}
+
+/**
+ * Preserve the production sidebar's split between responsive layout width and the legacy visual scale.
+ * The portrait editor uses this helper too, so its canvas cannot drift from the live battle sidebar.
+ */
+export function computeBattleSidebarMetrics(
+    barSize: number,
+    viewportWidth: number,
+    viewportHeight: number,
+    cardHeight: number,
+    load: ISidebarContentLoad = EMPTY_CONTENT_LOAD,
+): ISidebarMetrics {
+    const layoutMetrics = computeSidebarMetrics(barSize, cardHeight, load);
+    const originalBarSize = legacyBattleSidebarWidth(viewportWidth, viewportHeight);
+    const originalVisualMetrics = computeSidebarMetrics(originalBarSize, cardHeight, load);
+
+    return {
+        ...layoutMetrics,
+        density: originalVisualMetrics.density,
+        compact: originalVisualMetrics.compact,
+        columnize: originalVisualMetrics.columnize,
+        padPx: originalVisualMetrics.padPx,
+        gapPx: originalVisualMetrics.gapPx,
+        fontScale: originalVisualMetrics.fontScale,
+        statColumns: originalVisualMetrics.statColumns,
+        statIconPx: originalVisualMetrics.statIconPx,
+        statFontRem: originalVisualMetrics.statFontRem,
+        sectionTitleRem: originalVisualMetrics.sectionTitleRem,
+        abilityCell: originalVisualMetrics.abilityCell,
+        effectIcon: originalVisualMetrics.effectIcon,
+        avatarPx: originalVisualMetrics.avatarPx,
+        synergyIcon: originalVisualMetrics.synergyIcon,
+        portraitMax: originalVisualMetrics.portraitMax,
+        startButtonScale: originalVisualMetrics.startButtonScale,
     };
 }
 

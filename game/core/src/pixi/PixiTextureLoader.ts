@@ -1,5 +1,5 @@
 import { Assets, Texture, loadTextures } from "pixi.js";
-import { images as rawImages } from "../generated/image_imports";
+import { images as rawImages } from "../imageAssets";
 
 // Decode textures via <img> instead of createImageBitmap. Chrome intermittently throws
 // "InvalidStateError: The source image could not be decoded" from createImageBitmap when many large
@@ -83,8 +83,9 @@ function getSplitBundles() {
 
     for (const [k, v] of Object.entries(rawImages)) {
         const src = normalizeUrl(v, k);
-        // Tier 2: Animations (_atlas)
-        if (k.endsWith("_atlas")) {
+        // Tier 2: every atlas, including the quarter/half variants actually used by battlefield
+        // walk/hit/attack states and the unsuffixed VFX atlases used by the scene.
+        if (k.includes("_atlas")) {
             animations[k] = { src };
         } else {
             // Tier 1: Core

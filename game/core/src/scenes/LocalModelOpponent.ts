@@ -308,9 +308,12 @@ const getTargetCells = (
         gridSettings.getStep(),
         gridSettings.getHalfStep(),
     );
-    position.x -= gridSettings.getHalfStep();
-    position.y -= gridSettings.getHalfStep();
-    return GridMath.getCellsAroundPosition(gridSettings, position);
+    return GridMath.getFootprintCellsForPosition(
+        gridSettings,
+        position,
+        unit.getFootprintWidth(),
+        unit.getFootprintHeight(),
+    );
 };
 
 const getTargetTotalHp = (unit: Unit): number => (unit.getAmountAlive() - 1) * unit.getMaxHp() + unit.getHp();
@@ -579,6 +582,8 @@ const getEnemiesWithinMovementRange = (
         activeUnit.isSmallSize(),
         activeUnit.canTraverseLava(),
         activeUnit.hasAbilityActive("In Its Own World"),
+        activeUnit.getFootprintWidth(),
+        activeUnit.getFootprintHeight(),
     ).cells;
     const enemies = moveCells.filter((cell) => {
         const enemyId = grid.getOccupantUnitId(cell);

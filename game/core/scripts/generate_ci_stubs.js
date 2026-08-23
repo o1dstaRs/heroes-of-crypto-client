@@ -24,8 +24,10 @@ export interface IAtlasAnimationMeta {
     frameCount: number;
     fps: number;
     frameDurationSec: number;
+    frameDurationsMs?: number[];
     totalDurationSec: number;
     layout: { cols: number; rows: number };
+    footAnchorY?: number;
     loopDurationMs: number;
     pauseMs: number;
 }

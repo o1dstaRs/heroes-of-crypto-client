@@ -557,14 +557,12 @@ export const placeDraftUnit = (
     unit: Unit,
     baseCell: { x: number; y: number },
 ): { x: number; y: number }[] => {
-    const cells = unit.isSmallSize()
-        ? [baseCell]
-        : [
-              baseCell,
-              { x: baseCell.x + 1, y: baseCell.y },
-              { x: baseCell.x, y: baseCell.y + 1 },
-              { x: baseCell.x + 1, y: baseCell.y + 1 },
-          ];
+    const cells = Array.from({ length: unit.getFootprintWidth() }).flatMap((_, dx) =>
+        Array.from({ length: unit.getFootprintHeight() }, (__, dy) => ({
+            x: baseCell.x + dx,
+            y: baseCell.y + dy,
+        })),
+    );
     const position = GridMath.getPositionForCells(gridSettings, cells);
     if (!position) {
         throw new Error(`Cannot place ${unit.getName()} at ${baseCell.x}:${baseCell.y}`);

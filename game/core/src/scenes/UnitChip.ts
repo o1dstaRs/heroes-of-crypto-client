@@ -1,16 +1,80 @@
 // game/core/src/scenes/UnitChip.ts
 import { Container, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
-import { animationAtlases, AnimationUnitName, AnimationStateName } from "../generated/animation_atlases";
+import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
+import { CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA } from "../ui/creaturePortraitBackground";
+import type { PortraitFraming } from "../ui/portraitFraming";
 
 // --- Atlas helpers (Pixi version of your React helpers) ---
 
-type AtlasMeta = (typeof animationAtlases)[AnimationUnitName][AnimationStateName];
+type AtlasMeta = AnimationAtlasMeta;
+
+// These creatures now have dedicated waist-up portraits generated from the approved full-body set.
+// Their breathing atlas belongs on the battlefield; using its distant full-body frame inside the
+// sandbox roster would undo the portrait crop the moment a chip is selected or hovered.
+const FULL_BODY_PORTRAIT_UNITS = new Set([
+    "Abomination",
+    "Angel",
+    "Arachna Queen",
+    "Arachna Spider",
+    "Arbalester",
+    "Battle Mage",
+    "Behemoth",
+    "Beholder",
+    "Berserker",
+    "Black Dragon",
+    "Blacksmith",
+    "Centaur",
+    "Champion",
+    "Crusader",
+    "Cyclops",
+    "Dryad",
+    "Efreet",
+    "Elf",
+    "Fairy",
+    "Frenzied Boar",
+    "Gargantuan",
+    "Goblin Knight",
+    "Griffin",
+    "Harpy",
+    "Healer",
+    "Hydra",
+    "Hyena",
+    "Leprechaun",
+    "Magic Dragon",
+    "Manticore",
+    "Mantis",
+    "Medusa",
+    "Mermaid",
+    "Monk",
+    "Nightmare",
+    "Nomad",
+    "Ogre Mage",
+    "Peasant",
+    "Pegasus",
+    "Pikeman",
+    "Satyr",
+    "Squire",
+    "Thunderbird",
+    "Trent",
+    "Troglodyte",
+    "Troll",
+    "Tsar Cannon",
+    "Unicorn",
+    "Valkyrie",
+    "White Tiger",
+    "Wolf",
+    "Wolf Rider",
+    "Wyvern",
+    "Zena",
+]);
 
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
     if (!name) return null;
     const trimmed = name.trim();
     if (!trimmed) return null;
+    if (trimmed === "Scavenger") return "Thief" as AnimationUnitName;
+    if (trimmed === "Wandering Mage") return "Ash Moth" as AnimationUnitName;
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }
@@ -35,16 +99,22 @@ function atlasImageKeyFromUnitAndState(unitName: string, state: string): { key: 
 function getDefaultAnimationConfig(
     unitName?: string | null,
 ): { meta: AtlasMeta; imageSrc: string; cacheKey: string; divider: number } | null {
+    // The roster uses the exact waist-up model crop for Wandering Mage. Swapping to the full-height idle
+    // atlas on selection would make the chosen chip jump back to a distant, full-body composition.
+    if (unitName?.trim() === "Wandering Mage") return null;
+    if (unitName && FULL_BODY_PORTRAIT_UNITS.has(unitName.trim())) return null;
     const normalized = normalizeUnitNameForAtlas(unitName);
     if (!normalized) return null;
 
-    const unitStates = animationAtlases[normalized];
-    const stateNames = Object.keys(unitStates) as AnimationStateName[];
+    const unitStates = animationAtlases[normalized] as unknown as Record<string, AtlasMeta>;
+    const stateNames = Object.keys(unitStates);
     if (!stateNames.length) return null;
 
-    const preferredState = (stateNames as string[]).includes("default")
-        ? ("default" as AnimationStateName)
-        : stateNames[0];
+    const preferredState = stateNames.includes("idle")
+        ? "idle"
+        : stateNames.includes("default")
+          ? "default"
+          : stateNames[0];
 
     const meta = unitStates[preferredState];
     const resolved = atlasImageKeyFromUnitAndState(normalized, preferredState);
@@ -98,6 +168,14 @@ export type AmountProvider = (unitName: string) => number | undefined | null;
 export type UnitChipOptions = {
     unitName: string;
     texture?: Texture;
+    portrait?: {
+        texture: Texture;
+        backgroundTexture?: Texture;
+        backgroundOpacity?: number;
+        backgroundShadeAlpha?: number;
+        framing: PortraitFraming;
+        mirrorX?: boolean;
+    };
     getAmount?: AmountProvider;
     banned?: boolean;
 };
@@ -110,6 +188,16 @@ export class UnitChip extends Container {
     public readonly nameKey: string;
     private content: Container;
     private aroundGlow: Graphics;
+    private portraitContainer: Container;
+    private portraitBase?: Graphics;
+    private portraitBackground?: Sprite;
+    private portraitBackgroundShade?: Graphics;
+    private portraitMask?: Graphics;
+    private portraitFrame: Graphics;
+    private portraitFraming?: PortraitFraming;
+    private portraitBackgroundOpacity = 1;
+    private portraitBackgroundShadeAlpha = CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
+    private mirrorPortraitX = false;
     private sprite: Sprite;
     private badgeCont: Container;
     private badgeFlag: Graphics;
@@ -119,7 +207,8 @@ export class UnitChip extends Container {
     private forceBadgeVisible = false;
     private banned = false;
     private amountProvider?: AmountProvider;
-    private lastIconSide = 0;
+    private lastCardWidth = 0;
+    private lastCardHeight = 0;
     private idleTexture: Texture;
     // Tween targets and state
     private targetScale = 1.0;
@@ -149,11 +238,40 @@ export class UnitChip extends Container {
         this.aroundGlow.visible = false;
         this.aroundGlow.blendMode = "add";
 
-        // ⬇️ store idle texture
-        this.idleTexture = opts.texture ?? Texture.EMPTY;
+        // The sandbox roster consumes the same approved portrait recipe as draft cards. Keep the old texture
+        // only as a fallback for callers that do not provide a creature id/source.
+        this.idleTexture = opts.portrait?.texture ?? opts.texture ?? Texture.EMPTY;
+        this.portraitFraming = opts.portrait?.framing;
+        this.portraitBackgroundOpacity = opts.portrait?.backgroundOpacity ?? 1;
+        this.portraitBackgroundShadeAlpha =
+            opts.portrait?.backgroundShadeAlpha ?? CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
+        this.mirrorPortraitX = opts.portrait?.mirrorX ?? false;
+
+        this.portraitContainer = new Container();
+        if (opts.portrait) {
+            this.portraitBase = new Graphics();
+            this.portraitContainer.addChild(this.portraitBase);
+            if (opts.portrait.backgroundTexture) {
+                this.portraitBackground = new Sprite(opts.portrait.backgroundTexture);
+                this.portraitBackground.anchor.set(0.5);
+                this.portraitContainer.addChild(this.portraitBackground);
+                this.portraitBackgroundShade = new Graphics();
+                this.portraitContainer.addChild(this.portraitBackgroundShade);
+            }
+            this.portraitMask = new Graphics();
+        }
 
         this.sprite = new Sprite(this.idleTexture);
         this.sprite.anchor.set(0.5);
+        this.portraitContainer.addChild(this.sprite);
+        if (this.portraitMask) {
+            this.portraitContainer.addChild(this.portraitMask);
+            this.portraitContainer.mask = this.portraitMask;
+        }
+
+        // The same restrained neutral frame used by available draft cards. It lives outside the masked
+        // artwork so the complete rounded stroke stays crisp at every responsive size.
+        this.portraitFrame = new Graphics();
 
         this.badgeCont = new Container();
         // Drawn as the SAME banner a placed stack wears, only colourless: a creature picked from the roster
@@ -169,7 +287,7 @@ export class UnitChip extends Container {
         this.badgeCont.addChild(this.badgeFlag, this.badgeText);
         this.badgeCont.visible = false;
 
-        this.content.addChild(this.aroundGlow, this.sprite, this.badgeCont);
+        this.content.addChild(this.aroundGlow, this.portraitContainer, this.portraitFrame, this.badgeCont);
         this.addChild(this.content);
 
         // Pointer interactions
@@ -183,20 +301,34 @@ export class UnitChip extends Container {
         this.ticker = ticker;
     }
     /** Call whenever the grid lays out to size the chip nicely. */
-    public layout(iconSide: number) {
-        this.lastIconSide = iconSide;
+    public layout(cardWidth: number, cardHeight: number = cardWidth) {
+        this.lastCardWidth = cardWidth;
+        this.lastCardHeight = cardHeight;
 
-        this.sprite.width = this.sprite.height = iconSide;
+        if (this.portraitFraming) {
+            this.layoutPortrait(cardWidth, cardHeight, this.portraitFraming);
+        } else {
+            this.sprite.position.set(0, 0);
+            this.sprite.width = cardWidth;
+            this.sprite.height = cardHeight;
+        }
+
+        const radius = Math.min(10, cardWidth * 0.09, cardHeight * 0.06);
+        const frameWidth = Math.max(1, Math.min(2, cardWidth * 0.025));
+        this.portraitFrame
+            .clear()
+            .roundRect(-cardWidth * 0.5, -cardHeight * 0.5, cardWidth, cardHeight, radius)
+            .stroke({ color: 0xffffff, width: frameWidth, alpha: 0.22 });
 
         // 0.18, not the chip's old 0.22: the banner's width is derived from the label, so a larger glyph
         // stretched it and left the notch and the pole too small to read — it came out looking like a plain
         // rectangle. This is the board's ratio, so the roster flag now has the board flag's proportions.
-        const fs = Math.max(10, Math.floor(iconSide * 0.18));
+        const fs = Math.max(10, Math.floor(cardWidth * 0.18));
         this.badgeText.style = new TextStyle({ fill: 0x000000, fontSize: fs, fontWeight: "700" });
-        this.badgeCont.position.set(iconSide * 0.35, -iconSide * 0.35);
-        this.drawBadgeFlag(iconSide, fs);
+        this.badgeCont.position.set(cardWidth * 0.35, -cardHeight * 0.38);
+        this.drawBadgeFlag(cardWidth, fs);
 
-        this.drawGlows(iconSide);
+        this.drawGlows(cardWidth, cardHeight);
 
         // Re-apply states with split hover/selection logic
         this.applyHoverVisuals(); // sets scale/offset + tween based on hover only
@@ -227,6 +359,9 @@ export class UnitChip extends Container {
     private startAtlasAnimation(): void {
         if (!this.ticker) return;
         if (this.animationStepFn) return; // already running
+        // Draft portraits remain static in the roster. Switching a selected chip to its battlefield atlas
+        // would immediately replace the approved crop with the old distant/full-body rendering.
+        if (this.portraitFraming) return;
 
         const config = getDefaultAnimationConfig(this.nameKey);
         if (!config) {
@@ -309,6 +444,45 @@ export class UnitChip extends Container {
         this.animationStepFn = step;
         this.ticker.add(step);
     }
+    private layoutPortrait(cardWidth: number, cardHeight: number, framing: PortraitFraming): void {
+        const radius = Math.min(10, cardWidth * 0.09, cardHeight * 0.06);
+        this.portraitBase
+            ?.clear()
+            .roundRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, radius)
+            .fill({ color: 0x090806 });
+        this.portraitMask
+            ?.clear()
+            .roundRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, radius)
+            .fill({ color: 0xffffff });
+
+        if (this.portraitBackground) {
+            const textureWidth = Math.max(1, this.portraitBackground.texture.width);
+            const textureHeight = Math.max(1, this.portraitBackground.texture.height);
+            const coverScale = Math.max(cardWidth / textureWidth, cardHeight / textureHeight);
+            this.portraitBackground.position.set(0, 0);
+            this.portraitBackground.width = textureWidth * coverScale;
+            this.portraitBackground.height = textureHeight * coverScale;
+            this.portraitBackground.alpha = this.portraitBackgroundOpacity;
+        }
+        this.portraitBackgroundShade
+            ?.clear()
+            .roundRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, radius)
+            .fill({ color: 0x000000, alpha: this.portraitBackgroundShadeAlpha });
+        const textureWidth = Math.max(1, this.sprite.texture.width);
+        const textureHeight = Math.max(1, this.sprite.texture.height);
+        const objectFitScale =
+            framing.fit === "cover"
+                ? Math.max(cardWidth / textureWidth, cardHeight / textureHeight)
+                : Math.min(cardWidth / textureWidth, cardHeight / textureHeight);
+        this.sprite.width = textureWidth * objectFitScale * framing.scale;
+        this.sprite.height = textureHeight * objectFitScale * framing.scale;
+        // Mirror the already-framed result, not merely the complete transparent source canvas. Negating
+        // the authored X offset together with scaleX makes the card show the exact same cropped pixels in
+        // reverse; otherwise an off-centre full figure brings a different, previously hidden area into view.
+        const framedX = (cardWidth * framing.offsetX) / 100;
+        this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
+        this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
+    }
     public override destroy(options?: Parameters<Container["destroy"]>[0]): void {
         this.stopAtlasAnimation();
         if (this.tweenStepFn && this.ticker) {
@@ -343,7 +517,7 @@ export class UnitChip extends Container {
         if (this.banned === v) return;
         this.banned = v;
         this.applyBannedVisual(v);
-        if (this.lastIconSide > 0) this.layout(this.lastIconSide);
+        if (this.lastCardWidth > 0 && this.lastCardHeight > 0) this.layout(this.lastCardWidth, this.lastCardHeight);
     }
     public setAmountProvider(fn?: AmountProvider) {
         this.amountProvider = fn;
@@ -358,8 +532,8 @@ export class UnitChip extends Container {
     private applyHoverVisuals() {
         const hoverActive = this.hovered;
 
-        this.targetScale = hoverActive ? 1.2 : 1.0;
-        this.targetY = hoverActive ? -Math.max(2, Math.floor(this.lastIconSide * 0.06)) : 0;
+        this.targetScale = hoverActive ? 1.12 : 1.0;
+        this.targetY = hoverActive ? -Math.max(2, Math.floor(this.lastCardHeight * 0.035)) : 0;
 
         this.startTween();
     }
@@ -421,8 +595,8 @@ export class UnitChip extends Container {
         if (this.badgeText.text !== String(amount)) {
             this.badgeText.text = String(amount);
             // The banner is sized to its label, so it has to be redrawn whenever the count changes.
-            const fs = Math.max(10, Math.floor(this.lastIconSide * 0.18));
-            this.drawBadgeFlag(this.lastIconSide, fs);
+            const fs = Math.max(10, Math.floor(this.lastCardWidth * 0.18));
+            this.drawBadgeFlag(this.lastCardWidth, fs);
         }
 
         // Show badge if:
@@ -485,29 +659,25 @@ export class UnitChip extends Container {
     private easeInOutCubic(t: number): number {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
-    /**
-     * The white bloom behind an active chip: one even halo, concentric with the round icon, built from
-     * widening circles at falling alpha — Pixi Graphics has no cheap blur — drawn additively, so alpha is
-     * what governs how brightly it burns.
-     *
-     * Two things used to be drawn here. The halo ran from 1.2x the icon's own edge out to 1.68x (a band
-     * 0.34 * iconSide wide) at 0.15 alpha, wide and bright enough to wash over the chips either side; it is
-     * now half that band at a little over half the alpha. Under it sat a second, elliptical pool at the
-     * chip's feet — a ground shadow borrowed from the board, where units stand on a floor. In the roster
-     * they do not: it read as a stray smear hanging off the bottom of an otherwise perfectly round frame,
-     * so it is gone and the ring alone marks the chip, the same all the way round.
-     */
-    private drawGlows(iconSide: number) {
+    /** Restrained rounded-rectangle bloom following the pick-card frame on hover or selection. */
+    private drawGlows(cardWidth: number, cardHeight: number) {
         this.aroundGlow.clear();
         this.aroundGlow.position.set(0, 0);
-        // Starts just past the icon's edge (0.5) and reaches 0.67 — half the old 0.34 band.
-        const baseR = iconSide * 0.53;
+        const radius = Math.min(10, cardWidth * 0.09, cardHeight * 0.06);
         const aroundLayers = 5;
         for (let i = 0; i < aroundLayers; i++) {
             const t = (i + 1) / aroundLayers;
-            const r = baseR * (1 + 0.26 * t);
+            const spread = Math.max(1, cardWidth * 0.025) * (1 + t * 2.6);
             const alpha = 0.085 * (1 - t * 0.85);
-            this.aroundGlow.circle(0, 0, r).fill({ color: 0xffffff, alpha });
+            this.aroundGlow
+                .roundRect(
+                    -cardWidth * 0.5 - spread,
+                    -cardHeight * 0.5 - spread,
+                    cardWidth + spread * 2,
+                    cardHeight + spread * 2,
+                    radius + spread,
+                )
+                .stroke({ color: 0xffffff, width: Math.max(1, spread * 0.8), alpha });
         }
     }
     private applyBannedVisual(on: boolean) {

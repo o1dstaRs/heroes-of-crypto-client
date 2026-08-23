@@ -12,6 +12,7 @@ import {
 } from "@heroesofcrypto/common";
 import { Obstacle } from "../obstacles/obstacle";
 import { RenderableUnit } from "../scenes/RenderableUnit";
+import { projectedCellPoints, projectedPolyline, projectedRectPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
 
 // Internal helper to clamp values
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -260,7 +261,9 @@ export class PixiDrawer {
         const x = targetPosition.x - sizeHalfSteps;
         const y = targetPosition.y - sizeHalfSteps;
 
-        this.attackFromToGfx.rect(x, y, sizeSteps, sizeSteps).fill({ color: this.COLOR.ATTACK_TO, alpha: 0.7 });
+        this.attackFromToGfx
+            .poly(projectedRectPoints(x, y, x + sizeSteps, y + sizeSteps, this.gridSettings))
+            .fill({ color: this.COLOR.ATTACK_TO, alpha: 0.7 });
     }
     /** Green-ish square from a position (old drawAttackFrom) */
     public drawAttackFrom(fromPosition: HoCMath.XY, isSmallUnit = true): void {
@@ -270,7 +273,9 @@ export class PixiDrawer {
         const s = isSmallUnit ? this.gridSettings.getStep() : this.gridSettings.getTwoSteps();
 
         // Keep existing drawn content and add another rect
-        this.attackFromToGfx.rect(x, y, s, s).fill({ color: this.COLOR.ATTACK_FROM, alpha: 1 });
+        this.attackFromToGfx
+            .poly(projectedRectPoints(x, y, x + s, y + s, this.gridSettings))
+            .fill({ color: this.COLOR.ATTACK_FROM, alpha: 1 });
     }
     /** Old drawHoverCells */
     public drawHoverCells(cells?: HoCMath.XY[], hoverSelectedCellsSwitchToRed = false): void {
@@ -282,51 +287,8 @@ export class PixiDrawer {
         const dark = mode === "light" ? this.COLOR.HOVER_DARK : this.COLOR.HOVER_LIGHT;
         const mixed = hoverSelectedCellsSwitchToRed ? color : dark;
 
-        // Special cases from the old implementation
-        if (cells.length === 3 || (cells.length === 2 && cells[0].x !== cells[1].x && cells[0].y !== cells[1].y)) {
-            for (const cell of cells) {
-                const movePosition = GridMath.getPositionForCell(
-                    cell,
-                    this.gridSettings.getMinX(),
-                    this.gridSettings.getStep(),
-                    this.gridSettings.getHalfStep(),
-                );
-                if (!movePosition) continue;
-
-                const x = movePosition.x - this.gridSettings.getHalfStep();
-                const y = movePosition.y - this.gridSettings.getHalfStep();
-                const s = this.gridSettings.getStep();
-
-                this.hoverCellsGfx.rect(x, y, s, s).fill({ color: mixed, alpha: 0.8 });
-            }
-            return;
-        }
-
-        // General merged rectangle
-        let minX = Number.MAX_SAFE_INTEGER;
-        let minY = Number.MAX_SAFE_INTEGER;
-        let maxX = Number.MIN_SAFE_INTEGER;
-        let maxY = Number.MIN_SAFE_INTEGER;
-
         for (const cell of cells) {
-            const pos = GridMath.getPositionForCell(
-                cell,
-                this.gridSettings.getMinX(),
-                this.gridSettings.getStep(),
-                this.gridSettings.getHalfStep(),
-            );
-            if (!pos) continue;
-
-            const x = pos.x - this.gridSettings.getHalfStep();
-            const y = pos.y - this.gridSettings.getHalfStep();
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x + this.gridSettings.getStep());
-            maxY = Math.max(maxY, y + this.gridSettings.getStep());
-        }
-
-        if (minX <= maxX && minY <= maxY) {
-            this.hoverCellsGfx.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: mixed, alpha: 0.8 });
+            this.hoverCellsGfx.poly(projectedCellPoints(cell, this.gridSettings)).fill({ color: mixed, alpha: 0.8 });
         }
     }
     /** Old drawHighlightedCells */
@@ -337,19 +299,7 @@ export class PixiDrawer {
         const color = isLightMode ? this.COLOR.LIGHT_ORANGE : this.COLOR.LIGHT_YELLOW;
 
         for (const cell of cells) {
-            const position = GridMath.getPositionForCell(
-                cell,
-                this.gridSettings.getMinX(),
-                this.gridSettings.getStep(),
-                this.gridSettings.getHalfStep(),
-            );
-            if (!position) continue;
-
-            const x = position.x - this.gridSettings.getHalfStep();
-            const y = position.y - this.gridSettings.getHalfStep();
-            const s = this.gridSettings.getStep();
-
-            this.highlightedCellsGfx.rect(x, y, s, s).fill({ color, alpha: 1 });
+            this.highlightedCellsGfx.poly(projectedCellPoints(cell, this.gridSettings)).fill({ color, alpha: 1 });
         }
     }
     /** Old drawAOECells behavior (only size 1–2 are drawn with drawAttackTo) */
@@ -357,20 +307,11 @@ export class PixiDrawer {
         this.aoeGfx.clear();
         if (!hoverAOECells?.length) return;
 
-        const drawable: Array<{ position: HoCMath.XY; size: number }> = [];
-        const cellKeys: number[] = [];
+        const drawableCells = new Map<number, HoCMath.XY>();
 
         for (const c of hoverAOECells) {
-            const cellPos = GridMath.getPositionForCell(
-                c,
-                this.gridSettings.getMinX(),
-                this.gridSettings.getStep(),
-                this.gridSettings.getHalfStep(),
-            );
-            if (!cellPos) continue;
-
             const key = (c.x << 4) | c.y;
-            if (cellKeys.includes(key)) continue;
+            if (drawableCells.has(key)) continue;
 
             const occId = this.grid.getOccupantUnitId(c);
             if (occId && occId !== "L" && occId !== "W") {
@@ -379,44 +320,17 @@ export class PixiDrawer {
 
                 for (const oc of u.getCells()) {
                     const k = (oc.x << 4) | oc.y;
-                    if (!cellKeys.includes(k)) cellKeys.push(k);
+                    drawableCells.set(k, oc);
                 }
-
-                const baseCell = u.getBaseCell();
-                if (!baseCell) continue;
-
-                const basePos = GridMath.getPositionForCell(
-                    baseCell,
-                    this.gridSettings.getMinX(),
-                    this.gridSettings.getStep(),
-                    this.gridSettings.getHalfStep(),
-                );
-                if (!basePos) continue;
-
-                drawable.push({
-                    position: {
-                        x: basePos.x - (u.isSmallSize() ? 0 : this.gridSettings.getHalfStep()),
-                        y: basePos.y - (u.isSmallSize() ? 0 : this.gridSettings.getHalfStep()),
-                    },
-                    size: u.getSize(),
-                });
-                cellKeys.push(key);
                 continue;
             }
-
-            drawable.push({ position: cellPos, size: 1 });
-            cellKeys.push(key);
+            drawableCells.set(key, c);
         }
 
-        // Only draw sizes 1 or 2 as in the old code
-        for (const p of drawable) {
-            if (p.size <= 2 && p.size >= 1) {
-                const sizeSteps = p.size * this.gridSettings.getStep();
-                const sizeHalfSteps = p.size * this.gridSettings.getHalfStep();
-                const x = p.position.x - sizeHalfSteps;
-                const y = p.position.y - sizeHalfSteps;
-                this.aoeGfx.rect(x, y, sizeSteps, sizeSteps).fill({ color: this.COLOR.ATTACK_TO, alpha: 0.7 });
-            }
+        for (const cell of drawableCells.values()) {
+            this.aoeGfx
+                .poly(projectedCellPoints(cell, this.gridSettings))
+                .fill({ color: this.COLOR.ATTACK_TO, alpha: 0.7 });
         }
     }
     /** Old drawAuraArea (two outlines) */
@@ -426,16 +340,17 @@ export class PixiDrawer {
         const step = isSmallUnit ? this.gridSettings.getHalfStep() : this.gridSettings.getStep();
         const start = { x: position.x - range - step, y: position.y - range - step };
         const end = { x: position.x + range + step, y: position.y + range + step };
-        const w = end.x - start.x;
-        const h = end.y - start.y;
         const color = isBuff ? this.COLOR.GREEN : this.COLOR.RED;
 
-        this.auraGfx.rect(start.x, start.y, w, h).stroke({ width: 1, color, alpha: 1 });
+        this.auraGfx
+            .poly(projectedRectPoints(start.x, start.y, end.x, end.y, this.gridSettings))
+            .stroke({ width: 1, color, alpha: 1 });
 
         const start2 = { x: start.x - 1, y: start.y - 1 };
-        const w2 = w + 2;
-        const h2 = h + 2;
-        this.auraGfx.rect(start2.x, start2.y, w2, h2).stroke({ width: 1, color, alpha: 1 });
+        const end2 = { x: end.x + 1, y: end.y + 1 };
+        this.auraGfx
+            .poly(projectedRectPoints(start2.x, start2.y, end2.x, end2.y, this.gridSettings))
+            .stroke({ width: 1, color, alpha: 1 });
     }
     /** Old drawHoverArea (filled rect between two corners) */
     public drawHoverArea(isLightMode: boolean, area: HoCMath.XY[]): void {
@@ -448,10 +363,10 @@ export class PixiDrawer {
         const color = isLightMode ? this.COLOR.HOVER_DARK : this.COLOR.HOVER_LIGHT;
         const x = Math.min(start.x, end.x);
         const y = Math.min(start.y, end.y);
-        const w = Math.abs(end.x - start.x);
-        const h = Math.abs(end.y - start.y);
+        const right = Math.max(start.x, end.x);
+        const top = Math.max(start.y, end.y);
 
-        this.hoverAreaGfx.rect(x, y, w, h).fill({ color, alpha: 0.8 });
+        this.hoverAreaGfx.poly(projectedRectPoints(x, y, right, top, this.gridSettings)).fill({ color, alpha: 0.8 });
     }
     /** Draw the cell grid: a thin filled bar at every internal cell boundary. */
     public drawGrid(): void {
@@ -466,19 +381,34 @@ export class PixiDrawer {
         const color = localStorage.getItem("joy-mode") === "light" ? 0x333333 : 0xcccccc;
         const fill = { color, alpha: 0.3 };
 
-        // Use thin filled rects, not 1px strokes. At the world->screen zoom a 1px stroke undersamples
-        // and whole lines drop out (e.g. every 4th), and stroking the lattice in one call also drops
-        // segments in PixiJS v8. A filled bar always rasterizes. Cells are spaced by `step` on both
-        // axes (see GridMath.getPositionForCell); index-based so a fractional step can't drift.
         const lineW = Math.max(2, step * 0.03);
-        const half = lineW / 2;
         for (let i = 1; i < size; i++) {
             const x = minX + i * step;
-            this.gridGfx.rect(x - half, minY, lineW, maxY - minY).fill(fill);
+            this.gridGfx
+                .poly(
+                    projectedPolyline(
+                        [
+                            { x, y: minY },
+                            { x, y: maxY },
+                        ],
+                        this.gridSettings,
+                    ),
+                )
+                .stroke({ width: lineW, ...fill });
         }
         for (let j = 1; j < size; j++) {
             const y = minY + j * step;
-            this.gridGfx.rect(minX, y - half, maxX - minX, lineW).fill(fill);
+            this.gridGfx
+                .poly(
+                    projectedPolyline(
+                        [
+                            { x: minX, y },
+                            { x: maxX, y },
+                        ],
+                        this.gridSettings,
+                    ),
+                )
+                .stroke({ width: lineW, ...fill });
         }
     }
     public destroy(): void {

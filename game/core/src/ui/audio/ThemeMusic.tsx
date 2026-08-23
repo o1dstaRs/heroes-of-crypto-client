@@ -272,26 +272,19 @@ export const ThemeMusic: React.FC = () => {
     const containerStyle: React.CSSProperties = dockSlot
         ? {
               position: "relative",
-              display: "flex",
-              alignItems: "center",
-              gap: volumeExpanded ? "0.5rem" : 0,
-              color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
+              width: 32,
+              height: 32,
+              flex: "0 0 32px",
+              color: "#dcb158",
           }
         : {
               position: "fixed",
               right: "1rem",
               bottom: "1rem",
               zIndex: 60,
-              display: "flex",
-              alignItems: "center",
-              gap: volumeExpanded ? "0.5rem" : 0,
-              padding: volumeExpanded ? "0.25rem 0.6rem 0.25rem 0.25rem" : 0,
-              borderRadius: "999px",
-              background: volumeExpanded ? "rgba(12, 14, 20, 0.72)" : "transparent",
-              border: volumeExpanded ? "1px solid rgba(255, 255, 255, 0.12)" : "none",
-              backdropFilter: volumeExpanded ? "blur(6px)" : "none",
-              transition: "padding 140ms ease, background 140ms ease",
-              color: silent ? "#8d8778" : "#e8e2d4",
+              width: 32,
+              height: 32,
+              color: "#e8e2d4",
           };
 
     const control = (
@@ -338,7 +331,7 @@ export const ThemeMusic: React.FC = () => {
                     borderRadius: 0,
                     border: "none",
                     background: "transparent",
-                    color: silent ? "rgba(220, 177, 88, 0.45)" : "#dcb158",
+                    color: "inherit",
                     cursor: "pointer",
                 }}
             >
@@ -363,48 +356,63 @@ export const ThemeMusic: React.FC = () => {
                     )}
                 </svg>
             </button>
-            <input
-                type="range"
-                min={0}
-                max={100}
-                step={1}
-                value={Math.round(volume * 100)}
-                aria-label="Music volume"
-                onChange={(event) => {
-                    const next = clamp01(Number(event.target.value) / 100);
-                    setVolume(next);
-                    if (next > 0) {
-                        setMuted(false);
-                    }
-                    const audio = audioRef.current;
-                    const player = playerRef.current;
-                    const nextTarget = singing ? next : 0;
-                    player?.setTargetVolume(nextTarget);
-                    if (audio) {
-                        // Dragging is continuous, so track it directly rather than fading to each step.
-                        stopFade();
-                        if (nextTarget === 0) {
-                            audio.volume = 0;
-                            audio.pause();
-                        } else if (player && (audio.paused || !player.hasStarted())) {
-                            void player.start(nextTarget, true);
-                        } else {
-                            audio.volume = nextTarget;
-                        }
-                    }
-                }}
+            <div
                 style={{
-                    width: volumeExpanded ? "5.5rem" : 0,
+                    position: "absolute",
+                    left: "50%",
+                    bottom: "calc(100% + 0.35rem)",
+                    width: 32,
+                    height: "5.5rem",
+                    transform: "translateX(-50%)",
                     opacity: volumeExpanded ? 1 : 0,
-                    // Collapsed it must take NO room at all, so the control is exactly the 32px speaker.
-                    margin: 0,
-                    minWidth: 0,
-                    overflow: "hidden",
-                    transition: "width 140ms ease, opacity 140ms ease",
-                    accentColor: "#ffd88a",
-                    cursor: "pointer",
+                    pointerEvents: volumeExpanded ? "auto" : "none",
+                    transition: "opacity 140ms ease",
                 }}
-            />
+            >
+                <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={Math.round(volume * 100)}
+                    aria-label="Music volume"
+                    aria-orientation="vertical"
+                    onChange={(event) => {
+                        const next = clamp01(Number(event.target.value) / 100);
+                        setVolume(next);
+                        if (next > 0) {
+                            setMuted(false);
+                        }
+                        const audio = audioRef.current;
+                        const player = playerRef.current;
+                        const nextTarget = singing ? next : 0;
+                        player?.setTargetVolume(nextTarget);
+                        if (audio) {
+                            // Dragging is continuous, so track it directly rather than fading to each step.
+                            stopFade();
+                            if (nextTarget === 0) {
+                                audio.volume = 0;
+                                audio.pause();
+                            } else if (player && (audio.paused || !player.hasStarted())) {
+                                void player.start(nextTarget, true);
+                            } else {
+                                audio.volume = nextTarget;
+                            }
+                        }
+                    }}
+                    style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        width: "5.5rem",
+                        margin: 0,
+                        transform: "translate(-50%, -50%) rotate(-90deg)",
+                        transformOrigin: "center",
+                        accentColor: "#ffd88a",
+                        cursor: "pointer",
+                    }}
+                />
+            </div>
         </div>
     );
 

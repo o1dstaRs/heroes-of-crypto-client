@@ -36,6 +36,8 @@ import {
     rankedUnitStartHealth,
     multiHitSceneLogLines,
     restoreRankedStepsMoraleMultiplier,
+    centeredPlacementColumnCells,
+    centeredPlacementLineCells,
     revealedOpponentRowScale,
     revealedOpponentRowX,
     revealedOpponentRowY,
@@ -1314,6 +1316,59 @@ describe("revealed opponent roster row", () => {
     const MAX_X = GridConstants.MAX_X;
     const STEP = GridConstants.MAX_Y / GridConstants.GRID_SIZE;
 
+    test("centres revealed opponents on the front cells of the upper placement zone", () => {
+        const footprints = centeredPlacementLineCells([1, 1, 1, 1, 1, 2], 1, 14, 12, true);
+        const occupiedXs = footprints.flat().map((cell) => cell.x);
+
+        expect(Math.min(...occupiedXs)).toBe(2);
+        expect(Math.max(...occupiedXs)).toBe(13);
+        expect(footprints.slice(0, 5).every((cells) => cells.length === 1 && cells[0].y === 12)).toBe(true);
+        expect(footprints[5]).toEqual([
+            { x: 12, y: 12 },
+            { x: 13, y: 12 },
+            { x: 12, y: 13 },
+            { x: 13, y: 13 },
+        ]);
+    });
+
+    test("centres the full red army vertically inside its baseline right-side zone", () => {
+        const footprints = centeredPlacementColumnCells([1, 1, 1, 1, 1, 2], 1, 14, 12, true);
+        const occupied = footprints.flat();
+
+        expect(footprints.slice(0, 5).map((cells) => cells[0])).toEqual([
+            { x: 12, y: 2 },
+            { x: 12, y: 4 },
+            { x: 12, y: 6 },
+            { x: 12, y: 8 },
+            { x: 12, y: 10 },
+        ]);
+        expect(footprints[5]).toEqual([
+            { x: 12, y: 12 },
+            { x: 13, y: 12 },
+            { x: 12, y: 13 },
+            { x: 13, y: 13 },
+        ]);
+        expect(occupied.every((cell) => cell.x >= 12 && cell.x <= 14 && cell.y >= 1 && cell.y <= 14)).toBe(true);
+    });
+
+    test("mirrors large creatures inward from the green zone's front column", () => {
+        expect(centeredPlacementColumnCells([2], 1, 14, 3, false)[0]).toEqual([
+            { x: 2, y: 7 },
+            { x: 3, y: 7 },
+            { x: 2, y: 8 },
+            { x: 3, y: 8 },
+        ]);
+    });
+
+    test("mirrors a large creature away from the battlefield for the lower zone", () => {
+        expect(centeredPlacementLineCells([2], 1, 14, 3, false)[0]).toEqual([
+            { x: 7, y: 2 },
+            { x: 8, y: 2 },
+            { x: 7, y: 3 },
+            { x: 8, y: 3 },
+        ]);
+    });
+
     test("spreads the army across the full board width, inside both edges", () => {
         const xs = Array.from({ length: 6 }, (_, index) => revealedOpponentRowX(index, 6, MIN_X, MAX_X));
 
@@ -1658,9 +1713,9 @@ describe("ranked ability-transfer scene log", () => {
 // both boards must share. Sandbox.ts used to restate it locally, which meant a ranked-side change left the
 // sandbox scattering the old number — the whole point of importing it from common now.
 describe("cemetery stone count", () => {
-    test("is twelve, and ranked derives exactly that many", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBe(12);
-        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(12);
+    test("is nine, and ranked derives exactly that many", () => {
+        expect(SCATTERED_MOUNTAIN_COUNT).toBe(9);
+        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(9);
     });
 
     test("fits the neutral band with room to spare", () => {

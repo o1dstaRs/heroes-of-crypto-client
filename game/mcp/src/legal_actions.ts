@@ -107,9 +107,12 @@ const getTargetCells = (
         gridSettings.getStep(),
         gridSettings.getHalfStep(),
     );
-    position.x -= gridSettings.getHalfStep();
-    position.y -= gridSettings.getHalfStep();
-    return GridMath.getCellsAroundPosition(gridSettings, position);
+    return GridMath.getFootprintCellsForPosition(
+        gridSettings,
+        position,
+        unit.getFootprintWidth(),
+        unit.getFootprintHeight(),
+    );
 };
 
 const estimateUnitValue = (unit: Unit): number =>
@@ -297,6 +300,9 @@ export const getEnemiesWithinMovementRange = (
         activeUnit.canFly(),
         activeUnit.isSmallSize(),
         activeUnit.hasAbilityActive("Made of Fire"),
+        activeUnit.hasAbilityActive("In Its Own World"),
+        activeUnit.getFootprintWidth(),
+        activeUnit.getFootprintHeight(),
     ).cells;
     const enemies: Array<{ x: number; y: number }> = [];
 

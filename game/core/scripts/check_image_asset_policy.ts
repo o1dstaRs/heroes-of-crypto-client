@@ -1,16 +1,19 @@
+import path from "node:path";
+
 import { findGameImageAssetViolations, MAX_STATIC_GAME_IMAGE_BYTES } from "../src/gameImageAssetPolicy";
 
 if (import.meta.main) {
-    const imageDirectory = process.argv[2] || process.env.HOC_IMAGES_LOC;
-
-    if (!imageDirectory) {
-        console.error("Set HOC_IMAGES_LOC or pass the Dropbox image directory as the first argument.");
-        process.exit(2);
-    }
+    const localImageDirectory = path.resolve(import.meta.dir, "../../../../heroesofcrypto-assets/images");
+    const configuredImageDirectory = process.env.HOC_IMAGES_LOC;
+    const imageDirectory =
+        process.argv[2] ||
+        (configuredImageDirectory && !configuredImageDirectory.includes("Dropbox")
+            ? configuredImageDirectory
+            : localImageDirectory);
 
     const violations = await findGameImageAssetViolations(imageDirectory);
     if (violations.length > 0) {
-        console.error("Dropbox game image policy failed:");
+        console.error("Local game image policy failed:");
         for (const violation of violations) {
             console.error(`  - ${violation}`);
         }
@@ -18,6 +21,6 @@ if (import.meta.main) {
     }
 
     console.log(
-        `Dropbox game image policy passed: WebP-only static images at or below ${MAX_STATIC_GAME_IMAGE_BYTES} bytes.`,
+        `Local game image policy passed: WebP-only static images at or below ${MAX_STATIC_GAME_IMAGE_BYTES} bytes.`,
     );
 }

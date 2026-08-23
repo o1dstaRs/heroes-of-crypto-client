@@ -14,24 +14,24 @@ export const getMapDisplay = (mapType: number): IMapDisplay | undefined => {
     switch (mapType) {
         case GridVals.NORMAL:
             return {
-                name: "Standard",
-                imageKey: "board_icon",
-                accent: "#8fd18f",
-                blurb: "Open field — no central hazard.",
+                name: "Normal",
+                imageKey: "map_badge_normal_4x4_actual_style_v4",
+                accent: "#c6a66b",
+                blurb: "Open stone field — no central hazard.",
             };
         case GridVals.LAVA_CENTER:
             return {
                 name: "Lava",
-                imageKey: "lava_256",
+                imageKey: "map_badge_lava_frameless_v2",
                 accent: "#ff7a3c",
                 blurb: "A lava pool scars the center of the board.",
             };
         case GridVals.BLOCK_CENTER:
             return {
-                name: "Cemetery",
-                imageKey: "mountain_432_412",
+                name: "Barrels",
+                imageKey: "map_badge_barrels_frameless_v2",
                 accent: "#d8b073",
-                blurb: "Tombstones crowd a narrow central corridor.",
+                blurb: "Destructible barrels obstruct routes across the board.",
             };
         case GridVals.WATER_CENTER:
             return {
