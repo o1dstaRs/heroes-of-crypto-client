@@ -189,6 +189,37 @@ describe("authoritative ranged projectile plan", () => {
         expect(bothMissed).toHaveLength(2);
     });
 
+    it("uses the remaining Double Shot animation after shot one destroys a cemetery object", () => {
+        const cemeteryImpact = { x: 500, y: 300 };
+        const plan = resolveRangeProjectileImpactPlan(
+            event({
+                damageUnitId: "requested",
+                // The engine records only the remaining unit-bound volley here. The first projectile
+                // is the separate obstacle_attacked event supplied through cemeteryImpact.
+                animations: [outgoing("requested")],
+                hits: [{ amount: 6, unitsDied: 0 }],
+            }),
+            "requested",
+            ATTACKER_POSITION,
+            false,
+            true,
+            [cemeteryImpact],
+        );
+
+        expect(plan).toEqual([
+            {
+                targetUnitId: "requested",
+                targetPosition: cemeteryImpact,
+                intercepted: false,
+            },
+            {
+                targetUnitId: "requested",
+                targetPosition: AIM_POSITION,
+                intercepted: false,
+            },
+        ]);
+    });
+
     it("retargets shot two after shot one kills an interceptor and ignores a response between them", () => {
         const plan = resolveRangeProjectileImpactPlan(
             event({

@@ -3603,6 +3603,18 @@ export class Sandbox extends PixiScene {
         attacker.setActiveTurn(true);
         attacker.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
         this.sc_moveBlocked = true;
+        const doubleShotPlayback =
+            this.shouldPlayReplayDoubleShotProjectile() && AbilityHelper.hasDoubleShotAbility(attacker);
+        const projectileObstacleEvents =
+            doubleShotPlayback &&
+            !attacker.hasAbilityActive("Large Caliber") &&
+            !attacker.hasAbilityActive("Area Throw")
+                ? record.events.filter(
+                      (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> =>
+                          event.type === "obstacle_attacked",
+                  )
+                : [];
+        const appliedProjectileObstacleEvents = new Set<GameEvent>();
 
         if (attackEvent.attackType === "range") {
             // A plain (non-piercing) shot stops at the FIRST unit on its trajectory. When a unit
@@ -3617,10 +3629,18 @@ export class Sandbox extends PixiScene {
                 target.getId(),
                 attacker.getPosition(),
                 throughShot,
-                this.shouldPlayReplayDoubleShotProjectile() && AbilityHelper.hasDoubleShotAbility(attacker),
+                doubleShotPlayback,
+                projectileObstacleEvents.map((event) => event.targetPosition),
             );
             const firstProjectile = this.resolveRangeProjectilePlaybackTarget(projectilePlan[0], target);
             await this.playReplayProjectile(attacker, firstProjectile.target, firstProjectile.position);
+            const firstProjectileObstacleEvent = projectileObstacleEvents[0];
+            if (firstProjectileObstacleEvent) {
+                // The stone belongs to shot one. Remove it at that impact, before shot two continues to
+                // the unit, and exclude it from the later all-events pass so it is never applied twice.
+                this.applyReplayEvents([firstProjectileObstacleEvent]);
+                appliedProjectileObstacleEvents.add(firstProjectileObstacleEvent);
+            }
             const secondImpact = projectilePlan[1];
             if (secondImpact) {
                 const secondProjectile = this.resolveRangeProjectilePlaybackTarget(secondImpact, target);
@@ -3728,10 +3748,10 @@ export class Sandbox extends PixiScene {
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
         // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
         // cleanup, and re-noting would leave a stale blow that could color a resurrected unit's next death.
-        this.applyReplayEvents(
-            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events,
-            record.stateAfter,
-        );
+        const replayEvents = (
+            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events
+        ).filter((event) => !appliedProjectileObstacleEvents.has(event));
+        this.applyReplayEvents(replayEvents, record.stateAfter);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -9289,10 +9309,22 @@ export class Sandbox extends PixiScene {
                 ? undefined
                 : this.resolveFirstRangeHitUnit(target, aim?.position);
             const intercepted = !!interceptUnit && interceptUnit.getId() !== target.getId();
+            const doubleShotObstacleImpacts =
+                this.grid.hasScatteredMountains() &&
+                AbilityHelper.hasDoubleShotAbility(attacker) &&
+                !attacker.hasAbilityActive("Large Caliber") &&
+                !attacker.hasAbilityActive("Area Throw") &&
+                aim?.position
+                    ? this.attackHandler
+                          .getObstacleIntersections(attacker.getPosition(), aim.position)
+                          .slice(0, 2)
+                          .map((obstacle) => obstacle.position)
+                    : [];
             const shotTarget =
-                intercepted && interceptUnit instanceof RenderableUnit
+                doubleShotObstacleImpacts[0] ??
+                (intercepted && interceptUnit instanceof RenderableUnit
                     ? interceptUnit.getVisualCenter(gs)
-                    : (aim?.position ?? tVis);
+                    : (aim?.position ?? tVis));
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
             // ABILITY Chakram (Zena): throw the spinning disc instead of a bolt. Gated on the ABILITY, not
             // the creature name, so a stolen/granted Chakram throws one too — and a Broken one does not.
@@ -9332,6 +9364,7 @@ export class Sandbox extends PixiScene {
                     attacker.getPosition(),
                     attacker.hasAbilityActive("Through Shot"),
                     AbilityHelper.hasDoubleShotAbility(attacker),
+                    doubleShotObstacleImpacts,
                 );
                 const secondImpact = projectilePlan[1];
                 if (secondImpact) {

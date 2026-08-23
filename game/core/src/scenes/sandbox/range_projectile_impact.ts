@@ -57,7 +57,9 @@ const hasLegacyDoubleShotEvidence = (
  * attacker and is excluded. Modern events also carry fromPosition, which protects against a response
  * intercepted by a third unit; old journals fall back to first/last ordering only with double-shot
  * evidence. Through Shot travels to the requested aim once per authoritative volley, including a
- * second Double Shot / Crafted Double Shot volley when the engine records one.
+ * second Double Shot / Crafted Double Shot volley when the engine records one. Cemetery blockers are
+ * recorded as separate `obstacle_attacked` events, so callers prepend their ordered positions here;
+ * those impacts consume projectile slots before the remaining unit-target animations.
  */
 export function resolveRangeProjectileImpactPlan(
     attackEvent: UnitAttackedEvent,
@@ -65,20 +67,38 @@ export function resolveRangeProjectileImpactPlan(
     attackerPosition: HoCMath.XY,
     throughShot: boolean,
     doubleShot: boolean,
+    precedingObstaclePositions: readonly HoCMath.XY[] = [],
 ): readonly IRangeProjectileImpact[] {
+    const projectileCount = doubleShot ? 2 : 1;
+    const obstacleImpacts: IRangeProjectileImpact[] = precedingObstaclePositions
+        .slice(0, projectileCount)
+        .map((position) => ({
+            targetUnitId: requestedTargetId,
+            targetPosition: clonePosition(position),
+            intercepted: false,
+        }));
+    const remainingProjectiles = projectileCount - obstacleImpacts.length;
+    if (remainingProjectiles <= 0) {
+        return obstacleImpacts;
+    }
+    const withObstacleImpacts = (unitImpacts: readonly IRangeProjectileImpact[]): IRangeProjectileImpact[] =>
+        [...obstacleImpacts, ...unitImpacts].slice(0, projectileCount);
+
     const animations = attackEvent.animations ?? [];
     const requestedAnimation = animations.find((animation) => animation.affectedUnitId === requestedTargetId);
 
     if (throughShot) {
         const sourcedVolleys = animations.filter((animation) => samePosition(animation.fromPosition, attackerPosition));
         const recordedVolleys = sourcedVolleys.length ? sourcedVolleys : animations;
-        const volleyCount = Math.max(1, Math.min(doubleShot ? 2 : 1, recordedVolleys.length));
+        const volleyCount = Math.max(1, Math.min(remainingProjectiles, recordedVolleys.length));
         const aimedEdge = (requestedAnimation ?? recordedVolleys[0])?.toPosition;
-        return Array.from({ length: volleyCount }, (_, index) => ({
-            targetUnitId: requestedTargetId,
-            targetPosition: clonePosition(aimedEdge ?? recordedVolleys[index]?.toPosition),
-            intercepted: false,
-        }));
+        return withObstacleImpacts(
+            Array.from({ length: volleyCount }, (_, index) => ({
+                targetUnitId: requestedTargetId,
+                targetPosition: clonePosition(aimedEdge ?? recordedVolleys[index]?.toPosition),
+                intercepted: false,
+            })),
+        );
     }
 
     const nonResponseAnimations = animations.filter((animation) => animation.affectedUnitId !== attackEvent.attackerId);
@@ -87,11 +107,15 @@ export function resolveRangeProjectileImpactPlan(
     );
     let outgoingAnimations: UnitAttackedEvent["animations"];
     if (sourcedOutgoing.length) {
-        outgoingAnimations = sourcedOutgoing.slice(0, doubleShot ? 2 : 1);
+        outgoingAnimations = sourcedOutgoing.slice(0, remainingProjectiles);
     } else {
         const first = nonResponseAnimations[0];
         outgoingAnimations = first ? [first] : [];
-        if (doubleShot && first && hasLegacyDoubleShotEvidence(attackEvent, requestedTargetId, nonResponseAnimations)) {
+        if (
+            remainingProjectiles > 1 &&
+            first &&
+            hasLegacyDoubleShotEvidence(attackEvent, requestedTargetId, nonResponseAnimations)
+        ) {
             const second = nonResponseAnimations.at(-1);
             if (second && second !== first) {
                 outgoingAnimations.push(second);
@@ -102,42 +126,46 @@ export function resolveRangeProjectileImpactPlan(
     if (!outgoingAnimations.length) {
         const targetUnitId = attackEvent.damage.unitId ?? requestedTargetId;
         const intercepted = targetUnitId !== requestedTargetId;
-        return [
+        return withObstacleImpacts([
             {
                 targetUnitId,
                 targetPosition: intercepted ? clonePosition(attackEvent.damage.unitPosition) : undefined,
                 intercepted,
             },
-        ];
+        ]);
     }
 
     const splashOccurrence = new Map<string, number>();
-    return outgoingAnimations.map((animation, index) => {
-        const targetUnitId =
-            animation.affectedUnitId ??
-            (index === outgoingAnimations.length - 1 ? attackEvent.damage.unitId : undefined) ??
-            requestedTargetId;
-        const intercepted = targetUnitId !== requestedTargetId;
-        if (!intercepted) {
+    return withObstacleImpacts(
+        outgoingAnimations.map((animation, index) => {
+            const targetUnitId =
+                animation.affectedUnitId ??
+                (index === outgoingAnimations.length - 1 ? attackEvent.damage.unitId : undefined) ??
+                requestedTargetId;
+            const intercepted = targetUnitId !== requestedTargetId;
+            if (!intercepted) {
+                return {
+                    targetUnitId,
+                    targetPosition: clonePosition(animation.toPosition),
+                    intercepted: false,
+                };
+            }
+
+            const occurrence = splashOccurrence.get(targetUnitId) ?? 0;
+            splashOccurrence.set(targetUnitId, occurrence + 1);
+            const splash = (attackEvent.damage.splash ?? []).filter((entry) => entry.unitId === targetUnitId)[
+                occurrence
+            ];
+            const fallbackPosition =
+                splash?.position ??
+                (attackEvent.damage.unitId === targetUnitId ? attackEvent.damage.unitPosition : undefined);
             return {
                 targetUnitId,
-                targetPosition: clonePosition(animation.toPosition),
-                intercepted: false,
+                targetPosition: clonePosition(fallbackPosition),
+                intercepted: true,
             };
-        }
-
-        const occurrence = splashOccurrence.get(targetUnitId) ?? 0;
-        splashOccurrence.set(targetUnitId, occurrence + 1);
-        const splash = (attackEvent.damage.splash ?? []).filter((entry) => entry.unitId === targetUnitId)[occurrence];
-        const fallbackPosition =
-            splash?.position ??
-            (attackEvent.damage.unitId === targetUnitId ? attackEvent.damage.unitPosition : undefined);
-        return {
-            targetUnitId,
-            targetPosition: clonePosition(fallbackPosition),
-            intercepted: true,
-        };
-    });
+        }),
+    );
 }
 
 /**
