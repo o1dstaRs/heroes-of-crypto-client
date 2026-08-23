@@ -3736,6 +3736,33 @@ export class Sandbox extends PixiScene {
                 setTimeout(() => this.applyReplayLunge(attacker, target), hitIndex * ATTACK_HIT_STAGGER_MS);
             }
         }
+        // AOE / secondary victims (Lightning Spin, Skewer Strike, Fire Breath, splash, …) are neither
+        // the clicked target nor in the animations array, so authoritative replays showed their damage
+        // with no physical reaction at all (live report: Hydra's spin hit every neighbour and nobody
+        // moved). Mirror the live path's snapshot-diff behaviour: every surviving secondary victim
+        // recoils away from the attacker at impact. Not hits: Water Shield absorbs (absorbed = miss)
+        // and Devour Essence (a heal). Lethal victims keep their death animation; units the ranged
+        // animations array already recoiled are skipped so nobody shakes twice.
+        {
+            const animatedUnitIds = new Set(
+                attackEvent.animations.map((animation) => animation.affectedUnitId ?? animation.bodyUnitId),
+            );
+            const attackerCenter = attacker.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+            for (const entry of attackEvent.damage.secondary ?? []) {
+                if (
+                    entry.amount <= 0 ||
+                    entry.source === "water_shield" ||
+                    entry.source === "devour_essence" ||
+                    entry.unitId === target.getId() ||
+                    entry.unitId === attacker.getId() ||
+                    destroyedUnitIds.has(entry.unitId) ||
+                    animatedUnitIds.has(entry.unitId)
+                ) {
+                    continue;
+                }
+                this.applyHitReactionFromPoint(this.unitsHolder.getAllUnits().get(entry.unitId), attackerCenter, 0.2);
+            }
+        }
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
