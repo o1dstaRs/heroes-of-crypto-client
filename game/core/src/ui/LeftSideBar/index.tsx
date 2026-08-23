@@ -115,6 +115,7 @@ type LeftSideBarProps = {
 };
 
 export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProps) {
+    useTranslation();
     const [barSize, setBarSize] = useState(280);
     // Height actually left for the unit card once the turn panel and the up-next queue have taken theirs.
     // Measured rather than derived, because those blocks resize with the content.
@@ -388,7 +389,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                             <ListItemButton selected>
                                                 <DashboardRoundedIcon />
                                                 <Box sx={{ marginLeft: 2 }}>
-                                                    <Typography level="title-sm">Fight</Typography>
+                                                    <Typography level="title-sm">{t("Fight")}</Typography>
                                                 </Box>
                                             </ListItemButton>
                                         </ListItem>

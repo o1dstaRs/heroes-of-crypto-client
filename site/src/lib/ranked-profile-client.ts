@@ -1,3 +1,10 @@
+import { rankedArenaCopy } from "./ranked-arena-copy";
+import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
+
+/** Fallback display name when a payload omits it — the English table the server also serves. */
+const fallbackLeagueName = (league: number): string =>
+    rankedArenaCopy.en.leagueNames[league - 1] ?? rankedArenaCopy.en.unranked;
+
 export type RankedProfileState = "calibration" | "placed" | "recalibration";
 export type RankedMatchResult = "win" | "loss" | "draw";
 export type RankedMatchReason = "normal" | "concede" | "disconnect" | "double_disconnect" | "cancel";
@@ -30,6 +37,7 @@ export interface RankedProfileMatch {
     goldEarned: number;
     calibration: boolean;
     opponent: RankedProfileOpponent | null;
+    season: ProfileSeason | null;
 }
 
 export interface PlaystyleCreature {
@@ -110,13 +118,130 @@ export interface SeasonHistoryEntry {
     totalGames: number;
     winRatePct: number;
     archivedAt: number;
+    currency: SeasonCurrency;
 }
+
+export type PredictionStatus = "open" | "won" | "lost" | "burned" | "refunded";
+
+export interface PredictionRecord {
+    gameId: string;
+    predictedPlayerId: string;
+    backedUsername: string;
+    amount: number;
+    placedAt: number;
+    status: PredictionStatus;
+    payout: number;
+    settledAt: number;
+    /** Who won the match this bet was on — empty while it is unsettled, or when it ended a draw. */
+    winnerUsername: string;
+    /** False for an unfinished match or a draw, so the row can say "drawn" instead of naming nobody. */
+    matchDecided: boolean;
+}
+
+/** How this player bets on OTHER people's games, and how it has gone. */
+export interface PredictionHistory {
+    bets: number;
+    staked: number;
+    returned: number;
+    settled: number;
+    won: number;
+    net: number;
+    winRatePct: number;
+    recent: PredictionRecord[];
+}
+
+export type WagerOutcome = "won" | "lost" | "draw" | "refunded" | "open";
+
+export interface WagerRecord {
+    gameId: string;
+    opponentPlayerId: string;
+    opponentUsername: string;
+    /** Per-player locked amount — each side risked exactly this; the winner banks the opponent's. */
+    amount: number;
+    outcome: WagerOutcome;
+    settledAt: number;
+    createdAt: number;
+}
+
+/** Head-to-head record: gold wagered on the player's OWN games (winner takes the pot, draws burn). */
+export interface WagerHistory {
+    wagers: number;
+    staked: number;
+    won: number;
+    lost: number;
+    draws: number;
+    net: number;
+    winRatePct: number;
+    recent: WagerRecord[];
+}
+
+/**
+ * One movement of the purse. Every other history on this page shows a single KIND of gold — bets,
+ * wagers, per-season totals; this is the combined timeline, so a player can see where a balance
+ * actually came from rather than inferring it.
+ */
+export type GoldMovementKind =
+    | "match"
+    | "daily_league"
+    | "bet_placed"
+    | "bet_payout"
+    | "bet_refund"
+    | "wager_escrow"
+    | "wager_payout"
+    | "wager_refund"
+    | "admin_adjust"
+    | "season_reset";
+
+export interface GoldMovement {
+    at: number;
+    /** UTC calendar day the movement belongs to. */
+    dayKey: string;
+    kind: GoldMovementKind;
+    /** Signed: credits positive, debits (stakes, escrow) negative. */
+    delta: number;
+    /** Purse right after the movement, when the writing query could observe it. */
+    balanceAfter: number | null;
+    seasonSequence: number;
+    /** Kind-specific extras — `leagueName` for a daily grant, `gameId` for match/bet/wager rows. */
+    detail: Record<string, unknown>;
+}
+
+const GOLD_MOVEMENT_KINDS: readonly GoldMovementKind[] = [
+    "match",
+    "daily_league",
+    "bet_placed",
+    "bet_payout",
+    "bet_refund",
+    "wager_escrow",
+    "wager_payout",
+    "wager_refund",
+    "admin_adjust",
+    "season_reset",
+];
+
+const normalizeGoldHistory = (value: unknown): GoldMovement[] =>
+    (Array.isArray(value) ? value : [])
+        .map((row: Record<string, unknown>) => ({
+            at: asInteger(row?.at),
+            dayKey: asString(row?.dayKey),
+            kind: (GOLD_MOVEMENT_KINDS.includes(row?.kind as GoldMovementKind)
+                ? row?.kind
+                : "match") as GoldMovementKind,
+            // Debits are negative, so this is the one number here that must NOT be clamped at zero.
+            delta: asInteger(row?.delta),
+            balanceAfter: typeof row?.balanceAfter === "number" ? nonNegativeInteger(row.balanceAfter) : null,
+            seasonSequence: nonNegativeInteger(row?.seasonSequence),
+            detail: (row?.detail ?? {}) as Record<string, unknown>,
+        }))
+        .filter((entry) => entry.delta !== 0)
+        .sort((a, b) => b.at - a.at);
 
 export interface ProfileSeason {
     sequence: number;
     name: string;
     startsAt: number;
     endsAt: number;
+    currency: SeasonCurrency;
 }
 
 export interface PublicRankedProfile {
@@ -127,6 +252,8 @@ export interface PublicRankedProfile {
     peakMmr: number;
     league: number;
     leagueName: string;
+    /** Gold third inside their league (1 Ragged .. 3 Whale); recomputed server-side on every read. */
+    wealth: number;
     leaderboardRank: number;
     calibration: RankedProfileCalibration;
     previous: RankedProfilePreviousStanding | null;
@@ -149,6 +276,10 @@ export interface PublicRankedProfile {
     lastOnlineAt: number;
     // The player's pre-game ban preference: the ONE unit they never want offered in their drafts.
     rankedBan: { creatureId: number; name: string } | null;
+    predictions: PredictionHistory;
+    wagers: WagerHistory;
+    // Every movement of the purse, newest first — the combined view the sections above only slice.
+    goldHistory: GoldMovement[];
     // The season the live numbers belong to (null = season-less/preseason ladder) and the final
     // standings of every season this player already finished, newest first.
     season: ProfileSeason | null;
@@ -218,7 +349,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         previousRow && previousLeague > 0
             ? {
                   league: previousLeague,
-                  leagueName: asString(previousRow.leagueName, `League ${previousLeague}`),
+                  leagueName: asString(previousRow.leagueName, fallbackLeagueName(previousLeague)),
                   mmr: nonNegativeInteger(previousRow.mmr),
               }
             : null;
@@ -327,6 +458,7 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
                 mmrDelta: asInteger(match.mmrDelta),
                 goldEarned: nonNegativeInteger(match.goldEarned),
                 calibration: match.calibration === true,
+                season: normalizeProfileSeason(match.season),
                 opponent:
                     opponentRow && isPublicRankedPlayerId(opponentId)
                         ? {
@@ -345,10 +477,10 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         username: asString(row.username, "Unknown player"),
         state: normalizeState(row.state),
         mmr: nonNegativeInteger(row.mmr),
-        gold: nonNegativeInteger(row.gold),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
-        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leagueName: asString(row.leagueName, fallbackLeagueName(league)),
+        wealth: Math.max(0, Math.min(3, nonNegativeInteger(row.wealth))),
         leaderboardRank: nonNegativeInteger(row.leaderboardRank),
         calibration: {
             required: Math.max(1, nonNegativeInteger(calibrationRow.required) || 5),
@@ -374,6 +506,9 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
         online: row.online === true,
         lastOnlineAt: nonNegativeInteger(row.lastOnlineAt),
         rankedBan: normalizeRankedBan(row.rankedBan),
+        predictions: normalizePredictions(row.predictions),
+        wagers: normalizeWagers(row.wagers),
+        goldHistory: normalizeGoldHistory(row.goldHistory),
         season: normalizeProfileSeason(row.season),
         seasonHistory: (Array.isArray(row.seasonHistory) ? row.seasonHistory : [])
             .map(normalizeSeasonHistoryEntry)
@@ -381,6 +516,85 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
             .sort((a, b) => b.seasonSequence - a.seasonSequence),
         recentGames,
         playstyle,
+    };
+}
+
+const PREDICTION_STATUSES = new Set<PredictionStatus>(["open", "won", "lost", "burned", "refunded"]);
+
+function normalizePredictions(value: unknown): PredictionHistory {
+    const row = asRecord(value);
+    const recent = (Array.isArray(row.recent) ? row.recent : [])
+        .map((entry): PredictionRecord | null => {
+            const bet = asRecord(entry);
+            const gameId = asString(bet.gameId);
+            if (!gameId) {
+                return null;
+            }
+            const status = asString(bet.status) as PredictionStatus;
+            return {
+                gameId,
+                predictedPlayerId: asString(bet.predictedPlayerId),
+                backedUsername: asString(bet.backedUsername),
+                winnerUsername: asString(bet.winnerUsername),
+                matchDecided: bet.matchDecided === true,
+                amount: nonNegativeInteger(bet.amount),
+                placedAt: nonNegativeInteger(bet.placedAt),
+                status: PREDICTION_STATUSES.has(status) ? status : "open",
+                payout: nonNegativeInteger(bet.payout),
+                settledAt: nonNegativeInteger(bet.settledAt),
+            };
+        })
+        .filter((bet): bet is PredictionRecord => bet !== null)
+        .sort((a, b) => b.placedAt - a.placedAt);
+
+    return {
+        bets: nonNegativeInteger(row.bets),
+        staked: nonNegativeInteger(row.staked),
+        returned: nonNegativeInteger(row.returned),
+        settled: nonNegativeInteger(row.settled),
+        won: nonNegativeInteger(row.won),
+        // Net is the only signed figure here — a losing bettor is below zero.
+        net: asInteger(row.net),
+        winRatePct: asNumber(row.winRatePct),
+        recent,
+    };
+}
+
+const WAGER_OUTCOMES = new Set<WagerOutcome>(["won", "lost", "draw", "refunded", "open"]);
+
+function normalizeWagers(value: unknown): WagerHistory {
+    const row = asRecord(value);
+    const recent = (Array.isArray(row.recent) ? row.recent : [])
+        .map((entry): WagerRecord | null => {
+            const wager = asRecord(entry);
+            const gameId = asString(wager.gameId);
+            if (!gameId) {
+                return null;
+            }
+            const outcome = asString(wager.outcome) as WagerOutcome;
+            return {
+                gameId,
+                opponentPlayerId: asString(wager.opponentPlayerId),
+                opponentUsername: asString(wager.opponentUsername),
+                amount: nonNegativeInteger(wager.amount),
+                outcome: WAGER_OUTCOMES.has(outcome) ? outcome : "open",
+                settledAt: nonNegativeInteger(wager.settledAt),
+                createdAt: nonNegativeInteger(wager.createdAt),
+            };
+        })
+        .filter((wager): wager is WagerRecord => wager !== null)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+    return {
+        wagers: nonNegativeInteger(row.wagers),
+        staked: nonNegativeInteger(row.staked),
+        won: nonNegativeInteger(row.won),
+        lost: nonNegativeInteger(row.lost),
+        draws: nonNegativeInteger(row.draws),
+        // A losing wagerer sits below zero — the one signed figure here.
+        net: asInteger(row.net),
+        winRatePct: asNumber(row.winRatePct),
+        recent,
     };
 }
 
@@ -409,6 +623,7 @@ function normalizeProfileSeason(value: unknown): ProfileSeason | null {
         name,
         startsAt: nonNegativeInteger(row.startsAt),
         endsAt: nonNegativeInteger(row.endsAt),
+        currency: normalizeSeasonCurrency(row.currency),
     };
 }
 
@@ -424,9 +639,10 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         seasonName,
         state: normalizeState(row.state),
         mmr: nonNegativeInteger(row.mmr),
+        gold: nonNegativeInteger(row.gold),
         peakMmr: nonNegativeInteger(row.peakMmr),
         league,
-        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leagueName: asString(row.leagueName, fallbackLeagueName(league)),
         leaderboardRank: nonNegativeInteger(row.leaderboardRank),
         wins: nonNegativeInteger(row.wins),
         losses: nonNegativeInteger(row.losses),
@@ -434,6 +650,7 @@ function normalizeSeasonHistoryEntry(value: unknown): SeasonHistoryEntry | null 
         totalGames: nonNegativeInteger(row.totalGames),
         winRatePct: Math.max(0, Math.min(100, asNumber(row.winRatePct))),
         archivedAt: nonNegativeInteger(row.archivedAt),
+        currency: normalizeSeasonCurrency(row.currency),
     };
 }
 
@@ -483,6 +700,10 @@ export function publicRankedProfileFallbackFromSearchParams(params: URLSearchPar
         winStreak: searchNumber(params, "winStreak"),
         lossStreak: searchNumber(params, "lossStreak"),
         lastRankedGameAt: searchNumber(params, "lastBattle"),
+        rankedBan: {
+            creatureId: searchNumber(params, "bannedCreatureId"),
+            name: params.get("bannedCreatureName") ?? "",
+        },
         recentGames: [],
         playstyle: null,
     });
@@ -500,7 +721,7 @@ const runtimeIsProduction = (): boolean => {
     return (
         hostname === "heroesofcrypto.io" ||
         hostname.endsWith(".heroesofcrypto.io") ||
-        import.meta.env.PROD === true ||
+        (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true) ||
         import.meta.env.VITE_IS_PROD === "true"
     );
 };

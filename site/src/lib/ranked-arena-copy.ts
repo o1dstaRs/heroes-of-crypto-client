@@ -7,6 +7,7 @@ export interface RankedArenaCopy {
     partial: string;
     unavailable: string;
     updated: string;
+    seasonEndsIn: string;
     refresh: string;
     refreshing: string;
     playersTab: string;
@@ -18,7 +19,14 @@ export interface RankedArenaCopy {
     filterLabel: string;
     sortLabel: string;
     allLeagues: string;
-    leagueTemplate: string;
+    /** Field label for a single standing ("League: Champion"). */
+    leagueLabel: string;
+    /** League display names indexed 1..5 (worst -> best), mirroring the server's LEAGUE_NAMES. */
+    leagueNames: readonly [string, string, string, string, string];
+    /** Field label for the gold third a player sits in inside their league. */
+    wealthLabel: string;
+    /** Wealth tier names indexed 1..3 (poorest -> richest), mirroring the server's WEALTH_NAMES. */
+    wealthNames: readonly [string, string, string];
     allStages: string;
     pickStage: string;
     placementStage: string;
@@ -30,8 +38,11 @@ export interface RankedArenaCopy {
     bansLabel: string;
     bansNone: string;
     marketTitle: string;
+    marketTotal: string;
     marketBets: string;
     marketPredict: string;
+    marketBetOn: string;
+    marketSignInHint: string;
     marketPlace: string;
     marketPlacing: string;
     marketCancel: string;
@@ -103,6 +114,11 @@ export interface RankedArenaCopy {
     gamesPlayed: string;
     ladderRank: string;
     rankedStatus: string;
+    recentForm: string;
+    resultWin: string;
+    resultLoss: string;
+    resultDraw: string;
+    resultUnavailable: string;
     showMoreGames: string;
 }
 
@@ -128,7 +144,10 @@ export const rankedArenaCopy = {
         filterLabel: "Filter",
         sortLabel: "Sort by",
         allLeagues: "All leagues",
-        leagueTemplate: "League {n}",
+        leagueLabel: "League",
+        leagueNames: ["Aspirant", "Vanguard", "Marshal", "Overlord", "Demigod"],
+        wealthLabel: "Purse",
+        wealthNames: ["Ragged", "Stacked", "Whale"],
         allStages: "All stages",
         pickStage: "Picking",
         placementStage: "Placement",
@@ -138,19 +157,23 @@ export const rankedArenaCopy = {
         sortGold: "Gold",
         gold: "Gold",
         bansLabel: "Bans",
-        bansNone: "—",
+        bansNone: "Not picked",
         marketTitle: "Prediction market",
+        marketTotal: "Total",
         marketBets: "{n} bets",
         marketPredict: "Predict",
+        marketBetOn: "Bet on",
+        marketSignInHint: "Pick a side and sign in. Stake currency: {currency}.",
         marketPlace: "Place bet",
         marketPlacing: "Placing…",
         marketCancel: "Cancel",
-        marketAmountPlaceholder: "Gold to stake",
-        marketPreview: "{stake} 🪙 on {side} returns {total} 🪙 (+{profit} profit) at the current pools.",
+        marketAmountPlaceholder: "Stake · {currency}",
+        marketPreview: "{stake} on {side} returns {total} (+{profit} profit) at the current pools.",
         marketPreviewHint: "Pick a side and a stake to see the payout.",
-        marketRules: "One bet per game, final once placed. No commission — winners split the losing pool. A draw burns every stake.",
-        marketYourBet: "Your bet: {amount} 🪙 on {side}",
-        marketToReturn: "Returns {amount} 🪙",
+        marketRules:
+            "One bet per game, final once placed. No commission — winners split the losing pool. A draw burns every stake.",
+        marketYourBet: "Your bet: {amount} on {side}",
+        marketToReturn: "Returns {amount}",
         marketSignIn: "Sign in to predict",
         sortWinRate: "Win rate",
         sortWins: "Wins",
@@ -187,7 +210,7 @@ export const rankedArenaCopy = {
         watchLive: "Watch live",
         notWatchable: "Spectating unavailable",
         started: "Started {time}",
-        versus: "versus",
+        versus: "vs",
         aiLabel: "AI {version}",
         leaguePlayers: "{n} players",
         ratingBand: "{min}–{max} MMR",
@@ -214,6 +237,11 @@ export const rankedArenaCopy = {
         gamesPlayed: "Ranked games",
         ladderRank: "Ladder rank",
         rankedStatus: "Ranked status",
+        recentForm: "Last 5 games",
+        resultWin: "Win",
+        resultLoss: "Loss",
+        resultDraw: "Draw",
+        resultUnavailable: "No game",
         showMoreGames: "Show {n} more · {remaining} remaining",
     },
     ru: {
@@ -237,7 +265,11 @@ export const rankedArenaCopy = {
         filterLabel: "Фильтр",
         sortLabel: "Сортировка",
         allLeagues: "Все лиги",
-        leagueTemplate: "Лига {n}",
+        leagueLabel: "Лига",
+        leagueNames: ["Новобранец", "Авангард", "Маршал", "Владыка", "Полубог"],
+        wealthLabel: "Кошелёк",
+        // Prefixed onto the league name ("Зажиточный Маршал"); "Кит" is the community's own term.
+        wealthNames: ["Нищий", "Зажиточный", "Кит"],
         allStages: "Все стадии",
         pickStage: "Выбор армии",
         placementStage: "Расстановка",
@@ -247,19 +279,23 @@ export const rankedArenaCopy = {
         sortGold: "Золото",
         gold: "Золото",
         bansLabel: "Бан",
-        bansNone: "—",
+        bansNone: "Не выбрано",
         marketTitle: "Рынок прогнозов",
+        marketTotal: "Всего",
         marketBets: "ставок: {n}",
         marketPredict: "Прогноз",
+        marketBetOn: "Ставка на",
+        marketSignInHint: "Выберите сторону и войдите. Валюта ставки: {currency}.",
         marketPlace: "Сделать ставку",
         marketPlacing: "Ставим…",
         marketCancel: "Отмена",
-        marketAmountPlaceholder: "Сколько золота",
-        marketPreview: "{stake} 🪙 на {side} вернёт {total} 🪙 (+{profit} прибыли) при текущих пулах.",
+        marketAmountPlaceholder: "Ставка · {currency}",
+        marketPreview: "Ставка {stake} на {side} вернёт {total} (+{profit} прибыли) при текущих пулах.",
         marketPreviewHint: "Выберите сторону и размер ставки, чтобы увидеть выплату.",
-        marketRules: "Одна ставка на игру, изменить нельзя. Без комиссии — победители делят проигравший пул. При ничьей всё золото сгорает.",
-        marketYourBet: "Ваша ставка: {amount} 🪙 на {side}",
-        marketToReturn: "Вернёт {amount} 🪙",
+        marketRules:
+            "Одна ставка на игру, изменить нельзя. Без комиссии — победители делят проигравший пул. При ничьей все ставки сгорают.",
+        marketYourBet: "Ваша ставка: {amount} на {side}",
+        marketToReturn: "Вернёт {amount}",
         marketSignIn: "Войдите, чтобы делать прогнозы",
         sortWinRate: "Процент побед",
         sortWins: "Победы",
@@ -323,6 +359,11 @@ export const rankedArenaCopy = {
         gamesPlayed: "Рейтинговые игры",
         ladderRank: "Место в рейтинге",
         rankedStatus: "Статус в рейтинге",
+        recentForm: "Последние 5 игр",
+        resultWin: "Победа",
+        resultLoss: "Поражение",
+        resultDraw: "Ничья",
+        resultUnavailable: "Нет игры",
         showMoreGames: "Показать ещё {n} · осталось {remaining}",
     },
 } satisfies Record<"en" | "ru", RankedArenaCopy>;

@@ -39,7 +39,7 @@ const copy = isRu
           noDamage: "Нет сохранённой статистики урона.",
           armySetup: "Подготовка армий",
           artifacts: "Артефакты",
-          perk: "Доктрина",
+          doctrine: "Доктрина",
           augments: "Усиления",
           synergies: "Синергии",
           noSetup: "Подготовка этой армии не была сохранена в старом отчёте.",
@@ -86,7 +86,7 @@ const copy = isRu
           noDamage: "No unit damage was recorded.",
           armySetup: "Army setup",
           artifacts: "Artifacts",
-          perk: "Doctrine",
+          doctrine: "Doctrine",
           augments: "Augments",
           synergies: "Synergies",
           noSetup: "This army's setup was not recorded for the older report.",
@@ -137,7 +137,7 @@ const copy = isRu
         type Tier1Artifact,
         type Tier2Artifact,
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
-    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+    import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import {
@@ -151,6 +151,11 @@ const copy = isRu
     } from "../lib/ranked-match-client";
     import { isPublicRankedPlayerId, type RankedMatchReason } from "../lib/ranked-profile-client";
     import { creatureById } from "../lib/portal-data";
+    import {
+        LEGACY_SEASON_CURRENCY,
+        seasonCurrencyIconUrl,
+        type SeasonCurrency,
+    } from "../lib/season-currency";
 
     type Copy = {
         [key: string]: string | string[];
@@ -170,7 +175,6 @@ const copy = isRu
     const requestedPlayerId = params.get("playerId")?.trim() ?? "";
     const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
     const numberFormatter = new Intl.NumberFormat(language);
-    const goldIcon = "/assets/icons/currency/gold.svg";
     const dateFormatter = new Intl.DateTimeFormat(language, {
         dateStyle: "medium",
         timeStyle: "short",
@@ -227,8 +231,8 @@ const copy = isRu
         return `<span class="artifact-chip"><img src="${escapeHtml(image)}" alt="" width="40" height="40" /><span><small>Tier ${tier}</small><strong>${escapeHtml(artifact.name)}</strong></span></span>`;
     };
 
-    const perkName = (id: number): string => {
-        const fallback = getPerkProperties(id as Perk).name;
+    const doctrineName = (id: number): string => {
+        const fallback = getDoctrineProperties(id as Doctrine).name;
         if (language !== "ru") return fallback;
         return ({ Scout: "Разведчик", Spymaster: "Шпион", "Blind Fury": "Слепая ярость", None: "Нет" } as Record<
             string,
@@ -295,12 +299,19 @@ const copy = isRu
         return `<span>${numberFormatter.format(player.mmrBefore)} → ${numberFormatter.format(player.mmrAfter)}</span><strong class="${tone}">${delta} MMR</strong>`;
     };
 
-    const currencyAmount = (amount: number, prefix = ""): string =>
-        `<span class="currency-amount"><img class="currency-icon" src="${goldIcon}" alt="" aria-hidden="true" width="20" height="20" /><span>${prefix}${numberFormatter.format(Math.max(0, Math.trunc(amount)))}</span></span>`;
+    const currencyAmount = (
+        amount: number,
+        prefix = "",
+        currency: SeasonCurrency = LEGACY_SEASON_CURRENCY,
+    ): string => {
+        const formattedAmount = `${prefix}${numberFormatter.format(Math.max(0, Math.trunc(amount)))}`;
+        return `<span class="currency-amount" aria-label="${escapeHtml(`${currency.name}: ${formattedAmount}`)}"><img class="currency-icon" src="${escapeHtml(seasonCurrencyIconUrl(currency))}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(formattedAmount)}</span></span>`;
+    };
 
     const playerCard = (player: PublicRankedMatchPlayer, match: PublicRankedMatch): string => {
         const damage = damageFor(match, player.side);
         const won = player.result === "win";
+        const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         return `
             <article class="player-card ${player.result}">
                 <header>
@@ -311,7 +322,7 @@ const copy = isRu
                 <dl>
                     <div><dt>${escapeHtml(text("rating"))}</dt><dd>${ratingBlock(player)}</dd></div>
                     <div><dt>${escapeHtml(text("damage"))}</dt><dd><strong>${numberFormatter.format(damage)}</strong></dd></div>
-                    <div><dt>${escapeHtml(text("seasonCurrency"))}</dt><dd>${player.goldEarned > 0 ? currencyAmount(player.goldEarned, "+") : "—"}</dd></div>
+                    <div><dt>${escapeHtml(currency.name || text("seasonCurrency"))}</dt><dd>${player.goldEarned > 0 ? currencyAmount(player.goldEarned, "+", currency) : "—"}</dd></div>
                 </dl>
                 ${won ? '<span class="winner-flare" aria-hidden="true">✦</span>' : ""}
             </article>`;
@@ -351,7 +362,7 @@ const copy = isRu
                 <h3>${escapeHtml(player.username)}</h3>
                 <dl class="setup-list">
                     <div><dt>${escapeHtml(text("artifacts"))}</dt><dd class="artifact-list">${artifactCard(1, setup.artifactTier1)}${artifactCard(2, setup.artifactTier2)}</dd></div>
-                    <div><dt>${escapeHtml(text("perk"))}</dt><dd><span class="perk-chip">◈ ${escapeHtml(perkName(setup.perk))}</span></dd></div>
+                    <div><dt>${escapeHtml(text("doctrine"))}</dt><dd><span class="doctrine-chip">◈ ${escapeHtml(doctrineName(setup.doctrine))}</span></dd></div>
                     <div><dt>${escapeHtml(text("augments"))}</dt><dd class="augment-list">${augments || '<span class="setup-empty">—</span>'}</dd></div>
                     <div><dt>${escapeHtml(text("synergies"))}</dt><dd class="synergy-list">${synergies}</dd></div>
                 </dl>
@@ -404,11 +415,11 @@ const copy = isRu
                     <h2>${escapeHtml(headline)}</h2>
                     <span>${escapeHtml(orderedPlayers[0].username)} ${escapeHtml(text("versus"))} ${escapeHtml(orderedPlayers[1].username)}</span>
                 </div>
-                <a class="replay-button" href="${escapeHtml(replay)}">↻ ${escapeHtml(text("replay"))}</a>
+                <a class="replay-button" href="${escapeHtml(replay)}"><span class="replay-glyph" aria-hidden="true">↻</span>${escapeHtml(text("replay"))}</a>
             </section>
             <div class="match-facts">
                 <span><b>${escapeHtml(text("finished"))}</b>${escapeHtml(finished)}</span>
-                ${match.seasonSequence > 0 ? `<span><b>${escapeHtml(text("season"))}</b>#${match.seasonSequence}</span>` : ""}
+                ${match.seasonSequence > 0 ? `<span><b>${escapeHtml(text("season"))}</b>${escapeHtml(match.season?.name ?? `#${match.seasonSequence}`)}</span>` : ""}
             </div>
             <section class="matchup">${orderedPlayers.map((player) => playerCard(player, match)).join('<span class="versus-mark">VS</span>')}</section>
             ${stats}`;
@@ -485,9 +496,14 @@ const copy = isRu
         color: #a99d8d;
     }
 
+    /* .replay-button lives in the innerHTML-injected hero, so it is styled globally further down — a scoped
+       rule here would never reach it. */
     .match-back,
-    .replay-button,
     .match-state--error button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
         border: 1px solid rgba(208, 151, 66, 0.48);
         border-radius: 3px;
         background: rgba(50, 31, 13, 0.56);
@@ -752,6 +768,97 @@ const copy = isRu
         gap: 1rem;
     }
 
+    /* The match body is injected via innerHTML, so Astro's SCOPED selectors above never match it — only
+       :global rules do (which is why the player cards, styled globally, look right while the overview and
+       the facts strip ran their label straight into their value: "MapNormal", "Laps8", "FinishedAug 8...").
+       Mirror those layouts globally so the label and value separate again. */
+    .match-page :global(.overview-grid) {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.8rem;
+    }
+    .match-page :global(.overview-grid > div) {
+        padding: 1.15rem;
+        border: 1px solid rgba(166, 124, 62, 0.2);
+        background: rgba(14, 11, 8, 0.82);
+    }
+    .match-page :global(.overview-grid span),
+    .match-page :global(.overview-grid strong) {
+        display: block;
+    }
+    .match-page :global(.overview-grid span) {
+        margin-bottom: 0.45rem;
+        color: #81776c;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .match-page :global(.overview-grid strong) {
+        color: #ead8b8;
+        font-size: 1.15rem;
+    }
+    .match-page :global(.two-column) {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .match-page :global(.match-facts) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+    }
+    .match-page :global(.match-facts span) {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .match-page :global(.match-facts b) {
+        color: #d8c3a0;
+    }
+
+    /* Sized against the site-wide .button (48px tall, 8px radius) so the hero's primary action reads as a
+       button rather than the bare text link it degraded into while only a scoped rule targeted it. */
+    .match-page :global(.replay-button) {
+        display: inline-flex;
+        gap: 0.55rem;
+        align-items: center;
+        justify-content: center;
+        min-height: 52px;
+        padding: 0.85rem 1.7rem;
+        border: 1px solid rgba(220, 177, 88, 0.5);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(90, 55, 24, 0.7), rgba(48, 29, 12, 0.7));
+        color: var(--gold-soft, #efd49a);
+        font: inherit;
+        font-size: clamp(0.95rem, 1.35vw, 1.1rem);
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-decoration: none;
+        text-transform: uppercase;
+        white-space: nowrap;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+        transition:
+            transform 0.14s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease,
+            background 0.18s ease;
+    }
+
+    .match-page :global(.replay-glyph) {
+        font-size: 1.25em;
+        line-height: 1;
+    }
+
+    .match-page :global(.replay-button:hover) {
+        border-color: rgba(238, 199, 118, 0.82);
+        background: linear-gradient(180deg, rgba(112, 69, 30, 0.78), rgba(60, 37, 16, 0.78));
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
+        transform: translateY(-1px);
+    }
+
+    .match-page :global(.replay-button:active) {
+        transform: translateY(1px);
+    }
+
     .match-page :global(.performance-panel),
     .match-page :global(.setup-panel) {
         padding: 1.2rem;
@@ -829,7 +936,7 @@ const copy = isRu
 
     .match-page :global(.artifact-chip),
     .match-page :global(.augment-chip),
-    .match-page :global(.perk-chip),
+    .match-page :global(.doctrine-chip),
     .match-page :global(.synergy-chip) {
         display: inline-flex;
         align-items: center;
@@ -886,13 +993,21 @@ const copy = isRu
             align-items: start;
         }
 
-        .match-back,
-        .replay-button {
+        .match-back {
+            width: fit-content;
+        }
+
+        .match-page :global(.replay-button) {
             width: fit-content;
         }
 
         .overview-grid,
         .two-column {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .match-page :global(.overview-grid),
+        .match-page :global(.two-column) {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
@@ -915,6 +1030,11 @@ const copy = isRu
             grid-template-columns: 1fr;
         }
 
+        .match-page :global(.overview-grid),
+        .match-page :global(.two-column) {
+            grid-template-columns: 1fr;
+        }
+
         .match-page :global(.player-card dl div) {
             grid-template-columns: 1fr;
             gap: 0.3rem;
@@ -925,6 +1045,11 @@ const copy = isRu
         }
 
         .match-facts {
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .match-page :global(.match-facts) {
             display: grid;
             gap: 0.45rem;
         }

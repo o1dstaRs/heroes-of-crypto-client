@@ -57,7 +57,7 @@ describe("game image asset policy", () => {
         expect(violations).toEqual([]);
     });
 
-    test("allows valid static WebPs up to the approved current maximum", () => {
+    test("allows valid WebPs up to the strict 120 KB maximum", () => {
         expect(
             validateGameImageAsset({
                 fileName: "largest-approved.webp",
@@ -79,7 +79,7 @@ describe("game image asset policy", () => {
         }
     });
 
-    test("rejects empty, fake, and oversized static WebPs", () => {
+    test("rejects empty, fake, and oversized WebPs", () => {
         expect(validateGameImageAsset({ fileName: "empty.webp", sizeBytes: 0, header: new Uint8Array() })).toContain(
             "empty.webp: image is empty",
         );
@@ -99,21 +99,16 @@ describe("game image asset policy", () => {
         ).toBe(true);
     });
 
-    test("exempts animation atlases from only the static-image size ceiling", () => {
+    test("applies the size ceiling to atlas-named images in the static image directory", () => {
         expect(
             validateGameImageAsset({
                 fileName: "angel_default_atlas.webp",
                 sizeBytes: MAX_STATIC_GAME_IMAGE_BYTES + 1,
                 header: WEBP_HEADER,
             }),
-        ).toEqual([]);
-        expect(
-            validateGameImageAsset({
-                fileName: "angel_default_atlas.webp",
-                sizeBytes: MAX_STATIC_GAME_IMAGE_BYTES + 1,
-                header: new Uint8Array(12),
-            }),
-        ).toContain("angel_default_atlas.webp: file contents are not a valid WebP container");
+        ).toContain(
+            `angel_default_atlas.webp: ${MAX_STATIC_GAME_IMAGE_BYTES + 1} bytes exceeds the ${MAX_STATIC_GAME_IMAGE_BYTES}-byte image limit`,
+        );
     });
 
     test("keeps the generated image manifest WebP-only", () => {
@@ -123,12 +118,15 @@ describe("game image asset policy", () => {
         expect(generator).not.toContain("SUPPORTED_IMAGE_EXTENSIONS");
     });
 
-    test("validates the configured Dropbox image directory when available", async () => {
+    test("validates the configured Dropbox image directory when explicitly requested", async () => {
         const imageDirectory = process.env.HOC_IMAGES_LOC;
-        if (!imageDirectory) {
+        // Dropbox can block on network hydration for minutes, which makes the unit suite nondeterministic.
+        // The normal asset/build workflows run check:image-assets directly; keep this duplicate integration
+        // assertion available for focused diagnostics without putting external I/O on every `bun test`.
+        if (!imageDirectory || process.env.HOC_VALIDATE_DROPBOX_IMAGES !== "1") {
             return;
         }
 
         expect(await findGameImageAssetViolations(imageDirectory)).toEqual([]);
-    });
+    }, 300_000);
 });

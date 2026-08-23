@@ -6,6 +6,7 @@
     "scripts": {
         "astro": "astro",
         "build": "bun run test && astro build",
+        "build:test": "bun run test && astro build --mode test",
         "dev": "astro dev",
         "preview": "astro preview",
         "test": "bun test src/lib",

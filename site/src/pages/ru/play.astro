@@ -18,7 +18,7 @@ const configuredGameClientUrls = [
     .filter(Boolean)
     .map((url) => rankedPath(String(url)));
 const fallbackGameClientUrls = isProd
-    ? ["https://beta.heroesofcrypto.io/play"]
+    ? ["https://app.heroesofcrypto.io/play"]
     : [
           "http://127.0.0.1:5175/play",
           "http://localhost:5175/play",
@@ -27,7 +27,11 @@ const fallbackGameClientUrls = isProd
           "http://127.0.0.1:5173/play",
           "http://localhost:5173/play",
       ];
-const gameClientUrls = [...new Set([...configuredGameClientUrls, ...fallbackGameClientUrls])];
+// An EXPLICIT VITE_GAME_CLIENT* build wins outright rather than being a suggestion: a staging
+// build that still carried the production URL as a fallback would quietly send testers to prod.
+const gameClientUrls = configuredGameClientUrls.length
+    ? [...new Set(configuredGameClientUrls)]
+    : [...new Set(fallbackGameClientUrls)];
 const fallbackUrl = gameClientUrls[0];
 ---
 
@@ -36,30 +40,27 @@ const fallbackUrl = gameClientUrls[0];
     title="Играть в рейтинге"
     description="Открыть рейтинговый матчмейкинг Heroes of Crypto."
 >
-    <section class="redirect-page">
+    <section class="redirect-page" data-ranked-redirect data-game-client-urls={JSON.stringify(gameClientUrls)}>
         <h1>Открываем рейтинг</h1>
         <p>Перенаправляем в рейтинговый матчмейкинг Heroes of Crypto.</p>
         <p><a href={fallbackUrl}>Открыть рейтинг</a></p>
     </section>
 </BaseLayout>
 
-<script define:vars={{ gameClientUrls }}>
-    const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+<script>
+    import { withGameAuthToken } from "../../lib/auth-handoff";
 
-    function targetWithToken(url) {
-        const token = localStorage.getItem("accessToken");
+    const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+    const redirectPage = document.querySelector<HTMLElement>("[data-ranked-redirect]");
+    const gameClientUrls = JSON.parse(redirectPage?.dataset.gameClientUrls ?? "[]") as string[];
+
+    function targetWithToken(url: string): URL {
         const target = new URL(url, window.location.href);
 
-        if (token) {
-            const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
-            hashParams.set("access_token", token);
-            target.hash = hashParams.toString();
-        }
-
-        return target;
+        return withGameAuthToken(target);
     }
 
-    async function canReach(url) {
+    async function canReach(url: string): Promise<boolean> {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 700);
         try {
@@ -76,7 +77,7 @@ const fallbackUrl = gameClientUrls[0];
         }
     }
 
-    async function resolveTarget() {
+    async function resolveTarget(): Promise<URL> {
         for (const url of gameClientUrls) {
             const candidate = targetWithToken(url);
             if (candidate.href === window.location.href) continue;
@@ -84,7 +85,7 @@ const fallbackUrl = gameClientUrls[0];
             if (!localHosts.has(window.location.hostname) || await canReach(candidate.href)) return candidate;
         }
 
-        return targetWithToken(gameClientUrls[0]);
+        return targetWithToken(gameClientUrls[0] ?? "/play");
     }
 
     resolveTarget().then((target) => window.location.replace(target.toString()));

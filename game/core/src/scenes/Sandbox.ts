@@ -16,7 +16,7 @@ import {
     HoCLib,
     AttackType,
     Spell,
-    SpellMultiplierType,
+    SpellElement,
     SpellTargetType,
     SpellPowerType,
     SpellHelper,
@@ -64,8 +64,30 @@ import {
     GameEvent,
     isThrownOffensiveSpell,
     isOffensiveSpellMultiplier,
-    offensiveSpellDamageAgainstTarget,
-    elementalSpellMultiplier,
+    fireforgedSwordDamage,
+    fireforgedSwordPower,
+    // THE shared SPELL projection, for the same reason: what a cast does to one creature — its element, its
+    // magic resistance, its Water Shield, the share a Magic Reflection holder sends back at the caster — is
+    // resolved by these, and GameActionEngine's cast path resolves through the very same calls.
+    projectSpellDamageAgainstUnit,
+    projectSpellRebound,
+    type ISpellDamageProjection,
+    // THE shared damage projection. Every hover number in this file comes out of these helpers, which are
+    // the very code Unit.calculateAttackDamage resolves an attack with — a preview that re-derives the
+    // formula instead drifts from it (this file's hand-kept copy drifted 40 measured ways).
+    projectAttackDamage,
+    projectAttackDamageBand,
+    projectKillBand,
+    projectDoubleShotAttack,
+    attackerParalysisMultiplier,
+    aoeAttackAbility,
+    aoeAttackAbilityMultiplier,
+    applyAoeDamageTail,
+    projectAoeRangeAttack,
+    throughShotAbilityMultiplier,
+    applyThroughShotDamageTail,
+    doubleShotAbility,
+    type IAttackDamageProjection,
     type IGameActionResult,
 } from "@heroesofcrypto/common";
 import { UnitsOverlay } from "./UnitsOverlay";
@@ -142,39 +164,9 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
 
 /**
- * Client-side aim projection for an offensive spell: what ONE target actually takes.
- *
- * Delegates to common so the number a player is shown and the number the cast deals come out of the same
- * arithmetic. It used to hard-code the stack-powered shape, which multiplied the Battle Mage's flat
- * per-caster book (Fire Strike, Meteorite) by its stack power and projected up to 5x the real damage; the
- * Magic Dragon's book is stack-powered, so it read correctly and hid the bug. Passing the spell's own
- * multiplier is the fix, and it keeps a future spell in either shape honest for free.
- */
-export const offensiveSpellPreviewDamage = (
-    multiplierType: SpellMultiplierType,
-    spellPower: number,
-    casterAmountAlive: number,
-    casterStackPower: number,
-    casterMagicDamageBonusPercentage: number,
-    targetMagicResist: number,
-    // The target's own element answers the spell's before resistance does, exactly as the engine resolves it
-    // (see elementalDamageAgainst): a Fire Element previews a Ring of Fire as 0, a Water Element as half again
-    // as much. Defaulted so every non-elemental caller reads the same number it always did.
-    elementMultiplier = 1,
-): number =>
-    offensiveSpellDamageAgainstTarget(
-        multiplierType,
-        spellPower,
-        casterAmountAlive,
-        casterStackPower,
-        casterMagicDamageBonusPercentage,
-        targetMagicResist,
-        elementMultiplier,
-    );
-
-/**
- * Spell Flesh Shield damage was added to GameEvent after the original client event union. The structural
- * read keeps the client backward-compatible with older journals while giving both sandbox and ranked one
+ * Spell secondary damage (today: Water Shield absorbs) was added to GameEvent after the original client
+ * event union. The structural read keeps the client backward-compatible with older journals — including
+ * ones recorded when Flesh Shield still soaked spell damage — while giving both sandbox and ranked one
  * typed path to the optional secondary-damage payload.
  */
 export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["secondary"] =>
@@ -190,7 +182,7 @@ export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["seco
 export const captureFightSetupForHydration = (fightProps: FightProperties) =>
     [TeamVals.LOWER, TeamVals.UPPER].map((team) => ({
         team,
-        perk: fightProps.getPerk(team),
+        doctrine: fightProps.getDoctrine(team),
         placement: fightProps.getAugmentPlacementLevel(team),
         armor: fightProps.getAugmentArmor(team),
         might: fightProps.getAugmentMight(team),
@@ -212,7 +204,7 @@ export const restoreFightSetupAfterHydrationReset = (
 ): void => {
     for (const setup of priorSetup) {
         fightProps.setSynergyVariants(setup.synergyVariants);
-        fightProps.setPerkPerTeam(setup.team, setup.perk);
+        fightProps.setDoctrinePerTeam(setup.team, setup.doctrine);
         fightProps.setAugmentPerTeam(setup.team, { type: "Placement", value: setup.placement });
         fightProps.setAugmentPerTeam(setup.team, { type: "Armor", value: setup.armor });
         fightProps.setAugmentPerTeam(setup.team, { type: "Might", value: setup.might });
@@ -364,6 +356,9 @@ export interface SandboxSceneUnitState {
     /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). Restored
      *  on rebuild so attack arrows never point at anyone but the forced target. */
     forcedTargetId?: string;
+    /** Terrifying Gaze forbidden target: the one enemy this unit cannot attack. Restored independently of
+     *  Aggr so every other enemy remains available after a rebuild or ranked snapshot. */
+    forbiddenTargetId?: string;
     /** Remaining laps for a mechanically active Break effect. Ranked normally treats snapshot effects as
      *  display-only, but Break must exist in Unit.effects before passive/stat refresh so disabled abilities
      *  (notably Angelic Host) stay disabled in local previews too. */
@@ -575,17 +570,27 @@ export const fireBurnTargets = (
 /**
  * The block of cells a cell-targeted spell covers when aimed at `origin`.
  *
- * Meteor Shower's 3x3 is CENTRED on the cursor — an odd-sided footprint pivots about the mouse, the way the
- * Fire Wall's 3-cell line does. Everything else here is 2x2 (Meteorite, Smoke, Craft) and hangs off the
- * cursor cell as its bottom-left corner, because an even-sided block has no centre cell to anchor on. Both
- * match what the matching cast handler reads out of `action.targetCell` — a preview whose footprint differs
- * from the cast's is worse than no preview, so this is the ONE place either is derived.
- *
- * Shared by the aim outline and the damage labels drawn inside it, so the two can never disagree.
+ * The footprint itself is the ENGINE's — meteoriteCast and meteorShowerCast build their block out of this
+ * same helper — so the outline a player aims with, the damage labels drawn inside it and the cells that
+ * actually burn are one shape by construction rather than by hand-kept agreement.
  */
 export function cellTargetedSpellBlockCells(spellName: string, origin: HoCMath.XY): HoCMath.XY[] {
-    const spread = spellName === "Meteor Shower" ? [-1, 0, 1] : [0, 1];
-    return spread.flatMap((dx) => spread.map((dy) => ({ x: origin.x + dx, y: origin.y + dy })));
+    return SpellHelper.cellTargetedSpellBlockCells(spellName, origin);
+}
+
+/**
+ * Buffs, heals and debuffs already mark the unit they will affect with the status-target highlight.
+ * Showing that unit's passive movement, aura and shot-range inspection underneath the highlight makes
+ * those tactical ranges look like part of the spell. Damage, area and position-change spells keep the
+ * normal inspection layers because they are not direct status applications.
+ */
+export function shouldSuppressInspectedUnitRangesForSpell(spell: Spell): boolean {
+    const targetType = spell.getSpellTargetType();
+    const targetsOneUnit =
+        targetType === SpellTargetType.ANY_ALLY ||
+        targetType === SpellTargetType.ANY_ENEMY ||
+        targetType === SpellTargetType.ANY_UNIT;
+    return targetsOneUnit && !isOffensiveSpellMultiplier(spell.getMultiplierType());
 }
 
 /** Delay from the first impact until the last impact in a staggered attack. */
@@ -2102,6 +2107,7 @@ export class Sandbox extends PixiScene {
                 baseCell: unitState.baseCell,
                 attackType: unitState.attackType as AttackType,
                 forcedTargetId: unitState.forcedTargetId,
+                forbiddenTargetId: unitState.forbiddenTargetId,
             });
         }
 
@@ -2183,7 +2189,7 @@ export class Sandbox extends PixiScene {
     }
     protected selectUnitPreStart(
         _teamType: TeamType,
-        _isSmallUnit: boolean,
+        isSmallUnit: boolean,
         position: HoCMath.XY,
         rangeShotDistance = 0,
         _auraRanges: number[] = [],
@@ -2192,7 +2198,11 @@ export class Sandbox extends PixiScene {
         if (rangeShotDistance > 0) {
             this.sc_currentActiveShotRange = {
                 xy: position,
-                distance: rangeShotDistance * GridConstants.STEP,
+                distance: GridMath.getFullDamageSquareHalfExtent(
+                    rangeShotDistance,
+                    isSmallUnit ? 1 : 2,
+                    GridConstants.STEP,
+                ),
             };
         } else {
             this.sc_currentActiveShotRange = undefined;
@@ -2407,7 +2417,7 @@ export class Sandbox extends PixiScene {
         const priorObstacleHitsLeft = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftLeft() : undefined;
         const priorObstacleHitsRight = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftRight() : undefined;
 
-        // Preserve each team's SETUP (perk + augments + artifacts + synergies) across reset(): reset() builds
+        // Preserve each team's SETUP (doctrine + augments + artifacts + synergies) across reset(): reset() builds
         // a fresh FightProperties and the authoritative scene state itself does not carry these into hydrate.
         // Without this, full ranked hydrates silently lose setup-driven placement, stats, and visible buffs.
         const priorSetup = captureFightSetupForHydration(priorFightProps);
@@ -2417,7 +2427,7 @@ export class Sandbox extends PixiScene {
         fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         fightProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         // Restore BEFORE rebuildFromFightProps so every setup-derived placement/stat/buff is available while
-        // units are reconstructed. Perk goes first inside the helper because augment restores budget-check it.
+        // units are reconstructed. Doctrine goes first inside the helper because augment restores budget-check it.
         restoreFightSetupAfterHydrationReset(fightProps, priorSetup);
         fightProps.setGridType(snapshot.gridType);
         this.grid.refreshWithNewType(snapshot.gridType);
@@ -2494,7 +2504,10 @@ export class Sandbox extends PixiScene {
         // out. In ranked this rebuild fires on the snapshot that lands right after a replayed action, so
         // clearing them wholesale cut the Craft forge (and its result pops) off almost immediately.
         this.combatVisuals.clear({ keepDetachedOverlays: true });
-        this.rangedProjectiles.clear();
+        // Same reasoning as keepDetachedOverlays: an in-flight projectile depicts a shot the server
+        // already resolved, and this rebuild routinely lands WHILE it is still flying. Destroying it
+        // here was the "projectile sometimes disappears" live report; it lands on its own a beat later.
+        this.rangedProjectiles.clear({ keepInFlight: true });
 
         const existingUnits = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
         // Computed BEFORE the preserve pass below (and reused by the render loop): which units THIS
@@ -2739,6 +2752,8 @@ export class Sandbox extends PixiScene {
         // Restore the Aggr forced-target lock so a rebuilt unit still only offers its compelled target
         // (empty string clears it — the source died or the effect expired).
         renderableUnit.setTarget(unitState.forcedTargetId ?? "");
+        // Terrifying Gaze is the inverse: restore only the prohibited gazer, never a blanket attack lock.
+        renderableUnit.setForbiddenTarget(unitState.forbiddenTargetId ?? "");
         return renderableUnit;
     }
     private captureSceneState(): SandboxSceneState {
@@ -2759,6 +2774,7 @@ export class Sandbox extends PixiScene {
                 attackType: unit.getAttackTypeSelection(),
                 onHourglass: unit.isOnHourglass(),
                 forcedTargetId: unit.getTarget() || undefined,
+                forbiddenTargetId: unit.getForbiddenTarget() || undefined,
                 mechanicalBreakLaps: unit.getEffect("Break")?.getLaps(),
             });
         }
@@ -3721,6 +3737,18 @@ export class Sandbox extends PixiScene {
         attacker.setActiveTurn(true);
         attacker.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
         this.sc_moveBlocked = true;
+        const doubleShotPlayback =
+            this.shouldPlayReplayDoubleShotProjectile() && AbilityHelper.hasDoubleShotAbility(attacker);
+        const projectileObstacleEvents =
+            doubleShotPlayback &&
+            !attacker.hasAbilityActive("Large Caliber") &&
+            !attacker.hasAbilityActive("Area Throw")
+                ? record.events.filter(
+                      (event): event is Extract<GameEvent, { type: "obstacle_attacked" }> =>
+                          event.type === "obstacle_attacked",
+                  )
+                : [];
+        const appliedProjectileObstacleEvents = new Set<GameEvent>();
 
         if (attackEvent.attackType === "range") {
             await this.playDirectionalAttackOneShot(attacker, target, 360, false);
@@ -3736,11 +3764,18 @@ export class Sandbox extends PixiScene {
                 target.getId(),
                 attacker.getPosition(),
                 throughShot,
-                this.shouldPlayReplayDoubleShotProjectile() &&
-                    !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+                doubleShotPlayback,
+                projectileObstacleEvents.map((event) => event.targetPosition),
             );
             const firstProjectile = this.resolveRangeProjectilePlaybackTarget(projectilePlan[0], target);
             await this.playReplayProjectile(attacker, firstProjectile.target, firstProjectile.position);
+            const firstProjectileObstacleEvent = projectileObstacleEvents[0];
+            if (firstProjectileObstacleEvent) {
+                // The stone belongs to shot one. Remove it at that impact, before shot two continues to
+                // the unit, and exclude it from the later all-events pass so it is never applied twice.
+                this.applyReplayEvents([firstProjectileObstacleEvent]);
+                appliedProjectileObstacleEvents.add(firstProjectileObstacleEvent);
+            }
             const secondImpact = projectilePlan[1];
             if (secondImpact) {
                 const secondProjectile = this.resolveRangeProjectilePlaybackTarget(secondImpact, target);
@@ -3811,6 +3846,33 @@ export class Sandbox extends PixiScene {
                 setTimeout(() => this.applyReplayLunge(attacker, target), hitIndex * ATTACK_HIT_STAGGER_MS);
             }
         }
+        // AOE / secondary victims (Lightning Spin, Skewer Strike, Fire Breath, splash, …) are neither
+        // the clicked target nor in the animations array, so authoritative replays showed their damage
+        // with no physical reaction at all (live report: Hydra's spin hit every neighbour and nobody
+        // moved). Mirror the live path's snapshot-diff behaviour: every surviving secondary victim
+        // recoils away from the attacker at impact. Not hits: Water Shield absorbs (absorbed = miss)
+        // and Devour Essence (a heal). Lethal victims keep their death animation; units the ranged
+        // animations array already recoiled are skipped so nobody shakes twice.
+        {
+            const animatedUnitIds = new Set(
+                attackEvent.animations.map((animation) => animation.affectedUnitId ?? animation.bodyUnitId),
+            );
+            const attackerCenter = attacker.getVisualCenter(this.sc_sceneSettings.getGridSettings());
+            for (const entry of attackEvent.damage.secondary ?? []) {
+                if (
+                    entry.amount <= 0 ||
+                    entry.source === "water_shield" ||
+                    entry.source === "devour_essence" ||
+                    entry.unitId === target.getId() ||
+                    entry.unitId === attacker.getId() ||
+                    destroyedUnitIds.has(entry.unitId) ||
+                    animatedUnitIds.has(entry.unitId)
+                ) {
+                    continue;
+                }
+                this.applyHitReactionFromPoint(this.unitsHolder.getAllUnits().get(entry.unitId), attackerCenter, 0.2);
+            }
+        }
         // Pikeman Skewer Strike: light streak through the pierced units + a wind-up thrust on the
         // attacker. Applied AFTER applyReplayAttackRecoil so the wind-up lunge overrides the plain recoil.
         this.spawnSkewerWindSpearVfx(attacker, target, attackEvent.damage);
@@ -3848,10 +3910,10 @@ export class Sandbox extends PixiScene {
         // The attack event's kill attribution was consumed by the impact-time death VFX above. Do not
         // record it again here: the later unit_destroyed pass intentionally becomes an idempotent logical
         // cleanup, and re-noting would leave a stale blow that could color a resurrected unit's next death.
-        this.applyReplayEvents(
-            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events,
-            record.stateAfter,
-        );
+        const replayEvents = (
+            destroyedUnitIds.size > 0 ? record.events.filter((event) => event !== attackEvent) : record.events
+        ).filter((event) => !appliedProjectileObstacleEvents.has(event));
+        this.applyReplayEvents(replayEvents, record.stateAfter);
         // The pre-action HP snapshot has now served this exchange; drop it so a later replay falls back
         // to live HP (it only applies to the locally-applied action that captured it).
         this.preDeferredActionUnitHp = undefined;
@@ -3879,6 +3941,9 @@ export class Sandbox extends PixiScene {
     ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
         const muzzle = attacker.getVisualCenter(gs);
+        // A projectile is only half of the shot: restart the shooter's attack atlas at launch so every
+        // Double Shot volley (and a ranged response) has a visible firing motion behind it.
+        attacker.playOneShotAnimation("attack");
         // Prefer the authoritative aimed edge (the engine records it as the animation toPosition) so
         // the replayed projectile lands where the shot was aimed, not on the target's center.
         const targetPosition = toPosition ?? target.getVisualCenter(gs);
@@ -4177,13 +4242,22 @@ export class Sandbox extends PixiScene {
         const shotsShownPerUnit = new Map<string, number>();
         let rendered = false;
         for (const entry of splash) {
-            if (entry.amount <= 0) {
-                continue;
-            }
             const splashUnit = this.unitsHolder.getAllUnits().get(entry.unitId) as RenderableUnit | undefined;
             const center = splashUnit ? splashUnit.getVisualCenter(gs) : projectBattlefieldPoint(entry.position, gs);
             const dir = { x: center.x - attackerCenter.x, y: center.y - attackerCenter.y };
             const pos = splashUnit ? this.offsetReplayDamagePosition(center, splashUnit, dir) : center;
+            if (entry.missed) {
+                // A dodged unit in the blast gets the MISS label a dodged single-target shot gets — the
+                // entry carries no damage precisely so it can say that. Ranked already popped it; this
+                // path dropped it, so a dodge inside a volley read as nothing having happened at all.
+                // It matters most for Zena: a dodged throw is why the chakram never bounced onward.
+                this.combatVisuals.showMissLabel(pos, dir);
+                rendered = true;
+                continue;
+            }
+            if (entry.amount <= 0) {
+                continue;
+            }
             const shotIndex = shotsShownPerUnit.get(entry.unitId) ?? 0;
             shotsShownPerUnit.set(entry.unitId, shotIndex + 1);
             if (shotIndex === 0) {
@@ -5426,10 +5500,16 @@ export class Sandbox extends PixiScene {
      * Recompute the active unit's reachable cells and shot ring from its CURRENT stats — the same pair
      * selectNextUnit computes on a handoff, just re-run in place because the stats moved under a unit that
      * is already active. No active unit (the usual case while augments are still being picked at
-     * placement) means there is no reach to redraw, so this is a no-op.
+     * placement) falls back to the unit the player has SELECTED on the board, which is the one whose
+     * reach is on screen while augments are being picked. Neither means there is nothing to redraw.
      */
     private refreshActiveUnitReach(): void {
-        const activeUnit = this.currentActiveUnit;
+        // During placement there is no ACTIVE unit — the player has a unit SELECTED on the board and is
+        // still choosing augments. That is precisely when the reach has to be redrawn: picking
+        // "+1 Movement steps" changes the very ring the player is looking at. Falling back to the
+        // selected unit is what makes the augment land on screen the moment it is clicked instead of at
+        // the start of the fight.
+        const activeUnit = this.currentActiveUnit ?? this.selectedBoardUnit;
         if (!activeUnit) {
             return;
         }
@@ -5443,7 +5523,14 @@ export class Sandbox extends PixiScene {
         const rangeShotCells = activeUnit.getRangeShotDistance();
         this.sc_currentActiveShotRange =
             rangeShotCells > 0
-                ? { xy: activeUnit.getPosition(), distance: rangeShotCells * GridConstants.STEP }
+                ? {
+                      xy: activeUnit.getPosition(),
+                      distance: GridMath.getFullDamageSquareHalfExtent(
+                          rangeShotCells,
+                          activeUnit.getSize(),
+                          GridConstants.STEP,
+                      ),
+                  }
                 : undefined;
     }
     protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
@@ -6409,6 +6496,17 @@ export class Sandbox extends PixiScene {
                 }
                 const spellTarget = this.getUnitAtPosition(p);
                 if (spellTarget && !spellTarget.isDead()) {
+                    const spellTargetType = this.currentActiveSpell.getSpellTargetType();
+                    const aggrBlockedSpellTarget =
+                        !spellTarget.hasBuffActive("Hidden") &&
+                        (spellTargetType === SpellTargetType.ANY_ENEMY ||
+                            spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE)
+                            ? this.isAttackBlockedByAggr(spellTarget, "spell")
+                            : undefined;
+                    if (aggrBlockedSpellTarget) {
+                        this.showAggrBlockedActionHint(aggrBlockedSpellTarget);
+                        return;
+                    }
                     if (this.castSpellOnTarget(spellTarget)) {
                         return;
                     }
@@ -6423,6 +6521,23 @@ export class Sandbox extends PixiScene {
                 this.sc_sceneLog.updateLog("Spell cancelled");
                 this.buttonManager.refreshButtons(true);
                 return;
+            }
+
+            // A fast move-and-click can arrive before hover() has built an attack cursor. Consume an invalid
+            // enemy click here so it cannot fall through as movement, and surface the same Aggr explanation.
+            const clickedAttackTarget = this.getUnitAtPosition(p);
+            if (
+                clickedAttackTarget &&
+                this.currentActiveUnit &&
+                !clickedAttackTarget.isDead() &&
+                clickedAttackTarget.getTeam() !== this.currentActiveUnit.getTeam() &&
+                !clickedAttackTarget.hasBuffActive("Hidden")
+            ) {
+                const aggrBlockedTarget = this.isUnitAttackBlockedByAggr(clickedAttackTarget);
+                if (aggrBlockedTarget) {
+                    this.showAggrBlockedActionHint(aggrBlockedTarget);
+                    return;
+                }
             }
 
             // --- OBSTACLE ATTACK: striking the destructible center on BLOCK_CENTER maps. ---
@@ -6796,6 +6911,7 @@ export class Sandbox extends PixiScene {
         if (this.spellHoverInfoKey === key) return;
 
         this.spellHoverInfoKey = key;
+        this.sc_hoverSpellElement = spell?.getElement() ?? SpellElement.NO_ELEMENT;
         this.sc_attackDamageSpreadStr = "";
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_attackKillSpreadStr = "";
@@ -6873,7 +6989,7 @@ export class Sandbox extends PixiScene {
                 // Mass-cast / summon spells apply immediately (no target click needed).
                 this.castMassOrSummonSpell(hovered, this.currentActiveUnit);
             } else {
-                // FREE_CELL / AUTO / NO_TYPE are not wired yet (see PIXI_GAMEPLAY_PARITY_PLAN.md).
+                // Any remaining target category cannot be cast directly.
                 this.sc_sceneLog.updateLog(`${hovered.getName()}: this spell type is not supported yet`);
             }
             return;
@@ -6978,6 +7094,7 @@ export class Sandbox extends PixiScene {
                 caster.getBaseCell(),
                 targetUnit.getBaseCell(),
                 this.throwTransparency(spell.getName(), caster),
+                targetUnit.getCells(),
             )
         ) {
             return false;
@@ -7442,12 +7559,20 @@ export class Sandbox extends PixiScene {
      * gate for showing the sword/bow attack cursor over destructible terrain.
      */
     private isHoveringAttackableObstacle(worldPos: HoCMath.XY): boolean {
-        return !!this.resolveObstacleAttack(worldPos);
+        return (
+            !!this.resolveObstacleAttack(worldPos) &&
+            !isManualAttackBlockedByAggr(this.getLiveAggrForcedTarget()?.getId(), { kind: "obstacle" })
+        );
     }
     private attemptObstacleAttack(worldPos: HoCMath.XY): boolean {
         const resolved = this.resolveObstacleAttack(worldPos);
         if (!resolved) {
             return false;
+        }
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })) {
+            this.showAggrBlockedActionHint(forcedTarget);
+            return true;
         }
         return this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom);
     }
@@ -7619,16 +7744,33 @@ export class Sandbox extends PixiScene {
         // The engine PRECOMPUTED the flight AND the damage from ONE roll, so the disc's cells and the victims
         // never disagree on which way it curled. Per-victim amounts (for the numbers landed AS the disc
         // arrives) come from that same authoritative splash — never a client re-roll.
-        const splashByUnit = new Map<string, { amount: number; unitsDied: number }>();
+        // `missed` rides along because a dodge is the one case where the disc reaches a unit and draws no
+        // wound: the engine ends the flight there (chakram_ability.resolveChakramFlightMisses), and blood
+        // on a unit that stepped out of the way would read as the hit that never happened.
+        const splashByUnit = new Map<string, { amount: number; unitsDied: number; missed?: boolean }>();
         for (const entry of damage?.splash ?? []) {
-            splashByUnit.set(entry.unitId, { amount: entry.amount, unitsDied: entry.unitsDied });
+            splashByUnit.set(entry.unitId, {
+                amount: entry.amount,
+                unitsDied: entry.unitsDied,
+                missed: entry.missed,
+            });
         }
+        /** Pop MISS under a unit the disc reached but never touched, drifting the way the disc came in. */
+        const popChakramMiss = (unit: RenderableUnit, center: HoCMath.XY, dir: HoCMath.XY): void => {
+            this.combatVisuals?.showMissLabel(
+                { x: center.x, y: center.y - cellSize * (unit.isSmallSize() ? 0.85 : 1.25) },
+                dir,
+            );
+        };
 
         // This runs at the exact moment the thrown disc lands on the PRIMARY target (both call sites await
         // the throw first), so the primary's wound opens right here — then each ricochet victim bleeds AS
         // the disc reaches it, never all at once.
         const attackerCenter = attacker.getVisualCenter(gs);
-        if (primaryTarget && !damage?.missed) {
+        // A splash-borne dodge never sets damage.missed (that flag belongs to the single-target path), so
+        // the primary's own entry is what says whether the throw actually connected.
+        const primaryDodged = !!(primaryTarget && splashByUnit.get(primaryTarget.getId())?.missed);
+        if (primaryTarget && !damage?.missed && !primaryDodged) {
             const primary = this.unitsHolder.getAllUnits().get(primaryTarget.getId()) as RenderableUnit | undefined;
             if (primary && !primary.isDead()) {
                 const center = primary.getVisualCenter(gs);
@@ -7677,6 +7819,12 @@ export class Sandbox extends PixiScene {
                 }
                 const center = unit.getVisualCenter(gs);
                 const dmg = splashByUnit.get(unitId);
+                if (dmg?.missed) {
+                    // The disc arrived and was dodged. This is the last hop the engine flew, so the flight
+                    // simply ends here — no wound, no shove, just the MISS the dodge earned.
+                    popChakramMiss(unit, center, lastDir);
+                    continue;
+                }
                 if (dmg && dmg.amount > 0) {
                     this.combatVisuals?.showFloatingDamage(center, dmg.amount, lastDir, dmg.unitsDied);
                 }
@@ -7786,29 +7934,94 @@ export class Sandbox extends PixiScene {
      *
      * Battle magic has NO spread. A melee or ranged hover reads "12-19" because the roll happens at swing
      * time; a spell's damage is `creatures alive x stack power x the spell's own multiplier` and is decided
-     * before it is cast, so the preview is one exact number. The only thing that moves it per target is magic
-     * resistance — armor does nothing to a spell.
+     * before it is cast, so the preview is one exact number. What moves it per target is that target's own
+     * defences — its element, its magic resistance, its Water Shield — and armor does nothing to a spell.
      *
-     * Deliberately routed through the same two helpers the engine and the spellbook card use, so the number
-     * the player reads while aiming is the number the cast deals.
+     * Routed through the ENGINE's projection (projectSpellDamageAgainstUnit, which GameActionEngine's cast
+     * resolves through), so the number the player reads while aiming is the number the cast deals, including
+     * the two the hover used to skip: a Water Shield absorbs the whole hit and the stack loses nothing, and
+     * the kill count is read off what is left AFTER the absorb rather than off the raw hit.
      */
-    private previewSpellDamage(spell: Spell, caster: Unit, target: Unit): number | undefined {
+    private previewSpellDamage(spell: Spell, caster: Unit, target: Unit): ISpellDamageProjection | undefined {
         if (!isOffensiveSpellMultiplier(spell.getMultiplierType())) {
             return undefined;
         }
-        return offensiveSpellPreviewDamage(
-            spell.getMultiplierType(),
-            spell.getPower(),
-            caster.getAmountAlive(),
-            caster.getStackPower(),
-            caster.getMagicDamageBonusPercentage(),
-            target.getMagicResist(),
-            elementalSpellMultiplier({
-                element: spell.getElement(),
-                targetIsFireElement: target.hasAbilityActive("Fire Element"),
-                targetIsWaterElement: target.hasAbilityActive("Water Element"),
-                targetIsWindElement: target.hasAbilityActive("Wind Element"),
-            }),
+        return projectSpellDamageAgainstUnit({ spell, caster, target });
+    }
+    /**
+     * The hit a Magic Reflection holder sends straight back at the caster, totalled over every unit this cast
+     * would touch — the self-damage the aim preview never mentioned.
+     *
+     * resolveSpellVictims adds the CASTER as an extra victim for every rebounding target, so aiming a spell at
+     * a Magic Dragon (or dropping a meteor on one) costs the caster a hit it was never warned about. Both ends
+     * of the number come from the engine's own projection: the share, which is also the odds, and the damage
+     * after the CASTER's element, magic resistance and Water Shield.
+     *
+     * Undefined when nothing on the board can rebound this cast, which is the overwhelmingly common case.
+     */
+    private previewSpellRebound(
+        spell: Spell,
+        caster: Unit,
+        victims: readonly { unit: Unit; landed: number }[],
+    ): { damage: number; kills: number; reflectionPercent: number; mirrors: number } | undefined {
+        let damage = 0;
+        let reflectionPercent = 0;
+        let mirrors = 0;
+        // The caster's own Water Shield is a ONE-shot absorb: it eats the first rebound whole and breaks, so
+        // a second mirror in the same blast lands in full. Tracked across the loop because each projection
+        // answers for a single hit and cannot know the shield is already gone.
+        let waterShieldSpent = false;
+        for (const victim of victims) {
+            const rebound = projectSpellRebound({
+                spell,
+                caster,
+                holder: victim.unit,
+                landedOnHolder: victim.landed,
+            });
+            if (!rebound?.landed) {
+                continue;
+            }
+            if (rebound.absorbedByWaterShield && !waterShieldSpent) {
+                waterShieldSpent = true;
+                continue;
+            }
+            damage += rebound.landed;
+            // Two mirrors in one blast hit the caster twice — so the label states the full price and the
+            // LARGEST share rather than pretending the two are one event.
+            reflectionPercent = Math.max(reflectionPercent, rebound.reflectionPercent);
+            mirrors += 1;
+        }
+        if (!mirrors) {
+            return undefined;
+        }
+        return { damage, kills: caster.calculatePossibleLosses(damage), reflectionPercent, mirrors };
+    }
+    /**
+     * Label the caster with what this cast would cost IT, when any creature it touches carries Magic
+     * Reflection. Drawn over the caster because that is where the damage lands.
+     *
+     * Stated as "-90 (45% rebound)": the price and the mirror's SHARE of what landed. A spell buff returns
+     * that share every time; the Magic Reflection passive rolls separately before the engine projects, so the
+     * hover shows what comes back when it does. Silence here read as "this cast is free", which is exactly
+     * what a Magic Dragon punishes.
+     */
+    private drawSpellReboundPreview(
+        spell: Spell,
+        caster: Unit,
+        victims: readonly { unit: Unit; landed: number }[],
+        gs: GridSettings,
+    ): void {
+        const rebound = this.previewSpellRebound(spell, caster, victims);
+        if (!rebound) {
+            return;
+        }
+        const casterCenter =
+            caster instanceof RenderableUnit ? caster.getVisualCenter(gs) : { ...caster.getPosition() };
+        const dying = rebound.kills > 0 ? `, ${rebound.kills} die` : "";
+        this.hoverManager.addAOEDamageLabel(
+            casterCenter,
+            `-${rebound.damage} (${rebound.reflectionPercent}% rebound${dying})`,
+            !caster.isSmallSize(),
         );
     }
     /**
@@ -7878,6 +8091,7 @@ export class Sandbox extends PixiScene {
             caster.getBaseCell(),
             target.getBaseCell(),
             this.throwTransparency(spell.getName(), caster),
+            target.getCells(),
         );
     }
     /**
@@ -8310,6 +8524,7 @@ export class Sandbox extends PixiScene {
         const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const unitName = unit.getName().trim().toLowerCase();
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
+            unit.playOneShotAnimation("attack");
             await this.rangedProjectiles.fire({
                 from: muzzle,
                 to: worldPositions[shotIndex],
@@ -8438,7 +8653,7 @@ export class Sandbox extends PixiScene {
             const intersections = this.grid.hasScatteredMountains()
                 ? this.attackHandler.getObstacleIntersections(unit.getPosition(), cellCenter)
                 : [];
-            const hasDoubleShot = !!(unit.getAbility("Double Shot") ?? unit.getAbility("Crafted Double Shot"));
+            const hasDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
             const projectileHits = intersections.slice(0, hasDoubleShot ? 2 : 1);
             const actualHit = projectileHits.at(-1)?.position ?? cellCenter;
             const reachesAimedStone = actualHit.x === cellCenter.x && actualHit.y === cellCenter.y;
@@ -8454,7 +8669,8 @@ export class Sandbox extends PixiScene {
                 false,
             );
             if (this.grid.hasScatteredMountains()) {
-                this.hoverManager.clearObstacleHighlight();
+                // The red target circles above STAY: the contour rim alone read as scenery, and players
+                // could not tell the shot was about to hit the stone. Rim + circle = "this takes the hit".
                 this.dungeonVisuals.highlightScatteredMountains(
                     projectileHits.length ? projectileHits.map((obstacle) => obstacle.position) : [cellCenter],
                 );
@@ -8502,6 +8718,9 @@ export class Sandbox extends PixiScene {
         }
         if (this.grid.hasScatteredMountains()) {
             this.dungeonVisuals.highlightScatteredMountains([cellCenter]);
+            // Same red target circle a plain obstacle gets — the rim alone was invisible in the heat
+            // of a fight, and the swing looked like it would do nothing.
+            this.hoverManager.highlightObstacle(cellCenter, gs.getCellSize());
         } else {
             this.hoverManager.highlightObstacle(cellCenter, gs.getCellSize());
         }
@@ -8517,6 +8736,7 @@ export class Sandbox extends PixiScene {
         this.hoverManager.clearAOEArea();
         this.hoverManager.clearAttackVisuals();
         const clearInfo = (): boolean => {
+            this.clearAggrBlockedActionHint();
             // Prefix match: the live label carries the falloff fraction ("Area attack — 🎯1/N"), so an exact
             // "Area attack" compare would never clear it.
             if (this.sc_hoverInfoArr[0]?.startsWith("Area attack")) {
@@ -8533,18 +8753,14 @@ export class Sandbox extends PixiScene {
 
         const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
 
-        // Aggr: an aggravated AOE unit can only attack the enemy that aggr'd it. Only preview/allow the throw
-        // when its splash actually covers that forced target; suppress it (no AOE outline) anywhere else.
-        const forcedTargetId = this.currentActiveUnit?.getTarget();
-        if (forcedTargetId) {
-            const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
-            if (forcedTarget && !forcedTarget.isDead()) {
-                const coversForcedTarget = affectedGroups.some((g) => g.some((u) => u.getId() === forcedTargetId));
-                if (!coversForcedTarget) {
-                    return clearInfo();
-                }
-            }
+        // The authoritative range handler checks only the ordered primary ([0][0]); a forced target later
+        // in the splash does not make the throw legal. An empty splash is a legal miss and remains available.
+        const aggrBlockedTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+        if (aggrBlockedTarget) {
+            this.showAggrBlockedActionHint(aggrBlockedTarget);
+            return true;
         }
+        this.clearAggrBlockedActionHint();
 
         this.hoverManager.drawAOEArea(cells);
         // Trajectory line to the impact cell — the same arrow a single-target ranged hover draws. The
@@ -8577,88 +8793,43 @@ export class Sandbox extends PixiScene {
         }
 
         // Outline every splashed unit red AND float its projected damage. affectedGroups is [units, units]
-        // (two identical refs from evaluateAffectedUnits) — iterate ONE. Per-unit damage mirrors the engine
-        // EXACTLY minus the luck/miss RNG: Unit.calculateAttackDamage (base min/max at abilityMultiplier=1,
-        // then ONE floor of sample * abilityMultiplier * deepWounds * elemental — attackTypeMultiplier is 1
-        // for a ranged throw), then processRangeAOEAbility's tail (Giant's Maul +%, victim Broken Aegis -%,
-        // physical-AOE resistance — each its own floor). Gargantuan's native Double Shot fires a SECOND full
-        // area wave (double_shot_ability -> processRangeAOEAbility again), so the total is ~2x. Keep in sync
-        // with unit.ts calculateAttackDamage + aoe_range_ability.ts + double_shot_ability.ts.
+        // (two identical refs from evaluateAffectedUnits) — iterate ONE.
+        //
+        // Per-unit damage comes from projectAoeRangeAttack, the SHARED projection processRangeAOEAbility
+        // itself resolves through: the RANGE band at the AOE ability's multiplier, then that ability's tail
+        // (Giant's Maul +%, the victim's Broken Aegis -%, its physical-AOE status resistance — each with its
+        // own floor). This block used to carry a hand-written copy of that pipeline under a "keep in sync
+        // with unit.ts + aoe_range_ability.ts + double_shot_ability.ts" note; it is the same drift trap the
+        // single-target hover fell into, so there is nothing left here to keep in sync.
         const splashUnits = affectedGroups[0] ?? [];
         let doubleShot = false;
         if (activeUnit) {
             const abilityPower = FightStateManager.getInstance()
                 .getFightProperties()
                 .getAdditionalAbilityPowerPerTeam(activeUnit.getTeam());
-            const aoeAbility = activeUnit.getAbility("Area Throw") ?? activeUnit.getAbility("Large Caliber");
-            let abilityMultiplier = aoeAbility ? activeUnit.calculateAbilityMultiplier(aoeAbility, abilityPower) : 1;
-            const attackerParalysis = activeUnit.getEffect("Paralysis");
-            if (attackerParalysis) {
-                abilityMultiplier *= (100 - attackerParalysis.getPower()) / 100;
-            }
-            const giantsMaul = activeUnit.getBuff("Giants Maul");
-            const attackRate = activeUnit.getAttack();
-            // Deep Wounds bonus needs the ATTACKER to own a Deep Wounds Level ability AND the victim to carry
-            // the "Deep Wounds" effect (checked per victim). Gargantuan has neither natively, but both can be
-            // stolen/synergised, so model it to stay faithful.
-            const attackerHasDeepWounds = !!(
-                activeUnit.getAbility("Deep Wounds Level 0") ||
-                activeUnit.getAbility("Deep Wounds Level 1") ||
-                activeUnit.getAbility("Deep Wounds Level 2") ||
-                activeUnit.getAbility("Deep Wounds Level 3")
-            );
+            const aoeAbility = aoeAttackAbility(activeUnit);
+            // Gargantuan's native Double Shot re-runs the WHOLE area wave on the same units at the same
+            // divisor and the same AOE multiplier, so the total is exactly 2x — but only while an arrow is
+            // left: the first wave spends via spendShotsAgainst, and the second re-enters
+            // calculateAttackDamage, which bails to a hard 0 on an empty quiver.
             doubleShot =
-                activeUnit.hasAbilityActive("Double Shot") || activeUnit.hasAbilityActive("Crafted Double Shot");
+                AbilityHelper.hasDoubleShotAbility(activeUnit) &&
+                activeUnit.projectRangeShotsAfterVolleys(splashUnits[0], 1) > 0;
+            const areaWaves = doubleShot ? 2 : 1;
             for (const affectedUnit of splashUnits) {
                 this.hoverManager.addTargetHighlight(affectedUnit);
                 if (affectedUnit.isDead()) {
                     continue;
                 }
-                // Base bounds WITHOUT the ability multiplier — the engine computes min/max at abilityMultiplier=1
-                // and applies it (plus deepWounds/elemental) AFTER the roll in a single Math.floor.
-                const baseMin = activeUnit.calculateAttackDamageMin(
-                    attackRate,
-                    affectedUnit,
-                    true,
-                    abilityPower,
+                const projection = projectAoeRangeAttack({
+                    attacker: activeUnit,
+                    victim: affectedUnit,
+                    synergyAbilityPowerIncrease: abilityPower,
                     divisor,
-                );
-                const baseMax = activeUnit.calculateAttackDamageMax(
-                    attackRate,
-                    affectedUnit,
-                    true,
-                    abilityPower,
-                    divisor,
-                );
-                const deepWoundsPower = attackerHasDeepWounds
-                    ? (affectedUnit.getEffect("Deep Wounds")?.getPower() ?? 0)
-                    : 0;
-                const deepWoundsMul = deepWoundsPower > 0 ? 1 + deepWoundsPower / 100 : 1;
-                const postSample =
-                    abilityMultiplier * deepWoundsMul * activeUnit.getElementalDamageMultiplier(affectedUnit);
-                let minD = Math.floor(baseMin * postSample);
-                let maxD = Math.floor(baseMax * postSample);
-                if (giantsMaul) {
-                    const gmMul = 1 + giantsMaul.getPower() / 100;
-                    minD = Math.floor(minD * gmMul);
-                    maxD = Math.floor(maxD * gmMul);
-                }
-                const brokenAegis = affectedUnit.getBuff("Broken Aegis");
-                if (brokenAegis) {
-                    const baMul = 1 - brokenAegis.getPower() / 100;
-                    minD = Math.floor(minD * baMul);
-                    maxD = Math.floor(maxD * baMul);
-                }
-                const aoeMul = affectedUnit.getPhysicalAoeDamageMultiplier();
-                minD = Math.floor(minD * aoeMul);
-                maxD = Math.floor(maxD * aoeMul);
-                // Double Shot re-runs the whole area wave on the same units at the same divisor, so the total
-                // is ~2x (an UPPER bound: the second wave can miss or hit a unit the first already killed).
-                // Matches the single-target hover, which shows 2x for Double Shot.
-                if (doubleShot) {
-                    minD *= 2;
-                    maxD *= 2;
-                }
+                    aoeAbility,
+                });
+                const minD = projection.min * areaWaves;
+                const maxD = projection.max * areaWaves;
                 // NOTE: Flesh Shield Aura redistribution across the splash isn't modeled — if a Flesh-Shield
                 // owner and its protectee are both in the 3x3, the shown split won't match the resolved one.
                 const dmgStr = minD === maxD ? `${minD}` : `${minD}-${maxD}`;
@@ -8718,8 +8889,16 @@ export class Sandbox extends PixiScene {
             false, // isSelection
             largeCaliber || areaThrow, // splash (Large Caliber / Area Throw)
         );
+        // Only highlight units the shot actually reaches. A non-piercing shot (Large Caliber / Area
+        // Throw) stops at the first unit on its path, so when a unit intercepts the shot before the
+        // aimed target, the target under the cursor is NOT hit — don't outline it. Through Shot pierces
+        // multiple units for real, so every group it returns is a genuine hit and stays highlighted; a
+        // non-piercing splash shot's ray walk can still surface a second "direct hit" group further down
+        // the trajectory (past where the shot actually stopped) — take only the first group so a unit
+        // standing behind the one that intercepts the shot never reads as independently attackable.
+        const groups = throughShot ? evalResult.affectedUnits : evalResult.affectedUnits.slice(0, 1);
         const seen = new Set<string>();
-        for (const affectedGroup of evalResult.affectedUnits) {
+        for (const affectedGroup of groups) {
             for (const affectedUnit of affectedGroup) {
                 if (seen.has(affectedUnit.getId())) {
                     continue;
@@ -8728,10 +8907,6 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.addTargetHighlight(affectedUnit);
             }
         }
-        // Only highlight units the shot actually reaches. A non-piercing shot (Large Caliber / Area
-        // Throw) stops at the first unit on its path, so when a unit intercepts the shot before the
-        // aimed target, the target under the cursor is NOT hit — don't outline it. (A Through Shot or a
-        // direct hit already includes the target above, since it's in evalResult.affectedUnits.)
         return seen.size > 0;
     }
     /**
@@ -8766,6 +8941,64 @@ export class Sandbox extends PixiScene {
             attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw"),
         );
         return evalResult.affectedUnits[0]?.[0];
+    }
+    /** The target/obstacle on which the engine applies Aggr's gate after resolving the actual range ray. */
+    private resolveRangeAttackAggrIntent(
+        targetUnit: Unit,
+        exactAimPosition?: HoCMath.XY,
+    ): { primary?: Unit; stoppedByObstacle: boolean } {
+        const attacker = this.currentActiveUnit;
+        if (!attacker || !this.attackHandler) {
+            return { stoppedByObstacle: false };
+        }
+        const aimPosition = resolveLiveRangeProjectileTracePosition(
+            exactAimPosition,
+            () =>
+                attacker instanceof RenderableUnit
+                    ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                    : undefined,
+            targetUnit.getPosition(),
+        );
+        const throughShot = attacker.hasAbilityActive("Through Shot");
+        const ignoresStructures = attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw");
+        let evaluation = this.attackHandler.evaluateRangeAttack(
+            this.unitsHolder.getAllUnits(),
+            attacker,
+            attacker.getPosition(),
+            aimPosition,
+            throughShot,
+            false,
+            ignoresStructures,
+        );
+        const hasDoubleShot = AbilityHelper.hasDoubleShotAbility(attacker);
+        const obstacleIntersections =
+            this.grid.hasScatteredMountains() && hasDoubleShot && !ignoresStructures
+                ? this.attackHandler.getObstacleIntersections(attacker.getPosition(), aimPosition).slice(0, 2)
+                : [];
+        if (
+            shouldResolveAggrAfterFirstDoubleShotObstacle(
+                obstacleIntersections.length,
+                hasDoubleShot,
+                ignoresStructures,
+            )
+        ) {
+            // Projectile one removes the sole tombstone; projectile two is then evaluated on the unchanged
+            // ray. `isSelection` is the evaluator's read-only "ignore structures" mode, safe here because
+            // getObstacleIntersections proved there is exactly one structure to remove on this segment.
+            evaluation = this.attackHandler.evaluateRangeAttack(
+                this.unitsHolder.getAllUnits(),
+                attacker,
+                attacker.getPosition(),
+                aimPosition,
+                throughShot,
+                true,
+                ignoresStructures,
+            );
+        }
+        return {
+            primary: evaluation.affectedUnits[0]?.[0],
+            stoppedByObstacle: !!evaluation.attackObstacle,
+        };
     }
     /**
      * The 3x3 splash cells for an Area Throw aimed at worldPos, or undefined when the active unit
@@ -8820,6 +9053,12 @@ export class Sandbox extends PixiScene {
         const cells = this.getAreaThrowCells(worldPos);
         if (!unit || !cells) {
             return false;
+        }
+        const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
+        const aggrBlockedTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+        if (aggrBlockedTarget) {
+            this.showAggrBlockedActionHint(aggrBlockedTarget);
+            return true;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
         const mouseCell = GridMath.getCellForPosition(gs, worldPos);
@@ -8892,9 +9131,10 @@ export class Sandbox extends PixiScene {
         const muzzle = unit.getVisualCenter(gs);
         const bigProjectile = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const areaThrowUnitName = unit.getName().trim().toLowerCase();
-        const isDoubleShot = unit.hasAbilityActive("Double Shot") || unit.hasAbilityActive("Crafted Double Shot");
+        const isDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
         // Shot ONE. Double Shot's second projectile is fired below, AFTER wave 1's numbers, so each shot's
         // damage pops in sync with its own throw instead of both landing at the end.
+        unit.playOneShotAnimation("attack");
         await this.rangedProjectiles.fire({
             from: muzzle,
             to: effectivePosition,
@@ -8946,6 +9186,7 @@ export class Sandbox extends PixiScene {
         const throwCount = Math.max(waves.length, isDoubleShot ? 2 : 1);
         let shownAnyWave = this.showSplashDamage(waves[0] ?? [], muzzle);
         for (let throwIndex = 1; throwIndex < throwCount; throwIndex++) {
+            unit.playOneShotAnimation("attack");
             await this.rangedProjectiles.fire({
                 from: muzzle,
                 to: effectivePosition,
@@ -9091,6 +9332,11 @@ export class Sandbox extends PixiScene {
         }
         return undefined;
     }
+    /**
+     * The visible edge of `target` this shot aims at, or undefined when the target presents none — in
+     * which case the shot is not allowed at all. A ranged shot always lands on a visible-edge center; it
+     * never falls back to the target's geometric center.
+     */
     private resolveRangeAimForTarget(
         attacker: RenderableUnit,
         target: Unit,
@@ -9109,7 +9355,21 @@ export class Sandbox extends PixiScene {
             attacker.isSmallSize(),
             target.isSmallSize(),
             attacker.getTeam(),
-            attacker.hasAbilityActive("Through Shot"),
+            isThroughShot,
+        );
+        if (cursorAimed) {
+            return cursorAimed;
+        }
+        // The cursor pointed somewhere with no selectable side (it also gates on attacker-vs-target
+        // geometry, and only ever looks at the ONE hovered cell). The target may still expose an edge on
+        // another cell — clamp to the nearest one, exactly as the engine does, instead of aiming center.
+        return GridMath.resolveRangeAttackAimEdge(
+            this.grid.getMatrix(),
+            gs,
+            target.getCells(),
+            arrowStartPos,
+            attacker.getTeam(),
+            isThroughShot,
         );
     }
     /**
@@ -9320,6 +9580,20 @@ export class Sandbox extends PixiScene {
                 target,
                 replayAction?.type === "range_attack" ? replayAction : undefined,
             );
+            // No visible edge means there is nothing legal to aim at — the target is covered on every side
+            // by its own team and/or mountains. Drop a locally-initiated shot here rather than sending an
+            // aimless action the engine now rejects. A replay/authoritative action still goes through: its
+            // own recorded aim governs, and rewriting history from the local board would desync it.
+            if (!aim && !replayAction) {
+                this.sc_moveBlocked = false;
+                return false;
+            }
+            const aggrBlockedTarget = replayAction ? undefined : this.isRangeAttackBlockedByAggr(target, aim?.position);
+            if (aggrBlockedTarget) {
+                this.sc_moveBlocked = false;
+                this.showAggrBlockedActionHint(aggrBlockedTarget);
+                return false;
+            }
             const action: GameAction =
                 replayAction?.type === "range_attack"
                     ? {
@@ -9367,6 +9641,7 @@ export class Sandbox extends PixiScene {
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
             // ABILITY Chakram (Zena): throw the spinning disc instead of a bolt. Gated on the ABILITY, not
             // the creature name, so a stolen/granted Chakram throws one too — and a Broken one does not.
+            attacker.playOneShotAnimation("attack");
             await this.rangedProjectiles.fire({
                 from: muzzle,
                 to: shotTarget,
@@ -9402,7 +9677,8 @@ export class Sandbox extends PixiScene {
                     target.getId(),
                     attacker.getPosition(),
                     attacker.hasAbilityActive("Through Shot"),
-                    !!(attacker.getAbility("Double Shot") ?? attacker.getAbility("Crafted Double Shot")),
+                    AbilityHelper.hasDoubleShotAbility(attacker),
+                    doubleShotObstacleImpacts,
                 );
                 const secondImpact = projectilePlan[1];
                 if (secondImpact) {
@@ -9435,6 +9711,7 @@ export class Sandbox extends PixiScene {
                 const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
                 // The RESPONDER throws its own weapon: a counter-shooting Zena sends the chakram back, not a
                 // bolt. Gated on the responder's ability, mirroring the outgoing shot.
+                target.playOneShotAnimation("attack");
                 void this.rangedProjectiles.fire({
                     from: responseMuzzle,
                     to: responseEdge,
@@ -9454,6 +9731,12 @@ export class Sandbox extends PixiScene {
                 });
             }
         } else {
+            const aggrBlockedTarget = replayAction ? undefined : this.isAttackBlockedByAggr(target, "melee");
+            if (aggrBlockedTarget) {
+                this.sc_moveBlocked = false;
+                this.showAggrBlockedActionHint(aggrBlockedTarget);
+                return false;
+            }
             const routeMetadata = this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)?.[0];
             const action: GameAction =
                 replayAction?.type === "melee_attack"
@@ -10364,6 +10647,7 @@ export class Sandbox extends PixiScene {
         this.hoverRangeAttackObstacle = undefined;
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
+        this.clearAggrBlockedActionHint();
     }
     protected override canShowHoverForActiveUnit(): boolean {
         return true;
@@ -10395,6 +10679,9 @@ export class Sandbox extends PixiScene {
     }
     protected override hover(): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
+        if (!fightProps.hasFightStarted() || fightProps.hasFightFinished()) {
+            this.clearAggrBlockedActionHint();
+        }
 
         if (this.isBoardInputLockedByAI()) {
             this.clearBoardHoverPreviews();
@@ -10407,6 +10694,7 @@ export class Sandbox extends PixiScene {
         // across the target during the short flight; otherwise hover() would draw the dashed line again.
         if (this.rangedProjectiles.hasActive()) {
             this.hoverManager.clearAttackVisuals();
+            this.clearAggrBlockedActionHint();
             return;
         }
 
@@ -10520,7 +10808,11 @@ export class Sandbox extends PixiScene {
                     if (dist > 0) {
                         this.sc_hoveredShotRange = {
                             xy: hoverTargetUnit.getPosition(),
-                            distance: dist * GridConstants.STEP,
+                            distance: GridMath.getFullDamageSquareHalfExtent(
+                                dist,
+                                hoverTargetUnit.getSize(),
+                                GridConstants.STEP,
+                            ),
                         };
                     }
                 }
@@ -10569,6 +10861,7 @@ export class Sandbox extends PixiScene {
             this.hoverManager.hoveredUnitHighlight = undefined;
             this.hoverRangeAttackObstacle = undefined;
             this.emitLocalMoveIntent(undefined);
+            this.clearAggrBlockedActionHint();
             return;
         }
 
@@ -10576,16 +10869,19 @@ export class Sandbox extends PixiScene {
         if (fightProps.hasFightStarted()) {
             if (!this.currentActiveUnit) {
                 this.hoverManager.clearHoverSilhouette();
+                this.clearAggrBlockedActionHint();
                 return;
             }
             if (this.sc_isAnimating || this.isActiveUnitMoving || this.sc_moveBlocked || !this.sc_mouseWorld) {
                 // While a projectile is in flight / the unit is landing an attack, it can't move —
                 // don't draw the move-preview silhouette.
                 this.hoverManager.clearHoverSilhouette();
+                this.clearAggrBlockedActionHint();
                 return;
             }
             if (this.currentActiveUnit.hasAbilityActive("AI Driven")) {
                 this.hoverManager.clearHoverSilhouette();
+                this.clearAggrBlockedActionHint();
                 return;
             }
 
@@ -10605,8 +10901,23 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.clearHoverSilhouette();
                 this.hoverManager.hoverAttackFromCell = undefined;
 
+                const spellTargetType = spell.getSpellTargetType();
+                const aggrBlockedSpellTarget =
+                    hoveredUnit &&
+                    !hoveredUnit.isDead() &&
+                    !hoveredUnit.hasBuffActive("Hidden") &&
+                    (spellTargetType === SpellTargetType.ANY_ENEMY ||
+                        spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE)
+                        ? this.isAttackBlockedByAggr(hoveredUnit, "spell")
+                        : undefined;
+                if (aggrBlockedSpellTarget) {
+                    this.showAggrBlockedActionHint(aggrBlockedSpellTarget);
+                    return;
+                }
+                this.clearAggrBlockedActionHint();
+
                 // Positive magic reads emerald; debuffs and battle magic read as fire-red.
-                const isSwap = spell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
+                const isSwap = spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
                 const isPositiveSpell = spell.isBuff() || isSwap;
                 const spellColor = isPositiveSpell ? 0x18c868 : 0xe02b16;
                 const casterPos = caster.getVisualCenter(gs2);
@@ -10692,12 +11003,18 @@ export class Sandbox extends PixiScene {
                     // chooses a target on a number rather than on the spellbook's generic card text.
                     const spellDamage = this.previewSpellDamage(spell, caster, impactUnit);
                     if (spellDamage !== undefined) {
-                        const kills = sparesTarget ? 0 : impactUnit.calculatePossibleLosses(spellDamage);
+                        // Every creature this cast actually hits, so the rebound below is totalled over all of
+                        // them. A spared target (Ring of Fire) is not one of them — ringOfFireCast filters the
+                        // aim point out of its victims, so it can neither be damaged nor mirror the spell.
+                        const previewedVictims: { unit: Unit; landed: number }[] = sparesTarget
+                            ? []
+                            : [{ unit: impactUnit, landed: spellDamage.landed }];
+                        const kills = sparesTarget ? 0 : spellDamage.kills;
                         // The spared target gets no number at all: printing one — even a 0 — next to a red
                         // ring reads as "this takes damage too", which is the exact confusion to avoid.
                         if (!sparesTarget) {
                             this.hoverManager.drawDamagePrediction(
-                                `${spellDamage}`,
+                                `${spellDamage.damage}`,
                                 kills > 0 ? `${kills}` : undefined,
                                 targetCenter,
                                 !impactUnit.isSmallSize(),
@@ -10705,27 +11022,44 @@ export class Sandbox extends PixiScene {
                             );
                         }
                         // Everything the splash also catches gets its own number, the way the Area Throw
-                        // preview labels each unit under the 3x3. Same damage on each — a spell does not
-                        // fall off across its own blast.
+                        // preview labels each unit under the 3x3. The raw damage does not fall off across the
+                        // blast, but each creature answers it with its own element, resistance and shield.
                         for (const splashed of this.splashedSpellTargets(spell, caster, impactUnit)) {
-                            const splashDamage = this.previewSpellDamage(spell, caster, splashed) ?? 0;
+                            const splashDamage = this.previewSpellDamage(spell, caster, splashed);
                             const labelPos =
                                 splashed instanceof RenderableUnit
                                     ? splashed.getVisualCenter(gs2)
                                     : projectBattlefieldPoint(splashed.getPosition(), gs2);
                             this.hoverManager.addTargetHighlight(splashed, spellColor);
-                            this.hoverManager.addAOEDamageLabel(labelPos, `${splashDamage}`, !splashed.isSmallSize());
+                            this.hoverManager.addAOEDamageLabel(
+                                labelPos,
+                                `${splashDamage?.damage ?? 0}`,
+                                !splashed.isSmallSize(),
+                            );
                         }
+                        this.drawSpellReboundPreview(spell, caster, previewedVictims, gs2);
                     }
                 }
 
                 // A cell-targeted meteor has no hovered unit to hang a number on, so every enemy caught under
                 // the block gets its own label instead — the treatment the Area Throw 3x3 preview already
                 // gives its splash. Allies are skipped because the cast does not catch them.
-                if (spell.getSpellTargetType() === SpellTargetType.FREE_CELL) {
-                    const origin = GridMath.getCellForPosition(gs2, this.sc_mouseWorld);
+                //
+                // The block has to LAND before any of that: meteoriteCast and meteorShowerCast refuse a drop
+                // whose footprint hangs off the board, so along the board's edge this loop used to label full
+                // damage (a measured 152 and 4104) for a cast the engine rejects outright — nothing hit, not
+                // even the charge spent. It is the same question asked through the same helper the cast asks
+                // it with, so the two cannot drift apart. A non-damaging cell spell (Smoke, Craft, Fire Wall)
+                // has nothing to label and never enters here — and its footprint is not this one anyway.
+                const blockOrigin =
+                    spell.getSpellTargetType() === SpellTargetType.FREE_CELL &&
+                    isOffensiveSpellMultiplier(spell.getMultiplierType())
+                        ? GridMath.getCellForPosition(gs2, this.sc_mouseWorld)
+                        : undefined;
+                if (blockOrigin && SpellHelper.cellTargetedSpellBlockFitsGrid(gs2, spell.getName(), blockOrigin)) {
                     const labelled = new Set<string>();
-                    for (const cell of origin ? this.cellTargetedSpellBlock(spell, origin) : []) {
+                    const blockVictims: { unit: Unit; landed: number }[] = [];
+                    for (const cell of this.cellTargetedSpellBlock(spell, blockOrigin)) {
                         const id = this.grid.getOccupantUnitId(cell);
                         const under = id ? this.unitsHolder.getAllUnits().get(id) : undefined;
                         if (!under || under.isDead() || under.getTeam() === caster.getTeam()) {
@@ -10736,10 +11070,11 @@ export class Sandbox extends PixiScene {
                             continue;
                         }
                         const blockDamage = this.previewSpellDamage(spell, caster, under);
-                        if (blockDamage === undefined) {
-                            break; // not a damaging cell spell (Smoke, Craft) — nothing to preview at all
+                        if (!blockDamage) {
+                            continue;
                         }
                         labelled.add(under.getId());
+                        blockVictims.push({ unit: under, landed: blockDamage.landed });
                         this.hoverManager.addAOEDamageLabel(
                             under instanceof RenderableUnit
                                 ? under.getVisualCenter(gs2)
@@ -10748,6 +11083,7 @@ export class Sandbox extends PixiScene {
                             !under.isSmallSize(),
                         );
                     }
+                    this.drawSpellReboundPreview(spell, caster, blockVictims, gs2);
                 }
 
                 if (!hideDirectStatusArrow && trajectoryEnd) {
@@ -10789,6 +11125,7 @@ export class Sandbox extends PixiScene {
                 this.hoverManager.hoverAttackFromCell = undefined;
                 this.hoverManager.clearAuraVisuals();
                 this.sc_hoveredShotRange = undefined;
+                this.clearAggrBlockedActionHint();
                 return;
             }
 
@@ -10799,6 +11136,7 @@ export class Sandbox extends PixiScene {
 
             // Check for melee attack target
             let isAttacking = false;
+            let isAggrBlockedAttack = false;
 
             this.hoverManager.hoverAttackFromCell = undefined; // Reset state
             this.hoverRangeAttackObstacle = undefined; // Reset blocked-shot state
@@ -11064,11 +11402,24 @@ export class Sandbox extends PixiScene {
                                 : undefined;
                         }
 
-                        // Fallback when getClosestSideCenter can't pick a side (e.g. the attacker is
-                        // aligned with the target and the near cell reads blocked). Legacy drew no line
-                        // here; snapping to the target CENTER made the trajectory read center-to-center.
-                        // Aim at the target's NEAR EDGE along the attacker -> target line instead, so it
-                        // stays "center -> the edge we pointed at".
+                        // getClosestSideCenter only ever considers the ONE hovered cell and additionally
+                        // gates on attacker-vs-target geometry, so it can come up empty while the target
+                        // still exposes an edge elsewhere. Clamp to the nearest observable edge — the exact
+                        // rule the engine applies to the committed shot — rather than deriving a point from
+                        // the target's center, which would preview a trajectory the engine cannot produce.
+                        if (!arrowEndPos && isRangeAttackContext) {
+                            arrowEndPos = GridMath.resolveRangeAttackAimEdge(
+                                this.grid.getMatrix(),
+                                gs,
+                                targetUnit.getCells(),
+                                arrowStartPos,
+                                this.currentActiveUnit.getTeam(),
+                                this.currentActiveUnit.hasAbilityActive("Through Shot"),
+                            )?.position;
+                        }
+
+                        // Melee still lands on the body, so a point derived from the target's center is
+                        // right here: aim at its NEAR EDGE along the attacker -> target line.
                         if (!arrowEndPos) {
                             const targetCell =
                                 GridMath.getCellForPosition(gs, this.sc_mouseWorld) ?? targetUnit.getBaseCell();
@@ -11107,13 +11458,31 @@ export class Sandbox extends PixiScene {
                             ? projectBattlefieldPoint(finalArrowEndPos, gs)
                             : (arrowEndVisual ?? projectBattlefieldPoint(finalArrowEndPos, gs));
 
-                        // Calculate projected damage
+                        // Calculate projected damage.
+                        //
+                        // Every number below is produced by the SHARED projection in common
+                        // (projectAttackDamage / projectDoubleShotAttack + the ability tails in
+                        // damage/ability_damage_projection), which is the very code
+                        // Unit.calculateAttackDamage resolves a real attack with. This block used to
+                        // re-derive the engine's formula by hand and promise to "keep in sync" with it; the
+                        // hand-kept copy drifted 40 measured ways — it read the wrong armor field, ceiled
+                        // multipliers that the engine floors after the roll, published a top-of-band the
+                        // engine can never roll, dropped the elemental / Giant's Maul / Broken Aegis /
+                        // status-resistance tails, and priced Double Shot as a flat x2. Add nothing
+                        // arithmetic here: extend the shared projection instead, so both sides move together.
                         const attackRate = this.currentActiveUnit.getAttack();
                         const abilityPower = FightStateManager.getInstance()
                             .getFightProperties()
                             .getAdditionalAbilityPowerPerTeam(this.currentActiveUnit.getTeam());
 
-                        let isMelee = !isRangeAttackContext;
+                        // The engine resolves a swing as MELEE and a shot as RANGE — there is no third case.
+                        // A RANGE unit forced to poke in melee still resolves as MELEE: the projection derives
+                        // its half-strength penalty from the ATTACKER's own attack type and applies it to the
+                        // roll under the engine's single Math.floor. Hence no `isMelee` flag (it used to be
+                        // handed to calculateAttackDamageMin/Max's `isRangeAttack` parameter, exactly
+                        // inverted, so melee hovers priced against getRangeArmor() and shots against
+                        // getArmor()) and no divisor of 2 for the poke.
+                        const hoverAttackType: AttackType = isRangeAttackContext ? AttackVals.RANGE : AttackVals.MELEE;
                         let rangeDivisor = 1;
                         let multiplier = 1; // Initialize BEFORE position logic usage
 
@@ -11121,7 +11490,7 @@ export class Sandbox extends PixiScene {
                         // We need to know WHERE the attack comes from to trigger position-based abilities.
                         // Logic from test_heroes.ts:
                         let hoverAttackFromCell: HoCMath.XY | undefined;
-                        if (isMelee) {
+                        if (!isRangeAttackContext) {
                             // strict melee movement math for Melee attacks
                             // If we are already next to it, or moving to it.
                             // We leverage pathHelper.calculateClosestAttackFrom just like test_heroes.
@@ -11146,8 +11515,10 @@ export class Sandbox extends PixiScene {
                             hoverAttackFromCell = this.currentActiveUnit.getBaseCell();
                         }
 
-                        // Apply Positional Ability Multipliers (Backstab)
-                        if (hoverAttackFromCell) {
+                        // Apply Positional Ability Multipliers (Backstab). MELEE ONLY: handleMeleeAttack is
+                        // the single engine path that folds a position coefficient into its abilityMultiplier
+                        // (attack_handler ~1991). A shot never does, so neither may a ranged hover.
+                        if (hoverAttackFromCell && !isRangeAttackContext) {
                             const abilitiesWithPositionCoeff = AbilityHelper.getAbilitiesWithPosisionCoefficient(
                                 this.currentActiveUnit.getAbilities(),
                                 hoverAttackFromCell,
@@ -11171,14 +11542,14 @@ export class Sandbox extends PixiScene {
 
                         // [Insert Positional Logic Here]
 
-                        // Melee Penalty for Ranged Units doing Melee
-                        if (
-                            isMelee &&
-                            this.currentActiveUnit.getAttackType() === AttackVals.RANGE &&
-                            !this.currentActiveUnit.hasAbilityActive("Handyman")
-                        ) {
-                            rangeDivisor = 2; // Penalty
-                        }
+                        // NO melee-penalty divisor here. A RANGE unit swinging without Handyman lands a
+                        // half-strength poke, and the engine applies that 0.5 to the ROLL, inside its single
+                        // Math.floor (resolveAttackDamageChain.attackTypeMultiplier). Encoding it as
+                        // `divisor = 2` divided INSIDE the band's Math.ceil instead — ceil(x/2) exceeds
+                        // floor(ceil(x) * 0.5) for every odd value, so the hover over-promised roughly half
+                        // of all ranged-into-melee pokes and advertised 1 damage where the engine deals 0.
+                        // `divisor` is now ONLY the range falloff / smoke divisor, exactly as the engine
+                        // names its own parameter.
 
                         // Distance falloff. Ask the ENGINE (getRangeAttackDivisor) rather than re-deriving
                         // it: damage halves for EVERY full shot-distance crossed and caps at 1/8, and the
@@ -11192,13 +11563,19 @@ export class Sandbox extends PixiScene {
                         // while arrowStartPos is its VISUAL centre — for a large (2x2) shooter those differ,
                         // and feeding the visual centre here would put the hover in a different band than
                         // the shot it is predicting, right at a boundary.
+                        // Keep the WHOLE per-hit divisor list, not just the first entry. A Through Shot
+                        // prices each unit it pierces with THAT unit's divisor — processThroughShotAbility
+                        // reads hoverRangeAttackDivisors.at(i) — so indexing the aimed target with
+                        // divisors[0] (the first body on the ray) mispriced it by up to 8x.
+                        let rangeAttackDivisors: number[] = [];
+                        let rangeAttackGroups: Unit[][] = [];
                         if (isRangeAttackContext) {
-                            // Take the divisor the ENGINE resolved for this exact shot rather than the raw
+                            // Take the divisors the ENGINE resolved for this exact shot rather than the raw
                             // distance band: evaluateRangeAttack folds SMOKE in (a ray that crosses a
                             // smoked cell doubles the divisor, capped at 1/8), so the badge shows 1/2 where
                             // the shot really lands 1/2. Falls back to the pure distance band if the
                             // evaluation produced no divisor (nothing on the ray).
-                            const smokeAware = this.attackHandler.evaluateRangeAttack(
+                            const shotEvaluation = this.attackHandler.evaluateRangeAttack(
                                 this.unitsHolder.getAllUnits(),
                                 this.currentActiveUnit,
                                 this.currentActiveUnit.getPosition(),
@@ -11207,56 +11584,33 @@ export class Sandbox extends PixiScene {
                                 false,
                                 this.currentActiveUnit.hasAbilityActive("Large Caliber") ||
                                     this.currentActiveUnit.hasAbilityActive("Area Throw"),
-                            ).rangeAttackDivisors[0];
+                            );
+                            rangeAttackDivisors = shotEvaluation.rangeAttackDivisors;
+                            rangeAttackGroups = shotEvaluation.affectedUnits;
+                            // The badge sits on the unit the number is drawn over, so show ITS falloff band.
+                            const damageUnitHitIndex = rangeAttackGroups.findIndex((group) =>
+                                group.some((unit) => unit.getId() === damageUnit.getId()),
+                            );
                             rangeDivisor =
-                                smokeAware ??
+                                rangeAttackDivisors[damageUnitHitIndex] ??
+                                rangeAttackDivisors[0] ??
                                 this.attackHandler.getRangeAttackDivisor(this.currentActiveUnit, finalArrowEndPos);
                         }
 
-                        // Double Shot Logic (Legacy check) — Crafted Double Shot behaves identically.
-                        if (
-                            isRangeAttackContext &&
-                            (this.currentActiveUnit.hasAbilityActive("Double Shot") ||
-                                this.currentActiveUnit.hasAbilityActive("Crafted Double Shot"))
-                        ) {
-                            multiplier = 2; // Display double damage
-                        }
+                        // --- The multiplier chain the ENGINE builds before calling calculateAttackDamage ---
+                        //
+                        // The RANGED ability multipliers (Through Shot, Large Caliber, Area Throw, Chakram and
+                        // Double Shot's second volley) are deliberately NOT accumulated here any more: each
+                        // has its own shared projection below, which owns both the multiplier AND the tail the
+                        // engine runs after it. Notably Double Shot is not a flat x2 — it is a stack_powered
+                        // ability whose second volley lands at 20%..100% + luck + Dual Strike Charm, and it
+                        // does not fly at all on an empty quiver.
+                        //
+                        // What is left is exactly what handleMeleeAttack folds in: Rapid Charge, Paralysis and
+                        // the position coefficient applied above.
 
-                        // --- [PORTED] Advanced Damage Logic from test_heroes.ts ---
-
-                        // 1. Ability Multipliers (Through Shot, Large Caliber, Area Throw) — these are
-                        // RANGED-shot abilities, so only apply them to a range attack. A ranged unit
-                        // forced to melee (e.g. Cyclops with an adjacent enemy) deals a plain melee hit;
-                        // applying the splash multiplier there made the melee damage read like an AOE shot.
-                        if (isRangeAttackContext) {
-                            // Through Shot scales each pierced hit — the engine applies this same
-                            // multiplier in processThroughShotAbility, so the hover must match (it was
-                            // dropped in the port, making Tsar Cannon under-report its damage).
-                            const throughShotAbility = this.currentActiveUnit.getAbility("Through Shot");
-                            if (throughShotAbility) {
-                                multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
-                                    throughShotAbility,
-                                    abilityPower,
-                                );
-                            }
-                            const largeCaliberAbility = this.currentActiveUnit.getAbility("Large Caliber");
-                            if (largeCaliberAbility) {
-                                multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
-                                    largeCaliberAbility,
-                                    abilityPower,
-                                );
-                            }
-                            const areaThrowAbility = this.currentActiveUnit.getAbility("Area Throw");
-                            if (areaThrowAbility) {
-                                multiplier *= this.currentActiveUnit.calculateAbilityMultiplier(
-                                    areaThrowAbility,
-                                    abilityPower,
-                                );
-                            }
-                        }
-
-                        // 2. Rapid Charge
-                        if (attackFromCell && this.currentActiveKnownPaths) {
+                        // 1. Rapid Charge — MELEE only (attack_handler ~1983). A shot never charges.
+                        if (!isRangeAttackContext && attackFromCell && this.currentActiveKnownPaths) {
                             const key = (attackFromCell.x << 4) | attackFromCell.y;
                             const paths = this.currentActiveKnownPaths.get(key);
                             let rapidChargeCellsNumber = 1;
@@ -11269,20 +11623,14 @@ export class Sandbox extends PixiScene {
                             );
                         }
 
-                        // 3. Paralysis (Attacker Effect)
-                        const paralysisAttackerEffect = this.currentActiveUnit.getEffect("Paralysis");
-                        if (paralysisAttackerEffect) {
-                            multiplier *= (100 - paralysisAttackerEffect.getPower()) / 100;
-                        }
+                        // 2. Paralysis (attacker effect) — the shared helper every engine damage path uses.
+                        multiplier *= attackerParalysisMultiplier(this.currentActiveUnit);
 
-                        // 4. Deep Wounds (Target Effect -> Attacker Bonus); read it from the unit that
-                        // actually receives the shot (the interceptor, if any).
-                        const deepWoundsEffect = damageUnit.getEffect("Deep Wounds");
-                        if (deepWoundsEffect && AllAbilities.hasAnyDeepWoundsAbility(this.currentActiveUnit)) {
-                            multiplier *= 1 + deepWoundsEffect.getPower() / 100;
-                        }
+                        // 3. NO Deep Wounds step. resolveAttackDamageChain owns the victim's stacked
+                        // amplification and folds it into every projection below; applying it here as well
+                        // would square it — which is exactly the bug the engine's own duplicate had.
 
-                        // 5. War Anger (Attack Rate Modification based on Position)
+                        // 4. War Anger (Attack Rate Modification based on Position)
                         const warAngerAuraEffect = this.currentActiveUnit.getAuraEffect("War Anger");
                         let effectiveAttackRate = attackRate;
 
@@ -11298,44 +11646,336 @@ export class Sandbox extends PixiScene {
                             effectiveAttackRate = Math.max(1, newAttackRate);
                         }
 
-                        let minDmg =
-                            this.currentActiveUnit.calculateAttackDamageMin(
-                                effectiveAttackRate,
-                                damageUnit,
-                                isMelee,
-                                abilityPower,
-                                rangeDivisor,
-                                multiplier,
-                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, damageUnit);
+                        // Shared by every branch below: the attacker, its team's synergy power, and the attack
+                        // rate the strike will actually happen at (War Anger can change it at the destination
+                        // cell — the ONLY reason to override the engine's own getAttack()).
+                        const projectionBase = {
+                            attacker: this.currentActiveUnit,
+                            attackType: hoverAttackType,
+                            synergyAbilityPowerIncrease: abilityPower,
+                            attackRate: effectiveAttackRate,
+                        };
 
-                        let maxDmg =
-                            this.currentActiveUnit.calculateAttackDamageMax(
-                                effectiveAttackRate,
-                                damageUnit,
-                                isMelee,
-                                abilityPower,
-                                rangeDivisor,
-                                multiplier,
-                            ) + AllAbilities.processPenetratingBiteAbility(this.currentActiveUnit, damageUnit);
+                        // Lucky Strike is a PROC, so it belongs on the top of the band only — and at the exact
+                        // point the engine applies it: to the damage calculateAttackDamage produced, BEFORE any
+                        // AOE/line tail (Giant's Maul, Broken Aegis, status resistance) and before Penetrating
+                        // Bite is added on. (The old code added the bite first and then multiplied it too.)
+                        // Captured once: the closures below outlive TypeScript's narrowing of this.currentActiveUnit.
+                        const attackerUnit = this.currentActiveUnit;
+                        const luckyStrikeAbility = attackerUnit.getAbility("Lucky Strike");
+                        const withLuckyStrike = (damage: number): number =>
+                            luckyStrikeAbility
+                                ? Math.floor(
+                                      damage *
+                                          attackerUnit.calculateAbilityMultiplier(luckyStrikeAbility, abilityPower),
+                                  )
+                                : damage;
 
-                        // Lucky Strike (Legacy)
-                        const luckyStrikeAbility = this.currentActiveUnit.getAbility("Lucky Strike");
-                        if (luckyStrikeAbility) {
-                            maxDmg = Math.floor(
-                                maxDmg *
-                                    this.currentActiveUnit.calculateAbilityMultiplier(luckyStrikeAbility, abilityPower),
+                        // BUFF Fireforged Sword: the enchanted blade adds a SECOND, MAGICAL hit on the unit the
+                        // swing/shot landed on — a share of the damage dealt, half again as much against water,
+                        // nothing against fire, then cut by the victim's magic resistance. The engine reports it
+                        // as its own secondary entry (attack_handler 1458 / 2468 / 2649) rather than folding it
+                        // into the swing, which is why the hover never counted it and under-read every
+                        // enchanted attack by the burn.
+                        const fireforgedSwordBuff = attackerUnit.getBuff(AllAbilities.FIREFORGED_SWORD_BUFF_NAME);
+                        const fireforgedBurn = (victim: Unit, damage: number): number =>
+                            fireforgedSwordBuff
+                                ? fireforgedSwordDamage({
+                                      damageDealt: damage,
+                                      swordPercentage: fireforgedSwordPower(
+                                          fireforgedSwordBuff.getPower(),
+                                          attackerUnit.getEmpowerPercentage(),
+                                      ),
+                                      targetMagicResist: victim.getMagicResist(),
+                                      targetIsFireElement: victim.hasAbilityActive("Fire Element"),
+                                      targetIsWaterElement: victim.hasAbilityActive("Water Element"),
+                                  })
+                                : 0;
+
+                        // Everything the strike lands on, accumulated PER UNIT: a unit struck twice (both
+                        // Double Shot volleys, a swing plus the spin that follows it) loses creatures to the
+                        // SUM, so the kill spread has to be taken once, from the final post-tail damage —
+                        // never per hit and never from a pre-tail band.
+                        const projectedByUnit = new Map<string, { unit: Unit; min: number; max: number }>();
+                        const addProjectedDamage = (victim: Unit, minDamage: number, maxDamage: number): void => {
+                            const alreadyStruck = projectedByUnit.get(victim.getId());
+                            if (alreadyStruck) {
+                                alreadyStruck.min += minDamage;
+                                alreadyStruck.max += maxDamage;
+                                return;
+                            }
+                            projectedByUnit.set(victim.getId(), { unit: victim, min: minDamage, max: maxDamage });
+                        };
+
+                        // --- Multi-Target Highlight (AOE) ---
+                        // Each secondary carries the ability that produced it: they do NOT share the primary's
+                        // damage shape (its multiplier chain, its tail, its resistance), and pricing them all
+                        // like the primary — as this used to — was wrong by the whole difference.
+                        const secondaryHits: Array<{ unit: Unit; source: string }> = [];
+                        // Units the RANGE branches priced themselves but that nothing else outlines (Chakram
+                        // bounces leave the ray, so highlightRangeAttackUnits never sees them).
+                        const rangeHighlightExtras: Unit[] = [];
+                        // Per-victim damage scaling for the prediction (Chakram halves 2-cell bounces).
+                        const secondaryDamageFactorById = new Map<string, number>();
+
+                        const throughShotHover =
+                            isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Through Shot");
+                        const aoeHoverAbility = isRangeAttackContext
+                            ? aoeAttackAbility(this.currentActiveUnit)
+                            : undefined;
+                        const doubleShotHoverAbility = doubleShotAbility(this.currentActiveUnit);
+                        // The second volley of a Double Shot on an AOE / Through Shot attacker is the SAME wave
+                        // fired again, scaled by the Double Shot multiplier (attack_handler ~934,
+                        // double_shot_ability ~122). Paralysis is deliberately absent: the wave's own
+                        // multiplier already carries it, and applying it twice would double-count the slow.
+                        const secondVolleyMultiplier = doubleShotHoverAbility
+                            ? AbilityHelper.withDualStrikeCharm(
+                                  this.currentActiveUnit.calculateAbilityMultiplier(
+                                      doubleShotHoverAbility,
+                                      abilityPower,
+                                  ),
+                                  this.currentActiveUnit,
+                              )
+                            : 0;
+
+                        if (isRangeAttackContext && throughShotHover) {
+                            // Through Shot pierces: EVERY unit on the ray takes its own hit, priced with its
+                            // OWN divisor and its own line tail (Giant's Maul, then that unit's physical-AOE
+                            // status resistance — no Broken Aegis on this path). processThroughShotAbility
+                            // walks exactly these groups and skips any group that is not a single unit.
+                            //
+                            // The bonus volley re-runs the whole pierce; it only flies while the quiver still
+                            // holds an arrow, because the first volley spends one AFTER it lands and
+                            // calculateAttackDamage then bails to a hard 0. Through Shot spends exactly one
+                            // shot (decreaseNumberOfShots, not spendShotsAgainst), hence no Dense Flesh target.
+                            const volleyMultipliers =
+                                secondVolleyMultiplier > 0 &&
+                                this.currentActiveUnit.projectRangeShotsAfterVolleys(undefined, 1) > 0
+                                    ? [1, secondVolleyMultiplier]
+                                    : [1];
+                            for (let hitIndex = 0; hitIndex < rangeAttackGroups.length; hitIndex++) {
+                                const hitGroup = rangeAttackGroups[hitIndex];
+                                const piercedUnit = hitGroup?.length === 1 ? hitGroup[0] : undefined;
+                                const pierceDivisor = rangeAttackDivisors[hitIndex];
+                                if (!piercedUnit || piercedUnit.isDead() || !pierceDivisor) {
+                                    continue;
+                                }
+                                let pierceMin = 0;
+                                let pierceMax = 0;
+                                for (const volleyMultiplier of volleyMultipliers) {
+                                    const band = projectAttackDamageBand({
+                                        ...projectionBase,
+                                        target: piercedUnit,
+                                        divisor: pierceDivisor,
+                                        abilityMultiplier: throughShotAbilityMultiplier(
+                                            this.currentActiveUnit,
+                                            abilityPower,
+                                            volleyMultiplier,
+                                        ),
+                                    });
+                                    pierceMin += applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: piercedUnit,
+                                        damage: band.min,
+                                    });
+                                    pierceMax += applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: piercedUnit,
+                                        damage: withLuckyStrike(band.max),
+                                    });
+                                }
+                                if (piercedUnit.getId() === damageUnit.getId()) {
+                                    pierceMin += fireforgedBurn(piercedUnit, pierceMin);
+                                    pierceMax += fireforgedBurn(piercedUnit, pierceMax);
+                                }
+                                addProjectedDamage(piercedUnit, pierceMin, pierceMax);
+                            }
+                            if (!projectedByUnit.size) {
+                                // The ray produced no single-unit group (the aim edge resolved off the
+                                // hovered body). Never leave the hover blank: price the aimed unit at the
+                                // badge's own divisor rather than showing a 0 the shot will not deal.
+                                const band = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: damageUnit,
+                                    divisor: rangeDivisor,
+                                    abilityMultiplier: throughShotAbilityMultiplier(
+                                        this.currentActiveUnit,
+                                        abilityPower,
+                                    ),
+                                });
+                                addProjectedDamage(
+                                    damageUnit,
+                                    applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: damageUnit,
+                                        damage: band.min,
+                                    }),
+                                    applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: damageUnit,
+                                        damage: withLuckyStrike(band.max),
+                                    }),
+                                );
+                            }
+                        } else if (isRangeAttackContext && aoeHoverAbility) {
+                            // Large Caliber / Area Throw / Chakram: processRangeAOEAbility damages the WHOLE
+                            // group the ray collected — the aimed unit AND everything the splash caught (which
+                            // highlightRangeAttackUnits already outlines red) — each through the AOE tail:
+                            // the per-victim bounce factor, ARTIFACT Giant's Maul, the victim's own Broken
+                            // Aegis, then its physical-AOE status resistance, flooring at every step. The
+                            // hover used to price the aimed unit alone and skip the tail entirely.
+                            const aoeVictims: Unit[] = [];
+                            for (const splashed of rangeAttackGroups[0] ?? []) {
+                                if (!splashed.isDead()) {
+                                    aoeVictims.push(splashed);
+                                }
+                            }
+                            if (!aoeVictims.length) {
+                                aoeVictims.push(damageUnit);
+                            }
+                            // ABILITY Chakram (Zena): the disc's separation chain is deterministic, so the
+                            // hover shows the EXACT stack-power-capped victims the engine will strike — same
+                            // resolver, zero drift. They JOIN affectedUnits in the attack handler, so they
+                            // resolve through this very same AOE tail; a two-cell bounce carries its
+                            // half-damage factor.
+                            if (this.currentActiveUnit.hasAbilityActive("Chakram")) {
+                                const chakramPreview = AllAbilities.resolveChakramTrajectory(
+                                    this.currentActiveUnit,
+                                    targetUnit,
+                                    this.unitsHolder,
+                                    this.grid,
+                                );
+                                for (const bounced of chakramPreview.hitUnits) {
+                                    secondaryDamageFactorById.set(
+                                        bounced.getId(),
+                                        chakramPreview.damageFactorByUnitId[bounced.getId()] ?? 1,
+                                    );
+                                    if (bounced.isDead() || aoeVictims.some((u) => u.getId() === bounced.getId())) {
+                                        continue;
+                                    }
+                                    aoeVictims.push(bounced);
+                                    if (bounced.getId() !== damageUnit.getId()) {
+                                        rangeHighlightExtras.push(bounced);
+                                    }
+                                }
+                            }
+                            // The second wave is the same area attack again (it re-enters
+                            // processRangeAOEAbility with the AOE ability's own multiplier — the Double Shot
+                            // multiplier and the Dual Strike Charm do NOT reach it), and it dies with the
+                            // quiver: the first wave spends its arrows via spendShotsAgainst.
+                            const aoeWaves =
+                                doubleShotHoverAbility &&
+                                this.currentActiveUnit.projectRangeShotsAfterVolleys(aoeVictims[0], 1) > 0
+                                    ? 2
+                                    : 1;
+                            for (const victim of aoeVictims) {
+                                const band = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: victim,
+                                    divisor: rangeAttackDivisors[0] ?? rangeDivisor,
+                                    abilityMultiplier: aoeAttackAbilityMultiplier(
+                                        this.currentActiveUnit,
+                                        abilityPower,
+                                        aoeHoverAbility,
+                                    ),
+                                });
+                                const perUnitDamageFactor = secondaryDamageFactorById.get(victim.getId());
+                                let victimMin =
+                                    aoeWaves *
+                                    applyAoeDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim,
+                                        damage: band.min,
+                                        perUnitDamageFactor,
+                                    });
+                                let victimMax =
+                                    aoeWaves *
+                                    applyAoeDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim,
+                                        damage: withLuckyStrike(band.max),
+                                        perUnitDamageFactor,
+                                    });
+                                if (victim.getId() === damageUnit.getId()) {
+                                    victimMin += fireforgedBurn(victim, victimMin);
+                                    victimMax += fireforgedBurn(victim, victimMax);
+                                }
+                                addProjectedDamage(victim, victimMin, victimMax);
+                            }
+                        } else if (isRangeAttackContext) {
+                            // Plain shot. projectDoubleShotAttack fires BOTH volleys the way the engine does —
+                            // two independent shots, each ceiling its own band and flooring its own product —
+                            // and returns a flat 0 for the second one when the ability is missing or the last
+                            // arrow already flew. The old flat "x2" was right only at a full stack with no
+                            // luck and no Dual Strike Charm, and it promised a second shot on an empty quiver.
+                            const doubleShot = projectDoubleShotAttack({
+                                ...projectionBase,
+                                target: damageUnit,
+                                divisor: rangeDivisor,
+                            });
+                            const shotMin = doubleShot.first.min + doubleShot.second.min;
+                            const shotMax =
+                                withLuckyStrike(doubleShot.first.max) + withLuckyStrike(doubleShot.second.max);
+                            // The blade burns off the FIRST shot only — the engine's on-hit block runs once
+                            // per attack, on the damage that shot dealt.
+                            addProjectedDamage(
+                                damageUnit,
+                                shotMin + fireforgedBurn(damageUnit, doubleShot.first.min),
+                                shotMax + fireforgedBurn(damageUnit, withLuckyStrike(doubleShot.first.max)),
+                            );
+                        } else {
+                            // Melee swing. One projection for the whole engine pipeline: the band, the
+                            // ranged-poke penalty, the ability chain built above, the victim's Deep Wounds
+                            // amplification and the Fire/Water affinity, all under the engine's single floor.
+                            const swing = projectAttackDamage({
+                                ...projectionBase,
+                                target: damageUnit,
+                                abilityMultiplier: multiplier,
+                            });
+                            const penetratingBite = AllAbilities.processPenetratingBiteAbility(
+                                this.currentActiveUnit,
+                                damageUnit,
+                            );
+                            let meleeMin = swing.min + penetratingBite;
+                            let meleeMax = withLuckyStrike(swing.max) + penetratingBite;
+                            // Double Punch / Crafted Double Punch: a SECOND full swing at the ability's own
+                            // (stack-powered, luck- and Dual-Strike-Charm-scaled) share. The engine fires it
+                            // unconditionally from attack_handler ~2547; the hover showed only the first punch,
+                            // which under-read the attack by 20% at stack 1 and by 100% at a full stack.
+                            const doublePunchAbility =
+                                this.currentActiveUnit.getAbility("Double Punch") ??
+                                this.currentActiveUnit.getAbility("Crafted Double Punch");
+                            if (doublePunchAbility && !this.currentActiveUnit.hasAbilityActive("No Melee")) {
+                                const secondPunch = projectAttackDamage({
+                                    ...projectionBase,
+                                    target: damageUnit,
+                                    abilityMultiplier:
+                                        AbilityHelper.withDualStrikeCharm(
+                                            this.currentActiveUnit.calculateAbilityMultiplier(
+                                                doublePunchAbility,
+                                                abilityPower,
+                                            ),
+                                            this.currentActiveUnit,
+                                        ) * attackerParalysisMultiplier(this.currentActiveUnit),
+                                });
+                                const secondPunchMin = secondPunch.min + penetratingBite;
+                                const secondPunchMax = withLuckyStrike(secondPunch.max) + penetratingBite;
+                                meleeMin += secondPunchMin + fireforgedBurn(damageUnit, secondPunchMin);
+                                meleeMax += secondPunchMax + fireforgedBurn(damageUnit, secondPunchMax);
+                            }
+                            addProjectedDamage(
+                                damageUnit,
+                                meleeMin + fireforgedBurn(damageUnit, swing.min + penetratingBite),
+                                meleeMax + fireforgedBurn(damageUnit, withLuckyStrike(swing.max) + penetratingBite),
                             );
                         }
 
-                        let totalMinKills = damageUnit.calculatePossibleLosses(minDmg);
-                        let totalMaxKills = damageUnit.calculatePossibleLosses(maxDmg);
-                        let totalMinDmg = minDmg;
-                        let totalMaxDmg = maxDmg;
-
-                        // --- Multi-Target Highlight (AOE) ---
-                        const secondaryTargets: Unit[] = [];
-                        // Per-victim damage scaling for the prediction (Chakram halves 2-cell bounces).
-                        const secondaryDamageFactorById = new Map<string, number>();
+                        // The primary hit ALONE, snapshotted before any rider adds to it: Chain Lightning's
+                        // arcs are a share of the blow that triggered them, so they must not compound with a
+                        // Lightning Spin hit that lands on the same unit later in this same pass.
+                        const primaryHitBeforeRiders = projectedByUnit.get(damageUnit.getId());
+                        const primaryHitMin = primaryHitBeforeRiders?.min ?? 0;
+                        const primaryHitMax = primaryHitBeforeRiders?.max ?? 0;
 
                         // Common AOE (Lightning Spin, Fire Breath, Skewer Strike) - Usually Melee triggered?
                         // If Move-and-Shoot (Range), we probably shouldn't trigger Melee AOE visuals unless logic supports it.
@@ -11348,8 +11988,12 @@ export class Sandbox extends PixiScene {
                                     attackFromCell,
                                 );
                                 for (const enemy of enemiesAround) {
-                                    if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
-                                        secondaryTargets.push(enemy);
+                                    // The spin hits EVERY adjacent enemy, the swung-at one included: the
+                                    // engine's own enemy list is allEnemiesAroundUnit with no exclusion, so
+                                    // the primary takes its swing AND a spin hit. Only the red highlight has
+                                    // to skip it (it is outlined as the primary already).
+                                    if (!enemy.isDead()) {
+                                        secondaryHits.push({ unit: enemy, source: "Lightning Spin" });
                                     }
                                 }
                             }
@@ -11389,7 +12033,10 @@ export class Sandbox extends PixiScene {
                                     if (enemy.getId() === targetUnit.getId()) {
                                         continue;
                                     }
-                                    secondaryTargets.push(enemy);
+                                    secondaryHits.push({
+                                        unit: enemy,
+                                        source: attackerHasFireBreath ? "Fire Breath" : "Skewer Strike",
+                                    });
                                 }
                             }
 
@@ -11401,88 +12048,196 @@ export class Sandbox extends PixiScene {
                                 );
                                 for (const enemy of targets) {
                                     if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
-                                        secondaryTargets.push(enemy);
+                                        secondaryHits.push({ unit: enemy, source: "Chain Lightning" });
                                     }
                                 }
                             }
                         }
 
-                        // Chakram (Zena): the disc's separation chain is deterministic, so the hover shows
-                        // the EXACT stack-power-capped victims the engine will strike — same resolver, zero
-                        // drift. The primary is already red; only the remaining 0..4 victims join this
-                        // secondary red-highlight set. Two-cell bounces carry their half-damage factor into
-                        // the prediction number.
-                        if (isRangeAttackContext && this.currentActiveUnit.hasAbilityActive("Chakram")) {
-                            const chakramPreview = AllAbilities.resolveChakramTrajectory(
-                                this.currentActiveUnit,
-                                targetUnit,
-                                this.unitsHolder,
-                                this.grid,
+                        // Calculate stats for secondary targets. Each one is projected with the SHARED band and
+                        // then given ITS OWN ability's tail, because that is what the engine runs: the breath
+                        // is magical (magic resistance, Heavy Armor, Broken Aegis — no Giant's Maul), the
+                        // skewer and the spin are physical AOE (Giant's Maul, then physical-AOE status
+                        // resistance). None of them carries the primary's multiplier chain.
+                        const heavyArmorMultiplier = (unit: Unit): number => {
+                            const heavyArmorAbility = unit.getAbility("Heavy Armor");
+                            if (!heavyArmorAbility) {
+                                return 1;
+                            }
+                            return Number(
+                                (
+                                    ((heavyArmorAbility.getPower() + unit.getLuck()) /
+                                        100 /
+                                        HoCConstants.MAX_UNIT_STACK_POWER) *
+                                        unit.getStackPower() +
+                                    1
+                                ).toFixed(2),
                             );
-                            for (const enemy of chakramPreview.hitUnits) {
-                                if (enemy.getId() !== targetUnit.getId() && !enemy.isDead()) {
-                                    secondaryTargets.push(enemy);
-                                    secondaryDamageFactorById.set(
-                                        enemy.getId(),
-                                        chakramPreview.damageFactorByUnitId[enemy.getId()] ?? 1,
+                        };
+                        const withBrokenAegis = (unit: Unit, damage: number): number => {
+                            const aegisShieldBuff = unit.getBuff("Broken Aegis");
+                            return aegisShieldBuff
+                                ? Math.floor(damage * (1 - aegisShieldBuff.getPower() / 100))
+                                : damage;
+                        };
+                        for (const secondaryHit of secondaryHits) {
+                            const enemy = secondaryHit.unit;
+                            // Penetrating Bite is an on-TARGET additive in the engine (the melee swing and the
+                            // second punch add it); no AOE rider does, so it stays off every secondary.
+                            if (secondaryHit.source === "Fire Breath") {
+                                // fire_breath_ability ~86: the breath's own multiplier, then the victim's MAGIC
+                                // resistance and Heavy Armor coefficient inside one floor, then its Broken
+                                // Aegis. Magic resistance is the whole point of this branch — Wardguard, Magic
+                                // Shield, Warding Mane Aura and Arcane Ward Aura all compose into it, and the
+                                // hover applied none of them (it showed 400 against a hit that landed for 200).
+                                const fireBreathAbility = this.currentActiveUnit.getAbility("Fire Breath");
+                                const band = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: enemy,
+                                    abilityMultiplier: fireBreathAbility
+                                        ? this.currentActiveUnit.calculateAbilityMultiplier(
+                                              fireBreathAbility,
+                                              abilityPower,
+                                          )
+                                        : 1,
+                                });
+                                const magicCut = (1 - enemy.getMagicResist() / 100) * heavyArmorMultiplier(enemy);
+                                addProjectedDamage(
+                                    enemy,
+                                    withBrokenAegis(enemy, Math.floor(band.min * magicCut)),
+                                    withBrokenAegis(enemy, Math.floor(band.max * magicCut)),
+                                );
+                                continue;
+                            }
+                            if (secondaryHit.source === "Skewer Strike") {
+                                // skewer_strike_ability ~109: the skewer's own multiplier, then Giant's Maul
+                                // and the victim's physical-AOE status resistance — the Through Shot tail.
+                                const skewerStrikeAbility = this.currentActiveUnit.getAbility("Skewer Strike");
+                                const band = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: enemy,
+                                    abilityMultiplier: skewerStrikeAbility
+                                        ? this.currentActiveUnit.calculateAbilityMultiplier(
+                                              skewerStrikeAbility,
+                                              abilityPower,
+                                          )
+                                        : 1,
+                                });
+                                addProjectedDamage(
+                                    enemy,
+                                    applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: enemy,
+                                        damage: band.min,
+                                    }),
+                                    applyThroughShotDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: enemy,
+                                        damage: band.max,
+                                    }),
+                                );
+                                continue;
+                            }
+                            if (secondaryHit.source === "Lightning Spin") {
+                                // lightning_spin_ability ~116-136 builds spin x Rapid Charge x Paralysis x the
+                                // victim's Deep Wounds, and then hands that product to calculateAttackDamage's
+                                // `divisor` PARAMETER with a synergy of 1 — the multiplier and the synergy are
+                                // both in the wrong slot at that call site. This mirrors it argument for
+                                // argument so the hover shows what the spin really deals; if that call is ever
+                                // corrected, move the product back to `abilityMultiplier` here (and restore
+                                // `abilityPower`) in the same change.
+                                const lightningSpinAbility = this.currentActiveUnit.getAbility("Lightning Spin");
+                                let spinMultiplier = lightningSpinAbility
+                                    ? this.currentActiveUnit.calculateAbilityMultiplier(
+                                          lightningSpinAbility,
+                                          abilityPower,
+                                      )
+                                    : 1;
+                                if (attackFromCell && this.currentActiveKnownPaths) {
+                                    const spinPaths = this.currentActiveKnownPaths.get(
+                                        (attackFromCell.x << 4) | attackFromCell.y,
+                                    );
+                                    spinMultiplier *= AllAbilities.processRapidChargeAbility(
+                                        this.currentActiveUnit,
+                                        spinPaths?.length ? spinPaths[0].route.length : 1,
                                     );
                                 }
+                                spinMultiplier *= attackerParalysisMultiplier(this.currentActiveUnit);
+                                const spinDeepWounds = enemy.getEffect("Deep Wounds");
+                                if (spinDeepWounds && AllAbilities.hasAnyDeepWoundsAbility(this.currentActiveUnit)) {
+                                    spinMultiplier *= 1 + spinDeepWounds.getPower() / 100;
+                                }
+                                if (spinMultiplier <= 0) {
+                                    // A fully paralysed spin: the engine would divide by zero here. Show the
+                                    // nothing it is worth rather than an infinity.
+                                    addProjectedDamage(enemy, 0, 0);
+                                    continue;
+                                }
+                                const band = projectAttackDamageBand({
+                                    ...projectionBase,
+                                    target: enemy,
+                                    synergyAbilityPowerIncrease: 1,
+                                    divisor: spinMultiplier,
+                                });
+                                // The spin adds Penetrating Bite per victim and then runs the full AOE tail
+                                // (Maul, the victim's Broken Aegis, its physical-AOE resistance) in that order.
+                                const spinBite = AllAbilities.processPenetratingBiteAbility(
+                                    this.currentActiveUnit,
+                                    enemy,
+                                );
+                                addProjectedDamage(
+                                    enemy,
+                                    applyAoeDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: enemy,
+                                        damage: band.min + spinBite,
+                                    }),
+                                    applyAoeDamageTail({
+                                        attacker: this.currentActiveUnit,
+                                        victim: enemy,
+                                        damage: withLuckyStrike(band.max) + spinBite,
+                                    }),
+                                );
+                                continue;
                             }
+                            // Chain Lightning: the arc is a SHARE of the swing that triggered it, decaying by
+                            // layer (7/8, then 6/8, ...) — not a swing of its own. getChainLightningTargets
+                            // returns a flat list with no layer information, so the layer decay is not modelled
+                            // here; the first-layer rate is used for every arc, which is exact for the common
+                            // single-layer chain and over-reads a deeper one.
+                            const chainLightningAbility = this.currentActiveUnit.getAbility("Chain Lightning");
+                            const chainMultiplier = chainLightningAbility
+                                ? (this.currentActiveUnit.calculateAbilityMultiplier(
+                                      chainLightningAbility,
+                                      abilityPower,
+                                  ) *
+                                      7) /
+                                  8
+                                : 0;
+                            const chainCut = (1 - enemy.getMagicResist() / 100) * heavyArmorMultiplier(enemy);
+                            addProjectedDamage(
+                                enemy,
+                                Math.floor(chainMultiplier * primaryHitMin * chainCut),
+                                Math.floor(chainMultiplier * primaryHitMax * chainCut),
+                            );
                         }
 
-                        // Calculate stats for secondary targets
-                        for (const enemy of secondaryTargets) {
-                            // Apply same modifiers to secondary targets
-                            // Note: Double Shot might physically mean 2 hits, but for stats we aggregate.
-                            // Assuming AOE scales with the same buffs (War Anger, Rapid Charge, etc).
-
-                            // Penetrating Bite applies to secondary?
-                            // Usually Penetrating Bite is "on attack target".
-                            // Skewer Strike description: "Deals damage to unit behind".
-                            // Assume simplified: Base dmg logic applies.
-                            // But explicit "Penetrating Bite" additive probably only on primary?
-                            // test_heroes.ts adds it explicitly: + processPenetratingBiteAbility...
-                            // It doesn't seem to loop for AOE in the test logic I saw.
-                            // I will exclude Penetrating Bite from secondary for safety unless known otherwise.
-
-                            const sMin = this.currentActiveUnit.calculateAttackDamageMin(
-                                effectiveAttackRate,
-                                enemy,
-                                isMelee,
-                                abilityPower,
-                                rangeDivisor,
-                                multiplier,
+                        // The aggregate the player reads, and the kill spread derived from it: one kill count
+                        // per struck unit, taken from that unit's FINAL damage.
+                        let totalMinDmg = 0;
+                        let totalMaxDmg = 0;
+                        let totalMinKills = 0;
+                        let totalMaxKills = 0;
+                        for (const struck of projectedByUnit.values()) {
+                            const projection: IAttackDamageProjection = projectKillBand(
+                                struck.unit,
+                                struck.min,
+                                struck.max,
                             );
-                            const sMax = this.currentActiveUnit.calculateAttackDamageMax(
-                                effectiveAttackRate,
-                                enemy,
-                                isMelee,
-                                abilityPower,
-                                rangeDivisor,
-                                multiplier,
-                            );
-
-                            // Lucky Strike for Secondary?
-                            let sMaxFinal = sMax;
-                            if (luckyStrikeAbility) {
-                                sMaxFinal = Math.floor(
-                                    sMax *
-                                        this.currentActiveUnit.calculateAbilityMultiplier(
-                                            luckyStrikeAbility,
-                                            abilityPower,
-                                        ),
-                                );
-                            }
-
-                            // Chakram's 2-cell bounces land at half strength; other secondaries factor 1.
-                            const secondaryFactor = secondaryDamageFactorById.get(enemy.getId()) ?? 1;
-                            const sMinFinal = Math.floor(sMin * secondaryFactor);
-                            sMaxFinal = Math.floor(sMaxFinal * secondaryFactor);
-
-                            totalMinDmg += sMinFinal;
-                            totalMaxDmg += sMaxFinal;
-                            totalMinKills += enemy.calculatePossibleLosses(sMinFinal);
-                            totalMaxKills += enemy.calculatePossibleLosses(sMaxFinal);
+                            totalMinDmg += projection.min;
+                            totalMaxDmg += projection.max;
+                            totalMinKills += projection.killsMin;
+                            totalMaxKills += projection.killsMax;
                         }
 
                         const dmgSpreadStr =
@@ -11535,8 +12290,7 @@ export class Sandbox extends PixiScene {
                                 if (
                                     blockedByObstacle &&
                                     this.grid.hasScatteredMountains() &&
-                                    (this.currentActiveUnit.getAbility("Double Shot") ??
-                                        this.currentActiveUnit.getAbility("Crafted Double Shot"))
+                                    AbilityHelper.hasDoubleShotAbility(this.currentActiveUnit)
                                 ) {
                                     doubleShotObstacleIntersections = this.attackHandler
                                         .getObstacleIntersections(this.currentActiveUnit.getPosition(), arrowEndPos!)
@@ -11576,23 +12330,55 @@ export class Sandbox extends PixiScene {
                                     ).map((obstacle) => obstacle.position),
                                 );
                             } else {
-                                this.hoverManager.highlightObstacle(
+                                // Arrow to the mountain (what actually takes the hit), plus a faint dashed
+                                // continuation on to the intended unit so the whole projection still reads,
+                                // and a red glow on the mountain as the real target.
+                                this.hoverManager.drawAttackArrow(
+                                    arrowStartPos,
                                     blockedByObstacle.position,
-                                    this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                    tVis,
+                                    isRangeAttackContext
+                                        ? this.resolveSmokeEntryPoint(arrowStartPos, blockedByObstacle.position)
+                                        : undefined,
                                 );
+                                if (this.grid.hasScatteredMountains()) {
+                                    const struckStones = (
+                                        doubleShotObstacleIntersections.length
+                                            ? doubleShotObstacleIntersections
+                                            : [blockedByObstacle]
+                                    ).map((obstacle) => obstacle.position);
+                                    this.dungeonVisuals.highlightScatteredMountains(struckStones);
+                                    // Red target circles on the stones actually taking the hit — the
+                                    // contour rim alone was too subtle to warn the shot dies here.
+                                    this.hoverManager.highlightObstacles(
+                                        struckStones,
+                                        this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                    );
+                                } else {
+                                    this.hoverManager.highlightObstacle(
+                                        blockedByObstacle.position,
+                                        this.sc_sceneSettings.getGridSettings().getCellSize(),
+                                    );
+                                }
+                                this.sc_hoverInfoArr = [
+                                    doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
+                                ];
+                                this.sc_hoverTextUpdateNeeded = true;
+                                isAttacking = true;
                             }
-                            this.sc_hoverInfoArr = [
-                                doubleShotObstacleIntersections.length >= 2 ? "Hit 2 tombstones" : "Hit the object",
-                            ];
-                            this.sc_hoverTextUpdateNeeded = true;
-                            isAttacking = true;
                         } else {
                             // Moving onto a reachable (unblocked) target: drop any mountain-hit glow.
                             this.hoverRangeAttackObstacle = undefined;
                             if (doubleShotObstacleIntersections.length > 0) {
-                                this.hoverManager.clearObstacleHighlight();
-                                this.dungeonVisuals.highlightScatteredMountains(
-                                    doubleShotObstacleIntersections.map((obstacle) => obstacle.position),
+                                const struckStones = doubleShotObstacleIntersections.map(
+                                    (obstacle) => obstacle.position,
+                                );
+                                this.dungeonVisuals.highlightScatteredMountains(struckStones);
+                                // These stones consume projectiles on the way in — same red circle as a
+                                // directly-targeted one so the cost of the shot is visible at a glance.
+                                this.hoverManager.highlightObstacles(
+                                    struckStones,
+                                    this.sc_sceneSettings.getGridSettings().getCellSize(),
                                 );
                             } else {
                                 this.hoverManager.clearObstacleHighlight();
@@ -11630,8 +12416,14 @@ export class Sandbox extends PixiScene {
                             // so a Hidden secondary (e.g. a White Tiger behind the target of a Black
                             // Dragon or Pikeman) must be outlined too — otherwise it silently takes damage
                             // with no highlight.
-                            for (const enemy of secondaryTargets) {
-                                this.hoverManager.addTargetHighlight(enemy);
+                            for (const enemy of [
+                                ...secondaryHits.map((secondaryHit) => secondaryHit.unit),
+                                ...rangeHighlightExtras,
+                            ]) {
+                                // The primary is outlined by the block above; Lightning Spin also lists it.
+                                if (enemy.getId() !== targetUnit.getId()) {
+                                    this.hoverManager.addTargetHighlight(enemy);
+                                }
                             }
                         }
                     }
@@ -11655,12 +12447,30 @@ export class Sandbox extends PixiScene {
                 this.emitLocalMoveIntent(undefined);
             }
 
+            const hoveredAttackTarget = this.getUnitAtPosition(this.sc_mouseWorld);
+            const aggrBlockedTarget =
+                (isAggrBlockedAttack ? this.getLiveAggrForcedTarget() : undefined) ??
+                (!isAttacking &&
+                hoveredAttackTarget &&
+                hoveredAttackTarget.getTeam() !== this.currentActiveUnit.getTeam() &&
+                !hoveredAttackTarget.hasBuffActive("Hidden")
+                    ? this.isUnitAttackBlockedByAggr(hoveredAttackTarget)
+                    : undefined);
+            if (aggrBlockedTarget) {
+                this.showAggrBlockedActionHint(aggrBlockedTarget);
+            } else {
+                this.clearAggrBlockedActionHint();
+            }
+
             // A paralyzed active unit can't move, so a move hover/click is silently ignored — surface
             // the reason in the cursor popover the whole time the player aims at anything that isn't
             // an attack (striking in place is still allowed, so an attack hover keeps its preview).
             // "Hidden" keeps priority: hovering a concealed enemy stays explained as Hidden.
             const showParalyzedHint =
-                !isAttacking && !this.currentActiveUnit.canMove() && this.sc_hoverInfoArr[0] !== "Hidden";
+                !isAttacking &&
+                !aggrBlockedTarget &&
+                !this.currentActiveUnit.canMove() &&
+                this.sc_hoverInfoArr[0] !== "Hidden";
             if (showParalyzedHint && this.sc_hoverInfoArr[0] !== "Paralyzed — can't move") {
                 this.sc_hoverInfoArr = ["Paralyzed — can't move"];
                 this.sc_hoverTextUpdateNeeded = true;
@@ -12718,6 +13528,8 @@ export class Sandbox extends PixiScene {
 
         g.clear();
         this.gameplayGraphicsHasGeometry = true;
+        const suppressInspectedUnitRanges =
+            !!this.currentActiveSpell && shouldSuppressInspectedUnitRangesForSpell(this.currentActiveSpell);
         let sidebarUnitRanges:
             | {
                   xy: HoCMath.XY;
@@ -12727,7 +13539,7 @@ export class Sandbox extends PixiScene {
               }
             | undefined;
 
-        if (this.selectedBoardUnit) {
+        if (!suppressInspectedUnitRanges && this.selectedBoardUnit) {
             const u = this.selectedBoardUnit;
             if (u === this.currentActiveUnit) {
                 // If the selected board unit IS the current active unit, we rely on standard active unit visuals?
@@ -12765,7 +13577,11 @@ export class Sandbox extends PixiScene {
                                           ),
                                       );
                                   }
-                                  return u.getRangeShotDistance() * GridConstants.STEP;
+                                  return GridMath.getFullDamageSquareHalfExtent(
+                                      u.getRangeShotDistance(),
+                                      u.getSize(),
+                                      GridConstants.STEP,
+                                  );
                               })()
                             : 0,
                     auraRanges,
@@ -12776,12 +13592,16 @@ export class Sandbox extends PixiScene {
 
         // Calculate shift-selected range
         let shiftSelectedShotRange: { xy: HoCMath.XY; distance: number } | undefined;
-        if (this.currentShiftedUnit?.getAttackType() === AttackVals.RANGE) {
+        if (!suppressInspectedUnitRanges && this.currentShiftedUnit?.getAttackType() === AttackVals.RANGE) {
             const dist = this.currentShiftedUnit.getRangeShotDistance();
             if (dist > 0) {
                 shiftSelectedShotRange = {
                     xy: this.currentShiftedUnit.getPosition(),
-                    distance: dist * GridConstants.STEP,
+                    distance: GridMath.getFullDamageSquareHalfExtent(
+                        dist,
+                        this.currentShiftedUnit.getSize(),
+                        GridConstants.STEP,
+                    ),
                 };
             }
         }
@@ -12793,7 +13613,7 @@ export class Sandbox extends PixiScene {
             fightProps,
             currentActiveShotRange,
             shiftSelectedShotRange,
-            hoveredShotRange: this.sc_hoveredShotRange,
+            hoveredShotRange: suppressInspectedUnitRanges ? undefined : this.sc_hoveredShotRange,
             isActiveUnitMoving: this.isActiveUnitMoving,
             gridSettings: this.sc_sceneSettings.getGridSettings(),
             hoverGlowPhase: this.hoverGlowPhase,
@@ -12802,14 +13622,14 @@ export class Sandbox extends PixiScene {
             currentActiveUnit: this.currentActiveUnit,
             hoverManager: this.hoverManager,
             sidebarUnitRanges,
-            hoveredAuraRanges: this.sc_hoveredAuraRanges,
+            hoveredAuraRanges: suppressInspectedUnitRanges ? undefined : this.sc_hoveredAuraRanges,
             lingeringTracks: this.moveAnimManager.getLingeringTracks(),
             // Placement-only overlay. The calc that maintains sc_placementMoveRange is gated to the
             // placement phase, so once the fight starts it is never updated OR cleared — feeding the stale
             // value to the drawer left its little dots scattered across the board mid-fight (intermittent:
             // only when a unit happened to be selected at ready-up). Never render it during the fight.
             hoveredMoveRange: fightProps.hasFightStarted() ? undefined : this.sc_placementMoveRange,
-            hoveredUnitMoveRange: this.sc_hoveredMoveRange,
+            hoveredUnitMoveRange: suppressInspectedUnitRanges ? undefined : this.sc_hoveredMoveRange,
             hoveredUnitMoveRangeIsEnemy: this.sc_hoveredMoveRangeIsEnemy,
             enemyTurnView: this.isEnemyActiveTurn(),
             movementGraphics: this.movementGraphics,
@@ -14161,7 +14981,11 @@ export class Sandbox extends PixiScene {
         if (rangeShotCells > 0) {
             this.sc_currentActiveShotRange = {
                 xy: nextUnit.getPosition(),
-                distance: rangeShotCells * GridConstants.STEP,
+                distance: GridMath.getFullDamageSquareHalfExtent(
+                    rangeShotCells,
+                    nextUnit.getSize(),
+                    GridConstants.STEP,
+                ),
             };
         } else {
             this.sc_currentActiveShotRange = undefined;
@@ -14177,21 +15001,118 @@ export class Sandbox extends PixiScene {
      * canAttackBy*Targets forced-target filter in updateCurrentMovePath. Returns true (attackable) when there
      * is no active forced target, when the lock has released (target dead/gone), or when this IS the target.
      */
+    private getLiveAggrForcedTarget(): Unit | undefined {
+        const forcedTargetId = this.currentActiveUnit?.getTarget();
+        if (!forcedTargetId) {
+            return undefined;
+        }
+        const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
+        return forcedTarget && !forcedTarget.isDead() ? forcedTarget : undefined;
+    }
+    private showAggrBlockedActionHint(forcedTarget: Unit | undefined = this.getLiveAggrForcedTarget()): boolean {
+        const activeUnit = this.currentActiveUnit;
+        if (!activeUnit || !forcedTarget) {
+            return false;
+        }
+
+        // A blocked attack must not leave the previous legal target's arrow, damage numbers, AOE outline,
+        // move silhouette, or attack cursor behind the explanation. This is also used by MouseDown so a
+        // quick move-and-click gets the same feedback even when hover() has not run at the new pointer yet.
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.clearAOEArea();
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.hoverRangeAttackObstacle = undefined;
+        this.emitLocalMoveIntent(undefined);
+        this.sc_isHoveringAttackTarget = false;
+        this.sc_meleeCursorDirection = undefined;
+
+        const viewerTeam = this.getViewerTeam();
+        const concealedFromViewer =
+            forcedTarget.hasBuffActive("Hidden") && viewerTeam !== undefined && forcedTarget.getTeam() !== viewerTeam;
+        const hint = formatAggrBlockedActionHint(concealedFromViewer ? undefined : forcedTarget.getName());
+        if (this.sc_hoverInfoArr.length !== 1 || this.sc_hoverInfoArr[0] !== hint) {
+            this.cleanupHoverText(false);
+            this.sc_hoverInfoArr = [hint];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+        return true;
+    }
+    private clearAggrBlockedActionHint(): void {
+        if (!isAggrBlockedActionHint(this.sc_hoverInfoArr[0])) {
+            return;
+        }
+        this.sc_hoverInfoArr = [];
+        this.sc_hoverTextUpdateNeeded = true;
+    }
+    private isAttackBlockedByAggr(
+        resolvedPrimaryTarget: Unit | undefined,
+        kind: "melee" | "range" | "area" | "spell",
+    ): Unit | undefined {
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (
+            !forcedTarget ||
+            !isManualAttackBlockedByAggr(forcedTarget.getId(), {
+                kind,
+                resolvedPrimaryTargetId: resolvedPrimaryTarget?.getId(),
+            })
+        ) {
+            return undefined;
+        }
+        return forcedTarget;
+    }
+    private isRangeAttackBlockedByAggr(targetUnit: Unit, exactAimPosition?: HoCMath.XY): Unit | undefined {
+        const resolution = this.resolveRangeAttackAggrIntent(targetUnit, exactAimPosition);
+        if (!resolution.primary && resolution.stoppedByObstacle) {
+            const forcedTarget = this.getLiveAggrForcedTarget();
+            return forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })
+                ? forcedTarget
+                : undefined;
+        }
+        return this.isAttackBlockedByAggr(resolution.primary, "range");
+    }
+    private isRangedUnitAttackIntent(targetUnit: Unit): boolean {
+        const unit = this.currentActiveUnit;
+        if (
+            !(unit instanceof RenderableUnit) ||
+            unit.getAttackTypeSelection() !== AttackVals.RANGE ||
+            unit.getRangeShots() <= 0 ||
+            unit.hasDebuffActive("Range Null Field Aura") ||
+            unit.hasStatusApplied("Rangebane") ||
+            this.attackHandler.canBeAttackedByMelee(
+                unit.getPosition(),
+                unit.isSmallSize(),
+                this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
+            )
+        ) {
+            return false;
+        }
+        return (
+            unit.hasAbilityActive("No Melee") ||
+            HoCMath.getDistance(unit.getPosition(), targetUnit.getPosition()) > GridConstants.STEP * 1.5
+        );
+    }
+    private isUnitAttackBlockedByAggr(targetUnit: Unit): Unit | undefined {
+        const unit = this.currentActiveUnit;
+        const selection = unit?.getAttackTypeSelection();
+        if (selection === AttackVals.RANGE) {
+            if (this.isRangedUnitAttackIntent(targetUnit)) {
+                return this.isRangeAttackBlockedByAggr(targetUnit);
+            }
+            return unit?.hasAbilityActive("No Melee") ? undefined : this.isAttackBlockedByAggr(targetUnit, "melee");
+        }
+        if (selection !== AttackVals.MELEE && selection !== AttackVals.MELEE_MAGIC) {
+            return undefined;
+        }
+        return this.isAttackBlockedByAggr(targetUnit, "melee");
+    }
     private isAttackableUnderForcedTarget(targetUnit: Unit): boolean {
         // Terrifying Gaze is the mirror image of Aggr and is checked first: it removes exactly one enemy from
         // the attackable set instead of narrowing the set down to one.
         if (this.currentActiveUnit?.cannotAttackUnitId(targetUnit.getId())) {
             return false;
         }
-        const forcedTargetId = this.currentActiveUnit?.getTarget();
-        if (!forcedTargetId) {
-            return true;
-        }
-        const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
-        if (!forcedTarget || forcedTarget.isDead()) {
-            return true;
-        }
-        return targetUnit.getId() === forcedTargetId;
+        return !this.isUnitAttackBlockedByAggr(targetUnit);
     }
     // Cowardice: the active unit cannot attack a stack with MORE cumulative HP than itself — the engine
     // rejects such strikes (cause "cowardice"; see handlers/attack_handler.ts and the AI candidate guards).
@@ -14753,9 +15674,24 @@ export class Sandbox extends PixiScene {
                     // const rangeDist = this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP; // Unused
                     // const attackerPos = this.currentActiveUnit.getPosition(); // Unused
 
+                    // Through Shot pierces bodies: for a piercing shooter only a hard BLOCK obstacle covers
+                    // an edge, so it keeps targets a plain shooter cannot see.
+                    const isThroughShot = this.currentActiveUnit.hasAbilityActive("Through Shot");
                     for (const enemy of enemyTeam) {
                         // Relaxed: Allow long range shots (penalty applied later).
-                        if (!enemy.hasBuffActive("Hidden")) {
+                        if (
+                            !enemy.hasBuffActive("Hidden") &&
+                            // A shot lands on the center of a VISIBLE EDGE, so a unit whose every edge is
+                            // covered — boxed in by its own allies and/or mountains — offers nothing legal to
+                            // aim at and is not a target. Same rule the engine enforces, so the client never
+                            // offers a shot the server would reject.
+                            GridMath.hasObservableRangeAttackEdge(
+                                this.grid.getMatrix(),
+                                enemy.getCells(),
+                                this.currentActiveUnit.getTeam(),
+                                isThroughShot,
+                            )
+                        ) {
                             // Additionally check if unit is hittable (e.g. not dead, effectively already checked by being in enemyTeam mostly)
                             this.canAttackByRangeTargets.add(enemy.getId());
                         }

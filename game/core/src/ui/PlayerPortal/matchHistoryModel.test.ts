@@ -7,6 +7,7 @@ import {
     formatMatchDuration,
     formatSignedMatchValue,
     matchKindPresentation,
+    matchOpponentProfileHref,
     matchReplayPath,
     matchResultPresentation,
     normalizeMatchSetup,
@@ -73,26 +74,66 @@ describe("match history model", () => {
 
     it("presents explicit match modes without inferring from rating values", () => {
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.RANKED, mmr_delta: 0 }))).toEqual({
+            detail: "",
             label: "Ranked",
-            rated: true,
+            showsGold: true,
+            showsMmr: true,
             tone: "ranked",
         });
-        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION }))).toEqual({
-            label: "Calibration",
-            rated: true,
-            tone: "calibration",
-        });
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.LOBBY, mmr_delta: 42 }))).toEqual({
+            detail: "",
             label: "Lobby",
-            rated: false,
+            showsGold: false,
+            showsMmr: false,
             tone: "lobby",
         });
         expect(matchKindPresentation(match({ match_kind: PortalMatchKind.UNKNOWN }))).toEqual({
+            detail: "",
             label: "Match",
-            rated: false,
+            showsGold: false,
+            showsMmr: false,
             tone: "unknown",
         });
-        expect(matchKindPresentation(match())).toEqual({ label: "Match", rated: false, tone: "unknown" });
+        expect(matchKindPresentation(match())).toEqual({
+            detail: "",
+            label: "Match",
+            showsGold: false,
+            showsMmr: false,
+            tone: "unknown",
+        });
+    });
+
+    it("hides calibration MMR but keeps its gold, which a wager can still pay", () => {
+        // The provisional rating a placement game moves is hidden by design, so a row reporting
+        // "MMR -40" reports a penalty the player cannot see the total of. Gold is the opposite case:
+        // the result mints none during calibration, but betting on your own game pays the pot
+        // regardless, so the reward is real and belongs on the row.
+        expect(matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, mmr_delta: -40 }))).toEqual({
+            detail: "",
+            label: "Calibration",
+            showsGold: true,
+            showsMmr: false,
+            tone: "calibration",
+        });
+    });
+
+    it("explains why a calibration game didn't advance the counter", () => {
+        // Only a fully played-out "normal" game counts (ranked_math.ts RankedOutcomeReason) — a forfeit
+        // or disconnect still moves MMR/gold at reduced weight, so the badge alone can't tell them apart.
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "normal" })).detail,
+        ).toBe("");
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "concede" })).detail,
+        ).toBe("Didn't count toward calibration — a player conceded");
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.CALIBRATION, outcome_reason: "disconnect" }))
+                .detail,
+        ).toBe("Didn't count toward calibration — a player disconnected");
+        // A non-calibration match kind never shows the detail, even with a non-"normal" reason.
+        expect(
+            matchKindPresentation(match({ match_kind: PortalMatchKind.RANKED, outcome_reason: "concede" })).detail,
+        ).toBe("");
     });
 
     it("formats signed rating and reward values", () => {
@@ -128,7 +169,7 @@ describe("match history model", () => {
         expect(normalizeMatchSetup(undefined)).toEqual({
             artifactTier1: 0,
             artifactTier2: 0,
-            perk: 0,
+            doctrine: 0,
             augments: [],
             synergies: [],
             available: false,
@@ -139,7 +180,7 @@ describe("match history model", () => {
             normalizeMatchSetup({
                 artifact_tier_1: 7.9,
                 artifact_tier_2: 2,
-                perk: 3,
+                doctrine: 3,
                 augment_placement: 2,
                 augment_armor: 3,
                 augment_might: 0,
@@ -151,7 +192,7 @@ describe("match history model", () => {
         ).toEqual({
             artifactTier1: 7,
             artifactTier2: 2,
-            perk: 3,
+            doctrine: 3,
             augments: [
                 { kind: "Placement", level: 3 },
                 { kind: "Armor", level: 3 },
@@ -168,7 +209,7 @@ describe("match history model", () => {
             normalizeMatchSetup({
                 artifact_tier_1: 4,
                 artifact_tier_2: 9,
-                perk: 2,
+                doctrine: 2,
                 augment_placement: 0,
                 augment_armor: 3,
                 synergies: ["Might:2:3"],
@@ -177,7 +218,7 @@ describe("match history model", () => {
         ).toEqual({
             artifactTier1: 4,
             artifactTier2: 9,
-            perk: 2,
+            doctrine: 2,
             augments: [],
             synergies: [],
             available: true,
@@ -187,5 +228,35 @@ describe("match history model", () => {
 
     it("builds an encoded historical replay route", () => {
         expect(matchReplayPath(match())).toBe("/game/game%2Fone/replay?team=2");
+    });
+
+    it("builds a localized, safely encoded public opponent profile link", () => {
+        expect(
+            matchOpponentProfileHref(
+                match({
+                    opponent_player_id: "d1bb3dd1-037e-4b0c-91aa-dca47d4f30bb",
+                    opponent_username: "A rival + friend",
+                }),
+                "en",
+            ),
+        ).toBe(
+            "https://heroesofcrypto.io/profile/?playerId=d1bb3dd1-037e-4b0c-91aa-dca47d4f30bb&username=A+rival+%2B+friend",
+        );
+        expect(
+            matchOpponentProfileHref(
+                match({
+                    opponent_player_id: "ai:v0.9:rb03:00000000000000000000000",
+                    opponent_username: "AI v0.9 #03",
+                }),
+                "ru",
+            ),
+        ).toBe(
+            "https://heroesofcrypto.io/ru/profile/?playerId=ai%3Av0.9%3Arb03%3A00000000000000000000000&username=AI+v0.9+%2303",
+        );
+    });
+
+    it("keeps legacy matches without an opponent id as plain text", () => {
+        expect(matchOpponentProfileHref(match(), "en")).toBe("");
+        expect(matchOpponentProfileHref(match({ opponent_player_id: "   " }), "ru")).toBe("");
     });
 });

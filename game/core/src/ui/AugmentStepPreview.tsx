@@ -11,7 +11,7 @@
  * flips this route's own state. The budget is the one thing worth varying, so it is on the query string:
  *
  *   /preview/augments                -> Scout, 6 points
- *   /preview/augments?perk=spymaster -> 5 points   (also: scout, blind_fury, or the numeric perk id)
+ *   /preview/augments?doctrine=spymaster -> 5 points   (also: scout, blind_fury, or the numeric doctrine id)
  *   /preview/augments?points=3       -> any budget, clamped to MAX_AUGMENT_POINTS, for pricing experiments
  *   /preview/augments?team=upper     -> the red seat
  *   /preview/augments?map=barrels    -> also: lava or normal
@@ -23,6 +23,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import React, { useCallback, useMemo, useState } from "react";
 
 import { PixiGameManager, PixiManagerContext } from "../pixi/PixiGameManager";
+import { t, useTranslation } from "../i18n/i18n";
 import {
     DRAFT_ARMIES_HEIGHT,
     DRAFT_HEADER_HEIGHT,
@@ -47,17 +48,17 @@ import SideToggleContainer from "./RightSideBar/SideToggleContainer";
  */
 const PREVIEW_MANAGER = { PropagateAugmentation: () => true } as unknown as PixiGameManager;
 
-const PREVIEW_PERKS: Record<string, Perk.Perk> = {
-    scout: Perk.Perk.THREE_REVEALS,
-    three_reveals: Perk.Perk.THREE_REVEALS,
-    spymaster: Perk.Perk.SEE_ALL,
-    see_all: Perk.Perk.SEE_ALL,
-    blind: Perk.Perk.SEE_NONE,
-    blind_fury: Perk.Perk.SEE_NONE,
-    see_none: Perk.Perk.SEE_NONE,
-    "1": Perk.Perk.THREE_REVEALS,
-    "2": Perk.Perk.SEE_ALL,
-    "3": Perk.Perk.SEE_NONE,
+const PREVIEW_DOCTRINES: Record<string, Doctrine.Doctrine> = {
+    scout: Doctrine.Doctrine.THREE_REVEALS,
+    three_reveals: Doctrine.Doctrine.THREE_REVEALS,
+    spymaster: Doctrine.Doctrine.SEE_ALL,
+    see_all: Doctrine.Doctrine.SEE_ALL,
+    blind: Doctrine.Doctrine.SEE_NONE,
+    blind_fury: Doctrine.Doctrine.SEE_NONE,
+    see_none: Doctrine.Doctrine.SEE_NONE,
+    "1": Doctrine.Doctrine.THREE_REVEALS,
+    "2": Doctrine.Doctrine.SEE_ALL,
+    "3": Doctrine.Doctrine.SEE_NONE,
 };
 
 // One full army, in the [L1, L1, L2, L2, L3, L4] order the rails lay out. Both bars place by the creature's
@@ -72,12 +73,14 @@ const PREVIEW_MAP_TYPES: Record<string, number> = {
 };
 
 export const AugmentStepPreview: React.FC = () => {
+    useTranslation();
     const params = new URLSearchParams(window.location.search);
-    const perkId = PREVIEW_PERKS[params.get("perk")?.toLowerCase() ?? ""] ?? Perk.Perk.THREE_REVEALS;
+    const doctrineId =
+        PREVIEW_DOCTRINES[params.get("doctrine")?.toLowerCase() ?? ""] ?? Doctrine.Doctrine.THREE_REVEALS;
     const requestedPoints = Number.parseInt(params.get("points") ?? "", 10);
     const budgetPoints = Number.isFinite(requestedPoints)
         ? Math.max(0, Math.min(HoCConstants.MAX_AUGMENT_POINTS, requestedPoints))
-        : Perk.getUpgradePoints(perkId);
+        : Doctrine.getUpgradePoints(doctrineId);
     const userTeam = (params.get("team")?.toLowerCase() === "upper" ? TeamVals.UPPER : TeamVals.LOWER) as TeamType;
     const mapType = PREVIEW_MAP_TYPES[params.get("map")?.toLowerCase() ?? ""] ?? GridVals.NORMAL;
 
@@ -116,7 +119,7 @@ export const AugmentStepPreview: React.FC = () => {
                                 overflow: "hidden",
                             }}
                         >
-                            <DraftTitle>Choose your augments</DraftTitle>
+                            <DraftTitle>{t("Choose your augments")}</DraftTitle>
                         </Box>
                         <Stack
                             direction="row"
@@ -133,7 +136,7 @@ export const AugmentStepPreview: React.FC = () => {
                             }}
                         >
                             <MyDraftBar
-                                perk={perkId}
+                                doctrine={doctrineId}
                                 picked={PREVIEW_ARMY}
                                 artifactTier1={1}
                                 artifactTier2={1}
@@ -144,7 +147,7 @@ export const AugmentStepPreview: React.FC = () => {
                             </Box>
                             <OpponentDraftBar
                                 opponentPicked={PREVIEW_ARMY}
-                                opponentLabel="Opponent"
+                                opponentLabel={t("Opponent")}
                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                 gameId="augment-step-preview"
                             />
@@ -199,13 +202,13 @@ export const AugmentStepPreview: React.FC = () => {
                                 </PhasePanel>
                             </Box>
                             <PickCommitButton
-                                label={ready ? "Waiting for opponent…" : "Lock in augments"}
+                                label={ready ? t("Waiting for opponent…") : t("Lock in augments")}
                                 armed={complete && !ready}
                                 isYourTurn={!ready}
                                 seconds={90}
                                 extra={`${spent} / ${budgetPoints}`}
                                 tone={complete ? "green" : "gold"}
-                                blockedHint="Spend every upgrade point first."
+                                blockedHint={t("Spend every upgrade point first.")}
                                 onCommit={() => setReady(true)}
                             />
                         </Box>

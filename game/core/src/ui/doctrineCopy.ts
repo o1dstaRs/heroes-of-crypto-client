@@ -9,24 +9,24 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Perk } from "@heroesofcrypto/common";
+import { Doctrine } from "@heroesofcrypto/common";
 
 import { images } from "../generated/image_imports";
 
 /**
- * Player-facing copy for the three scouting doctrines (perks).
+ * Player-facing copy for the three scouting doctrines (doctrines).
  *
- * The wire-level description on PerkProperties is one terse line ("Reveal the opponent's picks in 3
+ * The wire-level description on DoctrineProperties is one terse line ("Reveal the opponent's picks in 3
  * random slots. Grants 6 upgrade points.") — enough to label a card, not enough to choose between
  * them. A doctrine is committed BEFORE the draft and cannot be changed, and it silently sets the
  * augment budget the player only spends much later, at placement. So the pre-game chooser has to say
  * three separate things: what the doctrine reveals, what its point budget actually buys, and why you
  * would take it over the other two.
  *
- * Kept here (client-side, not on PerkProperties) so wording can change without a common rebuild and a
+ * Kept here (client-side, not on DoctrineProperties) so wording can change without a common rebuild and a
  * server redeploy, and shared so the pre-game chooser and the in-draft panel can never drift apart.
  */
-export interface PerkCopy {
+export interface DoctrineCopy {
     /** Round doctrine medallion shared by every chooser, summary rail, and match-history view. */
     readonly iconImage: string;
     /** Three or four words under the name on the card. */
@@ -42,11 +42,11 @@ export interface PerkCopy {
 /**
  * Scout's three slots are NOT drawn uniformly. The six-slot army layout is
  * [L1, L1, L2, L2, L3, L4] (CreaturePoolByLevel = [2, 2, 1, 1]) and the doctrine rolls ONE slot per
- * tier block — see applyPerk in common's picks/pick_sim.ts. That guarantee is the whole reason to
+ * tier block — see applyDoctrine in common's picks/pick_sim.ts. That guarantee is the whole reason to
  * take Scout, so it is stated explicitly rather than as "3 random slots".
  */
-export const PERK_COPY: Record<number, PerkCopy> = {
-    [Perk.Perk.THREE_REVEALS]: {
+export const DOCTRINE_COPY: Record<number, DoctrineCopy> = {
+    [Doctrine.Doctrine.THREE_REVEALS]: {
         iconImage: images.doctrine_scout,
         tagline: "Half their army, spread across every tier",
         detail:
@@ -60,7 +60,7 @@ export const PERK_COPY: Record<number, PerkCopy> = {
             "including one of their two heavyweights. Take it when you want a read on their plan and can " +
             "spare a single augment level to get it.",
     },
-    [Perk.Perk.SEE_ALL]: {
+    [Doctrine.Doctrine.SEE_ALL]: {
         iconImage: images.doctrine_spymaster,
         tagline: "The whole enemy draft, live",
         detail:
@@ -72,7 +72,7 @@ export const PERK_COPY: Record<number, PerkCopy> = {
             "guessing. It is the most expensive doctrine, so it pays off when you know the matchups well " +
             "enough to convert what you see into better picks.",
     },
-    [Perk.Perk.SEE_NONE]: {
+    [Doctrine.Doctrine.SEE_NONE]: {
         iconImage: images.doctrine_blind_fury,
         tagline: "Draft blind, field the strongest army",
         detail:
@@ -86,6 +86,6 @@ export const PERK_COPY: Record<number, PerkCopy> = {
     },
 };
 
-export const getPerkCopy = (perkId: number): PerkCopy | undefined => PERK_COPY[perkId];
+export const getDoctrineCopy = (doctrineId: number): DoctrineCopy | undefined => DOCTRINE_COPY[doctrineId];
 
-export const getPerkIconImage = (perkId: number): string | undefined => PERK_COPY[perkId]?.iconImage;
+export const getDoctrineIconImage = (doctrineId: number): string | undefined => DOCTRINE_COPY[doctrineId]?.iconImage;

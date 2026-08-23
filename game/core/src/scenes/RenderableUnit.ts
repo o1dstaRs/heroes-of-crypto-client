@@ -820,7 +820,12 @@ const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
 const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
 const ACTIVE_TURN_FIRE_FRAME_MS = 1000 / 18;
-const ACTIVE_TURN_FIRE_URL = images.active_turn_blue_fire_atlas;
+// OPTIONAL lookup on purpose: the effect below is disabled and its 500 KB atlas lives in the
+// review-source Dropbox staging area (over the 120 KB static-image ceiling), so the generated image
+// manifest does not carry the key. A typed property access here made the whole client build demand
+// art the images folder deliberately does not ship (the 2026-08-22 deploy abort). Restoring the
+// effect means promoting the atlas back into the images folder — this lookup then finds it again.
+const ACTIVE_TURN_FIRE_URL = (images as Partial<Record<string, string>>).active_turn_blue_fire_atlas ?? "";
 // Prepared from the blue-fire source video. Keep the implementation/assets ready, but leave the
 // effect visually disabled until the owner asks to restore it.
 const ACTIVE_TURN_FIRE_ENABLED = false;
@@ -835,6 +840,11 @@ export function activeTurnFireFrameForElapsed(elapsedMs: number): number {
 
 function getActiveTurnFireFrames(): Texture[] {
     if (activeTurnFireFramesCache !== undefined) return activeTurnFireFramesCache ?? [];
+    if (!ACTIVE_TURN_FIRE_URL) {
+        // Atlas not shipped (see ACTIVE_TURN_FIRE_URL) — same vector-aura fallback as a failed decode.
+        activeTurnFireFramesCache = null;
+        return [];
+    }
     try {
         const parentTexture = Texture.from(ACTIVE_TURN_FIRE_URL);
         const source = parentTexture.source;
@@ -4551,17 +4561,11 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Lightning Spin
-        const lightningSpinAbility = this.getAbility("Lightning Spin");
-        if (lightningSpinAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(lightningSpinAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                lightningSpinAbility.getName(),
-                lightningSpinAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
+        // Lightning Spin, Skewer Strike, Large Caliber, Area Throw and Through Shot are NOT refreshed here:
+        // the base implementation in common owns those five (it is the set Giant's Maul boosts, and it must
+        // apply the Maul on top of this same multiplier). super.refreshAbilitiesDescriptions() runs after
+        // this method, so a copy here would be overwritten anyway — and while it existed it read as the
+        // source of the number, which is how the Maul pass came to print a luck-less "100%" unnoticed.
 
         // Fire Breath
         const fireBreathAbility = this.getAbility("Fire Breath");
@@ -4572,18 +4576,6 @@ export class RenderableUnit extends Unit {
             this.refreshAbiltyDescription(
                 fireBreathAbility.getName(),
                 fireBreathAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Skewer Strike
-        const skewerStrikeAbility = this.getAbility("Skewer Strike");
-        if (skewerStrikeAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(skewerStrikeAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                skewerStrikeAbility.getName(),
-                skewerStrikeAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
             );
         }
 
@@ -4616,25 +4608,30 @@ export class RenderableUnit extends Unit {
         // below at a lower configured power, so the card shows what enemies actually face.
         const stunAuraAbility = this.getAbility("Stun Aura");
         if (stunAuraAbility) {
-            const percentage = Number(
-                this.calculateAbilityApplyChance(stunAuraAbility, _synergyAbilityPowerIncrease).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                stunAuraAbility.getName(),
-                stunAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+            const auraEffect = stunAuraAbility.getAuraEffect();
+            if (auraEffect) {
+                const percentage = Number(this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toFixed(2));
+                this.refreshAbiltyDescription(
+                    stunAuraAbility.getName(),
+                    stunAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                );
+            }
         }
 
         // Stun
         const stunAbility = this.getAbility("Stun");
         if (stunAbility) {
-            const percentage = Number(
-                this.calculateAbilityApplyChance(stunAbility, _synergyAbilityPowerIncrease).toFixed(2),
+            const ownChance = Math.max(
+                0,
+                Math.min(100, this.calculateAbilityApplyChance(stunAbility, _synergyAbilityPowerIncrease)),
             );
-            this.refreshAbiltyDescription(
-                stunAbility.getName(),
-                stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
+            const auraChance = Math.max(0, Math.min(100, this.getBuff("Stun Aura")?.getPower() ?? 0));
+            const combinedChance = auraChance ? 100 * (1 - (1 - ownChance / 100) * (1 - auraChance / 100)) : ownChance;
+            const percentage = Number(combinedChance.toFixed(2));
+            const description = auraChance
+                ? `On attack, has a ${percentage}% total chance to stun (Status) an enemy for 1 turn while Stun Aura is active (${Number(ownChance.toFixed(2))}% own + a separate ${Number(auraChance.toFixed(2))}% aura roll, before target modifiers)`
+                : stunAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString());
+            this.refreshAbiltyDescription(stunAbility.getName(), description);
         }
 
         // Terrifying Gaze (stack-powered fright chance, same shape as Stun): 12 per stack plus the gazer's
@@ -4662,7 +4659,7 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Poison auras (Poison Cloud / Venom Cloud): flat base % + the unit's own luck (luck-dependent
+        // Poison auras (Venom Cloud today): flat base % + the unit's own luck (luck-dependent
         // though not stack-powered).
         for (const poisonAuraAbilityName of HoCConfig.POISON_ON_HIT_AURA_BUFF_NAMES) {
             const poisonCloudAbility = this.getAbility(poisonAuraAbilityName);
@@ -4770,9 +4767,16 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Double Shot
-        const doubleShotAbility = this.getAbility("Double Shot");
-        if (doubleShotAbility) {
+        // The second-shot family: Double Shot, its crafted twin, and Gargantuan's Double Throw. Each card
+        // shows the percentage its volley will ACTUALLY land — the ability's power plus this unit's luck,
+        // diluted by stack power only for the stack-powered members (Double Throw is not, so it reads a
+        // flat 100 + luck). Common runs the same pass on the shared properties for ranked; this override
+        // keeps the sandbox's live card in step.
+        for (const doubleShotAbilityName of AbilityHelper.DOUBLE_SHOT_ABILITY_NAMES) {
+            const doubleShotAbility = this.getAbility(doubleShotAbilityName);
+            if (!doubleShotAbility) {
+                continue;
+            }
             // Fold in the Dual Strike Charm artifact — the same helper the damage path uses — so the
             // hovered total is what the second strike actually lands, not just stack power and luck.
             const percentage = Number(
@@ -4995,42 +4999,6 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Large Caliber
-        const largeCaliberAbility = this.getAbility("Large Caliber");
-        if (largeCaliberAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(largeCaliberAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                largeCaliberAbility.getName(),
-                largeCaliberAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Area Throw
-        const areaThrowAbility = this.getAbility("Area Throw");
-        if (areaThrowAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(areaThrowAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                areaThrowAbility.getName(),
-                areaThrowAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
-        // Through Shot
-        const throughShotAbility = this.getAbility("Through Shot");
-        if (throughShotAbility) {
-            const percentage = Number(
-                (this.calculateAbilityMultiplier(throughShotAbility, _synergyAbilityPowerIncrease) * 100).toFixed(2),
-            );
-            this.refreshAbiltyDescription(
-                throughShotAbility.getName(),
-                throughShotAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
-            );
-        }
-
         // Sky Runner
         const skyRunnerAbility = this.getAbility("Sky Runner");
         if (skyRunnerAbility) {
@@ -5151,7 +5119,7 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Poison auras (Poison Cloud / Venom Cloud) — {} is the base % plus this unit's luck (combined,
+        // Poison auras (Venom Cloud today) — {} is the base % plus this unit's luck (combined,
         // like the other aura tooltips); the per-ally luck is what actually applies at hit time
         // (processPoisonAuraAbility).
         for (const poisonAuraEffectName of HoCConfig.POISON_ON_HIT_AURA_EFFECT_NAMES) {

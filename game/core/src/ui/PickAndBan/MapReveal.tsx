@@ -2,6 +2,7 @@ import { Box, Button, Modal, ModalDialog, Sheet, Tooltip, Typography } from "@mu
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { getMapDisplay, type IMapDisplay } from "./mapDisplay";
 
 const images = rawImages as Record<string, string>;
@@ -40,9 +41,10 @@ const MapThumb: React.FC<{ display: IMapDisplay; size: number; radius: number }>
 // itself only on hover, so the badge stays narrow and the armies sit close to it. Shows "?" until the
 // server reveals the map (right before the L3 picks).
 export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
+    useTranslation();
     const display = getMapDisplay(mapType);
     return (
-        <Tooltip title={`Map type — ${display ? display.name : "?"}`} variant="soft">
+        <Tooltip title={tf("Map type — {name}", { name: display ? t(display.name) : "?" })} variant="soft">
             <Sheet
                 variant="soft"
                 sx={{
@@ -97,6 +99,7 @@ export const MapBadge: React.FC<{ mapType: number }> = ({ mapType }) => {
 // Blocking reveal shown ONCE when the map is first revealed (right before the L3 picks). Auto-dismisses
 // after a few seconds; the acting player can dismiss instantly with Continue and pick straight away.
 export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
+    useTranslation();
     const [open, setOpen] = useState(false);
     // The map value we've already announced — so the modal fires exactly once per reveal (and not again on
     // every subsequent SSE frame, which keeps re-sending the same map type).
@@ -138,7 +141,7 @@ export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
                     level="body-xs"
                     sx={{ textTransform: "uppercase", letterSpacing: 4, opacity: 0.55, mb: 1.5 }}
                 >
-                    Map type
+                    {t("Map type")}
                 </Typography>
                 <Box
                     sx={{
@@ -161,10 +164,10 @@ export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
                         animation: "hocMapRevealPop 0.55s ease-out",
                     }}
                 >
-                    {display.name}
+                    {t(display.name)}
                 </Typography>
                 <Typography level="body-sm" sx={{ mt: 1, opacity: 0.75, maxWidth: 320 }}>
-                    {display.blurb}
+                    {t(display.blurb)}
                 </Typography>
                 <Button
                     variant="solid"
@@ -178,7 +181,7 @@ export const MapRevealModal: React.FC<{ mapType: number }> = ({ mapType }) => {
                         "&:hover": { bgcolor: display.accent, filter: "brightness(1.1)" },
                     }}
                 >
-                    Continue
+                    {t("Continue")}
                 </Button>
             </ModalDialog>
         </Modal>

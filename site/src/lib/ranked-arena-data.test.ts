@@ -4,6 +4,8 @@ import {
     filterLeagues,
     filterLiveGames,
     filterRankedPlayers,
+    liveGameFormSlots,
+    livePredictionMarketState,
     livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
@@ -11,6 +13,7 @@ import {
     playerInitials,
     playersInLeague,
     relativeArenaTime,
+    type LiveGame,
     type RankedPlayer,
 } from "./ranked-arena-data";
 import { rankedArenaCopy } from "./ranked-arena-copy";
@@ -22,7 +25,7 @@ const player = (overrides: Partial<RankedPlayer> = {}): RankedPlayer => ({
     mmr: 1800,
     gold: 420,
     league: 5,
-    leagueName: "5th League",
+    leagueName: "Demigod",
     leaderboardRank: 1,
     wins: 12,
     losses: 4,
@@ -33,6 +36,7 @@ const player = (overrides: Partial<RankedPlayer> = {}): RankedPlayer => ({
     winRatePct: 70.6,
     winStreak: 3,
     lossStreak: 0,
+    recentResults: [],
     peakMmr: 1842,
     lastRankedGameAt: 1_750_000_000_000,
     ...overrides,
@@ -43,7 +47,7 @@ describe("ranked arena response normalization", () => {
         const response = normalizeTopResponse({
             computedAt: 123,
             players: [
-                { ...player(), position: 2 },
+                { ...player(), position: 2, recentResults: ["win", "invalid", "draw", "loss", "win", "draw"] },
                 { username: "Missing id" },
                 null,
                 { ...player({ playerId: "22222222-2222-4222-8222-222222222222", username: "Nyx" }), mmr: NaN },
@@ -53,6 +57,7 @@ describe("ranked arena response normalization", () => {
         expect(response.computedAt).toBe(123);
         expect(response.players).toHaveLength(2);
         expect(response.players[0].position).toBe(2);
+        expect(response.players[0].recentResults).toEqual(["win", "draw", "loss", "win", "draw"]);
         expect(response.players[1].mmr).toBe(0);
     });
 
@@ -61,11 +66,21 @@ describe("ranked arena response normalization", () => {
             activeCount: 24,
             calibratingCount: 3,
             collapsed: false,
+            season: {
+                sequence: 7,
+                name: "Ashfall",
+                status: "active",
+                currency: {
+                    name: "Ember Shards",
+                    symbol: "ES",
+                    iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+                },
+            },
             leagues: [
                 { league: 1, players: [] },
                 {
                     league: 5,
-                    name: "5th League",
+                    name: "Demigod",
                     playerCount: 1,
                     minMmr: 1800,
                     maxMmr: 1800,
@@ -78,6 +93,11 @@ describe("ranked arena response normalization", () => {
         expect(response.activeCount).toBe(24);
         expect(response.leagues.map((league) => league.league)).toEqual([5, 1]);
         expect(response.leagues[0].players[0].username).toBe("Artemis");
+        expect(response.season?.currency).toEqual({
+            name: "Ember Shards",
+            symbol: "ES",
+            iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+        });
     });
 
     test("accepts only known live stages and caps every game at two seats", () => {
@@ -131,12 +151,12 @@ describe("ranked arena response normalization", () => {
         ]);
     });
 
-    test("carries prediction pools per seat and per game", () => {
+    test("carries a closed prediction pool through a live fight", () => {
         const response = normalizeLiveGamesResponse({
             games: [
                 {
                     gameId: "market-game",
-                    stage: "pick",
+                    stage: "fight",
                     initTime: 10,
                     predictionPool: 250,
                     predictionBets: 4,
@@ -152,6 +172,18 @@ describe("ranked arena response normalization", () => {
         expect(game.predictionPool).toBe(250);
         expect(game.predictionBets).toBe(4);
         expect(game.players.map((player) => player.predictionPool)).toEqual([200, 50]);
+        expect(livePredictionMarketState(game)).toBe("closed");
+    });
+
+    test("opens ranked draft markets and hides casual or incomplete markets", () => {
+        const base = {
+            stage: "pick" as const,
+            casual: false,
+            players: [{}, {}] as LiveGame["players"],
+        };
+        expect(livePredictionMarketState(base)).toBe("open");
+        expect(livePredictionMarketState({ ...base, casual: true })).toBe("hidden");
+        expect(livePredictionMarketState({ ...base, players: base.players.slice(0, 1) })).toBe("hidden");
     });
 
     test("keeps a calibrated ranked bot placed in active games", () => {
@@ -166,7 +198,13 @@ describe("ranked arena response normalization", () => {
                             username: "AI v0.2 #03",
                             isBot: true,
                             rankedBot: true,
-                            ranked: { state: "placed", mmr: 803, league: 1, leaderboardRank: 17 },
+                            ranked: {
+                                state: "placed",
+                                mmr: 803,
+                                league: 1,
+                                leaderboardRank: 17,
+                                recentResults: ["win", "invalid", "loss", "draw", "win", "loss", "draw"],
+                            },
                         },
                     ],
                 },
@@ -177,9 +215,23 @@ describe("ranked arena response normalization", () => {
             state: "placed",
             mmr: 803,
             league: 1,
+            // The payload carried no wealth third for this seat; it degrades to "no tier".
+            wealth: 0,
             leaderboardRank: 17,
+            recentResults: ["win", "loss", "draw", "win", "loss"],
         });
         expect(livePlayerRankedState(response.games[0].players[0])).toBe("placed");
+    });
+
+    test("pads and orders the five-game form with the newest result on the right", () => {
+        expect(liveGameFormSlots(["win", "draw", "loss"])).toEqual(["empty", "empty", "loss", "draw", "win"]);
+        expect(liveGameFormSlots(["win", "loss", "draw", "win", "loss", "draw"])).toEqual([
+            "loss",
+            "win",
+            "draw",
+            "loss",
+            "win",
+        ]);
     });
 });
 
@@ -192,7 +244,7 @@ describe("ranked arena discovery", () => {
             username: "Green Knight",
             mmr: 1710,
             league: 4,
-            leagueName: "4th League",
+            leagueName: "Overlord",
             wins: 22,
             totalGames: 40,
             gold: 700,
@@ -206,7 +258,7 @@ describe("ranked arena discovery", () => {
             username: "Árcher Queen",
             mmr: 1660,
             league: 4,
-            leagueName: "4th League",
+            leagueName: "Overlord",
             wins: 18,
             totalGames: 20,
             gold: 50,
@@ -256,7 +308,7 @@ describe("ranked arena discovery", () => {
     test("flattens league rosters once and lets league search find a member", () => {
         const league = {
             league: 5,
-            name: "5th League",
+            name: "Demigod",
             isTopLeague: true,
             playerCount: 2,
             minMmr: 1700,
@@ -288,14 +340,43 @@ describe("ranked arena display helpers", () => {
         expect(Object.keys(rankedArenaCopy.en).sort()).toEqual(Object.keys(rankedArenaCopy.ru).sort());
 
         for (const key of Object.keys(rankedArenaCopy.en) as Array<keyof typeof rankedArenaCopy.en>) {
-            const english = rankedArenaCopy.en[key];
-            const russian = rankedArenaCopy.ru[key];
             const placeholders = (value: string): string[] =>
                 [...value.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]);
+            // Most entries are one string; the league names are a 1..5 list, so compare item by item.
+            const asList = (value: string | readonly string[]): readonly string[] =>
+                typeof value === "string" ? [value] : value;
+            const english = asList(rankedArenaCopy.en[key]);
+            const russian = asList(rankedArenaCopy.ru[key]);
 
-            expect(english.trim()).not.toBe("");
-            expect(russian.trim()).not.toBe("");
-            expect(placeholders(english).sort()).toEqual(placeholders(russian).sort());
+            expect(russian).toHaveLength(english.length);
+            for (const [index, value] of english.entries()) {
+                expect(value.trim()).not.toBe("");
+                expect(russian[index].trim()).not.toBe("");
+                expect(placeholders(value).sort()).toEqual(placeholders(russian[index]).sort());
+            }
         }
+    });
+
+    test("names all five leagues without reusing a creature, ability, or spell name", () => {
+        for (const copy of [rankedArenaCopy.en, rankedArenaCopy.ru]) {
+            expect(copy.leagueNames).toHaveLength(5);
+            expect(new Set(copy.leagueNames).size).toBe(5);
+        }
+        // Guard the rename rule: a league must not share its name with anything on the board.
+        expect(rankedArenaCopy.en.leagueNames).toEqual(["Aspirant", "Vanguard", "Marshal", "Overlord", "Demigod"]);
+    });
+
+    test("uses the compact matchup separator in English", () => {
+        expect(rankedArenaCopy.en.versus).toBe("vs");
+        expect(rankedArenaCopy.ru.versus).toBe("против");
+    });
+
+    test("keeps prediction-market prose neutral or seasonal", () => {
+        for (const copy of [rankedArenaCopy.en, rankedArenaCopy.ru]) {
+            expect(copy.marketSignInHint).toContain("{currency}");
+            expect(copy.marketAmountPlaceholder).toContain("{currency}");
+        }
+        expect(rankedArenaCopy.en.marketRules.toLowerCase()).not.toContain("gold");
+        expect(rankedArenaCopy.ru.marketRules.toLowerCase()).not.toContain("золот");
     });
 });

@@ -12,16 +12,23 @@ import {
     PickPairRequest,
     PickBanRequest,
     ArtifactRequest,
-    PerkRequest,
+    DoctrineRequest,
     RevealRequest,
 } from "@heroesofcrypto/common";
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import { v4 as uuidv4 } from "uuid";
 
-import { isValidToken, setSession, tokenExpSafe } from "./auth_utils";
+import { isValidToken, setSession } from "./auth_utils";
+import { createAuthBootstrapGate, shouldBootstrapFromStorageEvent } from "./auth_bootstrap";
 import { ActionMapType, AuthStateType, AuthUserType } from "./types";
 import { AuthContext } from "./auth_context";
+import {
+    normalizeAccessToken,
+    resolveAccessTokenHashHandoff,
+    setStoredAccessToken,
+    shouldAdoptAccessToken,
+} from "../../../api/access_token";
 import { axiosAuthInstance, axiosMMInstance, axiosGameInstance, endpoints } from "../../../api/axios";
 import { buildSiweMessage, type SignMessageFn } from "../../../wallet/siwe";
 import { disableGoogleAutoSelect } from "../googleIdentityServices";
@@ -125,26 +132,23 @@ const refreshLocalStorageFromCookie = () => {
         // decodable, unexpired token that is FRESHER than what localStorage already holds, and
         // always consume (delete) it afterwards. Unconditional copying let one stale cookie
         // overwrite every future login's token on every page load.
-        const cookieExp = tokenExpSafe(accessTokenCookie);
-        const storedExp = tokenExpSafe(localStorage.getItem(STORAGE_KEY));
-        const cookieIsLive = cookieExp !== null && cookieExp > Date.now() / 1000;
-        if (cookieIsLive && (storedExp === null || cookieExp > storedExp)) {
-            localStorage.setItem(STORAGE_KEY, accessTokenCookie);
+        if (shouldAdoptAccessToken(accessTokenCookie, localStorage.getItem(STORAGE_KEY))) {
+            setStoredAccessToken(accessTokenCookie);
         }
         clearAccessTokenCookie();
     }
 
-    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
-    if (!hash.includes("access_token=") && !hash.includes("accessToken=")) {
+    const handoff = resolveAccessTokenHashHandoff(window.location.hash, localStorage.getItem(STORAGE_KEY));
+    if (!handoff.found) {
         return;
     }
 
-    const hashParams = new URLSearchParams(hash);
-    const accessToken = hashParams.get("access_token") ?? hashParams.get(STORAGE_KEY);
-    if (accessToken) {
-        localStorage.setItem(STORAGE_KEY, accessToken);
-        window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+    if (handoff.tokenToAdopt) {
+        setStoredAccessToken(handoff.tokenToAdopt);
     }
+    // Always consume the credential fragment, including stale/invalid handoffs. Leaving credentials
+    // in the address bar leaks them through screenshots, copied URLs, and browser history.
+    window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -229,7 +233,12 @@ const readE2eLoginParams = (): { email: string; password: string; cleanUrl: stri
     return { email, password, cleanUrl: `${url.pathname}${url.search}${url.hash}` };
 };
 
-const authenticateWithEmailPassword = async (email: string, password: string): Promise<AuthUserType> => {
+type EmailPasswordAuth = {
+    accessToken: string | null;
+    user: AuthUserType;
+};
+
+const authenticateWithEmailPassword = async (email: string, password: string): Promise<EmailPasswordAuth> => {
     const newPlayer = new NewPlayer({ email, password });
     const data = newPlayer.serializeBinary();
 
@@ -242,23 +251,29 @@ const authenticateWithEmailPassword = async (email: string, password: string): P
     const reponseData = res.data;
     const responseMe = ResponseMe.deserializeBinary(reponseData);
 
-    setSession(authHeader);
-
     return {
-        ...responseMe.toObject(),
+        accessToken: tokenFromAuthResponse(authHeader, res.data),
+        user: {
+            ...responseMe.toObject(),
+        },
     };
 };
 
 export function AuthProvider({ children }: Props) {
     const [state, dispatch] = useReducer(reducer, initialState);
+    const bootstrapGateRef = useRef(createAuthBootstrapGate());
 
     const initialize = useCallback(async () => {
+        const attempt = bootstrapGateRef.current.begin();
+        const isCurrentAttempt = () => bootstrapGateRef.current.isCurrent(attempt);
+
         try {
             // Dev/e2e observer-play links (?e2ePlayerId=) identify the player via the URL, not a
             // login. Clear any stale token from a previous e2eEmail login in this browser so it
             // isn't sent as Authorization (which would hijack the dev game -> "Player is not in
             // this game") and so the route enters clean observer mode and resolves the team.
             if (isE2eLoginEnabled() && new URL(window.location.href).searchParams.has("e2ePlayerId")) {
+                if (!isCurrentAttempt()) return;
                 setSession(null);
                 clearAccessTokenCookie();
                 dispatch({ type: Types.INITIAL, payload: { user: null } });
@@ -267,20 +282,23 @@ export function AuthProvider({ children }: Props) {
 
             const e2eLogin = readE2eLoginParams();
             if (e2eLogin) {
-                const user = await authenticateWithEmailPassword(e2eLogin.email, e2eLogin.password);
+                const authenticated = await authenticateWithEmailPassword(e2eLogin.email, e2eLogin.password);
+                if (!isCurrentAttempt()) return;
+                setSession(authenticated.accessToken);
                 window.history.replaceState(null, document.title, e2eLogin.cleanUrl);
                 dispatch({
                     type: Types.INITIAL,
                     payload: {
-                        user,
+                        user: authenticated.user,
                     },
                 });
                 return;
             }
 
             refreshLocalStorageFromCookie();
+            if (!isCurrentAttempt()) return;
 
-            const accessToken = localStorage.getItem(STORAGE_KEY);
+            const accessToken = normalizeAccessToken(localStorage.getItem(STORAGE_KEY));
 
             if (accessToken && isValidToken(accessToken)) {
                 setSession(accessToken);
@@ -293,6 +311,7 @@ export function AuthProvider({ children }: Props) {
                         Authorization: accessToken,
                     },
                 });
+                if (!isCurrentAttempt()) return;
                 const meResponse = ResponseMe.deserializeBinary(getResponseMe.data);
 
                 dispatch({
@@ -304,6 +323,8 @@ export function AuthProvider({ children }: Props) {
                     },
                 });
             } else {
+                if (!isCurrentAttempt()) return;
+                setSession(null);
                 dispatch({
                     type: Types.INITIAL,
                     payload: {
@@ -312,6 +333,7 @@ export function AuthProvider({ children }: Props) {
                 });
             }
         } catch (error) {
+            if (!isCurrentAttempt()) return;
             console.error(error);
             dispatch({
                 type: Types.INITIAL,
@@ -323,8 +345,24 @@ export function AuthProvider({ children }: Props) {
     }, []);
 
     useEffect(() => {
-        initialize();
-    }, []);
+        bootstrapGateRef.current.activate();
+        const handleStorage = (event: StorageEvent) => {
+            if (
+                (event.storageArea === null || event.storageArea === localStorage) &&
+                shouldBootstrapFromStorageEvent(event.key)
+            ) {
+                void initialize();
+            }
+        };
+
+        window.addEventListener("storage", handleStorage);
+        void initialize();
+
+        return () => {
+            window.removeEventListener("storage", handleStorage);
+            bootstrapGateRef.current.deactivate();
+        };
+    }, [initialize]);
 
     const startGameSearch = useCallback(async () => {
         const accessToken = getAccessToken();
@@ -470,14 +508,14 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
-    const perk = useCallback(async (perkId: number) => {
+    const doctrine = useCallback(async (doctrineId: number) => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const perkRequest = new PerkRequest({ perk: perkId });
-        const data = perkRequest.serializeBinary();
+        const doctrineRequest = new DoctrineRequest({ doctrine: doctrineId });
+        const data = doctrineRequest.serializeBinary();
 
-        await axiosGameInstance.post(`${endpoints.game.perk}`, data, {
+        await axiosGameInstance.post(`${endpoints.game.doctrine}`, data, {
             responseType: "arraybuffer",
             headers: {
                 "Content-Type": "application/octet-stream",
@@ -547,21 +585,27 @@ export function AuthProvider({ children }: Props) {
 
     // LOGIN
     const login = useCallback(async (email: string, password: string) => {
-        const user = await authenticateWithEmailPassword(email, password);
+        const attempt = bootstrapGateRef.current.begin();
+        const authenticated = await authenticateWithEmailPassword(email, password);
+        if (!bootstrapGateRef.current.isCurrent(attempt)) return;
+
+        setSession(authenticated.accessToken);
 
         dispatch({
             type: Types.LOGIN,
             payload: {
-                user,
+                user: authenticated.user,
             },
         });
     }, []);
 
     const me = useCallback(async () => {
+        const attempt = bootstrapGateRef.current.begin();
         const getResponseMe = await axiosAuthInstance.get(endpoints.auth.me, {
             responseType: "arraybuffer",
             headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
         });
+        if (!bootstrapGateRef.current.isCurrent(attempt)) return;
 
         const meResponse = ResponseMe.deserializeBinary(getResponseMe.data);
 
@@ -614,10 +658,12 @@ export function AuthProvider({ children }: Props) {
 
     const loginWithWallet = useCallback(
         async (address: string, signMessage: SignMessageFn) => {
+            const attempt = bootstrapGateRef.current.begin();
             const proof = await buildWalletProof(address, signMessage);
             const res = await axiosAuthInstance.post(endpoints.auth.walletLogin, proof, {
                 headers: authJsonHeaders(),
             });
+            if (!bootstrapGateRef.current.isCurrent(attempt)) return;
             const accessToken = tokenFromAuthResponse(res.headers.authorization, res.data);
             if (!accessToken) {
                 throw new Error("Wallet login did not return an access token");
@@ -667,11 +713,13 @@ export function AuthProvider({ children }: Props) {
 
     const loginWithGoogle = useCallback(
         async (credential: string): Promise<void> => {
+            const attempt = bootstrapGateRef.current.begin();
             const res = await axiosAuthInstance.post(
                 endpoints.auth.googleLogin,
                 { credential },
                 { headers: authJsonHeaders() },
             );
+            if (!bootstrapGateRef.current.isCurrent(attempt)) return;
             const accessToken = tokenFromAuthResponse(res.headers.authorization, res.data);
             if (!accessToken) {
                 throw new Error("Google login did not return an access token");
@@ -796,6 +844,7 @@ export function AuthProvider({ children }: Props) {
 
     // REGISTER
     const register = useCallback(async (email: string, password: string, username: string) => {
+        const attempt = bootstrapGateRef.current.begin();
         const newPlayer = new NewPlayer({ username, email, password });
         const data = newPlayer.serializeBinary();
 
@@ -803,6 +852,7 @@ export function AuthProvider({ children }: Props) {
             responseType: "arraybuffer",
             headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
         });
+        if (!bootstrapGateRef.current.isCurrent(attempt)) return;
 
         const authHeader = res.headers.authorization;
         const reponseData = res.data;
@@ -822,9 +872,11 @@ export function AuthProvider({ children }: Props) {
 
     // LOGOUT
     const logout = useCallback(async () => {
+        const attempt = bootstrapGateRef.current.begin();
         await axiosAuthInstance.post(endpoints.auth.logout, null, {
             headers: { "Content-Type": "application/octet-stream", "x-request-id": uuidv4() },
         });
+        if (!bootstrapGateRef.current.isCurrent(attempt)) return;
 
         setSession(null);
         disableGoogleAutoSelect();
@@ -863,7 +915,7 @@ export function AuthProvider({ children }: Props) {
             pickPair,
             pick,
             artifact,
-            perk,
+            doctrine,
             ban,
             reveal,
             getCurrentGame,
@@ -894,7 +946,7 @@ export function AuthProvider({ children }: Props) {
             pickPair,
             pick,
             artifact,
-            perk,
+            doctrine,
             ban,
             reveal,
             getCurrentGame,

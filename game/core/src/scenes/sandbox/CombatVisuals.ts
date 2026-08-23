@@ -879,7 +879,7 @@ export class CombatVisuals {
      */
     public showMissLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
         const container = new Container();
-        const label = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        const label = new PixiText({ text: t("MISS"), style: this.getMissStyle() });
         label.anchor.set(0.5);
         container.addChild(label);
         this.enqueueFloatingContainer(container, pos, direction);
@@ -892,7 +892,7 @@ export class CombatVisuals {
     public showResistLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
         const container = new Container();
         const label = new PixiText({
-            text: "RESISTED",
+            text: t("RESISTED"),
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 28,
@@ -913,7 +913,7 @@ export class CombatVisuals {
     public showLuckyLabel(pos: HoCMath.XY, direction?: HoCMath.XY): void {
         const container = new Container();
         const label = new PixiText({
-            text: "LUCKY!",
+            text: t("LUCKY!"),
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 32,
@@ -935,7 +935,7 @@ export class CombatVisuals {
     public showResurrectedCount(pos: HoCMath.XY, amount: number): void {
         const container = new Container();
         const caption = new PixiText({
-            text: "RAISED",
+            text: t("RAISED"),
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 26,
@@ -960,7 +960,7 @@ export class CombatVisuals {
     public showCraftFail(pos: HoCMath.XY): void {
         const container = new Container();
         const label = new PixiText({
-            text: "No effect!",
+            text: t("No effect!"),
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 30,
@@ -982,7 +982,7 @@ export class CombatVisuals {
      */
     public showFloatingAbsorbed(pos: HoCMath.XY, amount: number, direction?: HoCMath.XY, unitsDied?: number): void {
         const container = new Container();
-        const label = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
+        const label = new PixiText({ text: t("ABSORBED"), style: this.getAbsorbedLabelStyle() });
         label.anchor.set(0.5);
         label.position.set(0, -34);
 
@@ -1072,7 +1072,7 @@ export class CombatVisuals {
             abilityName,
             iconTexture,
             {
-                label: "STOLEN",
+                label: t("STOLEN"),
                 labelAtDestination: false,
                 tint: ABILITY_STEAL_TINT,
                 core: ABILITY_STEAL_CORE,
@@ -1406,10 +1406,10 @@ export class CombatVisuals {
         const count = new PixiText({ text: "0", style: this.getCountStyle() });
         count.anchor.set(0.5);
         count.position.set(0, 55);
-        const miss = new PixiText({ text: "MISS", style: this.getMissStyle() });
+        const miss = new PixiText({ text: t("MISS"), style: this.getMissStyle() });
         miss.anchor.set(0.5);
         miss.position.set(0, 110);
-        const absorbedLabel = new PixiText({ text: "ABSORBED", style: this.getAbsorbedLabelStyle() });
+        const absorbedLabel = new PixiText({ text: t("ABSORBED"), style: this.getAbsorbedLabelStyle() });
         absorbedLabel.anchor.set(0.5);
         absorbedLabel.position.set(0, 165);
         const absorbedValue = new PixiText({
@@ -1418,10 +1418,10 @@ export class CombatVisuals {
         });
         absorbedValue.anchor.set(0.5);
         absorbedValue.position.set(0, 210);
-        const stolenLabel = new PixiText({ text: "STOLEN", style: this.getStolenLabelStyle() });
+        const stolenLabel = new PixiText({ text: t("STOLEN"), style: this.getStolenLabelStyle() });
         stolenLabel.anchor.set(0.5);
         stolenLabel.position.set(0, 255);
-        const stolenName = new PixiText({ text: "Ability", style: this.getStolenAbilityNameStyle() });
+        const stolenName = new PixiText({ text: t("Ability"), style: this.getStolenAbilityNameStyle() });
         stolenName.anchor.set(0.5);
         stolenName.position.set(0, 300);
         container.addChild(dmg, count, miss, absorbedLabel, absorbedValue, stolenLabel, stolenName);

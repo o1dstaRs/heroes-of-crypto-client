@@ -1,4 +1,4 @@
-import { Artifact, Perk, SynergyKeysToPower, TeamVals } from "@heroesofcrypto/common";
+import { Artifact, Doctrine, SynergyKeysToPower, TeamVals } from "@heroesofcrypto/common";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
@@ -9,17 +9,20 @@ import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Box, Button, IconButton, Sheet, Stack, ToggleButtonGroup, Tooltip, Typography } from "@mui/joy";
 import React, { useId, useMemo, useState } from "react";
 
+import { rankedSeasonCurrencyAt, type RankedSeasonCatalog } from "../../api/ranked_season_client";
 import { images } from "../../generated/image_imports";
 import { t, tf, useTranslation } from "../../i18n/i18n";
+import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { hocColors } from "../hocTheme";
-import { getPerkIconImage } from "../perkCopy";
+import { getDoctrineIconImage } from "../doctrineCopy";
 import {
     filterPortalMatches,
     formatMatchDamage,
     formatMatchDuration,
     formatSignedMatchValue,
     matchKindPresentation,
+    matchOpponentProfileHref,
     matchResultPresentation,
     normalizeMatchSetup,
     normalizePerformances,
@@ -117,6 +120,7 @@ interface MatchHistoryProps {
     filterable?: boolean;
     matches: readonly PortalMatchData[];
     onReplay: (match: PortalMatchData) => void;
+    seasons: RankedSeasonCatalog;
 }
 
 interface RosterStripProps {
@@ -183,7 +187,11 @@ const MatchKindBadge: React.FC<{ label: string; tone: MatchKindTone }> = ({ labe
     </Box>
 );
 
-const RewardBadge: React.FC<{ label: string; tone: "gold" | "rating" }> = ({ label, tone }) => (
+const RewardBadge: React.FC<{ icon?: React.ReactNode; label: string; tone: "gold" | "rating" }> = ({
+    icon,
+    label,
+    tone,
+}) => (
     <Box
         component="span"
         sx={{
@@ -198,8 +206,10 @@ const RewardBadge: React.FC<{ label: string; tone: "gold" | "rating" }> = ({ lab
             fontWeight: 800,
             lineHeight: 1,
             whiteSpace: "nowrap",
+            gap: 0.35,
         }}
     >
+        {icon}
         {label}
     </Box>
 );
@@ -430,7 +440,7 @@ const SetupSummary: React.FC<{
         );
     }
 
-    const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
+    const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
     const artifacts = artifactsForSetup(setup);
     return (
         <Box sx={{ mt: compact ? 0.65 : 0.8, minWidth: 0 }}>
@@ -441,13 +451,13 @@ const SetupSummary: React.FC<{
                 {t("Your build")}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: compact ? 0.7 : 0.9 }}>
-                <SetupSummaryGroup compact={compact} label={t("Perk")}>
+                <SetupSummaryGroup compact={compact} label={t("Doctrine")}>
                     <SetupSummaryIcon
-                        badge={`${perk.upgradePoints}`}
+                        badge={`${doctrine.upgradePoints}`}
                         compact={compact}
-                        detail={`${perk.name}: ${perk.description}`}
+                        detail={`${doctrine.name}: ${doctrine.description}`}
                         fallback={<ExploreRoundedIcon />}
-                        image={getPerkIconImage(setup.perk)}
+                        image={getDoctrineIconImage(setup.doctrine)}
                         roundImage
                     />
                 </SetupSummaryGroup>
@@ -542,7 +552,7 @@ const TeamBuildChoices: React.FC<{
         );
     }
 
-    const perk = Perk.getPerkProperties(setup.perk as Perk.Perk);
+    const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
     const artifacts = artifactsForSetup(setup);
 
     return (
@@ -551,13 +561,13 @@ const TeamBuildChoices: React.FC<{
                 {label}
             </Typography>
 
-            <SetupRow label={t("Perk")}>
+            <SetupRow label={t("Doctrine")}>
                 <SetupChoice
-                    detail={perk.description}
+                    detail={doctrine.description}
                     fallback={<ExploreRoundedIcon />}
-                    image={getPerkIconImage(setup.perk)}
-                    name={perk.name}
-                    badge={tf("{count} pts", { count: perk.upgradePoints })}
+                    image={getDoctrineIconImage(setup.doctrine)}
+                    name={doctrine.name}
+                    badge={tf("{count} pts", { count: doctrine.upgradePoints })}
                     roundImage
                 />
             </SetupRow>
@@ -712,7 +722,8 @@ const MatchCard: React.FC<{
     match: PortalMatchData;
     onExpand: () => void;
     onReplay: () => void;
-}> = ({ compact, expanded, match, onExpand, onReplay }) => {
+    seasons: RankedSeasonCatalog;
+}> = ({ compact, expanded, match, onExpand, onReplay, seasons }) => {
     const detailsId = useId();
     const headingId = useId();
     const { language } = useTranslation();
@@ -727,6 +738,7 @@ const MatchCard: React.FC<{
     const laps = Math.max(0, Number(match.total_laps ?? 0));
     const replayAvailable = !!match.replay_available;
     const opponent = match.opponent_username || t("Unknown opponent");
+    const opponentProfileHref = matchOpponentProfileHref(match, language);
     const contextualDetailsLabel = tf(
         expanded ? "Collapse details: {result} vs {opponent}" : "Expand details: {result} vs {opponent}",
         { opponent, result: t(result.label) },
@@ -740,6 +752,7 @@ const MatchCard: React.FC<{
     const mmrAfter = Number.isFinite(match.mmr_after) ? Math.round(Number(match.mmr_after)) : 0;
     const mmrDelta = formatSignedMatchValue(match.mmr_delta);
     const goldEarned = Number.isFinite(match.gold_earned) ? Math.max(0, Math.round(Number(match.gold_earned))) : 0;
+    const rewardCurrency = rankedSeasonCurrencyAt(seasons, match.finished_time);
 
     return (
         <Sheet
@@ -810,7 +823,36 @@ const MatchCard: React.FC<{
                                 <Box component="span" sx={{ color: resultColor, fontWeight: 800 }}>
                                     {t(result.label)}
                                 </Box>{" "}
-                                {t("vs")} {opponent}
+                                {t("vs")}{" "}
+                                {opponentProfileHref ? (
+                                    <Box
+                                        component="a"
+                                        href={opponentProfileHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label={tf("Open {opponent}'s profile in a new tab", { opponent })}
+                                        onClick={(event) => event.stopPropagation()}
+                                        sx={{
+                                            position: "relative",
+                                            zIndex: 3,
+                                            color: "inherit",
+                                            pointerEvents: "auto",
+                                            textDecoration: "none",
+                                            textUnderlineOffset: "0.18em",
+                                            borderRadius: 2,
+                                            "&:hover": { color: hocColors.gold, textDecoration: "underline" },
+                                            "&:focus-visible": {
+                                                color: hocColors.gold,
+                                                outline: `2px solid ${hocColors.gold}`,
+                                                outlineOffset: 2,
+                                            },
+                                        }}
+                                    >
+                                        {opponent}
+                                    </Box>
+                                ) : (
+                                    opponent
+                                )}
                             </Typography>
                             <Stack
                                 direction="row"
@@ -818,7 +860,14 @@ const MatchCard: React.FC<{
                                 alignItems="center"
                                 sx={{ mt: 0.25, flexWrap: "wrap" }}
                             >
-                                <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
+                                <Tooltip
+                                    title={kind.detail ? t(kind.detail) : ""}
+                                    placement="top"
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    <MatchKindBadge label={t(kind.label)} tone={kind.tone} />
+                                </Tooltip>
                                 {side && (
                                     <Stack
                                         direction="row"
@@ -898,10 +947,16 @@ const MatchCard: React.FC<{
                                 </Typography>
                             </Stack>
                         )}
-                        {kind.rated && mmrDelta && (
+                        {kind.showsMmr && mmrDelta && (
                             <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
                         )}
-                        {kind.rated && <RewardBadge label={tf("Gold +{amount}", { amount: goldEarned })} tone="gold" />}
+                        {kind.showsGold && goldEarned > 0 && (
+                            <RewardBadge
+                                icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
+                                label={`${rewardCurrency.symbol} +${goldEarned}`}
+                                tone="gold"
+                            />
+                        )}
                     </Stack>
 
                     <Box
@@ -949,12 +1004,17 @@ const MatchCard: React.FC<{
                     >
                         <Metric label={t("Battle duration")} value={duration || t("Unknown")} />
                         <Metric label={t("Laps")} value={laps > 0 ? String(laps) : t("Unknown")} />
-                        {kind.rated && (
+                        {kind.showsMmr && (
                             <>
                                 <Metric label={t("MMR rating")} value={`${mmrBefore} → ${mmrAfter}`} />
                                 <Metric label={t("MMR change")} value={mmrDelta || "0"} />
-                                <Metric label={t("Gold earned")} value={`+${goldEarned}`} />
                             </>
+                        )}
+                        {kind.showsGold && goldEarned > 0 && (
+                            <Metric
+                                label={`${rewardCurrency.name} (${rewardCurrency.symbol})`}
+                                value={`+${goldEarned}`}
+                            />
                         )}
                         <Metric label={t("Your damage")} value={formatMatchDamage(match.player_damage)} />
                         <Metric label={t("Opponent damage")} value={formatMatchDamage(match.opponent_damage)} />
@@ -1016,6 +1076,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     filterable = false,
     matches,
     onReplay,
+    seasons,
 }) => {
     const [filter, setFilter] = useState<MatchHistoryFilter>("all");
     const [expandedGameId, setExpandedGameId] = useState<string>();
@@ -1083,6 +1144,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                         match={match}
                         onExpand={() => setExpandedGameId(expanded ? undefined : gameId)}
                         onReplay={() => onReplay(match)}
+                        seasons={seasons}
                     />
                 );
             })}

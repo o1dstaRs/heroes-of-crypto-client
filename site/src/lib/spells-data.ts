@@ -9,8 +9,11 @@
 // drafted, not cast, so a codex of castable spells is the wrong place for them.
 
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
+import { getSniperPower, SniperAugment } from "@heroesofcrypto/common/src/augments/augment_properties";
 
 import { allUnits, factionColors, type FactionName } from "./units-data";
+
+const sniperAugmentPowers = [SniperAugment.LEVEL_1, SniperAugment.LEVEL_2, SniperAugment.LEVEL_3].map(getSniperPower);
 
 export type SpellBook = "System" | "Life" | "Nature" | "Chaos" | "Death" | "Order";
 
@@ -195,8 +198,7 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
     "System:Empower Augment":
         "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
-    "System:Sniper Augment":
-        "Increases the team's ranged base attack and shot range. Level 1: +7% attack, +20% range. Level 2: +15% attack, +40% range. Level 3: +24% attack, +70% range.",
+    "System:Sniper Augment": `Increases the team's ranged base attack and shot range. Level 1: +${sniperAugmentPowers[0][0]}% attack, +${sniperAugmentPowers[0][1]}% range. Level 2: +${sniperAugmentPowers[1][0]}% attack, +${sniperAugmentPowers[1][1]}% range. Level 3: +${sniperAugmentPowers[2][0]}% attack, +${sniperAugmentPowers[2][1]}% range.`,
     "System:Movement Augment": "Boosts the entire team's movement steps. Level 1: +1 step. Level 2: +2 steps.",
 };
 
@@ -220,8 +222,7 @@ const descriptionsRu: Record<string, string> = {
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
     "System:Empower Augment":
         "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Огненный меч, Цепную молнию, Огненное дыхание и Огненный щит. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",
-    "System:Sniper Augment":
-        "Повышает базовую атаку и дальность стрелков команды. Уровень 1: +7% атаки, +20% дальности. Уровень 2: +15% атаки, +40% дальности. Уровень 3: +24% атаки, +70% дальности.",
+    "System:Sniper Augment": `Повышает базовую атаку и дальность стрелков команды. Уровень 1: +${sniperAugmentPowers[0][0]}% атаки, +${sniperAugmentPowers[0][1]}% дальности. Уровень 2: +${sniperAugmentPowers[1][0]}% атаки, +${sniperAugmentPowers[1][1]}% дальности. Уровень 3: +${sniperAugmentPowers[2][0]}% атаки, +${sniperAugmentPowers[2][1]}% дальности.`,
     "System:Movement Augment": "Повышает перемещение всей команды. Уровень 1: +1 шаг. Уровень 2: +2 шага.",
     "System:Angelic Host": "Дает +1 к атаке, +1 к защите и +1 к дистанции перемещения.",
     "System:Craft":

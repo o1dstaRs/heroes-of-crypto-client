@@ -5,7 +5,7 @@ import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../gam
 import { createRankedReplayFromPayload, type RankedReplay, type RankedReplayPayload } from "../replay/ranked_replay";
 import { buildApiUrl, endpoints, HOST_GAME_API, axiosGameInstance } from "./axios";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
-import { applyPreviewPlayAction, getPreviewPlaySnapshot, isPreviewPlayGame } from "./previewPlaySession";
+import { isPreviewPlayGame } from "./previewPlayGate";
 import {
     decodePlayActionResponse,
     decodePlaySnapshot,
@@ -93,6 +93,7 @@ export const fetchRankedPlaySnapshot = async (
     // The /preview/placement route runs the whole ranked screen against an in-memory session instead of
     // the play API — see previewPlaySession. No other game id is affected.
     if (isPreviewPlayGame(gameId)) {
+        const { getPreviewPlaySnapshot } = await import("./previewPlaySession");
         return getPreviewPlaySnapshot();
     }
     const response = await axiosGameInstance.get(playSnapshotUrl(gameId), {
@@ -203,6 +204,7 @@ export const sendRankedPlayAction = async (
     // The /preview/placement session answers in-process. Logged through the same action log first, so the
     // preview board can be debugged exactly like a real one.
     if (isPreviewPlayGame(gameId)) {
+        const { applyPreviewPlayAction } = await import("./previewPlaySession");
         const previewResponse = applyPreviewPlayAction(payload);
         if (payload.type !== PlayActionType.PING) {
             recordActionLog(

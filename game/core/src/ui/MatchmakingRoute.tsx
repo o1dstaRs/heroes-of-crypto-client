@@ -1,13 +1,8 @@
 import { CustomEventSource } from "@heroesofcrypto/common";
-import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
-import PersonSearchRoundedIcon from "@mui/icons-material/PersonSearchRounded";
 import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
-import SmartToyRoundedIcon from "@mui/icons-material/SmartToyRounded";
-import SportsEsportsRoundedIcon from "@mui/icons-material/SportsEsportsRounded";
 import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
 import { Alert, Box, Button, Sheet, Stack, Tooltip, Typography } from "@mui/joy";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,15 +10,49 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
+import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
-import { getPreGamePerk, setPreGamePerk } from "../utils/preGamePerk";
+import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
+import { ArenaChatPanel } from "./ArenaChatPanel";
+import { PublicLobbiesPanel } from "./PublicLobbiesPanel";
 import { RankedBanPicker } from "./RankedBanPicker";
-import { Perk } from "@heroesofcrypto/common";
+import { WagerStakeBox } from "./WagerStakeBox";
+import { Doctrine } from "@heroesofcrypto/common";
 import { useAuthContext } from "./auth/context/auth_context";
-import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
-import { PerkIcon } from "./PerkIcon";
-import { getPerkCopy } from "./perkCopy";
+import {
+    hocActionPrimaryButtonSx,
+    hocActionSoftButtonSx,
+    hocColors,
+    hocDisplayFontFamily,
+    hocPanelSx,
+    hocPrimaryButtonSx,
+    hocSoftButtonSx,
+} from "./hocTheme";
+import { DoctrineIcon } from "./DoctrineIcon";
+import { getDoctrineCopy } from "./doctrineCopy";
+import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
+import { useRankedSeason } from "./useRankedSeason";
+import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
+import {
+    LobbyNavIcon,
+    PracticeAiIcon,
+    ProfileNavIcon,
+    RankedNavIcon,
+    RankedSearchIcon,
+    SandboxNavIcon,
+    StatsPanelIcon,
+} from "./svg/navigation";
+import {
+    isAcceptedMatchHandoff,
+    isAmbiguousConfirmFailure,
+    isCurrentAcceptAttempt,
+    type MatchmakingCurrentGame,
+    resolveConfirmFailure,
+    resolveTerminalHandoff,
+    shouldSurfaceMatchmakingStreamError,
+    TERMINAL_MATCHMAKING_STREAM_ERROR,
+} from "./matchmakingAcceptTransition";
 
 type MatchmakingEvent = {
     ps?: string;
@@ -53,17 +82,31 @@ const formatQueueDuration = (totalSeconds: number): string => {
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { t, language } = useTranslation();
     const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode, me } = useAuthContext();
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
     const acceptedGameIdRef = useRef("");
+    const pendingGameIdRef = useRef("");
+    const acceptAttemptRef = useRef(0);
+    const mountedRef = useRef(true);
     const aiStartInFlightRef = useRef(false);
     const vsAiAutoStartedRef = useRef(false);
     const [state, setState] = useState<MatchmakingState>("idle");
+    const [profileSummaryOpen, setProfileSummaryOpen] = useState(false);
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
+    const { currency, snapshot: seasonSnapshot } = useRankedSeason();
+    // Only a PLACED commander may stake. Treated as "cannot" until the standing actually loads, so the
+    // control never flashes into view for a calibrating player on a slow request.
+    const rankedStanding = useRankedStanding();
+    const canStake = rankedStanding?.state === "placed";
 
     useEffect(() => {
+        if (isMockPortalEnabled()) {
+            setOnlineNow({ searching: 4, playing: 20, online: 24 });
+            return undefined;
+        }
         let cancelled = false;
         const poll = async (): Promise<void> => {
             try {
@@ -82,7 +125,12 @@ export const MatchmakingRoute: React.FC = () => {
             clearInterval(interval);
         };
     }, []);
+
     const [pendingGameId, setPendingGameId] = useState("");
+    const updatePendingGameId = useCallback((gameId: string) => {
+        pendingGameIdRef.current = gameId;
+        setPendingGameId(gameId);
+    }, []);
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
     const [searchStartedAt, setSearchStartedAt] = useState(0);
@@ -90,9 +138,9 @@ export const MatchmakingRoute: React.FC = () => {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [error, setError] = useState("");
     const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
-    // Pre-game perk (scouting doctrine): free to toggle until the player queues/starts; the chosen
-    // value is locked into localStorage and read back by the in-game PERK pick phase to auto-commit.
-    const [preGamePerk, setPreGamePerkState] = useState<Perk.Perk>(() => getPreGamePerk());
+    // Pre-game doctrine (scouting doctrine): free to toggle until the player queues/starts; the chosen
+    // value is locked into localStorage and read back by the in-game DOCTRINE pick phase to auto-commit.
+    const [preGameDoctrine, setPreGameDoctrineState] = useState<Doctrine.Doctrine>(() => getPreGameDoctrine());
 
     // No-accept penalty: the server sets match_making_cooldown_till (ms epoch) when a player lets a found
     // match expire without accepting, and rejects re-queue until it passes. Surface it as a live countdown
@@ -113,6 +161,22 @@ export const MatchmakingRoute: React.FC = () => {
             : searchStartedAt || queueAddedAtMs;
     const queueElapsedLabel =
         isSearching && searchAnchorMs > 0 ? formatQueueDuration((nowMs - searchAnchorMs) / 1000) : "";
+    const activeSeason = seasonSnapshot?.current ?? null;
+    const nextSeason = seasonSnapshot?.next ?? null;
+    const seasonMilestone = activeSeason?.endsAt ?? nextSeason?.startsAt ?? 0;
+    const seasonMilestoneLabel = useMemo(
+        () =>
+            seasonMilestone > 0
+                ? new Intl.DateTimeFormat(language === "ru" ? "ru-RU" : "en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      timeZoneName: "short",
+                  }).format(seasonMilestone)
+                : "",
+        [language, seasonMilestone],
+    );
 
     // A logged-in but email-unverified account (is_active === false) cannot enter matchmaking:
     // the server rejects POST /queue with "Activate your account to join the matchmaking queue".
@@ -151,12 +215,13 @@ export const MatchmakingRoute: React.FC = () => {
                 return;
             }
 
-            setPendingGameId(event.ps);
+            updatePendingGameId(event.ps);
 
             if (event.r !== undefined && event.r < 0) {
                 acceptedGameIdRef.current = "";
+                acceptAttemptRef.current += 1;
                 setState("idle");
-                setPendingGameId("");
+                updatePendingGameId("");
                 setSecondsRemaining(null);
                 // The found match window closed. If WE let it expire the server just set a no-accept
                 // cooldown — refresh /me so the penalty countdown renders (a no-op if we weren't at fault).
@@ -165,6 +230,10 @@ export const MatchmakingRoute: React.FC = () => {
             }
 
             if (event.c === 1) {
+                // Keep the completed handoff marker through close/navigation. closeStream aborts the
+                // underlying fetch; if its rejection lands before unmount it is still an intentional close.
+                acceptedGameIdRef.current = event.ps;
+                acceptAttemptRef.current += 1;
                 setState("accepted");
                 closeStream();
                 navigate(`/game/${event.ps}`);
@@ -175,6 +244,69 @@ export const MatchmakingRoute: React.FC = () => {
         };
 
         source.onerror = (err: Error) => {
+            const acceptedGameId = acceptedGameIdRef.current;
+            const pendingId = pendingGameIdRef.current;
+            const acceptedHandoff = isAcceptedMatchHandoff(acceptedGameId, pendingId);
+            const isTerminal = err.message === TERMINAL_MATCHMAKING_STREAM_ERROR;
+            if (
+                !shouldSurfaceMatchmakingStreamError(
+                    err.message,
+                    acceptedGameId,
+                    pendingId,
+                    streamRef.current === source,
+                )
+            ) {
+                return;
+            }
+
+            if (acceptedHandoff && isTerminal) {
+                const attempt = acceptAttemptRef.current;
+                closeStream();
+                // The stream is permanently closed, so unlock immediately even if /current itself hangs.
+                // A successful reconciliation below can still route or restore the same match's Accept.
+                setError(err.message);
+                setState("error");
+
+                void (async () => {
+                    let currentGame: MatchmakingCurrentGame | null = null;
+                    let reconciliationSucceeded = false;
+                    try {
+                        currentGame = await getCurrentGame();
+                        reconciliationSucceeded = true;
+                    } catch {
+                        // The recoverable error state is already visible; a future Find retries the ingress.
+                    }
+
+                    if (
+                        !isCurrentAcceptAttempt({
+                            acceptedGameId: acceptedGameIdRef.current,
+                            attempt,
+                            currentAttempt: acceptAttemptRef.current,
+                            expectedGameId: acceptedGameId,
+                            mounted: mountedRef.current,
+                            pendingGameId: pendingGameIdRef.current,
+                        })
+                    ) {
+                        return;
+                    }
+
+                    const resolution = resolveTerminalHandoff(acceptedGameId, currentGame, reconciliationSucceeded);
+                    if (resolution === "navigate") {
+                        acceptAttemptRef.current += 1;
+                        setError("");
+                        navigate(`/game/${acceptedGameId}`);
+                        return;
+                    }
+
+                    acceptedGameIdRef.current = "";
+                    acceptAttemptRef.current += 1;
+                    if (resolution === "retry-confirm") {
+                        setState("confirming");
+                    }
+                })();
+                return;
+            }
+
             setError(err.message);
             setState((current) => (current === "accepted" ? current : "error"));
             // A dropped stream right after a found match is usually the accept window expiring. Pull the
@@ -183,9 +315,26 @@ export const MatchmakingRoute: React.FC = () => {
         };
 
         streamRef.current = source;
-    }, [closeStream, navigate, me]);
+    }, [closeStream, getCurrentGame, navigate, me, updatePendingGameId]);
 
-    useEffect(() => closeStream, [closeStream]);
+    // A terminal accepted-stream failure may reconcile to the same still-unconfirmed game. Re-opening
+    // here makes the restored Accept button useful: its successful retry still needs the authoritative
+    // c=1 navigation frame. Ordinary confirming transitions already have a live source and are a no-op.
+    useEffect(() => {
+        if (state === "confirming" && pendingGameIdRef.current && !streamRef.current) {
+            openStream();
+        }
+    }, [openStream, state]);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            acceptedGameIdRef.current = "";
+            acceptAttemptRef.current += 1;
+            closeStream();
+        };
+    }, [closeStream]);
 
     // Refresh /me on arrival so a penalty applied in a previous session/route shows immediately.
     useEffect(() => {
@@ -228,7 +377,7 @@ export const MatchmakingRoute: React.FC = () => {
                     return;
                 }
 
-                setPendingGameId(game.id);
+                updatePendingGameId(game.id);
                 setState("confirming");
                 openStream();
             })
@@ -239,36 +388,38 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [getCurrentGame, navigate, openStream]);
+    }, [getCurrentGame, navigate, openStream, updatePendingGameId]);
 
     const statusText = useMemo(() => {
         if (needsActivation) {
-            return "Email verification required";
+            return t("Email verification required");
         }
         if (penalized) {
-            return `Match not accepted — search again in ${penaltySeconds}s`;
+            return tf("Match not accepted — search again in {seconds}s", { seconds: penaltySeconds });
         }
         if (state === "searching") {
-            return queueSize ? `Looking for opponent (${queueSize} in queue)` : "Looking for opponent";
+            return queueSize
+                ? tf("Looking for opponent ({count} in queue)", { count: queueSize })
+                : t("Looking for opponent");
         }
         if (state === "confirming") {
             return secondsRemaining && secondsRemaining > 0
-                ? `Match found. Accept within ${secondsRemaining}s.`
-                : "Match found.";
+                ? tf("Match found. Accept within {seconds}s.", { seconds: secondsRemaining })
+                : t("Match found.");
         }
         if (state === "accepted") {
             return secondsRemaining && secondsRemaining > 0
-                ? `Accepted. Waiting for opponent: ${secondsRemaining}s left.`
-                : "Accepted. Waiting for opponent.";
+                ? tf("Accepted. Waiting for opponent: {seconds}s left.", { seconds: secondsRemaining })
+                : t("Accepted. Waiting for opponent.");
         }
         if (state === "starting-ai") {
-            return "Preparing AI match";
+            return t("Preparing AI match");
         }
         if (state === "error") {
-            return "Connection error";
+            return t("Connection error");
         }
-        return "Ready";
-    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state]);
+        return t("Ready");
+    }, [needsActivation, penalized, penaltySeconds, queueSize, secondsRemaining, state, t]);
 
     const handleStart = async () => {
         if (needsActivation || penalized || aiStartInFlightRef.current) {
@@ -276,6 +427,7 @@ export const MatchmakingRoute: React.FC = () => {
         }
         setError("");
         acceptedGameIdRef.current = "";
+        acceptAttemptRef.current += 1;
         setState("searching");
         closeStream();
         openStream();
@@ -284,7 +436,7 @@ export const MatchmakingRoute: React.FC = () => {
         } catch (err) {
             closeStream();
             setState("error");
-            setError((err as Error)?.message ?? "Unable to enter matchmaking");
+            setError((err as Error)?.message ?? t("Unable to enter matchmaking"));
             // The server rejects re-queue during a no-accept cooldown (429); refresh /me so the render
             // switches from the raw error to the penalty countdown.
             void me().catch(() => undefined);
@@ -299,6 +451,7 @@ export const MatchmakingRoute: React.FC = () => {
         aiStartInFlightRef.current = true;
         setError("");
         acceptedGameIdRef.current = "";
+        acceptAttemptRef.current += 1;
         setState("starting-ai");
         closeStream();
         try {
@@ -318,7 +471,7 @@ export const MatchmakingRoute: React.FC = () => {
                     if (currentGame.confirmed) {
                         navigate(`/game/${currentGame.id}`);
                     } else {
-                        setPendingGameId(currentGame.id);
+                        updatePendingGameId(currentGame.id);
                         setState("confirming");
                         openStream();
                     }
@@ -332,13 +485,13 @@ export const MatchmakingRoute: React.FC = () => {
             setState("error");
             setError(
                 message === "Already in game"
-                    ? "Leave matchmaking before starting an AI match"
-                    : message || "Unable to start an AI match",
+                    ? t("Leave matchmaking before starting an AI match")
+                    : message || t("Unable to start an AI match"),
             );
         } finally {
             aiStartInFlightRef.current = false;
         }
-    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream]);
+    }, [closeStream, getCurrentGame, navigate, needsActivation, openStream, updatePendingGameId]);
 
     // A /play?mode=vs-ai deep link starts the AI match on arrival (optionally at ?difficulty=<tier>).
     // Consume the params before starting so browser Back or a remount cannot unintentionally create
@@ -373,12 +526,13 @@ export const MatchmakingRoute: React.FC = () => {
         try {
             await stopGameSearch();
         } catch (err) {
-            setError((err as Error)?.message ?? "Unable to leave matchmaking");
+            setError((err as Error)?.message ?? t("Unable to leave matchmaking"));
         } finally {
             acceptedGameIdRef.current = "";
+            acceptAttemptRef.current += 1;
             closeStream();
             setState("idle");
-            setPendingGameId("");
+            updatePendingGameId("");
             setQueueSize(null);
             setSecondsRemaining(null);
         }
@@ -390,14 +544,50 @@ export const MatchmakingRoute: React.FC = () => {
         }
 
         setError("");
-        acceptedGameIdRef.current = pendingGameId;
+        const gameId = pendingGameId;
+        const attempt = acceptAttemptRef.current + 1;
+        acceptAttemptRef.current = attempt;
+        acceptedGameIdRef.current = gameId;
         setState("accepted");
         try {
-            await confirmGame(pendingGameId);
+            await confirmGame(gameId);
         } catch (err) {
+            let currentGame: MatchmakingCurrentGame | null = null;
+            let reconciliationSucceeded = false;
+            try {
+                currentGame = await getCurrentGame();
+                reconciliationSucceeded = true;
+            } catch {
+                // Unknown is not rejection: keep the accepted handoff alive and let its SSE retry finish it.
+            }
+
+            if (
+                !isCurrentAcceptAttempt({
+                    acceptedGameId: acceptedGameIdRef.current,
+                    attempt,
+                    currentAttempt: acceptAttemptRef.current,
+                    expectedGameId: gameId,
+                    mounted: mountedRef.current,
+                    pendingGameId: pendingGameIdRef.current,
+                })
+            ) {
+                return;
+            }
+
+            const resolution = resolveConfirmFailure(
+                gameId,
+                currentGame,
+                reconciliationSucceeded,
+                isAmbiguousConfirmFailure(err),
+            );
+            if (resolution !== "rejected") {
+                return;
+            }
+
             acceptedGameIdRef.current = "";
+            acceptAttemptRef.current += 1;
             setState("confirming");
-            setError((err as Error)?.message ?? "Unable to accept match");
+            setError((err as Error)?.message ?? t("Unable to accept match"));
         }
     };
 
@@ -405,70 +595,78 @@ export const MatchmakingRoute: React.FC = () => {
         state === "searching" || state === "confirming" || state === "accepted" || state === "starting-ai";
     const shortGameId =
         pendingGameId.length > 16 ? `${pendingGameId.slice(0, 8)}…${pendingGameId.slice(-5)}` : pendingGameId;
+    const showStatusPresentation = state !== "idle" || needsActivation || penalized;
     const presentation = (() => {
         if (needsActivation) {
             return {
                 accent: hocColors.gold,
-                eyebrow: "ACCOUNT ACTIVATION",
-                headline: "Verify before entering the arena",
-                description: "Activate your account to unlock ranked matchmaking and practice battles.",
+                eyebrow: t("ACCOUNT ACTIVATION"),
+                headline: t("Verify before entering the arena"),
+                description: t("Activate your account to unlock ranked matchmaking and practice battles."),
             };
         }
         if (penalized) {
             return {
                 accent: hocColors.danger,
-                eyebrow: "QUEUE COOLDOWN",
-                headline: `Search unlocks in ${penaltySeconds}s`,
-                description: "Ranked matches must be accepted in time. The queue will reopen automatically.",
+                eyebrow: t("QUEUE COOLDOWN"),
+                headline: tf("Search unlocks in {seconds}s", { seconds: penaltySeconds }),
+                description: t("Ranked matches must be accepted in time. The queue will reopen automatically."),
             };
         }
         if (state === "searching") {
             return {
                 accent: hocColors.orange,
-                eyebrow: "MATCHMAKING",
-                headline: "Scouting for a worthy rival",
+                eyebrow: t("MATCHMAKING"),
+                headline: t("Scouting for a worthy rival"),
                 description: queueSize
-                    ? `${queueSize} ${queueSize === 1 ? "commander is" : "commanders are"} currently in the queue.`
-                    : "Stay ready while we search the live ranked queue.",
+                    ? tf(
+                          queueSize === 1
+                              ? "{count} commander is currently in the queue."
+                              : "{count} commanders are currently in the queue.",
+                          {
+                              count: queueSize,
+                          },
+                      )
+                    : t("Stay ready while we search the live ranked queue."),
             };
         }
         if (state === "confirming") {
             return {
                 accent: "#ffd166",
-                eyebrow: "OPPONENT FOUND",
-                headline: "Your rival is ready",
-                description: "Accept before the timer expires to lock in the match.",
+                eyebrow: t("OPPONENT FOUND"),
+                headline: t("Your rival is ready"),
+                description: t("Accept before the timer expires to lock in the match."),
             };
         }
         if (state === "accepted") {
             return {
                 accent: "#55d878",
-                eyebrow: "MATCH ACCEPTED",
-                headline: "You’re locked in",
-                description: "Waiting for your opponent to accept. The arena will open automatically.",
+                eyebrow: t("MATCH ACCEPTED"),
+                headline: t("You’re locked in"),
+                description: t("Waiting for your opponent to accept. The arena will open automatically."),
             };
         }
         if (state === "starting-ai") {
             return {
                 accent: hocColors.gold,
-                eyebrow: "PRACTICE ARENA",
-                headline: "Summoning a training opponent",
-                description: "Preparing a private match against the default AI commander.",
+                eyebrow: t("PRACTICE ARENA"),
+                headline: t("Summoning a training opponent"),
+                description: t("Preparing a private match against the default AI commander."),
             };
         }
         if (state === "error") {
             return {
                 accent: hocColors.danger,
-                eyebrow: "CONNECTION ISSUE",
-                headline: "The arena link was interrupted",
-                description: "Try the ranked queue again, or sharpen your strategy against the AI.",
+                eyebrow: t("CONNECTION ISSUE"),
+                headline: t("The arena link was interrupted"),
+                description: t("Try the ranked queue again, or sharpen your strategy against the AI."),
             };
         }
         return {
             accent: hocColors.orange,
-            eyebrow: "READY FOR BATTLE",
-            headline: "Choose your next opponent",
-            description: "Enter the ranked queue for a live duel, or practice your draft against the AI.",
+            eyebrow: "",
+            headline: "",
+            description: "",
         };
     })();
 
@@ -522,7 +720,7 @@ export const MatchmakingRoute: React.FC = () => {
                 sx={{
                     position: "relative",
                     zIndex: 1,
-                    width: "min(1480px, calc(100% - 32px))",
+                    width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
                     mx: "auto",
                     pt: { xs: 2, md: 2.5 },
                 }}
@@ -546,7 +744,9 @@ export const MatchmakingRoute: React.FC = () => {
                         variant="plain"
                         onClick={() => navigate("/")}
                         disabled={navigationLocked}
-                        title={navigationLocked ? "Leave matchmaking before navigating away" : "Open battle sandbox"}
+                        title={
+                            navigationLocked ? t("Leave matchmaking before navigating away") : t("Open battle sandbox")
+                        }
                         sx={{
                             justifyContent: "flex-start",
                             px: 0.5,
@@ -563,26 +763,23 @@ export const MatchmakingRoute: React.FC = () => {
                                 >
                                     Heroes of Crypto
                                 </Typography>
-                                <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.13em" }}>
-                                    RANKED ARENA
-                                </Typography>
                             </Box>
                         </Stack>
                     </Button>
 
                     <Stack
                         component="nav"
-                        aria-label="Game navigation"
+                        aria-label={t("Game navigation")}
                         direction="row"
                         spacing={0.5}
                         sx={{ width: { xs: "100%", sm: "auto" }, pb: { xs: 0.25, sm: 0 } }}
                     >
                         <Button
-                            aria-label="Custom games"
+                            aria-label={t("Ranked Arena")}
                             size="sm"
                             variant="soft"
                             aria-current="page"
-                            startDecorator={<SportsEsportsRoundedIcon />}
+                            startDecorator={<RankedNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 ...hocSoftButtonSx,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -591,15 +788,16 @@ export const MatchmakingRoute: React.FC = () => {
                                 color: hocColors.gold,
                             }}
                         >
-                            Ranked
+                            {t("Ranked")}
                         </Button>
                         <Button
+                            aria-label={t("Lobby")}
                             size="sm"
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/lobbies")}
-                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
-                            startDecorator={<GroupsRoundedIcon />}
+                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
+                            startDecorator={<LobbyNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -609,17 +807,17 @@ export const MatchmakingRoute: React.FC = () => {
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                Custom
+                                {t("Lobby")}
                             </Box>
                         </Button>
                         <Button
-                            aria-label="Sandbox"
+                            aria-label={t("Sandbox")}
                             size="sm"
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/")}
-                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
-                            startDecorator={<HomeRoundedIcon />}
+                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
+                            startDecorator={<SandboxNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -629,7 +827,7 @@ export const MatchmakingRoute: React.FC = () => {
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                Sandbox
+                                {t("Sandbox")}
                             </Box>
                         </Button>
                         <Button
@@ -637,8 +835,8 @@ export const MatchmakingRoute: React.FC = () => {
                             variant="plain"
                             disabled={navigationLocked}
                             onClick={() => navigate("/portal")}
-                            title={navigationLocked ? "Leave matchmaking before navigating away" : undefined}
-                            startDecorator={<AccountCircleRoundedIcon />}
+                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
+                            startDecorator={<ProfileNavIcon sx={{ fontSize: 24 }} />}
                             sx={{
                                 color: hocColors.mutedStrong,
                                 flex: { xs: 1, sm: "0 0 auto" },
@@ -647,7 +845,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
                             }}
                         >
-                            Profile
+                            {t("Profile")}
                         </Button>
                     </Stack>
                 </Stack>
@@ -658,13 +856,17 @@ export const MatchmakingRoute: React.FC = () => {
                 sx={{
                     position: "relative",
                     zIndex: 1,
-                    width: "min(1480px, calc(100% - 32px))",
+                    width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
                     mx: "auto",
                     py: { xs: 2, md: 3 },
                     display: "grid",
-                    gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(560px, 1fr) minmax(370px, 420px)" },
+                    gridTemplateColumns: {
+                        xs: "minmax(0, 1fr)",
+                        lg: profileSummaryOpen ? "minmax(560px, 1fr) minmax(370px, 420px)" : "minmax(0, 1fr)",
+                    },
                     gap: { xs: 2, md: 3 },
                     alignItems: "start",
+                    transition: "width 220ms ease",
                 }}
             >
                 <Sheet
@@ -672,12 +874,12 @@ export const MatchmakingRoute: React.FC = () => {
                     aria-labelledby="ranked-heading"
                     variant="outlined"
                     sx={{
-                        minHeight: { lg: 724 },
                         minWidth: 0,
+                        minHeight: profileSummaryOpen ? { lg: 724 } : undefined,
                         display: "flex",
                         flexDirection: "column",
                         overflow: "hidden",
-                        borderRadius: "22px",
+                        borderRadius: "10px",
                         ...hocPanelSx,
                         bgcolor: "rgba(12,8,5,0.91)",
                         borderColor:
@@ -703,7 +905,7 @@ export const MatchmakingRoute: React.FC = () => {
                             position: "relative",
                             overflow: "hidden",
                             px: { xs: 2.25, sm: 4, md: 5 },
-                            py: { xs: 3, md: 4.5 },
+                            py: { xs: 2.5, md: 3 },
                             borderBottom: "1px solid rgba(239,228,204,0.09)",
                             background:
                                 state === "confirming"
@@ -716,44 +918,159 @@ export const MatchmakingRoute: React.FC = () => {
                     >
                         <Typography
                             level="body-xs"
-                            sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.2em", mb: 1.1 }}
-                        >
-                            LIVE RANKED COMBAT
-                        </Typography>
-                        <Typography
-                            id="ranked-heading"
-                            level="h1"
                             sx={{
-                                maxWidth: 700,
-                                color: hocColors.parchment,
-                                fontSize: { xs: "2rem", sm: "2.65rem", md: "3.15rem" },
-                                lineHeight: 1.02,
-                                letterSpacing: "-0.035em",
+                                display: activeSeason || nextSeason || seasonSnapshot ? "block" : "none",
+                                color: hocColors.gold,
+                                fontWeight: 800,
+                                fontSize: { xs: "0.68rem", sm: "0.75rem" },
+                                lineHeight: 1.5,
+                                letterSpacing: { xs: "0.09em", sm: "0.13em" },
+                                mb: 1.1,
                             }}
                         >
-                            Command the arena.
-                        </Typography>
-                        <Typography
-                            level="body-md"
-                            sx={{ color: hocColors.muted, maxWidth: 620, mt: 1.35, lineHeight: 1.65 }}
-                        >
-                            Draft your army, adapt your build, and face another commander in a match that counts.
-                        </Typography>
-                        {onlineNow !== undefined && (
-                            <Typography level="body-sm" sx={{ color: hocColors.gold, mt: 2, fontWeight: 650 }}>
-                                {onlineNow.online} commander{onlineNow.online === 1 ? "" : "s"} online
-                                {onlineNow.online > 0 && (
-                                    <Typography
-                                        component="span"
-                                        level="body-sm"
-                                        sx={{ color: hocColors.muted, fontWeight: 400 }}
+                            {activeSeason ? (
+                                <>
+                                    {activeSeason.name} · {t("ENDS")}{" "}
+                                    <time
+                                        dateTime={new Date(activeSeason.endsAt).toISOString()}
+                                        title={new Date(activeSeason.endsAt).toLocaleString(
+                                            language === "ru" ? "ru-RU" : "en-US",
+                                        )}
                                     >
-                                        {" "}
-                                        — {onlineNow.searching} searching · {onlineNow.playing} in battle
-                                    </Typography>
-                                )}
+                                        {seasonMilestoneLabel}
+                                    </time>
+                                </>
+                            ) : nextSeason ? (
+                                <>
+                                    {t("PRESEASON")} · {nextSeason.name} {t("STARTS")}{" "}
+                                    <time
+                                        dateTime={new Date(nextSeason.startsAt).toISOString()}
+                                        title={new Date(nextSeason.startsAt).toLocaleString(
+                                            language === "ru" ? "ru-RU" : "en-US",
+                                        )}
+                                    >
+                                        {seasonMilestoneLabel}
+                                    </time>
+                                </>
+                            ) : seasonSnapshot ? (
+                                `${t("PRESEASON")} · ${t("NO SCHEDULED END")}`
+                            ) : null}
+                        </Typography>
+                        <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={{ xs: 1.5, sm: 1 }}
+                            alignItems={{ xs: "flex-start", sm: "center" }}
+                            justifyContent="space-between"
+                        >
+                            <Typography
+                                id="ranked-heading"
+                                level="h1"
+                                sx={{
+                                    maxWidth: 700,
+                                    color: hocColors.parchment,
+                                    fontSize: { xs: "2rem", sm: "2.45rem", md: "2.75rem" },
+                                    lineHeight: 1.02,
+                                    letterSpacing: "-0.035em",
+                                }}
+                            >
+                                {t("Ranked Arena")}
                             </Typography>
-                        )}
+                            <Stack direction="row" spacing={0.75} alignItems="center">
+                                {onlineNow !== undefined && (
+                                    <Tooltip
+                                        title={tf("{online} online · {searching} searching · {playing} in battle", {
+                                            online: onlineNow.online,
+                                            searching: onlineNow.searching,
+                                            playing: onlineNow.playing,
+                                        })}
+                                        size="sm"
+                                        variant="soft"
+                                    >
+                                        <Stack
+                                            component="span"
+                                            direction="row"
+                                            spacing={0.7}
+                                            alignItems="center"
+                                            aria-label={tf("{count} commanders online", { count: onlineNow.online })}
+                                            sx={{
+                                                minHeight: 38,
+                                                px: 1.15,
+                                                borderRadius: "10px",
+                                                color: hocColors.parchment,
+                                                bgcolor: "rgba(0,0,0,0.3)",
+                                                border: "1px solid rgba(220,177,88,0.3)",
+                                                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035)",
+                                            }}
+                                        >
+                                            <Box
+                                                aria-hidden="true"
+                                                sx={{
+                                                    width: 7,
+                                                    height: 7,
+                                                    flexShrink: 0,
+                                                    borderRadius: "50%",
+                                                    bgcolor: hocColors.green,
+                                                    boxShadow: `0 0 7px ${hocColors.green}`,
+                                                }}
+                                            />
+                                            <GroupsRoundedIcon sx={{ color: hocColors.gold, fontSize: 19 }} />
+                                            <Typography level="body-sm" sx={{ color: "inherit", fontWeight: 800 }}>
+                                                {onlineNow.online}
+                                            </Typography>
+                                            <Typography
+                                                level="body-xs"
+                                                sx={{
+                                                    display: { xs: "none", sm: "block" },
+                                                    color: hocColors.muted,
+                                                    fontSize: "0.65rem",
+                                                    fontWeight: 700,
+                                                    letterSpacing: "0.08em",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                {t("Online")}
+                                            </Typography>
+                                        </Stack>
+                                    </Tooltip>
+                                )}
+                                <Tooltip
+                                    title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
+                                    size="sm"
+                                    variant="soft"
+                                >
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        aria-label={
+                                            profileSummaryOpen ? t("Hide player stats") : t("Show player stats")
+                                        }
+                                        aria-expanded={profileSummaryOpen}
+                                        aria-controls="ranked-profile-summary"
+                                        onClick={() => setProfileSummaryOpen((open) => !open)}
+                                        startDecorator={<StatsPanelIcon sx={{ fontSize: 22 }} />}
+                                        sx={{
+                                            minHeight: 38,
+                                            px: 1.15,
+                                            borderRadius: "10px",
+                                            color: hocColors.parchment,
+                                            bgcolor: profileSummaryOpen ? "rgba(255,143,0,0.14)" : "rgba(0,0,0,0.3)",
+                                            borderColor: "rgba(220,177,88,0.3)",
+                                            fontSize: "0.72rem",
+                                            fontWeight: 750,
+                                            "&:hover": {
+                                                color: hocColors.gold,
+                                                bgcolor: "rgba(255,143,0,0.2)",
+                                                borderColor: hocColors.orangeBorder,
+                                            },
+                                        }}
+                                    >
+                                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                            {profileSummaryOpen ? t("Hide stats") : t("Show stats")}
+                                        </Box>
+                                    </Button>
+                                </Tooltip>
+                            </Stack>
+                        </Stack>
                     </Box>
 
                     <Box
@@ -764,8 +1081,8 @@ export const MatchmakingRoute: React.FC = () => {
                             flexDirection: "column",
                             alignItems: "center",
                             justifyContent: "center",
-                            px: { xs: 2.25, sm: 4 },
-                            py: { xs: 3.25, md: 4 },
+                            px: { xs: 2.25, sm: 3.5 },
+                            py: { xs: 3, md: showStatusPresentation ? 4 : 3 },
                             textAlign: "center",
                             background:
                                 state === "confirming"
@@ -781,7 +1098,7 @@ export const MatchmakingRoute: React.FC = () => {
                                 position: "relative",
                                 width: 126,
                                 height: 126,
-                                display: "grid",
+                                display: showStatusPresentation ? "grid" : "none",
                                 placeItems: "center",
                                 mb: 2.25,
                             }}
@@ -842,13 +1159,13 @@ export const MatchmakingRoute: React.FC = () => {
                                             level="body-xs"
                                             sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
                                         >
-                                            SECONDS
+                                            {t("SECONDS")}
                                         </Typography>
                                     </Stack>
                                 ) : state === "accepted" ? (
                                     <CheckCircleRoundedIcon />
                                 ) : state === "starting-ai" ? (
-                                    <SmartToyRoundedIcon />
+                                    <PracticeAiIcon />
                                 ) : queueElapsedLabel ? (
                                     // Ticking text is hidden from the aria-live region above so screen
                                     // readers get the status line instead of a reading every second.
@@ -867,7 +1184,7 @@ export const MatchmakingRoute: React.FC = () => {
                                             level="body-xs"
                                             sx={{ color: hocColors.muted, fontSize: "0.62rem", letterSpacing: "0.1em" }}
                                         >
-                                            IN QUEUE
+                                            {t("IN QUEUE")}
                                         </Typography>
                                     </Stack>
                                 ) : penalized ? (
@@ -875,29 +1192,48 @@ export const MatchmakingRoute: React.FC = () => {
                                 ) : needsActivation || state === "error" ? (
                                     <ShieldRoundedIcon />
                                 ) : (
-                                    <PersonSearchRoundedIcon />
+                                    <RankedSearchIcon />
                                 )}
                             </Box>
                         </Box>
 
                         <Typography
                             level="body-xs"
-                            sx={{ color: presentation.accent, fontWeight: 800, letterSpacing: "0.18em" }}
+                            sx={{
+                                display: showStatusPresentation ? "block" : "none",
+                                color: presentation.accent,
+                                fontWeight: 800,
+                                letterSpacing: "0.18em",
+                            }}
                         >
                             {presentation.eyebrow}
                         </Typography>
                         <Typography
                             level="h2"
-                            sx={{ color: hocColors.parchment, mt: 0.75, fontSize: { xs: "1.55rem", sm: "2rem" } }}
+                            sx={{
+                                display: showStatusPresentation ? "block" : "none",
+                                color: hocColors.parchment,
+                                mt: 0.75,
+                                fontSize: { xs: "1.55rem", sm: "2rem" },
+                            }}
                         >
                             {presentation.headline}
                         </Typography>
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, maxWidth: 540, mt: 0.8 }}>
+                        <Typography
+                            level="body-sm"
+                            sx={{
+                                display: showStatusPresentation ? "block" : "none",
+                                color: hocColors.muted,
+                                maxWidth: 540,
+                                mt: 0.8,
+                            }}
+                        >
                             {presentation.description}
                         </Typography>
                         <Typography
                             level="body-xs"
                             sx={{
+                                display: showStatusPresentation ? "block" : "none",
                                 color: hocColors.muted,
                                 mt: 1.25,
                                 px: 1.2,
@@ -910,12 +1246,26 @@ export const MatchmakingRoute: React.FC = () => {
                             {statusText}
                         </Typography>
 
-                        <Stack spacing={1.25} sx={{ width: "100%", maxWidth: 650, mt: 2.75 }}>
+                        <Stack
+                            spacing={{ xs: 1.25, md: profileSummaryOpen && !showStatusPresentation ? 0 : 1.25 }}
+                            sx={{
+                                width: "100%",
+                                maxWidth: 860,
+                                mt: showStatusPresentation ? 2.75 : 0,
+                                flex: profileSummaryOpen && !showStatusPresentation ? 1 : undefined,
+                                justifyContent:
+                                    profileSummaryOpen && !showStatusPresentation ? "space-evenly" : "flex-start",
+                            }}
+                        >
                             {needsActivation && (
                                 <>
                                     <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                        Verify your email to play online. We sent a verification code to{" "}
-                                        {accountEmail || "your email address"}.
+                                        {tf(
+                                            "Verify your email to play online. We sent a verification code to {email}.",
+                                            {
+                                                email: accountEmail || t("your email address"),
+                                            },
+                                        )}
                                     </Alert>
                                     <Button
                                         fullWidth
@@ -925,151 +1275,239 @@ export const MatchmakingRoute: React.FC = () => {
                                         sx={{ ...hocPrimaryButtonSx, minHeight: 50 }}
                                     >
                                         {resendState === "sending"
-                                            ? "Sending…"
+                                            ? t("Sending…")
                                             : resendState === "sent"
-                                              ? "Email sent — check your inbox"
-                                              : "Resend verification email"}
+                                              ? t("Email sent — check your inbox")
+                                              : t("Resend verification email")}
                                     </Button>
                                     <Typography level="body-xs" textColor={hocColors.muted}>
-                                        Enter the code from the email to activate your account, then reload this page.
+                                        {t(
+                                            "Enter the code from the email to activate your account, then reload this page.",
+                                        )}
                                     </Typography>
                                 </>
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <Stack
-                                    direction="row"
-                                    spacing={1.5}
-                                    justifyContent="center"
-                                    alignItems="stretch"
-                                    sx={{ width: "100%", maxWidth: 650, mt: 2.5 }}
+                                <Box
+                                    sx={{
+                                        alignSelf: "stretch",
+                                        mt: showStatusPresentation || !profileSummaryOpen ? 2.5 : 0,
+                                        // The doctrine tiles are already outlined, so wrapping them in
+                                        // a second outlined, shadowed, gradient-filled card put three
+                                        // borders between the page and a radio button. The heading and
+                                        // the spacing group them; the frame was redundant.
+                                        px: 0,
+                                        py: { xs: 0.25, sm: 0.5 },
+                                    }}
                                 >
-                                    {[...Perk.PERK_LIST]
-                                        .sort((a, b) => a.upgradePoints - b.upgradePoints)
-                                        .map((p) => {
-                                            const isSelected = preGamePerk === p.id;
-                                            const copy = getPerkCopy(p.id);
-                                            // The doctrine is locked in before the draft and quietly sets the
-                                            // augment budget spent much later at placement, so the full
-                                            // what/costs/why lives on hover rather than only in the card.
-                                            const hover = copy ? (
-                                                <Box sx={{ maxWidth: 320, p: 0.5, display: "grid", gap: 0.75 }}>
-                                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                                        <PerkIcon perkId={p.id} size={38} />
-                                                        <Typography level="title-sm" sx={{ color: "common.white" }}>
-                                                            {p.name}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Typography level="body-xs" sx={{ color: "common.white" }}>
-                                                        {copy.detail}
-                                                    </Typography>
-                                                    <Typography level="body-xs" sx={{ color: hocColors.gold }}>
-                                                        {copy.budget}
-                                                    </Typography>
-                                                    <Typography
-                                                        level="body-xs"
-                                                        sx={{ color: "common.white", opacity: 0.85 }}
-                                                    >
-                                                        {copy.why}
-                                                    </Typography>
-                                                </Box>
-                                            ) : (
-                                                p.description
-                                            );
-                                            return (
-                                                <Tooltip
-                                                    key={p.id}
-                                                    title={hover}
-                                                    variant="soft"
-                                                    placement="top"
-                                                    arrow
-                                                    enterDelay={150}
-                                                    enterTouchDelay={0}
-                                                    sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
-                                                >
-                                                    <Sheet
-                                                        variant={isSelected ? "solid" : "outlined"}
-                                                        onClick={() => {
-                                                            setPreGamePerkState(p.id);
-                                                            setPreGamePerk(p.id);
-                                                        }}
-                                                        sx={{
-                                                            flex: 1,
-                                                            cursor: "pointer",
-                                                            position: "relative",
-                                                            borderColor: isSelected ? "primary.500" : "neutral.700",
-                                                            bgcolor: isSelected ? "primary.500" : "rgba(0,0,0,0.35)",
-                                                            boxShadow: isSelected
-                                                                ? "0 0 0 2px rgba(120,170,255,0.55), 0 0 18px rgba(120,170,255,0.35)"
-                                                                : "none",
-                                                            transition: "all 0.15s ease",
-                                                            borderRadius: "md",
-                                                            p: 1.25,
-                                                            minHeight: 84,
-                                                            display: "flex",
-                                                            flexDirection: "column",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            gap: 0.5,
-                                                            textAlign: "center",
-                                                            "&:hover": { borderColor: "primary.400" },
-                                                        }}
-                                                    >
-                                                        {isSelected && (
-                                                            <CheckCircleRoundedIcon
-                                                                sx={{
-                                                                    position: "absolute",
-                                                                    top: 4,
-                                                                    right: 4,
-                                                                    fontSize: 18,
-                                                                    color: "common.white",
-                                                                }}
-                                                            />
-                                                        )}
-                                                        <Box
-                                                            sx={{
-                                                                width: 58,
-                                                                height: 58,
-                                                                borderRadius: "50%",
-                                                                overflow: "hidden",
-                                                                boxShadow:
-                                                                    "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
-                                                            }}
-                                                        >
-                                                            <PerkIcon perkId={p.id} />
+                                    <Typography
+                                        level="title-sm"
+                                        sx={{
+                                            mb: 1.25,
+                                            color: hocColors.sidebarTitle,
+                                            fontFamily: hocDisplayFontFamily,
+                                            fontWeight: 400,
+                                            letterSpacing: "0.1em",
+                                            textAlign: "left",
+                                            textTransform: "uppercase",
+                                        }}
+                                    >
+                                        {t("Choose your doctrine")}
+                                    </Typography>
+                                    <Box
+                                        role="radiogroup"
+                                        aria-label={t("Choose your doctrine")}
+                                        sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: {
+                                                xs: "minmax(0, 1fr)",
+                                                sm: "repeat(3, minmax(0, 1fr))",
+                                            },
+                                            gap: { xs: 1, sm: 1.25 },
+                                        }}
+                                    >
+                                        {[...Doctrine.DOCTRINE_LIST]
+                                            .sort((a, b) => a.upgradePoints - b.upgradePoints)
+                                            .map((p) => {
+                                                const isSelected = preGameDoctrine === p.id;
+                                                const copy = getDoctrineCopy(p.id);
+                                                // The doctrine is locked in before the draft and quietly sets the
+                                                // augment budget spent much later at placement, so the full
+                                                // what/costs/why lives on hover rather than only in the card.
+                                                const hover = copy ? (
+                                                    <Box sx={{ maxWidth: 320, p: 0.5, display: "grid", gap: 0.75 }}>
+                                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                            <DoctrineIcon doctrineId={p.id} size={38} />
+                                                            <Typography level="title-sm" sx={{ color: "common.white" }}>
+                                                                {t(p.name)}
+                                                            </Typography>
                                                         </Box>
-                                                        <Typography level="title-md" sx={{ color: "common.white" }}>
-                                                            {p.name}
+                                                        <Typography level="body-xs" sx={{ color: "common.white" }}>
+                                                            {t(copy.detail)}
+                                                        </Typography>
+                                                        <Typography level="body-xs" sx={{ color: hocColors.gold }}>
+                                                            {t(copy.budget)}
                                                         </Typography>
                                                         <Typography
                                                             level="body-xs"
-                                                            sx={{ opacity: 0.8, color: "common.white" }}
+                                                            sx={{ color: "common.white", opacity: 0.85 }}
                                                         >
-                                                            {p.upgradePoints} upgrade pts
+                                                            {t(copy.why)}
                                                         </Typography>
-                                                        {copy && (
-                                                            <Typography
-                                                                level="body-xs"
+                                                    </Box>
+                                                ) : (
+                                                    t(p.description)
+                                                );
+                                                const selectDoctrine = (): void => {
+                                                    setPreGameDoctrineState(p.id);
+                                                    setPreGameDoctrine(p.id);
+                                                };
+                                                return (
+                                                    <Tooltip
+                                                        key={p.id}
+                                                        title={hover}
+                                                        variant="soft"
+                                                        placement="top"
+                                                        arrow
+                                                        enterDelay={150}
+                                                        enterTouchDelay={0}
+                                                        sx={{ maxWidth: 340, bgcolor: "rgba(12,14,18,0.97)" }}
+                                                    >
+                                                        <Sheet
+                                                            role="radio"
+                                                            aria-checked={isSelected}
+                                                            tabIndex={0}
+                                                            variant="outlined"
+                                                            onClick={selectDoctrine}
+                                                            onKeyDown={(event) => {
+                                                                if (event.key === "Enter" || event.key === " ") {
+                                                                    event.preventDefault();
+                                                                    selectDoctrine();
+                                                                }
+                                                            }}
+                                                            sx={{
+                                                                minWidth: 0,
+                                                                cursor: "pointer",
+                                                                position: "relative",
+                                                                borderColor: isSelected
+                                                                    ? hocColors.gold
+                                                                    : "rgba(112,75,42,0.68)",
+                                                                background: isSelected
+                                                                    ? "linear-gradient(180deg, rgba(122,68,5,0.96), rgba(47,25,4,0.98))"
+                                                                    : "linear-gradient(180deg, rgba(15,15,14,0.98), rgba(3,3,3,0.98))",
+                                                                boxShadow: isSelected
+                                                                    ? "0 0 0 1px rgba(220,177,88,0.34), 0 8px 22px rgba(0,0,0,0.56), inset 0 1px 0 rgba(255,227,166,0.12)"
+                                                                    : "0 7px 16px rgba(0,0,0,0.45), inset 0 0 14px rgba(0,0,0,0.5)",
+                                                                transition:
+                                                                    "border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease",
+                                                                borderRadius: "3px",
+                                                                p: { xs: 1.25, sm: 1.5 },
+                                                                minHeight: { xs: 132, sm: 160 },
+                                                                display: "flex",
+                                                                flexDirection: "column",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: 0.55,
+                                                                textAlign: "center",
+                                                                "&:hover": {
+                                                                    borderColor: hocColors.gold,
+                                                                    transform: "translateY(-2px)",
+                                                                    boxShadow:
+                                                                        "0 10px 24px rgba(0,0,0,0.58), 0 0 16px rgba(220,177,88,0.12)",
+                                                                },
+                                                                "&:focus-visible": {
+                                                                    outline: `2px solid ${hocColors.orange}`,
+                                                                    outlineOffset: "2px",
+                                                                },
+                                                            }}
+                                                        >
+                                                            {isSelected && (
+                                                                <CheckCircleRoundedIcon
+                                                                    sx={{
+                                                                        position: "absolute",
+                                                                        top: 8,
+                                                                        right: 8,
+                                                                        fontSize: 19,
+                                                                        color: hocColors.gold,
+                                                                        filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.8))",
+                                                                    }}
+                                                                />
+                                                            )}
+                                                            <Box
                                                                 sx={{
-                                                                    opacity: 0.72,
-                                                                    color: "common.white",
-                                                                    lineHeight: 1.25,
+                                                                    width: 62,
+                                                                    height: 62,
+                                                                    borderRadius: "50%",
+                                                                    overflow: "hidden",
+                                                                    boxShadow: isSelected
+                                                                        ? "0 0 0 2px rgba(220,177,88,.68), 0 4px 14px rgba(0,0,0,.62)"
+                                                                        : "0 0 0 1px rgba(204,161,91,.5), 0 3px 10px rgba(0,0,0,.52)",
                                                                 }}
                                                             >
-                                                                {copy.tagline}
+                                                                <DoctrineIcon doctrineId={p.id} />
+                                                            </Box>
+                                                            <Typography
+                                                                level="title-md"
+                                                                sx={{
+                                                                    color: hocColors.parchment,
+                                                                    fontFamily: hocDisplayFontFamily,
+                                                                    fontWeight: 400,
+                                                                    letterSpacing: "0.035em",
+                                                                }}
+                                                            >
+                                                                {t(p.name)}
                                                             </Typography>
-                                                        )}
-                                                    </Sheet>
-                                                </Tooltip>
-                                            );
-                                        })}
-                                </Stack>
+                                                            <Typography
+                                                                level="body-xs"
+                                                                sx={{ color: hocColors.gold, fontWeight: 700 }}
+                                                            >
+                                                                {tf("{count} upgrade pts", {
+                                                                    count: p.upgradePoints,
+                                                                })}
+                                                            </Typography>
+                                                            {copy && (
+                                                                <Typography
+                                                                    level="body-xs"
+                                                                    sx={{
+                                                                        color: hocColors.mutedStrong,
+                                                                        lineHeight: 1.3,
+                                                                    }}
+                                                                >
+                                                                    {t(copy.tagline)}
+                                                                </Typography>
+                                                            )}
+                                                        </Sheet>
+                                                    </Tooltip>
+                                                );
+                                            })}
+                                    </Box>
+                                </Box>
                             )}
 
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") && (
-                                <RankedBanPicker />
+                                <Sheet
+                                    variant="outlined"
+                                    sx={{
+                                        alignSelf: "stretch",
+                                        overflow: "hidden",
+                                        borderRadius: "3px",
+                                        borderColor: "rgba(112,75,42,0.62)",
+                                        background: "linear-gradient(180deg, rgba(21,21,19,0.94), rgba(6,6,6,0.96))",
+                                        boxShadow: "0 7px 18px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(150,130,98,0.1)",
+                                    }}
+                                >
+                                    <RankedBanPicker />
+                                    {/* No stake against a bot: a wager only forms when BOTH seats hold an intent and
+                                        the AI seat never sets one, so gold armed on the way into a vs-AI match can
+                                        never ride it — it just sits escrowed until a human turns up. Hence "idle"
+                                        and "error" but not "starting-ai". Calibration games never stake either: the
+                                        server refuses the intent until the player is placed. */}
+                                    {(state === "idle" || state === "error") && canStake ? (
+                                        <WagerStakeBox currency={currency} />
+                                    ) : null}
+                                </Sheet>
                             )}
-
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
                                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.15}>
                                     <Button
@@ -1077,11 +1515,18 @@ export const MatchmakingRoute: React.FC = () => {
                                         variant="solid"
                                         disabled={state === "starting-ai" || penalized}
                                         onClick={handleStart}
-                                        startDecorator={<PersonSearchRoundedIcon />}
+                                        startDecorator={<RankedSearchIcon sx={{ fontSize: 24 }} />}
                                         endDecorator={!penalized ? <ArrowForwardRoundedIcon /> : undefined}
-                                        sx={{ ...hocPrimaryButtonSx, minHeight: 54, fontSize: "0.96rem" }}
+                                        sx={{
+                                            ...hocActionPrimaryButtonSx,
+                                            minHeight: 58,
+                                            fontFamily: hocDisplayFontFamily,
+                                            fontSize: "0.92rem",
+                                        }}
                                     >
-                                        {penalized ? `Search again in ${penaltySeconds}s` : "Find ranked opponent"}
+                                        {penalized
+                                            ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
+                                            : t("Find ranked opponent")}
                                     </Button>
                                     <Button
                                         fullWidth
@@ -1089,12 +1534,29 @@ export const MatchmakingRoute: React.FC = () => {
                                         loading={state === "starting-ai"}
                                         disabled={state === "starting-ai"}
                                         onClick={handlePlayAi}
-                                        startDecorator={<SmartToyRoundedIcon />}
-                                        sx={{ ...hocSoftButtonSx, minHeight: 54, fontSize: "0.96rem" }}
+                                        startDecorator={<PracticeAiIcon sx={{ fontSize: 24 }} />}
+                                        sx={{
+                                            ...hocActionSoftButtonSx,
+                                            minHeight: 58,
+                                            fontFamily: hocDisplayFontFamily,
+                                            fontSize: "0.92rem",
+                                        }}
                                     >
-                                        Practice vs AI
+                                        {t("Practice vs AI")}
                                     </Button>
                                 </Stack>
+                            ) : null}
+
+                            {/* Open lobbies live right here rather than behind a separate browse screen: a
+                                player who does not want the ranked queue can see a human is already
+                                waiting without navigating away from the arena. */}
+                            {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
+                                <Box sx={{ pt: 0.5 }}>
+                                    {/* Its own box, and only when somebody is actually waiting: an empty
+                                        "no open lobbies" card is column space spent on absence. The browse
+                                        button above still reaches the full list and the create control. */}
+                                    <PublicLobbiesPanel dense boxed hideWhenEmpty hideCreate />
+                                </Box>
                             ) : null}
 
                             {state === "searching" ? (
@@ -1104,7 +1566,7 @@ export const MatchmakingRoute: React.FC = () => {
                                     onClick={handleCancel}
                                     sx={{ ...hocSoftButtonSx, minHeight: 52 }}
                                 >
-                                    Leave ranked queue
+                                    {t("Leave ranked queue")}
                                 </Button>
                             ) : null}
 
@@ -1142,13 +1604,15 @@ export const MatchmakingRoute: React.FC = () => {
                                         },
                                     }}
                                 >
-                                    {state === "accepted" ? "Match accepted" : "Accept ranked match"}
+                                    {state === "accepted" ? t("Match accepted") : t("Accept ranked match")}
                                 </Button>
                             ) : null}
 
                             {penalized && (
                                 <Alert variant="soft" color="warning" sx={{ textAlign: "left" }}>
-                                    You didn&apos;t accept the last match. You can search again in {penaltySeconds}s.
+                                    {tf("You didn't accept the last match. You can search again in {seconds}s.", {
+                                        seconds: penaltySeconds,
+                                    })}
                                 </Alert>
                             )}
 
@@ -1164,14 +1628,30 @@ export const MatchmakingRoute: React.FC = () => {
                                     title={pendingGameId}
                                     sx={{ color: "rgba(239,228,204,0.4)", letterSpacing: "0.08em" }}
                                 >
-                                    MATCH REF · {shortGameId}
+                                    {t("MATCH REF")} · {shortGameId}
                                 </Typography>
                             )}
                         </Stack>
                     </Box>
                 </Sheet>
 
-                <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                {profileSummaryOpen && (
+                    <Box id="ranked-profile-summary" sx={{ minWidth: 0 }}>
+                        <PlayerPortalSidebar navigationDisabled={navigationLocked} />
+                    </Box>
+                )}
+
+                {/* The room belongs to the arena, not to the queue card — nesting it inside the card made
+                    a conversation look like one more step of matchmaking, and it inherited the card's
+                    narrow column. Spanning every grid column keeps it below both the card and the stats
+                    sidebar whichever of them is open. Mounted through EVERY queue state on purpose:
+                    waiting in the search queue is prime talking time, and a room that vanishes when you
+                    press Find reads as a bug (it once did, via a state gate that hid it mid-search). */}
+                {!needsActivation ? (
+                    <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                        <ArenaChatPanel selfUsername={user?.username} />
+                    </Box>
+                ) : null}
             </Box>
         </Box>
     );

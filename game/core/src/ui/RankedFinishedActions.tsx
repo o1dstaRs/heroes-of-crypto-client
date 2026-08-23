@@ -1,4 +1,5 @@
 import React from "react";
+import { t, useTranslation } from "../i18n/i18n";
 
 /**
  * Top-left post-match actions, shown on a FINISHED ranked board (for the participating player, not
@@ -53,43 +54,46 @@ export const RankedFinishedActions: React.FC<{
     error?: string;
     onPlayAnother: () => void;
     onHome: () => void;
-}> = ({ left = 16, playAnotherLabel = "Play another", playAnotherBusy, error, onPlayAnother, onHome }) => (
-    <div
-        style={{
-            position: "absolute",
-            left,
-            top: 16,
-            zIndex: 9999,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            pointerEvents: "none",
-        }}
-    >
-        <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
-            <FinishedActionButton
-                label={playAnotherBusy ? "Starting…" : playAnotherLabel}
-                primary
-                disabled={playAnotherBusy}
-                onClick={onPlayAnother}
-            />
-            <FinishedActionButton label="Home screen" onClick={onHome} />
+}> = ({ left = 16, playAnotherLabel = "Play another", playAnotherBusy, error, onPlayAnother, onHome }) => {
+    useTranslation();
+    return (
+        <div
+            style={{
+                position: "absolute",
+                left,
+                top: 16,
+                zIndex: 9999,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                pointerEvents: "none",
+            }}
+        >
+            <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
+                <FinishedActionButton
+                    label={playAnotherBusy ? t("Starting…") : t(playAnotherLabel)}
+                    primary
+                    disabled={playAnotherBusy}
+                    onClick={onPlayAnother}
+                />
+                <FinishedActionButton label={t("Home screen")} onClick={onHome} />
+            </div>
+            {error && (
+                <span
+                    style={{
+                        pointerEvents: "auto",
+                        maxWidth: 320,
+                        color: "#ff8a8a",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+                    }}
+                >
+                    {error}
+                </span>
+            )}
         </div>
-        {error && (
-            <span
-                style={{
-                    pointerEvents: "auto",
-                    maxWidth: 320,
-                    color: "#ff8a8a",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
-                }}
-            >
-                {error}
-            </span>
-        )}
-    </div>
-);
+    );
+};
 
 export default RankedFinishedActions;

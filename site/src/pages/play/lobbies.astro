@@ -16,7 +16,7 @@ const configuredGameClientUrls = [
     .filter(Boolean)
     .map((url) => clientRoot(String(url)));
 const fallbackGameClientUrls = isProd
-    ? ["https://game.heroesofcrypto.io"]
+    ? ["https://app.heroesofcrypto.io"]
     : [
           "http://127.0.0.1:5175",
           "http://localhost:5175",
@@ -25,28 +25,35 @@ const fallbackGameClientUrls = isProd
           "http://127.0.0.1:5173",
           "http://localhost:5173",
       ];
-const gameClientRoots = [...new Set([...configuredGameClientUrls, ...fallbackGameClientUrls])];
+// An EXPLICIT VITE_GAME_CLIENT* build wins outright rather than being a suggestion: a staging
+// build that still carried the production URL as a fallback would quietly send testers to prod.
+const gameClientRoots = configuredGameClientUrls.length
+    ? [...new Set(configuredGameClientUrls)]
+    : [...new Set(fallbackGameClientUrls)];
 const fallbackUrl = `${gameClientRoots[0]}/lobbies`;
 ---
 
 <BaseLayout lang={lang} title="Play with friends" description="Open Heroes of Crypto custom-game lobbies.">
-    <section class="redirect-page">
+    <section class="redirect-page" data-lobbies-redirect data-game-client-roots={JSON.stringify(gameClientRoots)}>
         <h1>Opening lobbies</h1>
         <p>Redirecting to Heroes of Crypto lobbies.</p>
         <p><a href={fallbackUrl}>Open lobbies</a></p>
     </section>
 </BaseLayout>
 
-<script define:vars={{ gameClientRoots }}>
+<script>
+    import { withGameAuthToken } from "../../lib/auth-handoff";
+
     const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+    const redirectPage = document.querySelector<HTMLElement>("[data-lobbies-redirect]");
+    const gameClientRoots = JSON.parse(redirectPage?.dataset.gameClientRoots ?? "[]") as string[];
 
     // A specific lobby (?lobby=<id>) deep-links into that lobby room; otherwise open the browse list.
     const params = new URLSearchParams(window.location.search);
     const lobbyId = params.get("lobby");
     const subPath = lobbyId ? `/lobby/${encodeURIComponent(lobbyId)}` : "/lobbies";
 
-    function targetWithToken(root) {
-        const token = localStorage.getItem("accessToken");
+    function targetWithToken(root: string): URL {
         const target = new URL(`${root}${subPath}`, window.location.href);
 
         for (const [key, value] of params) {
@@ -54,30 +61,10 @@ const fallbackUrl = `${gameClientRoots[0]}/lobbies`;
             target.searchParams.set(key, value);
         }
 
-        // Carry the music volume across the origin boundary. The game client is a different origin, so it
-        // cannot read this site's localStorage — without this the player sets the volume here and the lobby
-        // screen next door starts over at the default. Keys match ThemeMusic.astro and the client's
-        // themeMusic module; absent values simply mean "never set one", so the client keeps its own.
-        try {
-            const storedVolume = localStorage.getItem("hoc:themeVolume");
-            if (storedVolume !== null) {
-                target.searchParams.set("vol", storedVolume);
-                target.searchParams.set("muted", localStorage.getItem("hoc:themeMuted") === "1" ? "1" : "0");
-            }
-        } catch {
-            // Storage unavailable — the client falls back to its own stored setting or the default.
-        }
-
-        if (token) {
-            const hashParams = new URLSearchParams(target.hash.startsWith("#") ? target.hash.slice(1) : target.hash);
-            hashParams.set("access_token", token);
-            target.hash = hashParams.toString();
-        }
-
-        return target;
+        return withGameAuthToken(target);
     }
 
-    async function canReach(url) {
+    async function canReach(url: string): Promise<boolean> {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 700);
         try {
@@ -90,14 +77,14 @@ const fallbackUrl = `${gameClientRoots[0]}/lobbies`;
         }
     }
 
-    async function resolveTarget() {
+    async function resolveTarget(): Promise<URL> {
         for (const root of gameClientRoots) {
             const candidate = targetWithToken(root);
             if (candidate.href === window.location.href) continue;
             if (!localHosts.has(candidate.hostname)) return candidate;
             if (!localHosts.has(window.location.hostname) || (await canReach(candidate.href))) return candidate;
         }
-        return targetWithToken(gameClientRoots[0]);
+        return targetWithToken(gameClientRoots[0] ?? window.location.origin);
     }
 
     resolveTarget().then((target) => window.location.replace(target.toString()));

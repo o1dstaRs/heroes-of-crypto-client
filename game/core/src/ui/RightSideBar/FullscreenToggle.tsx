@@ -4,6 +4,7 @@ import Tooltip from "@mui/joy/Tooltip";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import { hocColors } from "../hocTheme";
+import { t, useTranslation } from "../../i18n/i18n";
 
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
 
@@ -12,6 +13,7 @@ import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../ful
  * collapse arrows to exit. Styled to match the sidebar's orange accent.
  */
 export const FullscreenToggle: React.FC = () => {
+    useTranslation();
     const [isFullscreen, setIsFullscreen] = useState<boolean>(isFullscreenActive());
 
     useEffect(() => onFullscreenChange(() => setIsFullscreen(isFullscreenActive())), []);
@@ -21,7 +23,7 @@ export const FullscreenToggle: React.FC = () => {
     const Icon = isFullscreen ? FullscreenExitIcon : FullscreenIcon;
 
     return (
-        <Tooltip title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} placement="top" size="sm" variant="soft">
+        <Tooltip title={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")} placement="top" size="sm" variant="soft">
             <Box
                 onClick={toggle}
                 sx={{

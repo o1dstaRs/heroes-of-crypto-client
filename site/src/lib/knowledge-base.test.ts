@@ -16,7 +16,9 @@ import { abilities, allUnits } from "./units-data";
 describe("knowledge base index", () => {
     test("covers every catalog record and keeps stable unique targets", () => {
         const entries = buildKnowledgeEntries("en");
-        expect(entries).toHaveLength(10 + allUnits.length + abilities.length + spells.length + artifacts.length);
+        // 11 hand-written rules topics (match flow, winning, draft, unit stats, augments, doctrines,
+        // synergies, placement, turns, morale, maps) plus one entry per catalog record.
+        expect(entries).toHaveLength(11 + allUnits.length + abilities.length + spells.length + artifacts.length);
         expect(new Set(entries.map((entry) => entry.key)).size).toBe(entries.length);
         expect(new Set(entries.map((entry) => knowledgeEntryId(entry.section, entry.target))).size).toBe(
             entries.length,

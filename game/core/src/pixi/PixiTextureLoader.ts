@@ -3,9 +3,10 @@ import { images as rawImages } from "../imageAssets";
 
 // Decode textures via <img> instead of createImageBitmap. Chrome intermittently throws
 // "InvalidStateError: The source image could not be decoded" from createImageBitmap when many large
-// WebP atlases decode concurrently — and our core bundle preloads every `_atlas_quarter` at once, so a
-// single flaky decode aborts the whole bundle and blocks init. The <img> path (img.decode()) is a hair
-// slower but reliable and still off the main thread, with no createImageBitmap/worker concurrency flake.
+// WebP atlases decode concurrently — a single flaky decode aborts the whole bundle (historically the
+// core bundle carried every `_atlas_quarter`; today the supplementary bundle still decodes hundreds of
+// atlases at once). The <img> path (img.decode()) is a hair slower but reliable and still off the main
+// thread, with no createImageBitmap/worker concurrency flake.
 if (loadTextures.config) {
     loadTextures.config.preferWorkers = false;
     loadTextures.config.preferCreateImageBitmap = false;

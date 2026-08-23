@@ -2,13 +2,17 @@ import { TeamType } from "@heroesofcrypto/common";
 import { createContext, useContext } from "react";
 
 export interface IPickPhaseEventData {
+    // Authoritative position in the server's pick-phase order. New servers send this even when two
+    // adjacent steps share the same PickPhaseVals value and actor (for example UPPER's L1 -> L2 picks).
+    // Optional so a newer client can still draft against a server that predates the field.
+    ps?: number;
     // offered bundles for THIS player during INITIAL_PICK: each [l1Creature, l2Creature, tier1ArtifactId]
     ip: [number, number, number][];
     // Tier-2 artifacts offered to THIS player during ARTIFACT_2 (3 distinct ids of 12); empty otherwise.
     t2?: number[];
-    // perk chosen by THIS player (0 = not chosen)
+    // doctrine chosen by THIS player (0 = not chosen)
     pk?: number;
-    // upgrade (augment) point budget granted by THIS player's perk
+    // upgrade (augment) point budget granted by THIS player's doctrine
     up?: number;
     // required creature level for the current PICK phase (0 for non-pick phases)
     lv?: number;
@@ -41,6 +45,25 @@ export interface IPickPhaseEventData {
     mt?: number;
 }
 
+export type PickPhaseIdentityInput = Pick<IPickPhaseEventData, "ps" | "pp" | "a" | "lv">;
+
+/**
+ * Stable identity for one concrete step in the draft, not merely its broad phase enum.
+ *
+ * `PICK` repeats throughout the draft, including adjacent steps owned by the same player. Using only
+ * `pp` therefore leaves one-shot UI submission locks stuck across those boundaries. Prefer the server's
+ * phase sequence when available; the legacy tuple remains unique for the current live pick order because
+ * each repeated PICK step is distinguished by required level and actor.
+ */
+export const pickPhaseIdentity = ({ ps, pp, a, lv }: PickPhaseIdentityInput): string => {
+    if (Number.isSafeInteger(ps) && (ps as number) >= 0) {
+        return `sequence:${ps}`;
+    }
+
+    const actors = [...a].sort((left, right) => left - right).join(",");
+    return `legacy:${pp}:${lv ?? 0}:${actors}`;
+};
+
 // Context for SSE and pick/ban state
 export interface PickBanContextType {
     isConnected: boolean;
@@ -54,14 +77,16 @@ export interface PickBanContextType {
     isYourTurn: boolean | null;
     isAbandoned: boolean | null;
     pickPhase: number;
+    // Concrete draft step identity. Unlike pickPhase, this changes across adjacent PICK steps.
+    phaseIdentity: string;
     secondsRemaining: number;
     revealsRemaining: number;
     // Bundles offered to this player: [l1, l2, tier1ArtifactId].
     initialBundles: [number, number, number][];
     // Tier-2 artifacts offered to this player during ARTIFACT_2 (3 distinct ids of 12).
     tier2Offers: number[];
-    // This player's chosen perk (0 = none) and its upgrade-point budget.
-    perk: number;
+    // This player's chosen doctrine (0 = none) and its upgrade-point budget.
+    doctrine: number;
     upgradePoints: number;
     // This player's own picked artifacts so far (Tier1Artifact/Tier2Artifact enum ids; 0 = none yet).
     artifactTier1: number;
@@ -88,9 +113,10 @@ export const PickBanContext = createContext<PickBanContextType>({
     isYourTurn: null,
     isAbandoned: null,
     pickPhase: -1,
+    phaseIdentity: "pending",
     initialBundles: [],
     tier2Offers: [],
-    perk: 0,
+    doctrine: 0,
     upgradePoints: 0,
     artifactTier1: 0,
     artifactTier2: 0,

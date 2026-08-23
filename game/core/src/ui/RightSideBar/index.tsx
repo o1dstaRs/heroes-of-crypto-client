@@ -27,6 +27,7 @@ import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
+import { t, useTranslation } from "../../i18n/i18n";
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -63,6 +64,7 @@ export default function RightSideBar({
     showWallet?: boolean;
     onClose?: () => void;
 }) {
+    useTranslation();
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
@@ -74,9 +76,19 @@ export default function RightSideBar({
     // publishes WHERE it should appear, and ThemeMusic portals it in. See ui/audio/volumeSlot.
     const volumeSlotRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
+        // Signed-in players get sound as the fourth uniform SocialDock control. Anonymous sandbox play
+        // has no SocialDock, so it keeps this footer fallback.
+        if (authenticated) {
+            return undefined;
+        }
         setVolumeSlot(volumeSlotRef.current);
         return () => setVolumeSlot(null);
-    }, []);
+    }, [authenticated]);
+    const socialDockSlotRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        setSocialDockSlot(gameStarted ? socialDockSlotRef.current : null);
+        return () => setSocialDockSlot(null);
+    }, [gameStarted]);
 
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);
@@ -276,12 +288,12 @@ export default function RightSideBar({
                 // Keep the Sandbox shell and its footer fixed; FightControlToggler owns the localized scroll
                 // fallback when a player deliberately opens more setup tools than the viewport can hold.
                 // Combat/ranked screens can still scroll here when their server-provided panels exceed it.
-                overflowY: !gameStarted ? "hidden" : "auto",
+                overflowY: !gameStarted && !rankedPanel ? "hidden" : "auto",
                 overflowX: "hidden", // Prevent horizontal scrolling
                 // Reserve the scrollbar lane even while the short/collapsed layout does not need it.
                 // Otherwise opening an augment makes the scrollbar appear, steals width, and visibly
                 // jerks every 9-slice container frame and its right rail to the left.
-                scrollbarGutter: !gameStarted ? "auto" : "stable",
+                scrollbarGutter: !gameStarted && !rankedPanel ? "auto" : "stable",
                 // Same ground as the left bar.
                 // The base remains fully opaque. Only the brown inner sheet and READY plate above it are
                 // translucent, so they reveal the mirrored left-deck stone rather than map fog/blackness.
@@ -449,7 +461,7 @@ export default function RightSideBar({
                                             color: hocColors.gold,
                                         }}
                                     >
-                                        DAMAGE
+                                        {t("DAMAGE")}
                                     </Typography>
                                 </Box>
                                 <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -556,25 +568,75 @@ export default function RightSideBar({
                                     }
                                 }}
                                 sx={{
-                                    ...hocSidebarImageButtonSx("danger"),
                                     justifySelf: "center",
                                     width: "min(100%, 209px)",
-                                    height: "35.2px",
-                                    minHeight: "35.2px",
-                                    px: 1,
-                                    backgroundSize: "100% 100%",
-                                    fontSize: "0.924rem",
-                                    fontWeight: 880,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.5,
                                 }}
                             >
-                                EXIT FIGHT
-                            </Button>
+                                <Button
+                                    variant="soft"
+                                    color="success"
+                                    // Same reset the fight-finished overlay's "+ NEW BATTLE" runs, but
+                                    // available MID-FIGHT: wipe the board state and rebuild the sandbox
+                                    // back at a fresh placement.
+                                    onClick={() => manager.StartOver()}
+                                    sx={{
+                                        ...hocSidebarImageButtonSx("primary"),
+                                        width: "100%",
+                                        height: "35.2px",
+                                        minHeight: "35.2px",
+                                        px: 1,
+                                        backgroundSize: "100% 100%",
+                                        fontSize: "0.924rem",
+                                        fontWeight: 880,
+                                    }}
+                                >
+                                    {t("NEW BATTLE")}
+                                </Button>
+                                <Button
+                                    variant="soft"
+                                    color="danger"
+                                    // Sandbox exit: an anonymous player has nothing behind /play but the login
+                                    // gate, so leaving the fight just resets the sandbox to a fresh placement
+                                    // (start over). A signed-in player keeps the trip to the play hub.
+                                    onClick={() => {
+                                        if (authenticated) {
+                                            navigate("/play");
+                                        } else {
+                                            manager.StartOver();
+                                        }
+                                    }}
+                                    sx={{
+                                        ...hocSidebarImageButtonSx("danger"),
+                                        width: "100%",
+                                        height: "35.2px",
+                                        minHeight: "35.2px",
+                                        px: 1,
+                                        backgroundSize: "100% 100%",
+                                        fontSize: "0.924rem",
+                                        fontWeight: 880,
+                                    }}
+                                >
+                                    {t("EXIT FIGHT")}
+                                </Button>
+                            </Box>
                         ) : (
                             <Box />
                         )}
                         <Box
-                            ref={volumeSlotRef}
-                            sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", minWidth: 0 }}
+                            ref={authenticated ? undefined : volumeSlotRef}
+                            sx={{
+                                position: "relative",
+                                width: 32,
+                                height: 32,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "flex-end",
+                                minWidth: 0,
+                                overflow: "visible",
+                            }}
                         />
                     </Box>
                 </List>

@@ -1,15 +1,5 @@
-import {
-    Alert,
-    Box,
-    Button,
-    CircularProgress,
-    Divider,
-    Modal,
-    ModalDialog,
-    Stack,
-    Textarea,
-    Typography,
-} from "@mui/joy";
+import { Alert, Box, Button, CircularProgress, Divider, Stack, Textarea, Typography } from "@mui/joy";
+import { DockPanelShell } from "./DockPanelShell";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -27,7 +17,6 @@ import {
     hocColors,
     hocDangerAlertSx,
     hocInputSx,
-    hocPanelSx,
     hocPrimaryButtonSx,
     hocSoftButtonSx,
     hocSpinnerSx,
@@ -202,152 +191,147 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({ friend, on
     const activeFriend = conversation?.friend ?? friend;
 
     return (
-        <Modal open={!!friend} onClose={onClose}>
-            <ModalDialog
-                variant="outlined"
-                sx={{ ...hocPanelSx, width: 540, maxWidth: "96vw", height: "min(720px, 88vh)", p: 0 }}
-            >
-                <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 2, py: 1.5 }}>
-                    <Box
-                        sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            bgcolor: activeFriend?.online ? hocColors.green : "rgba(239, 228, 204, 0.25)",
-                            boxShadow: activeFriend?.online ? `0 0 7px ${hocColors.green}` : "none",
-                        }}
-                    />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography level="title-lg" noWrap sx={{ color: hocColors.gold }}>
-                            {activeFriend?.username ?? "Conversation"}
-                        </Typography>
-                        <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                            {activeFriend?.online ? "Online" : formatLastSeen(activeFriend?.lastOnlineAt ?? 0)}
-                        </Typography>
-                    </Box>
-                    <Button
-                        size="sm"
-                        variant="outlined"
-                        disabled={muting || !conversation}
-                        sx={hocSoftButtonSx}
-                        onClick={() => void toggleMuted()}
-                    >
-                        {activeFriend?.muted ? "Unmute alerts" : "Mute alerts"}
-                    </Button>
-                    <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={onClose}>
-                        Close
-                    </Button>
-                </Stack>
-                <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
-
-                {error ? (
-                    <Alert size="sm" sx={{ ...hocDangerAlertSx, mx: 1.5, mt: 1 }}>
-                        {error}
-                    </Alert>
-                ) : null}
-
+        <DockPanelShell open={!!friend} onClose={onClose} width={520}>
+            <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 2, py: 1.5 }}>
                 <Box
-                    ref={messageListRef}
                     sx={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflowY: "auto",
-                        px: 1.5,
-                        py: 1.25,
-                        bgcolor: "rgba(5, 4, 3, 0.28)",
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: activeFriend?.online ? hocColors.green : "rgba(239, 228, 204, 0.25)",
+                        boxShadow: activeFriend?.online ? `0 0 7px ${hocColors.green}` : "none",
                     }}
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography level="title-lg" noWrap sx={{ color: hocColors.gold }}>
+                        {activeFriend?.username ?? "Conversation"}
+                    </Typography>
+                    <Typography level="body-xs" sx={{ color: hocColors.muted }}>
+                        {activeFriend?.online ? "Online" : formatLastSeen(activeFriend?.lastOnlineAt ?? 0)}
+                    </Typography>
+                </Box>
+                <Button
+                    size="sm"
+                    variant="outlined"
+                    disabled={muting || !conversation}
+                    sx={hocSoftButtonSx}
+                    onClick={() => void toggleMuted()}
                 >
-                    {loading ? (
-                        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                            <CircularProgress size="sm" sx={hocSpinnerSx} />
-                        </Box>
-                    ) : conversation?.messages.length ? (
-                        <Stack spacing={0.8}>
-                            {conversation.hasMore ? (
-                                <Button
-                                    size="sm"
-                                    variant="plain"
-                                    loading={loadingOlder}
-                                    sx={{ color: hocColors.muted, alignSelf: "center" }}
-                                    onClick={() => void loadOlder()}
+                    {activeFriend?.muted ? "Unmute alerts" : "Mute alerts"}
+                </Button>
+                <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={onClose}>
+                    Close
+                </Button>
+            </Stack>
+            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+
+            {error ? (
+                <Alert size="sm" sx={{ ...hocDangerAlertSx, mx: 1.5, mt: 1 }}>
+                    {error}
+                </Alert>
+            ) : null}
+
+            <Box
+                ref={messageListRef}
+                sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: "auto",
+                    px: 1.5,
+                    py: 1.25,
+                    bgcolor: "rgba(5, 4, 3, 0.28)",
+                }}
+            >
+                {loading ? (
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                        <CircularProgress size="sm" sx={hocSpinnerSx} />
+                    </Box>
+                ) : conversation?.messages.length ? (
+                    <Stack spacing={0.8}>
+                        {conversation.hasMore ? (
+                            <Button
+                                size="sm"
+                                variant="plain"
+                                loading={loadingOlder}
+                                sx={{ color: hocColors.muted, alignSelf: "center" }}
+                                onClick={() => void loadOlder()}
+                            >
+                                Load older messages
+                            </Button>
+                        ) : null}
+                        {conversation.messages.map((message) => {
+                            const incoming = message.senderId === activeFriend?.playerId;
+                            return (
+                                <Box
+                                    key={message.id}
+                                    sx={{
+                                        alignSelf: incoming ? "flex-start" : "flex-end",
+                                        maxWidth: "82%",
+                                        px: 1.2,
+                                        py: 0.8,
+                                        borderRadius: incoming ? "4px 12px 12px" : "12px 4px 12px 12px",
+                                        bgcolor: incoming ? hocColors.panelSoft : hocColors.orangeSoft,
+                                        border: `1px solid ${incoming ? "rgba(255,143,0,0.15)" : hocColors.orangeBorder}`,
+                                    }}
                                 >
-                                    Load older messages
-                                </Button>
-                            ) : null}
-                            {conversation.messages.map((message) => {
-                                const incoming = message.senderId === activeFriend?.playerId;
-                                return (
-                                    <Box
-                                        key={message.id}
+                                    <Typography
+                                        level="body-sm"
                                         sx={{
-                                            alignSelf: incoming ? "flex-start" : "flex-end",
-                                            maxWidth: "82%",
-                                            px: 1.2,
-                                            py: 0.8,
-                                            borderRadius: incoming ? "4px 12px 12px" : "12px 4px 12px 12px",
-                                            bgcolor: incoming ? hocColors.panelSoft : hocColors.orangeSoft,
-                                            border: `1px solid ${incoming ? "rgba(255,143,0,0.15)" : hocColors.orangeBorder}`,
+                                            color: hocColors.parchment,
+                                            whiteSpace: "pre-wrap",
+                                            overflowWrap: "anywhere",
                                         }}
                                     >
-                                        <Typography
-                                            level="body-sm"
-                                            sx={{
-                                                color: hocColors.parchment,
-                                                whiteSpace: "pre-wrap",
-                                                overflowWrap: "anywhere",
-                                            }}
-                                        >
-                                            {message.body}
-                                        </Typography>
-                                        <Typography
-                                            level="body-xs"
-                                            sx={{ color: hocColors.muted, textAlign: "right", mt: 0.25 }}
-                                        >
-                                            {new Date(message.createdAt).toLocaleTimeString([], {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                            })}
-                                            {!incoming && message.readAt > 0 ? " · Read" : ""}
-                                        </Typography>
-                                    </Box>
-                                );
-                            })}
-                        </Stack>
-                    ) : (
-                        <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "center", py: 4 }}>
-                            No messages yet. Say hello to {activeFriend?.username}.
-                        </Typography>
-                    )}
-                </Box>
+                                        {message.body}
+                                    </Typography>
+                                    <Typography
+                                        level="body-xs"
+                                        sx={{ color: hocColors.muted, textAlign: "right", mt: 0.25 }}
+                                    >
+                                        {new Date(message.createdAt).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                        {!incoming && message.readAt > 0 ? " · Read" : ""}
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
+                    </Stack>
+                ) : (
+                    <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "center", py: 4 }}>
+                        No messages yet. Say hello to {activeFriend?.username}.
+                    </Typography>
+                )}
+            </Box>
 
-                <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
-                <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ p: 1.5 }}>
-                    <Textarea
-                        minRows={2}
-                        maxRows={4}
-                        slotProps={{ textarea: { maxLength: 500 } }}
-                        placeholder={`Message ${activeFriend?.username ?? "friend"}…`}
-                        value={draft}
-                        disabled={!conversation || sending}
-                        sx={{ ...hocInputSx, flex: 1 }}
-                        onChange={(event) => setDraft(event.target.value)}
-                        onKeyDown={(event) => {
-                            if (event.key === "Enter" && !event.shiftKey) {
-                                event.preventDefault();
-                                void submit();
-                            }
-                        }}
-                    />
-                    <Button
-                        disabled={!conversation || !draft.trim() || sending}
-                        loading={sending}
-                        sx={hocPrimaryButtonSx}
-                        onClick={() => void submit()}
-                    >
-                        Send
-                    </Button>
-                </Stack>
-            </ModalDialog>
-        </Modal>
+            <Divider sx={{ bgcolor: hocColors.orangeBorder }} />
+            <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ p: 1.5 }}>
+                <Textarea
+                    minRows={2}
+                    maxRows={4}
+                    slotProps={{ textarea: { maxLength: 500 } }}
+                    placeholder={`Message ${activeFriend?.username ?? "friend"}…`}
+                    value={draft}
+                    disabled={!conversation || sending}
+                    sx={{ ...hocInputSx, flex: 1 }}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            void submit();
+                        }
+                    }}
+                />
+                <Button
+                    disabled={!conversation || !draft.trim() || sending}
+                    loading={sending}
+                    sx={hocPrimaryButtonSx}
+                    onClick={() => void submit()}
+                >
+                    Send
+                </Button>
+            </Stack>
+        </DockPanelShell>
     );
 };

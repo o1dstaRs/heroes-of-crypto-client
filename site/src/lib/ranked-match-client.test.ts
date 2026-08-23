@@ -16,6 +16,17 @@ const response = {
     reason: "normal",
     winnerPlayerId: lowerId,
     seasonSequence: 3,
+    season: {
+        sequence: 3,
+        name: "Ashfall",
+        startsAt: 100,
+        endsAt: 200,
+        currency: {
+            name: "Ember Shards",
+            symbol: "ES",
+            iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+        },
+    },
     players: [
         {
             playerId: lowerId,
@@ -56,8 +67,8 @@ const response = {
             { creatureId: 9, damageDealt: 50 },
         ],
         upperPerformers: [{ creatureId: 8, damageDealt: 320 }],
-        lowerSetup: { artifactTier1: 1, artifactTier2: 2, perk: 3, synergies: ["Life:1:2"] },
-        upperSetup: { artifactTier1: 3, artifactTier2: 4, perk: 1, synergies: ["Chaos:2:1"] },
+        lowerSetup: { artifactTier1: 1, artifactTier2: 2, doctrine: 3, synergies: ["Life:1:2"] },
+        upperSetup: { artifactTier1: 3, artifactTier2: 4, doctrine: 1, synergies: ["Chaos:2:1"] },
         setupRecorded: true,
         replayAvailable: true,
     },
@@ -82,13 +93,35 @@ describe("public ranked match normalization", () => {
             { creatureId: 9, damageDealt: 50 },
         ]);
         expect(match?.stats?.lowerSetup.augmentArmor).toBe(0);
+        expect(match?.season).toEqual({
+            sequence: 3,
+            name: "Ashfall",
+            startsAt: 100,
+            endsAt: 200,
+            currency: {
+                name: "Ember Shards",
+                symbol: "ES",
+                iconSvg: '<svg viewBox="0 0 8 8"><circle r="4"/></svg>',
+            },
+        });
     });
 
     test("keeps a ranked result usable when an older match has no report", () => {
-        const legacy = normalizePublicRankedMatch({ ...response, durationMs: undefined, stats: null });
+        const legacy = normalizePublicRankedMatch({
+            ...response,
+            durationMs: undefined,
+            season: undefined,
+            stats: null,
+        });
         expect(legacy?.durationMs).toBe(0);
         expect(legacy?.lowerCreatureIds).toEqual([1, 2]);
         expect(legacy?.stats).toBeNull();
+        expect(legacy?.season).toBeNull();
+    });
+
+    test("uses a nested public season sequence when the legacy flat field is absent", () => {
+        const match = normalizePublicRankedMatch({ ...response, seasonSequence: undefined });
+        expect(match?.seasonSequence).toBe(3);
     });
 
     test("rejects malformed game identities and incomplete seat pairs", () => {

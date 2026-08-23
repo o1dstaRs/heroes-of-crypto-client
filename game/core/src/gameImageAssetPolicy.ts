@@ -1,12 +1,10 @@
 import { open, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-export const MAX_STATIC_GAME_IMAGE_BYTES = 1_766_026;
-export const MAX_STATIC_GAME_IMAGE_BASELINE = "dungeon_volumetric_fog_v2.webp";
+export const MAX_STATIC_GAME_IMAGE_BYTES = 120_000;
 
 const IMAGE_FILE = /\.(?:apng|avif|bmp|gif|heic|heif|ico|jpe?g|png|psd|svg|tiff?|webp)$/i;
 const WEBP_FILE = /\.webp$/i;
-const ANIMATION_ATLAS_FILE = /_atlas(?:_(?:half|quarter))?\.webp$/i;
 
 export interface GameImageAssetMetadata {
     fileName: string;
@@ -20,10 +18,6 @@ export function isImageFile(fileName: string): boolean {
 
 export function isWebPFile(fileName: string): boolean {
     return WEBP_FILE.test(fileName);
-}
-
-export function isAnimationAtlasWebP(fileName: string): boolean {
-    return ANIMATION_ATLAS_FILE.test(fileName);
 }
 
 export function hasWebPHeader(header: Uint8Array): boolean {
@@ -57,11 +51,8 @@ export function validateGameImageAsset({ fileName, sizeBytes, header }: GameImag
         violations.push(`${fileName}: file contents are not a valid WebP container`);
     }
 
-    if (!isAnimationAtlasWebP(fileName) && sizeBytes > MAX_STATIC_GAME_IMAGE_BYTES) {
-        violations.push(
-            `${fileName}: ${sizeBytes} bytes exceeds the ${MAX_STATIC_GAME_IMAGE_BYTES}-byte static image limit ` +
-                `(baseline: ${MAX_STATIC_GAME_IMAGE_BASELINE})`,
-        );
+    if (sizeBytes > MAX_STATIC_GAME_IMAGE_BYTES) {
+        violations.push(`${fileName}: ${sizeBytes} bytes exceeds the ${MAX_STATIC_GAME_IMAGE_BYTES}-byte image limit`);
     }
 
     return violations;

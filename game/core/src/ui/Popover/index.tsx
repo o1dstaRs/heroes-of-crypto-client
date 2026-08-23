@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 
+import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo } from "../../scenes/VisibleState";
+import { spellElementStyle, type SpellElementStyle } from "../spellElementStyle";
 
 const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
     let levelEmoji = "";
@@ -72,18 +74,62 @@ const toRangeDivisorString = (hoverInfo: IHoverInfo): string => {
     return `🎯 ${hoverInfo.damageRangeDivisor}`;
 };
 
+/**
+ * The hovered spell's element, as a chip in that element's own colour.
+ *
+ * Elementless spells — which is most of the book — render nothing, so the card is unchanged for them.
+ */
+const spellElementChip = (style: SpellElementStyle): React.JSX.Element => {
+    return (
+        <span
+            style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                marginTop: "2px",
+                marginBottom: "2px",
+                padding: "1px 8px",
+                borderRadius: "999px",
+                border: `1px solid ${style.border}`,
+                background: style.background,
+                color: style.color,
+                fontFamily: HOC_GAME_FONT_FAMILY,
+                fontWeight: 800,
+                fontSize: "0.82em",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+            }}
+        >
+            <span aria-hidden="true">{style.mark}</span>
+            {style.label}
+        </span>
+    );
+};
+
 const generalInfoElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
     if (!hoverInfo.information?.length) {
         return <></>;
     }
 
+    // The element rides directly under the spell's NAME (the first line) — it changes who the spell can
+    // legally be aimed at, so it belongs with the title rather than buried under the body text.
+    const [title, ...rest] = hoverInfo.information;
+    const elementStyle = spellElementStyle(hoverInfo.spellElement);
+
     return (
         <>
             <span>
-                {hoverInfo.information.map((info, index) => (
+                {title}
+                {elementStyle ? (
+                    <>
+                        <br />
+                        {spellElementChip(elementStyle)}
+                    </>
+                ) : null}
+                {rest.map((info, index) => (
                     <React.Fragment key={index}>
+                        <br />
                         {info}
-                        {index < hoverInfo.information.length - 1 && <br />}
                     </React.Fragment>
                 ))}
             </span>

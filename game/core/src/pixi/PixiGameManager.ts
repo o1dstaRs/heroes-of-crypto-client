@@ -34,7 +34,7 @@ import type { UnitsOverlay } from "../scenes/UnitsOverlay";
 import { PixiApp } from "./PixiApp";
 // import { PixiSceneManager } from "./PixiSceneManager"; // Deprecated
 import { PreloadedPixiTextures } from "./PixiTextureLoader";
-import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
+import { displayedLoadingProgress, minimumLoadingScreenDurationMs } from "./loadingProgress";
 
 import "../scenes";
 import type { PixiScene, PixiSceneContext, SceneConstructor, SceneEntry } from "./PixiScene";
@@ -270,44 +270,47 @@ export class PixiGameManager {
         // Ensure it's on top of everything (UI container usually) but for now just add to stage
         stage.addChild(loadingScreen);
         const loadingScreenShownAt = performance.now();
+        const minimumDurationMs = minimumLoadingScreenDurationMs(this.sceneTitle);
         let actualLoadingProgress = 0;
-        let minimumDurationElapsed = false;
+        let minimumDurationElapsed = minimumDurationMs === 0;
         const renderLoadingProgress = (now = performance.now()) => {
             if (!isCurrentLifecycle() || !loadingScreen) return;
-            const elapsedMs = minimumDurationElapsed ? MINIMUM_LOADING_SCREEN_DURATION_MS : now - loadingScreenShownAt;
-            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs));
+            const elapsedMs = minimumDurationElapsed ? minimumDurationMs : now - loadingScreenShownAt;
+            loadingScreen.setProgress(displayedLoadingProgress(actualLoadingProgress, elapsedMs, minimumDurationMs));
         };
-        const minimumLoadingScreenDuration = new Promise<void>((resolve) => {
-            let animationFrameId = 0;
-            let fallbackTimeoutId = 0;
-            let completed = false;
+        const minimumLoadingScreenDuration = minimumDurationMs
+            ? new Promise<void>((resolve) => {
+                  let animationFrameId = 0;
+                  let fallbackTimeoutId = 0;
+                  let completed = false;
 
-            const finish = () => {
-                if (completed) return;
-                completed = true;
-                minimumDurationElapsed = true;
-                window.cancelAnimationFrame(animationFrameId);
-                window.clearTimeout(fallbackTimeoutId);
-                renderLoadingProgress();
-                resolve();
-            };
-            const animate = (now: number) => {
-                if (!isCurrentLifecycle() || !loadingScreen) {
-                    finish();
-                    return;
-                }
+                  const finish = () => {
+                      if (completed) return;
+                      completed = true;
+                      minimumDurationElapsed = true;
+                      window.cancelAnimationFrame(animationFrameId);
+                      window.clearTimeout(fallbackTimeoutId);
+                      renderLoadingProgress();
+                      resolve();
+                  };
+                  const animate = (now: number) => {
+                      if (!isCurrentLifecycle() || !loadingScreen) {
+                          finish();
+                          return;
+                      }
 
-                renderLoadingProgress(now);
-                if (now - loadingScreenShownAt >= MINIMUM_LOADING_SCREEN_DURATION_MS) {
-                    finish();
-                    return;
-                }
-                animationFrameId = window.requestAnimationFrame(animate);
-            };
+                      renderLoadingProgress(now);
+                      if (now - loadingScreenShownAt >= minimumDurationMs) {
+                          finish();
+                          return;
+                      }
+                      animationFrameId = window.requestAnimationFrame(animate);
+                  };
 
-            animationFrameId = window.requestAnimationFrame(animate);
-            fallbackTimeoutId = window.setTimeout(finish, MINIMUM_LOADING_SCREEN_DURATION_MS);
-        });
+                  animationFrameId = window.requestAnimationFrame(animate);
+                  fallbackTimeoutId = window.setTimeout(finish, minimumDurationMs);
+              })
+            : Promise.resolve();
 
         // 2. Load Core Assets (Blocking)
         // Ensure starting state
@@ -315,6 +318,7 @@ export class PixiGameManager {
         this.onLoadingChanged.emit(true);
 
         const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
+        const { isUnitAtlasAnimationEnabled } = await import("./PixiUnitsFactory");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
@@ -362,26 +366,24 @@ export class PixiGameManager {
 
         this.LoadGame();
 
-        // 5. Tier 2: Background Load Animations
-        // We can pass a callback to update UI if needed
-        preloadAnimationAssets((p) => {
-            if (!isCurrentLifecycle()) return;
-            // TODO: Emit signal to UI / Scene about progress
-            // For now just log
-            // console.log("Background Asset Load:", p);
-            this.m_scene?.onBackgroundAssetLoad?.(p);
-        }).then((newTextures) => {
-            if (!isCurrentLifecycle()) return;
-            this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
-            // Notify scene that assets are fully ready?
-            // Ideally Pixi handles texture updates automatically if we reference them by new Texture objects?
-            // Actually Pixi Assets cache uses string keys. If we request texture by name, it should appear.
-            // But existing Sprites showing "missing" texture won't auto-update unless re-assigned.
-            // However, separating "Core" vs "Anim" likely means TIER 2 assets are ONLY used for animations
-            // that trigger LATER. If user tries to play animation immediately, it might be missing.
-            // We'll rely on the fact that these are mostly specialized animations.
-            this.m_scene?.onBackgroundAssetLoad?.(1.0);
-        });
+        // 5. Tier 2: Background Load Animations — ONLY while the unit-atlas feature is actually on.
+        // With it owner-disabled, this download/decode of ~1,000 atlas WebPs ran DURING live fights
+        // and its decode bursts stole frame time from everything dt-driven (the live report was
+        // projectile flights hitching), warming textures nothing would render. Flipping
+        // UNIT_ATLAS_ANIMATION_ENABLED back on restores the supplementary load unchanged; any
+        // consumer that races it still lazy-resolves through texAny's raw-URL fallback.
+        if (isUnitAtlasAnimationEnabled()) {
+            preloadAnimationAssets((p) => {
+                if (!isCurrentLifecycle()) return;
+                this.m_scene?.onBackgroundAssetLoad?.(p);
+            }).then((newTextures) => {
+                if (!isCurrentLifecycle()) return;
+                this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
+                // Existing sprites created before the load won't auto-update, but Tier 2 assets are
+                // only used for animations triggered later; a race lazy-resolves via texAny.
+                this.m_scene?.onBackgroundAssetLoad?.(1.0);
+            });
+        }
 
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {
@@ -780,6 +782,15 @@ export class PixiGameManager {
         this.m_scene?.Destroy();
         this.started = false;
         this.lastAuthoritativeViewportKey = "";
+        if (_restartScene) {
+            // React sidebars outlive a Pixi scene replacement. Clear the last scene's selection
+            // explicitly so "New Battle" opens on the neutral, no-unit-selected state.
+            this.onSelectionCombined.emit({
+                unit: null,
+                impact: null,
+                faction: FactionVals.NO_FACTION as FactionType,
+            });
+        }
 
         const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
 
@@ -1066,6 +1077,7 @@ export class PixiGameManager {
                 unitLevel: this.m_scene.sc_hoverUnitLevel,
                 unitMovementType: this.m_scene.sc_hoverUnitMovementType,
                 information: this.m_scene.sc_hoverInfoArr,
+                spellElement: this.m_scene.sc_hoverSpellElement,
                 isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
                 meleeCursorDirection: this.m_scene.sc_meleeCursorDirection,
             });

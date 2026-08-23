@@ -76,7 +76,7 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
 <style is:global>
     .hero-ranked {
         position: relative;
-        width: min(100%, 510px);
+        width: min(100%, 520px);
         min-width: 0;
         justify-self: end;
         color: #efe4cc;
@@ -88,10 +88,10 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked::before {
         position: absolute;
         z-index: -1;
-        inset: 8% 7% 4%;
+        inset: 10% 4% 0;
         border-radius: 50%;
-        background: rgba(211, 50, 30, 0.2);
-        filter: blur(52px);
+        background: linear-gradient(135deg, rgba(255, 90, 63, 0.18), rgba(220, 177, 88, 0.12));
+        filter: blur(68px);
         content: "";
         pointer-events: none;
     }
@@ -100,33 +100,31 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         position: relative;
         display: grid;
         grid-template-rows: auto minmax(280px, 1fr) auto;
-        min-height: 500px;
+        min-height: 484px;
         overflow: hidden;
-        padding: 24px 26px 20px;
-        border: 26px solid transparent;
-        border-image-source: url("/assets/images/ui/pick_phase_ember_panel_frame_9slice.webp");
-        border-image-slice: 140 160;
-        border-image-width: 28px;
-        border-image-repeat: stretch;
+        padding: 28px 30px 24px;
+        border: 1px solid rgba(220, 177, 88, 0.16);
+        border-radius: 18px;
         background:
-            linear-gradient(180deg, rgba(36, 20, 11, 0.84), rgba(6, 6, 6, 0.97) 38%),
-            radial-gradient(circle at 50% 0, rgba(255, 90, 63, 0.11), transparent 45%), rgba(14, 9, 5, 0.96);
+            radial-gradient(circle at 8% 0, rgba(255, 90, 63, 0.14), transparent 38%),
+            radial-gradient(circle at 100% 0, rgba(220, 177, 88, 0.1), transparent 34%),
+            linear-gradient(155deg, rgba(28, 18, 12, 0.92), rgba(7, 7, 7, 0.94) 48%, rgba(5, 5, 5, 0.98));
+        backdrop-filter: blur(14px);
         box-shadow:
-            0 26px 70px rgba(0, 0, 0, 0.72),
-            inset 0 0 0 1px rgba(220, 177, 88, 0.12),
-            inset 0 0 34px rgba(0, 0, 0, 0.72);
+            0 28px 70px rgba(0, 0, 0, 0.5),
+            inset 0 1px rgba(255, 238, 203, 0.04);
     }
 
     .hero-ranked__frame::before {
         position: absolute;
-        top: 21px;
-        left: 50%;
-        width: 42%;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255, 201, 118, 0.8), transparent);
-        box-shadow: 0 0 11px rgba(255, 94, 43, 0.5);
+        top: 0;
+        left: 30px;
+        width: 88px;
+        height: 2px;
+        border-radius: 0 0 999px 999px;
+        background: linear-gradient(90deg, #ff5a3f, #e8bd62);
+        box-shadow: 0 0 18px rgba(255, 90, 63, 0.34);
         content: "";
-        transform: translateX(-50%);
         pointer-events: none;
     }
 
@@ -135,35 +133,30 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 14px;
         align-items: start;
-        padding: 2px 4px 18px;
-        border-bottom: 1px solid rgba(112, 75, 42, 0.54);
+        padding: 0 0 20px;
+        border-bottom: 1px solid rgba(239, 228, 204, 0.1);
     }
 
     .hero-ranked__header h2 {
         margin: 0 0 5px;
-        color: #cda078;
+        color: #fff1d8;
         font-family: var(--hoc-font-display);
-        font-size: clamp(1.38rem, 2vw, 1.75rem);
+        font-size: clamp(1.46rem, 2vw, 1.8rem);
         font-weight: 400;
         font-synthesis: none;
-        letter-spacing: 0.105em;
+        letter-spacing: 0.055em;
         line-height: 1.05;
         text-transform: uppercase;
-        -webkit-text-stroke: 0.018em rgba(48, 29, 18, 0.94);
-        paint-order: stroke fill;
-        text-shadow:
-            0 0.055em 0 #080605,
-            0 -0.018em 0 rgba(255, 220, 171, 0.22),
-            0 0.09em 0.16em rgba(0, 0, 0, 0.78);
+        text-shadow: 0 8px 24px rgba(0, 0, 0, 0.44);
     }
 
     .hero-ranked__header > div > p:last-child {
         max-width: 330px;
         margin: 0;
-        color: rgba(239, 228, 204, 0.64);
-        font-size: 0.76rem;
-        letter-spacing: 0.035em;
-        line-height: 1.38;
+        color: rgba(239, 228, 204, 0.58);
+        font-size: 0.78rem;
+        letter-spacing: 0.025em;
+        line-height: 1.45;
     }
 
     .hero-ranked__eyebrow {
@@ -192,24 +185,24 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked__top-mark {
         display: inline-flex;
         align-items: center;
-        min-height: 31px;
-        padding: 5px 9px 4px;
-        border: 1px solid rgba(220, 177, 88, 0.46);
-        clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 7px 100%, 0 50%);
-        background: linear-gradient(180deg, rgba(122, 68, 5, 0.72), rgba(45, 24, 5, 0.84));
-        color: #f4c768;
+        min-height: 30px;
+        padding: 6px 10px 5px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(220, 177, 88, 0.11);
+        color: #efc96e;
         font-size: 0.72rem;
         letter-spacing: 0.12em;
         line-height: 1;
         text-transform: uppercase;
         white-space: nowrap;
-        box-shadow: inset 0 0 10px rgba(255, 143, 0, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(220, 177, 88, 0.14);
     }
 
     .hero-ranked__viewport {
         min-width: 0;
         overflow: hidden;
-        padding: 10px 2px 8px;
+        padding: 10px 0 8px;
         outline-offset: -3px;
         touch-action: pan-y;
     }
@@ -243,9 +236,9 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         align-items: center;
         min-height: 64px;
         width: 100%;
-        padding: 7px 8px;
+        padding: 7px 9px;
         border: 0;
-        border-bottom: 1px solid rgba(112, 75, 42, 0.34);
+        border-bottom: 1px solid rgba(239, 228, 204, 0.07);
         background: transparent;
         color: #efe4cc;
         font: inherit;
@@ -259,25 +252,22 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
 
     .hero-ranked__player::before {
         position: absolute;
-        inset: 3px 0;
-        border: 1px solid transparent;
+        inset: 4px 0;
+        border: 0;
+        border-radius: 10px;
         background: transparent;
         content: "";
         pointer-events: none;
         transition:
-            border-color 0.16s ease,
             background 0.16s ease;
     }
 
     .hero-ranked__player:hover::before {
-        border-color: rgba(220, 177, 88, 0.26);
-        background: rgba(255, 143, 0, 0.05);
+        background: rgba(220, 177, 88, 0.07);
     }
 
     .hero-ranked__player[data-rank="1"]::before {
-        border-color: rgba(220, 177, 88, 0.24);
-        background: linear-gradient(90deg, rgba(220, 177, 88, 0.1), transparent 82%);
-        box-shadow: inset 0 0 15px rgba(220, 177, 88, 0.04);
+        background: linear-gradient(90deg, rgba(220, 177, 88, 0.12), rgba(220, 177, 88, 0.025) 68%, transparent);
     }
 
     .hero-ranked__rank {
@@ -310,7 +300,7 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         place-items: center;
         width: 38px;
         height: 38px;
-        border: 1px solid #5f4932;
+        border: 1px solid rgba(220, 177, 88, 0.25);
         border-radius: 50%;
         background:
             radial-gradient(circle at 34% 28%, rgba(255, 201, 118, 0.17), transparent 32%),
@@ -318,9 +308,18 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         color: #d8c29c;
         font-size: 0.7rem;
         letter-spacing: 0.06em;
-        box-shadow:
-            0 4px 10px rgba(0, 0, 0, 0.5),
-            inset 0 0 0 2px rgba(0, 0, 0, 0.42);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
+    }
+
+    .hero-ranked__league-emblem {
+        position: absolute;
+        right: -7px;
+        bottom: -7px;
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+        filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.8));
+        pointer-events: none;
     }
 
     .hero-ranked__player[data-rank="1"] .hero-ranked__avatar {
@@ -385,20 +384,19 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked__dossier {
         position: absolute;
         z-index: 5;
-        inset: 3px 0 3px 42%;
+        inset: 3px 0 3px 28%;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 6px;
         align-items: center;
         padding: 7px 10px;
-        border: 1px solid rgba(220, 177, 88, 0.62);
-        clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 calc(100% - 7px), 0 7px);
+        border: 1px solid rgba(220, 177, 88, 0.22);
+        border-radius: 10px;
         background:
-            linear-gradient(90deg, rgba(52, 27, 8, 0.98), rgba(9, 7, 5, 0.98)),
-            rgba(14, 9, 5, 0.98);
+            linear-gradient(90deg, rgba(35, 23, 13, 0.98), rgba(9, 8, 7, 0.98)), rgba(14, 9, 5, 0.98);
         box-shadow:
-            0 8px 20px rgba(0, 0, 0, 0.62),
-            inset 0 0 16px rgba(255, 143, 0, 0.06);
+            0 12px 26px rgba(0, 0, 0, 0.52),
+            inset 0 1px rgba(255, 255, 255, 0.035);
         opacity: 0;
         transform: translateY(3px);
         transition:
@@ -461,8 +459,8 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         grid-template-columns: auto minmax(0, 1fr);
         gap: 7px 14px;
         align-items: center;
-        padding: 14px 4px 0;
-        border-top: 1px solid rgba(112, 75, 42, 0.54);
+        padding: 16px 0 0;
+        border-top: 1px solid rgba(239, 228, 204, 0.1);
     }
 
     .hero-ranked__slider-controls {
@@ -480,8 +478,9 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked__page-dot {
         display: grid;
         place-items: center;
-        border: 1px solid #5b4630;
-        background: linear-gradient(180deg, #251b13, #090706);
+        border: 1px solid rgba(220, 177, 88, 0.18);
+        border-radius: 50%;
+        background: rgba(220, 177, 88, 0.06);
         color: #d8c29c;
         font: inherit;
         cursor: pointer;
@@ -495,7 +494,6 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked__slider-controls > button {
         width: 36px;
         height: 36px;
-        clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
     }
 
     .hero-ranked__slider-controls button:hover,
@@ -580,8 +578,9 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         position: relative;
         overflow: hidden;
         height: 48px;
-        border: 1px solid rgba(112, 75, 42, 0.28);
-        background: rgba(239, 228, 204, 0.035);
+        border: 0;
+        border-radius: 10px;
+        background: rgba(239, 228, 204, 0.045);
     }
 
     .hero-ranked__loading > span:not(.hero-ranked__loading-title)::after {
@@ -618,8 +617,9 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     .hero-ranked__empty button {
         min-height: 38px;
         padding: 8px 14px;
-        border: 1px solid #dcb158;
-        background: rgba(122, 68, 5, 0.58);
+        border: 1px solid rgba(220, 177, 88, 0.28);
+        border-radius: 9px;
+        background: rgba(220, 177, 88, 0.1);
         color: #efe4cc;
         font: inherit;
         letter-spacing: 0.08em;
@@ -666,9 +666,8 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
         .hero-ranked__frame {
             grid-template-rows: auto minmax(262px, 1fr) auto;
             min-height: 0;
-            padding: 19px 18px 17px;
-            border-width: 18px;
-            border-image-width: 22px;
+            padding: 22px 20px 18px;
+            border-radius: 14px;
         }
 
         .hero-ranked__header {
@@ -693,8 +692,7 @@ const topN = Math.max(1, Math.min(100, Math.trunc(requestedTopN)));
     @media (max-width: 460px) {
         .hero-ranked__frame {
             padding-inline: 12px;
-            border-width: 14px;
-            border-image-width: 18px;
+            border-radius: 12px;
         }
 
         .hero-ranked__header h2 {

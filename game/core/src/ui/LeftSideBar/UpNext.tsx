@@ -19,6 +19,7 @@ import { prefetchUnitAtlas } from "./UnitStatsListItem";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = images.hourglass;
 
@@ -92,6 +93,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 };
 
 export const UpNext: React.FC = () => {
+    useTranslation();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [stableVisibleUnits, setStableVisibleUnits] = useState<IVisibleUnit[]>([]);
     const [queueScroll, setQueueScroll] = useState({ visible: false, progress: 0, thumbFraction: 1, offsetPx: 0 });
@@ -224,7 +226,7 @@ export const UpNext: React.FC = () => {
     return (
         <>
             <Tooltip
-                title={`Hold ${FULL_QUEUE_KEY_LABEL} to see the full turn order`}
+                title={tf("Hold {key} to see the full turn order", { key: FULL_QUEUE_KEY_LABEL })}
                 placement="top"
                 sx={commonTooltipSx}
             >

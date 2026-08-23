@@ -1,7 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { content, links } from "../lib/site-data";
-import ThemeMusic from "../components/ThemeMusic.astro";
 
 const lang = "en";
 const copy = content[lang];
@@ -19,10 +18,6 @@ const copy = content[lang];
             <div class="mode-select-copy">
                 <p class="eyebrow">{copy.play.startLabel}</p>
                 <h1>{copy.play.modeTitle}</h1>
-                <p>{copy.play.modeBody}</p>
-                <div class="hero-highlights" aria-label={copy.hero.availability}>
-                    {copy.hero.highlights.map((item) => <span>{item}</span>)}
-                </div>
 
                 <div class="play-account" data-play-account hidden>
                     <p class="play-account-greeting">
@@ -84,7 +79,6 @@ const copy = content[lang];
             </div>
         </div>
     </section>
-    <ThemeMusic />
 </BaseLayout>
 
 <script>
@@ -246,39 +240,6 @@ const copy = content[lang];
         color: rgba(239, 228, 204, 0.76);
         font-size: 1.02rem;
         line-height: 1.65;
-    }
-
-    .hero-highlights {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 7px;
-        margin-top: 22px;
-    }
-
-    .hero-highlights span {
-        position: relative;
-        padding: 7px 11px 6px 19px;
-        border: 1px solid rgba(112, 75, 42, 0.58);
-        border-radius: 2px;
-        background: linear-gradient(180deg, rgba(48, 32, 20, 0.82), rgba(14, 9, 5, 0.9));
-        color: rgba(239, 228, 204, 0.72);
-        font-size: 0.72rem;
-        letter-spacing: 0.09em;
-        line-height: 1.2;
-        text-transform: uppercase;
-        box-shadow: inset 0 1px rgba(255, 231, 190, 0.04);
-    }
-
-    .hero-highlights span::before {
-        position: absolute;
-        top: 50%;
-        left: 8px;
-        width: 5px;
-        height: 5px;
-        background: var(--gold);
-        box-shadow: 0 0 7px rgba(220, 177, 88, 0.64);
-        content: "";
-        transform: translateY(-50%) rotate(45deg);
     }
 
     .play-account {
@@ -770,15 +731,6 @@ const copy = content[lang];
         .mode-select-copy p:not(.eyebrow) {
             font-size: 0.93rem;
             line-height: 1.55;
-        }
-
-        .hero-highlights {
-            margin-top: 18px;
-        }
-
-        .hero-highlights span {
-            padding-block: 6px 5px;
-            font-size: 0.64rem;
         }
 
         .play-account {

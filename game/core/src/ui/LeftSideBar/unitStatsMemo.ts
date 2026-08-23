@@ -1,4 +1,4 @@
-import type { FactionType, UnitProperties } from "@heroesofcrypto/common";
+import { AttackVals, type FactionType, type UnitProperties } from "@heroesofcrypto/common";
 
 import type { IVisibleOverallImpact } from "../../scenes/VisibleState";
 
@@ -6,6 +6,21 @@ export type UnitStatsListItemProps = {
     unitProperties: UnitProperties;
     overallImpact: IVisibleOverallImpact;
     factionType: FactionType;
+};
+
+type SidebarRangedStatsSource = Pick<
+    UnitProperties,
+    "attack_type" | "shot_distance" | "range_shots" | "range_shots_mod"
+>;
+
+/**
+ * Values shown in the sidebar's combined ranged-stat cell. A native shooter keeps the cell when its
+ * ammunition reaches zero; hiding that final value made an exhausted quiver look like missing UI.
+ */
+export const getSidebarRangedStats = (unit: SidebarRangedStatsSource) => {
+    const remainingShots = unit.range_shots_mod || unit.range_shots;
+    const canShootAtRange = unit.attack_type === AttackVals.RANGE || (unit.shot_distance > 0 && remainingShots > 0);
+    return canShootAtRange ? { shotDistance: unit.shot_distance, remainingShots } : undefined;
 };
 
 export const areUnitStatsPropsEqual = (prev: UnitStatsListItemProps, next: UnitStatsListItemProps) => {

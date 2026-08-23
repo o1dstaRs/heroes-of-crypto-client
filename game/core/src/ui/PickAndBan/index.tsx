@@ -7,7 +7,7 @@ import {
     getCreaturesByLevel,
     HoCConfig,
     HoCConstants,
-    Perk,
+    Doctrine,
     PickPhaseVals,
     SynergyKeysToPower,
     synergyVariantsForSeed,
@@ -29,17 +29,18 @@ import {
 import React, { useEffect, useState } from "react";
 
 import { images as rawImages } from "../../generated/image_imports";
-import { t, useTranslation } from "../../i18n/i18n";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
-import { getPreGamePerk } from "../../utils/preGamePerk";
+import { getPreGameDoctrine } from "../../utils/preGameDoctrine";
+import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
-import { PerkIcon } from "../PerkIcon";
+import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
-import { getPerkCopy } from "../perkCopy";
+import { getDoctrineCopy } from "../doctrineCopy";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { FistIcon } from "../svg/fist";
@@ -54,6 +55,7 @@ import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
+import { siteUrl } from "../../api/site_origin";
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
@@ -549,7 +551,7 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
 // ---- Draft copy, step rail and portrait states ------------------------------------------------
 
 const PHASE_HINT: Record<number, string> = {
-    [PickPhaseVals.PERK]:
+    [PickPhaseVals.DOCTRINE]:
         "Choose your scouting doctrine. It lasts the whole draft and decides which of the opponent's army slots you can watch.",
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
     [PickPhaseVals.PICK]:
@@ -557,11 +559,11 @@ const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.ARTIFACT_2]: "One of three. Both players choose at the same time.",
 };
 
-const RULES_URL = "https://heroesofcrypto.io/rules";
+const RULES_URL = siteUrl("/rules");
 
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.DOCTRINE:
             return t("Pick one doctrine to continue.");
         case PickPhaseVals.INITIAL_PICK:
             return t("Pick one starting bundle.");
@@ -581,7 +583,7 @@ const STEP_LABELS = ["Bundle", "Lvl 1", "Lvl 2", "Map reveal", "Lvl 3", "Artifac
 
 const currentStep = (phase: number, level: number): number => {
     switch (phase) {
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.DOCTRINE:
         case PickPhaseVals.INITIAL_PICK:
             return 0;
         case PickPhaseVals.ARTIFACT_2:
@@ -1201,10 +1203,9 @@ export const PickCommitButton: React.FC<{
      * (and on hover).
      */
     blockedHint?: string;
-    /** Fires synchronously with the physical press, before the request, so the chosen card can lock immediately. */
-    onSubmitted?: () => void;
-    onCommit: () => void;
-}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, onSubmitted, onCommit }) => {
+    submissionKey?: number | string;
+    onCommit: DraftCommit;
+}> = ({ label, armed, isYourTurn, seconds, extra, tone = "green", blockedHint, submissionKey, onCommit }) => {
     const urgent = seconds >= 0 && seconds <= 15;
     // Lock the plate immediately after confirmation instead of waiting for the server round-trip. This
     // also lets the static preview demonstrate the same waiting state as a live simultaneous draft.
@@ -1217,7 +1218,7 @@ export const PickCommitButton: React.FC<{
         if (isYourTurn) {
             setSubmitted(false);
         }
-    }, [isYourTurn]);
+    }, [isYourTurn, submissionKey]);
     useEffect(() => {
         if (!hintOpen) {
             return undefined;
@@ -1243,8 +1244,9 @@ export const PickCommitButton: React.FC<{
                     effectiveArmed
                         ? () => {
                               setSubmitted(true);
-                              onSubmitted?.();
-                              onCommit();
+                              void runDraftSubmission(onCommit).then((accepted) => {
+                                  if (!accepted) setSubmitted(false);
+                              });
                           }
                         : blocked
                           ? () => setHintOpen(true)
@@ -1448,7 +1450,7 @@ export const PickCommitButton: React.FC<{
                         zIndex: 2,
                     }}
                 >
-                    {waiting ? "WAITING OPPONENT" : label}
+                    {waiting ? t("WAITING OPPONENT") : label}
                 </Box>
                 {extra !== undefined && (
                     <Box
@@ -1536,13 +1538,13 @@ export const PickCommitButton: React.FC<{
 
 // ---- Stage panels ---------------------------------------------------------
 
-const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perkId: number) => void }> = ({
+const DoctrinePanel: React.FC<{ disabled: boolean; selected: number; onSelect: (doctrineId: number) => void }> = ({
     disabled,
     selected,
     onSelect,
 }) => (
     <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
-        {[...Perk.PERK_LIST]
+        {[...Doctrine.DOCTRINE_LIST]
             .sort((a, b) => a.upgradePoints - b.upgradePoints)
             .map((p) => {
                 const isSelected = selected === p.id;
@@ -1565,15 +1567,15 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                                         boxShadow: "0 0 0 1px rgba(194,151,84,.52), 0 3px 10px rgba(0,0,0,.55)",
                                     }}
                                 >
-                                    <PerkIcon perkId={p.id} />
+                                    <DoctrineIcon doctrineId={p.id} />
                                 </Box>
-                                <Typography level="title-md">{p.name}</Typography>
+                                <Typography level="title-md">{t(p.name)}</Typography>
                             </Box>
                             <Chip size="sm" color="warning" variant="soft">
-                                {p.upgradePoints} upgrade points
+                                {tf("{count} upgrade points", { count: p.upgradePoints })}
                             </Chip>
                             <Typography level="body-sm" sx={{ minHeight: 60 }}>
-                                {p.description}
+                                {t(p.description)}
                             </Typography>
                             <Button
                                 disabled={disabled}
@@ -1582,7 +1584,7 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                                 sx={{ mt: 0.5 }}
                                 fullWidth
                             >
-                                {isSelected ? "✓ Chosen" : t("Choose")}
+                                {isSelected ? `✓ ${t("Chosen")}` : t("Choose")}
                             </Button>
                         </CardContent>
                     </Card>
@@ -2081,7 +2083,8 @@ const ArtifactPanel: React.FC<{
 
 // ---- t("Your army") summary bar ---------------------------------------------
 
-const perkName = (perkId: number): string => Perk.getPerkProperties(perkId as Perk.Perk)?.name ?? "";
+const doctrineName = (doctrineId: number): string =>
+    Doctrine.getDoctrineProperties(doctrineId as Doctrine.Doctrine)?.name ?? "";
 
 // A hairline between the groups a rail carries: doctrine | synergies | the army | artifacts.
 const BarDivider: React.FC<{ strong?: boolean }> = ({ strong }) => (
@@ -2163,12 +2166,25 @@ export const SynergyDots: React.FC<{
                 const label = t(SYNERGY_VARIANT_LABEL[`${faction}:${variant}`] ?? faction);
                 const units = picked.filter((id) => id && creatureFullConfig(id)?.faction === faction).length;
                 const tip = previewing
-                    ? `Confirming this pick lights ${faction} — ${label} lvl ${previewLevel}: ${describeSynergy(
-                          `${faction}:${variant}:${previewLevel}`,
-                      )}`
+                    ? tf("Confirming this pick lights {faction} — {label} lvl {level}: {description}", {
+                          faction: t(faction),
+                          label,
+                          level: previewLevel,
+                          description: describeSynergy(`${faction}:${variant}:${previewLevel}`),
+                      })
                     : level
-                      ? `${faction} — ${label} (lvl ${level}): ${describeSynergy(`${faction}:${variant}:${level}`)}`
-                      : `${faction} — ${label}: locked, ${2 - units} more ${faction} unit${units === 1 ? "" : "s"} to reach lvl 1`;
+                      ? tf("{faction} — {label} (lvl {level}): {description}", {
+                            faction: t(faction),
+                            label,
+                            level,
+                            description: describeSynergy(`${faction}:${variant}:${level}`),
+                        })
+                      : tf(
+                            units === 1
+                                ? "{faction} — {label}: locked, {count} more {faction} unit to reach lvl 1"
+                                : "{faction} — {label}: locked, {count} more {faction} units to reach lvl 1",
+                            { faction: t(faction), label, count: 2 - units },
+                        );
                 return (
                     <Tooltip key={faction} title={tip} variant="soft" placement="top">
                         <Box
@@ -2265,10 +2281,10 @@ const placeIntoLevelSlots = (picked: number[]): { id: number; level: number }[] 
     return ARMY_LAYOUT.map((level) => ({ id: byLevel[level].shift() ?? 0, level }));
 };
 
-// Sticky bottom-center summary of the player's own draft so far — chosen doctrine (perk), picked units, and
+// Sticky bottom-center summary of the player's own draft so far — chosen doctrine (doctrine), picked units, and
 // picked artifacts. Stays pinned as the draft advances so the player always sees the army they're building.
 export const MyDraftBar: React.FC<{
-    perk: number;
+    doctrine: number;
     picked: number[];
     artifactTier1: number;
     artifactTier2: number;
@@ -2291,9 +2307,9 @@ export const MyDraftBar: React.FC<{
     pendingId,
 }) => {
     // The doctrine is chosen before entering the draft. During the short gap before the server echoes it,
-    // keep showing that persisted choice instead of falling back to the old no-perk emoji.
-    const visiblePerk = perk > 0 ? perk : getPreGamePerk();
-    const visiblePerkCopy = getPerkCopy(visiblePerk);
+    // keep showing that persisted choice instead of falling back to the old no-doctrine emoji.
+    const visibleDoctrine = doctrine > 0 ? doctrine : getPreGameDoctrine();
+    const visibleDoctrineCopy = getDoctrineCopy(visibleDoctrine);
     const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
     // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
@@ -2354,14 +2370,14 @@ export const MyDraftBar: React.FC<{
                     title={
                         <Box sx={{ width: 330, maxWidth: "78vw", p: 0.45, display: "grid", gap: 0.65 }}>
                             <Typography level="title-sm" sx={{ color: "#efe4cc" }}>
-                                {perkName(visiblePerk)}
+                                {t(doctrineName(visibleDoctrine))}
                             </Typography>
                             <Typography level="body-xs" sx={{ color: "rgba(255,255,255,.88)", lineHeight: 1.35 }}>
-                                {visiblePerkCopy?.detail}
+                                {visibleDoctrineCopy ? t(visibleDoctrineCopy.detail) : ""}
                             </Typography>
-                            {visiblePerkCopy && (
+                            {visibleDoctrineCopy && (
                                 <Typography level="body-xs" sx={{ color: "#dcb158", lineHeight: 1.3 }}>
-                                    {visiblePerkCopy.budget}
+                                    {t(visibleDoctrineCopy.budget)}
                                 </Typography>
                             )}
                         </Box>
@@ -2382,7 +2398,7 @@ export const MyDraftBar: React.FC<{
                             border: "1px solid rgba(220,177,88,0.45)",
                         }}
                     >
-                        <PerkIcon perkId={visiblePerk} />
+                        <DoctrineIcon doctrineId={visibleDoctrine} />
                     </Box>
                 </Tooltip>
                 <BarDivider strong />
@@ -2417,7 +2433,11 @@ export const MyDraftBar: React.FC<{
                         }
                         // Empty slot: show the level it will hold, so the layout reads as 6 ordered slots.
                         return (
-                            <Tooltip key={`empty-${i}`} title={`Level ${slot.level} slot`} variant="soft">
+                            <Tooltip
+                                key={`empty-${i}`}
+                                title={tf("Level {level} slot", { level: slot.level })}
+                                variant="soft"
+                            >
                                 <Box
                                     sx={{
                                         width: 38,
@@ -2613,7 +2633,10 @@ export const OpponentDraftBar: React.FC<{
                             return (
                                 <Tooltip
                                     key={`opp-eye-${i}`}
-                                    title={`Level ${slot.level} — revealed by your doctrine (flips to the unit once your opponent picks here)`}
+                                    title={tf(
+                                        "Level {level} — revealed by your doctrine (flips to the unit once your opponent picks here)",
+                                        { level: slot.level },
+                                    )}
                                     variant="soft"
                                 >
                                     <Box
@@ -2645,7 +2668,11 @@ export const OpponentDraftBar: React.FC<{
                         }
                         // Not revealed by your doctrine -> face-down slot.
                         return (
-                            <Tooltip key={`opp-hidden-${i}`} title={`Level ${slot.level} — hidden`} variant="soft">
+                            <Tooltip
+                                key={`opp-hidden-${i}`}
+                                title={tf("Level {level} — hidden", { level: slot.level })}
+                                variant="soft"
+                            >
                                 <Box
                                     sx={{
                                         width: 36,
@@ -2682,6 +2709,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     useTranslation();
     const {
         pickPhase,
+        phaseIdentity,
         isYourTurn,
         secondsRemaining,
         initialBundles,
@@ -2689,7 +2717,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         requiredLevel,
         banned,
         picked,
-        perk,
+        doctrine,
         upgradePoints,
         artifactTier1,
         artifactTier2,
@@ -2697,29 +2725,29 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         watchedSlots,
         mapType,
     } = usePickBanEvents();
-    const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
+    const { doctrine: sendDoctrine, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
 
-    // Pre-game perk auto-commit: when the draft enters the PERK phase and the player hasn't committed
-    // a perk yet (perk === 0), immediately commit the one they chose in the lobby (persisted in
-    // localStorage). This makes the PERK phase effectively invisible — the player already chose their
-    // doctrine before queuing, so the draft skips straight to BUNDLE. Fires once per PERK entry; the
-    // server-echoed perk (perk > 0) then locks the panel and the phase advances.
+    // Pre-game doctrine auto-commit: when the draft enters the DOCTRINE phase and the player hasn't committed
+    // a doctrine yet (doctrine === 0), immediately commit the one they chose in the lobby (persisted in
+    // localStorage). This makes the DOCTRINE phase effectively invisible — the player already chose their
+    // doctrine before queuing, so the draft skips straight to BUNDLE. Fires once per DOCTRINE entry; the
+    // server-echoed doctrine (doctrine > 0) then locks the panel and the phase advances.
     useEffect(() => {
-        if (pickPhase !== PickPhaseVals.PERK || perk !== 0 || busy) {
+        if (pickPhase !== PickPhaseVals.DOCTRINE || doctrine !== 0 || busy) {
             return;
         }
-        const storedPerk = getPreGamePerk();
-        if (storedPerk === Perk.Perk.NO_PERK) {
+        const storedDoctrine = getPreGameDoctrine();
+        if (storedDoctrine === Doctrine.Doctrine.NO_DOCTRINE) {
             return;
         }
-        void sendPerk(storedPerk);
-        // No setBusy here: sendPerk is a fire-and-forget POST; the panel re-renders locked once the
-        // server echoes perk > 0 via the pick-events stream. A transient busy guard isn't needed
-        // because perk !== 0 (the guard above) prevents re-entry once committed.
-    }, [pickPhase, perk, busy, sendPerk]);
+        void sendDoctrine(storedDoctrine);
+        // No setBusy here: sendDoctrine is a fire-and-forget POST; the panel re-renders locked once the
+        // server echoes doctrine > 0 via the pick-events stream. A transient busy guard isn't needed
+        // because doctrine !== 0 (the guard above) prevents re-entry once committed.
+    }, [pickPhase, doctrine, busy, sendDoctrine]);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
-    const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
+    const [selection, setSelection] = useState<{ phaseIdentity: string; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
     const draftScale = useDraftScale();
     // Creature currently hovered anywhere in the draft — its stats + abilities replace the draft title in
@@ -2773,7 +2801,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     // Clear the local selection whenever the phase advances.
     useEffect(() => {
-        setSelection((prev) => (prev && prev.phase === pickPhase ? prev : null));
+        setSelection((prev) => (prev && prev.phaseIdentity === phaseIdentity ? prev : null));
         setPickError("");
         setPendingPick(0);
         setPendingArtifact(0);
@@ -2784,14 +2812,16 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         setInspectedArtifact(undefined);
     }, [pickPhase]);
 
-    const send = async (value: number, fn: () => Promise<void>): Promise<void> => {
-        if (busy) return;
+    const send = async (value: number, fn: () => Promise<void>): Promise<boolean> => {
+        if (busy) return false;
         setBusy(true);
         try {
             await fn();
-            setSelection({ phase: pickPhase, value });
+            setSelection({ phaseIdentity, value });
+            return true;
         } catch (err) {
             console.warn("[pick] action rejected", (err as Error)?.message ?? err);
+            return false;
         } finally {
             setBusy(false);
         }
@@ -2799,25 +2829,44 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     // Creature pick: on a collision (409 — the opponent secretly holds this unit) the server does NOT advance
     // the phase, so remember the unit (grey it out) and prompt a re-pick instead of locking in a selection.
-    const pickCreature = async (id: number): Promise<void> => {
-        if (busy) return;
+    const pickCreature = async (id: number): Promise<boolean> => {
+        if (busy) return false;
         setBusy(true);
         setPickError("");
         try {
             await pick(id);
-            setSelection({ phase: pickPhase, value: id });
+            setSelection({ phaseIdentity, value: id });
+            return true;
         } catch (err) {
             const status = (err as { response?: { status?: number } })?.response?.status;
             const msg = (err as Error)?.message ?? "";
             if (status === 409 || /already taken|already picked/i.test(msg)) {
                 setCollided((prev) => (prev.includes(id) ? prev : [...prev, id]));
-                setPickError("Already picked by your opponent — choose another.");
+                setPickError(t("Already picked by your opponent — choose another."));
             } else {
                 setPickError(msg || t("Pick rejected — choose another."));
             }
+            return false;
         } finally {
             setBusy(false);
         }
+    };
+
+    const commitBundle = async (index: number): Promise<boolean> => {
+        setCommittedBundle(index);
+        const accepted = await send(index, () => pickPair(index));
+        if (!accepted) setCommittedBundle(-1);
+        return accepted;
+    };
+
+    const commitArtifact = (artifactId: number): Promise<boolean> => {
+        setPendingArtifact(0);
+        return send(artifactId, () => artifact(artifactId, 2));
+    };
+
+    const commitCreature = (id: number): Promise<boolean> => {
+        setPendingPick(0);
+        return pickCreature(id);
     };
 
     const disabled = !isYourTurn || busy;
@@ -2838,46 +2887,42 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                 return;
             }
             if (pickPhase === PickPhaseVals.PICK && pendingPick > 0) {
-                const id = pendingPick;
-                setPendingPick(0);
-                void pickCreature(id);
+                void commitCreature(pendingPick);
             } else if (pickPhase === PickPhaseVals.INITIAL_PICK && pendingBundle >= 0) {
-                const index = pendingBundle;
-                setCommittedBundle(index);
-                void send(index, () => pickPair(index));
+                void commitBundle(pendingBundle);
             } else if (pickPhase === PickPhaseVals.ARTIFACT_2 && pendingArtifact > 0) {
-                const artifactId = pendingArtifact;
-                setPendingArtifact(0);
-                void send(artifactId, () => artifact(artifactId, 2));
+                void commitArtifact(pendingArtifact);
             }
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     });
-    const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
+    const selectedValue = selection && selection.phaseIdentity === phaseIdentity ? selection.value : -1;
     const hint = t(PHASE_HINT[pickPhase] ?? "");
     // "Taken" units are the opponent picks we legitimately know about: the ones we've collided on locally
     // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting doctrine /
-    // reveal perks. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
+    // reveal doctrines. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
     // creature id at each watched-and-filled slot and 0 (NO_CREATURE) elsewhere, so we drop the empties.
     // Mirrors getKnownOpponentCreatures() in the pick sim (and the LocalModelDraftOpponent path) so the grid
     // greys out units we already know are gone instead of letting us pick into a guaranteed collision.
     const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
     const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
     const isHandoff = isAugmentHandoffPhase(pickPhase);
-    // The doctrine step is a pass-through whenever a pre-game perk is stored (the usual case): the client
+    // The doctrine step is a pass-through whenever a pre-game doctrine is stored (the usual case): the client
     // auto-commits it and the server advances. Until that lands there is nothing to choose, so the screen
     // says so instead of flashing the chooser's title, hint and turn chips.
-    const isPreparing = pickPhase < 0 || (pickPhase === PickPhaseVals.PERK && getPreGamePerk() !== Perk.Perk.NO_PERK);
+    const isPreparing =
+        pickPhase < 0 ||
+        (pickPhase === PickPhaseVals.DOCTRINE && getPreGameDoctrine() !== Doctrine.Doctrine.NO_DOCTRINE);
     // Phases whose confirm lives in the wide button at the bottom — they drop the header chips, the
     // sub-line and the imperative hint, exactly like the redesign.
     const isCommitPhase =
         pickPhase === PickPhaseVals.PICK ||
         pickPhase === PickPhaseVals.INITIAL_PICK ||
         pickPhase === PickPhaseVals.ARTIFACT_2;
-    // PERK is now a doctrine-only phase; the server echoes the player's perk (perk > 0), which survives reload
+    // DOCTRINE is now a doctrine-only phase; the server echoes the player's doctrine (doctrine > 0), which survives reload
     // and locks the panel.
-    const perkLocked = pickPhase === PickPhaseVals.PERK && perk > 0;
+    const doctrineLocked = pickPhase === PickPhaseVals.DOCTRINE && doctrine > 0;
     // INITIAL_PICK is the separate starting-bundle phase; the server echoes the picked bundle (picked.length > 0).
     const bundleLocked = pickPhase === PickPhaseVals.INITIAL_PICK && picked.length > 0;
     // Which bundle was chosen — local index if just picked, else recover it from the picked creatures.
@@ -2891,22 +2936,22 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     if (pickPhase < 0) {
         // No phase from the server yet — hold the spinner instead of briefly painting the doctrine step.
         panel = <CircularProgress />;
-    } else if (pickPhase === PickPhaseVals.PERK) {
-        // Pre-game perk auto-commit: if the player already chose a doctrine in the lobby (persisted),
-        // the PERK phase is a brief pass-through — show a spinner while the auto-commit lands and the
+    } else if (pickPhase === PickPhaseVals.DOCTRINE) {
+        // Pre-game doctrine auto-commit: if the player already chose a doctrine in the lobby (persisted),
+        // the DOCTRINE phase is a brief pass-through — show a spinner while the auto-commit lands and the
         // server advances the phase, instead of flashing the chooser. Only fall back to the manual
-        // PerkPanel when there is no pre-game perk to commit (e.g. storage unavailable).
-        if (getPreGamePerk() === Perk.Perk.NO_PERK) {
+        // DoctrinePanel when there is no pre-game doctrine to commit (e.g. storage unavailable).
+        if (getPreGameDoctrine() === Doctrine.Doctrine.NO_DOCTRINE) {
             panel = (
-                <PerkPanel
-                    disabled={disabled || perkLocked}
-                    selected={perkLocked ? perk : selectedValue}
-                    onSelect={(id) => void send(id, () => sendPerk(id))}
+                <DoctrinePanel
+                    disabled={disabled || doctrineLocked}
+                    selected={doctrineLocked ? doctrine : selectedValue}
+                    onSelect={(id) => void send(id, () => sendDoctrine(id))}
                 />
             );
         }
         // Otherwise panel stays <CircularProgress />: the auto-commit useEffect fires, the server
-        // echoes perk > 0, the daemon advances to BUNDLE, and this branch stops rendering.
+        // echoes doctrine > 0, the daemon advances to BUNDLE, and this branch stops rendering.
     } else if (pickPhase === PickPhaseVals.INITIAL_PICK) {
         // Starting-bundle phase: choose one bundle {L1 + L2 + Tier-1 artifact}.
         panel = (
@@ -3048,12 +3093,12 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                     }}
                 >
                     <Chip color={isYourTurn ? "success" : "warning"} variant="soft">
-                        {isYourTurn ? t("Your turn") : `${opponentLabel}'s turn`}
+                        {isYourTurn ? t("Your turn") : tf("{opponent}'s turn", { opponent: opponentLabel })}
                     </Chip>
                     {upgradePoints > 0 && (
-                        <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
+                        <Tooltip title={t("Points you can spend on upgrades before placement")} variant="soft">
                             <Chip color="primary" variant="soft">
-                                {upgradePoints} upgrade pts
+                                {tf("{count} upgrade pts", { count: upgradePoints })}
                             </Chip>
                         </Tooltip>
                     )}
@@ -3076,7 +3121,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </Typography>
                     )}
 
-                {pickPhase !== PickPhaseVals.PERK && (
+                {pickPhase !== PickPhaseVals.DOCTRINE && (
                     <>
                         {/* Both armies sit above the grid by default. Ranked/private callers can suppress the
                             opponent rail during the zero-second augment handoff before private Setup opens. */}
@@ -3096,7 +3141,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             }}
                         >
                             <MyDraftBar
-                                perk={perk}
+                                doctrine={doctrine}
                                 picked={picked}
                                 artifactTier1={artifactTier1}
                                 artifactTier2={artifactTier2}
@@ -3160,18 +3205,22 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             label={
                                 !isYourTurn
                                     ? pickPhase === PickPhaseVals.PICK && requiredLevel > 0
-                                        ? `Opponent's turn — Lvl ${requiredLevel}`
+                                        ? tf("Opponent's turn — Lvl {level}", { level: requiredLevel })
                                         : t("Opponent's turn")
                                     : pickPhase === PickPhaseVals.ARTIFACT_2
                                       ? pendingArtifact > 0
-                                          ? `Confirm ${Artifact.getTier2ArtifactProperties(pendingArtifact as Artifact.Tier2Artifact).name}`
+                                          ? tf("Confirm {name}", {
+                                                name: Artifact.getTier2ArtifactProperties(
+                                                    pendingArtifact as Artifact.Tier2Artifact,
+                                                ).name,
+                                            })
                                           : t("Pick an artifact")
                                       : pickPhase === PickPhaseVals.INITIAL_PICK
                                         ? pendingBundle >= 0
                                             ? t("Confirm bundle")
                                             : t("Pick a bundle")
                                         : pendingPick > 0
-                                          ? `Confirm ${creatureName(pendingPick)}`
+                                          ? tf("Confirm {name}", { name: creatureName(pendingPick) })
                                           : t("Pick a creature")
                             }
                             tone="green"
@@ -3192,29 +3241,18 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                                       ? t("Choose one of the three artifacts first.")
                                       : pickPhase === PickPhaseVals.INITIAL_PICK
                                         ? t("Choose one of the two bundles first.")
-                                        : "Choose a creature first — click a portrait, then confirm."
+                                        : t("Choose a creature first — click a portrait, then confirm.")
                             }
                             seconds={secondsRemaining}
-                            onSubmitted={() => {
-                                if (pickPhase === PickPhaseVals.INITIAL_PICK && pendingBundle >= 0) {
-                                    setCommittedBundle(pendingBundle);
-                                }
-                            }}
+                            submissionKey={phaseIdentity}
                             onCommit={() => {
                                 if (pickPhase === PickPhaseVals.ARTIFACT_2) {
-                                    const artifactId = pendingArtifact;
-                                    setPendingArtifact(0);
-                                    void send(artifactId, () => artifact(artifactId, 2));
-                                    return;
+                                    return commitArtifact(pendingArtifact);
                                 }
                                 if (pickPhase === PickPhaseVals.INITIAL_PICK) {
-                                    const index = pendingBundle;
-                                    void send(index, () => pickPair(index));
-                                    return;
+                                    return commitBundle(pendingBundle);
                                 }
-                                const id = pendingPick;
-                                setPendingPick(0);
-                                void pickCreature(id);
+                                return commitCreature(pendingPick);
                             }}
                         />
                     )}
@@ -3272,7 +3310,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 };
 
 const PHASE_NAME: Record<number, string> = {
-    [PickPhaseVals.PERK]: t("Choose your doctrine"),
+    [PickPhaseVals.DOCTRINE]: t("Choose your doctrine"),
     [PickPhaseVals.INITIAL_PICK]: t("Choose your starting bundle"),
     [PickPhaseVals.PICK]: t("Pick a creature"),
     [PickPhaseVals.ARTIFACT_2]: t("Choose a Tier-2 artifact"),

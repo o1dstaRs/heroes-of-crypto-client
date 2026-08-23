@@ -1,8 +1,17 @@
-import { playerInitials, type RankedPlayer, type RankedTopResponse } from "./ranked-arena-data";
+import {
+    playerInitials,
+    relativeArenaTime,
+    TOP_WEALTH,
+    type RankedPlayer,
+    type RankedTopResponse,
+} from "./ranked-arena-data";
 import { rankedArenaCopy } from "./ranked-arena-copy";
+import { leagueEmblemPath } from "./league-emblems";
+import { LEGACY_SEASON_CURRENCY, seasonCurrencyIconUrl, type SeasonCurrency } from "./season-currency";
 
 export interface HeroLeaderboardUpdate {
     top?: RankedTopResponse;
+    currency?: SeasonCurrency;
     loading: boolean;
     error: boolean;
     cached: boolean;
@@ -24,19 +33,40 @@ const append = <T extends ParentNode>(parent: T, ...children: Array<Node | null 
     return parent;
 };
 
-const currencyAmount = (amount: number, formatter: Intl.NumberFormat): HTMLElement => {
+const currencyAmount = (
+    amount: number,
+    formatter: Intl.NumberFormat,
+    currency: SeasonCurrency = LEGACY_SEASON_CURRENCY,
+): HTMLElement => {
     const node = el("span", "currency-amount");
+    const formattedAmount = formatter.format(Math.max(0, Math.trunc(amount)));
+    node.setAttribute("aria-label", `${currency.name}: ${formattedAmount}`);
     const icon = el("img", "currency-icon");
-    icon.src = "/assets/icons/currency/gold.svg";
+    icon.src = seasonCurrencyIconUrl(currency);
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.width = 20;
     icon.height = 20;
-    return append(node, icon, document.createTextNode(formatter.format(Math.max(0, Math.trunc(amount)))));
+    return append(node, icon, document.createTextNode(formattedAmount));
 };
 
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
     Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), template);
+
+// Mirrors ranked-arena-client's own copy of this: that file imports FROM here, so the helper can't be
+// shared the other way without a cycle.
+const localizedRelativeTime = (
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+    timestamp: number,
+): string => {
+    const relative = relativeArenaTime(timestamp);
+    if (!relative) return "";
+    if (relative === "now") return copy.timeNow;
+    const value = Number.parseInt(relative, 10);
+    if (relative.endsWith("m")) return replaceTemplate(copy.timeMinutes, { n: value });
+    if (relative.endsWith("h")) return replaceTemplate(copy.timeHours, { n: value });
+    return replaceTemplate(copy.timeDays, { n: value });
+};
 
 const chunks = <T>(items: T[], size: number): T[][] => {
     const result: T[][] = [];
@@ -63,6 +93,8 @@ const profileHref = (profileRoot: string, player: RankedPlayer): string => {
         winStreak: String(player.winStreak),
         lossStreak: String(player.lossStreak),
         lastBattle: String(player.lastRankedGameAt),
+        bannedCreatureId: String(player.bannedCreatureId),
+        bannedCreatureName: player.bannedCreatureName,
     });
     return `${profileRoot}?${params.toString()}`;
 };
@@ -94,7 +126,17 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
     let signature = "";
     let track: HTMLElement | null = null;
 
-    const leagueLabel = (league: number): string => replaceTemplate(copy.leagueTemplate, { n: league });
+    const leagueLabel = (league: number): string => copy.leagueNames[league - 1] ?? copy.unranked;
+    // The gold third they sit in inside that league: adjectives lead ("Ragged Aspirant"), the top
+    // tier is a noun and trails ("Demigod Whale").
+    const standingLabel = (player: RankedPlayer): string => {
+        const league = leagueLabel(player.league);
+        const tier = player.league > 0 ? (copy.wealthNames[player.wealth - 1] ?? "") : "";
+        if (!tier) {
+            return league;
+        }
+        return player.wealth === TOP_WEALTH ? `${league} ${tier}` : `${tier} ${league}`;
+    };
 
     const rankFor = (player: RankedPlayer, fallback: number): number =>
         player.position || player.leaderboardRank || fallback;
@@ -122,7 +164,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         if (announce && announcer) announcer.textContent = label;
     };
 
-    const createPlayer = (player: RankedPlayer, index: number): HTMLLIElement => {
+    const createPlayer = (player: RankedPlayer, index: number, currency: SeasonCurrency): HTMLLIElement => {
         const rank = rankFor(player, index + 1);
         const item = el("li", "hero-ranked__player-item");
         const row = el("a", "hero-ranked__player");
@@ -131,19 +173,21 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         row.dataset.heroPlayerId = player.playerId;
         row.setAttribute(
             "aria-label",
-            `${rank}. ${player.username}, ${leagueLabel(player.league)}, ${numberFormatter.format(player.mmr)} ${copy.rating}`,
+            `${rank}. ${player.username}, ${standingLabel(player)}, ${numberFormatter.format(player.mmr)} ${copy.rating}`,
         );
 
         const rankNode = el("span", "hero-ranked__rank", String(rank));
         rankNode.setAttribute("aria-hidden", "true");
         const avatar = el("span", "hero-ranked__avatar", playerInitials(player.username));
         avatar.setAttribute("aria-hidden", "true");
+        const leagueEmblem = el("img", "hero-ranked__league-emblem");
+        leagueEmblem.src = leagueEmblemPath(player.league);
+        leagueEmblem.alt = "";
+        leagueEmblem.width = 22;
+        leagueEmblem.height = 22;
+        append(avatar, leagueEmblem);
         const identity = el("span", "hero-ranked__identity");
-        append(
-            identity,
-            el("strong", "", player.username),
-            el("small", "", leagueLabel(player.league)),
-        );
+        append(identity, el("strong", "", player.username), el("small", "", standingLabel(player)));
         const rating = el("span", "hero-ranked__rating");
         append(rating, el("strong", "", numberFormatter.format(player.mmr)), el("small", "", copy.rating));
 
@@ -161,14 +205,18 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         append(
             dossier,
             metric(copy.rating, numberFormatter.format(player.mmr)),
-            metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
-            metric(copy.gold, currencyAmount(player.gold, numberFormatter)),
+            metric(copy.leagueLabel, leagueLabel(player.league)),
+            metric(currency.name, currencyAmount(player.gold, numberFormatter, currency)),
+            metric(
+                copy.lastBattle,
+                player.lastRankedGameAt ? localizedRelativeTime(copy, player.lastRankedGameAt) : "—",
+            ),
         );
         append(row, rankNode, avatar, identity, rating, dossier);
         return append(item, row);
     };
 
-    const renderPlayers = (players: RankedPlayer[]): void => {
+    const renderPlayers = (players: RankedPlayer[], currency: SeasonCurrency): void => {
         const pages = chunks(players, pageSize);
         pageCount = pages.length;
         playerCount = players.length;
@@ -180,7 +228,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
             page.dataset.heroRankedPage = String(pageIndex);
             page.setAttribute("aria-hidden", String(pageIndex !== currentPage));
             playersOnPage.forEach((player, playerIndex) =>
-                append(page, createPlayer(player, pageIndex * pageSize + playerIndex)),
+                append(page, createPlayer(player, pageIndex * pageSize + playerIndex, currency)),
             );
             append(track as HTMLElement, page);
         });
@@ -266,13 +314,14 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
     return {
         update(state): void {
             const players = (state.top?.players ?? []).slice(0, topN);
+            const currency = state.currency ?? LEGACY_SEASON_CURRENCY;
             if (players.length) {
-                const nextSignature = players
+                const nextSignature = `${currency.name}:${currency.symbol}:${seasonCurrencyIconUrl(currency)}|${players
                     .map((player, index) => `${player.playerId}:${rankFor(player, index + 1)}:${player.mmr}`)
-                    .join("|");
+                    .join("|")}`;
                 if (nextSignature !== signature) {
                     signature = nextSignature;
-                    renderPlayers(players);
+                    renderPlayers(players, currency);
                 }
                 frame.dataset.state = state.error || state.cached ? "stale" : state.loading ? "refreshing" : "live";
                 return;

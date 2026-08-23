@@ -15,6 +15,13 @@
             type="font/ttf"
             crossorigin="anonymous"
         />
+        <!-- Google Identity Services is requested HERE, at parse time, instead of when the sign-in
+             component mounts. The client boots a full Pixi scene and its atlases first, so waiting for
+             that React effect left the sign-in button ~20s behind a cold load — on production as well as
+             staging. loadGoogleIdentityServices() looks for this exact tag and reuses it rather than
+             injecting a second one, and resolves immediately if it has already finished. -->
+        <link rel="preconnect" href="https://accounts.google.com" crossorigin />
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
         <meta charset="UTF-8" />
         <!-- viewport-fit=cover: without it a notched Mac in fullscreen lays the page out BELOW the
              camera housing and leaves a black band across the top. Opting in lets the viewport run

@@ -37,6 +37,7 @@ const makeScene = (
     overrides: {
         activeUnitPosition?: { x: number; y: number };
         rangeShotDistance?: number;
+        unitSize?: number;
         selectedUnitId?: string;
         liveProperties?: Record<string, unknown>;
     } = {},
@@ -67,6 +68,7 @@ const makeScene = (
             ? {
                   getPosition: () => overrides.activeUnitPosition,
                   getRangeShotDistance: () => overrides.rangeShotDistance ?? 0,
+                  getSize: () => overrides.unitSize ?? 1,
               }
             : undefined,
         updateCurrentMovePath: (cell: { x: number; y: number }) => {
@@ -123,18 +125,20 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
         expect(movePathCells).toHaveLength(1);
     });
 
-    test("recomputes the shot ring, so a Sniper pick shows up at once", () => {
-        const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 4 });
+    test("recomputes the shot square, so a Sniper pick shows up at once", () => {
+        const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 4.5 });
 
         runRefresh(scene);
 
+        // Half-width of the full-damage SQUARE, not a circle radius: the fractional stat floors to four
+        // whole cells, plus the half cell that carries the edge out to the cell border.
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: 4 * GridConstants.STEP,
+            distance: 4.5 * GridConstants.STEP,
         });
     });
 
-    test("clears the shot ring for a unit that cannot shoot", () => {
+    test("clears the shot square for a unit that cannot shoot", () => {
         const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 0 });
 
         runRefresh(scene);

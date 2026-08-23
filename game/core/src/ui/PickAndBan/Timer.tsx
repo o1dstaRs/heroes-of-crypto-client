@@ -11,7 +11,7 @@ const URGENT_SECONDS = 10;
 export const Timer = ({ localSeconds, isYourTurn }: { localSeconds: number; isYourTurn: boolean }) => {
     const totalSeconds = localSeconds > 0 ? localSeconds : 0;
     const urgent = isYourTurn && totalSeconds <= URGENT_SECONDS;
-    // Some phases (e.g. PERK at 70s) run past a minute — divmod into minutes:seconds instead of
+    // Some phases (e.g. DOCTRINE at 70s) run past a minute — divmod into minutes:seconds instead of
     // always prefixing "0:" (which rendered a 69-second countdown as the nonsensical "0:69").
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;

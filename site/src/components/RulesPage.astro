@@ -1,4 +1,21 @@
 ---
+import {
+    ArmorAugment,
+    DefaultPlacementLevel1,
+    EmpowerAugment,
+    getArmorPower,
+    getEmpowerPower,
+    getMightPower,
+    getMovementPower,
+    getPlacementSizes,
+    getSniperPower,
+    MightAugment,
+    MovementAugment,
+    PlacementAugment,
+    SniperAugment,
+} from "@heroesofcrypto/common/src/augments/augment_properties";
+import { PlacementType } from "@heroesofcrypto/common/src/grid/placement_properties";
+
 import { knowledgePath } from "../lib/knowledge-base";
 import { links, type Language } from "../lib/site-data";
 import { localizedFactionName } from "../lib/localization";
@@ -78,11 +95,11 @@ const quickFacts = [
             : "Each match you draft two level-1 units, two level-2, one level-3 and one level-4. Higher levels are stronger, but you get only one each.",
     },
     {
-        value: "7",
+        value: "5–7",
         label: isRu ? "очков апгрейдов" : "augment points",
         tip: isRu
-            ? "До боя вы тратите 7 очков на командные апгрейды (броня, ближний бой, магия, стрельба, движение, зона расстановки) — реальные компромиссы."
-            : "Before the fight you spend 7 points on team augments (armor, melee, magic, ranged, movement, deployment) — real trade-offs, not cosmetics.",
+            ? "Доктрина даёт 5, 6 или 7 очков на командные апгрейды (броня, ближний бой, магия, стрельба, движение, зона расстановки) — чем меньше разведки, тем больше бюджет."
+            : "Your doctrine grants 5, 6, or 7 points for team augments (armor, melee, magic, ranged, movement, deployment)—less scouting buys a larger budget.",
     },
     {
         value: "−20 … +20",
@@ -130,8 +147,8 @@ const quickFacts = [
         value: "×8",
         label: isRu ? "макс. штраф дальности" : "max range divisor",
         tip: isRu
-            ? "Стрельба дальше дистанции выстрела делит урон — вплоть до ×8 на больших расстояниях. Держите стрелков в радиусе или берите апгрейд Стрельба, чтобы снять штраф."
-            : "Shooting past a unit's range distance divides its damage — up to ×8 at long range. Keep shooters in range, or take the Sniper augment to ignore it.",
+            ? "Стрельба дальше дистанции выстрела делит урон — вплоть до ×8 на больших расстояниях. Держите стрелков в радиусе; апгрейд «Стрельба» расширяет зону полного урона, но не отменяет штраф."
+            : "Shooting past a unit's range distance divides its damage — up to ×8 at long range. Keep shooters in range; the Sniper augment extends the full-damage band but does not remove falloff.",
     },
     {
         value: "×0.5",
@@ -142,12 +159,21 @@ const quickFacts = [
     },
 ];
 
-// Augment tiers, verified from augments/augment_properties.ts.
+// Augment tiers are derived from the same functions the game UI and engine use.
+const armorPowers = [ArmorAugment.LEVEL_1, ArmorAugment.LEVEL_2, ArmorAugment.LEVEL_3].map(getArmorPower);
+const mightPowers = [MightAugment.LEVEL_1, MightAugment.LEVEL_2, MightAugment.LEVEL_3].map(getMightPower);
+const empowerPowers = [EmpowerAugment.LEVEL_1, EmpowerAugment.LEVEL_2, EmpowerAugment.LEVEL_3].map(getEmpowerPower);
+const sniperPowers = [SniperAugment.LEVEL_1, SniperAugment.LEVEL_2, SniperAugment.LEVEL_3].map(getSniperPower);
+const movementPowers = [MovementAugment.LEVEL_1, MovementAugment.LEVEL_2].map(getMovementPower);
+const placementDepths = [PlacementAugment.LEVEL_1, PlacementAugment.LEVEL_2, PlacementAugment.LEVEL_3].map(
+    (level) =>
+        getPlacementSizes(PlacementType.RECTANGLE, level, DefaultPlacementLevel1.THREE_BY_THREE)[0],
+);
 const augmentTable = [
     {
         icon: "/assets/images/units/abilities/armor_augment_256.webp",
         name: isRu ? "Броня" : "Armor",
-        tiers: ["+6% / +6", "+13% / +13", "+21% / +21"],
+        tiers: armorPowers.map((power) => `+${power}% / +${power}`),
         // One purchase, both defences, but they land differently: physical armor gains a PERCENTAGE of the
         // unit's own stat, magic armor gains the points outright (base magic armor is 0/5/10/15 by creature
         // level, so a percentage would give a level 1 creature nothing at all).
@@ -156,32 +182,42 @@ const augmentTable = [
     {
         icon: "/assets/images/units/abilities/might_augment_256.webp",
         name: isRu ? "Сила" : "Might",
-        tiers: ["+8%", "+17%", "+27%"],
+        tiers: mightPowers.map((power) => `+${power}%`),
         note: isRu ? "ближняя атака" : "melee attack",
     },
     {
         icon: "/assets/images/units/abilities/empower_augment_256.webp",
         name: isRu ? "Магия" : "Empower",
-        tiers: ["+7%", "+15%", "+24%"],
+        tiers: empowerPowers.map((power) => `+${power}%`),
         note: isRu ? "магический урон" : "magic damage",
     },
     {
         icon: "/assets/images/units/abilities/sniper_augment_256.webp",
         name: isRu ? "Стрельба" : "Sniper",
-        tiers: ["+7%", "+15%", "+24%"],
-        note: isRu ? "атака + дистанция, без штрафа" : "attack + range, ignores divisor",
+        tiers: sniperPowers.map(([attack, range]) => `+${attack}% / +${range}%`),
+        note: isRu ? "атака / дистанция выстрела" : "attack / shot range",
     },
     {
         icon: "/assets/images/units/abilities/movement_augment_256.webp",
         name: isRu ? "Движение" : "Movement",
-        tiers: ["+1", "+2", "—"],
+        tiers: [`+${movementPowers[0]}`, `+${movementPowers[1]}`, "—"],
         note: isRu ? "шага к ходу" : "steps to move",
     },
     {
         icon: "/assets/images/units/abilities/board_augment_256.webp",
         name: isRu ? "Расстановка" : "Placement",
-        tiers: isRu ? ["3 ряда", "4 ряда", "5 рядов"] : ["3 rows", "4 rows", "5 rows"],
-        note: isRu ? "зона расстановки, шире" : "deployment zone, wider",
+        tiers: isRu
+            ? [
+                  `бесплатно · ${placementDepths[0]} ряда, частично`,
+                  `1 очко · ${placementDepths[1]} ряда, полностью`,
+                  `2 очка · ${placementDepths[2]} рядов + край`,
+              ]
+            : [
+                  `free · ${placementDepths[0]} rows, partial`,
+                  `1 point · ${placementDepths[1]} rows, full`,
+                  `2 points · ${placementDepths[2]} rows + edge`,
+              ],
+        note: isRu ? "стоимость · глубина и заполнение" : "cost · deployment depth and coverage",
     },
 ];
 
@@ -209,7 +245,7 @@ const copy = isRu
               },
               {
                   title: "2. Апгрейды и синергии",
-                  text: "До боя вы тратите до 7 очков на апгрейды и выбираете бонусы фракций, если в армии есть 2, 4 или 6 юнитов одной фракции.",
+                  text: "После драфта вы тратите бюджет доктрины на апгрейды. Бонус каждой фракции уже определён идентификатором матча и автоматически достигает уровня 1/2/3 при 2/4/6 юнитах этой фракции — выбирать синергию отдельно не нужно.",
               },
               {
                   title: "3. Расстановка",
@@ -235,34 +271,35 @@ const copy = isRu
               "По задумке каждый юнит вносит в армию примерно одинаковый вес: более слабое существо просто приходит большим стеком, поэтому «плохих» юнитов нет. Побеждают не голые характеристики и громкие способности, а ваш план и то, как юниты работают в связке.",
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
               "Публичный список сейчас сфокусирован на четырех игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
+              "В живом драфте семь этапов до подготовки: Доктрина + необязательная заявка на бан, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. После этого вы тратите очки на апгрейды и переходите к расстановке. Итоговый состав всё так же имеет схему 2/2/1/1.",
           ],
           draftSteps: [
               {
-                  title: "1. Доктрина",
-                  text: "Ваша разведка на весь драфт — и она же покупает очки апгрейдов. «Шпион» видит все пики соперника и дает 5 очков, «Разведчик» вскрывает 3 случайных слота за 6, «Слепая ярость» не видит ничего и дает 7. Информация или сила — вместе не получится.",
+                  title: "1. Доктрина и заявка на бан",
+                  text: "Оба игрока действуют одновременно. Выбираете разведку на весь драфт и до её фиксации можете тайно предложить одного допустимого юнита для бана. Одна заявка срабатывает напрямую; одинаковые заявки гарантируют этот бан; из двух разных игра выбирает одну 50/50. Заявка заменяет автобан того же уровня, а не добавляет ещё один.",
               },
               {
                   title: "2. Бандл",
-                  text: "Вам предлагают два бандла, вы берете один. В каждом сразу существо 1 уровня, существо 2 уровня и артефакт 1 тира — нужный артефакт может стоить вам нужного существа.",
+                  text: "Оба игрока одновременно выбирают один из двух бандлов. В каждом сразу существо 1 уровня, существо 2 уровня и свой артефакт 1 тира — два артефакта в предложении различаются, поэтому нужный артефакт может стоить вам нужного существа.",
               },
               {
                   title: "3–5. Пики 1–3 уровней",
-                  text: "По одному существу на уровень, первый ход чередуется: вы начинаете на 1 и 3 уровнях, соперник — на 2. Серые портреты забанены. Если доктрина не вскрывает пики соперника, вы их не видите: возьмете уже занятое — просто выберете заново.",
+                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровнях 1 и 3, верхний/красный — на уровне 2. Серые портреты забанены. Если доктрина не вскрывает пик соперника, попытка взять уже занятого юнита раскрывает конфликт и возвращает вас к выбору.",
               },
               {
                   title: "6. Артефакт 2 тира",
-                  text: "Вам предлагают три артефакта 2 тира; выбираете один на всю армию. Это происходит до пика 4 уровня, поэтому последнее существо можно подобрать под него.",
+                  text: "Оба игрока одновременно получают по три разных артефакта 2 тира и выбирают один на всю армию. Это происходит до пика 4 уровня, поэтому последнее существо можно подобрать под него.",
               },
               {
                   title: "7. Пик 4 уровня",
-                  text: "Соперник выбирает первым, затем вы закрываете состав последним существом. Подберите его под уже выбранные синергии, артефакты и апгрейды — или закройте явную слабость армии.",
+                  text: "Верхний/красный игрок выбирает первым, нижний/зелёный — вторым. Последний юнит подбирается под уже известные варианты синергий, карту и артефакты; очки апгрейдов тратятся следующим этапом.",
               },
           ],
           draftNotes: [
               "Базовый пул драфта по уровням: 2/2/1/1 — бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
-              "Баны раздает игра до драфта, игроки их не выбирают: случайно убираются 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. То, что предложено в бандлах, не банится никогда.",
+              "Игра случайно убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Заявка игрока может заменить один автобан на выбранного юнита того же уровня; она не увеличивает общее число банов. То, что предложено в бандлах, банить нельзя.",
               "Бан по уровню возможен только если в пуле остается достаточно вариантов на все пики обеих команд.",
-              "Что вы видите, решает только доктрина, поэтому выбирайте ее как план на весь драфт, а не как реакцию на один пик.",
+              "Что вы видите, решает только доктрина. Scout заранее открывает один слот уровня 1, один слот уровня 2 и один из слотов уровня 3 или 4; заявка на бан соперника его намерения не раскрывает.",
           ],
           unitsTitle: "Как читать юнита",
           unitStats: [
@@ -291,7 +328,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
                   title: "Расстановка",
-                  text: "Расширяет зону расстановки. Стартовый уровень ограничивает количество выставленных стеков; максимальный уровень открывает базовый потолок в 8 стеков до бонусов Природы.",
+                  text: `Бесплатный вариант даёт частичную зону глубиной ${placementDepths[0]} ряда и до 6 стеков. За 1 очко открывается полная зона глубиной ${placementDepths[1]} ряда и 7 стеков. Второй платный вариант, за 2 очка, открывает ${placementDepths[2]} полных рядов с краевой линией и базовый потолок в 8 стеков до бонусов Природы.`,
               },
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
@@ -311,7 +348,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
                   title: "Стрельба",
-                  text: "+7/15/24% к атаке стрелков и +20/40/70% к дистанции выстрела. Берите, если ваша победа зависит от линий огня.",
+                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% к атаке стрелков и +${sniperPowers.map(([, range]) => range).join("/")}% к дистанции выстрела. Апгрейд расширяет зону полного урона, но не отменяет штраф за дальность.`,
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
@@ -319,9 +356,36 @@ const copy = isRu
                   text: "+1 или +2 шага. Иногда лишняя клетка важнее лишнего урона.",
               },
           ],
+          doctrinesTitle: "Доктрины: обзор стоит очков",
+          doctrinesIntro:
+              "Доктрина — самый первый выбор в драфте, и она действует весь драфт. Она определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртого варианта нет, и поменять доктрину позже нельзя.",
+          doctrinesTableCaption: "Доктрины: обзор против очков апгрейдов",
+          doctrinesColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
+          doctrines: [
+              {
+                  name: "Spymaster",
+                  sees: "Все выборы противника, по мере того как он их делает.",
+                  points: 5,
+                  note: "Полная информация, наименьший бюджет армии.",
+              },
+              {
+                  name: "Scout",
+                  sees: "Один случайный слот уровня 1, один уровня 2 и один из двух старших слотов (уровень 3 или 4).",
+                  points: 6,
+                  note: "Частичный обзор за средний бюджет.",
+              },
+              {
+                  name: "Blind Fury",
+                  sees: "Ничего. Состав противника скрыт до самого боя.",
+                  points: 7,
+                  note: "Драфт вслепую — зато самая сильная армия.",
+              },
+          ],
+          doctrinesOutro:
+              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете существо, которое противник уже забрал, вас просто вернут к выбору — если только ваша доктрина не раскрывала этот слот.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
-              "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. Для каждой фракции вы выбираете один из двух бонусов.",
+              "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. У каждой фракции два возможных бонуса, и выбирать не нужно: какой из них действует в матче, определяется по идентификатору игры — ровно 50/50 для каждой фракции, независимо друг от друга, одинаково для вас и противника, и видно на панелях с первого экрана драфта.",
           synergyLevels: "Уровни силы",
           synergies: [
               {
@@ -342,7 +406,7 @@ const copy = isRu
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Юниты на поле: +1 / +2 / +3 выставленных стека", "Броня летающих юнитов: +10% / +20% / +30%"],
+                  options: ["Юниты на поле: +2 / +3 / +4 выставленных стека", "Броня летающих юнитов: +15% / +30% / +50%"],
               },
           ],
           placementTitle: "Расстановка: бой часто выигрывается до первого удара",
@@ -406,10 +470,45 @@ const copy = isRu
               "Обычное завершение хода после действия ничего не стоит. Каждый круг юнит с шансом примерно в свою мораль в процентах ходит лишний раз (при плюсе — ещё и бьёт чуть сильнее) или пропускает ход (при минусе).",
           mapTitle: "Карта не ждет вечно",
           mapParagraphs: [
-              "Поле - сетка 16x16. В текущей ротации есть обычные карты, карты с лавовым центром и карты с заблокированным центром. Центральная гора может блокировать выстрелы и выдерживает 5 ударов; лавовый центр может дать смысл способностям Made of Fire.",
-              "На обычных картах сужение идет примерно каждые 3 круга. На картах с заблокированным центром - каждые 4 круга. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
-              "После 12-го круга начинается Армагеддон: четыре волны урона постепенно превращают затянутый бой в финал.",
+              "Поле — сетка 16x16. В рейтинге карта выпадает одна из трёх в момент создания драфта — все три равновероятны, шанс один к трём — и показывается обоим игрокам по ходу драфта. Бой затем идёт именно на ней: перед началом боя карта не перевыбирается.",
           ],
+          mapsTableCaption: "Три рейтинговые карты",
+          mapsColumns: ["Карта", "Центр", "Сужение", "Шанс"],
+          maps: [
+              {
+                  name: "Standard",
+                  center: "Открытое поле — без опасностей в центре.",
+                  narrows: "каждые 3 круга",
+                  chance: "1 из 3",
+              },
+              {
+                  name: "Lava",
+                  center: "Центр поля выжжен лавовым озером.",
+                  narrows: "каждые 3 круга",
+                  chance: "1 из 3",
+              },
+              {
+                  name: "Cemetery",
+                  center: "12 надгробий, случайно разбросанных по четырём центральным рядам — единого блока в центре нет.",
+                  narrows: "каждые 4 круга",
+                  chance: "1 из 3",
+              },
+          ],
+          mapsOutro:
+              "Четвёртая карта, Water, есть в движке, но в рейтинге отключена — она вам никогда не выпадет. Сужение превращает внешние клетки в дыры и толкает юнитов внутрь, а если места нет — убивает их. Если команды не сближаются и не наносят урон, игра может добавить дополнительное сужение.",
+          mapMechanicsTitle: "Два правила карт, о которых стоит знать до драфта",
+          mapMechanics: [
+              {
+                  title: "По лаве по умолчанию не ходят",
+                  text: "Сам по себе в центральную лаву не зайдёт никто. Артефакт 2-го уровня Lava Striders меняет это для всей вашей армии: юниты могут проходить по лаве и стоять в ней, а стоя в центральной лаве получают Made of Fire — +10% ко всем характеристикам, включая способности. На карте Lava это превращает опасность в землю, которой пользуетесь только вы.",
+              },
+              {
+                  title: "Стрельба сквозь Cemetery",
+                  text: "Надгробия — это постройки, и обычную дальнюю атаку останавливает первое же из них на линии. Double Shot тратит до двух своих снарядов на расчистку камней вместо попадания по цели. Cyclops (Large Caliber) и Gargantuan (Area Throw) игнорируют постройки полностью: их выстрелы проходят насквозь и уничтожают камни, попавшие в зону, — именно поэтому они и есть ответ на перекрытую линию в Cemetery.",
+              },
+          ],
+          mapArmageddon:
+              "После 12-го круга начинается Армагеддон: четыре нарастающие волны урона постепенно превращают затянутый бой в финал.",
           examplesTitle: "Мини-шпаргалка по ролям",
           examples: [
               "Black Dragon и Angel показывают силу крупных летающих финишеров, но им нужно место для 2x2 тела.",
@@ -448,7 +547,7 @@ const copy = isRu
               },
               {
                   title: "2. Upgrade and synergize",
-                  text: "Before the fight, spend up to 7 augment points and choose faction bonuses when your army reaches 2, 4, or 6 units from the same faction.",
+                  text: "After the draft, spend your doctrine budget on augments. Each faction bonus is already fixed by the match ID and automatically reaches level 1/2/3 at 2/4/6 units of that faction—there is no separate synergy choice.",
               },
               {
                   title: "3. Place",
@@ -474,35 +573,35 @@ const copy = isRu
               "Conceptually every unit pulls roughly the same weight in your army: a weaker creature simply arrives as a bigger stack, so no single unit is just 'better' than another. Fights are won by your plan and how your units synergize — not by raw stats or flashy abilities.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
               "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large 2x2 creatures, and utility pieces with auras.",
-              "The draft runs in eight steps: Doctrine, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, Level 4, then placement. You end with the same 2/2/1/1 army either way — the order is what makes it a read on your opponent.",
+              "The live draft has seven stages before setup: Doctrine + optional ban proposal, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, and Level 4. You then spend augment points and place the same 2/2/1/1 roster — the order is what makes it a read on your opponent.",
           ],
           draftSteps: [
               {
-                  title: "1. Doctrine",
-                  text: "Your scouting stance for the whole draft, and it buys your upgrade points. Spymaster sees every opponent pick and grants 5 points; Scout reveals 3 random slots for 6; Blind Fury sees nothing and grants 7. Information or power — you cannot have both.",
+                  title: "1. Doctrine and ban proposal",
+                  text: "Both players act simultaneously. Choose your scouting stance and, before locking it, optionally nominate one eligible creature for a private ban. One nomination wins directly; matching nominations guarantee that ban; two different nominations are resolved 50/50. It replaces an auto-ban at that level rather than adding another.",
               },
               {
                   title: "2. Bundle",
-                  text: "You are offered two bundles and take one. Each is a level-1 creature, a level-2 creature, and a Tier-1 artifact together, so the artifact you want may cost you the creature you wanted.",
+                  text: "Both players simultaneously take one of two bundles. Each contains a level-1 creature, a level-2 creature, and its own Tier-1 artifact; the two offered artifacts are distinct, so the artifact you want may cost you the creature you wanted.",
               },
               {
                   title: "3–5. Level 1–3 picks",
-                  text: "Take one creature at each level, alternating who picks first: you lead at levels 1 and 3, while your opponent leads at level 2. Greyed portraits are banned. Unless your doctrine reveals a pick, choosing an already-taken creature simply sends you back to choose again.",
+                  text: "Take one creature at each level. The Lower/green seat picks first at levels 1 and 3; the Upper/red seat picks first at level 2. Greyed portraits are banned. If your doctrine hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
               },
               {
                   title: "6. Tier-2 artifact",
-                  text: "Three Tier-2 artifacts are offered to you; choose one for the whole army. It lands before the level-4 pick, so your last creature can be chosen to suit it.",
+                  text: "Both players simultaneously receive three distinct Tier-2 artifacts and choose one for the whole army. This happens before the level-4 pick, so your last creature can be chosen to suit it.",
               },
               {
                   title: "7. Level-4 pick",
-                  text: "Your opponent chooses first, then you close the roster with your final creature. Fit it to the synergies, artifacts, and augments you already own — or use it to cover an obvious weakness.",
+                  text: "The Upper/red seat picks first and the Lower/green seat picks second. Fit the last creature to the known synergy variants, map, and artifacts; augment spending comes immediately afterward.",
               },
           ],
           draftNotes: [
               "The baseline draft pool by level is 2/2/1/1 — the bundle already covers one level-1 and one level-2.",
-              "Bans are dealt by the game before the draft, not chosen by players: 6 creatures at level 1, 6 at level 2, 3 at level 3 and 5 at level 4 are removed at random. Nothing offered inside a bundle is ever banned.",
+              "The game removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. A player nomination can replace one auto-ban with the nominated creature at the same level; it does not increase the total. Bundle offers are never eligible.",
               "A level can only be banned if enough units of that level remain available for every pick both teams are owed.",
-              "Your doctrine is the only thing that decides what you see, so choose it as a plan for the whole draft rather than a reaction to one pick.",
+              "Only your doctrine controls vision. Scout preselects one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot; the opponent's private ban nomination reveals no intent.",
           ],
           unitsTitle: "How to read a unit",
           unitStats: [
@@ -531,7 +630,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
                   title: "Placement",
-                  text: "Expands deployment. The starting tier limits how many stacks can be fielded; the highest tier opens the baseline cap of 8 stacks before Nature bonuses.",
+                  text: `The free option gives a partial ${placementDepths[0]}-row zone and up to 6 stacks. Spending 1 point gives a full ${placementDepths[1]}-row zone and 7 stacks. The second paid option costs 2 points and opens ${placementDepths[2]} full rows including the board edge, plus the baseline cap of 8 stacks before Nature bonuses.`,
               },
               {
                   icon: "/assets/images/units/abilities/armor_augment_256.webp",
@@ -551,7 +650,7 @@ const copy = isRu
               {
                   icon: "/assets/images/units/abilities/sniper_augment_256.webp",
                   title: "Sniper",
-                  text: "+7/15/24% ranged attack and +20/40/70% shot distance. Take it when firing lanes are your win condition.",
+                  text: `+${sniperPowers.map(([attack]) => attack).join("/")}% ranged attack and +${sniperPowers.map(([, range]) => range).join("/")}% shot distance. It extends the full-damage band but does not remove range falloff.`,
               },
               {
                   icon: "/assets/images/units/abilities/movement_augment_256.webp",
@@ -559,9 +658,36 @@ const copy = isRu
                   text: "+1 or +2 movement steps. Sometimes one extra cell is worth more than another damage buff.",
               },
           ],
+          doctrinesTitle: "Doctrines: what you see costs you points",
+          doctrinesIntro:
+              "Your doctrine is the very first pick of the draft, and it lasts the whole draft. It decides how much of the opponent's roster you watch — and it pays you for looking away: the less you see, the larger your augment budget. There is no fourth option and you cannot change it later.",
+          doctrinesTableCaption: "Doctrines: reveal versus augment points",
+          doctrinesColumns: ["Doctrine", "What you see", "Augment points"],
+          doctrines: [
+              {
+                  name: "Spymaster",
+                  sees: "Every one of the opponent's picks, as they happen.",
+                  points: 5,
+                  note: "Full information, smallest army budget.",
+              },
+              {
+                  name: "Scout",
+                  sees: "One random level-1 slot, one level-2 slot, and one of the two senior slots (level 3 or 4).",
+                  points: 6,
+                  note: "A partial read for a middling budget.",
+              },
+              {
+                  name: "Blind Fury",
+                  sees: "Nothing. The opponent's roster stays hidden until the fight.",
+                  points: 7,
+                  note: "Draft blind, field the strongest army.",
+              },
+          ],
+          doctrinesOutro:
+              "Those points are the whole augment budget you spend before placement, so the doctrine is an army-size decision as much as an information one. Picking a creature the opponent already took simply sends you back to pick again — unless your doctrine revealed that slot.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
-              "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. For each faction, you choose one of two bonuses.",
+              "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. Each faction has two possible bonuses, and there is nothing to pick: which one a match fields is drawn from the game id — an even 50/50 per faction, drawn independently, identical for you and your opponent, and shown on the rails from the first screen of the draft.",
           synergyLevels: "Power by level",
           synergies: [
               {
@@ -582,7 +708,7 @@ const copy = isRu
               {
                   faction: "Nature",
                   icon: "/assets/images/units/factions/nature_128.webp",
-                  options: ["Board units: +1 / +2 / +3 fielded stacks", "Flying armor: +10% / +20% / +30%"],
+                  options: ["Board units: +2 / +3 / +4 fielded stacks", "Flying armor: +15% / +30% / +50%"],
               },
           ],
           placementTitle: "Placement: many fights are won before the first hit",
@@ -646,10 +772,45 @@ const copy = isRu
               "Ending your turn normally after acting costs nothing. Each lap a unit rolls about its morale value in percent: a positive hit lets it act an extra time (and hit a little harder), a negative hit gets it skipped.",
           mapTitle: "The map does not wait forever",
           mapParagraphs: [
-              "The board is a 16x16 grid. The current random map rotation includes normal, lava-center, and block-center maps. The center mountain can block shots and has 5 hits; lava-center maps make Made of Fire matter.",
-              "Normal maps narrow roughly every 3 laps. Block-center maps narrow every 4 laps. If neither army closes distance or deals damage, the engine can add extra narrowing pressure.",
-              "After lap 12, Armageddon starts: four damage waves gradually force a stalled fight to end.",
+              "The board is a 16x16 grid. Ranked rolls one of three maps the moment the draft is created — each equally likely, one chance in three — and reveals it to both players mid-draft. The fight is then played on exactly that map; it is never re-rolled at the start of combat.",
           ],
+          mapsTableCaption: "The three ranked maps",
+          mapsColumns: ["Map", "Center", "Narrows", "Chance"],
+          maps: [
+              {
+                  name: "Standard",
+                  center: "Open field — no central hazard.",
+                  narrows: "every 3 laps",
+                  chance: "1 in 3",
+              },
+              {
+                  name: "Lava",
+                  center: "A lava pool scars the center of the board.",
+                  narrows: "every 3 laps",
+                  chance: "1 in 3",
+              },
+              {
+                  name: "Cemetery",
+                  center: "12 tombstones scattered at random across the middle four rows — no single central block.",
+                  narrows: "every 4 laps",
+                  chance: "1 in 3",
+              },
+          ],
+          mapsOutro:
+              "A fourth map, Water, exists in the engine but is disabled in ranked, so you will never be dealt it. Narrowing turns outer cells into holes and pushes units inward — or kills them when there is no room. If neither army closes distance or deals damage, the engine can add extra narrowing pressure.",
+          mapMechanicsTitle: "Two map rules worth knowing before you draft",
+          mapMechanics: [
+              {
+                  title: "Lava is not walkable by default",
+                  text: "Nothing may enter the central lava on its own. The Tier-2 artifact Lava Striders changes that for your entire army: your units may move over and stand in lava, and while they stand in central lava they gain Made of Fire — +10% to all stats, abilities included. On a Lava map that turns the hazard into ground only you can use.",
+              },
+              {
+                  title: "Shooting through the Cemetery",
+                  text: "Tombstones are structures, and an ordinary ranged attack is stopped by the first one in its lane. Double Shot spends up to two of its projectiles clearing stones instead of hitting the target. Cyclops (Large Caliber) and Gargantuan (Area Throw) ignore structures outright — their shots pass straight through and destroy the stones caught in the blast, which is what makes them the answer to a Cemetery lane.",
+              },
+          ],
+          mapArmageddon:
+              "After lap 12, Armageddon starts: four escalating damage waves gradually force a stalled fight to end.",
           examplesTitle: "Role cheat sheet",
           examples: [
               "Black Dragon and Angel show what large flying finishers can do, but both need room for a 2x2 body.",
@@ -684,6 +845,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Драфт" },
                   { href: "#rule-unit-stats", label: "Характеристики" },
                   { href: "#rule-augments", label: "Апгрейды" },
+                  { href: "#rule-doctrines", label: "Доктрины" },
                   { href: "#rule-synergies", label: "Синергии" },
                   { href: "#rule-placement", label: "Расстановка" },
               ],
@@ -711,6 +873,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Draft" },
                   { href: "#rule-unit-stats", label: "Unit statistics" },
                   { href: "#rule-augments", label: "Augments" },
+                  { href: "#rule-doctrines", label: "Doctrines" },
                   { href: "#rule-synergies", label: "Synergies" },
                   { href: "#rule-placement", label: "Placement" },
               ],
@@ -1018,6 +1181,41 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
     </section>
 
+    <section class="section rules-section" id="rule-doctrines" tabindex="-1">
+        <div class="page-shell">
+            <div class="section-heading rules-reading-width">
+                <p class="eyebrow">{isRu ? "Доктрины" : "Doctrines"}</p>
+                <SectionTitle class="rules-section-title">{copy.doctrinesTitle}</SectionTitle>
+                <p>{copy.doctrinesIntro}</p>
+            </div>
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-doctrine-table-title" tabindex="0">
+                <table class="rules-aug-table">
+                    <caption id="rules-doctrine-table-title">{copy.doctrinesTableCaption}</caption>
+                    <thead>
+                        <tr>
+                            {copy.doctrinesColumns.map((column) => <th scope="col">{column}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {copy.doctrines.map((doctrine) => (
+                            <tr>
+                                <th scope="row" class="rules-aug-name">
+                                    <div>
+                                        <strong>{doctrine.name}</strong>
+                                        <em>{doctrine.note}</em>
+                                    </div>
+                                </th>
+                                <td>{doctrine.sees}</td>
+                                <td>{doctrine.points}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p class="rules-reading-width">{copy.doctrinesOutro}</p>
+        </div>
+    </section>
+
     <section class="section rules-band" id="rule-synergies" tabindex="-1">
         <div class="page-shell">
             <div class="section-heading rules-reading-width">
@@ -1140,6 +1338,43 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
                 <span class="map-ring two"></span>
                 <span class="map-ring three"></span>
             </div>
+        </div>
+        <div class="page-shell">
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-map-table-title" tabindex="0">
+                <table class="rules-aug-table">
+                    <caption id="rules-map-table-title">{copy.mapsTableCaption}</caption>
+                    <thead>
+                        <tr>
+                            {copy.mapsColumns.map((column) => <th scope="col">{column}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {copy.maps.map((map) => (
+                            <tr>
+                                <th scope="row" class="rules-aug-name">
+                                    <div><strong>{map.name}</strong></div>
+                                </th>
+                                <td>{map.center}</td>
+                                <td>{map.narrows}</td>
+                                <td>{map.chance}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p class="rules-reading-width">{copy.mapsOutro}</p>
+            <div class="rules-mechanics-block">
+                <ItemTitle>{copy.mapMechanicsTitle}</ItemTitle>
+                <div class="rules-action-grid">
+                    {copy.mapMechanics.map((mechanic) => (
+                        <article class="rules-card compact">
+                            <ItemTitle>{mechanic.title}</ItemTitle>
+                            <p>{mechanic.text}</p>
+                        </article>
+                    ))}
+                </div>
+            </div>
+            <p class="rules-reading-width">{copy.mapArmageddon}</p>
         </div>
     </section>
 

@@ -4,6 +4,7 @@ import { meteorIconDataUrl } from "./meteorIcon";
 import { nextLapHazard } from "./nextLapHazard";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import type { IVisibleState } from "../scenes/VisibleState";
+import { t, useTranslation } from "../i18n/i18n";
 
 /**
  * Bottom-centre warning for what lands when this lap ends — the map closing in, or an armageddon wave.
@@ -14,6 +15,7 @@ import type { IVisibleState } from "../scenes/VisibleState";
  * Bottom-CENTRE deliberately: the bottom-left corner is taken by the AI / replay / ranked badges.
  */
 export const NextLapHazardBadge: React.FC = () => {
+    useTranslation();
     // Self-subscribing (same idiom as MessageBox) so each host mounts it with no props to thread.
     const manager = usePixiManager();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
@@ -35,7 +37,7 @@ export const NextLapHazardBadge: React.FC = () => {
 
     return (
         <div
-            title={hazard.detail}
+            title={t(hazard.detail)}
             style={{
                 position: "absolute",
                 left: "50%",
@@ -79,7 +81,7 @@ export const NextLapHazardBadge: React.FC = () => {
                     />
                 </svg>
             )}
-            {hazard.label}
+            {t(hazard.label)}
         </div>
     );
 };

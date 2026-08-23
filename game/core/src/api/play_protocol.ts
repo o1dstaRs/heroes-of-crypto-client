@@ -118,6 +118,9 @@ export interface PlayUnitState {
     /** Aggr forced target: the unit id this unit is compelled to attack (empty = none). Kept across
      * board rebuilds so the client never draws attack arrows to other targets. */
     forcedTargetId?: string;
+    /** Terrifying Gaze forbidden target: the one unit this stack may not attack or retaliate against.
+     * Every other enemy remains legal. */
+    forbiddenTargetId?: string;
     /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order — lets ranked
      * sync used-up scroll counts (the client never runs the cast engine). */
     spellAmounts?: number[];
@@ -226,10 +229,10 @@ export interface PlaySnapshot {
     lowerArtifactTier2?: number;
     upperArtifactTier1?: number;
     upperArtifactTier2?: number;
-    /** Each team's perk (Perk enum id; 0 = none) — the placement sidebar derives the upgrade-point budget.
+    /** Each team's doctrine (Doctrine enum id; 0 = none) — the placement sidebar derives the upgrade-point budget.
      * The opponent's is hidden (0) until the fight starts. Absent from older servers (decoder defaults 0). */
-    lowerPerk?: number;
-    upperPerk?: number;
+    lowerDoctrine?: number;
+    upperDoctrine?: number;
     /** Placement-time army augments picked per team (augment level enum ids; 0 = none). Opponent values are
      * hidden (0) during placement, revealed at fight start (same as artifacts). */
     lowerAugmentPlacement?: number;
@@ -728,8 +731,8 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         lowerArtifactTier2: 0,
         upperArtifactTier1: 0,
         upperArtifactTier2: 0,
-        lowerPerk: 0,
-        upperPerk: 0,
+        lowerDoctrine: 0,
+        upperDoctrine: 0,
         lowerAugmentPlacement: 0,
         lowerAugmentArmor: 0,
         lowerAugmentMight: 0,
@@ -814,9 +817,9 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         } else if (field === 31) {
             snapshot.upperArtifactTier2 = reader.varintNumber();
         } else if (field === 32) {
-            snapshot.lowerPerk = reader.varintNumber();
+            snapshot.lowerDoctrine = reader.varintNumber();
         } else if (field === 33) {
-            snapshot.upperPerk = reader.varintNumber();
+            snapshot.upperDoctrine = reader.varintNumber();
         } else if (field === 34) {
             snapshot.lowerAugmentPlacement = reader.varintNumber();
         } else if (field === 35) {
@@ -1007,6 +1010,9 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.baseArmor = reader.float32();
         } else if (field === 43) {
             unit.baseAttack = reader.float32();
+        } else if (field === 44) {
+            // Terrifying Gaze's exact inverse of forced_target_id: one forbidden enemy, not a global lock.
+            unit.forbiddenTargetId = reader.string();
         } else {
             reader.skip(wireType);
         }

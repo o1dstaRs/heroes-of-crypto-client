@@ -1,7 +1,22 @@
+import { rankedArenaCopy } from "./ranked-arena-copy";
+import { normalizeSeasonCurrency, type SeasonCurrency } from "./season-currency";
+
+/** Fallback display name when a payload omits it — the English table the server also serves. */
+const fallbackLeagueName = (league: number): string =>
+    rankedArenaCopy.en.leagueNames[league - 1] ?? rankedArenaCopy.en.unranked;
+
+/**
+ * The richest third of a league. Its name is a noun ("Whale"), so it TRAILS the league name while
+ * the two lower tiers lead it — see the standing helpers in ranked-arena-client / ProfilePage.
+ */
+export const TOP_WEALTH = 3;
+
 export type ArenaTab = "players" | "games" | "leagues";
 export type PlayerSort = "rank" | "player" | "rating" | "winRate" | "wins" | "streak" | "gold";
 export type PlayerSortDirection = "asc" | "desc";
 export type LiveGameStage = "pick" | "placement" | "fight";
+export type LiveGameResult = "win" | "loss" | "draw";
+export type LiveGameFormSlot = LiveGameResult | "empty";
 
 export interface RankedPlayer {
     position: number;
@@ -12,6 +27,9 @@ export interface RankedPlayer {
     gold: number;
     league: number;
     leagueName: string;
+    // Which third of their league they sit in by gold: 1 Ragged, 2 Stacked, 3 Whale (0 = unplaced).
+    // The server recomputes it on every ladder read, so it moves with the balance, not with placement.
+    wealth: number;
     leaderboardRank: number;
     wins: number;
     losses: number;
@@ -22,6 +40,7 @@ export interface RankedPlayer {
     winRatePct: number;
     winStreak: number;
     lossStreak: number;
+    recentResults: LiveGameResult[];
     peakMmr: number;
     lastRankedGameAt: number;
     // The player's stored pre-game ban preference (0/"" = none).
@@ -67,7 +86,7 @@ export interface ArenaSeason {
     startsAt: number;
     endsAt: number;
     status: "upcoming" | "active" | "finished";
-    currency: { name: string; symbol: string };
+    currency: SeasonCurrency;
 }
 
 export interface RankedStandingsResponse {
@@ -90,13 +109,17 @@ export interface LiveGamePlayer {
     isBot: boolean;
     aiVersion: string | null;
     rankedBot: boolean;
-    /** Gold staked on THIS seat in the prediction market (0 outside a pick-phase ranked game). */
+    /** Gold staked on this seat; retained after the market closes for live odds. */
     predictionPool: number;
     ranked: {
         state: string;
         mmr: number;
         league: number;
+        /** Gold third inside the league (1 Ragged .. 3 Whale); 0 when the seat is not placed. */
+        wealth: number;
         leaderboardRank: number;
+        /** Newest-first ranked outcomes, capped at five by the public live-games API. */
+        recentResults: LiveGameResult[];
     } | null;
 }
 
@@ -121,6 +144,17 @@ export interface LiveGamesResponse {
     games: LiveGame[];
 }
 
+export type LivePredictionMarketState = "hidden" | "open" | "closed";
+
+export const livePredictionMarketState = (
+    game: Pick<LiveGame, "casual" | "players" | "stage">,
+): LivePredictionMarketState => {
+    if (game.casual || game.players.length < 2) {
+        return "hidden";
+    }
+    return game.stage === "pick" ? "open" : "closed";
+};
+
 export type LivePlayerRankedState = "placed" | "calibration" | "recalibration" | "unranked";
 
 type UnknownRecord = Record<string, unknown>;
@@ -140,6 +174,16 @@ const asInteger = (value: unknown, fallback = 0): number => Math.trunc(asNumber(
 
 const asBoolean = (value: unknown): boolean => value === true;
 
+const LIVE_GAME_RESULTS = new Set<LiveGameResult>(["win", "loss", "draw"]);
+
+const normalizeLiveGameResults = (value: unknown): LiveGameResult[] =>
+    asArray(value)
+        .filter(
+            (result): result is LiveGameResult =>
+                typeof result === "string" && LIVE_GAME_RESULTS.has(result as LiveGameResult),
+        )
+        .slice(0, 5);
+
 const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | null => {
     const row = asRecord(value);
     const playerId = asString(row.playerId);
@@ -155,7 +199,8 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         mmr: Math.max(0, asInteger(row.mmr)),
         gold: Math.max(0, asInteger(row.gold)),
         league,
-        leagueName: asString(row.leagueName, league ? `League ${league}` : "Unranked"),
+        leagueName: asString(row.leagueName, fallbackLeagueName(league)),
+        wealth: Math.max(0, Math.min(3, asInteger(row.wealth))),
         leaderboardRank: Math.max(0, asInteger(row.leaderboardRank)),
         wins: Math.max(0, asInteger(row.wins)),
         losses: Math.max(0, asInteger(row.losses)),
@@ -166,6 +211,7 @@ const normalizePlayer = (value: unknown, fallbackPosition = 0): RankedPlayer | n
         winRatePct: Math.max(0, Math.min(100, asNumber(row.winRatePct))),
         winStreak: Math.max(0, asInteger(row.winStreak)),
         lossStreak: Math.max(0, asInteger(row.lossStreak)),
+        recentResults: normalizeLiveGameResults(row.recentResults),
         peakMmr: Math.max(0, asInteger(row.peakMmr)),
         lastRankedGameAt: Math.max(0, asInteger(row.lastRankedGameAt)),
         bannedCreatureId: Math.max(0, asInteger(row.bannedCreatureId)),
@@ -199,7 +245,7 @@ export function normalizeStandingsResponse(value: unknown): RankedStandingsRespo
                 .filter((player): player is RankedPlayer => player !== null);
             return {
                 league,
-                name: asString(leagueRow.name, `League ${league}`),
+                name: asString(leagueRow.name, fallbackLeagueName(league)),
                 isTopLeague: asBoolean(leagueRow.isTopLeague),
                 playerCount: Math.max(0, asInteger(leagueRow.playerCount)),
                 minMmr: Math.max(0, asInteger(leagueRow.minMmr)),
@@ -261,14 +307,13 @@ export function normalizeArenaSeason(value: unknown): ArenaSeason | null {
         return null;
     }
     const status = asString(row.status);
-    const currency = asRecord(row.currency);
     return {
         sequence,
         name,
         startsAt: Math.max(0, asInteger(row.startsAt)),
         endsAt: Math.max(0, asInteger(row.endsAt)),
         status: status === "upcoming" || status === "finished" ? status : "active",
-        currency: { name: asString(currency.name, "Coins"), symbol: asString(currency.symbol, "CN") },
+        currency: normalizeSeasonCurrency(row.currency),
     };
 }
 
@@ -297,7 +342,9 @@ const normalizeLivePlayer = (value: unknown): LiveGamePlayer | null => {
                   state: rankedState || (rankedMmr > 0 || rankedLeague > 0 ? "placed" : "unranked"),
                   mmr: rankedMmr,
                   league: rankedLeague,
+                  wealth: Math.max(0, Math.min(3, asInteger(rawRanked.wealth))),
                   leaderboardRank: Math.max(0, asInteger(rawRanked.leaderboardRank)),
+                  recentResults: normalizeLiveGameResults(rawRanked.recentResults),
               }
             : null,
     };
@@ -355,6 +402,15 @@ export function livePlayerRankedState(player: LiveGamePlayer): LivePlayerRankedS
         return state;
     }
     return player.ranked && (player.ranked.mmr > 0 || player.ranked.league > 0) ? "placed" : "unranked";
+}
+
+export function liveGameFormSlots(results: LiveGameResult[], size = 5): LiveGameFormSlot[] {
+    const boundedSize = Math.max(1, Math.trunc(size));
+    const chronological = results.slice(0, boundedSize).reverse();
+    return [
+        ...Array<LiveGameFormSlot>(Math.max(0, boundedSize - chronological.length)).fill("empty"),
+        ...chronological,
+    ];
 }
 
 const searchable = (value: string): string =>

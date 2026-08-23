@@ -70,6 +70,12 @@ interface IStatUnit {
     getName(): string;
     getSmallTextureName(): string;
     getAmountAlive(): number;
+    /**
+     * Whole-stack health. Drives the board-share line, which tracks how much ARMY each side still has
+     * rather than how many creatures: chipping a big stack to nothing shifts the fight long before the
+     * casualty count notices, and a count-only series draws that as a flat line.
+     */
+    getCumulativeHp(): number;
 }
 
 interface IRosterEntry {
@@ -88,8 +94,12 @@ export class FightStatsTracker {
     private started = false;
     private lowerStartTotal = 0;
     private upperStartTotal = 0;
+    private lowerStartHp = 0;
+    private upperStartHp = 0;
     private lastLowerKilled = 0;
     private lastUpperKilled = 0;
+    private lastLowerHp = 0;
+    private lastUpperHp = 0;
     private series: IFightStatsSample[] = [];
     private readonly lowerRoster = new Map<string, IRosterEntry>();
     private readonly upperRoster = new Map<string, IRosterEntry>();
@@ -97,8 +107,12 @@ export class FightStatsTracker {
         this.started = false;
         this.lowerStartTotal = 0;
         this.upperStartTotal = 0;
+        this.lowerStartHp = 0;
+        this.upperStartHp = 0;
         this.lastLowerKilled = 0;
         this.lastUpperKilled = 0;
+        this.lastLowerHp = 0;
+        this.lastUpperHp = 0;
         this.series = [];
         this.lowerRoster.clear();
         this.upperRoster.clear();
@@ -114,8 +128,13 @@ export class FightStatsTracker {
                 team === TeamVals.LOWER ? this.lowerRoster : team === TeamVals.UPPER ? this.upperRoster : undefined;
             if (!roster) continue;
 
-            if (team === TeamVals.LOWER) this.lowerStartTotal += amount;
-            else this.upperStartTotal += amount;
+            if (team === TeamVals.LOWER) {
+                this.lowerStartTotal += amount;
+                this.lowerStartHp += unit.getCumulativeHp();
+            } else {
+                this.upperStartTotal += amount;
+                this.upperStartHp += unit.getCumulativeHp();
+            }
 
             const name = unit.getName();
             const entry = roster.get(name);
@@ -126,7 +145,21 @@ export class FightStatsTracker {
             }
         }
         this.started = true;
-        this.series = [{ lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 }];
+        this.lastLowerHp = this.lowerStartHp;
+        this.lastUpperHp = this.upperStartHp;
+        // Both sides open at full strength, which is what puts the board-share line on the 50/50 midline
+        // for the first sample of every fight regardless of how the two armies were built.
+        this.series = [
+            {
+                lap: 1,
+                lowerKilled: 0,
+                upperKilled: 0,
+                lowerKilledPct: 0,
+                upperKilledPct: 0,
+                lowerHpPct: 100,
+                upperHpPct: 100,
+            },
+        ];
     }
     /**
      * Record a data point if the casualty count changed. Cheap to call every frame:
@@ -138,24 +171,46 @@ export class FightStatsTracker {
 
         let lowerAlive = 0;
         let upperAlive = 0;
+        let lowerHp = 0;
+        let upperHp = 0;
         for (const unit of units) {
             const team = unit.getTeam();
-            if (team === TeamVals.LOWER) lowerAlive += unit.getAmountAlive();
-            else if (team === TeamVals.UPPER) upperAlive += unit.getAmountAlive();
+            if (team === TeamVals.LOWER) {
+                lowerAlive += unit.getAmountAlive();
+                lowerHp += unit.getCumulativeHp();
+            } else if (team === TeamVals.UPPER) {
+                upperAlive += unit.getAmountAlive();
+                upperHp += unit.getCumulativeHp();
+            }
         }
 
         const lowerKilled = Math.max(0, this.lowerStartTotal - lowerAlive);
         const upperKilled = Math.max(0, this.upperStartTotal - upperAlive);
-        if (lowerKilled === this.lastLowerKilled && upperKilled === this.lastUpperKilled) return false;
+        // Dedupe on HP as well as on deaths. Damage that wounds a stack without finishing a creature still
+        // moves the board share, and a deaths-only gate drew those laps as a flat line.
+        if (
+            lowerKilled === this.lastLowerKilled &&
+            upperKilled === this.lastUpperKilled &&
+            lowerHp === this.lastLowerHp &&
+            upperHp === this.lastUpperHp
+        ) {
+            return false;
+        }
 
         this.lastLowerKilled = lowerKilled;
         this.lastUpperKilled = upperKilled;
+        this.lastLowerHp = lowerHp;
+        this.lastUpperHp = upperHp;
         this.series.push({
             lap,
             lowerKilled,
             upperKilled,
             lowerKilledPct: FightStatsTracker.pct(lowerKilled, this.lowerStartTotal),
             upperKilledPct: FightStatsTracker.pct(upperKilled, this.upperStartTotal),
+            // REMAINING share of each side's own starting health. Normalising per side is what keeps the
+            // opening sample at 50/50 even when the two armies never had equal health to begin with.
+            lowerHpPct: FightStatsTracker.pct(lowerHp, this.lowerStartHp),
+            upperHpPct: FightStatsTracker.pct(upperHp, this.upperStartHp),
         });
         return true;
     }

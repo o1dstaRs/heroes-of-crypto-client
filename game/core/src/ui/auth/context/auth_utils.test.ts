@@ -13,6 +13,7 @@ const makeToken = (exp: number): string => `${b64url({ alg: "HS256", typ: "JWT" 
 describe("tokenExpSafe", () => {
     it("returns the exp of a well-formed token", () => {
         expect(tokenExpSafe(makeToken(1_800_000_000))).toBe(1_800_000_000);
+        expect(tokenExpSafe(`Bearer ${makeToken(1_800_000_000)}`)).toBe(1_800_000_000);
     });
 
     it("returns null for garbage, empty, and structurally broken values instead of throwing", () => {
@@ -29,6 +30,7 @@ describe("isValidToken", () => {
     it("accepts an unexpired token and rejects an expired or malformed one without throwing", () => {
         const now = Date.now() / 1000;
         expect(isValidToken(makeToken(now + 3600))).toBe(true);
+        expect(isValidToken(`Bearer ${makeToken(now + 3600)}`)).toBe(true);
         expect(isValidToken(makeToken(now - 3600))).toBe(false);
         expect(isValidToken("corrupted")).toBe(false);
     });

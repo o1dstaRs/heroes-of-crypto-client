@@ -11,3 +11,7 @@ src/generated/
 .env
 .env.*
 !.env.example
+# Tracked on purpose: no secrets beyond the public Google client id — these ARE the
+# builds' baked API origins (.env.production already tracked via a historic force-add).
+!.env.production
+!.env.test

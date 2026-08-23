@@ -32,7 +32,14 @@ export interface PresencePingResult {
 
 export interface SocialNotification {
     id: string;
-    type: "friend_request" | "friend_accepted" | "friend_message" | "lobby_invite" | "system";
+    type:
+        | "friend_request"
+        | "friend_accepted"
+        | "friend_message"
+        | "lobby_invite"
+        | "chat_mention"
+        | "chat_reply"
+        | "system";
     fromPlayerId?: string;
     fromUsername?: string;
     requestId?: string;
@@ -50,6 +57,12 @@ export interface FriendEntry {
     lastOnlineAt: number;
     muted: boolean;
     unreadCount: number;
+    /**
+     * Season gold. OPTIONAL for the same reason presence is: an older matchmaking server does not send it,
+     * and a player who has never entered ranked has no season profile to read it from. Both cases mean
+     * "no figure", which the row draws as a dash — never as a zero the player has not earned.
+     */
+    gold?: number;
 }
 
 export interface FriendMessage {
@@ -78,6 +91,16 @@ export interface FriendsOverview {
 export interface PlayerSearchHit {
     id: string;
     username: string;
+    /**
+     * Presence for the search row, same figures the friends list shows. OPTIONAL on purpose: a client can
+     * run against a matchmaking server that predates the enriched player-search response, and a missing
+     * field must read as "not known" rather than as "offline since never". Callers should branch on
+     * `undefined` instead of coercing to a boolean.
+     */
+    online?: boolean;
+    lastOnlineAt?: number;
+    /** Season gold, on the same optional terms as the presence pair above. */
+    gold?: number;
 }
 
 const post = async <T>(path: string, body?: Record<string, unknown>): Promise<T> => {
@@ -156,6 +179,11 @@ export interface RankedStanding {
     peakMmr: number;
     league: number;
     leagueName: string;
+    /** Gold third inside the league: 1 Ragged, 2 Stacked, 3 Whale (0 = unplaced). */
+    wealth: number;
+    wealthName: string;
+    /** Wealth and league in one line, as the server renders it: "Whale Marshal". */
+    standingTitle: string;
     leaderboardRank: number;
     calibration: {
         required: number;
@@ -177,6 +205,98 @@ export interface RankedStanding {
 
 /** The signed-in player's own ranked standing (calibration progress, or league once placed). */
 export const fetchRankedStanding = (): Promise<RankedStanding> => get(endpoints.social.rankedStanding);
+
+export interface PredictionSeat {
+    playerId: string;
+    username: string;
+    pool: number;
+    bets: number;
+}
+
+export interface PredictionMarket {
+    gameId: string;
+    pickEndTime: number;
+    totalPool: number;
+    totalBets: number;
+    seats: PredictionSeat[];
+}
+
+export interface PredictionBet {
+    gameId: string;
+    playerId: string;
+    predictedPlayerId: string;
+    amount: number;
+    placedAt: number;
+    seasonSequence?: number;
+    status: "open" | "won" | "lost" | "burned" | "refunded";
+    payout: number;
+    settledAt: number;
+}
+
+export interface PredictionMarketViewer {
+    gameId?: string;
+    username?: string;
+}
+
+/**
+ * Markets a signed-in spectator may back. The server is still authoritative and rejects either
+ * player at bet time; this keeps a commander's own draft out of the UI before they can click it.
+ * Username matching covers the current auth payload, which intentionally carries no player id.
+ */
+export const eligiblePredictionMarkets = (
+    markets: readonly PredictionMarket[],
+    viewer: PredictionMarketViewer,
+): PredictionMarket[] => {
+    const gameId = viewer.gameId?.trim() ?? "";
+    const username = viewer.username?.trim().toLocaleLowerCase() ?? "";
+    return markets.filter(
+        (market) =>
+            (!gameId || market.gameId !== gameId) &&
+            (!username || !market.seats.some((seat) => seat.username.trim().toLocaleLowerCase() === username)),
+    );
+};
+
+export const settledPredictionBetsForSeason = (
+    bets: readonly PredictionBet[],
+    seasonSequence: number | undefined,
+): PredictionBet[] =>
+    seasonSequence === undefined
+        ? []
+        : bets.filter((bet) => bet.status !== "open" && bet.seasonSequence === seasonSequence);
+
+/** Games still drafting, with both sides' stake pools. Public — no token needed. */
+export const fetchPredictionMarkets = async (): Promise<PredictionMarket[]> => {
+    const result = await get<{ markets?: PredictionMarket[] }>(endpoints.social.predictionMarkets);
+    return result.markets ?? [];
+};
+
+/** Every bet this player has placed, newest first (all statuses). */
+export const fetchMyPredictionBets = async (): Promise<PredictionBet[]> => {
+    const result = await get<{ bets?: PredictionBet[] }>(endpoints.social.predictionBets);
+    return result.bets ?? [];
+};
+
+/** Stake gold on one side of a drafting game. One immutable bet per game. */
+export const placePredictionBet = async (
+    gameId: string,
+    predictedPlayerId: string,
+    amount: number,
+): Promise<PredictionBet> => {
+    const result = await post<{ bet: PredictionBet }>(endpoints.social.predictionBet, {
+        gameId,
+        predictedPlayerId,
+        amount,
+    });
+    return result.bet;
+};
+
+/**
+ * Total gold returned for staking `amount` on a side holding `sidePool` against `otherPool` — the
+ * stake back plus its pro-rata share of the other side, floored. Mirrors the server's settle math
+ * exactly, so the previewed number is the number paid if the market closes as it stands.
+ */
+export const predictionReturn = (amount: number, sidePool: number, otherPool: number): number =>
+    amount <= 0 ? 0 : amount + Math.floor((amount * Math.max(0, otherPool)) / (Math.max(0, sidePool) + amount));
 
 export const searchPlayers = async (query: string): Promise<PlayerSearchHit[]> => {
     const trimmed = query.trim();
@@ -218,4 +338,191 @@ export const formatLastSeen = (lastOnlineAt: number, now: number = Date.now()): 
         return `${hours}h ago`;
     }
     return `${Math.floor(hours / 24)}d ago`;
+};
+
+/**
+ * The presence caption for one add-friend search row: "Online", or the last-seen phrasing above.
+ *
+ * Returns undefined when the server sent no presence at all — a client can be talking to a matchmaking
+ * build that predates the enriched player-search response. That case means UNKNOWN and must render as
+ * nothing: labelling a player "never" because the field is missing would be a confident lie about
+ * somebody who might be online right now. `lastOnlineAt` of 0 is different — the server DID answer, and
+ * genuinely has no record — so it keeps formatLastSeen's honest "never".
+ */
+export const searchHitPresenceLabel = (hit: PlayerSearchHit, now: number = Date.now()): string | undefined => {
+    if (hit.online === undefined) {
+        return undefined;
+    }
+    return hit.online ? "Online" : formatLastSeen(hit.lastOnlineAt ?? 0, now);
+};
+
+/* ------------------------------------------------------------- ranked wagers */
+
+export interface WagerIntentState {
+    amount: number;
+    gold: number;
+}
+
+export interface WagerState {
+    gameId: string;
+    status: "negotiating" | "raised" | "locked" | "settled" | "burned" | "refunded";
+    /** The per-player amount currently being played for (the floor until locked/raised). */
+    amount: number;
+    raisedTo: number;
+    deadlineAt: number;
+    myStake: number;
+    opponentStake: number;
+    myTurn: boolean;
+    winnerPlayerId: string;
+    payout: number;
+}
+
+/** The caller's standing next-match stake + live purse (drives the arena stake box). */
+export const fetchWagerIntent = async (): Promise<WagerIntentState> =>
+    get<WagerIntentState>(endpoints.social.wagerIntent);
+
+/** Arm/replace (amount > 0) or clear (amount = 0) the next-match stake. Escrow moves immediately. */
+export const setWagerIntent = async (amount: number): Promise<WagerIntentState> =>
+    post<WagerIntentState>(endpoints.social.wagerIntent, { amount });
+
+/** The live wager on one of MY games, or null when none formed / I am not a participant. */
+export const fetchWager = async (gameId: string): Promise<WagerState | null> => {
+    const result = await get<{ wager: WagerState | null }>(
+        `${endpoints.social.wager}?gameId=${encodeURIComponent(gameId)}`,
+    );
+    return result.wager;
+};
+
+export const callWager = async (gameId: string): Promise<void> => {
+    await post(endpoints.social.wagerCall, { gameId });
+};
+
+export const raiseWager = async (gameId: string, amount: number): Promise<void> => {
+    await post(endpoints.social.wagerRaise, { gameId, amount });
+};
+
+/* --------------------------------------------------------------- arena chat */
+
+export interface ArenaChatMessage {
+    id: string;
+    playerId: string;
+    username: string;
+    body: string;
+    /** Player ids this line tagged — already resolved server-side against real accounts. */
+    mentions: string[];
+    /** How many upvotes the line has. The voter IDS stay on the server — see youVoted. */
+    upvotes: number;
+    /** Whether YOU voted, resolved server-side so the client never needs its own player id. */
+    youVoted: boolean;
+    /** Whether YOU reported. Other people's reports are nobody else's business and are not sent. */
+    youReported: boolean;
+    seasonSequence: number;
+    createdAt: number;
+    /** Present when this line replies to another. The quote is denormalized at post time on the
+     * server, so it renders even after the original left the room. */
+    replyToId?: string;
+    replyToPlayerId?: string;
+    replyToUsername?: string;
+    replyToSnippet?: string;
+}
+
+/**
+ * The arena room's history, oldest-first. `after` is the newest createdAt already held, which makes
+ * this the polling cursor: an open arena pulls only what landed since, not the whole backlog.
+ */
+export const fetchArenaChat = async (after = 0): Promise<ArenaChatMessage[]> => {
+    const query = after > 0 ? `?after=${encodeURIComponent(String(after))}` : "";
+    const result = await get<{ messages?: ArenaChatMessage[] }>(`${endpoints.social.arenaChat}${query}`);
+    return Array.isArray(result.messages) ? result.messages : [];
+};
+
+/**
+ * Post one line. The server refuses stop words, external links, over-long text and too-fast posting
+ * with a human message — surface it with socialErrorMessage rather than inventing wording here, so
+ * the player is told which rule they hit.
+ */
+/** Toggle your upvote. A second call removes it — the vote is set membership, not a counter. */
+export const upvoteArenaChat = (messageId: string): Promise<{ upvotes: number; voted: boolean }> =>
+    post(endpoints.social.arenaChatUpvote, { messageId });
+
+/** Report a line. Hidden for everyone once enough distinct players report it. */
+export const reportArenaChat = (messageId: string): Promise<{ reports: number; hidden: boolean }> =>
+    post(endpoints.social.arenaChatReport, { messageId });
+
+export const postArenaChat = (
+    body: string,
+    replyToMessageId?: string,
+): Promise<{ message: ArenaChatMessage; mentioned: string[] }> =>
+    post(endpoints.social.arenaChatPost, { body, ...(replyToMessageId ? { replyToMessageId } : {}) });
+
+/** The public ranked-profile slice the chat's player card shows. Served without auth; a player who
+ * never entered ranked 404s (surface as "no ranked record" rather than an error). */
+export interface PublicPlayerStats {
+    playerId: string;
+    username: string;
+    state?: "calibration" | "placed" | "recalibration";
+    /** 0 until placed — the provisional calibration MMR is never public. */
+    mmr?: number;
+    leagueName?: string;
+    standingTitle?: string;
+    leaderboardRank?: number;
+    calibration?: { required: number; gamesPlayed: number };
+    wins?: number;
+    losses?: number;
+    draws?: number;
+    totalGames?: number;
+    winRatePct?: number;
+    winStreak?: number;
+    lossStreak?: number;
+    gold?: number;
+}
+
+export const fetchPublicPlayerStats = async (playerId: string): Promise<PublicPlayerStats> => {
+    const response = await axiosMMInstance.get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`, {
+        headers: authHeaders(),
+    });
+    return response.data as PublicPlayerStats;
+};
+
+/** One rendered run of a chat line: plain text, a resolved @tag, or an internal link. */
+export type ChatSegment =
+    | { kind: "text"; text: string }
+    | { kind: "mention"; text: string; isSelf: boolean }
+    | { kind: "link"; text: string; href: string };
+
+/**
+ * Split a message into renderable runs.
+ *
+ * Only two things are ever given special treatment, and both are safe by construction: an @tag
+ * (plain highlighting, no navigation) and a link — which the SERVER has already guaranteed is
+ * internal, since an external one could not have been posted. This function therefore never has to
+ * decide whether a URL is safe to render; it only has to find it.
+ */
+export const chatSegments = (body: string, selfUsername?: string): ChatSegment[] => {
+    const segments: ChatSegment[] = [];
+    const pattern = /(?<![\w@])@([A-Za-z0-9][A-Za-z0-9_.-]{2,49})|((?:https?:\/\/|www\.)[^\s<>"']+)/g;
+    let cursor = 0;
+    for (const match of body.matchAll(pattern)) {
+        const index = match.index ?? 0;
+        if (index > cursor) {
+            segments.push({ kind: "text", text: body.slice(cursor, index) });
+        }
+        if (match[1]) {
+            const handle = match[1].replace(/[.]+$/, "");
+            segments.push({
+                kind: "mention",
+                text: `@${handle}`,
+                isSelf: !!selfUsername && handle.toLowerCase() === selfUsername.toLowerCase(),
+            });
+            cursor = index + 1 + handle.length;
+        } else {
+            const raw = match[2];
+            segments.push({ kind: "link", text: raw, href: /^https?:\/\//i.test(raw) ? raw : `https://${raw}` });
+            cursor = index + raw.length;
+        }
+    }
+    if (cursor < body.length) {
+        segments.push({ kind: "text", text: body.slice(cursor) });
+    }
+    return segments;
 };

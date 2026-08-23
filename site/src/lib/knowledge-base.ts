@@ -140,10 +140,16 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
                   "усиления улучшения",
               ],
               [
+                  "Доктрины",
+                  "Три доктрины драфта: сколько состава противника вы видите и сколько очков апгрейдов это приносит.",
+                  "rules-doctrines",
+                  "перки разведка очки Scout Spymaster Blind Fury",
+              ],
+              [
                   "Синергии",
-                  "Бонусы фракций за 2, 4 и 6 юнитов Жизни, Хаоса, Силы или Природы.",
+                  "Бонусы фракций за 2, 4 и 6 юнитов Жизни, Хаоса, Силы или Природы — и как разыгрывается вариант.",
                   "rules-synergies",
-                  "фракции бонусы",
+                  "фракции бонусы проценты",
               ],
               [
                   "Расстановка",
@@ -202,10 +208,16 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
                   "upgrades points",
               ],
               [
+                  "Doctrines",
+                  "The three draft doctrines: how much of the opponent you see, and the augment points it pays.",
+                  "rules-doctrines",
+                  "doctrines scout spymaster blind fury points",
+              ],
+              [
                   "Faction synergies",
-                  "Bonuses unlocked by fielding 2, 4, or 6 Life, Chaos, Might, or Nature units.",
+                  "Bonuses unlocked by fielding 2, 4, or 6 Life, Chaos, Might, or Nature units — and how the variant is drawn.",
                   "rules-synergies",
-                  "factions bonuses",
+                  "factions bonuses percentages",
               ],
               [
                   "Placement",

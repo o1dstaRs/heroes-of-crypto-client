@@ -4,11 +4,12 @@ import Typography from "@mui/joy/Typography";
 import OpenInNewRoundedIcon from "@mui/icons-material/OpenInNewRounded";
 
 import * as packageJson from "../../../package.json";
+import { siteUrl } from "../../api/site_origin";
 
 export const VersionDisplay = () => (
     <Box sx={{ display: "flex", gap: 1, alignItems: "center", justifyContent: "flex-end", height: 32 }}>
         <a
-            href="https://heroesofcrypto.io/patches"
+            href={siteUrl("/patches")}
             target="_blank"
             rel="noopener noreferrer"
             style={{

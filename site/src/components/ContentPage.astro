@@ -89,11 +89,17 @@ const formatRosterAbilities = (abilities: string) =>
                         <div class="patch-meta">
                             <strong>{patch.version}</strong>
                             <time>{patch.date}</time>
-                            {patch.href && (
-                                <a href={patch.href} target="_blank" rel="noopener">
-                                    {patch.commit}
-                                </a>
-                            )}
+                            {patch.commits?.length
+                                ? patch.commits.map((entry) => (
+                                      <a href={entry.href} target="_blank" rel="noopener">
+                                          {entry.label} {entry.commit}
+                                      </a>
+                                  ))
+                                : patch.href && (
+                                      <a href={patch.href} target="_blank" rel="noopener">
+                                          {patch.commit}
+                                      </a>
+                                  )}
                         </div>
                         <div class="patch-body">
                             <div class="patch-heading">

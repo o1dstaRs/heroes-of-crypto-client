@@ -116,6 +116,15 @@ describe("play protobuf decoder", () => {
         expect(decoded.units[1]?.onHourglass).toBe(false);
     });
 
+    test("decodes the Terrifying Gaze forbidden target (proto field 44)", () => {
+        const unit = [...stringField(1, "unit-1"), ...stringField(44, "manticore-1")];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect(decoded.units[0]?.forbiddenTargetId).toBe("manticore-1");
+    });
+
     test("decodes negative morale and luck (sign-extended int32 from protobufjs)", () => {
         const unit = [...stringField(1, "unit-1"), ...signedIntField(14, -2), ...signedIntField(21, -5)];
         const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, unit)]);

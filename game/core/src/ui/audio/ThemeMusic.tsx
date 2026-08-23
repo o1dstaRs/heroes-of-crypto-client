@@ -1,7 +1,10 @@
+import VolumeOffRoundedIcon from "@mui/icons-material/VolumeOffRounded";
+import VolumeUpRoundedIcon from "@mui/icons-material/VolumeUpRounded";
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
+import { t, useTranslation } from "../../i18n/i18n";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
 import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
@@ -23,7 +26,29 @@ import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from 
  */
 const VOLUME_KEY = "hoc:themeVolume";
 const MUTED_KEY = "hoc:themeMuted";
-const DEFAULT_VOLUME = 0.5; // "medium"
+/**
+ * Which generation of DEFAULT_VOLUME a browser has already adopted.
+ *
+ * The stored volume is written on FIRST LOAD, before the player has touched anything (see the persist
+ * effect below), so the default of the day gets burned into every browser that ever opened the game.
+ * Lowering DEFAULT_VOLUME therefore reached nobody who had visited before: they kept opening at the old
+ * 0.5 and had no idea it was a stale default rather than a choice they had made.
+ *
+ * Bump this whenever DEFAULT_VOLUME changes and existing browsers should be pulled to the new value.
+ * It resets a deliberately-chosen volume once, which is the price of fixing the far more common case of
+ * a value nobody ever chose.
+ */
+const VOLUME_REVISION_KEY = "hoc:themeVolumeRev";
+const VOLUME_REVISION = "2";
+// 10% (owner call, down from a "medium" 0.5, and re-confirmed 2026-08-16): the menu theme opened far
+// louder than most players wanted on first load, so it starts quiet and is turned UP by anyone who wants
+// it. This is the FIRST-LOAD value only — readInitialSettings prefers a stored hoc:themeVolume, so
+// lowering it changes nothing for anyone who has already touched the slider.
+//
+// The marketing site used to carry its own copy that had to be kept in step; its background music was
+// removed (site commit e71d0b7) and the game client is now the only thing that sings, so there is no
+// longer a second origin to match.
+const DEFAULT_VOLUME = 0.1;
 const FADE_MS = 900;
 
 /**
@@ -69,7 +94,11 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
     let muted = false;
     try {
         const storedVolume = window.localStorage.getItem(VOLUME_KEY);
-        if (storedVolume !== null && Number.isFinite(Number(storedVolume))) {
+        // A browser that has not adopted this revision keeps whatever default was current when it first
+        // loaded — take DEFAULT_VOLUME instead of that stale value. The persist effect writes the new
+        // revision alongside the volume, so this happens exactly once per browser.
+        const adopted = window.localStorage.getItem(VOLUME_REVISION_KEY) === VOLUME_REVISION;
+        if (adopted && storedVolume !== null && Number.isFinite(Number(storedVolume))) {
             volume = clamp01(Number(storedVolume));
         }
         muted = window.localStorage.getItem(MUTED_KEY) === "1";
@@ -90,6 +119,7 @@ const readInitialSettings = (): { volume: number; muted: boolean } => {
 };
 
 export const ThemeMusic: React.FC = () => {
+    useTranslation();
     const { pathname } = useLocation();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const webmSourceRef = useRef<HTMLSourceElement | null>(null);
@@ -259,16 +289,23 @@ export const ThemeMusic: React.FC = () => {
         try {
             window.localStorage.setItem(VOLUME_KEY, String(volume));
             window.localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
+            // Stamped with the volume it belongs to, so a browser is only pulled to a new default once.
+            window.localStorage.setItem(VOLUME_REVISION_KEY, VOLUME_REVISION);
         } catch {
             // The choice just will not outlive the session.
         }
     }, [volume, muted]);
 
     const silent = muted || volume === 0;
+    const socialDockControl = dockSlot?.dataset.volumeControl === "social-dock";
+    const compactSocialDockControl = socialDockControl && dockSlot?.dataset.volumeSize === "compact";
+    const medallionControl = socialDockControl || !dockSlot;
+    const medallionSize = compactSocialDockControl ? 38 : 46;
+    const medallionButtonSize = medallionSize - 2;
+    const medallionIconSize = compactSocialDockControl ? 20 : 23;
 
-    // Docked, the control is nothing but the speaker and whatever slider it opens: no disc, no rim, no
-    // backdrop, matching the fullscreen toggle it sits opposite. The pill only exists in the floating
-    // fallback, where the control has bare screen under it and needs something to read against.
+    // The social row and standalone fallback use the same coloured medallion as their neighbouring controls.
+    // Inside the fight sidebar the speaker remains bare so it still matches the fullscreen toggle opposite it.
     const containerStyle: React.CSSProperties = dockSlot
         ? {
               position: "relative",
@@ -297,8 +334,8 @@ export const ThemeMusic: React.FC = () => {
             <button
                 type="button"
                 aria-pressed={silent}
-                aria-label="Toggle music"
-                title="Music volume"
+                aria-label={t("Toggle music")}
+                title={t("Music volume")}
                 onClick={() => {
                     const nextMuted = !muted;
                     setMuted(nextMuted);
@@ -322,12 +359,11 @@ export const ThemeMusic: React.FC = () => {
                 style={{
                     display: "grid",
                     placeItems: "center",
-                    width: 32,
-                    height: 32,
+                    width: medallionControl ? medallionButtonSize : 32,
+                    height: medallionControl ? medallionButtonSize : 32,
                     flex: "0 0 auto",
                     padding: 0,
-                    // Docked it is just the glyph, like the fullscreen toggle beside it. The disc is for
-                    // the floating fallback only, where there is bare screen behind the icon.
+                    // The fight sidebar keeps a bare glyph; floating and social controls use the medallion.
                     borderRadius: 0,
                     border: "none",
                     background: "transparent",
@@ -335,26 +371,23 @@ export const ThemeMusic: React.FC = () => {
                     cursor: "pointer",
                 }}
             >
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                    <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
-                    {silent ? (
-                        <path
-                            d="M16 9.5l5 5m0-5l-5 5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                        />
-                    ) : (
-                        <path
-                            d="M16.5 8.5a4.5 4.5 0 0 1 0 7M19 6a8 8 0 0 1 0 12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                        />
-                    )}
-                </svg>
+                {silent ? (
+                    <VolumeOffRoundedIcon
+                        aria-hidden="true"
+                        sx={{
+                            fontSize: medallionControl ? medallionIconSize : 18,
+                            filter: "drop-shadow(0 0 3px rgba(145,173,112,0.1))",
+                        }}
+                    />
+                ) : (
+                    <VolumeUpRoundedIcon
+                        aria-hidden="true"
+                        sx={{
+                            fontSize: medallionControl ? medallionIconSize : 18,
+                            filter: "drop-shadow(0 0 3px rgba(145,173,112,0.12))",
+                        }}
+                    />
+                )}
             </button>
             <div
                 style={{

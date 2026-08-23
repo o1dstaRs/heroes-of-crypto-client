@@ -17,7 +17,7 @@ interface CreatureRecord {
     name: string;
     hp: number;
     steps: number;
-    speed: number;
+    initiative: number;
     armor: number;
     attack_type: string;
     attack: number;
@@ -165,7 +165,7 @@ export const getUnitRoster = (): Array<{
             level: unit.level,
             size: unit.size,
             hp: unit.hp,
-            speed: unit.speed,
+            speed: unit.initiative,
             steps: unit.steps,
             armor: unit.armor,
             attackType: unit.attack_type,

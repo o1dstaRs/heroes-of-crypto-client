@@ -2,6 +2,7 @@ import { Augment, HoCConstants, TeamType, FactionType } from "@heroesofcrypto/co
 import React, { useEffect, useState } from "react";
 import { Sheet, Box, Radio, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
 import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
@@ -30,7 +31,7 @@ const PlacementMiniBoard: React.FC<{
 }> = ({ rows, partial = false, edge = false, label }) => (
     <Box sx={{ display: "grid", justifyItems: "center", gap: 0.5, minWidth: 82 }}>
         <Box
-            aria-label={label}
+            aria-label={t(label)}
             sx={{
                 width: 76,
                 height: 56,
@@ -74,18 +75,20 @@ const PlacementMiniBoard: React.FC<{
             })}
         </Box>
         <Typography sx={{ fontSize: 11.5, lineHeight: 1.1, color: "#efe4cc", whiteSpace: "nowrap" }}>
-            {label}
+            {t(label)}
         </Typography>
     </Box>
 );
 
 const AugmentTooltipContent: React.FC<{ kind: Augment.AugmentType["type"] }> = ({ kind }) => (
     <Box sx={{ width: kind === "Placement" ? 330 : 260, p: 0.4 }}>
-        <Typography sx={{ fontSize: 14, lineHeight: 1.35, color: "#efe4cc" }}>{AUGMENT_DESCRIPTIONS[kind]}</Typography>
+        <Typography sx={{ fontSize: 14, lineHeight: 1.35, color: "#efe4cc" }}>
+            {t(AUGMENT_DESCRIPTIONS[kind])}
+        </Typography>
         {kind === "Placement" && (
             <>
                 <Typography sx={{ mt: 0.35, mb: 0.8, fontSize: 11.5, color: "rgba(239,228,204,.64)" }}>
-                    Rectangular board — highlighted cells are available for deployment.
+                    {t("Rectangular board — highlighted cells are available for deployment.")}
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.45 }}>
                     <PlacementMiniBoard rows={3} partial label="3 · partial" />
@@ -229,7 +232,7 @@ const AugmentCard = ({
                             textShadow: "0 2px 2px #000, 0 0 14px rgba(210,160,90,.16)",
                         }}
                     >
-                        {label}
+                        {t(label)}
                     </Typography>
                 </Box>
             </Tooltip>
@@ -302,7 +305,7 @@ const SideToggleContainer = ({
     // drafted during the pick/ban phase and shown read-only (RankedArtifactsPanel), so the ranked view
     // passes false to hide the picker while keeping the augment togglers.
     showArtifactPicker = true,
-    // Upgrade-point budget for augments. In ranked this is the perk's allotment (5/6/7 via
+    // Upgrade-point budget for augments. In ranked this is the doctrine's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
     // Ranked reads this to gate its commit button: fires whenever the remaining augment points change.
@@ -320,6 +323,7 @@ const SideToggleContainer = ({
     onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
     authoritativeSelections?: AugmentSelections;
 }) => {
+    useTranslation();
     const authoritativePlacement = authoritativeSelections?.placement;
     const authoritativeArmor = authoritativeSelections?.armor;
     const authoritativeMight = authoritativeSelections?.might;
@@ -410,81 +414,95 @@ const SideToggleContainer = ({
     }> = [
         {
             kind: "Placement",
-            label: "Board placement",
+            label: t("Board placement"),
             icon: (augmentBoardImg as unknown as { default?: string }).default ?? augmentBoardImg,
             selection: placementSelection,
             options: [
-                { value: Augment.PlacementAugment.LEVEL_1, label: "Height 3 partial" },
-                { value: Augment.PlacementAugment.LEVEL_2, label: "Height 4 full" },
-                { value: Augment.PlacementAugment.LEVEL_3, label: "Height 6 full + edge line" },
+                { value: Augment.PlacementAugment.LEVEL_1, label: t("Height 3 partial") },
+                { value: Augment.PlacementAugment.LEVEL_2, label: t("Height 4 full") },
+                { value: Augment.PlacementAugment.LEVEL_3, label: t("Height 6 full + edge line") },
             ],
         },
         {
             kind: "Armor",
-            label: "Armor",
+            label: t("Armor"),
             icon: (augmentArmorImg as unknown as { default?: string }).default ?? augmentArmorImg,
             selection: armorSelection,
             options: [
-                { value: Augment.ArmorAugment.NO_AUGMENT, label: "No augment" },
+                { value: Augment.ArmorAugment.NO_AUGMENT, label: t("No augment") },
                 ...[Augment.ArmorAugment.LEVEL_1, Augment.ArmorAugment.LEVEL_2, Augment.ArmorAugment.LEVEL_3].map(
                     // Both halves, per d0dd7c7 on main: the Armor augment raises physical armor by a PERCENTAGE and
                     // adds its points FLAT to magic armor. Saying only "% armor" would hide the magic half entirely.
                     (level) => ({
                         value: level,
-                        label: `+${Augment.getArmorPower(level)}% armor, +${Augment.getArmorPower(level)} magic armor`,
+                        label: tf("+{amount}% armor, +{amount} magic armor", {
+                            amount: Augment.getArmorPower(level),
+                        }),
                     }),
                 ),
             ],
         },
         {
             kind: "Might",
-            label: "Might",
+            label: t("Might"),
             icon: (augmentMightImg as unknown as { default?: string }).default ?? augmentMightImg,
             selection: mightSelection,
             options: [
-                { value: Augment.MightAugment.NO_AUGMENT, label: "No augment" },
+                { value: Augment.MightAugment.NO_AUGMENT, label: t("No augment") },
                 ...[Augment.MightAugment.LEVEL_1, Augment.MightAugment.LEVEL_2, Augment.MightAugment.LEVEL_3].map(
-                    (level) => ({ value: level, label: `+${Augment.getMightPower(level)}% melee` }),
+                    (level) => ({
+                        value: level,
+                        label: tf("+{amount}% melee", { amount: Augment.getMightPower(level) }),
+                    }),
                 ),
             ],
         },
         {
             kind: "Empower",
-            label: "Magic",
+            label: t("Magic"),
             icon: (augmentEmpowerImg as unknown as { default?: string }).default ?? augmentEmpowerImg,
             selection: empowerSelection,
             options: [
-                { value: Augment.EmpowerAugment.NO_AUGMENT, label: "No augment" },
+                { value: Augment.EmpowerAugment.NO_AUGMENT, label: t("No augment") },
                 ...[Augment.EmpowerAugment.LEVEL_1, Augment.EmpowerAugment.LEVEL_2, Augment.EmpowerAugment.LEVEL_3].map(
-                    (level) => ({ value: level, label: `+${Augment.getEmpowerPower(level)}% magic attack` }),
+                    (level) => ({
+                        value: level,
+                        label: tf("+{amount}% magic attack", { amount: Augment.getEmpowerPower(level) }),
+                    }),
                 ),
             ],
         },
         {
             kind: "Sniper",
-            label: "Sniper",
+            label: t("Sniper"),
             icon: (augmentSniperImg as unknown as { default?: string }).default ?? augmentSniperImg,
             selection: sniperSelection,
             options: [
-                { value: Augment.SniperAugment.NO_AUGMENT, label: "No augment" },
+                { value: Augment.SniperAugment.NO_AUGMENT, label: t("No augment") },
                 ...[Augment.SniperAugment.LEVEL_1, Augment.SniperAugment.LEVEL_2, Augment.SniperAugment.LEVEL_3].map(
                     (level) => ({
                         value: level,
-                        label: `+${Augment.getSniperPower(level)[0]}% atk / +${Augment.getSniperPower(level)[1]}% range`,
+                        label: tf("+{attack}% atk / +{range}% range", {
+                            attack: Augment.getSniperPower(level)[0],
+                            range: Augment.getSniperPower(level)[1],
+                        }),
                     }),
                 ),
             ],
         },
         {
             kind: "Movement",
-            label: "Movement",
+            label: t("Movement"),
             icon: (augmentMovementImg as unknown as { default?: string }).default ?? augmentMovementImg,
             selection: movementSelection,
             options: [
-                { value: Augment.MovementAugment.NO_AUGMENT, label: "No augment" },
+                { value: Augment.MovementAugment.NO_AUGMENT, label: t("No augment") },
                 ...[Augment.MovementAugment.LEVEL_1, Augment.MovementAugment.LEVEL_2].map((level) => ({
                     value: level,
-                    label: `+${Augment.getMovementPower(level)} movement step${Augment.getMovementPower(level) > 1 ? "s" : ""}`,
+                    label: tf(
+                        Augment.getMovementPower(level) > 1 ? "+{amount} movement steps" : "+{amount} movement step",
+                        { amount: Augment.getMovementPower(level) },
+                    ),
                 })),
             ],
         },

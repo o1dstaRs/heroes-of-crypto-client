@@ -18,6 +18,7 @@ import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "../FightStats/CasualtyChart";
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 
 const RESULTS_PREVIEW_STATE: IVisibleState = {
     canBeStarted: false,
@@ -35,11 +36,54 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     fightStats: {
         winner: TeamVals.UPPER,
         series: [
-            { lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 },
-            { lap: 2, lowerKilled: 74, upperKilled: 80, lowerKilledPct: 37, upperKilledPct: 40 },
-            { lap: 3, lowerKilled: 128, upperKilled: 126, lowerKilledPct: 64, upperKilledPct: 63 },
-            { lap: 4, lowerKilled: 160, upperKilled: 152, lowerKilledPct: 80, upperKilledPct: 76 },
-            { lap: 5, lowerKilled: 171, upperKilled: 200, lowerKilledPct: 86, upperKilledPct: 100 },
+            // HP percentages carry the board-share line: green edges ahead early, red takes the fight back
+            // and closes it out — a swing rather than a straight slide, so the preview shows the shape the
+            // chart exists to show.
+            {
+                lap: 1,
+                lowerKilled: 0,
+                upperKilled: 0,
+                lowerKilledPct: 0,
+                upperKilledPct: 0,
+                lowerHpPct: 100,
+                upperHpPct: 100,
+            },
+            {
+                lap: 2,
+                lowerKilled: 74,
+                upperKilled: 80,
+                lowerKilledPct: 37,
+                upperKilledPct: 40,
+                lowerHpPct: 78,
+                upperHpPct: 62,
+            },
+            {
+                lap: 3,
+                lowerKilled: 128,
+                upperKilled: 126,
+                lowerKilledPct: 64,
+                upperKilledPct: 63,
+                lowerHpPct: 40,
+                upperHpPct: 52,
+            },
+            {
+                lap: 4,
+                lowerKilled: 160,
+                upperKilled: 152,
+                lowerKilledPct: 80,
+                upperKilledPct: 76,
+                lowerHpPct: 18,
+                upperHpPct: 44,
+            },
+            {
+                lap: 5,
+                lowerKilled: 171,
+                upperKilled: 200,
+                lowerKilledPct: 86,
+                upperKilledPct: 100,
+                lowerHpPct: 0,
+                upperHpPct: 26,
+            },
         ],
         lowerDeaths: [
             { name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: TeamVals.LOWER },
@@ -176,13 +220,17 @@ const CasualtyColumn: React.FC<{
                     <Typography
                         sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
                     >
-                        No casualties — flawless.
+                        {t("No casualties — flawless.")}
                     </Typography>
                 )}
                 {deaths.map((d) => (
                     <Tooltip
                         key={d.name}
-                        title={`${d.name}: ${d.died} of ${d.start} lost`}
+                        title={tf("{name}: {died} of {start} lost", {
+                            name: d.name,
+                            died: d.died,
+                            start: d.start,
+                        })}
                         placement="top"
                         sx={{
                             backgroundColor: "#2d1606",
@@ -611,6 +659,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     onPlayAgainVsAi,
     onBackToLobby,
 }) => {
+    useTranslation();
     const manager = usePixiManager();
     const previewParams = new URLSearchParams(window.location.search);
     const previewMode = import.meta.env.DEV && previewParams.get("fight-results-preview") === "1";
@@ -732,7 +781,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: "#050504",
-                overflow: "hidden",
+                overflowX: "hidden",
+                overflowY: "auto",
+                p: { xs: 1, sm: 2 },
             }}
         >
             {/* Preserve both illustrated edges at tall/full-screen aspect ratios. Each half renders
@@ -833,7 +884,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 {/* Close button */}
                 <Box
                     component="button"
-                    aria-label="Close fight results"
+                    aria-label={t("Close fight results")}
                     onClick={() => setDismissed(true)}
                     sx={{
                         position: "absolute",
@@ -1000,6 +1051,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         minHeight: 0,
                         overflow: "hidden",
                         pb: 1.5,
+                        "@media (max-width: 899px), (max-height: 760px)": {
+                            overflow: "visible",
+                        },
                     }}
                 >
                     <Box
@@ -1007,6 +1061,9 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             height: "100%",
                             display: "flex",
                             flexDirection: "column",
+                            "@media (max-width: 899px), (max-height: 760px)": {
+                                height: "auto",
+                            },
                         }}
                     >
                         <CasualtyChartPanel series={stats.series} ornateResultsFrame />
@@ -1028,9 +1085,12 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                     backgroundColor: "rgba(74,67,60,.58)",
                                     borderRadius: "3px",
                                 },
+                                "@media (max-width: 899px), (max-height: 760px)": {
+                                    overflowY: "visible",
+                                },
                             }}
                         >
-                            <ResultsSectionPlaque label="DAMAGE DEALT" />
+                            <ResultsSectionPlaque label={t("DAMAGE DEALT")} />
                             <DamageBreakdown entries={stats.damageByUnit ?? []} />
                         </Box>
 
@@ -1073,11 +1133,19 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 <Stack
                     direction="row"
                     spacing={2}
-                    sx={{ alignItems: "center", justifyContent: "center", mt: 2, pt: 1, flexShrink: 0 }}
+                    sx={{
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                        rowGap: 1.25,
+                        mt: 2,
+                        pt: 1,
+                        flexShrink: 0,
+                    }}
                 >
                     {canReplay && (
                         <ActionButton
-                            label="REPLAY"
+                            label={t("REPLAY")}
                             labelColor="#dfcf91"
                             tone="gray"
                             frameTone="brown"
@@ -1088,7 +1156,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showRematchAction && (
                         <ActionButton
-                            label="REMATCH"
+                            label={t("REMATCH")}
                             leadingIcon="⚔"
                             labelColor="#dfcf91"
                             primary
@@ -1106,7 +1174,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showSandboxActions && (
                         <ActionButton
-                            label="+ NEW BATTLE"
+                            label={t("+ NEW BATTLE")}
                             labelColor="#dfcf91"
                             tone="brown"
                             backgroundOpacity={0.5}
@@ -1121,7 +1189,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && onPlayAgainVsAi && (
                         <ActionButton
-                            label={playAgainBusy ? "Starting…" : "⚔ Play Again vs AI"}
+                            label={playAgainBusy ? t("Starting…") : `⚔ ${t("Play Again vs AI")}`}
                             primary
                             disabled={playAgainBusy}
                             onClick={() => {
@@ -1134,7 +1202,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                     .catch((err: unknown) => {
                                         setPlayAgainBusy(false);
                                         setPlayAgainError(
-                                            err instanceof Error ? err.message : "Unable to start an AI match",
+                                            err instanceof Error ? t(err.message) : t("Unable to start an AI match"),
                                         );
                                     });
                             }}
@@ -1142,7 +1210,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && onBackToLobby && (
                         <ActionButton
-                            label={backLabel}
+                            label={t(backLabel)}
                             primary={!onPlayAgainVsAi}
                             onClick={() => {
                                 clearReplayTimers();
@@ -1153,7 +1221,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && !onPlayAgainVsAi && !onBackToLobby && (
                         <ActionButton
-                            label="Close"
+                            label={t("Close")}
                             primary
                             onClick={() => {
                                 clearReplayTimers();

@@ -3,6 +3,8 @@ import {
     filterLeagues,
     filterLiveGames,
     filterRankedPlayers,
+    liveGameFormSlots,
+    livePredictionMarketState,
     livePlayerRankedState,
     normalizeLiveGamesResponse,
     normalizeStandingsResponse,
@@ -13,7 +15,9 @@ import {
     relativeArenaTime,
     type ArenaTab,
     type LiveGame,
+    type LiveGameFormSlot,
     type LiveGamePlayer,
+    type LiveGameResult,
     type LiveGamesResponse,
     type LiveGameStage,
     type PlayerSort,
@@ -22,11 +26,14 @@ import {
     type RankedPlayer,
     type RankedStandingsResponse,
     type RankedTopResponse,
+    TOP_WEALTH,
 } from "./ranked-arena-data";
 import { isLoggedIn } from "./auth-state";
+import { leagueEmblemPath } from "./league-emblems";
 import { fetchMyBets, impliedShare, placeBet, proposedReturn, type PredictionBet } from "./prediction-client";
 import { rankedArenaCopy } from "./ranked-arena-copy";
 import { initHeroLeaderboard, type HeroLeaderboardController } from "./hero-leaderboard-client";
+import { LEGACY_SEASON_CURRENCY, seasonCurrencyIconUrl, type SeasonCurrency } from "./season-currency";
 
 type ArenaResource = "top" | "standings" | "games";
 
@@ -82,7 +89,7 @@ const runtimeHost = globalThis.location?.hostname ?? "";
 const isProduction =
     runtimeHost === "heroesofcrypto.io" ||
     runtimeHost.endsWith(".heroesofcrypto.io") ||
-    import.meta.env.PROD === true ||
+    (import.meta.env.VITE_IS_PROD !== "false" && import.meta.env.PROD === true) ||
     import.meta.env.VITE_IS_PROD === "true";
 
 // Single-box rigs: VITE_ARENA_SAME_HOST_API_PORT pins every arena API call to the HOSTNAME the
@@ -110,6 +117,9 @@ const gameApiBaseUrl = String(
     sameHostApiOrigin ||
         import.meta.env.VITE_HOST_GAME_API ||
         import.meta.env.VITE_GAME_API ||
+        // game., NOT the client host. This fed /v1/games-live into the static client, which 404s and
+        // surfaced as "Some arena data is unavailable" — only SOME, because the other two feeds sit on
+        // matchmakingBaseUrl and were resolving correctly.
         (isProduction ? "https://game.heroesofcrypto.io" : "http://localhost:3001"),
 ).replace(/\/+$/, "");
 
@@ -118,7 +128,7 @@ const rawGameClientUrl = String(
         import.meta.env.VITE_GAME_CLIENT_RANKED ||
         import.meta.env.VITE_GAME_CLIENT ||
         import.meta.env.VITE_HOST_GAME_CLIENT ||
-        (isProduction ? "https://beta.heroesofcrypto.io" : "http://localhost:5174"),
+        (isProduction ? "https://app.heroesofcrypto.io" : "http://localhost:5174"),
 ).replace(/\/+$/, "");
 
 export const gameClientRoot = rawGameClientUrl.replace(/\/play$/, "");
@@ -159,19 +169,43 @@ const append = <T extends ParentNode>(parent: T, ...children: Array<Node | null 
     return parent;
 };
 
-const currencyAmount = (amount: number, className = ""): HTMLElement => {
+const currencyAmount = (
+    amount: number,
+    className = "",
+    currency: SeasonCurrency = LEGACY_SEASON_CURRENCY,
+): HTMLElement => {
     const node = el("span", ["currency-amount", className].filter(Boolean).join(" "));
+    const formattedAmount = numberFormatter.format(Math.max(0, Math.trunc(amount)));
+    node.setAttribute("aria-label", `${currency.name}: ${formattedAmount}`);
     const icon = el("img", "currency-icon");
-    icon.src = "/assets/icons/currency/gold.svg";
+    icon.src = seasonCurrencyIconUrl(currency);
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     icon.width = 20;
     icon.height = 20;
-    return append(node, icon, document.createTextNode(numberFormatter.format(Math.max(0, Math.trunc(amount)))));
+    return append(node, icon, document.createTextNode(formattedAmount));
 };
+
+const activeSeasonCurrency = (state: ArenaState): SeasonCurrency =>
+    state.standings?.season?.currency ?? LEGACY_SEASON_CURRENCY;
 
 const replaceTemplate = (template: string, values: Record<string, string | number>): string =>
     Object.entries(values).reduce((result, [key, value]) => result.replaceAll(`{${key}}`, String(value)), template);
+
+const appendRichTemplate = <T extends ParentNode>(
+    parent: T,
+    template: string,
+    values: Record<string, string | number | Node>,
+): T => {
+    for (const part of template.split(/(\{[^{}]+\})/g).filter(Boolean)) {
+        const placeholder = /^\{([^{}]+)\}$/.exec(part)?.[1];
+        const value = placeholder ? values[placeholder] : undefined;
+        parent.append(
+            value instanceof Node ? value : document.createTextNode(value === undefined ? part : String(value)),
+        );
+    }
+    return parent;
+};
 
 const readCache = (resource: ArenaResource): unknown | undefined => {
     try {
@@ -252,7 +286,29 @@ const allRankedPlayers = (state: ArenaState): RankedPlayer[] => {
 };
 
 const localizedLeague = (copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy], league: number): string =>
-    replaceTemplate(copy.leagueTemplate, { n: league });
+    copy.leagueNames[league - 1] ?? copy.unranked;
+
+const localizedWealth = (copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy], wealth: number): string =>
+    copy.wealthNames[wealth - 1] ?? "";
+
+/**
+ * How a player's standing reads: their gold third joined to their league. The two lower tiers are
+ * adjectives and lead ("Ragged Aspirant"); the top tier is a noun and trails ("Demigod Whale").
+ * Falls back to the bare league while the ladder snapshot carries no tier for them — which is also
+ * every calibrating player, who has no league cohort to be measured against yet.
+ */
+const localizedStanding = (
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+    league: number,
+    wealth: number,
+): string => {
+    const name = localizedLeague(copy, league);
+    const tier = league > 0 ? localizedWealth(copy, wealth) : "";
+    if (!tier) {
+        return name;
+    }
+    return wealth === TOP_WEALTH ? `${name} ${tier}` : `${tier} ${name}`;
+};
 
 const localizedRelativeTime = (
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
@@ -307,20 +363,39 @@ const createAvatar = (username: string, league: number): HTMLElement => {
     const avatar = el("span", "ranked-arena__avatar", playerInitials(username));
     avatar.dataset.league = String(league);
     avatar.setAttribute("aria-hidden", "true");
+    const emblem = el("img", "ranked-arena__avatar-league");
+    emblem.src = leagueEmblemPath(league);
+    emblem.alt = "";
+    emblem.width = 24;
+    emblem.height = 24;
+    append(avatar, emblem);
     return avatar;
 };
 
 const createBadge = (text: string, modifier = ""): HTMLElement =>
     el("span", `ranked-arena__badge${modifier ? ` ranked-arena__badge--${modifier}` : ""}`, text);
 
-const streakText = (copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy], player: RankedPlayer): string => {
-    if (player.winStreak > 0) {
-        return replaceTemplate(copy.winStreak, { n: player.winStreak });
+const createLiveGameForm = (
+    results: LiveGameResult[],
+    copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
+): HTMLElement => {
+    const labels: Record<LiveGameFormSlot, string> = {
+        win: copy.resultWin,
+        loss: copy.resultLoss,
+        draw: copy.resultDraw,
+        empty: copy.resultUnavailable,
+    };
+    const slots = liveGameFormSlots(results);
+    const form = el("span", "ranked-arena__game-form");
+    form.setAttribute("role", "img");
+    form.setAttribute("aria-label", `${copy.recentForm}: ${slots.map((slot) => labels[slot]).join(", ")}`);
+    for (const slot of slots) {
+        const dot = el("i", `ranked-arena__game-form-dot ranked-arena__game-form-dot--${slot}`);
+        dot.title = labels[slot];
+        dot.setAttribute("aria-hidden", "true");
+        append(form, dot);
     }
-    if (player.lossStreak > 0) {
-        return replaceTemplate(copy.lossStreak, { n: player.lossStreak });
-    }
-    return copy.noStreak;
+    return form;
 };
 
 const playerProfileHref = (
@@ -351,6 +426,8 @@ const rankedPlayerProfileHref = (lang: "en" | "ru", player: RankedPlayer): strin
         winStreak: player.winStreak,
         lossStreak: player.lossStreak,
         lastBattle: player.lastRankedGameAt,
+        bannedCreatureId: player.bannedCreatureId,
+        bannedCreatureName: player.bannedCreatureName,
     });
 
 const calibratingPlayerProfileHref = (lang: "en" | "ru", player: CalibratingPlayer): string =>
@@ -379,6 +456,7 @@ const createPlayerDossier = (
     player: RankedPlayer,
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
     dossierId: string,
+    currency: SeasonCurrency,
 ): HTMLElement => {
     const dossier = el("span", "ranked-arena__player-dossier");
     dossier.id = dossierId;
@@ -392,7 +470,7 @@ const createPlayerDossier = (
     append(
         dossier,
         // Season currency first: gold is minted 1:1 with won MMR and never deducted.
-        metric(copy.gold, currencyAmount(player.gold)),
+        metric(currency.name, currencyAmount(player.gold, "", currency)),
         metric(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         metric(copy.gamesPlayed, numberFormatter.format(player.totalGames)),
         metric(copy.peakRating, numberFormatter.format(player.peakMmr || player.mmr)),
@@ -406,6 +484,7 @@ const renderPlayerDetail = (
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
     lang: "en" | "ru",
     profileHref: string,
+    currency: SeasonCurrency,
 ): HTMLElement => {
     const detail = el("aside", "ranked-arena__player-detail");
     detail.setAttribute("aria-live", "polite");
@@ -416,13 +495,13 @@ const renderPlayerDetail = (
         name,
         el("span", "ranked-arena__detail-kicker", `#${player.position || player.leaderboardRank || "—"}`),
         el("h3", "", player.username),
-        el("p", "", localizedLeague(copy, player.league)),
+        el("p", "", localizedStanding(copy, player.league, player.wealth)),
     );
     append(identity, createAvatar(player.username, player.league), name);
 
     const rating = el("div", "ranked-arena__detail-rating");
     const detailGold = el("small", "ranked-arena__detail-gold");
-    append(detailGold, document.createTextNode(`${copy.gold}: `), currencyAmount(player.gold));
+    append(detailGold, document.createTextNode(`${currency.name}: `), currencyAmount(player.gold, "", currency));
     append(
         rating,
         el("span", "", copy.rating),
@@ -441,11 +520,10 @@ const renderPlayerDetail = (
     };
     append(
         stats,
-        stat(copy.gold, currencyAmount(player.gold)),
         stat(copy.bansLabel, player.bannedCreatureName || copy.bansNone),
         stat(copy.record, `${player.wins}–${player.losses}–${player.draws}`),
         stat(copy.winRate, `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
-        stat(copy.currentStreak, streakText(copy, player)),
+        stat(copy.recentForm, createLiveGameForm(player.recentResults, copy)),
         stat(
             copy.lastBattle,
             player.lastRankedGameAt
@@ -466,6 +544,7 @@ const renderCalibratingSection = (
     players: CalibratingPlayer[],
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
     lang: "en" | "ru",
+    currency: SeasonCurrency,
 ): HTMLElement => {
     const section = el("div", "ranked-arena__calibrating");
     const heading = el("h4", "ranked-arena__calibrating-heading", `${copy.calibratingHeading} · ${players.length}`);
@@ -487,7 +566,7 @@ const renderCalibratingSection = (
             el("span", "ranked-arena__rank", "…"),
             identity,
             el("strong", "ranked-arena__row-rating", "—"),
-            currencyAmount(player.gold, "ranked-arena__row-gold"),
+            currencyAmount(player.gold, "ranked-arena__row-gold", currency),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el(
                 "span",
@@ -522,6 +601,7 @@ const renderPlayers = (
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
     lang: "en" | "ru",
 ): HTMLElement => {
+    const currency = activeSeasonCurrency(state);
     const source = allRankedPlayers(state);
     const leagueFilter = Number(state.filters.players) || 0;
     const queryNeedle = state.query.trim().toLowerCase();
@@ -561,7 +641,7 @@ const renderPlayers = (
     const layout = el("div", "ranked-arena__player-layout");
     const table = el("div", "ranked-arena__player-table");
     if (!players.length) {
-        append(table, renderCalibratingSection(calibrating, copy, lang));
+        append(table, renderCalibratingSection(calibrating, copy, lang, currency));
         append(layout, table);
         return layout;
     }
@@ -572,7 +652,7 @@ const renderPlayers = (
         createSortableHeading(copy.position, "rank", state.sort, state.sortDirection),
         createSortableHeading(copy.player, "player", state.sort, state.sortDirection),
         createSortableHeading(copy.rating, "rating", state.sort, state.sortDirection),
-        createSortableHeading(copy.gold, "gold", state.sort, state.sortDirection),
+        createSortableHeading(currency.name, "gold", state.sort, state.sortDirection),
         createSortableHeading(copy.record, "wins", state.sort, state.sortDirection),
         createSortableHeading(copy.winRate, "winRate", state.sort, state.sortDirection),
     );
@@ -585,15 +665,19 @@ const renderPlayers = (
         row.dataset.selected = String(player.playerId === selected!.playerId);
         row.setAttribute(
             "aria-label",
-            `${player.username}, ${localizedLeague(copy, player.league)}, ${player.mmr} ${copy.rating}, ${player.gold} ${copy.gold}`,
+            `${player.username}, ${localizedStanding(copy, player.league, player.wealth)}, ${player.mmr} ${copy.rating}, ${player.gold} ${currency.name}`,
         );
         // Plain-hover affordance on top of the styled dossier: the balance in a native tooltip.
-        row.title = `${copy.gold}: ${numberFormatter.format(player.gold)}`;
+        row.title = `${currency.name}: ${numberFormatter.format(player.gold)}`;
 
         const rank = el("span", "ranked-arena__rank", `#${player.position || player.leaderboardRank || "—"}`);
         const identity = el("span", "ranked-arena__player-identity");
         const identityText = el("span");
-        append(identityText, el("strong", "", player.username), el("small", "", localizedLeague(copy, player.league)));
+        append(
+            identityText,
+            el("strong", "", player.username),
+            el("small", "", localizedStanding(copy, player.league, player.wealth)),
+        );
         append(identity, createAvatar(player.username, player.league), identityText);
         const dossierId = `ranked-arena-dossier-${index + 1}`;
         row.setAttribute("aria-describedby", dossierId);
@@ -602,51 +686,60 @@ const renderPlayers = (
             rank,
             identity,
             el("strong", "ranked-arena__row-rating", numberFormatter.format(player.mmr)),
-            currencyAmount(player.gold, "ranked-arena__row-gold"),
+            currencyAmount(player.gold, "ranked-arena__row-gold", currency),
             el("span", "ranked-arena__row-record", `${player.wins}–${player.losses}–${player.draws}`),
             el("span", "ranked-arena__row-rate", `${player.winRatePct.toFixed(1).replace(/\.0$/, "")}%`),
-            createPlayerDossier(player, copy, dossierId),
+            createPlayerDossier(player, copy, dossierId, currency),
         );
         append(list, row);
     }
 
     append(table, heading, list);
     if (calibrating.length) {
-        append(table, renderCalibratingSection(calibrating, copy, lang));
+        append(table, renderCalibratingSection(calibrating, copy, lang, currency));
     }
-    append(layout, table, renderPlayerDetail(selected!, copy, lang, rankedPlayerProfileHref(lang, selected!)));
+    append(
+        layout,
+        table,
+        renderPlayerDetail(selected!, copy, lang, rankedPlayerProfileHref(lang, selected!), currency),
+    );
     return layout;
 };
 
 /**
- * Prediction market panel for one pick-phase game: the two pools as a proportion bar, the viewer's
- * existing bet (if any), and — while the draft is open — a Predict button that expands into a stake
- * form previewing the exact payout the current pools would produce.
+ * Prediction market panel for one ranked game: the two pools remain visible after betting closes,
+ * while an open draft also offers a stake form previewing the exact payout the current pools would
+ * produce.
  */
 const renderPredictionPanel = (
     game: LiveGame,
     state: ArenaState,
     copy: (typeof rankedArenaCopy)[keyof typeof rankedArenaCopy],
 ): HTMLElement | null => {
-    if (game.stage !== "pick" || game.casual || game.players.length < 2) {
+    const currency = activeSeasonCurrency(state);
+    const marketState = livePredictionMarketState(game);
+    if (marketState === "hidden") {
         return null;
     }
+    const isBettingOpen = marketState === "open";
     const [lower, upper] = game.players;
     const panel = el("div", "ranked-arena__market");
+    panel.dataset.marketState = marketState;
 
     // ---- pools + proportion bar ----
     const header = el("div", "ranked-arena__market-header");
+    const totalPool = el("span", "ranked-arena__market-total");
     append(
-        header,
-        el("span", "ranked-arena__market-title", copy.marketTitle),
-        el(
-            "span",
-            "ranked-arena__market-total",
-            `${numberFormatter.format(game.predictionPool)} 🪙 · ${replaceTemplate(copy.marketBets, {
+        totalPool,
+        document.createTextNode(`${copy.marketTotal}:`),
+        currencyAmount(game.predictionPool, "ranked-arena__market-currency", currency),
+        document.createTextNode(
+            ` · ${replaceTemplate(copy.marketBets, {
                 n: game.predictionBets,
             })}`,
         ),
     );
+    append(header, el("span", "ranked-arena__market-title", copy.marketTitle), totalPool);
 
     const lowerShare = impliedShare(lower.predictionPool, upper.predictionPool);
     const bar = el("div", "ranked-arena__market-bar");
@@ -659,15 +752,13 @@ const renderPredictionPanel = (
     const legend = el("div", "ranked-arena__market-legend");
     const legendSide = (player: LiveGame["players"][number], share: number, side: "lower" | "upper"): HTMLElement => {
         const item = el("span", `ranked-arena__market-legend-item ranked-arena__market-legend-item--${side}`);
+        const amount = el("span", "ranked-arena__market-legend-value");
         append(
-            item,
-            el("strong", "", player.username),
-            el(
-                "span",
-                "",
-                `${numberFormatter.format(player.predictionPool)} 🪙 · ${Math.round(share * 100)}%`,
-            ),
+            amount,
+            currencyAmount(player.predictionPool, "ranked-arena__market-currency", currency),
+            document.createTextNode(` · ${Math.round(share * 100)}%`),
         );
+        append(item, el("strong", "", player.username), amount);
         return item;
     };
     append(legend, legendSide(lower, lowerShare, "lower"), legendSide(upper, 1 - lowerShare, "upper"));
@@ -679,40 +770,62 @@ const renderPredictionPanel = (
         const side = game.players.find((player) => player.playerId === mine.predictedPlayerId);
         const other = game.players.find((player) => player.playerId !== mine.predictedPlayerId);
         const placed = el("div", "ranked-arena__market-mine");
-        append(
-            placed,
-            el("span", "", replaceTemplate(copy.marketYourBet, {
-                amount: numberFormatter.format(mine.amount),
-                side: side?.username ?? "—",
-            })),
-            el(
-                "strong",
-                "",
-                replaceTemplate(copy.marketToReturn, {
-                    amount: numberFormatter.format(
-                        // Their stake is already inside the side pool, so price the share it holds.
-                        proposedReturn(mine.amount, Math.max(0, (side?.predictionPool ?? 0) - mine.amount), other?.predictionPool ?? 0),
-                    ),
-                }),
+        const placedAmount = el("span");
+        appendRichTemplate(placedAmount, copy.marketYourBet, {
+            amount: currencyAmount(mine.amount, "ranked-arena__market-currency", currency),
+            side: side?.username ?? "—",
+        });
+        const returnAmount = el("strong");
+        appendRichTemplate(returnAmount, copy.marketToReturn, {
+            amount: currencyAmount(
+                proposedReturn(
+                    mine.amount,
+                    Math.max(0, (side?.predictionPool ?? 0) - mine.amount),
+                    other?.predictionPool ?? 0,
+                ),
+                "ranked-arena__market-currency",
+                currency,
             ),
-        );
+        });
+        append(placed, placedAmount, returnAmount);
         append(panel, placed);
         return panel;
     }
 
-    if (!isLoggedIn()) {
-        const signIn = el("a", "ranked-arena__market-signin", copy.marketSignIn);
-        signIn.href = "/auth/login/";
-        append(panel, signIn);
+    if (!isBettingOpen) {
         return panel;
     }
 
     const isOpen = state.predictOpenGameId === game.gameId;
     if (!isOpen) {
-        const predict = el("button", "ranked-arena__market-predict", copy.marketPredict);
-        predict.type = "button";
-        predict.dataset.predictOpen = game.gameId;
-        append(panel, predict);
+        // A bet button per SIDE, shown to everyone. Signed out, the click routes to login (carrying a
+        // return path) rather than hiding the market behind a sign-in link — the whole point of the panel
+        // is to show what you could back, so the ask comes at the moment of intent, not before it.
+        const sides = el("div", "ranked-arena__market-sides");
+        for (const player of game.players) {
+            const bet = el("button", "ranked-arena__market-side ranked-arena__market-side--cta");
+            bet.type = "button";
+            append(
+                bet,
+                el("span", "ranked-arena__market-side-verb", copy.marketBetOn),
+                el("strong", "", player.username),
+            );
+            bet.dataset.predictOpen = game.gameId;
+            bet.dataset.predictPreselect = player.playerId;
+            bet.setAttribute("aria-label", `${copy.marketBetOn} ${player.username}`);
+            append(sides, bet);
+        }
+        append(panel, sides);
+        if (!isLoggedIn()) {
+            append(
+                panel,
+                el(
+                    "p",
+                    "ranked-arena__market-rules",
+                    replaceTemplate(copy.marketSignInHint, { currency: currency.name }),
+                ),
+            );
+        }
         return panel;
     }
 
@@ -733,10 +846,15 @@ const renderPredictionPanel = (
     input.min = "1";
     input.step = "1";
     input.value = state.predictAmount > 0 ? String(state.predictAmount) : "";
-    input.placeholder = copy.marketAmountPlaceholder;
+    const amountPlaceholder = replaceTemplate(copy.marketAmountPlaceholder, { currency: currency.name });
+    input.placeholder = amountPlaceholder;
     input.dataset.predictAmount = "";
-    input.setAttribute("aria-label", copy.marketAmountPlaceholder);
-    const confirm = el("button", "ranked-arena__market-confirm", state.predictBusy ? copy.marketPlacing : copy.marketPlace);
+    input.setAttribute("aria-label", amountPlaceholder);
+    const confirm = el(
+        "button",
+        "ranked-arena__market-confirm",
+        state.predictBusy ? copy.marketPlacing : copy.marketPlace,
+    );
     confirm.type = "button";
     confirm.dataset.predictConfirm = game.gameId;
     confirm.disabled = state.predictBusy || !state.predictSide || state.predictAmount < 1;
@@ -747,11 +865,11 @@ const renderPredictionPanel = (
     const preview = el("p", "ranked-arena__market-preview");
     if (chosen && state.predictAmount > 0) {
         const total = proposedReturn(state.predictAmount, chosen.predictionPool, against?.predictionPool ?? 0);
-        preview.textContent = replaceTemplate(copy.marketPreview, {
-            stake: numberFormatter.format(state.predictAmount),
+        appendRichTemplate(preview, copy.marketPreview, {
+            stake: currencyAmount(state.predictAmount, "ranked-arena__market-currency", currency),
             side: chosen.username,
-            total: numberFormatter.format(total),
-            profit: numberFormatter.format(total - state.predictAmount),
+            total: currencyAmount(total, "ranked-arena__market-currency", currency),
+            profit: currencyAmount(total - state.predictAmount, "ranked-arena__market-currency", currency),
         });
     } else {
         preview.textContent = copy.marketPreviewHint;
@@ -800,7 +918,7 @@ const renderGameSeat = (
             : rankedState === "calibration"
               ? copy.calibratingHeading
               : ranked?.league
-                ? localizedLeague(copy, ranked.league)
+                ? localizedStanding(copy, ranked.league, ranked.wealth ?? 0)
                 : player.isBot
                   ? aiLabel
                   : copy.unranked;
@@ -817,19 +935,19 @@ const renderGameSeat = (
     dossier.id = dossierId;
     dossier.setAttribute("role", "tooltip");
     seat.setAttribute("aria-describedby", dossierId);
-    const metric = (label: string, value: string): HTMLElement => {
+    const metric = (label: string, value: string | Node): HTMLElement => {
         const node = el("span");
-        return append(node, el("small", "", label), el("strong", "", value));
+        const strong = el("strong");
+        append(strong, typeof value === "string" ? document.createTextNode(value) : value);
+        return append(node, el("small", "", label), strong);
     };
     append(
         dossier,
         metric(copy.rating, ranked?.mmr ? numberFormatter.format(ranked.mmr) : "—"),
         metric(copy.ladderRank, ladderRank ? `#${ladderRank}` : "—"),
-        metric(
-            labelFromTemplate(copy.leagueTemplate, "n"),
-            ranked?.league ? localizedLeague(copy, ranked.league) : "—",
-        ),
-        metric(copy.rankedStatus, stateLabel),
+        metric(copy.leagueLabel, ranked?.league ? localizedLeague(copy, ranked.league) : "—"),
+        metric(copy.wealthLabel, ranked?.wealth ? localizedWealth(copy, ranked.wealth) : "—"),
+        metric(copy.recentForm, createLiveGameForm(ranked?.recentResults ?? [], copy)),
     );
     append(seat, dossier);
     return seat;
@@ -964,7 +1082,12 @@ const renderGames = (
     return wrapper;
 };
 
-const renderLeaguePlayer = (player: RankedPlayer, position: number, lang: "en" | "ru"): HTMLElement => {
+const renderLeaguePlayer = (
+    player: RankedPlayer,
+    position: number,
+    lang: "en" | "ru",
+    currency: SeasonCurrency,
+): HTMLElement => {
     const row = el("li", "ranked-arena__league-player");
     const link = el("a", "ranked-arena__league-player-link");
     link.href = rankedPlayerProfileHref(lang, player);
@@ -977,7 +1100,7 @@ const renderLeaguePlayer = (player: RankedPlayer, position: number, lang: "en" |
         createAvatar(player.username, player.league),
         el("strong", "", player.username),
         el("span", "", numberFormatter.format(player.mmr)),
-        createPlayerDossier(player, rankedArenaCopy[lang], dossierId),
+        createPlayerDossier(player, rankedArenaCopy[lang], dossierId, currency),
     );
     append(row, link);
     return row;
@@ -993,6 +1116,7 @@ const renderLeagues = (
         if (state.errors.has("standings")) return createErrorState(copy);
         return createEmptyState(copy.noLeagues);
     }
+    const currency = activeSeasonCurrency(state);
 
     const requestedLeague = Number(state.filters.leagues) || 0;
     const matching = filterLeagues(state.standings.leagues, state.query).filter(
@@ -1030,7 +1154,11 @@ const renderLeagues = (
         card.style.setProperty("--population", `${Math.max(4, (league.playerCount / maxPopulation) * 100)}%`);
 
         const header = el("div", "ranked-arena__league-header");
-        const crest = el("span", "ranked-arena__league-crest", String(league.league));
+        const crest = el("img", "ranked-arena__league-crest");
+        crest.src = leagueEmblemPath(league.league);
+        crest.alt = "";
+        crest.width = 62;
+        crest.height = 62;
         crest.setAttribute("aria-hidden", "true");
         const title = el("div");
         append(
@@ -1062,7 +1190,7 @@ const renderLeagues = (
         const leaguePlayers = playersInLeague(league).slice(0, 3);
         const playerList = el("ol", "ranked-arena__league-players");
         for (const [index, player] of leaguePlayers.entries()) {
-            append(playerList, renderLeaguePlayer(player, index, lang));
+            append(playerList, renderLeaguePlayer(player, index, lang, currency));
         }
 
         const action = el("button", "ranked-arena__league-action", copy.viewPlayers);
@@ -1129,6 +1257,7 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
     };
 
     const updateControls = (): void => {
+        const currency = activeSeasonCurrency(state);
         const leagueOptions = [
             { value: "0", label: copy.allLeagues },
             ...[5, 4, 3, 2, 1].map((league) => ({ value: String(league), label: localizedLeague(copy, league) })),
@@ -1149,6 +1278,8 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         }
         const sortField = sort.closest<HTMLElement>("[data-arena-sort-field]") ?? sort.parentElement;
         if (sortField) sortField.hidden = state.tab !== "players";
+        const currencyOption = sort.querySelector<HTMLOptionElement>('option[value="gold"]');
+        if (currencyOption) currencyOption.textContent = currency.name;
         sort.value = state.sort;
         const filterField = filter.closest<HTMLElement>("[data-arena-filter-field]") ?? filter.parentElement;
         if (filterField) filterField.hidden = false;
@@ -1232,6 +1363,7 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         renderStatus();
         heroLeaderboard?.update({
             top: state.top,
+            currency: activeSeasonCurrency(state),
             loading: state.loading.has("top"),
             error: state.errors.has("top"),
             cached: state.cached.has("top"),
@@ -1416,8 +1548,16 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         }
         const predictOpen = target.closest<HTMLButtonElement>("[data-predict-open]");
         if (predictOpen?.dataset.predictOpen) {
+            // Signed out: this click IS the intent to bet, so send them to login and come straight back
+            // to the arena afterwards instead of opening a form they cannot submit.
+            if (!isLoggedIn()) {
+                const back = `${window.location.pathname}${window.location.search}#arena`;
+                window.location.href = `/auth/login/?redirect=${encodeURIComponent(back)}`;
+                return;
+            }
             state.predictOpenGameId = predictOpen.dataset.predictOpen;
-            state.predictSide = "";
+            // Clicking a specific side arms that side; the generic entry leaves the choice open.
+            state.predictSide = predictOpen.dataset.predictPreselect ?? "";
             state.predictAmount = 0;
             state.predictError = "";
             render();
@@ -1468,11 +1608,13 @@ const initArena = (root: HTMLElement, heroLeaderboard: HeroLeaderboardController
         if (preview) {
             if (chosen && state.predictAmount > 0) {
                 const total = proposedReturn(state.predictAmount, chosen.predictionPool, against?.predictionPool ?? 0);
-                preview.textContent = replaceTemplate(copy.marketPreview, {
-                    stake: numberFormatter.format(state.predictAmount),
+                preview.replaceChildren();
+                const currency = activeSeasonCurrency(state);
+                appendRichTemplate(preview, copy.marketPreview, {
+                    stake: currencyAmount(state.predictAmount, "ranked-arena__market-currency", currency),
                     side: chosen.username,
-                    total: numberFormatter.format(total),
-                    profit: numberFormatter.format(total - state.predictAmount),
+                    total: currencyAmount(total, "ranked-arena__market-currency", currency),
+                    profit: currencyAmount(total - state.predictAmount, "ranked-arena__market-currency", currency),
                 });
             } else {
                 preview.textContent = copy.marketPreviewHint;

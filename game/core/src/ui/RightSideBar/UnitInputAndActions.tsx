@@ -8,6 +8,7 @@ import Typography from "@mui/joy/Typography";
 import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
+import { t, useTranslation } from "../../i18n/i18n";
 import { hocDisplayFontFamily, hocSidebarImageButtonSx } from "../hocTheme";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
@@ -35,6 +36,7 @@ const UnitInputAndActions = ({
     selectedUnitCount: number;
     selectedTeamType: TeamType;
 }) => {
+    useTranslation();
     const changedRef = useRef(false);
     const [unitCount, setUnitCount] = useState("");
 
@@ -178,7 +180,7 @@ const UnitInputAndActions = ({
                             fontSynthesis: "none",
                         }}
                     >
-                        Slots left
+                        {t("Slots left")}
                     </Typography>
                     <Box
                         key={pulse ? pulse.key : "static"}
@@ -247,7 +249,7 @@ const UnitInputAndActions = ({
                     type="number"
                     value={unitCount}
                     onChange={(e) => changeUnitCount(e.target.value)}
-                    placeholder="# of units"
+                    placeholder={t("# of units")}
                     variant="outlined"
                     endDecorator={
                         <Box
@@ -273,7 +275,7 @@ const UnitInputAndActions = ({
                                     key={delta}
                                     component="button"
                                     type="button"
-                                    aria-label={delta === 1 ? "Increase unit count" : "Decrease unit count"}
+                                    aria-label={t(delta === 1 ? "Increase unit count" : "Decrease unit count")}
                                     onMouseDown={(event) => event.preventDefault()}
                                     onClick={() => adjustUnitCount(delta)}
                                     sx={{
@@ -383,7 +385,7 @@ const UnitInputAndActions = ({
                         transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
                     }}
                 >
-                    <Tooltip title="Accept (A)" placement="top" sx={shortcutTooltipSx}>
+                    <Tooltip title={t("Accept (A)")} placement="top" sx={shortcutTooltipSx}>
                         <Button
                             variant="plain"
                             size="sm"
@@ -392,10 +394,10 @@ const UnitInputAndActions = ({
                             }}
                             sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
                         >
-                            Accept
+                            {t("Accept")}
                         </Button>
                     </Tooltip>
-                    <Tooltip title="Clone (C)" placement="top" sx={shortcutTooltipSx}>
+                    <Tooltip title={t("Clone (C)")} placement="top" sx={shortcutTooltipSx}>
                         <Button
                             variant="plain"
                             size="sm"
@@ -404,7 +406,7 @@ const UnitInputAndActions = ({
                             }}
                             sx={{ ...hocSidebarImageButtonSx("neutral"), flex: 1, minWidth: 0 }}
                         >
-                            Clone
+                            {t("Clone")}
                         </Button>
                     </Tooltip>
                 </Stack>

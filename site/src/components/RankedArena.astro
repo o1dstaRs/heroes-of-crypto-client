@@ -212,11 +212,10 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         isolation: isolate;
         overflow: hidden;
         scroll-margin-top: 92px;
-        border-block: 1px solid rgba(151, 104, 50, 0.42);
         background:
-            linear-gradient(180deg, rgba(7, 5, 4, 0.28), rgba(7, 5, 4, 0.94)),
-            radial-gradient(circle at 10% 10%, rgba(255, 90, 63, 0.1), transparent 34%),
-            radial-gradient(circle at 88% 22%, rgba(220, 177, 88, 0.1), transparent 31%), #0b0704;
+            radial-gradient(circle at 10% 8%, rgba(255, 90, 63, 0.09), transparent 32%),
+            radial-gradient(circle at 90% 18%, rgba(220, 177, 88, 0.08), transparent 29%),
+            linear-gradient(180deg, #090705, #070706 72%, #080604);
         font-family: var(--hoc-font-ui, var(--hoc-font-display, inherit));
         font-synthesis: none;
     }
@@ -228,8 +227,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         background-image:
             linear-gradient(rgba(220, 177, 88, 0.018) 1px, transparent 1px),
             linear-gradient(90deg, rgba(220, 177, 88, 0.018) 1px, transparent 1px);
-        background-size: 48px 48px;
-        mask-image: linear-gradient(180deg, #000, transparent 86%);
+        background-size: 64px 64px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 74%);
         content: "";
     }
 
@@ -255,33 +254,15 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__heading {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 24px;
-        align-items: center;
-        margin-bottom: 22px;
-        padding: 16px 18px;
-        border: 1px solid rgba(151, 104, 50, 0.46);
-        border-radius: 2px;
-        clip-path: polygon(
-            10px 0,
-            calc(100% - 10px) 0,
-            100% 10px,
-            100% calc(100% - 10px),
-            calc(100% - 10px) 100%,
-            10px 100%,
-            0 calc(100% - 10px),
-            0 10px
-        );
-        background:
-            linear-gradient(90deg, rgba(70, 40, 18, 0.72), rgba(13, 8, 5, 0.9) 54%),
-            rgba(14, 9, 5, 0.94);
-        box-shadow:
-            inset 0 1px rgba(239, 228, 204, 0.045),
-            inset 0 0 24px rgba(0, 0, 0, 0.36);
+        gap: 32px;
+        align-items: end;
+        margin-bottom: 30px;
+        padding: 0 2px;
     }
 
     .ranked-arena .ranked-arena__intro {
         display: flex;
-        gap: 15px;
+        gap: 18px;
         align-items: center;
         max-width: 760px;
         min-width: 0;
@@ -291,19 +272,17 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         display: grid;
         flex: 0 0 auto;
         place-items: center;
-        width: 62px;
-        height: 62px;
-        border: 1px solid rgba(220, 177, 88, 0.46);
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(111, 53, 18, 0.82), rgba(11, 7, 4, 0.98) 70%);
-        box-shadow:
-            inset 0 0 0 3px rgba(0, 0, 0, 0.42),
-            0 0 16px rgba(255, 143, 0, 0.1);
+        width: 68px;
+        height: 68px;
+        border-radius: 18px;
+        background: linear-gradient(145deg, rgba(220, 177, 88, 0.11), rgba(255, 90, 63, 0.04));
+        box-shadow: inset 0 0 0 1px rgba(220, 177, 88, 0.12);
     }
 
     .ranked-arena .ranked-arena__sigil img {
-        width: 50px;
-        height: 50px;
+        width: 54px;
+        height: 54px;
+        filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.5));
     }
 
     .ranked-arena .ranked-arena__intro-copy {
@@ -311,13 +290,14 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__intro h2 {
-        margin-bottom: 14px;
+        margin-bottom: 12px;
     }
 
     .ranked-arena .ranked-arena__intro-copy > p:last-child {
         max-width: 690px;
         margin-bottom: 0;
-        font-size: 1.02rem;
+        color: rgba(239, 228, 204, 0.62);
+        font-size: 0.98rem;
     }
 
     .ranked-arena .ranked-arena__connection {
@@ -391,9 +371,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         justify-content: center;
         min-height: 42px;
         padding: 9px 12px;
-        border: 1px solid rgba(151, 104, 50, 0.56);
-        border-radius: 2px;
-        background: linear-gradient(180deg, rgba(57, 36, 19, 0.92), rgba(24, 14, 8, 0.96));
+        border: 1px solid rgba(220, 177, 88, 0.18);
+        border-radius: 10px;
+        background: rgba(220, 177, 88, 0.07);
         color: var(--ink);
         font: inherit;
         font-size: 0.82rem;
@@ -408,8 +388,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__refresh:hover {
-        border-color: rgba(220, 177, 88, 0.72);
-        background: linear-gradient(180deg, rgba(76, 47, 23, 0.96), rgba(31, 18, 9, 0.98));
+        border-color: rgba(220, 177, 88, 0.38);
+        background: rgba(220, 177, 88, 0.12);
         color: var(--gold-soft);
         box-shadow: 0 0 16px rgba(255, 143, 0, 0.12);
     }
@@ -436,16 +416,14 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__frame {
         overflow: hidden;
-        border: 15px solid transparent;
-        border-radius: 0;
-        border-image-source: url("/assets/images/ui/pick_phase_ember_panel_frame_9slice.webp");
-        border-image-slice: 140 160 fill;
-        border-image-width: 16px;
-        border-image-repeat: stretch;
-        background: rgba(13, 8, 5, 0.97);
+        border: 1px solid rgba(220, 177, 88, 0.14);
+        border-radius: 18px;
+        background:
+            radial-gradient(circle at 100% 0, rgba(220, 177, 88, 0.055), transparent 34%),
+            linear-gradient(155deg, rgba(22, 15, 10, 0.94), rgba(8, 7, 6, 0.98) 46%);
         box-shadow:
-            0 24px 60px rgba(0, 0, 0, 0.55),
-            0 0 32px rgba(255, 119, 0, 0.08);
+            0 26px 64px rgba(0, 0, 0, 0.44),
+            inset 0 1px rgba(255, 238, 203, 0.035);
     }
 
     .ranked-arena .ranked-arena__navigation {
@@ -454,19 +432,15 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         align-items: center;
         justify-content: space-between;
         min-width: 0;
-        padding: 14px 16px;
-        border-bottom: 1px solid rgba(151, 104, 50, 0.44);
-        background: linear-gradient(180deg, rgba(42, 25, 13, 0.92), rgba(18, 11, 7, 0.94));
+        padding: 18px 20px;
+        border-bottom: 1px solid rgba(239, 228, 204, 0.08);
+        background: rgba(255, 255, 255, 0.012);
     }
 
     .ranked-arena .ranked-arena__tabs {
         display: flex;
-        gap: 5px;
+        gap: 6px;
         min-width: 0;
-        padding: 4px;
-        border: 1px solid rgba(151, 104, 50, 0.46);
-        border-radius: 2px;
-        background: rgba(6, 4, 3, 0.58);
     }
 
     .ranked-arena .ranked-arena__tab {
@@ -477,7 +451,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         min-height: 42px;
         padding: 9px 14px;
         border: 1px solid transparent;
-        border-radius: 1px;
+        border-radius: 9px;
         background: transparent;
         color: var(--muted);
         font: inherit;
@@ -494,24 +468,23 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__tab:hover {
+        background: rgba(239, 228, 204, 0.04);
         color: var(--ink);
     }
 
     .ranked-arena .ranked-arena__tab[aria-selected="true"] {
-        border-color: rgba(220, 177, 88, 0.64);
-        background: linear-gradient(180deg, rgba(101, 65, 25, 0.72), rgba(38, 22, 10, 0.8));
+        border-color: rgba(220, 177, 88, 0.14);
+        background: rgba(220, 177, 88, 0.11);
         color: var(--gold-soft);
-        box-shadow:
-            inset 0 1px rgba(255, 231, 168, 0.1),
-            0 0 14px rgba(255, 143, 0, 0.09);
+        box-shadow: inset 0 1px rgba(255, 231, 168, 0.05);
     }
 
     .ranked-arena .ranked-arena__tab-count {
         min-width: 24px;
         padding: 2px 6px;
-        border: 1px solid rgba(151, 104, 50, 0.38);
-        border-radius: 1px;
-        background: rgba(7, 5, 4, 0.58);
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.055);
         color: var(--muted);
         font-size: 0.7rem;
         line-height: 1.45;
@@ -519,7 +492,6 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__tab[aria-selected="true"] .ranked-arena__tab-count {
-        border-color: rgba(220, 177, 88, 0.48);
         background: rgba(220, 177, 88, 0.13);
         color: var(--gold-soft);
     }
@@ -528,6 +500,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         flex: 0 0 auto;
         min-height: 44px;
         padding-block: 10px;
+        border-radius: 10px;
         font-size: 0.9rem;
     }
 
@@ -535,9 +508,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         display: grid;
         grid-template-columns: minmax(260px, 1fr) minmax(150px, 0.34fr) minmax(150px, 0.34fr);
         gap: 12px;
-        padding: 16px;
-        border-bottom: 1px solid rgba(151, 104, 50, 0.38);
-        background: rgba(8, 5, 3, 0.72);
+        padding: 18px 20px;
+        border-bottom: 1px solid rgba(239, 228, 204, 0.08);
+        background: rgba(0, 0, 0, 0.13);
     }
 
     .ranked-arena .ranked-arena__control {
@@ -560,11 +533,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         align-items: center;
         min-width: 0;
         min-height: 44px;
-        border: 1px solid rgba(151, 104, 50, 0.46);
-        border-radius: 2px;
-        background:
-            linear-gradient(180deg, rgba(29, 17, 9, 0.94), rgba(12, 8, 5, 0.98)),
-            rgba(7, 5, 4, 0.94);
+        border: 1px solid rgba(239, 228, 204, 0.11);
+        border-radius: 10px;
+        background: rgba(4, 4, 4, 0.46);
         color: var(--muted);
         transition:
             border-color 0.16s ease,
@@ -573,11 +544,11 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__field:focus-within {
-        border-color: rgba(220, 177, 88, 0.72);
-        background: linear-gradient(180deg, rgba(37, 23, 12, 0.98), rgba(15, 9, 5, 0.98));
+        border-color: rgba(220, 177, 88, 0.46);
+        background: rgba(10, 8, 6, 0.78);
         box-shadow:
-            inset 0 0 12px rgba(255, 143, 0, 0.04),
-            0 0 0 2px rgba(220, 177, 88, 0.08);
+            inset 0 0 12px rgba(255, 143, 0, 0.025),
+            0 0 0 3px rgba(220, 177, 88, 0.065);
     }
 
     .ranked-arena .ranked-arena__search-field {
@@ -652,7 +623,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__panel {
         min-height: 390px;
-        padding: 18px;
+        padding: 20px;
         outline-offset: -3px;
     }
 
@@ -773,6 +744,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__avatar {
+        position: relative;
         display: grid;
         place-items: center;
         width: 46px;
@@ -784,6 +756,17 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         font-size: 0.86rem;
         font-weight: 860;
         letter-spacing: 0.03em;
+    }
+
+    .ranked-arena .ranked-arena__avatar-league {
+        position: absolute;
+        right: -8px;
+        bottom: -8px;
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.78));
+        pointer-events: none;
     }
 
     .ranked-arena .ranked-arena__badge {
@@ -822,9 +805,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__game-card,
     .ranked-arena .ranked-arena__league-card {
         min-width: 0;
-        border: 1px solid rgba(151, 104, 50, 0.42);
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(42, 25, 13, 0.9), rgba(12, 8, 5, 0.96));
+        border: 1px solid rgba(239, 228, 204, 0.09);
+        border-radius: 12px;
+        background: linear-gradient(145deg, rgba(31, 21, 14, 0.72), rgba(8, 7, 6, 0.86));
         transition:
             border-color 0.16s ease,
             transform 0.16s ease,
@@ -841,12 +824,12 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         z-index: 0;
         overflow: visible;
         border: 0;
-        border-left: 2px solid color-mix(in srgb, var(--game-stage) 78%, transparent);
-        border-radius: 0 3px 3px 0;
+        border: 1px solid rgba(239, 228, 204, 0.07);
+        border-radius: 12px;
         background:
             linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 7%, transparent), transparent 48%),
             rgba(15, 10, 7, 0.72);
-        box-shadow: inset 0 -1px rgba(151, 104, 50, 0.24);
+        box-shadow: inset 3px 0 color-mix(in srgb, var(--game-stage) 42%, transparent);
     }
 
     .ranked-arena .ranked-arena__game-card[data-stage="fight"] {
@@ -859,27 +842,49 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         flex-direction: column;
         gap: 0.35rem;
         margin-top: 0.55rem;
-        padding-top: 0.5rem;
+        padding: 0.5rem 9px 9px;
         border-top: 1px solid rgba(151, 104, 50, 0.28);
     }
 
     .ranked-arena .ranked-arena__market-header {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: baseline;
-        justify-content: space-between;
         gap: 0.5rem;
     }
 
     .ranked-arena .ranked-arena__market-title {
+        grid-column: 2;
         font-size: 0.66rem;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: color-mix(in srgb, var(--gold) 78%, transparent);
+        white-space: nowrap;
     }
 
     .ranked-arena .ranked-arena__market-total {
+        display: inline-flex;
+        grid-column: 3;
+        gap: 0.25em;
+        align-items: center;
+        justify-content: flex-end;
+        min-width: 0;
+        overflow: hidden;
         font-size: 0.72rem;
         color: var(--parchment-dim, rgba(228, 208, 175, 0.72));
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ranked-arena .ranked-arena__market-currency {
+        gap: 0.2em;
+        vertical-align: middle;
+    }
+
+    .ranked-arena .ranked-arena__market-currency .currency-icon {
+        width: 1.1em;
+        height: 1.1em;
     }
 
     .ranked-arena .ranked-arena__market-bar {
@@ -922,6 +927,12 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .ranked-arena .ranked-arena__market-legend-value {
+        display: inline-flex;
+        gap: 0.25em;
+        align-items: center;
     }
 
     .ranked-arena .ranked-arena__market-legend-item--upper {
@@ -1066,7 +1077,6 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__game-card:hover {
-        border-left-color: var(--game-stage);
         background:
             linear-gradient(105deg, color-mix(in srgb, var(--game-stage) 11%, transparent), transparent 52%),
             rgba(20, 13, 8, 0.84);
@@ -1088,14 +1098,14 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 22px;
+        width: 18px;
         border: 0;
         background: transparent;
         color: rgba(239, 212, 154, 0.62);
-        font-size: 0.48rem;
+        font-size: 0.66rem;
         font-weight: 400;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        letter-spacing: 0;
+        text-transform: none;
     }
 
     .ranked-arena .ranked-arena__league-stats {
@@ -1111,9 +1121,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         max-width: 620px;
         margin: 54px auto;
         padding: 30px;
-        border: 1px solid var(--line);
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(42, 25, 13, 0.76), rgba(10, 7, 4, 0.9));
+        border: 0;
+        border-radius: 14px;
+        background: rgba(239, 228, 204, 0.035);
         text-align: center;
     }
 
@@ -1128,8 +1138,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     }
 
     .ranked-arena .ranked-arena__empty--error {
-        border-color: rgba(239, 74, 63, 0.28);
-        background: rgba(239, 74, 63, 0.055);
+        background: rgba(239, 74, 63, 0.045);
     }
 
     .ranked-arena .ranked-arena__retry,
@@ -1141,9 +1150,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         justify-content: center;
         min-height: 38px;
         padding: 8px 12px;
-        border: 1px solid rgba(242, 199, 93, 0.34);
-        border-radius: 2px;
-        background: linear-gradient(180deg, rgba(73, 44, 20, 0.86), rgba(28, 16, 8, 0.92));
+        border: 1px solid rgba(242, 199, 93, 0.22);
+        border-radius: 9px;
+        background: rgba(242, 199, 93, 0.085);
         color: var(--gold-soft);
         font: inherit;
         font-size: 0.78rem;
@@ -1176,9 +1185,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         min-width: 0;
         overflow: auto;
         max-height: 570px;
-        border: 1px solid var(--line);
-        border-radius: 2px;
-        background: rgba(7, 5, 3, 0.58);
+        border: 1px solid rgba(239, 228, 204, 0.08);
+        border-radius: 12px;
+        background: rgba(3, 3, 3, 0.28);
         scrollbar-color: rgba(242, 199, 93, 0.3) transparent;
         scrollbar-width: thin;
     }
@@ -1197,8 +1206,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         z-index: 2;
         top: 0;
         padding: 10px 13px;
-        border-bottom: 1px solid var(--line);
-        background: #1b1009;
+        border-bottom: 1px solid rgba(239, 228, 204, 0.08);
+        background: rgba(22, 15, 10, 0.96);
         color: var(--muted-2);
         font-size: 0.65rem;
         font-weight: 400;
@@ -1364,9 +1373,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         gap: 8px;
         align-items: center;
         padding: 2px 12px;
-        border: 2px solid rgba(220, 177, 88, 0.54);
-        border-radius: 2px;
-        background: linear-gradient(90deg, rgba(57, 33, 14, 0.99), rgba(13, 8, 5, 0.99));
+        border: 1px solid rgba(220, 177, 88, 0.22);
+        border-radius: 10px;
+        background: linear-gradient(90deg, rgba(39, 25, 14, 0.99), rgba(10, 9, 8, 0.99));
         box-shadow:
             0 10px 24px rgba(0, 0, 0, 0.5),
             inset 0 0 15px rgba(242, 199, 93, 0.035);
@@ -1425,11 +1434,11 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         gap: 16px;
         min-width: 0;
         padding: 18px;
-        border: 1px solid rgba(242, 199, 93, 0.25);
-        border-radius: 2px;
+        border: 1px solid rgba(242, 199, 93, 0.13);
+        border-radius: 12px;
         background:
-            radial-gradient(circle at 100% 0, rgba(242, 199, 93, 0.11), transparent 42%),
-            linear-gradient(145deg, rgba(54, 32, 15, 0.9), rgba(12, 8, 5, 0.96));
+            radial-gradient(circle at 100% 0, rgba(242, 199, 93, 0.08), transparent 42%),
+            linear-gradient(145deg, rgba(35, 23, 14, 0.78), rgba(8, 7, 6, 0.92));
     }
 
     .ranked-arena .ranked-arena__detail-identity {
@@ -1481,7 +1490,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         align-items: end;
         padding: 13px;
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 2px;
+        border-radius: 9px;
         background: rgba(0, 0, 0, 0.16);
     }
 
@@ -1510,8 +1519,12 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         min-width: 0;
         padding: 9px;
         border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 2px;
+        border-radius: 9px;
         background: rgba(0, 0, 0, 0.12);
+    }
+
+    .ranked-arena .ranked-arena__detail-stats > div:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
     }
 
     .ranked-arena .ranked-arena__detail-stats dt,
@@ -1801,9 +1814,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         gap: 7px;
         width: min(252px, 82vw);
         padding: 9px;
-        border: 2px solid color-mix(in srgb, var(--seat-color, var(--gold)) 46%, rgba(220, 177, 88, 0.5));
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(57, 33, 14, 0.995), rgba(10, 6, 4, 0.995));
+        border: 1px solid color-mix(in srgb, var(--seat-color, var(--gold)) 30%, rgba(220, 177, 88, 0.25));
+        border-radius: 10px;
+        background: linear-gradient(145deg, rgba(38, 25, 15, 0.995), rgba(8, 7, 6, 0.995));
         box-shadow:
             0 14px 28px rgba(0, 0, 0, 0.62),
             inset 0 0 14px rgba(242, 199, 93, 0.045);
@@ -1852,6 +1865,41 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         font-size: 0.72rem;
     }
 
+    .ranked-arena .ranked-arena__game-form {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        min-height: 12px;
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot {
+        display: block;
+        width: 9px;
+        height: 9px;
+        flex: 0 0 9px;
+        border: 1px solid rgba(239, 228, 204, 0.22);
+        border-radius: 50%;
+        background: rgba(239, 228, 204, 0.08);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot--win {
+        border-color: rgba(70, 209, 96, 0.78);
+        background: #46d160;
+        box-shadow: 0 0 5px rgba(70, 209, 96, 0.24);
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot--loss {
+        border-color: rgba(255, 90, 90, 0.78);
+        background: #ff5a5a;
+        box-shadow: 0 0 5px rgba(255, 90, 90, 0.2);
+    }
+
+    .ranked-arena .ranked-arena__game-form-dot--draw {
+        border-color: rgba(174, 181, 190, 0.72);
+        background: #8f99a4;
+    }
+
     .ranked-arena .ranked-arena__watch {
         gap: 4px;
         min-height: 36px;
@@ -1878,9 +1926,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         min-height: 38px;
         margin-top: 4px;
         padding: 8px 16px;
-        border: 1px solid rgba(242, 199, 93, 0.3);
-        border-radius: 2px;
-        background: linear-gradient(180deg, rgba(73, 44, 20, 0.84), rgba(25, 15, 8, 0.9));
+        border: 1px solid rgba(242, 199, 93, 0.2);
+        border-radius: 9px;
+        background: rgba(242, 199, 93, 0.075);
         color: var(--gold-soft);
         font: inherit;
         font-size: 0.72rem;
@@ -1907,9 +1955,9 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     .ranked-arena .ranked-arena__league-stats > div {
         padding: 12px 14px;
-        border: 1px solid var(--line);
-        border-radius: 2px;
-        background: linear-gradient(145deg, rgba(45, 27, 14, 0.82), rgba(11, 7, 4, 0.9));
+        border: 0;
+        border-radius: 10px;
+        background: rgba(239, 228, 204, 0.04);
     }
 
     .ranked-arena .ranked-arena__league-stats > div strong,
@@ -1932,7 +1980,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
     .ranked-arena .ranked-arena__collapsed {
         padding: 14px 16px;
         border: 1px solid rgba(103, 174, 246, 0.24);
-        border-radius: 2px;
+        border-radius: 10px;
         background: rgba(103, 174, 246, 0.06);
     }
 
@@ -1955,22 +2003,16 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         gap: 12px;
         align-items: center;
         padding: 14px;
-        border-bottom: 1px solid var(--line);
-        background: rgba(8, 5, 3, 0.42);
+        border-bottom: 1px solid rgba(239, 228, 204, 0.07);
+        background: rgba(8, 7, 6, 0.32);
     }
 
     .ranked-arena .ranked-arena__league-crest {
-        display: grid;
-        place-items: center;
         flex: 0 0 auto;
-        width: 42px;
-        height: 48px;
-        clip-path: polygon(50% 0, 94% 20%, 84% 78%, 50% 100%, 16% 78%, 6% 20%);
-        background: linear-gradient(145deg, var(--gold-soft), #9d7526);
-        color: #1b1509;
-        font-size: 1rem;
-        font-weight: 900;
-        filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.3));
+        width: 62px;
+        height: 62px;
+        object-fit: contain;
+        filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.58));
     }
 
     .ranked-arena .ranked-arena__league-header > div {
@@ -2055,8 +2097,8 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         min-width: 0;
         min-height: 40px;
         padding: 5px 7px;
-        border-radius: 1px;
-        background: rgba(8, 5, 3, 0.34);
+        border-radius: 8px;
+        background: rgba(239, 228, 204, 0.025);
         color: var(--muted);
         font-size: 0.72rem;
         transition:
@@ -2169,8 +2211,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         }
 
         .ranked-arena .ranked-arena__frame {
-            border-width: 10px;
-            border-image-width: 12px;
+            border-radius: 14px;
         }
 
         .ranked-arena .ranked-arena__tabs {
@@ -2253,7 +2294,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
 
     @media (max-width: 460px) {
         .ranked-arena .ranked-arena__heading {
-            padding: 13px;
+            padding: 0;
         }
 
         .ranked-arena .ranked-arena__intro {
@@ -2264,6 +2305,7 @@ const pendingUpdatedLabel = copy.updated.replace("{time}", "—");
         .ranked-arena .ranked-arena__sigil {
             width: 48px;
             height: 48px;
+            border-radius: 13px;
         }
 
         .ranked-arena .ranked-arena__sigil img {

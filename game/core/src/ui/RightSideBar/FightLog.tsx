@@ -63,6 +63,55 @@ const MAX_ENTRIES = 5000;
 
 const splitLines = (text: string): string[] => (text ? text.split("\n").filter((l) => l.length > 0) : []);
 const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi, "TO (");
+const localizeFightLogLine = (text: string, translate: (english: string) => string): string => {
+    let localized = translate(formatFightLogLine(text));
+    const replacements: Array<[RegExp, string]> = [
+        [/\bLap\b/g, translate("Lap")],
+        [/\brequested additional time\b/gi, translate("requested additional time")],
+        [/\bdestroyed by Armageddon\b/gi, translate("destroyed by Armageddon")],
+        [/\bsuccumbed to poison\b/gi, translate("succumbed to poison")],
+        [/\bdestroyed by narrowing\b/gi, translate("destroyed by narrowing")],
+        [/\bfrom Armageddon\b/gi, translate("from Armageddon")],
+        [/\bpoison damage\b/gi, translate("poison damage")],
+        [/\bturn timed out\b/gi, translate("turn timed out")],
+        [/\bspawned at\b/gi, translate("spawned at")],
+        [/\bmoved to\b/gi, translate("moved to")],
+        [/\bmoved by\b/gi, translate("moved by")],
+        [/\bwaits \(hourglass\)/gi, translate("waits (hourglass)")],
+        [/\bskips(?: the)? turn\b/gi, translate("skips turn")],
+        [/\buses Luck Shield\b/gi, translate("uses Luck Shield")],
+        [/\bselected melee attack\b/gi, translate("selected melee attack")],
+        [/\bselected ranged attack\b/gi, translate("selected ranged attack")],
+        [/\bselected magic attack\b/gi, translate("selected magic attack")],
+        [/\battacked obstacle\b/gi, translate("attacked obstacle")],
+        [/\bhit mountain\b/gi, translate("hit mountain")],
+        [/\bmisses\b/gi, translate("misses")],
+        [/\bresisted from Vine Throw snare\b/gi, translate("resisted from Vine Throw snare")],
+        [/\bresurrected\b/gi, translate("resurrected")],
+        [/\bsummoned\b/gi, translate("summoned")],
+        [/\bremoved\b/gi, translate("removed")],
+        [/\bsplit\b/gi, translate("split")],
+        [/\bcast\b/gi, translate("cast")],
+        [/\bon themselves\b/gi, translate("on themselves")],
+        [/\bis on\b/gi, translate("is on")],
+        [/\bthis lap\b/gi, translate("this lap")],
+        [/\bon (?=[A-ZА-ЯЁ])/g, `${translate("on")} `],
+        [/\bfrom\b/gi, translate("from")],
+        [/\bwith\b/gi, translate("with")],
+        [/\bfor (?=\d)/gi, `${translate("for")} `],
+        [/\bacross\b/gi, translate("across")],
+        [/\breceived\b/gi, translate("received")],
+        [/\btakes\b/gi, translate("takes")],
+        [/\bgains\b/gi, translate("gains")],
+        [/\bsuffers\b/gi, translate("suffers")],
+        [/\bresisted\b/gi, translate("resisted")],
+        [/\bstarted\b/gi, translate("started")],
+        [/\bdied\b/gi, translate("died")],
+        [/\bdamage dealt\b/gi, translate("damage dealt")],
+    ];
+    for (const [pattern, replacement] of replacements) localized = localized.replace(pattern, replacement);
+    return localized;
+};
 
 interface IScrollbarMetrics {
     visible: boolean;
@@ -307,7 +356,10 @@ export const FightLog = ({ text }: { text: string }) => {
     const copyLog = (): void => {
         // Chronological export: oldest first, turn headers as "── label ──" dividers — the readable
         // form for pasting into a bug report or chat, not the panel's newest-first display order.
-        const clipboardText = fightLogClipboardText(entries.map((entry) => entry.text));
+        const clipboardText = fightLogClipboardText(entries.map((entry) => entry.text))
+            .split("\n")
+            .map((line) => localizeFightLogLine(line, t))
+            .join("\n");
         const markCopied = (): void => {
             setCopied(true);
             if (copyResetRef.current !== undefined) {

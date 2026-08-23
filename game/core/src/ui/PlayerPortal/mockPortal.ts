@@ -1,4 +1,4 @@
-import { Artifact, Perk, PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
+import { Artifact, Doctrine, PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import type { PortalMatchData, PortalMatchSetupData, PortalUnitPerformanceData } from "./matchHistoryModel";
@@ -58,7 +58,7 @@ const SETUP_PRESETS: PortalMatchSetupData[] = [
     {
         artifact_tier_1: Artifact.Tier1Artifact.IRON_PLATE,
         artifact_tier_2: Artifact.Tier2Artifact.WARLORDS_EDGE,
-        perk: Perk.Perk.SEE_NONE,
+        doctrine: Doctrine.Doctrine.SEE_NONE,
         augment_placement: 0,
         augment_armor: 3,
         augment_might: 3,
@@ -70,7 +70,7 @@ const SETUP_PRESETS: PortalMatchSetupData[] = [
     {
         artifact_tier_1: Artifact.Tier1Artifact.HUNTERS_LONGBOW,
         artifact_tier_2: Artifact.Tier2Artifact.FARSIGHT_QUIVER,
-        perk: Perk.Perk.THREE_REVEALS,
+        doctrine: Doctrine.Doctrine.THREE_REVEALS,
         augment_placement: 0,
         augment_armor: 2,
         augment_might: 1,
@@ -82,7 +82,7 @@ const SETUP_PRESETS: PortalMatchSetupData[] = [
     {
         artifact_tier_1: Artifact.Tier1Artifact.SWIFT_BOOTS,
         artifact_tier_2: Artifact.Tier2Artifact.CROWN_OF_COMMAND,
-        perk: Perk.Perk.SEE_ALL,
+        doctrine: Doctrine.Doctrine.SEE_ALL,
         augment_placement: 1,
         augment_armor: 1,
         augment_might: 2,
@@ -103,7 +103,7 @@ const historicalSetupPreset = (index: number): PortalMatchSetupData => {
     return {
         artifact_tier_1: preset.artifact_tier_1,
         artifact_tier_2: preset.artifact_tier_2,
-        perk: preset.perk,
+        doctrine: preset.doctrine,
         complete: false,
     };
 };
@@ -174,6 +174,7 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             i % 7 === 6 ? PortalMatchKind.LOBBY : i % 5 === 0 ? PortalMatchKind.CALIBRATION : PortalMatchKind.RANKED;
         const mmrBefore = matchKind === PortalMatchKind.LOBBY ? 0 : 790 + ((i * 19) % 240);
         const mmrDelta = matchKind === PortalMatchKind.LOBBY || draw ? 0 : won ? 15 + (i % 22) : -(14 + (i % 19));
+        const opponentUsername = OPPONENTS[Math.floor(rng() * OPPONENTS.length)];
 
         matches.push({
             game_id: `mock-${i}`,
@@ -182,7 +183,8 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             abandoned,
             player_abandoned: playerAbandoned,
             finished_time: finishedTime,
-            opponent_username: OPPONENTS[Math.floor(rng() * OPPONENTS.length)],
+            opponent_username: opponentUsername,
+            opponent_player_id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
             team: rng() < 0.5 ? 2 : 1,
             creature_ids: lineup,
             opponent_creature_ids: opponentLineup,

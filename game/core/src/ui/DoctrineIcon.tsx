@@ -1,14 +1,14 @@
 import { Box } from "@mui/joy";
 import React from "react";
 
-import { getPerkIconImage } from "./perkCopy";
+import { getDoctrineIconImage } from "./doctrineCopy";
 
-export const PerkIcon: React.FC<{
-    perkId: number;
+export const DoctrineIcon: React.FC<{
+    doctrineId: number;
     size?: number | string;
     sx?: React.ComponentProps<typeof Box>["sx"];
-}> = ({ perkId, size = "100%", sx }) => {
-    const src = getPerkIconImage(perkId);
+}> = ({ doctrineId, size = "100%", sx }) => {
+    const src = getDoctrineIconImage(doctrineId);
 
     return src ? (
         <Box

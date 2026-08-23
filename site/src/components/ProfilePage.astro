@@ -76,6 +76,65 @@ const rankedApp = links.rankedApp;
                     <div class="season-history" data-profile-seasons></div>
                 </section>
 
+                <section class="profile-section profile-section--predictions" data-profile-predictions-section hidden>
+                    <details class="prediction-panel" data-profile-predictions-panel>
+                        <summary class="prediction-panel__summary">
+                            <span class="prediction-panel__heading" role="heading" aria-level="2">{copy.publicPredictionsTitle}</span>
+                            <span class="prediction-panel__metrics" data-profile-prediction-summary></span>
+                            <span class="prediction-panel__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="prediction-panel__body">
+                            <div
+                                class="prediction-history"
+                                id="profile-prediction-history"
+                                data-profile-predictions></div>
+                            <button
+                                type="button"
+                                class="matches-more prediction-panel__more"
+                                data-profile-predictions-more
+                                aria-controls="profile-prediction-history"
+                                hidden>{copy.predictionsShowMore}</button
+                            >
+                        </div>
+                    </details>
+                </section>
+
+                <section class="profile-section profile-section--predictions" data-profile-wagers-section hidden>
+                    <details class="prediction-panel" data-profile-wagers-panel>
+                        <summary class="prediction-panel__summary">
+                            <span class="prediction-panel__heading" role="heading" aria-level="2">{copy.publicWagersTitle}</span>
+                            <span class="prediction-panel__metrics" data-profile-wager-summary></span>
+                            <span class="prediction-panel__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="prediction-panel__body">
+                            <div
+                                class="prediction-history"
+                                id="profile-wager-history"
+                                data-profile-wagers></div>
+                            <button
+                                type="button"
+                                class="matches-more prediction-panel__more"
+                                data-profile-wagers-more
+                                aria-controls="profile-wager-history"
+                                hidden>{copy.predictionsShowMore}</button
+                            >
+                        </div>
+                    </details>
+                </section>
+
+                <section class="profile-section profile-section--predictions" data-profile-gold-section hidden>
+                    <details class="prediction-panel" data-profile-gold-panel>
+                        <summary class="prediction-panel__summary">
+                            <span class="prediction-panel__heading" role="heading" aria-level="2">{copy.goldHistoryTitle}</span>
+                            <span class="prediction-panel__metrics" data-profile-gold-summary></span>
+                            <span class="prediction-panel__chevron" aria-hidden="true"></span>
+                        </summary>
+                        <div class="prediction-panel__body">
+                            <div class="prediction-history" data-profile-gold-history></div>
+                        </div>
+                    </details>
+                </section>
+
                 <section class="profile-section" data-profile-self>
                     <h2>{copy.sectionCreatures}</h2>
                     <div class="bar-list" data-profile-creatures></div>
@@ -117,12 +176,15 @@ const rankedApp = links.rankedApp;
         type Tier1Artifact,
         type Tier2Artifact,
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
-    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+    import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
     import { isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
+    import { rankedArenaCopy } from "../lib/ranked-arena-copy";
+    import { TOP_WEALTH } from "../lib/ranked-arena-data";
+    import { leagueEmblemPath } from "../lib/league-emblems";
     import {
         buildRankedMatchPagePath,
         fetchPublicRankedMatch,
@@ -143,6 +205,14 @@ const rankedApp = links.rankedApp;
         type RankedProfileMatch,
     } from "../lib/ranked-profile-client";
     import { creatureById, timeAgo, winRateColor, winRatePct } from "../lib/portal-data";
+    import {
+        fetchSeasonCurrencyCatalog,
+        LEGACY_SEASON_CURRENCY,
+        seasonCurrencyForTimestamp,
+        seasonCurrencyIconUrl,
+        type SeasonCurrency,
+        type SeasonCurrencyCatalog,
+    } from "../lib/season-currency";
 
     type Copy = Record<string, string>;
     const copyEl = document.querySelector<HTMLElement>("[data-profile-copy]");
@@ -171,11 +241,18 @@ const rankedApp = links.rankedApp;
     const summaryNoticeEl = $("summary-notice");
     const matchesEl = $("matches");
     const matchesMoreEl = $<HTMLButtonElement>("matches-more");
+    const predictionsPanelEl = $<HTMLDetailsElement>("predictions-panel");
+    const predictionsEl = $("predictions");
+    const predictionsMoreEl = $<HTMLButtonElement>("predictions-more");
+    const wagersEl = $("wagers");
+    const wagersMoreEl = $<HTMLButtonElement>("wagers-more");
     const selfSections = [...document.querySelectorAll<HTMLElement>("[data-profile-self]")];
     const profileSearchParams = new URL(window.location.href).searchParams;
     const requestedPlayerId = profileSearchParams.get("playerId")?.trim() ?? "";
     const publicMode = profileSearchParams.has("playerId");
     const language = document.documentElement.lang.toLowerCase().startsWith("ru") ? "ru" : "en";
+    // League + wealth names live with the arena copy so every surface names a standing identically.
+    const standingCopy = rankedArenaCopy[language];
 
     const escapeHtml = (value: string): string =>
         value.replace(
@@ -212,14 +289,18 @@ const rankedApp = links.rankedApp;
         language === "ru"
             ? "Доля рейтинговых боёв, завершённых игроком через выход из боя или длительное отключение."
             : "Ranked battles this player ended by exiting the fight or remaining disconnected.";
-    const GOLD_ICON = "/assets/icons/currency/gold.svg";
     const MATCH_PAGE_SIZE = 10;
+    const PREDICTION_PAGE_SIZE = 5;
     let matchHistoryRows: unknown[] = [];
     let matchHistoryRenderer: (match: unknown) => string = () => "";
     let visibleMatchCount = 0;
     const matchHistoryById = new Map<string, unknown>();
     const publicMatchDetails = new Map<string, PublicRankedMatch>();
     let expandedMatchId = "";
+    let predictionHistoryRows: string[] = [];
+    let visiblePredictionCount = 0;
+    let currentCurrency: SeasonCurrency = LEGACY_SEASON_CURRENCY;
+    let selfSeasonCatalog: SeasonCurrencyCatalog | null = null;
 
     const matchGameId = (match: unknown): string => {
         if (!match || typeof match !== "object") return "";
@@ -259,9 +340,71 @@ const rankedApp = links.rankedApp;
         updateMatchesMoreButton();
     });
 
-    function currencyMarkup(value: number, prefix = ""): string {
-        const amount = `${prefix}${numberFormatter.format(Math.max(0, Math.trunc(value)))}`;
-        return `<span class="currency-amount"><img class="currency-icon" src="${GOLD_ICON}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(amount)}</span></span>`;
+    function updatePredictionsMoreButton(): void {
+        if (predictionsMoreEl) predictionsMoreEl.hidden = visiblePredictionCount >= predictionHistoryRows.length;
+    }
+
+    function renderPredictionHistory(rows: string[], emptyMarkup: string): void {
+        predictionHistoryRows = rows;
+        visiblePredictionCount = Math.min(PREDICTION_PAGE_SIZE, rows.length);
+        if (predictionsEl) {
+            predictionsEl.innerHTML = rows.length ? rows.slice(0, visiblePredictionCount).join("") : emptyMarkup;
+        }
+        updatePredictionsMoreButton();
+    }
+
+    predictionsMoreEl?.addEventListener("click", () => {
+        if (!predictionsEl) return;
+        const nextCount = Math.min(visiblePredictionCount + PREDICTION_PAGE_SIZE, predictionHistoryRows.length);
+        predictionsEl.insertAdjacentHTML(
+            "beforeend",
+            predictionHistoryRows.slice(visiblePredictionCount, nextCount).join(""),
+        );
+        visiblePredictionCount = nextCount;
+        updatePredictionsMoreButton();
+    });
+
+    let wagerHistoryRows: string[] = [];
+    let visibleWagerCount = 0;
+
+    function updateWagersMoreButton(): void {
+        if (wagersMoreEl) wagersMoreEl.hidden = visibleWagerCount >= wagerHistoryRows.length;
+    }
+
+    function renderWagerHistory(rows: string[], emptyMarkup: string): void {
+        wagerHistoryRows = rows;
+        visibleWagerCount = Math.min(PREDICTION_PAGE_SIZE, rows.length);
+        if (wagersEl) {
+            wagersEl.innerHTML = rows.length ? rows.slice(0, visibleWagerCount).join("") : emptyMarkup;
+        }
+        updateWagersMoreButton();
+    }
+
+    wagersMoreEl?.addEventListener("click", () => {
+        if (!wagersEl) return;
+        const nextCount = Math.min(visibleWagerCount + PREDICTION_PAGE_SIZE, wagerHistoryRows.length);
+        wagersEl.insertAdjacentHTML("beforeend", wagerHistoryRows.slice(visibleWagerCount, nextCount).join(""));
+        visibleWagerCount = nextCount;
+        updateWagersMoreButton();
+    });
+
+    function currencyMarkup(
+        value: number,
+        prefix = "",
+        currency: SeasonCurrency = currentCurrency,
+        allowNegative = false,
+    ): string {
+        const normalizedValue = allowNegative ? Math.trunc(value) : Math.max(0, Math.trunc(value));
+        const amount = `${prefix}${numberFormatter.format(normalizedValue)}`;
+        const iconUrl = seasonCurrencyIconUrl(currency);
+        return `<span class="currency-amount" aria-label="${escapeHtml(`${currency.name}: ${amount}`)}"><img class="currency-icon" src="${escapeHtml(iconUrl)}" alt="" aria-hidden="true" width="20" height="20" /><span>${escapeHtml(amount)}</span></span>`;
+    }
+
+    function portalMatchCurrency(match: Record<string, unknown>): SeasonCurrency {
+        const finishedTime = num(match.finished_time ?? match.finishedTime);
+        return finishedTime
+            ? seasonCurrencyForTimestamp(selfSeasonCatalog, finishedTime)
+            : currentCurrency;
     }
 
     function statCard(label: string, value: string, accent?: string): string {
@@ -322,7 +465,7 @@ const rankedApp = links.rankedApp;
     interface MatchSetupView {
         artifactTier1: number;
         artifactTier2: number;
-        perk: number;
+        doctrine: number;
         augments: Array<{ kind: string; level: number; slug: string }>;
         synergies: string[];
         available: boolean;
@@ -500,7 +643,7 @@ const rankedApp = links.rankedApp;
         return {
             artifactTier1: num(row?.artifact_tier_1),
             artifactTier2: num(row?.artifact_tier_2),
-            perk: num(row?.perk),
+            doctrine: num(row?.doctrine),
             augments: complete ? augments.filter((augment, index) => index === 0 || augment.level > 0) : [],
             synergies: complete && Array.isArray(row?.synergies) ? row.synergies.filter((entry): entry is string => typeof entry === "string") : [],
             available: !!row,
@@ -520,7 +663,7 @@ const rankedApp = links.rankedApp;
         return {
             artifactTier1: setup.artifactTier1,
             artifactTier2: setup.artifactTier2,
-            perk: setup.perk,
+            doctrine: setup.doctrine,
             augments: available ? augments.filter((augment, index) => index === 0 || augment.level > 0) : [],
             synergies: available ? setup.synergies : [],
             available,
@@ -533,12 +676,12 @@ const rankedApp = links.rankedApp;
             return `<section class="match-build"><h4>${escapeHtml(label)}</h4><p class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</p></section>`;
         }
         const artifactsMarkup = `${artifactChoice(1, setup.artifactTier1)}${artifactChoice(2, setup.artifactTier2)}`;
-        let perkMarkup = "";
+        let doctrineMarkup = "";
         try {
-            const perk = getPerkProperties(setup.perk as Perk);
-            if (perk?.name) perkMarkup = `<span class="match-choice"><span>${escapeHtml(perk.name)}</span></span>`;
+            const doctrine = getDoctrineProperties(setup.doctrine as Doctrine);
+            if (doctrine?.name) doctrineMarkup = `<span class="match-choice"><span>${escapeHtml(doctrine.name)}</span></span>`;
         } catch {
-            perkMarkup = "";
+            doctrineMarkup = "";
         }
         const augmentsMarkup = setup.augments
             .map(
@@ -549,7 +692,7 @@ const rankedApp = links.rankedApp;
         const synergiesMarkup = setup.synergies.map(synergyChoice).join("");
         const choiceRow = (title: string, value: string): string =>
             `<div><dt>${escapeHtml(title)}</dt><dd>${value || `<span class="match-unavailable">${escapeHtml(copy.matchNotRecorded)}</span>`}</dd></div>`;
-        return `<section class="match-build"><h4>${escapeHtml(label)}</h4><dl>${choiceRow(copy.matchPerk, perkMarkup)}${choiceRow(copy.matchArtifacts, artifactsMarkup)}${choiceRow(copy.matchAugments, setup.complete ? augmentsMarkup : "")}${choiceRow(copy.matchSynergies, setup.complete ? synergiesMarkup : "")}</dl></section>`;
+        return `<section class="match-build"><h4>${escapeHtml(label)}</h4><dl>${choiceRow(copy.matchDoctrine, doctrineMarkup)}${choiceRow(copy.matchArtifacts, artifactsMarkup)}${choiceRow(copy.matchAugments, setup.complete ? augmentsMarkup : "")}${choiceRow(copy.matchSynergies, setup.complete ? synergiesMarkup : "")}</dl></section>`;
     }
 
     function portalPerformances(value: unknown): Array<{ creatureId: number; damageDealt: number }> {
@@ -576,6 +719,7 @@ const rankedApp = links.rankedApp;
                 : copy.matchOpponentLeft
             : "";
         const when = timeAgo(num(match.finished_time), agoLabels);
+        const currency = portalMatchCurrency(match);
         const gameId = typeof match.game_id === "string" ? match.game_id : "";
         const mode = portalMatchMode(match);
         const ratedMode = mode === "ranked" || mode === "calibration";
@@ -589,7 +733,7 @@ const rankedApp = links.rankedApp;
             ? `<a class="match-replay" href="${escapeHtml(`${gameClientRoot}/game/${encodeURIComponent(gameId)}/replay`)}">↻ ${escapeHtml(copy.matchReplay)}</a>`
             : "";
         const rewards = ratedMode && (hasDelta || hasGold)
-            ? `<div class="match-rewards">${hasDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+")}</span>` : ""}</div>`
+            ? `<div class="match-rewards">${hasDelta ? `<span class="match-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">${delta > 0 ? "+" : ""}${numberFormatter.format(delta)} MMR</span>` : ""}${hasGold ? `<span class="match-gold">${currencyMarkup(gold, "+", currency)}</span>` : ""}</div>`
             : "";
         return `
             <article class="match-row match-card--expandable ${resultClass}" aria-label="${escapeHtml(matchContext)}">
@@ -614,10 +758,17 @@ const rankedApp = links.rankedApp;
 
     function leagueLabel(league: number): string {
         if (!league) return copy.publicUnranked;
-        if (language === "ru") return `${league}-я ${copy.publicLeague.toLowerCase()}`;
-        const mod100 = league % 100;
-        const suffix = mod100 >= 11 && mod100 <= 13 ? "th" : league % 10 === 1 ? "st" : league % 10 === 2 ? "nd" : league % 10 === 3 ? "rd" : "th";
-        return `${league}${suffix} ${copy.publicLeague}`;
+        // Leagues are named, not numbered — the same table the arena and the game client render.
+        return standingCopy.leagueNames[league - 1] ?? copy.publicUnranked;
+    }
+
+    /** Their gold third joined to the league: "Ragged Aspirant", "Demigod Whale" (top tier trails). */
+    function standingLabel(league: number, wealth: number): string {
+        if (!league) return copy.publicUnranked;
+        const name = leagueLabel(league);
+        const tier = standingCopy.wealthNames[wealth - 1] ?? "";
+        if (!tier) return name;
+        return wealth === TOP_WEALTH ? `${name} ${tier}` : `${tier} ${name}`;
     }
 
     function publicStateLabel(state: PublicRankedProfile["state"]): string {
@@ -712,6 +863,7 @@ const rankedApp = links.rankedApp;
     }
 
     function publicMatchRow(match: RankedProfileMatch): string {
+        const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         const resultLabel =
             match.result === "win" ? copy.resultWin : match.result === "loss" ? copy.resultLoss : copy.resultDraw;
         const opponentName = match.opponent?.username ?? "—";
@@ -743,7 +895,7 @@ const rankedApp = links.rankedApp;
                             </div>
                             <div class="match-rewards">
                                 <span class="match-delta ${deltaClass}">${escapeHtml(delta)}</span>
-                                <span class="match-gold">${currencyMarkup(match.goldEarned, "+")}</span>
+                                <span class="match-gold">${currencyMarkup(match.goldEarned, "+", currency)}</span>
                             </div>
                             <span class="match-details-chevron" aria-hidden="true">⌄</span>
                         </div>
@@ -789,6 +941,7 @@ const rankedApp = links.rankedApp;
     }
 
     function publicDetailsMarkup(match: PublicRankedMatch): string {
+        const currency = match.season?.currency ?? LEGACY_SEASON_CURRENCY;
         const viewer = match.players.find((player) => player.playerId === requestedPlayerId) ?? match.players[0];
         const opponent = match.players.find((player) => player.playerId !== viewer.playerId) ?? match.players[1];
         const stats = match.stats;
@@ -819,7 +972,7 @@ const rankedApp = links.rankedApp;
                 ${matchMetric(copy.matchDuration, duration)}
                 ${matchMetric(copy.matchLaps, laps > 0 ? numberFormatter.format(laps) : "—")}
                 ${matchMetric(copy.matchMmr, mmr)}
-                ${matchMetric(copy.matchGoldGain, currencyMarkup(viewer.goldEarned, "+"))}
+                ${matchMetric(currency.name, currencyMarkup(viewer.goldEarned, "+", currency))}
                 ${matchMetric(copy.matchYourDamage, formatDamage(playerDamage))}
                 ${matchMetric(copy.matchOpponentDamage, formatDamage(opponentDamage))}
             </dl>
@@ -837,6 +990,7 @@ const rankedApp = links.rankedApp;
             : "—";
         const mode = portalMatchMode(match);
         const ratedMode = mode === "ranked" || mode === "calibration";
+        const currency = portalMatchCurrency(match);
         const duration = formatDuration(match.duration_ms);
         const laps = Math.max(0, num(match.total_laps));
         const playerDamage = num(match.player_damage);
@@ -855,7 +1009,9 @@ const rankedApp = links.rankedApp;
             ? `${numberFormatter.format(before)} → ${numberFormatter.format(after)} <span class="${delta > 0 ? "positive" : delta < 0 ? "negative" : ""}">(${delta > 0 ? "+" : ""}${numberFormatter.format(delta)})</span>`
             : "—";
         const goldValue = match.gold_earned ?? match.goldEarned;
-        const gold = !ratedMode || goldValue === undefined ? "—" : currencyMarkup(Math.max(0, num(goldValue)), "+");
+        const gold = !ratedMode || goldValue === undefined
+            ? "—"
+            : currencyMarkup(Math.max(0, num(goldValue)), "+", currency);
         const playerPerformances = portalPerformances(match.player_top_units);
         const opponentPerformances = portalPerformances(match.opponent_top_units);
         return `
@@ -863,7 +1019,7 @@ const rankedApp = links.rankedApp;
                 ${matchMetric(copy.matchDuration, duration)}
                 ${matchMetric(copy.matchLaps, laps > 0 ? numberFormatter.format(laps) : "—")}
                 ${matchMetric(copy.matchMmr, mmr)}
-                ${matchMetric(copy.matchGoldGain, gold)}
+                ${matchMetric(currency.name, gold)}
                 ${matchMetric(copy.matchYourDamage, formatDamage(playerDamage))}
                 ${matchMetric(copy.matchOpponentDamage, formatDamage(opponentDamage))}
             </dl>
@@ -969,15 +1125,26 @@ const rankedApp = links.rankedApp;
 
     function renderPublicProfile(profile: PublicRankedProfile, summaryOnly = false): void {
         configurePublicMode();
+        currentCurrency = profile.season?.currency ?? LEGACY_SEASON_CURRENCY;
+        if (predictionsPanelEl) predictionsPanelEl.open = false;
         const placed = profile.state === "placed";
         const rating = placed ? numberFormatter.format(profile.mmr) : copy.publicRatingHidden;
-        const rank = placed && profile.leaderboardRank ? `#${numberFormatter.format(profile.leaderboardRank)}` : copy.publicUnranked;
+        // "Unranked" belongs to a player who has not been PLACED. A placed commander outside the top
+        // league has no ladder POSITION — ranked_math only numbers league 5 — and calling them unranked
+        // contradicted the RANKED badge and the league printed directly beneath it. A dash reads as "no
+        // position", which is the truth, and matches how the arena dossier renders the same missing rank.
+        const rank = !placed
+            ? copy.publicUnranked
+            : profile.leaderboardRank
+              ? `#${numberFormatter.format(profile.leaderboardRank)}`
+              : "—";
 
         if (nameEl) nameEl.textContent = profile.username;
         if (goldEl) {
             const gold = numberFormatter.format(profile.gold);
             goldEl.innerHTML = currencyMarkup(profile.gold);
-            goldEl.setAttribute("aria-label", `${copy.statGold}: ${gold}`);
+            goldEl.setAttribute("aria-label", `${currentCurrency.name}: ${gold}`);
+            goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
         }
         document.title = `${profile.username} · Heroes of Crypto`;
@@ -1004,15 +1171,27 @@ const rankedApp = links.rankedApp;
         if (sectionsEl) sectionsEl.hidden = false;
         if (summaryNoticeEl) summaryNoticeEl.hidden = !summaryOnly;
 
+        // While calibrating, the season record and the placement counter sit on DIFFERENT scopes, and
+        // showing both as-is makes the profile contradict itself. resetProfileForSeason() zeroes
+        // wins/losses/draws/totalGames but deliberately preserves the calibration counters —
+        // "calibration is a once-per-account rite, never re-asked on season rollover". So a player who
+        // crosses a season boundary mid-placement reads "Calibrating 2 / 5" beside a record of "1–0–0",
+        // with the pre-rollover game missing from one number and counted by the other. Report the
+        // CALIBRATION record while calibrating so every tile here describes the same set of games.
+        // (Entering recalibration zeroes these counters too, so the scope is right in that state as well.)
+        const record = placed ? profile : profile.calibration;
+        const recordGames = placed ? profile.totalGames : record.wins + record.losses + record.draws;
+        const recordWinRatePct = placed ? profile.winRatePct : recordGames ? (record.wins / recordGames) * 100 : 0;
+
         const statsEl = $("stats");
         if (statsEl) {
             statsEl.innerHTML = [
                 statCard(copy.statRating, rating, placed ? "#f2c75d" : undefined),
                 statCard(copy.statLeaderboardRank, rank),
-                statCard(copy.statRecord, `${profile.wins}–${profile.losses}–${profile.draws}`),
-                statCard(copy.statWinRate, profile.totalGames ? `${profile.winRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—", winRateColor(profile.winRatePct)),
+                statCard(copy.statRecord, `${record.wins}–${record.losses}–${record.draws}`),
+                statCard(copy.statWinRate, recordGames ? `${recordWinRatePct.toFixed(1).replace(/\.0$/, "")}%` : "—", winRateColor(recordWinRatePct)),
                 statCard(copy.statPeakRating, profile.peakMmr ? numberFormatter.format(profile.peakMmr) : "—"),
-                statCard(copy.statGames, numberFormatter.format(profile.totalGames)),
+                statCard(copy.statGames, numberFormatter.format(recordGames)),
                 statCard(copy.statHoursInGame, hoursInGameLabel(profile.secondsInGame)),
                 // Gold moved to the header (large, right after the nickname); no duplicate stat card here.
             ].join("");
@@ -1028,22 +1207,296 @@ const rankedApp = links.rankedApp;
                 ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
                 : copy.publicUnranked;
             const seasonLine = profile.season
-                ? `<small class="ranked-standing__season">${escapeHtml(profile.season.name)}</small>`
+                ? `<small class="ranked-standing__season">${escapeHtml(`${profile.season.name} · ${currentCurrency.name}`)}</small>`
                 : "";
+            const emblemLabel = placed ? leagueLabel(profile.league) : publicStateLabel(profile.state);
             standingEl.innerHTML = `
                 <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
-                    <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
-                    <strong>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
-                    <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
-                    ${seasonLine}
+                    <img class="ranked-standing__emblem" src="${leagueEmblemPath(placed ? profile.league : 0)}" alt="${escapeHtml(emblemLabel)}" width="128" height="128" />
+                    <div class="ranked-standing__copy">
+                        <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
+                        <strong>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
+                        <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
+                        ${seasonLine}
+                    </div>
                 </div>
                 <dl class="ranked-standing__facts">
-                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? leagueLabel(profile.league) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
-                    <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : "—")}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : copy.publicBanNotPicked)}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
                 </dl>`;
+        }
+
+        // Prediction record: how this player bets on OTHER people's games. Public for every profile —
+        // a market is only readable if you can see who backs what and how it turns out. Hidden until
+        // they have actually placed one.
+        const predictionsSection = document.querySelector<HTMLElement>("[data-profile-predictions-section]");
+        const predictionSummaryEl = document.querySelector<HTMLElement>("[data-profile-prediction-summary]");
+        if (predictionsSection && predictionsEl) {
+            const predictions = summaryOnly
+                ? { bets: 0, staked: 0, returned: 0, settled: 0, won: 0, net: 0, winRatePct: 0, recent: [] }
+                : profile.predictions;
+            predictionsSection.hidden = predictions.bets === 0;
+
+            if (predictionSummaryEl) {
+                const netClass = predictions.net > 0 ? "positive" : predictions.net < 0 ? "negative" : "";
+                const netSign = predictions.net > 0 ? "+" : "";
+                predictionSummaryEl.innerHTML = `
+                    <span class="prediction-panel__metric"><b>${numberFormatter.format(predictions.bets)}</b><span>${escapeHtml(copy.predictionsPlaced)}</span></span>
+                    <span class="prediction-panel__metric"><b>${currencyMarkup(predictions.staked)}</b><span>${escapeHtml(copy.predictionsStaked)}</span></span>
+                    <span class="prediction-panel__metric"><b>${
+                        predictions.settled > 0
+                            ? `${predictions.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
+                            : "—"
+                    }</b><span>${escapeHtml(copy.predictionsHitRate)}</span></span>
+                    <span class="prediction-panel__metric ${netClass}"><b>${currencyMarkup(predictions.net, netSign, currentCurrency, true)}</b><span>${escapeHtml(`${copy.predictionsNet} · ${currentCurrency.name}`)}</span></span>`;
+            }
+
+            const predictionRows = predictions.recent
+                .map((bet) => {
+                    const label = {
+                        open: copy.predictionOpen,
+                        won: copy.predictionWon,
+                        lost: copy.predictionLost,
+                        burned: copy.predictionBurned,
+                        refunded: copy.predictionRefunded,
+                    }[bet.status];
+                    // Only a settled bet has a result worth colouring; an open one is still in play.
+                    const tone =
+                        bet.status === "won"
+                            ? "positive"
+                            : bet.status === "lost" || bet.status === "burned"
+                              ? "negative"
+                              : bet.status === "refunded"
+                                ? "muted"
+                                : "";
+                    const profit = bet.payout - bet.amount;
+                    const outcomeMarkup =
+                        bet.status === "open"
+                            ? "—"
+                            : currencyMarkup(profit, profit > 0 ? "+" : "", currentCurrency, true);
+                    const backedUsername = bet.backedUsername || copy.predictionUnknownSide;
+                    const placedDate = bet.placedAt ? new Date(bet.placedAt) : null;
+                    const placedAt = placedDate && Number.isFinite(placedDate.getTime()) ? dateFormatter.format(placedDate) : "—";
+                    const placedTime =
+                        placedDate && Number.isFinite(placedDate.getTime())
+                            ? `<time datetime="${escapeHtml(placedDate.toISOString())}">${escapeHtml(placedAt)}</time>`
+                            : escapeHtml(placedAt);
+                    const compactGameId =
+                        bet.gameId.length > 16 ? `${bet.gameId.slice(0, 8)}…${bet.gameId.slice(-6)}` : bet.gameId;
+                    let matchHref = "";
+                    try {
+                        matchHref = buildRankedMatchPagePath(bet.gameId, bet.predictedPlayerId, language);
+                    } catch {
+                        matchHref = "";
+                    }
+                    // The match's OWN result, which the bet status cannot convey: a lost bet never names
+                    // the winner. Empty for an unfinished match; "drawn" when it ended level.
+                    const matchResult = !bet.matchDecided
+                        ? bet.status === "open"
+                            ? escapeHtml(copy.predictionUndecided)
+                            : escapeHtml(copy.predictionDrawn)
+                        : bet.winnerUsername
+                          ? `${escapeHtml(copy.predictionWonBy)} <strong>${escapeHtml(bet.winnerUsername)}</strong>`
+                          : "";
+                    const matchResultMarkup = matchResult
+                        ? `<span class="prediction-row__result">${matchResult}</span>`
+                        : "";
+                    const match = matchHref
+                        ? `<a class="prediction-row__match" href="${escapeHtml(matchHref)}" aria-label="${escapeHtml(`${copy.predictionOpenMatch}: ${bet.gameId}`)}"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(bet.gameId)}">${escapeHtml(compactGameId)}</code><i aria-hidden="true">↗</i></a>`
+                        : `<span class="prediction-row__match"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(bet.gameId)}">${escapeHtml(compactGameId)}</code></span>`;
+                    return `
+                        <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${copy.predictionBacked} ${backedUsername}`)}">
+                            <div class="prediction-row__outcome">
+                                <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                                <strong class="prediction-outcome ${tone}">${outcomeMarkup}</strong>
+                            </div>
+                            <div class="prediction-row__bet">
+                                <strong>${escapeHtml(copy.predictionBacked)} ${escapeHtml(backedUsername)}</strong>
+                                <span>${escapeHtml(copy.predictionStake)} ${currencyMarkup(bet.amount)}</span>
+                            </div>
+                            <div class="prediction-row__context">
+                                <span class="prediction-row__matchcell">${match}${matchResultMarkup}</span>
+                                <span class="prediction-row__placed"><span>${escapeHtml(copy.predictionPlaced)}</span>${placedTime}</span>
+                            </div>
+                        </article>`;
+                });
+            renderPredictionHistory(
+                predictionRows,
+                `<p class="prediction-history__empty">${escapeHtml(copy.predictionHistoryEmpty)}</p>`,
+            );
+        }
+
+        // Head-to-head wager record: gold made (or lost) betting on their OWN games. Public like the
+        // prediction book, hidden until they have wagered at least once.
+        const wagersSection = document.querySelector<HTMLElement>("[data-profile-wagers-section]");
+        const wagerSummaryEl = document.querySelector<HTMLElement>("[data-profile-wager-summary]");
+        if (wagersSection && wagersEl) {
+            const wagers = summaryOnly
+                ? { wagers: 0, staked: 0, won: 0, lost: 0, draws: 0, net: 0, winRatePct: 0, recent: [] }
+                : profile.wagers;
+            wagersSection.hidden = wagers.wagers === 0;
+
+            if (wagerSummaryEl) {
+                const netClass = wagers.net > 0 ? "positive" : wagers.net < 0 ? "negative" : "";
+                const netSign = wagers.net > 0 ? "+" : "";
+                wagerSummaryEl.innerHTML = `
+                    <span class="prediction-panel__metric"><b>${numberFormatter.format(wagers.wagers)}</b><span>${escapeHtml(copy.wagersPlayed)}</span></span>
+                    <span class="prediction-panel__metric"><b>${currencyMarkup(wagers.staked)}</b><span>${escapeHtml(copy.predictionsStaked)}</span></span>
+                    <span class="prediction-panel__metric"><b>${
+                        wagers.won + wagers.lost > 0
+                            ? `${wagers.winRatePct.toFixed(1).replace(/\.0$/, "")}%`
+                            : "—"
+                    }</b><span>${escapeHtml(copy.wagersWinRate)}</span></span>
+                    <span class="prediction-panel__metric ${netClass}"><b>${currencyMarkup(wagers.net, netSign, currentCurrency, true)}</b><span>${escapeHtml(`${copy.predictionsNet} · ${currentCurrency.name}`)}</span></span>`;
+            }
+
+            const wagerRows = wagers.recent.map((wager) => {
+                const label = {
+                    open: copy.wagerOpen,
+                    won: copy.wagerWon,
+                    lost: copy.wagerLost,
+                    draw: copy.wagerDraw,
+                    refunded: copy.wagerRefunded,
+                }[wager.outcome];
+                const tone =
+                    wager.outcome === "won"
+                        ? "positive"
+                        : wager.outcome === "lost" || wager.outcome === "draw"
+                          ? "negative"
+                          : wager.outcome === "refunded"
+                            ? "muted"
+                            : "";
+                // Each side risks exactly `amount`: a win banks the opponent's stake, a loss or a
+                // drawn (burned) pot costs your own; refunds and live tables move nothing yet.
+                const profit =
+                    wager.outcome === "won" ? wager.amount : wager.outcome === "lost" || wager.outcome === "draw" ? -wager.amount : 0;
+                const outcomeMarkup =
+                    wager.outcome === "open" || wager.outcome === "refunded"
+                        ? "—"
+                        : currencyMarkup(profit, profit > 0 ? "+" : "", currentCurrency, true);
+                const opponent = wager.opponentUsername || copy.predictionUnknownSide;
+                const whenMs = wager.settledAt || wager.createdAt;
+                const whenDate = whenMs ? new Date(whenMs) : null;
+                const whenLabel = whenDate && Number.isFinite(whenDate.getTime()) ? dateFormatter.format(whenDate) : "—";
+                const whenTime =
+                    whenDate && Number.isFinite(whenDate.getTime())
+                        ? `<time datetime="${escapeHtml(whenDate.toISOString())}">${escapeHtml(whenLabel)}</time>`
+                        : escapeHtml(whenLabel);
+                const compactGameId =
+                    wager.gameId.length > 16 ? `${wager.gameId.slice(0, 8)}…${wager.gameId.slice(-6)}` : wager.gameId;
+                let matchHref = "";
+                try {
+                    matchHref = buildRankedMatchPagePath(wager.gameId, profile.playerId, language);
+                } catch {
+                    matchHref = "";
+                }
+                const match = matchHref
+                    ? `<a class="prediction-row__match" href="${escapeHtml(matchHref)}" aria-label="${escapeHtml(`${copy.predictionOpenMatch}: ${wager.gameId}`)}"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(wager.gameId)}">${escapeHtml(compactGameId)}</code><i aria-hidden="true">↗</i></a>`
+                    : `<span class="prediction-row__match"><span>${escapeHtml(copy.predictionMatch)}</span><code title="${escapeHtml(wager.gameId)}">${escapeHtml(compactGameId)}</code></span>`;
+                return `
+                    <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${copy.wagerVersus} ${opponent}`)}">
+                        <div class="prediction-row__outcome">
+                            <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                            <strong class="prediction-outcome ${tone}">${outcomeMarkup}</strong>
+                        </div>
+                        <div class="prediction-row__bet">
+                            <strong>${escapeHtml(copy.wagerVersus)} ${escapeHtml(opponent)}</strong>
+                            <span>${escapeHtml(copy.predictionStake)} ${currencyMarkup(wager.amount)}</span>
+                        </div>
+                        <div class="prediction-row__context">
+                            <span class="prediction-row__matchcell">${match}</span>
+                            <span class="prediction-row__placed"><span>${escapeHtml(copy.predictionPlaced)}</span>${whenTime}</span>
+                        </div>
+                    </article>`;
+            });
+            renderWagerHistory(
+                wagerRows,
+                `<p class="prediction-history__empty">${escapeHtml(copy.wagerHistoryEmpty)}</p>`,
+            );
+        }
+
+        // The purse timeline: every movement in one list, newest first. The prediction and wager
+        // panels above each show one KIND of gold; this is where a balance is actually explained —
+        // match winnings, the daily league reward, stakes going out and payouts coming back.
+        // Flat keys rather than a nested map so the copy object stays one level deep, like every
+        // other label on this page (it is serialized into the DOM and re-parsed by this script).
+        const goldKindLabel = (kind: string): string =>
+            ({
+                match: copy.goldKindMatch,
+                daily_league: copy.goldKindDailyLeague,
+                bet_placed: copy.goldKindBetPlaced,
+                bet_payout: copy.goldKindBetPayout,
+                bet_refund: copy.goldKindBetRefund,
+                wager_escrow: copy.goldKindWagerEscrow,
+                wager_payout: copy.goldKindWagerPayout,
+                wager_refund: copy.goldKindWagerRefund,
+                admin_adjust: copy.goldKindAdminAdjust,
+                season_reset: copy.goldKindSeasonReset,
+            })[kind] ?? kind;
+
+        const goldSection = document.querySelector<HTMLElement>("[data-profile-gold-section]");
+        const goldHistoryEl = document.querySelector<HTMLElement>("[data-profile-gold-history]");
+        const goldSummaryEl = document.querySelector<HTMLElement>("[data-profile-gold-summary]");
+        if (goldSection && goldHistoryEl) {
+            const movements = summaryOnly ? [] : profile.goldHistory;
+            goldSection.hidden = movements.length === 0;
+
+            if (goldSummaryEl) {
+                const earned = movements.filter((m) => m.delta > 0).reduce((sum, m) => sum + m.delta, 0);
+                const spent = movements.filter((m) => m.delta < 0).reduce((sum, m) => sum - m.delta, 0);
+                goldSummaryEl.innerHTML = `
+                    <span class="prediction-panel__metric positive"><b>${currencyMarkup(earned, "+", currentCurrency, true)}</b><span>${escapeHtml(copy.goldHistoryEarned)}</span></span>
+                    <span class="prediction-panel__metric negative"><b>${currencyMarkup(-spent, "", currentCurrency, true)}</b><span>${escapeHtml(copy.goldHistorySpent)}</span></span>`;
+            }
+
+            goldHistoryEl.innerHTML = movements.length
+                ? movements
+                      .map((movement) => {
+                          const label = goldKindLabel(movement.kind);
+                          const tone = movement.delta > 0 ? "positive" : "negative";
+                          const sign = movement.delta > 0 ? "+" : "";
+                          // A daily reward is the one movement with no match behind it, so it names
+                          // the league that earned it instead of a game id.
+                          const leagueName =
+                              typeof movement.detail?.leagueName === "string" ? movement.detail.leagueName : "";
+                          const context = leagueName
+                              ? escapeHtml(leagueName)
+                              : typeof movement.detail?.gameId === "string"
+                                ? `<code title="${escapeHtml(movement.detail.gameId)}">${escapeHtml(
+                                      movement.detail.gameId.slice(0, 8),
+                                  )}</code>`
+                                : "";
+                          const when = new Date(movement.at);
+                          const whenValid = Number.isFinite(when.getTime());
+                          const whenTime = whenValid
+                              ? `<time datetime="${escapeHtml(when.toISOString())}">${escapeHtml(
+                                    dateFormatter.format(when),
+                                )}</time>`
+                              : "—";
+                          const balance =
+                              movement.balanceAfter === null
+                                  ? ""
+                                  : `<span>${escapeHtml(copy.goldHistoryBalance)} ${currencyMarkup(movement.balanceAfter)}</span>`;
+                          return `
+                    <article class="prediction-row" aria-label="${escapeHtml(`${label}: ${movement.delta}`)}">
+                        <div class="prediction-row__outcome">
+                            <span class="prediction-status ${tone}">${escapeHtml(label)}</span>
+                            <strong class="prediction-outcome ${tone}">${currencyMarkup(movement.delta, sign, currentCurrency, true)}</strong>
+                        </div>
+                        <div class="prediction-row__bet">
+                            <strong>${context || escapeHtml(label)}</strong>
+                            ${balance}
+                        </div>
+                        <div class="prediction-row__context">
+                            <span class="prediction-row__placed">${whenTime}</span>
+                        </div>
+                    </article>`;
+                      })
+                      .join("")
+                : `<p class="prediction-history__empty">${escapeHtml(copy.goldHistoryEmpty)}</p>`;
         }
 
         // Previous seasons: the archived final standings (MMR resets each season; this is where the
@@ -1066,7 +1519,7 @@ const rankedApp = links.rankedApp;
                             <span class="season-name">${escapeHtml(entry.seasonName)}</span>
                             <span class="season-standing">${escapeHtml(standing)}</span>
                             <span class="season-mmr">${escapeHtml(mmr)}</span>
-                            <span class="season-gold">${currencyMarkup(entry.gold)}</span>
+                            <span class="season-gold">${currencyMarkup(entry.gold, "", entry.currency)}</span>
                             <span class="season-record">${entry.wins}–${entry.losses}–${entry.draws}</span>
                             <span class="season-rate">${escapeHtml(rate)}</span>
                             <span class="season-games">${entry.totalGames} ${escapeHtml(copy.gamesLabel)}</span>
@@ -1185,8 +1638,10 @@ const rankedApp = links.rankedApp;
         showState("content");
     }
 
-    function render(portal: any): void {
+    function render(portal: any, catalog: SeasonCurrencyCatalog | null): void {
         configureSelfMode();
+        selfSeasonCatalog = catalog;
+        currentCurrency = catalog?.current?.currency ?? LEGACY_SEASON_CURRENCY;
         const wins = num(portal.wins);
         const losses = num(portal.losses);
         const games = num(portal.total_games_played);
@@ -1196,7 +1651,8 @@ const rankedApp = links.rankedApp;
         if (goldEl) {
             const gold = Math.max(0, num(portal.gold));
             goldEl.innerHTML = currencyMarkup(gold);
-            goldEl.setAttribute("aria-label", `${copy.statGold}: ${numberFormatter.format(gold)}`);
+            goldEl.setAttribute("aria-label", `${currentCurrency.name}: ${numberFormatter.format(gold)}`);
+            goldEl.title = currentCurrency.name;
             goldEl.hidden = false;
         }
 
@@ -1273,7 +1729,11 @@ const rankedApp = links.rankedApp;
         }
         showState("loading");
         try {
-            render(await fetchPlayerPortal());
+            const [portal, catalog] = await Promise.all([
+                fetchPlayerPortal(),
+                fetchSeasonCurrencyCatalog().catch(() => null),
+            ]);
+            render(portal, catalog);
         } catch (error) {
             showState(error instanceof PortalAuthError ? "guest" : "error");
         }
@@ -1452,16 +1912,338 @@ const rankedApp = links.rankedApp;
         vertical-align: baseline;
     }
 
-    /* Previous seasons: one compact archived-standing row per finished season. */
-    .season-history {
+    .profile-section--predictions {
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .prediction-panel {
+        background:
+            radial-gradient(circle at 88% 10%, rgba(220, 177, 88, 0.15), transparent 34%),
+            linear-gradient(135deg, rgba(42, 27, 15, 0.86), rgba(12, 8, 5, 0.98));
+    }
+
+    .prediction-panel__summary {
+        display: grid;
+        grid-template-columns: minmax(130px, 0.72fr) minmax(0, 2.45fr) 18px;
+        gap: 14px;
+        align-items: center;
+        padding: clamp(12px, 1.5vw, 16px);
+        list-style: none;
+        cursor: pointer;
+        transition: background 0.18s ease;
+    }
+
+    .prediction-panel__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .prediction-panel__summary:hover {
+        background: rgba(255, 190, 94, 0.035);
+    }
+
+    .prediction-panel__summary:focus-visible,
+    .prediction-history :global(.prediction-row__match):focus-visible {
+        outline: 2px solid rgba(242, 199, 93, 0.86);
+        outline-offset: -2px;
+    }
+
+    .prediction-panel[open] .prediction-panel__summary {
+        border-bottom: 1px solid rgba(220, 177, 88, 0.2);
+    }
+
+    .prediction-panel__heading {
+        color: var(--gold, #dcb158);
+        font-size: 1rem;
+        font-weight: 400;
+        letter-spacing: 0.025em;
+    }
+
+    .prediction-panel__metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .prediction-panel__metrics :global(.prediction-panel__metric) {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+        padding-left: 12px;
+        border-left: 1px solid rgba(239, 228, 204, 0.12);
+    }
+
+    .prediction-panel__metrics :global(.prediction-panel__metric b) {
+        display: flex;
+        align-items: center;
+        min-height: 18px;
+        color: rgba(251, 244, 232, 0.94);
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+    }
+
+    .prediction-panel__metrics :global(.prediction-panel__metric > span) {
+        overflow: hidden;
+        color: rgba(251, 244, 232, 0.48);
+        font-size: 0.64rem;
+        letter-spacing: 0.05em;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .prediction-panel__metrics :global(.prediction-panel__metric .currency-amount) {
+        gap: 4px;
+        font: inherit;
+    }
+
+    .prediction-panel__metrics :global(.prediction-panel__metric .currency-icon) {
+        width: 14px;
+        height: 14px;
+    }
+
+    .prediction-panel__chevron {
+        width: 8px;
+        height: 8px;
+        border-right: 1px solid rgba(251, 244, 232, 0.76);
+        border-bottom: 1px solid rgba(251, 244, 232, 0.76);
+        transform: rotate(45deg) translate(-2px, -2px);
+        transition: transform 0.18s ease;
+    }
+
+    .prediction-panel[open] .prediction-panel__chevron {
+        transform: rotate(225deg) translate(-2px, -2px);
+    }
+
+    .prediction-panel__body {
+        padding: 10px clamp(12px, 1.5vw, 16px) clamp(12px, 1.5vw, 16px);
+    }
+
+    .season-history,
+    .prediction-history {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
+    }
+
+    .prediction-history :global(.prediction-row) {
+        display: grid;
+        grid-template-columns: minmax(88px, 0.5fr) minmax(170px, 1.05fr) minmax(290px, 1.45fr);
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        /* Owner call: a shade shorter again. The history runs to twenty rows, so a couple of pixels
+           per row is the difference between scanning it and scrolling it. */
+        padding: 6px 11px;
+        border: 1px solid rgba(220, 177, 88, 0.22);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.015);
+        font-size: 0.79rem;
+        transition:
+            border-color 0.18s ease,
+            background 0.18s ease;
+    }
+
+    .prediction-history :global(.prediction-row:hover) {
+        border-color: rgba(242, 199, 93, 0.42);
+        background: rgba(58, 36, 18, 0.44);
+    }
+
+    .prediction-history :global(.prediction-row__outcome),
+    .prediction-history :global(.prediction-row__bet),
+    .prediction-history :global(.prediction-row__context) {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    /* Match link and its result share one cell: the link on top, "won by X" under it. */
+    .prediction-history :global(.prediction-row__matchcell) {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .prediction-history :global(.prediction-row__result) {
+        overflow: hidden;
+        color: var(--muted, #9a8f7d);
+        font-size: 0.92em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-row__result strong) {
+        color: var(--parchment, #e8dcc0);
+        font-weight: 600;
+    }
+
+    .prediction-history :global(.prediction-row__context) {
+        grid-template-columns: minmax(0, 1.1fr) minmax(150px, 0.9fr);
+        gap: 10px;
+        align-items: center;
+    }
+
+    .prediction-history :global(.prediction-row__bet > strong) {
+        overflow: hidden;
+        color: var(--gold, #dcb158);
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-row__bet > span),
+    .prediction-history :global(.prediction-row__placed) {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        color: rgba(251, 244, 232, 0.5);
+        font-size: 0.7rem;
+    }
+
+    .prediction-history :global(.prediction-row__bet .currency-amount) {
+        color: #f2c75d;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-status) {
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.065em;
+        text-transform: uppercase;
+    }
+
+    .prediction-history :global(.prediction-outcome) {
+        color: rgba(251, 244, 232, 0.66);
+        font-size: 0.96rem;
+        font-weight: 600;
+    }
+
+    .prediction-history :global(.prediction-row__match) {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        width: fit-content;
+        max-width: 100%;
+        color: rgba(251, 244, 232, 0.7);
+        text-decoration: none;
+    }
+
+    .prediction-history :global(a.prediction-row__match:hover) {
+        color: var(--gold, #dcb158);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .prediction-history :global(.prediction-row__match > span:first-child),
+    .prediction-history :global(.prediction-row__placed > span:first-child) {
+        color: rgba(251, 244, 232, 0.46);
+        font-size: 0.66rem;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
+    }
+
+    .prediction-history :global(.prediction-row__match code) {
+        overflow: hidden;
+        color: inherit;
+        font-family: var(--hoc-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+        font-size: 0.76rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-row__match i) {
+        color: rgba(251, 244, 232, 0.48);
+        font-style: normal;
+    }
+
+    .prediction-history :global(.prediction-row__placed time) {
+        overflow: hidden;
+        color: rgba(251, 244, 232, 0.75);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prediction-history :global(.prediction-history__empty) {
+        margin: 0;
+        padding: 14px;
+        border: 1px dashed rgba(220, 177, 88, 0.22);
+        border-radius: 10px;
+        color: rgba(251, 244, 232, 0.54);
+        font-size: 0.86rem;
+        text-align: center;
+    }
+
+    .prediction-history :global(.positive),
+    .prediction-panel__metrics :global(.positive b) {
+        color: #7ad17a;
+    }
+
+    .prediction-history :global(.negative),
+    .prediction-panel__metrics :global(.negative b) {
+        color: #ff8a70;
+    }
+
+    .prediction-history :global(.muted) {
+        color: rgba(251, 244, 232, 0.48);
+    }
+
+    .prediction-panel__more {
+        min-width: 150px;
+        margin-top: 10px;
+        padding-block: 7px;
+        font-size: 0.78rem;
+    }
+
+    @media (max-width: 820px) {
+        .prediction-panel__summary {
+            grid-template-columns: minmax(0, 1fr) 18px;
+            gap: 12px;
+        }
+
+        .prediction-panel__metrics {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .prediction-panel__chevron {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .prediction-history :global(.prediction-row) {
+            grid-template-columns: minmax(92px, 0.5fr) minmax(0, 1fr);
+        }
+
+        .prediction-history :global(.prediction-row__context) {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .prediction-panel__metrics :global(.prediction-panel__metric) {
+            padding-left: 9px;
+        }
+
+        .prediction-history :global(.prediction-row) {
+            gap: 10px;
+            padding: 12px;
+        }
+
+        .prediction-history :global(.prediction-row__context) {
+            grid-template-columns: 1fr;
+            gap: 7px;
+        }
     }
 
     .season-row {
         display: grid;
-        grid-template-columns: minmax(140px, 1.5fr) 1.2fr 1fr 0.9fr 0.9fr 0.6fr 0.8fr;
+        grid-template-columns:
+            minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.6fr)
+            minmax(0, 0.8fr);
         gap: 10px;
         align-items: center;
         padding: 10px 14px;
@@ -1469,6 +2251,17 @@ const rankedApp = links.rankedApp;
         border-radius: 10px;
         background: rgba(0, 0, 0, 0.24);
         font-size: 0.86rem;
+    }
+
+    /* Each field is a single value (a name, a record, a percentage…), never meant to break mid-word —
+       a narrow grid track wrapping "1 games" into "1" / "games" on two lines is the bug this guards
+       against. min-width: 0 lets a grid item shrink below its text's intrinsic width so the ellipsis can
+       actually take over instead of the row blowing out or wrapping. */
+    .season-row > span {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
     }
 
     .season-row .season-name {
@@ -1506,7 +2299,7 @@ const rankedApp = links.rankedApp;
 
     @media (max-width: 720px) {
         .season-row {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         }
 
         .season-row .season-games {
@@ -1714,6 +2507,9 @@ const rankedApp = links.rankedApp;
     .ranked-standing :global(.ranked-standing__banner) {
         position: relative;
         display: grid;
+        grid-template-columns: 118px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
         align-content: center;
         min-height: 150px;
         padding: 18px 20px;
@@ -1724,6 +2520,19 @@ const rankedApp = links.rankedApp;
             radial-gradient(circle at 88% 12%, rgba(255, 143, 0, 0.2), transparent 40%),
             linear-gradient(145deg, rgba(70, 41, 17, 0.72), rgba(15, 10, 7, 0.94));
         box-shadow: inset 0 0 28px rgba(255, 143, 0, 0.05);
+    }
+
+    .ranked-standing :global(.ranked-standing__emblem) {
+        display: block;
+        width: 118px;
+        height: 118px;
+        object-fit: contain;
+        filter: drop-shadow(0 9px 12px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 10px rgba(220, 177, 88, 0.24));
+    }
+
+    .ranked-standing :global(.ranked-standing__copy) {
+        display: grid;
+        min-width: 0;
     }
 
     .ranked-standing :global(.ranked-standing__state) {
@@ -2271,6 +3080,17 @@ const rankedApp = links.rankedApp;
 
         .ranked-standing :global(.ranked-standing__facts) {
             grid-template-columns: 1fr;
+        }
+
+        .ranked-standing :global(.ranked-standing__banner) {
+            grid-template-columns: 88px minmax(0, 1fr);
+            gap: 10px;
+            padding: 14px;
+        }
+
+        .ranked-standing :global(.ranked-standing__emblem) {
+            width: 88px;
+            height: 88px;
         }
 
         .ranked-standing :global(.ranked-standing__previous) {

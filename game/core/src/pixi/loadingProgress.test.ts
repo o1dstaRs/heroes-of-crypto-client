@@ -1,6 +1,18 @@
 import { describe, expect, it } from "bun:test";
 
-import { displayedLoadingProgress, MINIMUM_LOADING_SCREEN_DURATION_MS } from "./loadingProgress";
+import {
+    displayedLoadingProgress,
+    minimumLoadingScreenDurationMs,
+    MINIMUM_LOADING_SCREEN_DURATION_MS,
+} from "./loadingProgress";
+
+describe("minimumLoadingScreenDurationMs", () => {
+    it("keeps the authored reveal in sandbox without delaying ranked screens", () => {
+        expect(minimumLoadingScreenDurationMs("Sandbox")).toBe(MINIMUM_LOADING_SCREEN_DURATION_MS);
+        expect(minimumLoadingScreenDurationMs("Ranked Play")).toBe(0);
+        expect(minimumLoadingScreenDurationMs("Replay")).toBe(0);
+    });
+});
 
 describe("displayedLoadingProgress", () => {
     it("spreads a fast completed load across the full two-second minimum", () => {
@@ -24,5 +36,10 @@ describe("displayedLoadingProgress", () => {
         expect(displayedLoadingProgress(-1, 1_000)).toBe(0);
         expect(displayedLoadingProgress(2, 4_000)).toBe(1);
         expect(displayedLoadingProgress(Number.NaN, 4_000)).toBe(0);
+    });
+
+    it("reports real progress immediately when no minimum duration is requested", () => {
+        expect(displayedLoadingProgress(0.42, 0, 0)).toBe(0.42);
+        expect(displayedLoadingProgress(1, 0, 0)).toBe(1);
     });
 });

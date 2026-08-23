@@ -50,7 +50,7 @@ export const serializeUnit = (unit: Unit): PublicUnitState => ({
     selectedAttackType: enumLabel(AttackVals, unit.getAttackTypeSelection()),
     possibleAttackTypes: unit.getPossibleAttackTypes().map((attackType) => enumLabel(AttackVals, attackType)),
     movementType: enumLabel(MovementVals, unit.getMovementType()),
-    speed: unit.getSpeed(),
+    speed: unit.getInitiative(),
     steps: unit.getSteps(),
     morale: unit.getMorale(),
     luck: unit.getLuck(),

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { FactionVals, type UnitProperties } from "@heroesofcrypto/common";
+import { AttackVals, FactionVals, type UnitProperties } from "@heroesofcrypto/common";
 
 import { formatSidebarStat } from "./sidebarMetrics";
 import { areUnitStatsPropsEqual } from "./unitStatsMemo";
@@ -8,7 +8,7 @@ import { DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING } from "../leftSidebarPortraitTuni
 import type { IVisibleOverallImpact } from "../../scenes/VisibleState";
 
 const impact = (): IVisibleOverallImpact => ({ abilities: [], buffs: [], debuffs: [] });
-const unit = (rangeShots: number): UnitProperties =>
+const unit = (rangeShots: number, overrides: Partial<UnitProperties> = {}): UnitProperties =>
     ({
         id: "archer",
         name: "Archer",
@@ -20,10 +20,39 @@ const unit = (rangeShots: number): UnitProperties =>
         armor_mod: 0,
         steps_mod: 0,
         luck_mod: 0,
+        attack_type: AttackVals.RANGE,
+        shot_distance: 6,
         range_shots: rangeShots,
         range_shots_mod: 0,
         magic_resist_mod: 0,
+        ...overrides,
     }) as UnitProperties;
+
+test("native ranged units keep showing their shot count when the quiver is empty", () => {
+    expect(getSidebarRangedStats(unit(0))).toEqual({ shotDistance: 6, remainingShots: 0 });
+});
+
+test("runtime ranged attacks show their replacement ammunition", () => {
+    expect(
+        getSidebarRangedStats(
+            unit(0, {
+                attack_type: AttackVals.MELEE,
+                range_shots_mod: 4,
+            }),
+        ),
+    ).toEqual({ shotDistance: 6, remainingShots: 4 });
+});
+
+test("melee-only units do not gain a ranged sidebar cell", () => {
+    expect(
+        getSidebarRangedStats(
+            unit(0, {
+                attack_type: AttackVals.MELEE,
+                shot_distance: 0,
+            }),
+        ),
+    ).toBeUndefined();
+});
 
 test("remaining shots invalidate the memoized sidebar card", () => {
     const overallImpact = impact();

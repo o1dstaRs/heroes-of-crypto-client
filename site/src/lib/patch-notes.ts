@@ -3,6 +3,12 @@ export interface PatchNote {
     date: string;
     commit: string;
     href: string;
+    /** Per-repo release commits (e.g. client + common); rendered instead of the single commit link. */
+    commits?: Array<{
+        label: string;
+        commit: string;
+        href: string;
+    }>;
     title: string;
     impact: string;
     stats: Array<{
@@ -88,6 +94,69 @@ const releaseCandidateRoster: PatchNote["roster"] = [
 
 export const patchNotes = {
     en: [
+        {
+            version: "v0.1.5",
+            date: "08/16/2026",
+            commit: "2c4952f6",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+            commits: [
+                {
+                    label: "client",
+                    commit: "2c4952f6",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+                },
+                {
+                    label: "common",
+                    commit: "68b879b",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/68b879bc779904e8d469be053ef28b129af74167",
+                },
+            ],
+            title: "A new engine, ranked play, and an expanded battlefield",
+            impact: "The largest Heroes of Crypto update yet: the battle client now runs on PixiJS, online ranked play is live, and every army has more ways to fight and progress.",
+            stats: [
+                { value: "57", label: "creatures" },
+                { value: "110", label: "abilities" },
+                { value: "49", label: "spells" },
+                { value: "24", label: "artifacts" },
+            ],
+            sections: [
+                {
+                    title: "A rebuilt battle client",
+                    items: [
+                        "Combat presentation has moved to PixiJS, with smoother rendering, clearer targeting and effects, a redesigned HUD, and more faithful replays.",
+                        "Ranked battles are now resolved authoritatively by the game server, with reconnect support and consistent recovery of the live match state.",
+                        "New battlefields add obstacles, destructible terrain, elemental interactions, and Armageddon as fights run long.",
+                    ],
+                },
+                {
+                    title: "More ways to build an army",
+                    items: [
+                        "Seventeen creatures joined the four factions, including Blacksmith, Dryad, Arachna Queen, Abomination, Mermaid, and Frenzied Boar.",
+                        "The catalog now contains 110 abilities and 49 spells, adding elemental attacks and defenses, crafting and runes, poison, vines, summons, fire terrain, new auras, and control effects.",
+                        "Twenty-four Tier 1 and Tier 2 artifacts, including cursed tradeoffs, join doctrines, team augments, and faction synergies as meaningful pre-battle choices.",
+                    ],
+                },
+                {
+                    title: "Ranked, AI, and progression",
+                    items: [
+                        "Online ranked play now covers matchmaking, pick and ban, hidden army setup, placement, combat, reconnection, spectating, and replay.",
+                        "Practice vs AI uses a new self-play-trained opponent with stronger drafting, placement, spell use, and combat decisions.",
+                        "Calibration, leagues, promotions, seasonal gold, predictions, and optional gold wagers give every match a wider competitive context.",
+                    ],
+                },
+                {
+                    title: "Profiles and presentation",
+                    items: [
+                        "Player profiles now bring together rank, match history, replays, fight statistics, gold activity, and prediction records; friends and chat are available through the social dock.",
+                        "The arena, draft, setup, combat interface, portal, and Knowledge Base were redesigned for clearer decisions across desktop and mobile.",
+                        "This release also includes extensive combat-correctness fixes, balance work, localization, accessibility improvements, and visual polish.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Version 0.1.5 turns the original combat testbed into a complete competitive loop, with a larger sandbox for every kind of player.",
+        },
         {
             version: "v0.1.4",
             date: "10/27/2024",
@@ -300,6 +369,69 @@ export const patchNotes = {
         },
     ] satisfies PatchNote[],
     ru: [
+        {
+            version: "v0.1.5",
+            date: "16.08.2026",
+            commit: "2c4952f6",
+            href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+            commits: [
+                {
+                    label: "клиент",
+                    commit: "2c4952f6",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-client/commit/2c4952f6bff904e820a9c5bad5a649870554a923",
+                },
+                {
+                    label: "common",
+                    commit: "68b879b",
+                    href: "https://github.com/o1dstaRs/heroes-of-crypto-common/commit/68b879bc779904e8d469be053ef28b129af74167",
+                },
+            ],
+            title: "Новый движок, рейтинговый режим и расширенное поле боя",
+            impact: "Крупнейшее обновление Heroes of Crypto: боевой клиент перешел на PixiJS, открылся рейтинговый режим, а у каждой армии стало больше вариантов для боя и развития.",
+            stats: [
+                { value: "57", label: "существ" },
+                { value: "110", label: "способностей" },
+                { value: "49", label: "заклинаний" },
+                { value: "24", label: "артефакта" },
+            ],
+            sections: [
+                {
+                    title: "Перестроенный боевой клиент",
+                    items: [
+                        "Визуальная часть боя перешла на PixiJS: рендер стал плавнее, цели и эффекты понятнее, интерфейс обновился, а повторы точнее воспроизводят матч.",
+                        "Результат рейтинговых боев теперь рассчитывает игровой сервер; добавлены переподключение и надежное восстановление текущего состояния матча.",
+                        "Новые поля боя добавляют препятствия, разрушаемый ландшафт, взаимодействия стихий и Армагеддон для затянувшихся сражений.",
+                    ],
+                },
+                {
+                    title: "Больше вариантов для армии",
+                    items: [
+                        "К четырем фракциям присоединились 17 существ, включая Blacksmith, Dryad, Arachna Queen, Abomination, Mermaid и Frenzied Boar.",
+                        "Теперь в игре 110 способностей и 49 заклинаний: атаки и защита стихий, крафт и руны, яд, лозы, призывы, огненный ландшафт, новые ауры и эффекты контроля.",
+                        "Двадцать четыре артефакта 1-го и 2-го уровней, включая проклятые варианты, дополняют доктрины, командные апгрейды и фракционные синергии перед боем.",
+                    ],
+                },
+                {
+                    title: "Рейтинг, AI и прогресс",
+                    items: [
+                        "Рейтинговый режим охватывает поиск соперника, пики и баны, скрытую сборку армии, расстановку, бой, переподключение, просмотр матчей и повторы.",
+                        "В тренировке против AI появился новый соперник, обученный в автоматических матчах и лучше принимающий решения в драфте, расстановке, магии и бою.",
+                        "Калибровка, лиги, повышения, сезонное золото, прогнозы и опциональные ставки добавляют матчам более широкий соревновательный контекст.",
+                    ],
+                },
+                {
+                    title: "Профили и оформление",
+                    items: [
+                        "Профили игроков теперь объединяют рейтинг, историю матчей, повторы, статистику боя, операции с золотом и прогнозы; друзья и чат доступны через социальную панель.",
+                        "Арена, драфт, расстановка, боевой интерфейс, портал и База знаний переработаны для более понятных решений на компьютерах и мобильных устройствах.",
+                        "Релиз также включает множество исправлений боевой логики, баланс, локализацию, улучшения доступности и визуальную полировку.",
+                    ],
+                },
+            ],
+            roster: [],
+            closing:
+                "Версия 0.1.5 превращает первоначальный боевой полигон в цельный соревновательный цикл с более разнообразной игрой для каждого игрока.",
+        },
         {
             version: "v0.1.4",
             date: "27.10.2024",
