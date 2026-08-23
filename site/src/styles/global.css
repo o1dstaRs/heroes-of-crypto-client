@@ -1044,10 +1044,10 @@ code {
 }
 
 .proof-strip {
-    border-block: 1px solid rgba(220, 177, 88, 0.24);
+    border-bottom: 1px solid rgba(220, 177, 88, 0.1);
     background:
-        linear-gradient(180deg, rgba(44, 26, 13, 0.84), rgba(8, 7, 6, 0.96)),
-        radial-gradient(circle at 50% 0, rgba(255, 143, 0, 0.1), transparent 48%);
+        radial-gradient(circle at 20% 0, rgba(255, 90, 63, 0.07), transparent 36%),
+        linear-gradient(180deg, rgba(20, 14, 10, 0.94), rgba(8, 7, 6, 0.98));
     position: relative;
     z-index: 2;
 }
@@ -1062,15 +1062,18 @@ code {
 .proof-item {
     min-height: 108px;
     padding: 22px 24px;
-    border-inline: 1px solid rgba(112, 75, 42, 0.24);
-    background: linear-gradient(180deg, rgba(239, 228, 204, 0.035), rgba(0, 0, 0, 0.12));
+    background: transparent;
+}
+
+.proof-item + .proof-item {
+    border-left: 1px solid rgba(239, 228, 204, 0.08);
 }
 
 .proof-item strong {
     display: block;
     color: var(--gold);
     font-family: var(--hoc-font-display);
-    font-size: 2rem;
+    font-size: 2.1rem;
     font-synthesis: none;
     font-weight: 400;
     letter-spacing: 0.08em;
@@ -1080,8 +1083,8 @@ code {
 .proof-item span {
     display: block;
     margin-top: 7px;
-    color: rgba(251, 244, 232, 0.75);
-    font-size: 0.95rem;
+    color: rgba(251, 244, 232, 0.62);
+    font-size: 0.9rem;
     font-weight: 400;
     letter-spacing: 0.065em;
 }
@@ -1106,6 +1109,24 @@ code {
         transform 0.14s ease,
         box-shadow 0.18s ease,
         background 0.18s ease;
+}
+
+.proof-strip .proof-action-primary {
+    align-self: center;
+    min-height: 48px;
+    margin: 18px 0 18px 18px;
+    border: 1px solid rgba(220, 177, 88, 0.2);
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(138, 67, 24, 0.78), rgba(91, 43, 18, 0.86));
+    color: #f1c978;
+    filter: none;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.proof-strip .proof-action-primary:hover {
+    border-color: rgba(220, 177, 88, 0.38);
+    background: linear-gradient(135deg, rgba(159, 76, 26, 0.88), rgba(106, 49, 19, 0.92));
+    transform: translateY(-1px);
 }
 
 .proof-action-secondary {
@@ -1333,9 +1354,7 @@ code {
     border-image-slice: 140 160;
     border-image-width: 18px;
     border-image-repeat: stretch;
-    background:
-        radial-gradient(circle at 50% 0, rgba(255, 143, 0, 0.07), transparent 45%),
-        rgba(9, 7, 5, 0.92);
+    background: radial-gradient(circle at 50% 0, rgba(255, 143, 0, 0.07), transparent 45%), rgba(9, 7, 5, 0.92);
     box-shadow: 0 24px 54px rgba(0, 0, 0, 0.52);
 }
 
@@ -1457,9 +1476,7 @@ code {
 .auth-form {
     border: 1px solid var(--line);
     border-radius: 2px;
-    background:
-        linear-gradient(180deg, rgba(75, 45, 22, 0.34), rgba(9, 7, 5, 0.76)),
-        var(--hoc-panel);
+    background: linear-gradient(180deg, rgba(75, 45, 22, 0.34), rgba(9, 7, 5, 0.76)), var(--hoc-panel);
     box-shadow:
         inset 0 0 24px rgba(0, 0, 0, 0.34),
         inset 0 1px rgba(239, 228, 204, 0.045);
@@ -1829,9 +1846,7 @@ code {
 .final-cta {
     padding: 56px 0;
     border-block: 1px solid rgba(220, 177, 88, 0.26);
-    background:
-        linear-gradient(90deg, rgba(105, 48, 18, 0.34), rgba(9, 7, 5, 0.5), rgba(70, 209, 96, 0.08)),
-        #100a06;
+    background: linear-gradient(90deg, rgba(105, 48, 18, 0.34), rgba(9, 7, 5, 0.5), rgba(70, 209, 96, 0.08)), #100a06;
     box-shadow:
         inset 0 1px rgba(239, 228, 204, 0.035),
         inset 0 -1px rgba(0, 0, 0, 0.62);
@@ -2480,6 +2495,10 @@ html.reveal-on .patches-section {
     .proof-action {
         grid-column: 1 / -1;
         min-height: 58px;
+    }
+
+    .proof-strip .proof-action-primary {
+        margin: 0 0 18px;
     }
 
     .feature-grid,
