@@ -524,33 +524,62 @@ export default function RightSideBar({
                     >
                         <FullscreenToggle />
                         {!rankedPanel && gameStarted ? (
-                            <Button
-                                variant="soft"
-                                color="danger"
-                                // Sandbox exit: an anonymous player has nothing behind /play but the login
-                                // gate, so leaving the fight just resets the sandbox to a fresh placement
-                                // (start over). A signed-in player keeps the trip to the play hub.
-                                onClick={() => {
-                                    if (authenticated) {
-                                        navigate("/play");
-                                    } else {
-                                        manager.StartOver();
-                                    }
-                                }}
+                            <Box
                                 sx={{
-                                    ...hocSidebarImageButtonSx("danger"),
                                     justifySelf: "center",
                                     width: "min(100%, 209px)",
-                                    height: "35.2px",
-                                    minHeight: "35.2px",
-                                    px: 1,
-                                    backgroundSize: "100% 100%",
-                                    fontSize: "0.924rem",
-                                    fontWeight: 880,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.5,
                                 }}
                             >
-                                {t("EXIT FIGHT")}
-                            </Button>
+                                <Button
+                                    variant="soft"
+                                    color="success"
+                                    // Same reset the fight-finished overlay's "+ NEW BATTLE" runs, but
+                                    // available MID-FIGHT: wipe the board state and rebuild the sandbox
+                                    // back at a fresh placement.
+                                    onClick={() => manager.StartOver()}
+                                    sx={{
+                                        ...hocSidebarImageButtonSx("primary"),
+                                        width: "100%",
+                                        height: "35.2px",
+                                        minHeight: "35.2px",
+                                        px: 1,
+                                        backgroundSize: "100% 100%",
+                                        fontSize: "0.924rem",
+                                        fontWeight: 880,
+                                    }}
+                                >
+                                    {t("NEW BATTLE")}
+                                </Button>
+                                <Button
+                                    variant="soft"
+                                    color="danger"
+                                    // Sandbox exit: an anonymous player has nothing behind /play but the login
+                                    // gate, so leaving the fight just resets the sandbox to a fresh placement
+                                    // (start over). A signed-in player keeps the trip to the play hub.
+                                    onClick={() => {
+                                        if (authenticated) {
+                                            navigate("/play");
+                                        } else {
+                                            manager.StartOver();
+                                        }
+                                    }}
+                                    sx={{
+                                        ...hocSidebarImageButtonSx("danger"),
+                                        width: "100%",
+                                        height: "35.2px",
+                                        minHeight: "35.2px",
+                                        px: 1,
+                                        backgroundSize: "100% 100%",
+                                        fontSize: "0.924rem",
+                                        fontWeight: 880,
+                                    }}
+                                >
+                                    {t("EXIT FIGHT")}
+                                </Button>
+                            </Box>
                         ) : (
                             <Box />
                         )}

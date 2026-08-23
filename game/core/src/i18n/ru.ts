@@ -786,6 +786,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     REPLAY: "ПОВТОР",
     REMATCH: "РЕВАНШ",
     "+ NEW BATTLE": "+ НОВЫЙ БОЙ",
+    "NEW BATTLE": "НОВЫЙ БОЙ",
     "Play Again vs AI": "Снова против ИИ",
     "Refresh the page to start a new one": "Обновите страницу, чтобы начать новый бой",
     "Green AI": "Зелёный ИИ",
