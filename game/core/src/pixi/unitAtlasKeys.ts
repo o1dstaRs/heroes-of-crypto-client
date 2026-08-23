@@ -1,19 +1,22 @@
 import { animationAtlases } from "../generated/animation_atlases";
 
+type AnimationAtlasIndex = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+
 /**
  * Every per-unit animation atlas image key BASE (`<unit>_<state>_atlas`), derived from the generated
  * atlas index so a new unit or state is classified correctly without touching this file.
  */
-const unitAtlasBaseKeys: ReadonlySet<string> = (() => {
+export function buildUnitAnimationAtlasKeyClassifier(atlases: AnimationAtlasIndex): (key: string) => boolean {
     const bases = new Set<string>();
-    for (const [unitName, states] of Object.entries(animationAtlases)) {
+    for (const [unitName, states] of Object.entries(atlases)) {
         const unitBase = unitName.toLowerCase().replace(/\s+/g, "_");
         for (const state of Object.keys(states)) {
             bases.add(`${unitBase}_${state.toLowerCase()}_atlas`);
         }
     }
-    return bases;
-})();
+
+    return (key: string): boolean => bases.has(key.replace(/_(?:quarter|half)$/, ""));
+}
 
 /**
  * True for a UNIT animation atlas image key in any size variant (`_atlas`, `_atlas_half`,
@@ -27,6 +30,4 @@ const unitAtlasBaseKeys: ReadonlySet<string> = (() => {
  * every `_atlas_quarter`/`_atlas_half` (~89 MB) in the BLOCKING bundle while pushing the terrain the
  * board actually needs into the background.
  */
-export function isUnitAnimationAtlasKey(key: string): boolean {
-    return unitAtlasBaseKeys.has(key.replace(/_(?:quarter|half)$/, ""));
-}
+export const isUnitAnimationAtlasKey = buildUnitAnimationAtlasKeyClassifier(animationAtlases);

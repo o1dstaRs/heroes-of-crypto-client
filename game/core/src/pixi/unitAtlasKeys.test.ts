@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { animationAtlases } from "../generated/animation_atlases";
-import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
+import { buildUnitAnimationAtlasKeyClassifier, isUnitAnimationAtlasKey } from "./unitAtlasKeys";
 
 /**
  * Pins the core-vs-supplementary texture split: every UNIT atlas (all size variants) is
@@ -10,9 +10,21 @@ import { isUnitAnimationAtlasKey } from "./unitAtlasKeys";
  * behind the loading screen or starves the board of terrain it draws at first paint.
  */
 describe("unit animation atlas key split", () => {
+    test("unit/state keys map to supplementary in all three size variants without generated art", () => {
+        const classify = buildUnitAnimationAtlasKeyClassifier({
+            Abomination: { attack: {} },
+            "Wolf Rider": { idle: {}, walk: {} },
+        });
+
+        for (const key of ["abomination_attack_atlas", "wolf_rider_idle_atlas", "wolf_rider_walk_atlas"]) {
+            expect(classify(key)).toBe(true);
+            expect(classify(`${key}_half`)).toBe(true);
+            expect(classify(`${key}_quarter`)).toBe(true);
+        }
+    });
+
     test("every generated unit/state maps to supplementary in all three size variants", () => {
         const units = Object.entries(animationAtlases);
-        expect(units.length).toBeGreaterThan(0);
         for (const [unitName, states] of units) {
             const base = unitName.toLowerCase().replace(/\s+/g, "_");
             for (const state of Object.keys(states)) {

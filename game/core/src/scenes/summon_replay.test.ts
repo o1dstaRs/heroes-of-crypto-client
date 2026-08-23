@@ -82,10 +82,15 @@ describe("authoritative summon replay", () => {
     test("Infest attack events seed the authoritative body before the existing spawn-animation route", () => {
         const source = sandboxSource();
         const attackBody = sliceFrom(source, "private async playReplayAttackRecord(", 18_000);
+        const applyBody = sliceFrom(source, "protected applyReplayEvents(", 1_000);
         const materializer = sliceFrom(source, "private materializeReplaySummons(", 3_000);
         const syncBody = sliceFrom(source, "private syncSummonedUnit(", 2_000);
 
-        expect(attackBody).toMatch(/this\.applyReplayEvents\([\s\S]*?record\.stateAfter,[\s\S]*?\);/);
+        expect(attackBody).toContain("this.applyReplayEvents(replayEvents, record.stateAfter)");
+        expect(applyBody.indexOf("this.materializeReplaySummons(visibleEvents, stateAfter)")).toBeGreaterThan(-1);
+        expect(applyBody.indexOf("this.applyTurnEngineEvents(visibleEvents")).toBeGreaterThan(
+            applyBody.indexOf("this.materializeReplaySummons(visibleEvents, stateAfter)"),
+        );
         expect(materializer).toContain("this.createRenderableUnitFromSceneState(unitState, true)");
         expect(materializer).toContain("this.unitsHolder.addUnit(unit)");
         expect(materializer).not.toContain("this.grid.occupyCells(");
