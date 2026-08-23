@@ -305,20 +305,24 @@ export class DungeonVisuals {
     private scatteredMountainHitBars: Graphics[] = [];
     private narrowingLayers = 0;
     /**
-     * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 5s loop at 12fps.
+     * The molten centre, animated: an 8x8 atlas of 256px frames, 60 of them, a 10s loop at 6fps.
      *
      * The artwork is one 4x4 block of cells. Its original, softly glowing grout stays inside one sprite,
      * while the outer footprint reaches the visible seams of the four-by-four obstacle.
      *
      * The loop is closed with a cross-dissolve rather than a hard cut: measured, the wrap now differs by
      * 0.83/255 against 1.63 for an ordinary frame step, so the repeat is less of a change than the
-     * animation's own motion and cannot be spotted.
+     * animation's own motion and cannot be spotted. Slowing the clock keeps that property — the frame
+     * ORDER never changes, only how long each holds.
+     *
+     * 6fps is an owner call (2026-08-22): the first full-quality live look at 12fps read as frantic —
+     * molten rock should crawl. This constant is THE pacing knob; the frame budget stays 60 either way.
      */
     private static readonly LAVA_ANIM_KEY = "lava_center_anim_atlas";
     private static readonly LAVA_ANIM_FRAME_PX = 256;
     private static readonly LAVA_ANIM_COLS = 8;
     private static readonly LAVA_ANIM_FRAMES = 60;
-    private static readonly LAVA_ANIM_FPS = 12;
+    private static readonly LAVA_ANIM_FPS = 6;
     /** Recover 1% at the right and another 0.5% at the left from the original 3% horizontal inset. */
     private static readonly LAVA_POOL_DRAW_WIDTH_CELLS = 4 * 0.985;
     private static readonly LAVA_POOL_DRAW_HEIGHT_CELLS = 4 * 0.99;
