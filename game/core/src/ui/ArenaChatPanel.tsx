@@ -10,12 +10,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
     chatSegments,
     fetchArenaChat,
+    fetchPublicPlayerStats,
     postArenaChat,
     reportArenaChat,
     socialErrorMessage,
     upvoteArenaChat,
     type ArenaChatMessage,
+    type PublicPlayerStats,
 } from "../api/social_client";
+import { siteUrlBase } from "../api/site_origin";
 import { t, tf, useTranslation } from "../i18n/i18n";
 import { hocColors, hocInputSx } from "./hocTheme";
 
@@ -28,6 +31,26 @@ export const ARENA_CHAT_OPEN_KEY = "hoc:arenaChatOpen";
 const COLLAPSE_KEY = ARENA_CHAT_OPEN_KEY;
 /** How long a jumped-to original stays highlighted after clicking a reply's quote. */
 const FLASH_MS = 1400;
+
+/** The site's full-profile page for a player, language-aware (same shape matchHistoryModel builds). */
+export const playerProfileHref = (playerId: string, username: string, language: string): string => {
+    const url = new URL(language === "ru" ? "/ru/profile/" : "/profile/", siteUrlBase());
+    url.searchParams.set("playerId", playerId);
+    if (username) {
+        url.searchParams.set("username", username);
+    }
+    return url.toString();
+};
+
+/** What the in-chat player card is looking at: resolved stats, still fetching, or a 404'd rookie. */
+interface PlayerCardState {
+    playerId: string;
+    username: string;
+    stats: PublicPlayerStats | null;
+    loading: boolean;
+    /** True when the server answered 404 — a real account with no ranked record, not an error. */
+    unranked: boolean;
+}
 
 const timeLabel = (createdAt: number): string =>
     new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -58,7 +81,7 @@ const speakerColor = (username: string): string => {
  * adjudicate a URL, only display it.
  */
 export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUsername }) => {
-    useTranslation();
+    const { language } = useTranslation();
     const [messages, setMessages] = useState<ArenaChatMessage[]>([]);
     const [draft, setDraft] = useState("");
     const [error, setError] = useState("");
@@ -68,6 +91,8 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
     const [replyTo, setReplyTo] = useState<ArenaChatMessage | null>(null);
     /** Briefly highlights the original after clicking a reply's quote, so the jump lands somewhere. */
     const [flashId, setFlashId] = useState("");
+    /** The player card opened by clicking a speaker's name; null when closed. One at a time. */
+    const [playerCard, setPlayerCard] = useState<PlayerCardState | null>(null);
     const mountedRef = useRef(true);
     const newestRef = useRef(0);
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -163,6 +188,36 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
     const beginReply = useCallback((message: ArenaChatMessage) => {
         setReplyTo(message);
         inputRef.current?.focus();
+    }, []);
+
+    /** Open (or toggle closed) the stats card for a speaker. Fetches the PUBLIC ranked profile. */
+    const openPlayerCard = useCallback((playerId: string, username: string) => {
+        setPlayerCard((previous) => {
+            if (previous?.playerId === playerId) {
+                return null;
+            }
+            void (async () => {
+                try {
+                    const stats = await fetchPublicPlayerStats(playerId);
+                    if (mountedRef.current) {
+                        setPlayerCard((current) =>
+                            current?.playerId === playerId ? { ...current, stats, loading: false } : current,
+                        );
+                    }
+                } catch (err) {
+                    // 404 means "never entered ranked" — a real answer, not a failure.
+                    const status = (err as { response?: { status?: number } })?.response?.status;
+                    if (mountedRef.current) {
+                        setPlayerCard((current) =>
+                            current?.playerId === playerId
+                                ? { ...current, loading: false, unranked: status === 404 }
+                                : current,
+                        );
+                    }
+                }
+            })();
+            return { playerId, username, stats: null, loading: true, unranked: false };
+        });
     }, []);
 
     /** Scroll a reply's original into view, if it is still in the rendered room. */
@@ -406,10 +461,24 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                                                     </Box>
                                                     <Box
                                                         component="span"
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        title={t("View stats")}
+                                                        onClick={() =>
+                                                            openPlayerCard(message.playerId, message.username)
+                                                        }
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === "Enter" || event.key === " ") {
+                                                                event.preventDefault();
+                                                                openPlayerCard(message.playerId, message.username);
+                                                            }
+                                                        }}
                                                         sx={{
                                                             color: speakerColor(message.username),
                                                             fontWeight: 700,
                                                             mr: 0.5,
+                                                            cursor: "pointer",
+                                                            "&:hover": { textDecoration: "underline" },
                                                         }}
                                                     >
                                                         {message.username}
@@ -517,6 +586,82 @@ export const ArenaChatPanel: React.FC<{ selfUsername?: string }> = ({ selfUserna
                                 })
                             )}
                         </Box>
+
+                        {playerCard ? (
+                            // The clicked speaker's public ranked card, pinned between the room and the
+                            // composer — no popper to position, and it reads the same on touch.
+                            <Box
+                                sx={{
+                                    px: 1,
+                                    py: 0.75,
+                                    borderRadius: "8px",
+                                    border: `1px solid ${hocColors.orangeBorder}`,
+                                    bgcolor: "rgba(255,143,0,0.06)",
+                                }}
+                            >
+                                <Stack direction="row" alignItems="center" spacing={0.75}>
+                                    <Typography
+                                        level="body-sm"
+                                        sx={{ color: speakerColor(playerCard.username), fontWeight: 700 }}
+                                    >
+                                        {playerCard.username}
+                                    </Typography>
+                                    {playerCard.stats?.standingTitle ? (
+                                        <Typography level="body-xs" sx={{ color: hocColors.gold }}>
+                                            {playerCard.stats.standingTitle}
+                                        </Typography>
+                                    ) : null}
+                                    <Box sx={{ flex: 1 }} />
+                                    <Box
+                                        component="a"
+                                        href={playerProfileHref(playerCard.playerId, playerCard.username, language)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        sx={{
+                                            color: hocColors.orange,
+                                            fontSize: 12,
+                                            textDecoration: "underline",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {t("Full profile")}
+                                    </Box>
+                                    <IconButton
+                                        size="sm"
+                                        variant="plain"
+                                        title={t("Close")}
+                                        onClick={() => setPlayerCard(null)}
+                                        sx={{ minHeight: 18, px: 0.3, color: hocColors.muted }}
+                                    >
+                                        <CloseRoundedIcon sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                </Stack>
+                                <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.25 }}>
+                                    {playerCard.loading
+                                        ? t("Loading stats…")
+                                        : playerCard.unranked || !playerCard.stats
+                                          ? t("No ranked record yet")
+                                          : [
+                                                playerCard.stats.state === "placed"
+                                                    ? tf("MMR {value}", { value: playerCard.stats.mmr ?? 0 })
+                                                    : tf("Calibration {done}/{total}", {
+                                                          done: playerCard.stats.calibration?.gamesPlayed ?? 0,
+                                                          total: playerCard.stats.calibration?.required ?? 0,
+                                                      }),
+                                                (playerCard.stats.leaderboardRank ?? 0) > 0
+                                                    ? tf("rank #{rank}", {
+                                                          rank: playerCard.stats.leaderboardRank ?? 0,
+                                                      })
+                                                    : "",
+                                                `${playerCard.stats.wins ?? 0}–${playerCard.stats.losses ?? 0}–${playerCard.stats.draws ?? 0}`,
+                                                tf("{pct}% wins", { pct: playerCard.stats.winRatePct ?? 0 }),
+                                                tf("{amount} gold", { amount: playerCard.stats.gold ?? 0 }),
+                                            ]
+                                                .filter(Boolean)
+                                                .join(" · ")}
+                                </Typography>
+                            </Box>
+                        ) : null}
 
                         {error ? (
                             <Typography level="body-xs" sx={{ color: hocColors.danger }}>

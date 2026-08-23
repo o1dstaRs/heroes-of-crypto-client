@@ -455,6 +455,35 @@ export const postArenaChat = (
 ): Promise<{ message: ArenaChatMessage; mentioned: string[] }> =>
     post(endpoints.social.arenaChatPost, { body, ...(replyToMessageId ? { replyToMessageId } : {}) });
 
+/** The public ranked-profile slice the chat's player card shows. Served without auth; a player who
+ * never entered ranked 404s (surface as "no ranked record" rather than an error). */
+export interface PublicPlayerStats {
+    playerId: string;
+    username: string;
+    state?: "calibration" | "placed" | "recalibration";
+    /** 0 until placed — the provisional calibration MMR is never public. */
+    mmr?: number;
+    leagueName?: string;
+    standingTitle?: string;
+    leaderboardRank?: number;
+    calibration?: { required: number; gamesPlayed: number };
+    wins?: number;
+    losses?: number;
+    draws?: number;
+    totalGames?: number;
+    winRatePct?: number;
+    winStreak?: number;
+    lossStreak?: number;
+    gold?: number;
+}
+
+export const fetchPublicPlayerStats = async (playerId: string): Promise<PublicPlayerStats> => {
+    const response = await axiosMMInstance.get(`${endpoints.mm.rankedProfile}/${encodeURIComponent(playerId)}`, {
+        headers: authHeaders(),
+    });
+    return response.data as PublicPlayerStats;
+};
+
 /** One rendered run of a chat line: plain text, a resolved @tag, or an internal link. */
 export type ChatSegment =
     | { kind: "text"; text: string }
