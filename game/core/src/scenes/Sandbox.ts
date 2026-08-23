@@ -563,6 +563,21 @@ export function cellTargetedSpellBlockCells(spellName: string, origin: HoCMath.X
     return SpellHelper.cellTargetedSpellBlockCells(spellName, origin);
 }
 
+/**
+ * Buffs, heals and debuffs already mark the unit they will affect with the status-target highlight.
+ * Showing that unit's passive movement, aura and shot-range inspection underneath the highlight makes
+ * those tactical ranges look like part of the spell. Damage, area and position-change spells keep the
+ * normal inspection layers because they are not direct status applications.
+ */
+export function shouldSuppressInspectedUnitRangesForSpell(spell: Spell): boolean {
+    const targetType = spell.getSpellTargetType();
+    const targetsOneUnit =
+        targetType === SpellTargetType.ANY_ALLY ||
+        targetType === SpellTargetType.ANY_ENEMY ||
+        targetType === SpellTargetType.ANY_UNIT;
+    return targetsOneUnit && !isOffensiveSpellMultiplier(spell.getMultiplierType());
+}
+
 /** Delay from the first impact until the last impact in a staggered attack. */
 export function getAttackFinalImpactDelayMs(hitCount: number): number {
     return Math.max(0, Math.floor(hitCount) - 1) * ATTACK_HIT_STAGGER_MS;
@@ -13160,6 +13175,8 @@ export class Sandbox extends PixiScene {
 
         g.clear();
         this.gameplayGraphicsHasGeometry = true;
+        const suppressInspectedUnitRanges =
+            !!this.currentActiveSpell && shouldSuppressInspectedUnitRangesForSpell(this.currentActiveSpell);
         let sidebarUnitRanges:
             | {
                   xy: HoCMath.XY;
@@ -13169,7 +13186,7 @@ export class Sandbox extends PixiScene {
               }
             | undefined;
 
-        if (this.selectedBoardUnit) {
+        if (!suppressInspectedUnitRanges && this.selectedBoardUnit) {
             const u = this.selectedBoardUnit;
             if (u === this.currentActiveUnit) {
                 // If the selected board unit IS the current active unit, we rely on standard active unit visuals?
@@ -13222,7 +13239,7 @@ export class Sandbox extends PixiScene {
 
         // Calculate shift-selected range
         let shiftSelectedShotRange: { xy: HoCMath.XY; distance: number } | undefined;
-        if (this.currentShiftedUnit?.getAttackType() === AttackVals.RANGE) {
+        if (!suppressInspectedUnitRanges && this.currentShiftedUnit?.getAttackType() === AttackVals.RANGE) {
             const dist = this.currentShiftedUnit.getRangeShotDistance();
             if (dist > 0) {
                 shiftSelectedShotRange = {
@@ -13243,7 +13260,7 @@ export class Sandbox extends PixiScene {
             fightProps,
             currentActiveShotRange,
             shiftSelectedShotRange,
-            hoveredShotRange: this.sc_hoveredShotRange,
+            hoveredShotRange: suppressInspectedUnitRanges ? undefined : this.sc_hoveredShotRange,
             isActiveUnitMoving: this.isActiveUnitMoving,
             gridSettings: this.sc_sceneSettings.getGridSettings(),
             hoverGlowPhase: this.hoverGlowPhase,
@@ -13252,14 +13269,14 @@ export class Sandbox extends PixiScene {
             currentActiveUnit: this.currentActiveUnit,
             hoverManager: this.hoverManager,
             sidebarUnitRanges,
-            hoveredAuraRanges: this.sc_hoveredAuraRanges,
+            hoveredAuraRanges: suppressInspectedUnitRanges ? undefined : this.sc_hoveredAuraRanges,
             lingeringTracks: this.moveAnimManager.getLingeringTracks(),
             // Placement-only overlay. The calc that maintains sc_placementMoveRange is gated to the
             // placement phase, so once the fight starts it is never updated OR cleared — feeding the stale
             // value to the drawer left its little dots scattered across the board mid-fight (intermittent:
             // only when a unit happened to be selected at ready-up). Never render it during the fight.
             hoveredMoveRange: fightProps.hasFightStarted() ? undefined : this.sc_placementMoveRange,
-            hoveredUnitMoveRange: this.sc_hoveredMoveRange,
+            hoveredUnitMoveRange: suppressInspectedUnitRanges ? undefined : this.sc_hoveredMoveRange,
             hoveredUnitMoveRangeIsEnemy: this.sc_hoveredMoveRangeIsEnemy,
             enemyTurnView: this.isEnemyActiveTurn(),
             movementGraphics: this.movementGraphics,

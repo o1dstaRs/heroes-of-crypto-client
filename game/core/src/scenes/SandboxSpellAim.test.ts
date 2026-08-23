@@ -13,12 +13,39 @@ import {
     SpellMultiplierType,
 } from "@heroesofcrypto/common";
 
-import { cellTargetedSpellBlockCells, spellCastSecondaryDamage } from "./Sandbox";
+import {
+    cellTargetedSpellBlockCells,
+    shouldSuppressInspectedUnitRangesForSpell,
+    spellCastSecondaryDamage,
+} from "./Sandbox";
 
 const key = (c: { x: number; y: number }) => `${c.x},${c.y}`;
 
 const spellOf = (faction: string, name: string): Spell =>
     new Spell({ spellProperties: HoCConfig.getSpellConfig(faction, name), amount: 1 });
+
+describe("status-spell target inspection", () => {
+    test("hides the target's tactical ranges for buffs, heals and debuffs", () => {
+        for (const spell of [
+            spellOf("Life", "Spiritual Armor"),
+            spellOf("Life", "Heal"),
+            spellOf("Death", "Quagmire"),
+            spellOf("System", "Vine Throw"),
+        ]) {
+            expect(shouldSuppressInspectedUnitRangesForSpell(spell)).toBe(true);
+        }
+    });
+
+    test("keeps inspection for damage, area and position-change targeting", () => {
+        for (const spell of [
+            spellOf("Nature", "Lightning Strike"),
+            spellOf("Chaos", "Fire Wall"),
+            spellOf("System", "Castling"),
+        ]) {
+            expect(shouldSuppressInspectedUnitRangesForSpell(spell)).toBe(false);
+        }
+    });
+});
 
 /**
  * A stand-in for a live Unit, carrying only what the spell projection reads off one.
