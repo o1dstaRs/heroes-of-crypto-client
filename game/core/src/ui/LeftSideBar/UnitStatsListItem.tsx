@@ -20,7 +20,7 @@ import ListItemContent from "@mui/joy/ListItemContent";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback } from "react";
 
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
@@ -28,13 +28,6 @@ import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
-import {
-    DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING,
-    LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT,
-    LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY,
-    resolveLeftSidebarPortraitTuning,
-    type LeftSidebarPortraitTuning,
-} from "../leftSidebarPortraitTuning";
 import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
@@ -1254,30 +1247,6 @@ const UnitStatsLayout: React.FC<{
 }) => {
     const creatureId = UNIT_NAME_TO_ID[unitProperties.name.trim()];
     const sidebarPortraitArt = creatureId === undefined ? {} : resolveLeftSidebarPortraitArt(creatureId);
-    const [sidebarPortraitTuning, setSidebarPortraitTuning] = useState<LeftSidebarPortraitTuning>(() =>
-        creatureId === undefined
-            ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
-            : resolveLeftSidebarPortraitTuning(creatureId),
-    );
-    useEffect(() => {
-        const syncTuning = () =>
-            setSidebarPortraitTuning(
-                creatureId === undefined
-                    ? { ...DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING }
-                    : resolveLeftSidebarPortraitTuning(creatureId),
-            );
-        const syncStoredTuning = (event: StorageEvent) => {
-            if (event.key === LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY) syncTuning();
-        };
-
-        syncTuning();
-        window.addEventListener(LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT, syncTuning);
-        window.addEventListener("storage", syncStoredTuning);
-        return () => {
-            window.removeEventListener(LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT, syncTuning);
-            window.removeEventListener("storage", syncStoredTuning);
-        };
-    }, [creatureId]);
     const animationConfig = creatureId === undefined ? getDefaultAnimationConfig(unitProperties.name) : null;
     const showRangedStats =
         unitProperties.attack_type === AttackVals.RANGE ||
@@ -1545,13 +1514,8 @@ const UnitStatsLayout: React.FC<{
                             <CreaturePortraitImage
                                 creatureId={creatureId}
                                 alt={unitProperties.name}
-                                artScale={sidebarPortraitTuning.artScale}
-                                artScaleX={0.96 * (sidebarPortraitArt.artScaleX ?? 1)}
-                                artOffsetX={sidebarPortraitTuning.artOffsetX}
-                                artOffsetY={sidebarPortraitTuning.artOffsetY}
                                 artSource={sidebarPortraitArt.source}
-                                artFit={sidebarPortraitArt.fit}
-                                artBaseScale={sidebarPortraitArt.baseScale}
+                                artSourceUsesFraming
                                 highQualityArt
                                 sx={{
                                     width: "100%",

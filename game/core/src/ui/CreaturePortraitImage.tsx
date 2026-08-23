@@ -17,6 +17,8 @@ export interface CreaturePortraitImageProps extends Omit<BoxProps, "children"> {
     artOffsetY?: number;
     /** Optional left-sidebar-only source/framing overrides; the approved faction background stays intact. */
     artSource?: string;
+    /** Keep checkpoint crop/scale/offsets when artSource is a higher-resolution copy of the same artwork. */
+    artSourceUsesFraming?: boolean;
     artFit?: React.CSSProperties["objectFit"];
     artBaseScale?: number;
     /** Layout at the final CSS size instead of enlarging a smaller compositor layer. */
@@ -36,6 +38,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     artOffsetX = 0,
     artOffsetY = 0,
     artSource,
+    artSourceUsesFraming = false,
     artFit,
     artBaseScale,
     highQualityArt = false,
@@ -48,7 +51,7 @@ export const CreaturePortraitImage: React.FC<CreaturePortraitImageProps> = ({
     const creatureSource = artSource ?? source;
     const creatureFit = artFit ?? framing.fit;
     const artPlacement = resolveCreaturePortraitArtPlacement(framing, {
-        independentSource: artSource !== undefined,
+        independentSource: artSource !== undefined && !artSourceUsesFraming,
         baseScale: artBaseScale,
         scale: artScale,
         offsetX: artOffsetX,
