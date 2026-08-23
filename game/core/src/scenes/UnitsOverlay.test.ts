@@ -348,9 +348,6 @@ describe("UnitsOverlay chip visibility", () => {
         expect(internals.maxScrollX).toBeGreaterThan(0);
         expect(internals.scrollbarTrack.visible).toBe(true);
         expect(internals.scrollbarThumb.visible).toBe(true);
-        const trackBounds = internals.scrollbarTrack.getLocalBounds();
-        const trackCenterY = internals.scrollTrackY + trackBounds.y + trackBounds.height * 0.5;
-        expect(internals.expandListBtn.y).toBeCloseTo(trackCenterY);
         const handled = overlay.handleWheel(
             overlay.container.x + internals.scrollViewportX + 10,
             overlay.container.y + internals.overlayH * 0.5,

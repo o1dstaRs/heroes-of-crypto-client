@@ -6,7 +6,7 @@ import {
     getPickTeamView,
     GridVals,
     isPickSimComplete,
-    Doctrine,
+    Perk,
     PickPhaseVals,
     TeamVals,
     TeamType,
@@ -16,7 +16,6 @@ import {
     type PickRandomInt,
 } from "@heroesofcrypto/common";
 import { PICK_EVENT_SOURCE } from "./env";
-import { PREVIEW_ROUTES_ENABLED } from "../api/previewPlayGate";
 
 import CssBaseline from "@mui/joy/CssBaseline";
 import { CssVarsProvider } from "@mui/joy/styles";
@@ -28,7 +27,6 @@ import { TextStyle } from "pixi.js";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { HOC_GAME_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
-import { t, useTranslation } from "../i18n/i18n";
 import { WalletProvider } from "../wallet/WalletProvider";
 import LeftSideBar from "./LeftSideBar";
 import { Main } from "./Main";
@@ -61,7 +59,6 @@ import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
 import { MatchmakingRoute } from "./MatchmakingRoute";
-import { WagerNegotiator } from "./WagerNegotiator";
 import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
@@ -69,7 +66,7 @@ import { SocialProvider } from "./social/SocialProvider";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
-import ObserverPickView, { MockObserverPickView } from "./PickAndBan/ObserverPickView";
+import ObserverPickView from "./PickAndBan/ObserverPickView";
 import { PlayerPortalPage } from "./PlayerPortal/PlayerPortalPage";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { RankedGameView } from "./RankedGameView";
@@ -229,9 +226,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     )}
                     <UpNextOverlay />
                     <FightFinishedOverlay />
-                    {!isLoading && started && aiToggleOn && !replayPlaybackActive && (
-                        <AiControlBadge left={aiBadgeLeft(windowSize)} />
-                    )}
+                    {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <NextLapHazardBadge />}
                     {!isLoading && replayPlaybackActive && (
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
@@ -261,7 +256,6 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
     isYourTurn: true,
     isAbandoned: false,
     pickPhase: PickPhaseVals.INITIAL_PICK,
-    phaseIdentity: "preview:bundle",
     secondsRemaining: 300,
     revealsRemaining: 0,
     initialBundles: [
@@ -269,7 +263,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
         [31, 16, 11], // Peasant + Hyena + Helm of Focus
     ],
     tier2Offers: [],
-    doctrine: 0,
+    perk: 0,
     upgradePoints: 0,
     artifactTier1: 0,
     artifactTier2: 0,
@@ -314,7 +308,6 @@ const LEVEL_ONE_PICK_PREVIEW_STATE: PickBanContextType = {
     initialBundles: [],
     artifactTier1: 1,
     pickPhase: PickPhaseVals.PICK,
-    phaseIdentity: "preview:level-1",
     requiredLevel: 1,
 };
 
@@ -341,7 +334,7 @@ const LevelOnePickPreview: React.FC = () => (
  * The other two /preview/picks routes are frozen fixtures — one pose each, nothing to click. This one is
  * the real thing minus the network: the same StainedGlassWindow the ranked game renders, but its state
  * comes from common's pick_sim state machine instead of the server's SSE stream, and its four submit
- * calls (doctrine / bundle / creature / tier-2 artifact) drive that machine instead of POSTing.
+ * calls (perk / bundle / creature / tier-2 artifact) drive that machine instead of POSTing.
  *
  * So the whole ladder is clickable — doctrine, starting bundle, the four creature picks, the tier-2
  * artifact — and it ends exactly where the ranked flow ends, on the AUGMENTS handoff to placement.
@@ -372,8 +365,8 @@ const localDraftOpponentAction = (state: IPickSimState): PickAction | null => {
         return null;
     }
     switch (phase.phase) {
-        case PickPhaseVals.DOCTRINE:
-            return { type: "select_doctrine", team: LOCAL_DRAFT_OPPONENT, doctrine: Doctrine.Doctrine.SEE_NONE };
+        case PickPhaseVals.PERK:
+            return { type: "select_perk", team: LOCAL_DRAFT_OPPONENT, perk: Perk.Perk.SEE_NONE };
         case PickPhaseVals.INITIAL_PICK:
             return { type: "select_bundle", team: LOCAL_DRAFT_OPPONENT, bundleIndex: localDraftRng(2) };
         case PickPhaseVals.ARTIFACT_2: {
@@ -473,7 +466,7 @@ const LocalPlayableDraft: React.FC = () => {
     // Has the player already moved in this phase? Only meaningful for the three simultaneous phases —
     // the creature picks belong to one side at a time, so being an actor there IS your turn.
     const alreadyActed =
-        (view.phase === PickPhaseVals.DOCTRINE && state.lower.doctrine !== Doctrine.Doctrine.NO_DOCTRINE) ||
+        (view.phase === PickPhaseVals.PERK && state.lower.perk !== Perk.Perk.NO_PERK) ||
         (view.phase === PickPhaseVals.INITIAL_PICK && state.lower.selectedBundleIndex !== undefined) ||
         (view.phase === PickPhaseVals.ARTIFACT_2 && state.lower.tier2Artifact !== undefined);
 
@@ -492,7 +485,7 @@ const LocalPlayableDraft: React.FC = () => {
     }, [view.knownOpponentCreatures]);
 
     const watchedSlots = useMemo(() => {
-        const mode = Doctrine.DOCTRINES[state.lower.doctrine]?.revealMode;
+        const mode = Perk.PERKS[state.lower.perk]?.revealMode;
         if (mode === "all") {
             return LOCAL_DRAFT_SLOT_LEVELS.map((_, i) => i);
         }
@@ -500,7 +493,7 @@ const LocalPlayableDraft: React.FC = () => {
             return [0, 2, 4];
         }
         return [];
-    }, [state.lower.doctrine]);
+    }, [state.lower.perk]);
 
     const pickBanValue: PickBanContextType = useMemo(
         () => ({
@@ -514,28 +507,26 @@ const LocalPlayableDraft: React.FC = () => {
             isYourTurn: !resolving && view.actors.includes(LOCAL_DRAFT_TEAM) && !alreadyActed && !view.complete,
             isAbandoned: false,
             pickPhase: view.phase,
-            phaseIdentity: `sequence:${view.phaseSequence}`,
             secondsRemaining: 300,
             revealsRemaining: 0,
             initialBundles: view.bundles.map((bundle) => [...bundle] as [number, number, number]),
             tier2Offers: view.tier2Offers,
-            doctrine: state.lower.doctrine,
-            upgradePoints: Doctrine.DOCTRINES[state.lower.doctrine]?.upgradePoints ?? 0,
+            perk: state.lower.perk,
+            upgradePoints: Perk.PERKS[state.lower.perk]?.upgradePoints ?? 0,
             artifactTier1: view.artifacts.find(([tier]) => tier === 1)?.[1] ?? 0,
             artifactTier2: view.artifacts.find(([tier]) => tier === 2)?.[1] ?? 0,
             requiredLevel: view.requiredCreatureLevel,
             mapType: GridVals.NORMAL,
             autoPickedSignal: 0,
         }),
-        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.lower.doctrine],
+        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.lower.perk],
     );
 
     // Only the four submit calls are replaced; StainedGlassWindow reads nothing else off the auth context.
     const authValue = useMemo(
         () =>
             ({
-                doctrine: async (doctrineId: number) =>
-                    apply({ type: "select_doctrine", team: LOCAL_DRAFT_TEAM, doctrine: doctrineId }),
+                perk: async (perkId: number) => apply({ type: "select_perk", team: LOCAL_DRAFT_TEAM, perk: perkId }),
                 pickPair: async (pairIndex: number) =>
                     apply({ type: "select_bundle", team: LOCAL_DRAFT_TEAM, bundleIndex: pairIndex }),
                 pick: async (creatureId: number) =>
@@ -591,7 +582,7 @@ const LocalPlayableDraft: React.FC = () => {
                             <div style={{ color: "rgba(239,228,204,0.9)" }}>
                                 Артефакты: {view.artifacts.map(([tier, id]) => `T${tier}:${id}`).join(", ") || "—"}
                                 {" · "}
-                                очки прокачки: {Doctrine.DOCTRINES[state.lower.doctrine]?.upgradePoints ?? 0}
+                                очки прокачки: {Perk.PERKS[state.lower.perk]?.upgradePoints ?? 0}
                             </div>
                             <button
                                 type="button"
@@ -704,57 +695,54 @@ const PickAndBanView: React.FC<{
     );
 };
 
-const MatchLoadingOverlay: React.FC = () => {
-    useTranslation();
-    return (
-        <div
-            style={{
-                position: "fixed",
-                inset: 0,
-                backgroundColor: "#0f1117",
-                color: "#f8fafc",
-                display: "grid",
-                placeItems: "center",
-                zIndex: 1000,
-                padding: 24,
-            }}
-        >
-            <style>
-                {`
+const MatchLoadingOverlay: React.FC = () => (
+    <div
+        style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "#0f1117",
+            color: "#f8fafc",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 1000,
+            padding: 24,
+        }}
+    >
+        <style>
+            {`
                 @keyframes hoc-route-progress {
                     0% { transform: translateX(-80%); }
                     50% { transform: translateX(20%); }
                     100% { transform: translateX(140%); }
                 }
             `}
-            </style>
-            <div style={{ width: "min(440px, 100%)" }}>
-                <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{t("Opening match")}</div>
-                <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
-                    {t("Syncing your seat and loading the latest match state.")}
-                </div>
+        </style>
+        <div style={{ width: "min(440px, 100%)" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Opening match</div>
+            <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
+                Syncing your seat and loading the latest match state.
+            </div>
+            <div
+                style={{
+                    height: 8,
+                    overflow: "hidden",
+                    borderRadius: 999,
+                    backgroundColor: "rgba(148, 163, 184, 0.24)",
+                }}
+            >
                 <div
                     style={{
-                        height: 8,
-                        overflow: "hidden",
+                        width: "55%",
+                        height: "100%",
                         borderRadius: 999,
-                        backgroundColor: "rgba(148, 163, 184, 0.24)",
+                        background: "linear-gradient(90deg, #f97316, #22c55e)",
+                        animation: "hoc-route-progress 1.25s ease-in-out infinite",
                     }}
-                >
-                    <div
-                        style={{
-                            width: "55%",
-                            height: "100%",
-                            borderRadius: 999,
-                            background: "linear-gradient(90deg, #f97316, #22c55e)",
-                            animation: "hoc-route-progress 1.25s ease-in-out infinite",
-                        }}
-                    />
-                </div>
+                />
             </div>
         </div>
-    );
-};
+    </div>
+);
 
 const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const { gameId } = useParams<{ gameId: string }>();
@@ -968,14 +956,6 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
             {!showOverlay && gameId && routeMode === "checking" && <MatchLoadingOverlay />}
             {!showOverlay && gameId && routeMode !== "checking" && (
                 <>
-                    {/* Wager negotiation rides the draft: it forms a few seconds into pick and must
-                        resolve before the fight. Observers have no seat, hence no wager. Neither does a
-                        vs-AI match: the server only materializes a wager when BOTH seats hold an intent
-                        and the bot seat never sets one, so the panel could only ever invite a stake that
-                        cannot form on this game. */}
-                    {routeMode === "pick" && !observerMode && authenticated && !isMarkedVsAiGame(gameId) && (
-                        <WagerNegotiator gameId={gameId} active={routeMode === "pick"} />
-                    )}
                     {routeMode === "pick" &&
                         (observerMode ? (
                             <ObserverPickView gameId={gameId} onPickPhaseChange={handlePickPhaseChange} />

@@ -9,7 +9,6 @@ import {
     AllAbilities,
     calculateSpellDamage,
     isOffensiveSpellMultiplier,
-    maximumElementalSpellDamage,
     fireforgedSwordPower,
     FireWallHelper,
     RESURRECTION_POWER_FACTOR,
@@ -17,7 +16,6 @@ import {
     HoCMath,
     ISpellParams,
     Spell,
-    SpellElement,
     SpellMultiplierType,
 } from "@heroesofcrypto/common";
 import { HOC_NUMERIC_GEORGIA_FONT_FAMILY } from "../fontFamilies";
@@ -367,8 +365,6 @@ export class PixiRenderableSpell extends Spell {
         // — every existing flat spell hid the gap by hardcoding the figure in its text instead of using a
         // placeholder, so Empower was the first to expose it.
         let replaceBy = this.getPower() ? this.getPower().toString() : "";
-        // Appended after the description: what the printed damage is NOT. See the offensive branch below.
-        let damageBand: string | undefined;
         if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
             replaceBy = casterAmountAlive.toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
@@ -384,28 +380,17 @@ export class PixiRenderableSpell extends Spell {
             // engine's own helper so the page can never promise a number the cast will not deal. Which shape
             // it scales by (head-count alone for the Battle Mage's, head-count x stack power for the Magic
             // Dragon's) is the spell's own business — the helper reads it off the multiplier type.
-            const cardDamage = calculateSpellDamage(
+            // Pre-resistance by definition: the target is not known until the player aims.
+            replaceBy = calculateSpellDamage(
                 this.getMultiplierType(),
                 this.getPower(),
                 casterAmountAlive,
                 ownerStackPower,
                 casterMagicDamageBonusPercentage,
-            );
-            replaceBy = cardDamage.toString();
-            // ...and then says so. The figure above is PRE-DEFENCE — the target is not known until the player
-            // aims — but it was printed bare, as though it were the damage. It is not even an upper bound:
-            // measured over 5,624 casts it was wrong for 4,967 of them, and against a countered element it
-            // UNDERSTATES by a third (a card reading 300 dealing 450). So the card states the band it can
-            // actually land in, with both ends taken from the same element table the cast resolves through:
-            // nothing at all against the element that shrugs it off (or a 100%-resistant target), half again
-            // as much against the element it counters. The aim hover then names the exact figure per target.
-            const elemental = this.getElement() !== SpellElement.NO_ELEMENT;
-            damageBand = `A target takes 0 to ${maximumElementalSpellDamage(cardDamage, this.getElement())} of it, by its ${
-                elemental ? "element and " : ""
-            }magic resistance.`;
+            ).toString();
         }
         const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));
-        return [...lines, ...desc, ...(damageBand ? [damageBand] : [])];
+        return [...lines, ...desc];
     }
     public isHover(globalMouse: HoCMath.XY, ownerStackPower: number, includeUnavailable = false): boolean {
         if (!this.iconSprite.visible) {

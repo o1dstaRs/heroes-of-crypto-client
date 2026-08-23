@@ -1,6 +1,5 @@
 import {
     HoCConstants,
-    HoCConfig,
     UnitProperties,
     AttackVals,
     MovementVals,
@@ -25,7 +24,6 @@ import React, { useCallback, useEffect, useState } from "react";
 
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../../generated/animation_atlases";
 import { images, type ImageKey } from "../../generated/image_imports";
-import { usesUnitAtlasAnimation } from "../../pixi/PixiUnitsFactory";
 import { buildAtlasPingPongTiming } from "../../scenes/atlasAnimationTiming";
 import { IVisibleImpact } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
@@ -62,16 +60,10 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import {
-    formatSidebarAttackModifier,
-    formatSidebarModifier,
-    formatSidebarStat,
-    useSidebarMetrics,
-    type ISidebarMetrics,
-} from "./sidebarMetrics";
+import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-import { areUnitStatsPropsEqual, getSidebarRangedStats, type UnitStatsListItemProps } from "./unitStatsMemo";
+import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { hocDisplayFontFamily } from "../hocTheme";
 
 interface IAbilityStackProps {
@@ -117,7 +109,7 @@ function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
             const synergyKey = `${factionName}:${synergyId}:${level}`;
             return {
                 key: synergyKey,
-                label: t(FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy"),
+                label: FACTION_SYNERGY_LABELS[factionName]?.[synergyId] ?? "Synergy",
                 level,
             };
         }).filter((synergy) => synergy.key in SYNERGY_KEY_TO_IMAGE),
@@ -125,12 +117,11 @@ function getFactionSynergyGroups(factionName: string): FactionSynergyItem[][] {
 }
 
 function getSynergyTooltip(synergyKey: string, level: number): string {
-    const description = (
-        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || t("Unknown Synergy")
+    return `Level ${level}: ${(
+        SYNERGY_NAME_TO_DESCRIPTION[synergyKey as keyof typeof SYNERGY_NAME_TO_DESCRIPTION] || "Unknown Synergy"
     )
         .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[0]?.toString() || "0")
-        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0");
-    return tf("Level {level}: {description}", { level, description: t(description) });
+        .replace(/\{\}/, SynergyKeysToPower[synergyKey]?.[1]?.toString() || "0")}`;
 }
 
 function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | null {
@@ -1070,10 +1061,11 @@ const EffectTiles: React.FC<{
  * component silently drops both, and the stat explanations stop appearing on hover with nothing in the
  * console to say why. If this stops forwarding, the tooltips go quiet again.
  */
-// Every large figure is the final effective stat. A small signed label keeps the adjustment that produced
-// it visible as well, so a buff/debuff does not silently disappear into the total.
-const MOD_UP_COLOR = "#7ee787";
-const MOD_DOWN_COLOR = "#ff8a7a";
+// Every figure on this plate is the FINAL, effective one: attack already carries attack_mod and the
+// multiplier, armor its armor_mod, steps their steps_mod, luck its luck_mod, and magic resist / range
+// shots the mods that REPLACE their base. The plate used to print the signed delta beside each of them
+// ("+2", "-1", "x1.5") as well, which meant a stat could show two or three numbers at once and the reader
+// had to work out which one actually applied. Only the effective value is shown now.
 
 const StatValue = React.forwardRef<
     HTMLDivElement,
@@ -1082,9 +1074,8 @@ const StatValue = React.forwardRef<
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
-        modifier?: string;
     } & React.HTMLAttributes<HTMLDivElement>
->(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
+>(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
     // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
     // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
     <Box
@@ -1101,19 +1092,6 @@ const StatValue = React.forwardRef<
             sx={{ whiteSpace: "nowrap", fontWeight: 600, fontSynthesis: "weight" }}
         >
             {value}
-            {modifier && (
-                <Box
-                    component="span"
-                    sx={{
-                        fontSize: "0.68em",
-                        ml: "2px",
-                        fontWeight: 700,
-                        color: modifier.startsWith("-") || modifier.startsWith("x0.") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
-                    }}
-                >
-                    {modifier}
-                </Box>
-            )}
         </Typography>
     </Box>
 ));
@@ -1183,22 +1161,8 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-    modifier?: string;
-    secondModifier?: string;
-}> = ({
-    icon,
-    value,
-    tooltip,
-    color,
-    metrics,
-    secondIcon,
-    secondValue,
-    secondColor,
-    secondTooltip,
-    modifier,
-    secondModifier,
-}) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
+}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
 
     return (
         <Box
@@ -1329,32 +1293,30 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<HeartIcon />}
                 value={`${formatSidebarStat(unitProperties.hp)}/${formatSidebarStat(unitProperties.max_hp)}`}
-                tooltip={t("Current/max Health Points")}
+                tooltip="Current/max Health Points"
                 color="#ff4d4d"
                 metrics={metrics}
             />
             <StatItem
                 icon={<FistIcon />}
                 value={damageRange}
-                tooltip={t("Attack spread")}
+                tooltip="Attack spread"
                 color="#c0c0c0"
                 metrics={metrics}
             />
             <StatItem
                 icon={attackTypeSelected === AttackVals.RANGE ? <BowIcon /> : <SwordIcon />}
                 value={formatSidebarStat(attackDamage)}
-                tooltip={t("Attack type and multiplier")}
+                tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
-                modifier={attackModifier}
             />
             <StatItem
                 icon={<ShieldIcon />}
                 value={formatSidebarStat(meleeArmor)}
-                tooltip={hasDifferentRangeArmor ? t("Armor against melee attacks") : t("Armor")}
+                tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
-                modifier={formatSidebarModifier(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
@@ -1362,15 +1324,14 @@ const UnitStatsLayout: React.FC<{
                 secondIcon={hasDifferentRangeArmor ? <ArrowShieldIcon /> : undefined}
                 secondValue={hasDifferentRangeArmor ? formatSidebarStat(rangeArmor) : undefined}
                 secondColor="#f4a460"
-                secondTooltip={t("Armor against ranged attacks")}
+                secondTooltip="Armor against ranged attacks"
             />
             <StatItem
                 icon={<MagicShieldIcon />}
                 value={`${formatSidebarStat(unitProperties.magic_resist_mod || unitProperties.magic_resist)}%`}
-                tooltip={t("Magic resist in %")}
+                tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
-                modifier={formatSidebarModifier(magicResistDelta)}
             />
             {/* Movement range and initiative share a cell: both answer "how does this stack move through
                 the turn", and pairing them keeps the plate at seven fixed slots. */}
@@ -1381,14 +1342,13 @@ const UnitStatsLayout: React.FC<{
                 // a straight cell costs 1, a diagonal ~1.41, Trent's own vines 0.5), so the display and
                 // the board can no longer disagree.
                 value={formatSidebarStat(unitProperties.steps + stepsMod)}
-                tooltip={t("Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding")}
+                tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
-                modifier={formatSidebarModifier(stepsMod)}
                 secondIcon={<HourglassIcon />}
                 secondValue={formatSidebarStat(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
-                secondTooltip={t("Units with higher initiative turn first")}
+                secondTooltip="Units with higher initiative turn first"
             />
             {/* Morale and luck share one cell. They are the two smallest, most closely related numbers, and
                 pairing them buys back a slot — a ranged creature carries enough extra stats to spill onto a
@@ -1396,14 +1356,13 @@ const UnitStatsLayout: React.FC<{
             <StatItem
                 icon={<MoraleIcon />}
                 value={formatSidebarStat(Math.round(unitProperties.morale))}
-                tooltip={t("Morale grants extra actions, and adds movement steps once the map starts narrowing")}
+                tooltip="Morale grants extra actions, and adds movement steps once the map starts narrowing"
                 color={isDarkMode ? "#ffff00" : "#DC4D01"}
                 metrics={metrics}
                 secondIcon={<LuckIcon />}
                 secondValue={formatSidebarStat(Math.round(unitProperties.luck + unitProperties.luck_mod))}
                 secondColor="#ff4040"
-                secondTooltip={t("Luck raises damage rolls and the power of abilities")}
-                secondModifier={formatSidebarModifier(luckDelta)}
+                secondTooltip="Luck raises damage rolls and the power of abilities"
             />
             {/* Spellbook scroll count: the only readout of how many casts a spellcaster has left —
                 without it, answering that question means opening the spellbook. */}
@@ -1411,25 +1370,27 @@ const UnitStatsLayout: React.FC<{
                 <StatItem
                     icon={<ScrollIcon />}
                     value={formatSidebarStat(unitProperties.spells.length)}
-                    tooltip={t("Magic scrolls left to cast")}
+                    tooltip="Magic scrolls left to cast"
                     color="#add8e6"
                     metrics={metrics}
                 />
             )}
-            {rangedStats && (
+            {showRangedStats && (
                 <StatItem
                     icon={<ShotRangeIcon />}
-                    value={formatSidebarStat(rangedStats.shotDistance)}
-                    tooltip={t("Ranged shot distance in cells")}
+                    value={formatSidebarStat(unitProperties.shot_distance)}
+                    tooltip="Ranged shot distance in cells"
                     color="#ffff00"
                     metrics={metrics}
-                    // Distance and ammunition describe the same ranged attack. Keeping them in one cell
-                    // prevents a ranged spellcaster's shot count from becoming the hidden tenth grid item.
-                    secondIcon={<QuiverIcon />}
-                    secondValue={formatSidebarStat(rangedStats.remainingShots)}
-                    secondColor="#cd5c5c"
-                    secondTooltip={t("Number of ranged shots")}
-                    secondModifier={formatSidebarModifier(rangeShotsDelta)}
+                />
+            )}
+            {showRangedStats && !!(unitProperties.range_shots_mod || unitProperties.range_shots) && (
+                <StatItem
+                    icon={<QuiverIcon />}
+                    value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
+                    tooltip="Number of ranged shots"
+                    color="#cd5c5c"
+                    metrics={metrics}
                 />
             )}
         </>

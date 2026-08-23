@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, jest, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 import { Container, Texture } from "pixi.js";
 import { FightStateManager, GridConstants, GridSettings, GridVals, HoCConstants } from "@heroesofcrypto/common";
@@ -30,6 +30,7 @@ describe("mountain HP bar layout", () => {
 });
 
 describe("mountain collapse animation", () => {
+    const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
     const gridSettings = new GridSettings(
         GridConstants.GRID_SIZE,
         GridConstants.MAX_Y,
@@ -40,10 +41,7 @@ describe("mountain collapse animation", () => {
         GridConstants.UNIT_SIZE_DELTA,
     );
 
-    afterEach(() => {
-        jest.useRealTimers();
-        FightStateManager.getInstance().reset();
-    });
+    afterEach(() => FightStateManager.getInstance().reset());
 
     // A collapse container holds exactly the 4 quarter-chunk sprites + the dust puffs.
     const findCollapseContainers = (attached: Container[]): Container[] =>
@@ -100,8 +98,7 @@ describe("mountain collapse animation", () => {
         expect(collapseCount()).toBe(0);
     });
 
-    test("cleans the chunks up after the animation, even with both mountains gone", () => {
-        jest.useFakeTimers();
+    test("cleans the chunks up after the animation, even with both mountains gone", async () => {
         primeBlockCenterFight(1, 1);
         const { visuals, attached, collapseCount } = createVisuals();
         visuals.ensureCenterTerrainSprite();
@@ -115,7 +112,7 @@ describe("mountain collapse animation", () => {
 
         // Past the full lifetime the step (which runs even on the both-destroyed early-return path)
         // must have destroyed every chunk container.
-        jest.advanceTimersByTime(1500);
+        await sleep(1500);
         visuals.ensureCenterTerrainSprite();
         expect(containers.every((container) => container.destroyed)).toBe(true);
     });

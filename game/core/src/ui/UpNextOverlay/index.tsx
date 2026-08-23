@@ -65,7 +65,6 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 };
 
 export const UpNextOverlay: React.FC = () => {
-    useTranslation();
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [altPressed, setAltPressed] = useState<boolean>(false);
 
@@ -163,7 +162,7 @@ export const UpNextOverlay: React.FC = () => {
                         textShadow: "0 2px 4px rgba(0, 0, 0, 0.95)",
                     }}
                 >
-                    {tf("Lap {number}", { number: visibleState.lapNumber })}
+                    Lap {visibleState.lapNumber}
                 </Typography>
             </Box>
             <Stack

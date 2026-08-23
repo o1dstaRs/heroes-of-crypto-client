@@ -140,7 +140,7 @@ export const createDraftCreatureState = (creatureId: number): DraftCreatureState
     const totalHp = properties.amount_alive * properties.max_hp;
     const draftValue =
         properties.level * 42 +
-        properties.initiative * 5 +
+        properties.speed * 5 +
         properties.steps * 3 +
         properties.base_attack * 2 +
         averageDamage * Math.max(1, properties.amount_alive) * 0.08 +
@@ -160,7 +160,7 @@ export const createDraftCreatureState = (creatureId: number): DraftCreatureState
         level: properties.level,
         size: properties.size,
         hp: properties.max_hp,
-        speed: properties.initiative,
+        speed: properties.speed,
         steps: properties.steps,
         armor: properties.base_armor,
         attackType,

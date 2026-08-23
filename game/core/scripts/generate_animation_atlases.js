@@ -195,10 +195,6 @@ function main() {
     lines.push("    };");
     lines.push("    loopDurationMs: number;");
     lines.push("    pauseMs: number;");
-    lines.push("    /** Forward-compat: Dropbox art metadata evolves ahead of this generator (e.g. the");
-    lines.push("     * multi-phase intro/walk animation data). Undeclared keys pass through untyped so a");
-    lines.push("     * new meta field never breaks the DEPLOY build while CI (no Dropbox) stays green. */");
-    lines.push("    [key: string]: unknown;");
     lines.push("}");
     lines.push("");
     lines.push(

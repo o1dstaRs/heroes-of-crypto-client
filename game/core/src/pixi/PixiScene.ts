@@ -22,7 +22,6 @@ import {
     AbilityHelper,
     Artifact,
     GridSettings,
-    SpellElement,
     type GameAction,
     type GameEvent,
 } from "@heroesofcrypto/common";
@@ -155,10 +154,6 @@ export abstract class PixiScene {
     public sc_attackRangeDamageDivisorStr = "";
     public sc_attackKillSpreadStr = "";
     public sc_hoverInfoArr: string[] = [];
-    // The element of the spell currently hovered in the book, so the card can mark it in that element's
-    // own colour. Carried as its own field rather than another line of body text because the card's
-    // descriptions already contain the phrase "Fire magic:", which string-matching would collide with.
-    public sc_hoverSpellElement: SpellElement = SpellElement.NO_ELEMENT;
     public sc_hoverUnitNameStr = "";
     public sc_hoverUnitLevel = 0;
     public sc_hoverUnitMovementType = MovementVals.NO_MOVEMENT;
@@ -485,7 +480,6 @@ export abstract class PixiScene {
         this.sc_attackRangeDamageDivisorStr = "";
         this.sc_hoverUnitNameStr = "";
         this.sc_hoverInfoArr = [];
-        this.sc_hoverSpellElement = SpellElement.NO_ELEMENT;
         this.sc_selectedAttackType = AttackVals.NO_ATTACK;
         this.sc_attackKillSpreadStr = "";
         this.sc_hoverUnitLevel = 0;

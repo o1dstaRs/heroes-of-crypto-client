@@ -13,7 +13,7 @@ import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, imgSrc, teamColor, teamName } from "./CasualtyChart";
 
-const fmt = (n: number): string => Math.round(n).toLocaleString(getLanguage() === "ru" ? "ru-RU" : "en-US");
+const fmt = (n: number): string => Math.round(n).toLocaleString("en-US");
 
 /** One creature: icon, name, share-of-the-best bar, damage number. */
 const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number }> = ({ entry, max, index }) => {
@@ -26,11 +26,7 @@ const DamageRow: React.FC<{ entry: IFightDamageEntry; max: number; index: number
 
     return (
         <Tooltip
-            title={tf("{name} ({team}): {amount} damage dealt", {
-                name: entry.name,
-                team: teamName(entry.team),
-                amount: fmt(entry.damage),
-            })}
+            title={`${entry.name} (${teamName(entry.team)}): ${fmt(entry.damage)} damage dealt`}
             placement="top"
             sx={{
                 backgroundColor: "#2d1606",
@@ -192,11 +188,10 @@ const scrollSx = {
  * fielded, both armies on one scale, ordered by damage dealt.
  */
 export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ entries }) => {
-    useTranslation();
     if (!entries.length) {
         return (
             <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", fontSize: "0.82rem" }}>
-                {t("No damage was dealt.")}
+                No damage was dealt.
             </Typography>
         );
     }
@@ -214,8 +209,8 @@ export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ en
 
     return (
         <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={{ xs: 0, md: 3 }}
+            direction="row"
+            spacing={3}
             sx={{
                 position: "relative",
                 alignItems: "flex-start",
@@ -229,7 +224,6 @@ export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ en
                               left: "50%",
                               width: "1px",
                               transform: "translateX(-50%)",
-                              display: { xs: "none", md: "block" },
                               background:
                                   "linear-gradient(180deg, transparent, rgba(70,62,54,.5) 26%, rgba(70,62,54,.5) 74%, transparent)",
                               boxShadow: "0 0 4px rgba(0,0,0,.34)",

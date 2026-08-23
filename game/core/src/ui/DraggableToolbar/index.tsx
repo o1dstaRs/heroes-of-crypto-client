@@ -17,7 +17,6 @@ const activeOptionIconImage = new URL("../../../images/icon_active_option.webp",
 const inactiveOptionIconImage = new URL("../../../images/icon_inactive_option.webp", import.meta.url).toString();
 import { IVisibleButton, VisibleButtonState } from "../../scenes/VisibleState";
 import { useButtonContext } from "../context/ButtonContext";
-import { t, useTranslation } from "../../i18n/i18n";
 
 let SCREEN_RATIO = Math.min(window.innerWidth / 1366, window.innerHeight / 768);
 
@@ -355,7 +354,7 @@ const ButtonComponent: React.FC<ButtonComponentProps> = ({
                             opacity: isDisabled ? 0.5 : 1,
                         }}
                     >
-                        {t("ON")}
+                        ON
                     </Box>
                 )}
             </Box>
@@ -439,7 +438,6 @@ export const TOOLBAR_TOP_LIFT_PX = SIDEBAR_TOP_PAD_PX - TOP_CLEARANCE_PX;
  * negative margin would shift it against nothing.
  */
 const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = false }) => {
-    useTranslation();
     // Kept only so the styled components re-render at the right scale after a resize/zoom — SCREEN_RATIO
     // is module-level and read at render time.
     const [, bumpScaleTick] = useState(0);
@@ -484,7 +482,7 @@ const DraggableToolbar: React.FC<{ flushToTrim?: boolean }> = ({ flushToTrim = f
                     <ButtonComponent
                         key={button.name}
                         iconImage={getButtonIcon(button)}
-                        text={t(button.text)}
+                        text={button.text}
                         isVisible={button.isVisible}
                         isDisabled={button.isDisabled}
                         onClick={() => propagateClick(button.name, button.state)}

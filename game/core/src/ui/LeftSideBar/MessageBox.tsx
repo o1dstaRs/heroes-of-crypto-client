@@ -35,7 +35,6 @@ import { stonePlateSx } from "./UnitStatsListItem";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
-import { t, tf, useTranslation } from "../../i18n/i18n";
 
 const moreTimeButtonLabelPlus4Url = new URL(
     "../../../images/ui_more_time_button_forged_label_plus4_v2.webp",
@@ -142,7 +141,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
                 },
             }}
         >
-            {t("Start")}
+            Start
         </Button>
     );
 
@@ -151,7 +150,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
     }
 
     return (
-        <Tooltip title={t("Place units for both teams to start")} placement="top" variant="solid" sx={commonTooltipSx}>
+        <Tooltip title="Place units for both teams to start" placement="top" variant="solid" sx={commonTooltipSx}>
             {/* Joy disables pointer events on a disabled Button, which would swallow the tooltip's hover. */}
             <Box sx={{ display: "flex", width: "100%", justifyContent: "center" }}>{button}</Box>
         </Tooltip>
@@ -647,14 +646,12 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                 >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography level="title-sm" sx={{ fontSize: `${0.78 * metrics.fontScale}rem` }}>
-                            {t("Placement")}
+                            Placement
                         </Typography>
                         <TimelapseRoundedIcon />
                     </Stack>
                     <Typography level="body-xs" sx={{ fontSize: `${0.7 * metrics.fontScale}rem` }}>
-                        {remainingSeconds > 0
-                            ? tf("{seconds}s until auto-start", { seconds: remainingSeconds })
-                            : t("Starting fight.")}
+                        {remainingSeconds > 0 ? `${remainingSeconds}s until auto-start` : "Starting fight."}
                     </Typography>
                     <LinearProgress
                         variant="outlined"
@@ -705,8 +702,8 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
 
     if (visibleState.hasFinished) {
         messageBoxColor = "neutral";
-        messageBoxTitle = t("Fight finished");
-        messageBoxText = t("Refresh the page to start a new one");
+        messageBoxTitle = "Fight finished";
+        messageBoxText = "Refresh the page to start a new one";
     } else {
         // The reserve control is removed after use, so nothing here decides whether it exists — only the
         // panel's colour tracks the clock.
@@ -719,18 +716,18 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
         }
         // The lap now lives in the timer medallion, so the heading carries whose turn it is.
         if (!visibleState.teamTypeTurn) {
-            messageBoxTitle = t("Calculating next turn");
+            messageBoxTitle = "Calculating next turn";
         } else if (perspectiveTeam !== undefined) {
             // Frame the turn from the watcher's side instead of by absolute team colours. On the other
             // side's turn the heading is left EMPTY on purpose — the button below says "Enemy turn" for
             // the whole of it, and printing it twice was the only thing in this card saying the same word
             // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
             // fixed slot.
-            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? t("Your turn") : "";
+            messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
         } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
-            messageBoxTitle = t("Green team's turn");
+            messageBoxTitle = "Green team's turn";
         } else {
-            messageBoxTitle = t("Red team's turn");
+            messageBoxTitle = "Red team's turn";
         }
         messageBoxText = "";
     }
@@ -746,11 +743,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
 
     if (isArmageddonTurn) {
         defaultIcon = (
-            <Tooltip
-                title={t("Armageddon wave after this turn.")}
-                placement="top"
-                sx={{ ...commonTooltipSx, zIndex: 2 }}
-            >
+            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ ...commonTooltipSx, zIndex: 2 }}>
                 {/* Wrapped in a Box to separate styling context */}
                 <Box component="span" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                     <Box component="img" src={meteorIconDataUrl} sx={{ width: 26, height: 26 }} />
@@ -760,7 +753,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     } else if (isNarrowingTurn) {
         defaultIcon = (
             <Tooltip
-                title={t("The map will narrow after this turn.")}
+                title="The map will narrow after this turn."
                 placement="top"
                 sx={{ ...commonTooltipSx, zIndex: 2 }}
             >

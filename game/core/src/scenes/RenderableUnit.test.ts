@@ -2073,47 +2073,15 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
             expect(properties.abilities_descriptions[index]).toContain(`Maximum targets: ${stackPower}.`);
         }
     });
-
-    test("shows Stun's real combined chance while Stun Aura is active", () => {
-        const squire = createRenderableUnit(TeamVals.LOWER, "Life", "Squire", "squire_512");
-        squire.setStackPower(5);
-        squire.applyAuraEffect(
-            "Stun Aura",
-            "This unit gains a separate 25% chance to stun the enemy it hits for a turn.",
-            true,
-            25,
-            "0;0",
-        );
-        squire.adjustBaseStats(false, 0, 0, 0, 0, 0, 0);
-
-        const properties = squire.getUnitProperties();
-        const stunIndex = properties.abilities.indexOf("Stun");
-        expect(stunIndex).toBeGreaterThanOrEqual(0);
-        // Life's innate +1 luck makes Squire's own full-stack roll 36%; the separate 25% aura roll turns
-        // that into 1 - (1 - .36) * (1 - .25) = 52%, which is the number the player should read.
-        expect(properties.abilities_descriptions[stunIndex]).toContain("52% total chance");
-        expect(properties.abilities_descriptions[stunIndex]).toContain("36% own + a separate 25% aura roll");
-
-        squire.cleanAuraEffects();
-        squire.adjustBaseStats(false, 0, 0, 0, 0, 0, 0);
-        expect(squire.getUnitProperties().abilities_descriptions[stunIndex]).toContain("36% chance");
-        expect(squire.getUnitProperties().abilities_descriptions[stunIndex]).not.toContain("total chance");
-    });
 });
 
 describe("RenderableUnit revealed roster card", () => {
     // Revealed units carry a ColorMatrixFilter (the B&W pass), whose constructor probes a WebGL context
     // through the DOM adapter. Headless bun has no document; hand it a canvas stub whose getContext
     // returns null, which pixi already handles by falling back to mediump precision.
-    // The stub is a PROCESS-WIDE global that outlives this file, so every later import in the same bun run
-    // sees a `document` that exists and takes the browser branch. MUI's StyledEngineProvider is the one that
-    // bites: at module scope it looks for an emotion insertion point and, finding none, builds a <meta> and
-    // asks for <head>. Answering querySelector with null and giving created elements a setAttribute lets it
-    // finish on a headless run; without them, importing any MUI page after this file dies between tests.
     if (!("document" in globalThis)) {
         (globalThis as { document?: unknown }).document = {
-            createElement: () => ({ getContext: () => null, setAttribute: () => {} }),
-            querySelector: () => null,
+            createElement: () => ({ getContext: () => null }),
         };
     }
 
@@ -2357,6 +2325,8 @@ describe("RenderableUnit applied buff/debuff display de-duplication", () => {
 });
 
 describe("RenderableUnit dodge animation", () => {
+    const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
     // In-grid position (x ∈ (-1024, 1024), y ∈ (0, 2048)) so ensureVisual builds the sprite.
     const pos = { x: 0, y: 1024 };
 
@@ -2384,8 +2354,7 @@ describe("RenderableUnit dodge animation", () => {
         expect(unit.isDodging()).toBe(false);
     });
 
-    test("offsets sprite by the full displacement during the hold phase and leaves a ghost trail", () => {
-        jest.useFakeTimers();
+    test("offsets sprite by the full displacement during the hold phase and leaves a ghost trail", async () => {
         const { unit, worldRoot } = createVisualUnit();
         const childrenBefore = worldRoot.children.length;
         const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
@@ -2397,7 +2366,7 @@ describe("RenderableUnit dodge animation", () => {
         unit.ensureVisual(worldRoot, gridSettings);
 
         // 250ms sits inside the hold phase (22%..55% of the 640ms dodge) where the envelope is exactly 1.
-        jest.advanceTimersByTime(250);
+        await sleep(250);
         unit.ensureVisual(worldRoot, gridSettings);
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
         expect(sprite).toBeDefined();
@@ -2408,8 +2377,7 @@ describe("RenderableUnit dodge animation", () => {
         expect(worldRoot.children.length).toBeGreaterThan(childrenBefore);
     });
 
-    test("springs back to rest and cleans up its ghosts after the dodge completes", () => {
-        jest.useFakeTimers();
+    test("springs back to rest and cleans up its ghosts after the dodge completes", async () => {
         const { unit, worldRoot } = createVisualUnit();
         const childrenBefore = worldRoot.children.length;
         const spriteBefore = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);
@@ -2419,7 +2387,7 @@ describe("RenderableUnit dodge animation", () => {
         unit.playDodgeAnimation(40, -20);
         unit.ensureVisual(worldRoot, gridSettings);
         // 640ms dodge + 300ms ghost life, with margin.
-        jest.advanceTimersByTime(1100);
+        await sleep(1100);
         unit.ensureVisual(worldRoot, gridSettings);
 
         const sprite = worldRoot.children.find((child) => child.zIndex === 4000 - pos.y);

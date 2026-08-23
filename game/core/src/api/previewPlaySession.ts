@@ -17,7 +17,7 @@ import {
     GridSettings,
     GridVals,
     HoCConfig,
-    Doctrine,
+    Perk,
     PlacementPositionType,
     RectanglePlacement,
     TeamType,
@@ -38,12 +38,14 @@ import {
     type PlaySnapshot,
     type PlayUnitState,
 } from "./play_protocol";
-import { PREVIEW_PLACEMENT_GAME_ID } from "./previewPlayGate";
 
-export { PREVIEW_PLACEMENT_GAME_ID } from "./previewPlayGate";
+/** The one game id this fake session answers for. Anything else goes to the real API untouched. */
+export const PREVIEW_PLACEMENT_GAME_ID = "preview-placement";
 
 export const PREVIEW_LOWER_PLAYER_ID = "preview-player-lower";
 export const PREVIEW_UPPER_PLAYER_ID = "preview-player-upper";
+
+export const isPreviewPlayGame = (gameId: string): boolean => gameId === PREVIEW_PLACEMENT_GAME_ID;
 
 // Stack sizes, mirroring the server's pick->play bridge: a stack is worth ~1000 experience, and a
 // creature the config has no exp for falls back to a flat ten.
@@ -376,11 +378,11 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         centerDried: false,
         upNext: [],
         damageStats: [],
-        // The doctrine sets the augment budget the sidebar recaps. The opponent's doctrine, artifacts and
+        // The doctrine sets the augment budget the sidebar recaps. The opponent's perk, artifacts and
         // augments stay 0 before the fight starts — that redaction is the server's, and copying it keeps
         // the preview from showing information the real screen hides.
-        lowerDoctrine: viewerIsLower ? Doctrine.Doctrine.THREE_REVEALS : 0,
-        upperDoctrine: viewerIsLower ? 0 : Doctrine.Doctrine.THREE_REVEALS,
+        lowerPerk: viewerIsLower ? Perk.Perk.THREE_REVEALS : 0,
+        upperPerk: viewerIsLower ? 0 : Perk.Perk.THREE_REVEALS,
         lowerArtifactTier1: viewerIsLower ? 1 : 0,
         lowerArtifactTier2: viewerIsLower ? 1 : 0,
         upperArtifactTier1: viewerIsLower ? 0 : 1,

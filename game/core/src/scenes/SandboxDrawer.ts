@@ -52,11 +52,6 @@ export interface ILingeringTrack {
 
 export interface IGameplayDrawContext {
     fightProps: FightProperties;
-    /**
-     * Shot ranges are carried as `distance` = half-width of the FULL-DAMAGE square in world units
-     * (GridMath.getFullDamageSquareHalfExtent), not as a circle radius: the board floors the unit's
-     * fractional shot_distance stat to whole cells, so the drawn edge lands on a cell border.
-     */
     currentActiveShotRange?: { xy: HoCMath.XY; distance: number };
     shiftSelectedShotRange?: { xy: HoCMath.XY; distance: number }; // [NEW] Shift-click range
     hoveredShotRange?: { xy: HoCMath.XY; distance: number };
@@ -69,7 +64,7 @@ export interface IGameplayDrawContext {
     hoverManager: HoverManager;
     sidebarUnitRanges?: {
         xy: HoCMath.XY;
-        attackRange: number; // Half-width of the full-damage square, in world units
+        attackRange: number; // World distance radius
         auraRanges: { range: number; isBuff: boolean }[]; // Range in cells
         isSmall: boolean;
     };
@@ -202,7 +197,7 @@ export class SandboxDrawer {
             SandboxDrawer.drawRangeRing(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
         }
 
-        // 2. Full-damage shot square (Active Unit)
+        // 2. Shot range ring (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
             const { xy, distance } = currentActiveShotRange;
             SandboxDrawer.drawRangeRing(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
@@ -300,10 +295,7 @@ export class SandboxDrawer {
         pulsePhase: number,
         alphaMultiplier = 1.0,
     ): void {
-        const cellSize = gs.getCellSize();
-
-        // Attack Range: the same whole-cell full-damage square the active unit gets, in a thin cyan
-        // so the sidebar's read-only inspection stays distinct from the unit whose turn it is.
+        // Attack Range
         if (attackRange > 0) {
             // Style: Thin white/cyan ring, distinct from active unit
             SandboxDrawer.drawProjectedRing(g, xy, attackRange, gs, {
@@ -371,35 +363,7 @@ export class SandboxDrawer {
             }
         }
     }
-    /**
-     * The part of the shot square that is actually on the board. Cells outside the arena do not exist,
-     * so a shooter standing near an edge gets a truthful (clipped) area instead of a box hanging off
-     * the field. Returns undefined when nothing is left to draw.
-     */
-    private static clampSquareToBoard(
-        xy: HoCMath.XY,
-        halfExtent: number,
-        gs: GridSettings,
-    ): { left: number; bottom: number; width: number; height: number } | undefined {
-        const left = Math.max(xy.x - halfExtent, gs.getMinX());
-        const right = Math.min(xy.x + halfExtent, gs.getMaxX());
-        const bottom = Math.max(xy.y - halfExtent, gs.getMinY());
-        const top = Math.min(xy.y + halfExtent, gs.getMaxY());
-        const width = right - left;
-        const height = top - bottom;
-        if (width <= 0 || height <= 0) {
-            return undefined;
-        }
-
-        return { left, bottom, width, height };
-    }
-    /**
-     * The shooter's FULL-DAMAGE area: every cell inside this square takes an undivided 1/1 arrow, the
-     * next square band out takes 1/2, and so on (AttackHandler.getRangeAttackDivisor). It is a square of
-     * whole cells rather than a circle, so its border always falls on cell edges and the player can
-     * count the cells it covers - which is the whole point of showing it.
-     */
-    private static drawShotRangeSquare(
+    private static drawRangeRing(
         g: Graphics,
         xy: HoCMath.XY,
         distance: number,

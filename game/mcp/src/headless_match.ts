@@ -671,7 +671,7 @@ export class HeadlessMatch {
             units: units.map(serializeUnit),
             turnOrderPreview: units
                 .slice()
-                .sort((left, right) => right.getInitiative() - left.getInitiative())
+                .sort((left, right) => right.getSpeed() - left.getSpeed())
                 .map((unit) => unit.getId()),
             lastEvents,
         };

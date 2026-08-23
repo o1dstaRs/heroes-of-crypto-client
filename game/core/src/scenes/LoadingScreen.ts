@@ -226,7 +226,7 @@ export class LoadingScreen extends Container {
         this.dragonMedallion.height = LOADING_SCREEN_MEDALLION_ASSET_SIZE;
 
         this.loadingLabel = new Text({
-            text: tf("FORGING THE BATTLEFIELD   {percent}%", { percent: 0 }),
+            text: "FORGING THE BATTLEFIELD   0%",
             style: new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
                 fontSize: 27,
