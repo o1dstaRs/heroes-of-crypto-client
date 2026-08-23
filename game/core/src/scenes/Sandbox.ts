@@ -3779,6 +3779,9 @@ export class Sandbox extends PixiScene {
     ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
         const muzzle = attacker.getVisualCenter(gs);
+        // A projectile is only half of the shot: restart the shooter's attack atlas at launch so every
+        // Double Shot volley (and a ranged response) has a visible firing motion behind it.
+        attacker.playOneShotAnimation("attack");
         // Prefer the authoritative aimed edge (the engine records it as the animation toPosition) so
         // the replayed projectile lands where the shot was aimed, not on the target's center.
         const targetPosition = toPosition ?? target.getVisualCenter(gs);
@@ -8244,6 +8247,7 @@ export class Sandbox extends PixiScene {
         const big = BIG_PROJECTILE_UNITS.has(unit.getName().toLowerCase());
         const unitName = unit.getName().trim().toLowerCase();
         for (let shotIndex = 0; shotIndex < worldPositions.length; shotIndex += 1) {
+            unit.playOneShotAnimation("attack");
             await this.rangedProjectiles.fire({
                 from: muzzle,
                 to: worldPositions[shotIndex],
@@ -8820,6 +8824,7 @@ export class Sandbox extends PixiScene {
         const isDoubleShot = AbilityHelper.hasDoubleShotAbility(unit);
         // Shot ONE. Double Shot's second projectile is fired below, AFTER wave 1's numbers, so each shot's
         // damage pops in sync with its own throw instead of both landing at the end.
+        unit.playOneShotAnimation("attack");
         await this.rangedProjectiles.fire({
             from: muzzle,
             to: effectivePosition,
@@ -8871,6 +8876,7 @@ export class Sandbox extends PixiScene {
         const throwCount = Math.max(waves.length, isDoubleShot ? 2 : 1);
         let shownAnyWave = this.showSplashDamage(waves[0] ?? [], muzzle);
         for (let throwIndex = 1; throwIndex < throwCount; throwIndex++) {
+            unit.playOneShotAnimation("attack");
             await this.rangedProjectiles.fire({
                 from: muzzle,
                 to: effectivePosition,
@@ -9328,6 +9334,7 @@ export class Sandbox extends PixiScene {
             const bigProjectile = BIG_PROJECTILE_UNITS.has(attacker.getName().toLowerCase());
             // ABILITY Chakram (Zena): throw the spinning disc instead of a bolt. Gated on the ABILITY, not
             // the creature name, so a stolen/granted Chakram throws one too — and a Broken one does not.
+            attacker.playOneShotAnimation("attack");
             await this.rangedProjectiles.fire({
                 from: muzzle,
                 to: shotTarget,
@@ -9396,6 +9403,7 @@ export class Sandbox extends PixiScene {
                 const bigResponse = BIG_PROJECTILE_UNITS.has(target.getName().toLowerCase());
                 // The RESPONDER throws its own weapon: a counter-shooting Zena sends the chakram back, not a
                 // bolt. Gated on the responder's ability, mirroring the outgoing shot.
+                target.playOneShotAnimation("attack");
                 void this.rangedProjectiles.fire({
                     from: responseMuzzle,
                     to: responseEdge,
