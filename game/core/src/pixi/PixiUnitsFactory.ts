@@ -154,6 +154,12 @@ const UNIT_ATLAS_ANIMATION_ENABLED: boolean = false;
 export const usesUnitAtlasAnimation = (unitName: string): boolean =>
     UNIT_ATLAS_ANIMATION_ENABLED && !UNIT_ATLAS_ANIMATION_EXCLUSIONS.has(unitName.trim());
 
+/** Whether the per-unit atlas animation feature is on AT ALL — gates the supplementary atlas
+ * download (see PixiGameManager): while the owner keeps it off, downloading + decoding ~1,000 atlas
+ * WebPs mid-fight costs real frame time (live report: projectile flights hitching) to warm textures
+ * nothing renders. */
+export const isUnitAtlasAnimationEnabled = (): boolean => UNIT_ATLAS_ANIMATION_ENABLED;
+
 export const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
     if (textureType === TextureType.LARGE) return `${base}_512`;

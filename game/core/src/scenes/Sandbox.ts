@@ -2414,7 +2414,10 @@ export class Sandbox extends PixiScene {
         // out. In ranked this rebuild fires on the snapshot that lands right after a replayed action, so
         // clearing them wholesale cut the Craft forge (and its result pops) off almost immediately.
         this.combatVisuals.clear({ keepDetachedOverlays: true });
-        this.rangedProjectiles.clear();
+        // Same reasoning as keepDetachedOverlays: an in-flight projectile depicts a shot the server
+        // already resolved, and this rebuild routinely lands WHILE it is still flying. Destroying it
+        // here was the "projectile sometimes disappears" live report; it lands on its own a beat later.
+        this.rangedProjectiles.clear({ keepInFlight: true });
 
         const existingUnits = Array.from(this.unitsHolder.getAllUnits().values()) as RenderableUnit[];
         // Computed BEFORE the preserve pass below (and reused by the render loop): which units THIS

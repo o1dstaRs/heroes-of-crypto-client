@@ -329,8 +329,19 @@ export class RangedProjectiles {
         this.updateRockImpacts(dt);
         this.updateCannonExplosions(dt);
     }
-    /** Destroy all in-flight projectiles (e.g. fight reset). Resolves awaiters so callers don't hang. */
-    public clear(): void {
+    /**
+     * Destroy all in-flight projectiles (e.g. fight reset). Resolves awaiters so callers don't hang.
+     *
+     * `keepInFlight` is for the RANKED BOARD REBUILD, which fires on the snapshot landing right after
+     * a replayed action — i.e. routinely WHILE the shot that caused it is still flying. A projectile
+     * (like a rock impact or cannon blast) describes an event that already resolved and is anchored to
+     * the world root, not to any unit the rebuild replaces — cutting it off mid-air was the live
+     * "projectile sometimes disappears" report. Kept flights land and resolve normally a beat later.
+     */
+    public clear(options: { keepInFlight?: boolean } = {}): void {
+        if (options.keepInFlight) {
+            return;
+        }
         for (const p of this.projectiles) {
             p.sprite?.destroy();
             p.g.destroy();

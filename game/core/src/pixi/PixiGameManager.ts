@@ -318,6 +318,7 @@ export class PixiGameManager {
         this.onLoadingChanged.emit(true);
 
         const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
+        const { isUnitAtlasAnimationEnabled } = await import("./PixiUnitsFactory");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
@@ -365,26 +366,24 @@ export class PixiGameManager {
 
         this.LoadGame();
 
-        // 5. Tier 2: Background Load Animations
-        // We can pass a callback to update UI if needed
-        preloadAnimationAssets((p) => {
-            if (!isCurrentLifecycle()) return;
-            // TODO: Emit signal to UI / Scene about progress
-            // For now just log
-            // console.log("Background Asset Load:", p);
-            this.m_scene?.onBackgroundAssetLoad?.(p);
-        }).then((newTextures) => {
-            if (!isCurrentLifecycle()) return;
-            this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
-            // Notify scene that assets are fully ready?
-            // Ideally Pixi handles texture updates automatically if we reference them by new Texture objects?
-            // Actually Pixi Assets cache uses string keys. If we request texture by name, it should appear.
-            // But existing Sprites showing "missing" texture won't auto-update unless re-assigned.
-            // However, separating "Core" vs "Anim" likely means TIER 2 assets are ONLY used for animations
-            // that trigger LATER. If user tries to play animation immediately, it might be missing.
-            // We'll rely on the fact that these are mostly specialized animations.
-            this.m_scene?.onBackgroundAssetLoad?.(1.0);
-        });
+        // 5. Tier 2: Background Load Animations — ONLY while the unit-atlas feature is actually on.
+        // With it owner-disabled, this download/decode of ~1,000 atlas WebPs ran DURING live fights
+        // and its decode bursts stole frame time from everything dt-driven (the live report was
+        // projectile flights hitching), warming textures nothing would render. Flipping
+        // UNIT_ATLAS_ANIMATION_ENABLED back on restores the supplementary load unchanged; any
+        // consumer that races it still lazy-resolves through texAny's raw-URL fallback.
+        if (isUnitAtlasAnimationEnabled()) {
+            preloadAnimationAssets((p) => {
+                if (!isCurrentLifecycle()) return;
+                this.m_scene?.onBackgroundAssetLoad?.(p);
+            }).then((newTextures) => {
+                if (!isCurrentLifecycle()) return;
+                this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
+                // Existing sprites created before the load won't auto-update, but Tier 2 assets are
+                // only used for animations triggered later; a race lazy-resolves via texAny.
+                this.m_scene?.onBackgroundAssetLoad?.(1.0);
+            });
+        }
 
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {
