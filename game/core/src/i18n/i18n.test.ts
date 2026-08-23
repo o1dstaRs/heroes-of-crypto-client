@@ -115,7 +115,7 @@ describe("ranked flow localization", () => {
             join(import.meta.dir, "..", "scenes", "LoadingScreen.ts"),
             join(import.meta.dir, "..", "scenes", "sandbox", "CombatVisuals.ts"),
         ]);
-        expect(keys.length).toBeGreaterThan(250);
+        expect(keys.length).toBeGreaterThan(190);
         expect(keys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
     });
 

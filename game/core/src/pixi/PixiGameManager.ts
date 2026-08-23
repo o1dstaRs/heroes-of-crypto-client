@@ -780,6 +780,13 @@ export class PixiGameManager {
         this.m_scene?.Destroy();
         this.started = false;
         this.lastAuthoritativeViewportKey = "";
+        if (_restartScene) {
+            this.onSelectionCombined.emit({
+                unit: null,
+                impact: null,
+                faction: FactionVals.NO_FACTION as FactionType,
+            });
+        }
 
         const gridSettings = new GridSettings(32, 1024, 0, 1024, 0, 32, 16);
 

@@ -176,8 +176,8 @@ describe("lava animation tuning", () => {
         expect(lavaPitLightIntensityAtTime(staticLight, 0)).toBe(lavaPitLightIntensityAtTime(staticLight, 10));
 
         const pulsing = normalizeLavaAnimationTuning({ pitLightIntensity: 0.8, pitLightPulseAmount: 1 });
-        expect(Math.abs(lavaPitLightIntensityAtTime(pulsing, 0) - lavaPitLightIntensityAtTime(pulsing, 1))).toBeGreaterThan(
-            0.05,
-        );
+        expect(
+            Math.abs(lavaPitLightIntensityAtTime(pulsing, 0) - lavaPitLightIntensityAtTime(pulsing, 1)),
+        ).toBeGreaterThan(0.05);
     });
 });

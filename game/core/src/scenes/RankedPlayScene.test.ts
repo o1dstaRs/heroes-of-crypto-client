@@ -1713,9 +1713,9 @@ describe("ranked ability-transfer scene log", () => {
 // both boards must share. Sandbox.ts used to restate it locally, which meant a ranked-side change left the
 // sandbox scattering the old number — the whole point of importing it from common now.
 describe("cemetery stone count", () => {
-    test("is nine, and ranked derives exactly that many", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBe(9);
-        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(9);
+    test("matches common, and ranked derives exactly that many", () => {
+        expect(SCATTERED_MOUNTAIN_COUNT).toBe(12);
+        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(12);
     });
 
     test("fits the neutral band with room to spare", () => {

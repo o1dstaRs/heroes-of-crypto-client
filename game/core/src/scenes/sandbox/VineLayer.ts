@@ -37,9 +37,7 @@ export interface IVineCell {
 }
 
 /** Resolve a board cell to its world centre; returns undefined for a cell that is off-grid. */
-export type ToWorld = (
-    cell: HoCMath.XY,
-) => (HoCMath.XY & { cellSize?: number; cellPoints?: number[] }) | undefined;
+export type ToWorld = (cell: HoCMath.XY) => (HoCMath.XY & { cellSize?: number; cellPoints?: number[] }) | undefined;
 
 /** Seconds a vine takes to creep in when thrown / wither out once the engine drops it. */
 const CREEP_SECONDS = 0.42;

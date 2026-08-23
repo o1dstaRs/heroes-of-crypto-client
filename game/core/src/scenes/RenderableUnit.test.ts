@@ -89,6 +89,7 @@ import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } fr
 import { BATTLEFIELD_CREATURE_FRAMING } from "../ui/battlefieldCreatureFraming";
 import { BATTLEFIELD_SHADOW_TUNING_BY_CREATURE } from "../ui/battlefieldShadowTuning";
 import { BATTLEFIELD_HEIGHT_RATIO } from "../pixi/boardFit";
+import { animationAtlases } from "../generated/animation_atlases";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -105,6 +106,9 @@ const sceneLog: ISceneLog = {
     updateLog: () => undefined,
     hasBeenUpdated: () => false,
 };
+
+/** Private animation metadata is generated locally; CI deliberately exercises only asset-independent cases. */
+const assetTest = Object.keys(animationAtlases).length > 0 ? test : test.skip;
 
 function createRenderableUnit(
     team: TeamType,
@@ -141,7 +145,7 @@ afterEach(() => {
 });
 
 describe("battlefield movement preview", () => {
-    test("matches the exact rendered ground point after moving to the destination cell", () => {
+    assetTest("matches the exact rendered ground point after moving to the destination cell", () => {
         const unit = createRenderableUnit(TeamVals.UPPER, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         const origin = { x: 384, y: 640 };
         const destination = { x: 896, y: 1024 };
@@ -488,7 +492,7 @@ describe("full-body model ground line", () => {
         expect(tallBoardModelFootAnchorY("Future Unit", "idle", { footAnchorY: 0.9 })).toBe(0.9);
     });
 
-    test("keeps Orc, Scavenger and Wandering Mage planted through every authored board state", () => {
+    assetTest("keeps Orc, Scavenger and Wandering Mage planted through every authored board state", () => {
         type GroundedInternals = {
             sprite?: { y: number; anchor: { y: number } };
         };
@@ -538,7 +542,7 @@ describe("full-body model ground line", () => {
         }
     });
 
-    test("lifts only Arbalester, Blacksmith and Leprechaun by their requested bottom insets", () => {
+    assetTest("lifts only Arbalester, Blacksmith and Leprechaun by their requested bottom insets", () => {
         type PositionedInternals = { sprite?: { y: number } };
         const cell = gridSettings.getCellSize();
         const positionY = 1024;
@@ -838,7 +842,7 @@ test("mirrors the authored horizontal placement correction together with the cre
     expect(leftFacingOffset).toBeCloseTo(-rightFacingOffset, 8);
 });
 
-test("mirrors Centaur to the requested opposite orientation and keeps turn poses outside the gait loop", () => {
+assetTest("mirrors Centaur to the requested opposite orientation and keeps turn poses outside the gait loop", () => {
     const unit = createRenderableUnit(TeamVals.LOWER, "Might", "Centaur", "centaur_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { scale: { x: number; y: number } };
@@ -873,7 +877,7 @@ test("mirrors Centaur to the requested opposite orientation and keeps turn poses
     expect(internals.sprite?.scale.x).toBeLessThan(0);
 });
 
-test("plays Dryad's reversed run between one-shot turn poses", () => {
+assetTest("plays Dryad's reversed run between one-shot turn poses", () => {
     const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
@@ -907,7 +911,7 @@ test("plays Dryad's reversed run between one-shot turn poses", () => {
     expect(internals.walkAnim).toBeUndefined();
 });
 
-test("plays Wolf Rider's faster gait between one-shot turn poses", () => {
+assetTest("plays Wolf Rider's faster gait between one-shot turn poses", () => {
     const unit = createRenderableUnit(TeamVals.LOWER, "Might", "Wolf Rider", "wolf_rider_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
@@ -941,7 +945,7 @@ test("plays Wolf Rider's faster gait between one-shot turn poses", () => {
     expect(internals.walkAnim).toBeUndefined();
 });
 
-test("plays Leprechaun's slow two-pose run between one-shot start and finish frames", () => {
+assetTest("plays Leprechaun's slow two-pose run between one-shot start and finish frames", () => {
     const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Leprechaun", "leprechaun_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
@@ -985,7 +989,7 @@ test("plays Leprechaun's slow two-pose run between one-shot start and finish fra
     expect(internals.walkAnim).toBeUndefined();
 });
 
-test("speeds Fairy take-off and landing by 30% while flight remains 20% faster", () => {
+assetTest("speeds Fairy take-off and landing by 30% while flight remains 20% faster", () => {
     const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Fairy", "fairy_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
@@ -1109,7 +1113,7 @@ describe("Wandering Mage board animation states", () => {
         return unit;
     };
 
-    test("starts its eight-frame breathing/fire cycle without requiring selection", () => {
+    assetTest("starts its eight-frame breathing/fire cycle without requiring selection", () => {
         const unit = createAshMoth();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1118,7 +1122,7 @@ describe("Wandering Mage board animation states", () => {
         expect(internals.sprite?.texture.height).toBe(192);
     });
 
-    test("uses the Orc-strength full-body breath and leaves its boots unobstructed", () => {
+    assetTest("uses the Orc-strength full-body breath and leaves its boots unobstructed", () => {
         const unit = createAshMoth();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1130,7 +1134,7 @@ describe("Wandering Mage board animation states", () => {
         expect(internals.stackPowerContainer).toBeUndefined();
     });
 
-    test("temporarily switches to walk, mirrors left, then resumes idle", () => {
+    assetTest("temporarily switches to walk, mirrors left, then resumes idle", () => {
         const unit = createAshMoth();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1157,7 +1161,7 @@ describe("Wandering Mage board animation states", () => {
         expect(internals.sprite?.texture.width).toBe(144);
     });
 
-    test("maps one complete six-pose gait to exactly two travelled cells", () => {
+    assetTest("maps one complete six-pose gait to exactly two travelled cells", () => {
         const unit = createAshMoth();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1179,7 +1183,7 @@ describe("Wandering Mage board animation states", () => {
         expect(internals.walkAnim).toBeUndefined();
     });
 
-    test("exposes the complete action set and preserves action-frame proportions", () => {
+    assetTest("exposes the complete action set and preserves action-frame proportions", () => {
         const unit = createAshMoth();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1256,7 +1260,7 @@ describe("Orc authored animation states", () => {
         ).toBeUndefined();
     });
 
-    test("writes every axe-flourish texture to the live sprite after four local breathing cycles", () => {
+    assetTest("writes every axe-flourish texture to the live sprite after four local breathing cycles", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
         const breathingWindow = ORC_IDLE_BREATH_PERIOD_MS * ORC_IDLE_BREATH_CYCLES_PER_AXE_TWIRL;
@@ -1271,7 +1275,7 @@ describe("Orc authored animation states", () => {
         expect(internals.selectionAnimFrames).toContain(internals.sprite?.texture);
     });
 
-    test("battle-cries immediately on turn start, breathes five times, then repeats", () => {
+    assetTest("battle-cries immediately on turn start, breathes five times, then repeats", () => {
         const cryWindow = ORC_ACTIVE_BATTLE_CRY_FRAME_DURATION_MS * 6;
         const breathingWindow = ORC_IDLE_BREATH_PERIOD_MS * ORC_ACTIVE_BATTLE_CRY_BREATH_CYCLES;
 
@@ -1304,7 +1308,7 @@ describe("Orc authored animation states", () => {
         expect(internals.isShowingOrcBattleCryFrame).toBe(false);
     });
 
-    test("prefers the authored idle loop and exposes the complete ranged and melee action sets", () => {
+    assetTest("prefers the authored idle loop and exposes the complete ranged and melee action sets", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1342,7 +1346,7 @@ describe("Orc authored animation states", () => {
         );
     });
 
-    test("plays turn-in once, loops seven gait poses, mirrors by direction, then plays turn-back once", () => {
+    assetTest("plays turn-in once, loops seven gait poses, mirrors by direction, then plays turn-back once", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1379,7 +1383,7 @@ describe("Orc authored animation states", () => {
         expect(internals.selectionAnimFrames).toHaveLength(8);
     });
 
-    test("locks movement sway to the authored gait frame without changing walk cadence", () => {
+    assetTest("locks movement sway to the authored gait frame without changing walk cadence", () => {
         const unit = createOrc();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1454,7 +1458,7 @@ describe("Troll full-body battlefield figure", () => {
         expect(rectangularScreenHeight).toBeCloseTo(referenceScreenHeight);
     });
 
-    test("uses the refreshed authored idle and walk atlases at exactly one by one-and-a-half cells", () => {
+    assetTest("uses the refreshed authored idle and walk atlases at exactly one by one-and-a-half cells", () => {
         const unit = createTroll();
         const internals = unit as unknown as AnimationInternals;
         const cellSize = gridSettings.getCellSize();
@@ -1516,7 +1520,8 @@ describe("refreshed full-body placement scale", () => {
         ["Chaos", "Efreet"],
         ["Chaos", "Black Dragon"],
     ] as const) {
-        test(`keeps ${creature}'s authored proportions and size when it lands`, () => {
+        const placementTest = creature === "Efreet" ? test : assetTest;
+        placementTest(`keeps ${creature}'s authored proportions and size when it lands`, () => {
             const unit = createRenderableUnit(
                 TeamVals.LOWER,
                 faction,
@@ -1557,7 +1562,7 @@ describe("refreshed authored action playback", () => {
         return unit;
     };
 
-    test("walk advances atlas textures and never receives legacy whole-sprite rocking", () => {
+    assetTest("walk advances atlas textures and never receives legacy whole-sprite rocking", () => {
         const unit = createTroglodyte();
         const internals = unit as unknown as AnimationInternals;
         unit.startBoardWalkAnimation(1);
@@ -1588,7 +1593,7 @@ describe("refreshed authored action playback", () => {
     });
 
     for (const state of ["attack", "attack_up", "attack_down", "hit"] as const) {
-        test(`${state} advances the authored one-shot textures`, () => {
+        assetTest(`${state} advances the authored one-shot textures`, () => {
             const unit = createTroglodyte();
             const internals = unit as unknown as AnimationInternals;
             expect(unit.playOneShotAnimation(state)).toBe(true);
@@ -1608,7 +1613,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         refreshedIdlePhaseRatio: number;
     };
 
-    test("renders Wolf at a compact rider-like height with the approved independent width and height", () => {
+    assetTest("renders Wolf at a compact rider-like height with the approved independent width and height", () => {
         const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
@@ -1677,7 +1682,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         }
     });
 
-    test("slows refreshed idle loops by 23 percent and assigns stable per-unit phases", () => {
+    assetTest("slows refreshed idle loops by 23 percent and assigns stable per-unit phases", () => {
         const first = createRenderableUnit(
             TeamVals.LOWER,
             "Chaos",
@@ -1710,7 +1715,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(firstInternals.refreshedIdlePhaseRatio).not.toBe(secondInternals.refreshedIdlePhaseRatio);
     });
 
-    test("temporarily freezes every creature sprite-sheet animation on its first authored frame", () => {
+    assetTest("temporarily freezes every creature sprite-sheet animation on its first authored frame", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
@@ -1733,7 +1738,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(internals.sprite?.texture).toBe(firstIdleFrame);
     });
 
-    test("keeps only the approved Peasant walk active while the global animation freeze is enabled", () => {
+    assetTest("keeps only the approved Peasant walk active while the global animation freeze is enabled", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
         expect(creatureWalkAnimationEnabledForUnit("Peasant")).toBe(true);
         expect(creatureWalkAnimationEnabledForUnit("Troglodyte")).toBe(false);
@@ -1810,7 +1815,7 @@ describe("Scavenger thief visual replacement", () => {
         return unit;
     };
 
-    test("uses the complete thief animation set at Squire's visible height", () => {
+    assetTest("uses the complete thief animation set at Squire's visible height", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
 
@@ -1880,7 +1885,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.spawnAnim?.startScaleY).toBe(internals.spawnAnim?.endScaleY);
     });
 
-    test("twirls both blades after four inactive breaths and battle-cries immediately on its active turn", () => {
+    assetTest("twirls both blades after four inactive breaths and battle-cries immediately on its active turn", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
         const idleWindow = 2800 * SCAVENGER_IDLE_BREATH_CYCLES_PER_BLADE_TWIRL;
@@ -1923,7 +1928,7 @@ describe("Scavenger thief visual replacement", () => {
         expect(internals.sprite?.texture).toBe(internals.scavengerActiveBattleCryFrames?.[0]);
     });
 
-    test("plays the entry once, repeats only the six walking poses, and keeps the outro out of the loop", () => {
+    assetTest("plays the entry once, repeats only the six walking poses, and keeps the outro out of the loop", () => {
         const unit = createScavenger();
         const internals = unit as unknown as AnimationInternals;
 
@@ -2080,7 +2085,8 @@ describe("RenderableUnit revealed roster card", () => {
     // returns null, which pixi already handles by falling back to mediump precision.
     if (!("document" in globalThis)) {
         (globalThis as { document?: unknown }).document = {
-            createElement: () => ({ getContext: () => null }),
+            createElement: () => ({ getContext: () => null, setAttribute: () => undefined }),
+            querySelector: () => null,
         };
     }
 

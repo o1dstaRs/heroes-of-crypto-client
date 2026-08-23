@@ -169,14 +169,39 @@ export const normalizeLavaAnimationTuning = (value: Partial<LavaAnimationTuning>
         fire2Contrast: clamp(value?.fire2Contrast, DEFAULT_LAVA_ANIMATION_TUNING.fire2Contrast, 0.25, 2.5),
         fire2Speed: clamp(value?.fire2Speed, DEFAULT_LAVA_ANIMATION_TUNING.fire2Speed, 0.1, 3),
         fire2FrameOffset: Math.round(
-            clamp(value?.fire2FrameOffset, DEFAULT_LAVA_ANIMATION_TUNING.fire2FrameOffset, 0, LAVA_ANIMATION_FRAME_COUNT - 1),
+            clamp(
+                value?.fire2FrameOffset,
+                DEFAULT_LAVA_ANIMATION_TUNING.fire2FrameOffset,
+                0,
+                LAVA_ANIMATION_FRAME_COUNT - 1,
+            ),
         ),
         fireMaskShape: fireMaskShapeValue(value?.fireMaskShape),
         fireMaskWidthCells: clamp(value?.fireMaskWidthCells, DEFAULT_LAVA_ANIMATION_TUNING.fireMaskWidthCells, 0.25, 6),
-        fireMaskHeightCells: clamp(value?.fireMaskHeightCells, DEFAULT_LAVA_ANIMATION_TUNING.fireMaskHeightCells, 0.25, 6),
-        fireMaskShiftXCells: clamp(value?.fireMaskShiftXCells, DEFAULT_LAVA_ANIMATION_TUNING.fireMaskShiftXCells, -3, 3),
-        fireMaskShiftYCells: clamp(value?.fireMaskShiftYCells, DEFAULT_LAVA_ANIMATION_TUNING.fireMaskShiftYCells, -3, 3),
-        fireMaskRotationDeg: clamp(value?.fireMaskRotationDeg, DEFAULT_LAVA_ANIMATION_TUNING.fireMaskRotationDeg, -180, 180),
+        fireMaskHeightCells: clamp(
+            value?.fireMaskHeightCells,
+            DEFAULT_LAVA_ANIMATION_TUNING.fireMaskHeightCells,
+            0.25,
+            6,
+        ),
+        fireMaskShiftXCells: clamp(
+            value?.fireMaskShiftXCells,
+            DEFAULT_LAVA_ANIMATION_TUNING.fireMaskShiftXCells,
+            -3,
+            3,
+        ),
+        fireMaskShiftYCells: clamp(
+            value?.fireMaskShiftYCells,
+            DEFAULT_LAVA_ANIMATION_TUNING.fireMaskShiftYCells,
+            -3,
+            3,
+        ),
+        fireMaskRotationDeg: clamp(
+            value?.fireMaskRotationDeg,
+            DEFAULT_LAVA_ANIMATION_TUNING.fireMaskRotationDeg,
+            -180,
+            180,
+        ),
         alpha: clamp(value?.alpha, DEFAULT_LAVA_ANIMATION_TUNING.alpha, 0, 1.5),
         brightness: clamp(value?.brightness, DEFAULT_LAVA_ANIMATION_TUNING.brightness, 0.25, 2.5),
         saturation: clamp(value?.saturation, DEFAULT_LAVA_ANIMATION_TUNING.saturation, 0, 2.5),
@@ -197,12 +222,7 @@ export const normalizeLavaAnimationTuning = (value: Partial<LavaAnimationTuning>
         pitLightEnabled: booleanValue(value?.pitLightEnabled, DEFAULT_LAVA_ANIMATION_TUNING.pitLightEnabled),
         pitLightIntensity: clamp(value?.pitLightIntensity, DEFAULT_LAVA_ANIMATION_TUNING.pitLightIntensity, 0, 2),
         pitLightRadius: clamp(value?.pitLightRadius, DEFAULT_LAVA_ANIMATION_TUNING.pitLightRadius, 0.15, 1),
-        pitLightPulseAmount: clamp(
-            value?.pitLightPulseAmount,
-            DEFAULT_LAVA_ANIMATION_TUNING.pitLightPulseAmount,
-            0,
-            1,
-        ),
+        pitLightPulseAmount: clamp(value?.pitLightPulseAmount, DEFAULT_LAVA_ANIMATION_TUNING.pitLightPulseAmount, 0, 1),
         pitLightWarmth: clamp(value?.pitLightWarmth, DEFAULT_LAVA_ANIMATION_TUNING.pitLightWarmth, 0, 1),
         splashesEnabled: booleanValue(value?.splashesEnabled, DEFAULT_LAVA_ANIMATION_TUNING.splashesEnabled),
         splashRate: clamp(value?.splashRate, DEFAULT_LAVA_ANIMATION_TUNING.splashRate, 0, 5),
@@ -293,8 +313,7 @@ export const lavaFireLightEnvelopeAtTime = (
     edgeCount = 4,
 ): LavaFireLightEnvelope => {
     const t = Math.max(0, nowSeconds) * tuning.lightPulseSpeed;
-    const pulse =
-        Math.sin(t * 3.7) * 0.52 + Math.sin(t * 7.9 + 1.1) * 0.34 + Math.sin(t * 15.3 + 2.7) * 0.14;
+    const pulse = Math.sin(t * 3.7) * 0.52 + Math.sin(t * 7.9 + 1.1) * 0.34 + Math.sin(t * 15.3 + 2.7) * 0.14;
     const clampAlpha = (value: number): number => Math.max(0, Math.min(1, value));
 
     // Intensity is applied only once at the common root. The previous path multiplied it at both

@@ -2027,29 +2027,26 @@ export class RankedPlayScene extends Sandbox {
             this.refreshGridMatrices();
         }
     }
-    /**
-     * Self-heal grid occupancy from the authoritative snapshot (see reconcileRankedGridOccupancy). On a
-     * fix, also snap the unit's logical position to its authoritative cells (idempotent for units that
-     * merely missed their grid registration) and re-derive the cached path matrices so the next movement
-     * preview paths the REAL board instead of the stale one.
-     */
+    /** Self-heal both grid occupancy and stale renderable geometry from the authoritative snapshot. */
     private healRankedGridOccupancy(units: SandboxSceneUnitState[]): void {
         const fixed = reconcileRankedGridOccupancy(this.grid, units);
-        if (!fixed.length) {
-            return;
-        }
-        for (const id of fixed) {
+        const occupancyFixed = new Set(fixed);
+        let geometryFixed = false;
+        for (const unitState of units) {
+            if (unitState.dead || !unitState.cells.length) continue;
+            const id = unitState.properties.id;
             const unit = this.unitsHolder.getAllUnits().get(id) as RenderableUnit | undefined;
-            const unitState = units.find((u) => u.properties.id === id);
-            if (!unit || !unitState) {
+            if (!unit || unit.isDead()) continue;
+            if (!occupancyFixed.has(id) && rankedUnitCellsMatchAuthoritative(unit.getCells(), unitState.cells))
                 continue;
-            }
             const position = GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), unitState.cells);
             if (position) {
                 unit.setPosition(position.x, position.y);
                 unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
+                geometryFixed = true;
             }
         }
+        if (!fixed.length && !geometryFixed) return;
         this.refreshGridMatrices();
         this.unitsHolder.refreshStackPowerForAllUnits();
     }

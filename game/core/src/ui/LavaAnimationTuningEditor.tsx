@@ -26,9 +26,10 @@ const readFirePitEditorTuning = (): LavaAnimationTuning => {
     const firstFrame = Math.min(stored.firstFrame, lastIndex);
     const wasLegacyShortRange = stored.firstFrame === 0 && (stored.lastFrame === 8 || stored.lastFrame === 23);
     const wasPreviousSmoothRange = stored.firstFrame === 0 && stored.lastFrame === 47;
-    const lastFrame = wasLegacyShortRange || wasPreviousSmoothRange
-        ? lastIndex
-        : Math.min(Math.max(firstFrame, stored.lastFrame), lastIndex);
+    const lastFrame =
+        wasLegacyShortRange || wasPreviousSmoothRange
+            ? lastIndex
+            : Math.min(Math.max(firstFrame, stored.lastFrame), lastIndex);
     return normalizeLavaAnimationTuning({
         ...stored,
         fps: wasPreviousSmoothRange && stored.fps === 43 ? DEFAULT_LAVA_ANIMATION_TUNING.fps : stored.fps,
@@ -187,7 +188,6 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
         writeStoredLavaAnimationTuning(tuning);
         return () => setLavaAnimationEditorActive(false);
         // This mount-only normalization upgrades stale 9/24/48-frame editor ranges to the current 64 frames.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -323,8 +323,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                         </Button>
                     </Box>
                     <Typography level="body-xs" sx={{ mt: 0.4, color: hocColors.muted }}>
-                        Огненная яма 4×4 · 64 плавных кадра · неподвижная рамка · Space: пауза · ←/→: кадр · R:
-                        реверс
+                        Огненная яма 4×4 · 64 плавных кадра · неподвижная рамка · Space: пауза · ←/→: кадр · R: реверс
                     </Typography>
 
                     <SectionTitle>Пресеты</SectionTitle>
@@ -544,9 +543,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                         suffix="%"
                         onChange={(percent) => {
                             const fireScaleX = percent / 100;
-                            updateTuning(
-                                lockFireRatio ? { fireScaleX, fireScaleY: fireScaleX } : { fireScaleX },
-                            );
+                            updateTuning(lockFireRatio ? { fireScaleX, fireScaleY: fireScaleX } : { fireScaleX });
                         }}
                     />
                     <ValueControl
@@ -558,9 +555,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                         suffix="%"
                         onChange={(percent) => {
                             const fireScaleY = percent / 100;
-                            updateTuning(
-                                lockFireRatio ? { fireScaleX: fireScaleY, fireScaleY } : { fireScaleY },
-                            );
+                            updateTuning(lockFireRatio ? { fireScaleX: fireScaleY, fireScaleY } : { fireScaleY });
                         }}
                     />
                     <ValueControl
@@ -630,12 +625,8 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                                     label === "◎"
                                         ? updateTuning({ fireShiftXCells: 0, fireShiftYCells: 0 })
                                         : updateTuning({
-                                              fireShiftXCells: roundValue(
-                                                  tuning.fireShiftXCells + Number(dx),
-                                              ),
-                                              fireShiftYCells: roundValue(
-                                                  tuning.fireShiftYCells + Number(dy),
-                                              ),
+                                              fireShiftXCells: roundValue(tuning.fireShiftXCells + Number(dx)),
+                                              fireShiftYCells: roundValue(tuning.fireShiftYCells + Number(dy)),
                                           })
                                 }
                             >
@@ -694,9 +685,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                         suffix="%"
                         onChange={(percent) => {
                             const fire2ScaleX = percent / 100;
-                            updateTuning(
-                                lockFire2Ratio ? { fire2ScaleX, fire2ScaleY: fire2ScaleX } : { fire2ScaleX },
-                            );
+                            updateTuning(lockFire2Ratio ? { fire2ScaleX, fire2ScaleY: fire2ScaleX } : { fire2ScaleX });
                         }}
                     />
                     <ValueControl
@@ -708,27 +697,87 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                         suffix="%"
                         onChange={(percent) => {
                             const fire2ScaleY = percent / 100;
-                            updateTuning(
-                                lockFire2Ratio ? { fire2ScaleX: fire2ScaleY, fire2ScaleY } : { fire2ScaleY },
-                            );
+                            updateTuning(lockFire2Ratio ? { fire2ScaleX: fire2ScaleY, fire2ScaleY } : { fire2ScaleY });
                         }}
                     />
-                    <ValueControl label="Сдвиг 2 X" value={tuning.fire2ShiftXCells} min={-2} max={2} step={0.005} suffix="кл." onChange={(fire2ShiftXCells) => updateTuning({ fire2ShiftXCells })} />
-                    <ValueControl label="Сдвиг 2 Y" value={tuning.fire2ShiftYCells} min={-2} max={2} step={0.005} suffix="кл." onChange={(fire2ShiftYCells) => updateTuning({ fire2ShiftYCells })} />
-                    <ValueControl label="Прозр. огня 2" value={tuning.fire2Alpha} min={0} max={1.5} step={0.01} onChange={(fire2Alpha) => updateTuning({ fire2Alpha })} />
-                    <ValueControl label="Яркость огня 2" value={tuning.fire2Brightness} min={0.25} max={2.5} step={0.01} onChange={(fire2Brightness) => updateTuning({ fire2Brightness })} />
-                    <ValueControl label="Насыщ. огня 2" value={tuning.fire2Saturation} min={0} max={2.5} step={0.01} onChange={(fire2Saturation) => updateTuning({ fire2Saturation })} />
-                    <ValueControl label="Контраст огня 2" value={tuning.fire2Contrast} min={0.25} max={2.5} step={0.01} onChange={(fire2Contrast) => updateTuning({ fire2Contrast })} />
-                    <ValueControl label="Скорость огня 2" value={tuning.fire2Speed} min={0.1} max={3} step={0.01} suffix="×" onChange={(fire2Speed) => updateTuning({ fire2Speed })} />
-                    <ValueControl label="Фаза огня 2" value={tuning.fire2FrameOffset} min={0} max={63} step={1} suffix="кадр" onChange={(fire2FrameOffset) => updateTuning({ fire2FrameOffset })} />
+                    <ValueControl
+                        label="Сдвиг 2 X"
+                        value={tuning.fire2ShiftXCells}
+                        min={-2}
+                        max={2}
+                        step={0.005}
+                        suffix="кл."
+                        onChange={(fire2ShiftXCells) => updateTuning({ fire2ShiftXCells })}
+                    />
+                    <ValueControl
+                        label="Сдвиг 2 Y"
+                        value={tuning.fire2ShiftYCells}
+                        min={-2}
+                        max={2}
+                        step={0.005}
+                        suffix="кл."
+                        onChange={(fire2ShiftYCells) => updateTuning({ fire2ShiftYCells })}
+                    />
+                    <ValueControl
+                        label="Прозр. огня 2"
+                        value={tuning.fire2Alpha}
+                        min={0}
+                        max={1.5}
+                        step={0.01}
+                        onChange={(fire2Alpha) => updateTuning({ fire2Alpha })}
+                    />
+                    <ValueControl
+                        label="Яркость огня 2"
+                        value={tuning.fire2Brightness}
+                        min={0.25}
+                        max={2.5}
+                        step={0.01}
+                        onChange={(fire2Brightness) => updateTuning({ fire2Brightness })}
+                    />
+                    <ValueControl
+                        label="Насыщ. огня 2"
+                        value={tuning.fire2Saturation}
+                        min={0}
+                        max={2.5}
+                        step={0.01}
+                        onChange={(fire2Saturation) => updateTuning({ fire2Saturation })}
+                    />
+                    <ValueControl
+                        label="Контраст огня 2"
+                        value={tuning.fire2Contrast}
+                        min={0.25}
+                        max={2.5}
+                        step={0.01}
+                        onChange={(fire2Contrast) => updateTuning({ fire2Contrast })}
+                    />
+                    <ValueControl
+                        label="Скорость огня 2"
+                        value={tuning.fire2Speed}
+                        min={0.1}
+                        max={3}
+                        step={0.01}
+                        suffix="×"
+                        onChange={(fire2Speed) => updateTuning({ fire2Speed })}
+                    />
+                    <ValueControl
+                        label="Фаза огня 2"
+                        value={tuning.fire2FrameOffset}
+                        min={0}
+                        max={63}
+                        step={1}
+                        suffix="кадр"
+                        onChange={(fire2FrameOffset) => updateTuning({ fire2FrameOffset })}
+                    />
 
                     <SectionTitle>Общая область горения</SectionTitle>
                     <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0.55, mb: 0.85 }}>
-                        {([
-                            ["ellipse", "Овал"],
-                            ["triangle", "Треугольник"],
-                            ["rectangle", "Прямоугольник"],
-                        ] as const).map(([fireMaskShape, label]) => (
+                        {(
+                            [
+                                ["ellipse", "Овал"],
+                                ["triangle", "Треугольник"],
+                                ["rectangle", "Прямоугольник"],
+                            ] as const
+                        ).map(([fireMaskShape, label]) => (
                             <Button
                                 key={fireMaskShape}
                                 size="sm"
@@ -740,11 +789,51 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
                             </Button>
                         ))}
                     </Box>
-                    <ValueControl label="Ширина области" value={tuning.fireMaskWidthCells} min={0.25} max={6} step={0.01} suffix="кл." onChange={(fireMaskWidthCells) => updateTuning({ fireMaskWidthCells })} />
-                    <ValueControl label="Высота области" value={tuning.fireMaskHeightCells} min={0.25} max={6} step={0.01} suffix="кл." onChange={(fireMaskHeightCells) => updateTuning({ fireMaskHeightCells })} />
-                    <ValueControl label="Сдвиг области X" value={tuning.fireMaskShiftXCells} min={-3} max={3} step={0.005} suffix="кл." onChange={(fireMaskShiftXCells) => updateTuning({ fireMaskShiftXCells })} />
-                    <ValueControl label="Сдвиг области Y" value={tuning.fireMaskShiftYCells} min={-3} max={3} step={0.005} suffix="кл." onChange={(fireMaskShiftYCells) => updateTuning({ fireMaskShiftYCells })} />
-                    <ValueControl label="Поворот области" value={tuning.fireMaskRotationDeg} min={-180} max={180} step={1} suffix="°" onChange={(fireMaskRotationDeg) => updateTuning({ fireMaskRotationDeg })} />
+                    <ValueControl
+                        label="Ширина области"
+                        value={tuning.fireMaskWidthCells}
+                        min={0.25}
+                        max={6}
+                        step={0.01}
+                        suffix="кл."
+                        onChange={(fireMaskWidthCells) => updateTuning({ fireMaskWidthCells })}
+                    />
+                    <ValueControl
+                        label="Высота области"
+                        value={tuning.fireMaskHeightCells}
+                        min={0.25}
+                        max={6}
+                        step={0.01}
+                        suffix="кл."
+                        onChange={(fireMaskHeightCells) => updateTuning({ fireMaskHeightCells })}
+                    />
+                    <ValueControl
+                        label="Сдвиг области X"
+                        value={tuning.fireMaskShiftXCells}
+                        min={-3}
+                        max={3}
+                        step={0.005}
+                        suffix="кл."
+                        onChange={(fireMaskShiftXCells) => updateTuning({ fireMaskShiftXCells })}
+                    />
+                    <ValueControl
+                        label="Сдвиг области Y"
+                        value={tuning.fireMaskShiftYCells}
+                        min={-3}
+                        max={3}
+                        step={0.005}
+                        suffix="кл."
+                        onChange={(fireMaskShiftYCells) => updateTuning({ fireMaskShiftYCells })}
+                    />
+                    <ValueControl
+                        label="Поворот области"
+                        value={tuning.fireMaskRotationDeg}
+                        min={-180}
+                        max={180}
+                        step={1}
+                        suffix="°"
+                        onChange={(fireMaskRotationDeg) => updateTuning({ fireMaskRotationDeg })}
+                    />
 
                     <SectionTitle>Базовая яма и решётка</SectionTitle>
                     <ValueControl

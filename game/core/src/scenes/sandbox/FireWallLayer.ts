@@ -173,8 +173,7 @@ export class FireWallLayer {
             for (let i = 0; i < TONGUES; i++) {
                 const spread = (i / (TONGUES - 1) - 0.5) * 2; // -1..1 across the cell
                 const tongueSeed = FireWallLayer.seed(key, i + 2);
-                const wobble =
-                    Math.sin(this.time * (4.3 + tongueSeed * 2.6) + visual.phase + i) * localCellSize * 0.07;
+                const wobble = Math.sin(this.time * (4.3 + tongueSeed * 2.6) + visual.phase + i) * localCellSize * 0.07;
                 const baseX = pos.x + spread * half * 0.72;
                 const baseY = pos.y + half * 0.34;
                 // Middle tongues stand tallest, so the cell silhouettes as a flame rather than a hedge.

@@ -178,10 +178,7 @@ export type ProjectedBattlefieldMetrics = Readonly<{
 }>;
 
 /** Local painted cell dimensions around a logical point, for particles that cannot be polygon-shaped. */
-export function projectedBattlefieldMetricsAtPoint(
-    point: HoCMath.XY,
-    gs: GridSettings,
-): ProjectedBattlefieldMetrics {
+export function projectedBattlefieldMetricsAtPoint(point: HoCMath.XY, gs: GridSettings): ProjectedBattlefieldMetrics {
     const half = gs.getHalfStep();
     const center = projectBattlefieldPoint(point, gs);
     const left = projectBattlefieldPoint({ x: point.x - half, y: point.y }, gs);
