@@ -36,7 +36,7 @@ test("left sidebar portrait tuning contains the exported per-creature settings",
 
 test("left sidebar portrait checkpoint X is the active production set", () => {
     expect(LEFT_SIDEBAR_PORTRAIT_TUNING).toBe(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X);
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY).toContain("osg-2308");
+    expect(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY).toBe("hoc-dev-left-sidebar-portrait-tuning-v1");
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[13]).toEqual({
         artScale: 0.86,
         artOffsetX: 4,

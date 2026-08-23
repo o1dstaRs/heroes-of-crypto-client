@@ -100,9 +100,12 @@ export const LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X: Readonly<Partial<Record<number,
 /** Active production set: the user-approved left-screen portrait recovery point X. */
 export const LEFT_SIDEBAR_PORTRAIT_TUNING = LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X;
 
-// Keep OSG-2308 isolated from stale local editor drafts. The previous namespace could silently replace
-// these committed per-creature values in development while production still looked correct.
-export const LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY = "hoc-dev-left-sidebar-portrait-tuning-osg-2308-v1";
+// Preserve the JSON tuned in the left-sidebar dev editor. The temporary OSG-2308 namespace hid those
+// settings from localhost; keep it only as a fallback so edits made under either key remain recoverable.
+export const LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY = "hoc-dev-left-sidebar-portrait-tuning-v1";
+const LEGACY_LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEYS: readonly string[] = [
+    "hoc-dev-left-sidebar-portrait-tuning-osg-2308-v1",
+];
 export const LEFT_SIDEBAR_PORTRAIT_TUNING_EVENT = "hoc:left-sidebar-portrait-tuning-change";
 
 const clamp = (value: number, minimum: number, maximum: number): number => Math.min(maximum, Math.max(minimum, value));
@@ -150,7 +153,14 @@ let cachedStoredTunings: Record<number, LeftSidebarPortraitTuning> = {};
 export const readStoredLeftSidebarPortraitTunings = (): Record<number, LeftSidebarPortraitTuning> => {
     if (typeof window === "undefined") return {};
 
-    const raw = window.localStorage.getItem(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY);
+    let raw = window.localStorage.getItem(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY);
+    if (!raw) {
+        raw =
+            LEGACY_LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(
+                Boolean,
+            ) ?? null;
+        if (raw) window.localStorage.setItem(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY, raw);
+    }
     if (raw === cachedStorageValue) return cachedStoredTunings;
 
     cachedStorageValue = raw;
