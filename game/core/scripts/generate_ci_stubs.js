@@ -28,6 +28,8 @@ export interface IAtlasAnimationMeta {
     totalDurationSec: number;
     layout: { cols: number; rows: number };
     footAnchorY?: number;
+    geometry?: string;
+    encoding?: string;
     phases?: {
         intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };
         flight: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };

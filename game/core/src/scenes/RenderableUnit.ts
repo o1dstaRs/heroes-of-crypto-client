@@ -1007,11 +1007,10 @@ const FLAG_WAVE_TOP_FACTOR = 0.82;
 /**
  * Vertical offset of the cloth at `u` (0 at the pole, 1 at the free edge) for time `t`.
  *
- * Amplitude ramps as u^1.6: the pole end is pinned and barely moves, the far end throws the most — the same
- * distribution a real banner shows, and what the reference footage does.
+ * Amplitude ramps as u^4: the readable number area stays almost rigid and only the short tail visibly moves.
  */
 function flagWaveOffset(u: number, t: number, phase: number, height: number): number {
-    const amplitude = height * FLAG_WAVE_AMPLITUDE * Math.pow(u, 1.6);
+    const amplitude = height * FLAG_WAVE_AMPLITUDE * Math.pow(u, 4);
     return amplitude * Math.sin(Math.PI * 2 * FLAG_WAVE_CYCLES * u - FLAG_WAVE_SPEED * t + phase);
 }
 interface StackPowerDrawState {
@@ -3726,6 +3725,20 @@ export class RenderableUnit extends Unit {
         flag.clear();
         trace();
         flag.fill({ color: teamColor, alpha: 0.98 });
+
+        // Ten-percent shade under the digits increases local contrast without looking like a separate badge
+        // or changing the team's red/green identity. The inset is larger than the cloth-wave amplitude, so
+        // this rigid readability panel always remains inside the moving silhouette.
+        const numberPanelLeft = g.bannerLeft + 2;
+        const numberPanelRight = g.bannerRight - g.notchDepth - 1;
+        flag.roundRect(
+            numberPanelLeft,
+            g.bannerTop + 2,
+            numberPanelRight - numberPanelLeft,
+            g.bannerBottom - g.bannerTop - 4,
+            1,
+        ).fill({ color: 0x000000, alpha: 0.1 });
+
         trace();
         flag.stroke({ width: g.borderWidth, color: g.borderColor, alpha: g.borderAlpha, join: "round" });
 
@@ -3825,13 +3838,19 @@ export class RenderableUnit extends Unit {
             );
             // Three-digit amounts are the common battlefield case and should fill the compact inner frame.
             // Keep shorter/longer labels on the established scale so only 100-999 receives this enlargement.
-            const fs = fittedFontSize * (label.length === 3 ? 1.45 : 1.15);
+            const fs = fittedFontSize * (label.length === 3 ? 1.45 : 1.15) * 1.06;
 
             text.style = new TextStyle({
                 fill: 0xffffff,
                 fontSize: fs,
-                fontWeight: "800",
+                fontWeight: "900",
                 fontFamily: BOARD_FONT_FAMILY,
+                dropShadow: {
+                    color: "#000000",
+                    blur: 1,
+                    angle: Math.PI / 4,
+                    distance: 1,
+                },
             });
             text.text = label;
             // Shift the digits away from the right-hand notch so the visible cloth, not the bounding box,

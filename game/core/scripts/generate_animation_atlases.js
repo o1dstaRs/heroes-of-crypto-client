@@ -182,6 +182,8 @@ function main() {
     lines.push("    totalDurationSec: number;");
     lines.push("    layout: { cols: number; rows: number };");
     lines.push("    footAnchorY?: number;");
+    lines.push("    geometry?: string;");
+    lines.push("    encoding?: string;");
     lines.push("    phases?: {");
     lines.push(
         "        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };",
