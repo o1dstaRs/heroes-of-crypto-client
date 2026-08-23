@@ -133,7 +133,7 @@ export const patchNotes = {
                     items: [
                         "Seventeen creatures joined the four factions, including Blacksmith, Dryad, Arachna Queen, Abomination, Mermaid, and Frenzied Boar.",
                         "The catalog now contains 110 abilities and 49 spells, adding elemental attacks and defenses, crafting and runes, poison, vines, summons, fire terrain, new auras, and control effects.",
-                        "Twenty-four Tier 1 and Tier 2 artifacts, including cursed tradeoffs, join doctrines, team augments, and faction synergies as meaningful pre-battle choices.",
+                        "Twenty-four Tier 1 and Tier 2 artifacts, including cursed tradeoffs, join perks, team augments, and faction synergies as meaningful pre-battle choices.",
                     ],
                 },
                 {
@@ -408,7 +408,7 @@ export const patchNotes = {
                     items: [
                         "К четырем фракциям присоединились 17 существ, включая Blacksmith, Dryad, Arachna Queen, Abomination, Mermaid и Frenzied Boar.",
                         "Теперь в игре 110 способностей и 49 заклинаний: атаки и защита стихий, крафт и руны, яд, лозы, призывы, огненный ландшафт, новые ауры и эффекты контроля.",
-                        "Двадцать четыре артефакта 1-го и 2-го уровней, включая проклятые варианты, дополняют доктрины, командные апгрейды и фракционные синергии перед боем.",
+                        "Двадцать четыре артефакта 1-го и 2-го уровней, включая проклятые варианты, дополняют перки, командные апгрейды и фракционные синергии перед боем.",
                     ],
                 },
                 {

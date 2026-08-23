@@ -153,7 +153,7 @@ const rawProbe = () =>
                     : "",
                 readyPlacement: buttons.find((t) => /^Ready Placement$/i.test(t)) || "",
                 buttons: buttons.slice(0, 30),
-                pickish: /doctrine|bundle|Ban phase|Artifact|Pick /i.test(bodyText),
+                pickish: /perk|bundle|Ban phase|Artifact|Pick /i.test(bodyText),
             };
         })
         .catch(() => null);

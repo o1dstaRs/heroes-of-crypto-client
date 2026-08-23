@@ -11,7 +11,7 @@ export interface PortalUnitPerformanceData {
 export interface PortalMatchSetupData {
     artifact_tier_1?: number;
     artifact_tier_2?: number;
-    doctrine?: number;
+    perk?: number;
     augment_placement?: number;
     augment_armor?: number;
     augment_might?: number;
@@ -32,7 +32,7 @@ export interface MatchAugmentChoice {
 export interface MatchTeamSetup {
     artifactTier1: number;
     artifactTier2: number;
-    doctrine: number;
+    perk: number;
     augments: MatchAugmentChoice[];
     synergies: string[];
     available: boolean;
@@ -124,7 +124,7 @@ export const normalizeMatchSetup = (setup: PortalMatchSetupData | undefined): Ma
     return {
         artifactTier1: nonNegativeInteger(setup?.artifact_tier_1),
         artifactTier2: nonNegativeInteger(setup?.artifact_tier_2),
-        doctrine: nonNegativeInteger(setup?.doctrine),
+        perk: nonNegativeInteger(setup?.perk),
         // Placement's enum is zero-based: value 0 is the free Level 1 choice, not "none".
         augments: complete
             ? [

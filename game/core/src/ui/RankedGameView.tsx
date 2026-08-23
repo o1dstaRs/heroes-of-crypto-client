@@ -420,7 +420,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const storedReplayRef = useRef<RankedReplay | undefined>(undefined);
     const replayAutoplayStartedRef = useRef(false);
 
-    // Sync the authoritative doctrine + army-wide artifacts + placement augments into the local
+    // Sync the authoritative perk + army-wide artifacts + placement augments into the local
     // FightProperties so the client's applyArtifacts / applyAugments (run when the scene hydrates units
     // from the snapshot -> refreshUnits) reproduce the same per-unit "System" buffs and boosted stats the
     // server computed. Without this the left sidebar shows base stats and no artifact/augment buffs, since
@@ -2167,7 +2167,7 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     );
 };
 
-// Observer HUD: both teams' pre-fight setup (doctrine, artifacts, augments, synergies) read
+// Observer HUD: both teams' pre-fight setup (perk, artifacts, augments, synergies) read
 // straight off the authoritative snapshot. Participants have richer interactive panels for their
 // own side; spectators get this compact two-column recap instead — values appear exactly when the
 // server reveals them (opponent artifacts at fight start, synergies once the fight begins).
@@ -2224,7 +2224,7 @@ const ObserverTeamSetup: React.FC<{
                 </Typography>
             )}
             <Typography level="body-xs" textColor={hocColors.mutedStrong}>
-                {`Doctrine: ${observerPerkName(perkId)}`}
+                {`Perk: ${observerPerkName(perkId)}`}
             </Typography>
             {(tier1 > 0 || tier2 > 0) && <ArtifactTierIcons tier1Id={tier1} tier2Id={tier2} />}
             {augments.length > 0 && (

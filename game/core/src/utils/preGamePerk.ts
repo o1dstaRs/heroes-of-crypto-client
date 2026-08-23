@@ -1,6 +1,6 @@
 // Pre-game perk selection persistence.
 //
-// Perks (scouting doctrines) are chosen in the pre-game lobby (the screen with "Find ranked
+// Perks (scouting perks) are chosen in the pre-game lobby (the screen with "Find ranked
 // opponent" / "Practice vs AI") rather than during the in-game PERK pick phase. The choice is free
 // to toggle until the player queues — then it is locked for the upcoming game. We persist it in
 // localStorage so the in-game pick flow can read it back after the /game/:id navigation (the lobby
@@ -12,7 +12,7 @@ import { Perk } from "@heroesofcrypto/common";
 
 const PRE_GAME_PERK_STORAGE_KEY = "hoc:pre-game-perk";
 
-// Default doctrine when the player has never picked one: THREE_REVEALS (the middle-of-the-road
+// Default perk when the player has never picked one: THREE_REVEALS (the middle-of-the-road
 // scouting option, 6 upgrade points — a sensible neutral default).
 export const DEFAULT_PRE_GAME_PERK: Perk.Perk = Perk.Perk.THREE_REVEALS;
 

@@ -60,7 +60,7 @@ const UPPER_ARMY = [1, 21, 4, 34, 27, 42];
 
 const PLACEMENT_SECONDS = 120;
 
-/** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout doctrine's whole 6-point budget. */
+/** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout perk's whole 6-point budget. */
 const LOWER_AUGMENTS = { placement: 2, armor: 2, might: 1, empower: 0, sniper: 0, movement: 1 } as const;
 
 export interface PreviewPlacementOptions {
@@ -378,7 +378,7 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         centerDried: false,
         upNext: [],
         damageStats: [],
-        // The doctrine sets the augment budget the sidebar recaps. The opponent's perk, artifacts and
+        // The perk sets the augment budget the sidebar recaps. The opponent's perk, artifacts and
         // augments stay 0 before the fight starts — that redaction is the server's, and copying it keeps
         // the preview from showing information the real screen hides.
         lowerPerk: viewerIsLower ? Perk.Perk.THREE_REVEALS : 0,

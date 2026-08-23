@@ -169,7 +169,7 @@ describe("match history model", () => {
         expect(normalizeMatchSetup(undefined)).toEqual({
             artifactTier1: 0,
             artifactTier2: 0,
-            doctrine: 0,
+            perk: 0,
             augments: [],
             synergies: [],
             available: false,
@@ -180,7 +180,7 @@ describe("match history model", () => {
             normalizeMatchSetup({
                 artifact_tier_1: 7.9,
                 artifact_tier_2: 2,
-                doctrine: 3,
+                perk: 3,
                 augment_placement: 2,
                 augment_armor: 3,
                 augment_might: 0,
@@ -192,7 +192,7 @@ describe("match history model", () => {
         ).toEqual({
             artifactTier1: 7,
             artifactTier2: 2,
-            doctrine: 3,
+            perk: 3,
             augments: [
                 { kind: "Placement", level: 3 },
                 { kind: "Armor", level: 3 },
@@ -209,7 +209,7 @@ describe("match history model", () => {
             normalizeMatchSetup({
                 artifact_tier_1: 4,
                 artifact_tier_2: 9,
-                doctrine: 2,
+                perk: 2,
                 augment_placement: 0,
                 augment_armor: 3,
                 synergies: ["Might:2:3"],
@@ -218,7 +218,7 @@ describe("match history model", () => {
         ).toEqual({
             artifactTier1: 4,
             artifactTier2: 9,
-            doctrine: 2,
+            perk: 2,
             augments: [],
             synergies: [],
             available: true,

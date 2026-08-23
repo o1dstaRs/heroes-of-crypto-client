@@ -257,7 +257,7 @@ export const endpoints = {
         // Public, spoiler-safe draft spectator snapshot (no auth): what each team's OPPONENT already
         // sees (slot reveals), plus bans and the current phase/deadline.
         pickObserve: IS_PROD ? "/v1/pick-observe" : "/v1/game/pick-observe",
-        doctrine: IS_PROD ? "/v1/doctrine" : "/v1/game/doctrine",
+        perk: IS_PROD ? "/v1/perk" : "/v1/game/perk",
         pick: IS_PROD ? "/v1/pick" : "/v1/game/pick",
         artifact: IS_PROD ? "/v1/artifact" : "/v1/game/artifact",
         ban: IS_PROD ? "/v1/ban" : "/v1/game/ban",

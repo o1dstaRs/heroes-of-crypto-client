@@ -336,7 +336,7 @@ const LevelOnePickPreview: React.FC = () => (
  * comes from common's pick_sim state machine instead of the server's SSE stream, and its four submit
  * calls (perk / bundle / creature / tier-2 artifact) drive that machine instead of POSTing.
  *
- * So the whole ladder is clickable — doctrine, starting bundle, the four creature picks, the tier-2
+ * So the whole ladder is clickable — perk, starting bundle, the four creature picks, the tier-2
  * artifact — and it ends exactly where the ranked flow ends, on the AUGMENTS handoff to placement.
  * Placement itself is a real game session and is NOT part of this route.
  *
@@ -396,7 +396,7 @@ const localDraftOpponentAction = (state: IPickSimState): PickAction | null => {
 
 /**
  * Run the opponent until the ball is back in the player's court. A rejected action is the loop's exit
- * condition, not an error: in the simultaneous phases (doctrine, bundle, tier-2) the opponent has already
+ * condition, not an error: in the simultaneous phases (perk, bundle, tier-2) the opponent has already
  * moved and is simply waiting on the human, which the sim reports as a rejection.
  */
 const runLocalDraftOpponent = (start: IPickSimState): IPickSimState => {

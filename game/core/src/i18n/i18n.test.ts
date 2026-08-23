@@ -119,7 +119,7 @@ describe("ranked flow localization", () => {
         expect(keys.filter((key) => !(key in RU_TRANSLATIONS))).toEqual([]);
     });
 
-    it("covers data-driven doctrine, map, and hazard copy", () => {
+    it("covers data-driven perk, map, and hazard copy", () => {
         const dynamicKeys = [
             "Scout",
             "Spymaster",

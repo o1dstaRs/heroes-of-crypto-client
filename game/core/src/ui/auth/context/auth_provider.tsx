@@ -12,7 +12,7 @@ import {
     PickPairRequest,
     PickBanRequest,
     ArtifactRequest,
-    DoctrineRequest,
+    PerkRequest,
     RevealRequest,
 } from "@heroesofcrypto/common";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
@@ -508,14 +508,14 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
-    const doctrine = useCallback(async (doctrineId: number) => {
+    const perk = useCallback(async (perkId: number) => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const doctrineRequest = new DoctrineRequest({ doctrine: doctrineId });
-        const data = doctrineRequest.serializeBinary();
+        const perkRequest = new PerkRequest({ perk: perkId });
+        const data = perkRequest.serializeBinary();
 
-        await axiosGameInstance.post(`${endpoints.game.doctrine}`, data, {
+        await axiosGameInstance.post(`${endpoints.game.perk}`, data, {
             responseType: "arraybuffer",
             headers: {
                 "Content-Type": "application/octet-stream",
@@ -915,7 +915,7 @@ export function AuthProvider({ children }: Props) {
             pickPair,
             pick,
             artifact,
-            doctrine,
+            perk,
             ban,
             reveal,
             getCurrentGame,
@@ -946,7 +946,7 @@ export function AuthProvider({ children }: Props) {
             pickPair,
             pick,
             artifact,
-            doctrine,
+            perk,
             ban,
             reveal,
             getCurrentGame,

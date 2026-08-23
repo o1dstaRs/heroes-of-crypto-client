@@ -123,7 +123,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Драфт",
-                  "Доктрина, бандлы, баны, порядок пиков и состав 2/2/1/1 по уровням.",
+                  "Перк, бандлы, баны, порядок пиков и состав 2/2/1/1 по уровням.",
                   "rules-draft",
                   "выбор пики уровни",
               ],
@@ -140,9 +140,9 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
                   "усиления улучшения",
               ],
               [
-                  "Доктрины",
-                  "Три доктрины драфта: сколько состава противника вы видите и сколько очков апгрейдов это приносит.",
-                  "rules-doctrines",
+                  "Перки",
+                  "Три перка драфта: сколько состава противника вы видите и сколько очков апгрейдов даёт каждый.",
+                  "rules-perks",
                   "перки разведка очки Scout Spymaster Blind Fury",
               ],
               [
@@ -191,7 +191,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Draft",
-                  "Doctrine, bundles, bans, pick order, and the 2/2/1/1 roster by unit level.",
+                  "Perk, bundles, bans, pick order, and the 2/2/1/1 roster by unit level.",
                   "rules-draft",
                   "selection picks tiers",
               ],
@@ -208,10 +208,10 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
                   "upgrades points",
               ],
               [
-                  "Doctrines",
-                  "The three draft doctrines: how much of the opponent you see, and the augment points it pays.",
-                  "rules-doctrines",
-                  "doctrines scout spymaster blind fury points",
+                  "Perks",
+                  "The three draft perks: how much of the opponent you see, and the augment points it pays.",
+                  "rules-perks",
+                  "perks scout spymaster blind fury points",
               ],
               [
                   "Faction synergies",
