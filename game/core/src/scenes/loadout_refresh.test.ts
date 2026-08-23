@@ -125,16 +125,31 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
         expect(movePathCells).toHaveLength(1);
     });
 
-    test("recomputes the shot square, so a Sniper pick shows up at once", () => {
-        const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 4.5 });
+    test("recomputes the shot square through the outer edges of every full-damage cell", () => {
+        const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 5 });
 
         runRefresh(scene);
 
-        // Half-width of the full-damage SQUARE, not a circle radius: the fractional stat floors to four
-        // whole cells, plus the half cell that carries the edge out to the cell border.
+        // Five cells are measured centre-to-centre. The visible boundary needs another half cell to reach
+        // the far seam of the fifth cell; using 5 * STEP stopped through the middle of that outer row.
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: 4.5 * GridConstants.STEP,
+            distance: 5.5 * GridConstants.STEP,
+        });
+    });
+
+    test("includes the full footprint of a 2x2 shooter", () => {
+        const { scene } = makeScene({
+            activeUnitPosition: { x: 100, y: 100 },
+            rangeShotDistance: 5,
+            unitSize: 2,
+        });
+
+        runRefresh(scene);
+
+        expect(scene.sc_currentActiveShotRange).toEqual({
+            xy: { x: 100, y: 100 },
+            distance: 6 * GridConstants.STEP,
         });
     });
 
