@@ -109,6 +109,7 @@ export const authoritativeUnitToSandboxUnitState = (
         onHourglass: unitState.onHourglass,
         hasHourglassed: unitState.hasHourglassed,
         forcedTargetId: unitState.forcedTargetId,
+        forbiddenTargetId: unitState.forbiddenTargetId,
         mechanicalBreakLaps: getAuthoritativeBreakLaps(unitState),
     };
 };
@@ -548,6 +549,11 @@ export const applyRankedUnitMechanicalEffects = (unit: RenderableUnit, state: Sa
     const forcedTargetId = state.forcedTargetId ?? "";
     if (unit.getTarget() !== forcedTargetId) {
         unit.setTarget(forcedTargetId);
+        changed = true;
+    }
+    const forbiddenTargetId = state.forbiddenTargetId ?? "";
+    if (unit.getForbiddenTarget() !== forbiddenTargetId) {
+        unit.setForbiddenTarget(forbiddenTargetId);
         changed = true;
     }
     return changed;

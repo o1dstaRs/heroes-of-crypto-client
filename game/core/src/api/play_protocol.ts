@@ -118,6 +118,9 @@ export interface PlayUnitState {
     /** Aggr forced target: the unit id this unit is compelled to attack (empty = none). Kept across
      * board rebuilds so the client never draws attack arrows to other targets. */
     forcedTargetId?: string;
+    /** Terrifying Gaze forbidden target: the one unit this stack may not attack or retaliate against.
+     * Every other enemy remains legal. */
+    forbiddenTargetId?: string;
     /** Remaining casts (scrolls) per spell in the unit's spellbook, in getSpells() order — lets ranked
      * sync used-up scroll counts (the client never runs the cast engine). */
     spellAmounts?: number[];
@@ -1007,6 +1010,9 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             unit.baseArmor = reader.float32();
         } else if (field === 43) {
             unit.baseAttack = reader.float32();
+        } else if (field === 44) {
+            // Terrifying Gaze's exact inverse of forced_target_id: one forbidden enemy, not a global lock.
+            unit.forbiddenTargetId = reader.string();
         } else {
             reader.skip(wireType);
         }
