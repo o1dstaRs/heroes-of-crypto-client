@@ -318,8 +318,8 @@ export const CREATURE_SPRITE_ANIMATION_SETTINGS = { enabled: false };
 export function creatureWalkAnimationEnabledForUnit(unitName: string): boolean {
     return CREATURE_SPRITE_ANIMATION_SETTINGS.enabled || unitName === PEASANT_UNIT_NAME;
 }
-// Battlefield units always expose their team/count flag and five-segment stack-power rail.
-// These are gameplay information, so creature-art tuning must not hide them.
+// Battlefield units expose their compact team/count ribbon. Stack power remains mechanical state and no
+// longer allocates a separate pip rail.
 const SHOW_BOARD_STACK_DECORATIONS = true;
 
 const inheritedAbsoluteScale = (container: Container): { x: number; y: number } => {
@@ -975,13 +975,13 @@ interface BadgeFlagGeometry {
     borderWidth: number;
     borderColor: number;
     borderAlpha: number;
-    /** Fixed, wider cap above the waving cloth. The creature amount is centered inside it. */
+    /** Overall horizontal ribbon size. The creature amount is centered inside it. */
     headerWidth: number;
     headerHeight: number;
 }
 
 /**
- * The stack banner ripples like cloth on its pole: it hangs rigid where the pole grips it and billows more
+ * The compact amount ribbon ripples like cloth: it stays restrained at its left edge and billows more
  * the further out you go, with the wave travelling toward the free edge.
  *
  * The motion is pure sine of wall-clock time, which is what makes it loop with no seam at all — there is no
@@ -996,8 +996,8 @@ const FLAG_WAVE_AMPLITUDE = 0.14;
 const FLAG_WAVE_CYCLES = 1.15;
 /** Radians per second the wave travels — a lazy flag in still dungeon air, not a gale. */
 const FLAG_WAVE_SPEED = 2.6;
-/** Turn the existing left-to-right cloth simulation into a top-to-bottom battlefield pennant. */
-const BATTLEFIELD_FLAG_ROTATION = -Math.PI / 2;
+/** Heroes-IV-style count ribbon stays horizontal above the creature. */
+const BATTLEFIELD_FLAG_ROTATION = 0;
 /**
  * The top edge sways slightly less than the bottom, so the cloth's height breathes instead of the whole
  * banner sliding up and down as a rigid block.
@@ -3683,15 +3683,14 @@ export class RenderableUnit extends Unit {
         return this.badgeFlagPhaseValue;
     }
     /**
-     * Redraw the stack banner as cloth caught mid-wave.
+     * Redraw the compact Heroes-IV-style amount ribbon as cloth caught mid-wave.
      *
      * Runs every frame (the geometry it works from is cached — see BadgeDrawState.geometry), and the shape
      * is rebuilt from sines of the clock, so the motion simply continues forever with no loop point to see.
      *
-     * The rigid header and creature amount stay put: a quantity that bobbed around would be harder to read
-     * for no gain. The header is stack level one; four more levels continue down the cloth.
+     * The number stays put while the small right-hand tail moves subtly, preserving readability.
      */
-    private drawBadgeFlag(flag: Graphics, g: BadgeFlagGeometry, teamColor: number, stackPower: number): void {
+    private drawBadgeFlag(flag: Graphics, g: BadgeFlagGeometry, teamColor: number, _stackPower: number): void {
         const t = performance.now() / 1000;
         const phase = this.badgeFlagPhase();
         const span = g.bannerRight - g.bannerLeft;
@@ -3725,38 +3724,8 @@ export class RenderableUnit extends Unit {
         };
 
         flag.clear();
-
-        // The wider amount header is stack level one. The cloth supplies levels two through five, so its
-        // four compartments extinguish from the swallowtail upward and the readable header remains last.
-        const normalizedStackPower = Math.max(0, Math.min(5, Math.round(stackPower)));
-        const filledSegments = Math.max(0, normalizedStackPower - 1);
-        const samplesPerSegment = FLAG_WAVE_SEGMENTS / 4;
-        for (let segment = 0; segment < 4; segment++) {
-            const start = Math.round(segment * samplesPerSegment);
-            const end = Math.round((segment + 1) * samplesPerSegment);
-            flag.moveTo(xs[start], topY[start]);
-            for (let i = start + 1; i <= end; i++) {
-                flag.lineTo(xs[i], topY[i]);
-            }
-            if (segment === 3) {
-                flag.lineTo(g.bannerRight - g.notchDepth, notchTipY);
-            }
-            for (let i = end; i >= start; i--) {
-                flag.lineTo(xs[i], bottomY[i]);
-            }
-            flag.closePath();
-            flag.fill(segment < filledSegments ? { color: teamColor, alpha: 0.96 } : { color: 0x201915, alpha: 0.9 });
-        }
-
-        // Strong but inset seams define four cloth compartments without crossing the waving outer edge.
-        const seamInset = Math.max(0.4, Math.min(0.8, g.flagHeight * 0.04));
-        for (let segment = 1; segment < 4; segment++) {
-            const sample = Math.round(segment * samplesPerSegment);
-            flag.moveTo(xs[sample], topY[sample] + seamInset)
-                .lineTo(xs[sample], bottomY[sample] - seamInset)
-                .stroke({ width: 1.3, color: 0x0b0705, alpha: 1 });
-        }
-
+        trace();
+        flag.fill({ color: teamColor, alpha: 0.98 });
         trace();
         flag.stroke({ width: g.borderWidth, color: g.borderColor, alpha: g.borderAlpha, join: "round" });
 
@@ -3811,14 +3780,19 @@ export class RenderableUnit extends Unit {
         const flag = this.badgeFlag!;
         const text = this.badgeText!;
         const container = this.badgeContainer!;
+        // The selected Heroes-IV-style treatment is a single horizontal count ribbon. Clear and hide the
+        // former rigid header so hot reload also removes the old stack-layout graphics immediately.
+        header.clear();
+        if (header.visible) header.visible = false;
+        if (!flag.visible) flag.visible = true;
         // Revealed opponents (ranked placement) carry a sanitized stack of 0 — the flag still shows,
         // team-colored, with "?" standing in for the hidden stack size.
         const isRevealed = this.visualMode === "revealed";
         const label = isRevealed && amount <= 0 ? "?" : String(amount);
         const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
         const parentScale = inheritedAbsoluteScale(worldRoot);
-        // The board camera is deliberately flatter on Y than X. Because the pennant's authored X axis is
-        // rotated into screen-vertical space, lengthen it by the inverse parent ratio to preserve its shape.
+        // The board camera is deliberately flatter on Y than X. Compensate the ribbon's height so it keeps
+        // the intended horizontal Heroes-IV proportions on screen.
         const parentScaleRatio = Math.max(0.75, Math.min(2.5, parentScale.x / Math.max(0.01, parentScale.y)));
         const previousDrawState = this.badgeDrawState;
         const needsRedraw =
@@ -3828,25 +3802,22 @@ export class RenderableUnit extends Unit {
             previousDrawState.teamColor !== teamColor ||
             previousDrawState.stackPower !== stackPower ||
             previousDrawState.isActiveTurn !== this.isActiveTurn ||
-            previousDrawState.parentScaleRatio !== parentScaleRatio;
+            previousDrawState.parentScaleRatio !== parentScaleRatio ||
+            previousDrawState.geometry.bannerLeft !== -previousDrawState.geometry.headerWidth * 0.5;
 
         if (needsRedraw) {
             const baseCellSide = gs.getCellSize();
-            // Keep the cloth itself at the compact one-digit reference size for every unit and amount.
-            // Longer labels adapt inside the fixed banner instead of stretching its silhouette.
-            // The owner's blue markup is roughly 72% of the approved variant-8 bounds. Scale the whole
-            // indicator as one unit so the header, cloth, notch, seams and border keep the same proportions.
-            const flagWidth = Math.max(17, Math.floor(baseCellSide * 0.255));
-            const flagLength = Math.max(36, Math.floor(baseCellSide * 0.68)) * parentScaleRatio;
-            const headerWidth = Math.max(25, Math.floor(flagWidth * 1.42));
+            // Variant 5: one tiny horizontal count ribbon, including a shallow cut-out at its right edge.
+            // There is intentionally no second cloth piece and no stack-power geometry.
+            const headerWidth = Math.max(29, Math.floor(baseCellSide * 0.42));
             const headerHeight = Math.max(13, Math.floor(baseCellSide * 0.2)) * parentScaleRatio;
-            const notchDepth = Math.max(3, Math.floor(flagLength * 0.11));
+            const notchDepth = Math.max(3, Math.floor(headerWidth * 0.14));
             const preferredFontSize = Math.max(
                 11,
                 Math.floor(baseCellSide * 0.2),
                 Math.ceil(9 / Math.max(0.01, parentScale.x)),
             );
-            const usableTextWidth = headerWidth * 0.82;
+            const usableTextWidth = (headerWidth - notchDepth) * 0.84;
             const estimatedTextWidth = Math.max(1, label.length * preferredFontSize * 0.62);
             const fittedFontSize = Math.max(
                 8,
@@ -3863,22 +3834,9 @@ export class RenderableUnit extends Unit {
                 fontFamily: BOARD_FONT_FAMILY,
             });
             text.text = label;
-            // The number lives in the rigid wider cap; the animated stack cells begin immediately below.
-            text.position.set(0, -headerHeight * 0.5);
-
-            header
-                .clear()
-                .roundRect(-headerWidth * 0.5, -headerHeight, headerWidth, headerHeight, 1.5)
-                .fill({ color: stackPower > 0 ? teamColor : 0x201915, alpha: stackPower > 0 ? 0.98 : 0.9 })
-                .stroke({
-                    width: 1.3,
-                    color: 0x090604,
-                    alpha: 0.92,
-                    join: "round",
-                });
-            header
-                .roundRect(-headerWidth * 0.5 + 1.5, -headerHeight + 1.5, headerWidth - 3, headerHeight - 3, 0.75)
-                .stroke({ width: 0.75, color: 0xffffff, alpha: 0.34, join: "round" });
+            // Shift the digits away from the right-hand notch so the visible cloth, not the bounding box,
+            // determines their optical centre.
+            text.position.set(-notchDepth * 0.18, 0);
             this.badgeDrawState = {
                 iconSide,
                 label,
@@ -3889,12 +3847,12 @@ export class RenderableUnit extends Unit {
                 // Everything the per-frame cloth pass needs, resolved once here: only the wave changes
                 // between frames, so re-deriving the banner's size on every tick would be pure waste.
                 geometry: {
-                    bannerLeft: 0,
-                    bannerRight: flagLength,
-                    bannerTop: -flagWidth * 0.5,
-                    bannerBottom: flagWidth * 0.5,
+                    bannerLeft: -headerWidth * 0.5,
+                    bannerRight: headerWidth * 0.5,
+                    bannerTop: -headerHeight * 0.5,
+                    bannerBottom: headerHeight * 0.5,
                     notchDepth,
-                    flagHeight: flagWidth,
+                    flagHeight: headerHeight,
                     borderWidth: 1,
                     borderColor: 0x090604,
                     borderAlpha: 0.82,
@@ -3905,28 +3863,32 @@ export class RenderableUnit extends Unit {
         }
         if (flag.rotation !== BATTLEFIELD_FLAG_ROTATION) flag.rotation = BATTLEFIELD_FLAG_ROTATION;
         const geometry = this.badgeDrawState!.geometry;
-        if (flag.x !== 0 || flag.y !== -geometry.headerHeight) flag.position.set(0, -geometry.headerHeight);
+        if (flag.x !== 0 || flag.y !== 0) flag.position.set(0, 0);
         this.drawBadgeFlag(flag, geometry, teamColor, stackPower);
-        // Pin the vertical pennant to the actual rendered creature image. Full-body models often extend far
-        // outside their logical cell, so using the cell corner made the flag float beside their waist.
+        // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
+        // This keeps the badge over the head for tall, short and multi-cell creatures alike.
         const spriteBounds = this.sprite?.getBounds();
-        const margin = Math.max(2, Math.floor(iconSide * 0.045));
+        const margin = Math.max(2, Math.floor(iconSide * 0.04));
         let x: number;
         let y: number;
         if (spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0) {
-            const topRight = worldRoot.toLocal({ x: spriteBounds.x + spriteBounds.width, y: spriteBounds.y });
-            x = topRight.x + this.badgeDrawState!.geometry.flagHeight * 0.5 - margin;
-            y = topRight.y;
+            const screenHalfHeight = geometry.flagHeight * parentScale.y * this.badgeEmphasisScale * 0.5;
+            const aboveHead = worldRoot.toLocal({
+                x: spriteBounds.x + spriteBounds.width * 0.5,
+                y: spriteBounds.y - margin - screenHalfHeight,
+            });
+            x = aboveHead.x;
+            y = aboveHead.y;
         } else {
             const unitSizeInCells = props.size === 2 ? 2 : 1;
-            x = pos.x + iconSide * unitSizeInCells * 0.5 + this.badgeDrawState!.geometry.flagHeight * 0.5 - margin;
-            y = pos.y + iconSide * unitSizeInCells * 0.5 - margin;
+            x = pos.x;
+            y = pos.y + iconSide * unitSizeInCells * 0.5 + geometry.flagHeight * 0.5 + margin;
         }
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (container.scale.x !== this.badgeEmphasisScale || container.scale.y !== this.badgeEmphasisScale) {
             container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
         }
-        const visible = amount > 0 || isRevealed;
+        const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
         if (container.visible !== visible) container.visible = visible;
     }
     private ensureHourglassIndicator(

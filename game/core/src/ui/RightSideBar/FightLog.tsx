@@ -136,7 +136,7 @@ export const ImageScrollbar = ({
         viewport.addEventListener("scroll", updateMetrics, { passive: true });
         const resizeObserver = new ResizeObserver(updateMetrics);
         resizeObserver.observe(viewport);
-        for (const child of viewport.children) {
+        for (const child of Array.from(viewport.children)) {
             resizeObserver.observe(child);
         }
 

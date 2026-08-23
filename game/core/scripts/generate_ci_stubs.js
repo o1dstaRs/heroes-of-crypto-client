@@ -28,9 +28,15 @@ export interface IAtlasAnimationMeta {
     totalDurationSec: number;
     layout: { cols: number; rows: number };
     footAnchorY?: number;
+    phases?: {
+        intro: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };
+        flight: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };
+        landing: { startFrame: number; endFrame: number; loop: boolean; distanceCells?: number; speedMultiplier?: number };
+    };
     loopDurationMs: number;
     pauseMs: number;
 }
+export type AnimationAtlasMeta = IAtlasAnimationMeta;
 export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> = {};
 export type AnimationUnitName = string;
 export type AnimationStateName<_U extends AnimationUnitName = AnimationUnitName> = string;

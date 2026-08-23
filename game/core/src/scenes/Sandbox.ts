@@ -182,6 +182,20 @@ export const spellCastSecondaryDamage = (event: GameEvent): IVisibleDamage["seco
         ? (event as Extract<GameEvent, { type: "spell_cast" }> & { secondary?: IVisibleDamage["secondary"] }).secondary
         : undefined;
 
+export const shouldSuppressInspectedUnitRangesForSpell = (spell: Spell): boolean => {
+    const targetType = spell.getSpellTargetType();
+    const targetsOneUnit =
+        targetType === SpellTargetType.ANY_ALLY ||
+        targetType === SpellTargetType.ANY_ENEMY ||
+        targetType === SpellTargetType.ANY_UNIT ||
+        targetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE;
+    return (
+        targetsOneUnit &&
+        spell.getPowerType() !== SpellPowerType.POSITION_CHANGE &&
+        !isOffensiveSpellMultiplier(spell.getMultiplierType())
+    );
+};
+
 /**
  * Setup choices are not part of SandboxSceneState, but ranked applies them to FightProperties immediately
  * before hydrating an authoritative snapshot. Capture and restore them around FightStateManager.reset() so
@@ -6527,8 +6541,6 @@ export class Sandbox extends PixiScene {
                                 );
                             } else {
                                 // Movement needed!
-                                const props = this.currentActiveUnit.getUnitProperties();
-
                                 // Large Unit Logic (Adapted from test_heroes.ts "AI" working logic)
                                 if (!this.currentActiveUnit.isSmallSize()) {
                                     const key = (attackFrom.x << 4) | attackFrom.y;

@@ -2,6 +2,7 @@ import {
     Assets,
     BlurFilter,
     ColorMatrixFilter,
+    type ColorMatrix,
     Container,
     Filter,
     Graphics,
@@ -20,7 +21,7 @@ import {
     HoCMath,
 } from "@heroesofcrypto/common";
 
-import { boardFitHeight, boardFitVerticalShift, boardFitWidth } from "../../pixi/boardFit";
+import { boardFitHeight, boardFitWidth } from "../../pixi/boardFit";
 import { images } from "../../generated/image_imports";
 import {
     BATTLEFIELD_ARTWORK,
@@ -864,7 +865,7 @@ export class DungeonVisuals {
             fire2Target.filters = [this.lavaFire2ColorFilter];
         }
     }
-    private static lavaColorMatrix(brightness: number, saturation: number, contrast: number): number[] {
+    private static lavaColorMatrix(brightness: number, saturation: number, contrast: number): ColorMatrix {
         const inverseSaturation = 1 - saturation;
         const red = 0.2126 * inverseSaturation;
         const green = 0.7152 * inverseSaturation;
@@ -2572,8 +2573,6 @@ export class DungeonVisuals {
         const artwork = battlefieldArtworkLayout(vw, vh, boardWidth, floorHeight);
         const x = artwork.x;
         const artworkY = artwork.y;
-        // World-space effects still use the shortened, bottom-aligned logical floor.
-        const floorY = vh * 0.5 - boardFitVerticalShift(vw, vh);
         if (this.bgSprite.x !== x || this.bgSprite.y !== artworkY) {
             this.bgSprite.position.set(x, artworkY);
         }

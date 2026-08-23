@@ -125,7 +125,9 @@ const ValueSlider: React.FC<{
 );
 
 const SidebarPreview: React.FC<{ creature: EditorCreature }> = ({ creature }) => {
-    const [viewport, setViewport] = useState(() => ({ ...DEFAULT_BATTLE_VIEWPORT }));
+    const [viewport, setViewport] = useState<{ width: number; height: number }>(() => ({
+        ...DEFAULT_BATTLE_VIEWPORT,
+    }));
     const [previewScale, setPreviewScale] = useState(0.6);
     const { setViewport: setFitViewport, setContent, scale: fitScale } = useFitScale();
 

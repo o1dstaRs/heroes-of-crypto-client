@@ -35,7 +35,6 @@ import {
     BATTLEFIELD_SHADOW_BOTTOM_ROW_ALPHA,
     BATTLEFIELD_SHADOW_BOTTOM_ROW_LENGTH_SCALE,
     BATTLEFIELD_SHADOW_BOTTOM_ROW_WIDTH_SCALE,
-    BATTLEFIELD_SHADOW_FOOT_OVERLAP_CELL_RATIO,
     BATTLEFIELD_SHADOW_TOP_ROW_ALPHA,
     BATTLEFIELD_SHADOW_TOP_ROW_LENGTH_SCALE,
     BATTLEFIELD_SHADOW_TOP_ROW_WIDTH_SCALE,
@@ -2181,6 +2180,7 @@ describe("RenderableUnit revealed roster card", () => {
 
 describe("RenderableUnit steady-state overlays", () => {
     type OverlayInternals = {
+        badgeContainer?: Container;
         badgeFlag?: Graphics;
         stackPowerPips: Graphics[];
         stackPowerDrawState?: { power: number };
@@ -2190,7 +2190,7 @@ describe("RenderableUnit steady-state overlays", () => {
         whirlpoolAura?: Graphics;
     };
 
-    test("keeps stack flags and power pips disabled without allocating inactive status icons", () => {
+    test("keeps the compact amount ribbon hidden with the unit and leaves the old power rail disabled", () => {
         const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setStackPower(3);
@@ -2199,7 +2199,8 @@ describe("RenderableUnit steady-state overlays", () => {
 
         unit.ensureVisual(worldRoot, gridSettings);
         const internals = unit as unknown as OverlayInternals;
-        expect(internals.badgeFlag).toBeUndefined();
+        expect(internals.badgeFlag).toBeInstanceOf(Graphics);
+        expect(internals.badgeContainer?.visible).toBe(false);
         expect(internals.stackPowerPips).toHaveLength(0);
         expect(internals.hourglassContainer).toBeUndefined();
         expect(internals.stunContainer).toBeUndefined();
@@ -2208,7 +2209,8 @@ describe("RenderableUnit steady-state overlays", () => {
         unit.setStackPower(4);
         unit.setActiveTurn(true);
         unit.ensureVisual(worldRoot, gridSettings);
-        expect(internals.badgeFlag).toBeUndefined();
+        expect(internals.badgeFlag).toBeInstanceOf(Graphics);
+        expect(internals.badgeContainer?.visible).toBe(false);
         expect(internals.stackPowerPips).toHaveLength(0);
     });
 

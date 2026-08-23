@@ -259,6 +259,13 @@ export interface IOccupancyAuditGrid {
     ): boolean;
 }
 
+export const rankedUnitCellsMatchAuthoritative = (
+    registered: readonly HoCMath.XY[],
+    authoritative: readonly HoCMath.XY[],
+): boolean =>
+    registered.length === authoritative.length &&
+    authoritative.every((cell) => registered.some((candidate) => candidate.x === cell.x && candidate.y === cell.y));
+
 /**
  * Audit the client grid's occupancy against the authoritative snapshot and re-register any unit whose
  * cells diverged. The skip-rebuild and same-signature snapshot paths assume every replayed move already
@@ -280,8 +287,7 @@ export const reconcileRankedGridOccupancy = (
         const id = unitState.properties.id;
         const registered = grid.getRegisteredCells(id);
         const inSync =
-            registered.length === unitState.cells.length &&
-            unitState.cells.every((cell) => registered.some((r) => r.x === cell.x && r.y === cell.y)) &&
+            rankedUnitCellsMatchAuthoritative(registered, unitState.cells) &&
             unitState.cells.every((cell) => grid.getOccupantUnitId(cell) === id);
         if (inSync) {
             continue;

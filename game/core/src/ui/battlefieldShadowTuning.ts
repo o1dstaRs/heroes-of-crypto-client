@@ -95,7 +95,7 @@ const automaticBottomRow = (top: BattlefieldShadowRowTuning): BattlefieldShadowR
 });
 
 export const normalizeBattlefieldShadowTuning = (
-    value?: Partial<BattlefieldShadowTuning> & {
+    value?: Omit<Partial<BattlefieldShadowTuning>, "bottom" | "top"> & {
         bottom?: Partial<BattlefieldShadowRowTuning>;
         top?: Partial<BattlefieldShadowRowTuning>;
     },

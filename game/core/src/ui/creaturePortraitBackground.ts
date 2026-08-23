@@ -30,23 +30,10 @@ export const creaturePortraitBackgroundOpacity = (creatureId: number): number =>
 };
 
 export type CreaturePortraitBackgroundKey =
-    | "chaos_portrait_bg_obsidian_fissure_corner_fire_dark10_v1"
     | "chaos_portrait_bg_obsidian_fissure_corner_fire_v1"
-    | "chaos_portrait_bg_obsidian_fissure_v1"
-    | "life_portrait_bg_fallen_standard_v1"
-    | "life_portrait_bg_golden_dawn_dim_upper_right_v1"
-    | "life_portrait_bg_golden_dawn_four_corner_haze_dark10_v1"
     | "life_portrait_bg_golden_dawn_four_corner_haze_v1"
-    | "life_portrait_bg_golden_dawn_v1"
-    | "life_portrait_bg_mid_gold_small_crown_v1"
-    | "life_portrait_bg_sunlit_cuts_v1"
-    | "might_portrait_bg_blood_claw_trails_v1"
     | "might_portrait_bg_blood_claw_strong_red_corners_v1"
-    | "might_portrait_bg_shattered_fortress_v1"
-    | "nature_portrait_bg_tier_3_4"
-    | "nature_portrait_bg_xray_leaf_corner_glow_v1"
-    | "nature_portrait_bg_xray_leaf_corner_glow_v2_soft"
-    | "nature_portrait_bg_xray_leaf_corner_glow_v3_deep";
+    | "nature_portrait_bg_xray_leaf_corner_glow_v2_soft";
 
 /** Resolve the shared race environment used behind a creature's approved full-body portrait. */
 export const creaturePortraitBackgroundKey = (creatureId: number): CreaturePortraitBackgroundKey | undefined => {
