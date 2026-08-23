@@ -44,6 +44,7 @@ test("left sidebar portrait checkpoint X is the active production set", () => {
         containerWidth: 99,
         containerOffsetX: 1,
     });
+    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[3]).toMatchObject({ artScale: 0.68, artOffsetX: 10, artOffsetY: -16 });
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[6]).toMatchObject({ artScale: 1.5, artOffsetX: -1, artOffsetY: 17 });
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[23]).toMatchObject({ artScale: 1.05, artOffsetY: 27 });
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[39]).toMatchObject({ artScale: 1.18, artOffsetX: 25, artOffsetY: 15 });

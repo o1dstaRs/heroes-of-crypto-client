@@ -41,7 +41,7 @@ export const LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X: Readonly<Partial<Record<number,
     Object.freeze({
         1: { artScale: 0.76, artOffsetX: 3, artOffsetY: -31, containerWidth: 99, containerOffsetX: 1 },
         2: { artScale: 0.82, artOffsetX: 0, artOffsetY: -27, containerWidth: 99, containerOffsetX: 1 },
-        3: { artScale: 0.68, artOffsetX: 5, artOffsetY: -16, containerWidth: 99, containerOffsetX: 1 },
+        3: { artScale: 0.68, artOffsetX: 10, artOffsetY: -16, containerWidth: 99, containerOffsetX: 1 },
         4: { artScale: 0.74, artOffsetX: 0, artOffsetY: -13, containerWidth: 99, containerOffsetX: 1 },
         5: { artScale: 0.74, artOffsetX: 4, artOffsetY: -21, containerWidth: 99, containerOffsetX: 1 },
         6: { artScale: 1.5, artOffsetX: -1, artOffsetY: 17, containerWidth: 99, containerOffsetX: 1 },
