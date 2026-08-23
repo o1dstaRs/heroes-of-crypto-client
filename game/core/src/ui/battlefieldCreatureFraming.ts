@@ -25,6 +25,11 @@ export interface BattlefieldCreatureVisualBounds {
 // older baseline must not keep overriding those reviewed values (the old L2/L3 drafts did exactly
 // that, while newly-added Cyclops correctly fell back to the approved table).
 export const BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY = "hoc-dev-battlefield-creature-framing-v12";
+export const BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT = "hoc:battlefield-creature-framing-change";
+
+export interface BattlefieldCreatureFramingChangeDetail {
+    unitName?: string;
+}
 export const DEFAULT_BATTLEFIELD_CREATURE_FRAMING: BattlefieldCreatureFraming = Object.freeze({
     scaleX: 1,
     scaleY: 1,
@@ -146,6 +151,16 @@ export const writeStoredBattlefieldCreatureFraming = (framing: Record<string, Ba
     if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
         window.localStorage.setItem(BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY, JSON.stringify(storedCache));
     }
+};
+
+/** Tell live editor units to re-read their saved framing without rebuilding the battle scene. */
+export const notifyBattlefieldCreatureFramingChanged = (unitName?: string): void => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+        new CustomEvent<BattlefieldCreatureFramingChangeDetail>(BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT, {
+            detail: { unitName },
+        }),
+    );
 };
 
 /** Runtime hook: local drafts override the approved values only in development builds. */

@@ -41,9 +41,11 @@ import {
 } from "./BattlefieldCreatureContourFilter";
 import { getBattlefieldAlphaHoleFillFilter, shouldFillBattlefieldAlphaHoles } from "./BattlefieldAlphaHoleFillFilter";
 import {
+    BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
     isBattlefieldCreatureEditorActive,
     publishBattlefieldCreatureVisualBounds,
     resolveStoredBattlefieldCreatureFraming,
+    type BattlefieldCreatureFramingChangeDetail,
 } from "../ui/battlefieldCreatureFraming";
 import {
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
@@ -1159,6 +1161,9 @@ export class RenderableUnit extends Unit {
     private badgeFlag?: Graphics;
     private badgeText?: Text;
     private badgeDrawState?: BadgeDrawState;
+    private battlefieldFramingChangeListener?: EventListener;
+    private battlefieldFramingWorldRoot?: Container;
+    private battlefieldFramingGridSettings?: GridSettings;
     /** Cached per-unit wave phase for the banner (see badgeFlagPhase). */
     private badgeFlagPhaseValue?: number;
     private stackPowerContainer?: Container;
@@ -1317,6 +1322,9 @@ export class RenderableUnit extends Unit {
         ru.badgeAmountOverride = undefined;
         ru.badgeHeader = undefined;
         ru.badgeDrawState = undefined;
+        ru.battlefieldFramingChangeListener = undefined;
+        ru.battlefieldFramingWorldRoot = undefined;
+        ru.battlefieldFramingGridSettings = undefined;
         ru.stackPowerDrawState = undefined;
         ru.projectedStackPower = undefined;
         ru.rosterCardDrawState = undefined;
@@ -1502,6 +1510,7 @@ export class RenderableUnit extends Unit {
     public ensureVisual(worldRoot: Container, gs: GridSettings): number | undefined {
         if (this.isDestroyed) return;
         const props = this.getUnitProperties();
+        this.watchBattlefieldCreatureFramingChanges(worldRoot, gs, props.name);
         const logicalPos = this.getPosition();
         const pos = this.useBattlefieldVisualProjection ? projectBattlefieldPoint(logicalPos, gs) : logicalPos;
         const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
@@ -3414,6 +3423,15 @@ export class RenderableUnit extends Unit {
         }
     }
     public destroyVisuals(): void {
+        if (this.battlefieldFramingChangeListener && typeof window !== "undefined") {
+            window.removeEventListener(
+                BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT,
+                this.battlefieldFramingChangeListener,
+            );
+        }
+        this.battlefieldFramingChangeListener = undefined;
+        this.battlefieldFramingWorldRoot = undefined;
+        this.battlefieldFramingGridSettings = undefined;
         this.isDestroyed = true;
 
         if (this.dodgeAnim) {
@@ -3750,6 +3768,22 @@ export class RenderableUnit extends Unit {
             flag.lineTo(xs[i] - (i === last ? hemInset : 0), topY[i] + hemInset);
         }
         flag.stroke({ width: 0.75, color: 0xffffff, alpha: 0.32, cap: "round" });
+    }
+    private watchBattlefieldCreatureFramingChanges(worldRoot: Container, gs: GridSettings, unitName: string): void {
+        if (typeof window === "undefined" || import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") return;
+        this.battlefieldFramingWorldRoot = worldRoot;
+        this.battlefieldFramingGridSettings = gs;
+        if (this.battlefieldFramingChangeListener) return;
+
+        this.battlefieldFramingChangeListener = (event: Event) => {
+            const changedUnitName = (event as CustomEvent<BattlefieldCreatureFramingChangeDetail>).detail?.unitName;
+            if (changedUnitName && changedUnitName !== unitName) return;
+            const currentWorldRoot = this.battlefieldFramingWorldRoot;
+            const currentGridSettings = this.battlefieldFramingGridSettings;
+            if (this.isDestroyed || !currentWorldRoot || !currentGridSettings) return;
+            this.ensureVisual(currentWorldRoot, currentGridSettings);
+        };
+        window.addEventListener(BATTLEFIELD_CREATURE_FRAMING_CHANGE_EVENT, this.battlefieldFramingChangeListener);
     }
     private ensureBadge(worldRoot: Container, gs: GridSettings, props: UnitProperties, pos: HoCMath.XY): void {
         if (!SHOW_BOARD_STACK_DECORATIONS) {

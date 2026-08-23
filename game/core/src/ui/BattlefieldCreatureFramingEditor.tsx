@@ -12,6 +12,7 @@ import {
     BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY,
     DEFAULT_BATTLEFIELD_CREATURE_FRAMING,
     normalizeBattlefieldCreatureFraming,
+    notifyBattlefieldCreatureFramingChanged,
     readBattlefieldCreatureVisualBounds,
     readStoredBattlefieldCreatureFraming,
     setBattlefieldCreatureEditorActive,
@@ -453,21 +454,30 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
     }
     if (!selectedCreature) return null;
 
-    const persist = (next: Record<string, BattlefieldCreatureFraming>, message = "Сохранено локально") => {
+    const persist = (
+        next: Record<string, BattlefieldCreatureFraming>,
+        message = "Сохранено локально",
+        changedUnitName?: string,
+    ) => {
         setOverrides(next);
         writeStoredBattlefieldCreatureFraming(next);
+        notifyBattlefieldCreatureFramingChanged(changedUnitName);
         setStatus(message);
     };
     const updateFraming = (patch: Partial<BattlefieldCreatureFraming>) => {
-        persist({
-            ...overrides,
-            [selectedCreature.name]: normalizeBattlefieldCreatureFraming({ ...framing, ...patch }),
-        });
+        persist(
+            {
+                ...overrides,
+                [selectedCreature.name]: normalizeBattlefieldCreatureFraming({ ...framing, ...patch }),
+            },
+            "Сохранено локально",
+            selectedCreature.name,
+        );
     };
     const resetCurrent = () => {
         const next = { ...overrides };
         delete next[selectedCreature.name];
-        persist(next, `${selectedCreature.name}: настройки сброшены`);
+        persist(next, `${selectedCreature.name}: настройки сброшены`, selectedCreature.name);
     };
     const resetAll = () => {
         if (!window.confirm("Сбросить настройки всех существ на карте?")) return;

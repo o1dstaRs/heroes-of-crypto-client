@@ -38,6 +38,7 @@ import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
+import { PlayRankedBadge } from "./PlayRankedBadge";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
@@ -221,6 +222,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                         <RightSideBar
                             gameStarted={started}
                             windowSize={windowSize}
+                            rankedFooter={!started && !replayPlaybackActive ? <PlayRankedBadge /> : undefined}
                             onClose={!started && !replayPlaybackActive ? closeSandbox : undefined}
                         />
                     )}
