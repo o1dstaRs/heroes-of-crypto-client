@@ -57,7 +57,7 @@ describe("committed creature portrait framing", () => {
 
     test("saves the approved baseline as portrait checkpoint X", () => {
         expect(PICK_PORTRAIT_FRAMING).toEqual(PORTRAIT_FRAMING_CHECKPOINT_X);
-        expect(PORTRAIT_FRAMING_STORAGE_KEY).toContain("osg-2308");
+        expect(PORTRAIT_FRAMING_STORAGE_KEY).toBe("hoc-dev-portrait-framing-v3");
         expect(PORTRAIT_FRAMING_CHECKPOINT_X[CreatureVals.WOLF_RIDER]).toEqual({
             source: "full",
             fit: "contain",

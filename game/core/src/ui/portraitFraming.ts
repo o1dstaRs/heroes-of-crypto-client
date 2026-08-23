@@ -95,11 +95,10 @@ export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {
     ...PORTRAIT_FRAMING_CHECKPOINT_X,
 };
 
-// Keep dev-editor drafts separate from the reviewed production framing above.
-// OSG-2308 starts a clean editor namespace. Older local drafts (including the Rider framing pass)
-// must not override the committed checkpoint in the sandbox roster or any other portrait surface.
-export const PORTRAIT_FRAMING_STORAGE_KEY = "hoc-dev-portrait-framing-osg-2308-v1";
-const LEGACY_PORTRAIT_FRAMING_STORAGE_KEYS: readonly string[] = [];
+// Preserve the JSON tuned in the dev editor. The temporary OSG-2308 namespace hid the existing v3
+// settings from the app; keep it only as a fallback so no newer local edits are lost.
+export const PORTRAIT_FRAMING_STORAGE_KEY = "hoc-dev-portrait-framing-v3";
+const LEGACY_PORTRAIT_FRAMING_STORAGE_KEYS: readonly string[] = ["hoc-dev-portrait-framing-osg-2308-v1"];
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
