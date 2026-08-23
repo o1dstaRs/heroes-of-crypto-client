@@ -8,6 +8,7 @@ import {
     DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING,
     LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X,
     LEFT_SIDEBAR_PORTRAIT_TUNING,
+    LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY,
     LEFT_SIDEBAR_CARD_ASPECT,
     LEFT_SIDEBAR_STAT_PLATE_SHARE,
     LEFT_SIDEBAR_ART_OFFSET_MAX,
@@ -35,6 +36,14 @@ test("left sidebar portrait tuning contains the exported per-creature settings",
 
 test("left sidebar portrait checkpoint X is the active production set", () => {
     expect(LEFT_SIDEBAR_PORTRAIT_TUNING).toBe(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X);
+    expect(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY).toContain("osg-2308");
+    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[13]).toEqual({
+        artScale: 0.86,
+        artOffsetX: 4,
+        artOffsetY: -14,
+        containerWidth: 99,
+        containerOffsetX: 1,
+    });
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[6]).toMatchObject({ artScale: 1.5, artOffsetX: -1, artOffsetY: 17 });
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[23]).toMatchObject({ artScale: 1.05, artOffsetY: 27 });
     expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[39]).toMatchObject({ artScale: 1.18, artOffsetX: 25, artOffsetY: 15 });

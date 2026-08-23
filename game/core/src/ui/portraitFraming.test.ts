@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import {
     PICK_PORTRAIT_FRAMING,
     PORTRAIT_FRAMING_CHECKPOINT_X,
+    PORTRAIT_FRAMING_STORAGE_KEY,
     PORTRAIT_OFFSET_X_MAX,
     PORTRAIT_OFFSET_X_MIN,
     PORTRAIT_OFFSET_Y_MAX,
@@ -12,7 +13,7 @@ import {
     PORTRAIT_SCALE_MIN,
     normalizePortraitFraming,
 } from "./portraitFraming";
-import { resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
+import { resolveCreaturePortraitArtPlacement, resolveCreaturePortraitVisual } from "./creaturePortraitVisual";
 import { fullBodyCreatureImage, UNIT_ID_TO_IMAGE } from "./unit_ui_constants";
 
 describe("committed creature portrait framing", () => {
@@ -56,6 +57,15 @@ describe("committed creature portrait framing", () => {
 
     test("saves the approved baseline as portrait checkpoint X", () => {
         expect(PICK_PORTRAIT_FRAMING).toEqual(PORTRAIT_FRAMING_CHECKPOINT_X);
+        expect(PORTRAIT_FRAMING_STORAGE_KEY).toContain("osg-2308");
+        expect(PORTRAIT_FRAMING_CHECKPOINT_X[CreatureVals.WOLF_RIDER]).toEqual({
+            source: "full",
+            fit: "contain",
+            scale: 3.38,
+            offsetX: -32,
+            offsetY: 93,
+            background: "none",
+        });
 
         const approved = {
             8: { source: "full", fit: "contain", scale: 3.82, offsetX: 0, offsetY: 80, background: "none" },
@@ -81,6 +91,24 @@ describe("committed creature portrait framing", () => {
         for (const [creatureId, framing] of Object.entries(approved)) {
             expect(PORTRAIT_FRAMING_CHECKPOINT_X[Number(creatureId)]).toEqual(framing);
         }
+    });
+
+    test("keeps dedicated left-sidebar art independent from the pick-card crop", () => {
+        const wolfRiderFraming = PICK_PORTRAIT_FRAMING[CreatureVals.WOLF_RIDER]!;
+
+        expect(
+            resolveCreaturePortraitArtPlacement(wolfRiderFraming, {
+                independentSource: true,
+                scale: 0.86,
+                offsetX: 4,
+                offsetY: -14,
+            }),
+        ).toEqual({ scale: 0.86, offsetX: 4, offsetY: -14 });
+        expect(resolveCreaturePortraitArtPlacement(wolfRiderFraming)).toEqual({
+            scale: 3.38,
+            offsetX: -32,
+            offsetY: 93,
+        });
     });
 
     test("keeps the restored close L3 framing and original full-body sources", () => {
