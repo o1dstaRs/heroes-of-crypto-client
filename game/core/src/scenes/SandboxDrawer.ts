@@ -26,6 +26,8 @@ import { RenderableUnit } from "./RenderableUnit";
  * aura, the movement highlight, and the board-edge glow all share this color for a consistent cue.
  */
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
+/** Muted tactical gold: readable over terrain without the neon-yellow picture-frame look. */
+const SHOT_RANGE_COLOR = 0xe7bc6a;
 
 export interface ILingeringTrack {
     x: number;
@@ -142,15 +144,7 @@ export class SandboxDrawer {
             const { xy, distance } = hoveredShotRange;
             // Use Yellow (same as Active) for consistent "Expected Range" visualization
             // even in placement mode.
-            SandboxDrawer.drawShotRangeSquare(
-                g,
-                xy,
-                distance,
-                gs,
-                hoverGlowPhase,
-                0xffff00, // Yellow
-                fightStarted,
-            );
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
         }
 
         // 0.5 Sidebar Unit Range (New Feature)
@@ -185,13 +179,13 @@ export class SandboxDrawer {
         // 1. Shift Selected Shot Range (Same style as Active)
         if (shiftSelectedShotRange) {
             const { xy, distance } = shiftSelectedShotRange;
-            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
         }
 
         // 2. Full-damage shot square (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
             const { xy, distance } = currentActiveShotRange;
-            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, 0xffff00, fightStarted);
+            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
         }
 
         const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
@@ -307,9 +301,9 @@ export class SandboxDrawer {
             const bounds = SandboxDrawer.clampSquareToBoard(xy, attackRange, gs);
             if (bounds) {
                 g.rect(bounds.left, bounds.bottom, bounds.width, bounds.height).stroke({
-                    width: 1.5,
-                    color: 0x00ffff, // Cyan
-                    alpha: 0.5 * alphaMultiplier,
+                    width: Math.max(1, cellSize * 0.01),
+                    color: 0x6dbfc8,
+                    alpha: 0.28 * alphaMultiplier,
                 });
             }
         }
@@ -401,31 +395,17 @@ export class SandboxDrawer {
         const cellSize = gs.getCellSize();
         const pulse = (Math.sin(pulsePhase) + 1) / 2;
 
-        // The halo feathers INWARD. The old ring could bleed its glow outward because a circle never
-        // claimed to end on a cell; this border does, and past the arena edge there is nothing to glow.
-        const featherLayers = 6;
-        const feather = Math.min(cellSize * 0.7, Math.min(width, height) * 0.4);
-        for (let layer = 1; layer <= featherLayers; layer++) {
-            const inset = (feather * layer) / featherLayers;
-            if (width - inset * 2 <= 0 || height - inset * 2 <= 0) {
-                break;
-            }
-            g.rect(left + inset, bottom + inset, width - inset * 2, height - inset * 2).stroke({
-                width: 1.5,
-                color,
-                alpha: (fightStarted ? 0.16 : 0.12) * (1 - layer / (featherLayers + 1)) * (0.7 + 0.3 * pulse),
-            });
-        }
-
+        // One restrained hairline states the exact gameplay boundary. The old treatment stacked six
+        // inner rectangles under a thick neon border, turning a useful guide into a glowing picture frame.
         g.rect(left, bottom, width, height).stroke({
-            width: fightStarted ? 3 : 2,
+            width: Math.max(1, cellSize * 0.012),
             color,
-            alpha: fightStarted ? 0.95 : 0.8,
+            alpha: (fightStarted ? 0.28 : 0.2) + pulse * 0.04,
         });
 
-        // Corner brackets carry the pulse the ring's radial ticks used to, and they read as "area"
-        // at a glance instead of as a decorative frame.
-        const bracket = Math.min(cellSize * (0.5 + 0.2 * pulse), Math.min(width, height) * 0.45);
+        // Short corner cues keep the square discoverable over busy terrain. Only these breathe; the full
+        // boundary stays still, so the overlay does not compete with projectiles and active-unit VFX.
+        const bracket = Math.min(cellSize * (0.22 + 0.04 * pulse), Math.min(width, height) * 0.18);
         const right = left + width;
         const top = bottom + height;
         const corners: [number, number, number, number][] = [
@@ -439,9 +419,9 @@ export class SandboxDrawer {
                 .lineTo(cornerX, cornerY)
                 .lineTo(cornerX, cornerY + towardY * bracket)
                 .stroke({
-                    width: 2.5,
+                    width: Math.max(1.25, cellSize * 0.014),
                     color,
-                    alpha: 0.6 + 0.35 * pulse,
+                    alpha: 0.4 + 0.12 * pulse,
                 });
         }
     }

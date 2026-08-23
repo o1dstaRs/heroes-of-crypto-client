@@ -68,10 +68,32 @@ const drawnBorder = (shotDistance: number, unitSize: number, cell: { x: number; 
     return rects.reduce((widest, rect) => (rect.width > widest.width ? rect : widest));
 };
 
+const drawnRectangles = (shotDistance: number, unitSize: number, cell: { x: number; y: number }): IRecordedRect[] => {
+    const { graphics, rects } = recorder();
+    const context = {
+        fightProps: { hasFightStarted: () => true },
+        currentActiveShotRange: {
+            xy: cellCenter(cell),
+            distance: GridMath.getFullDamageSquareHalfExtent(shotDistance, unitSize, GridConstants.STEP),
+        },
+        isActiveUnitMoving: false,
+        gridSettings,
+        hoverGlowPhase: 0,
+        sc_isAnimating: false,
+    } as unknown as IGameplayDrawContext;
+
+    SandboxDrawer.drawGameplayVisuals(graphics as never, context);
+    return rects;
+};
+
 /** Cell borders are the only x/y a whole-cell square may end on. */
 const onCellBorder = (value: number, axisMin: number) => (value - axisMin) % gridSettings.getStep() === 0;
 
 describe("the full-damage shot square", () => {
+    test("uses one quiet boundary instead of nested glowing frames", () => {
+        expect(drawnRectangles(3.5, 1, { x: 5, y: 5 })).toHaveLength(1);
+    });
+
     test("floors a fractional shot distance and ends on cell borders", () => {
         // 3.5 plays as three whole cells; the extra half cell only carries the edge from the unit's
         // own cell CENTER out to that cell's border, which is why the span is seven cells, not six.
