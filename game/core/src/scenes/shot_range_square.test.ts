@@ -10,6 +10,7 @@ import { describe, expect, test } from "bun:test";
 import { GridConstants, GridMath, GridSettings } from "@heroesofcrypto/common";
 
 import { SandboxDrawer, type IGameplayDrawContext } from "./SandboxDrawer";
+import { projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -21,37 +22,30 @@ const gridSettings = new GridSettings(
     GridConstants.UNIT_SIZE_DELTA,
 );
 
-interface IRecordedRect {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
-
 /** Just enough of the Pixi Graphics chaining API to record what the drawer asked for. */
 const recorder = () => {
-    const rects: IRecordedRect[] = [];
+    const polygons: number[][] = [];
     const graphics = {
-        rect(x: number, y: number, width: number, height: number) {
-            rects.push({ x, y, width, height });
+        poly(points: number[]) {
+            polygons.push([...points]);
             return graphics;
         },
+        rect: () => graphics,
         circle: () => graphics,
-        poly: () => graphics,
         moveTo: () => graphics,
         lineTo: () => graphics,
         stroke: () => graphics,
         fill: () => graphics,
     };
-    return { graphics, rects };
+    return { graphics, polygons };
 };
 
 const cellCenter = (cell: { x: number; y: number }) =>
     GridMath.getPositionForCell(cell, gridSettings.getMinX(), gridSettings.getStep(), gridSettings.getHalfStep());
 
-/** The border is the largest rectangle the drawer emits; the rest feather inward from it. */
-const drawnBorder = (shotDistance: number, unitSize: number, cell: { x: number; y: number }): IRecordedRect => {
-    const { graphics, rects } = recorder();
+/** The closed polygon is the range border; the other four paths are its open corner brackets. */
+const drawnBorder = (shotDistance: number, unitSize: number, cell: { x: number; y: number }): number[] => {
+    const { graphics, polygons } = recorder();
     const context = {
         fightProps: { hasFightStarted: () => true },
         currentActiveShotRange: {
@@ -66,12 +60,16 @@ const drawnBorder = (shotDistance: number, unitSize: number, cell: { x: number; 
     } as unknown as IGameplayDrawContext;
 
     SandboxDrawer.drawGameplayVisuals(graphics as never, context);
-    expect(rects.length).toBeGreaterThan(0);
-    return rects.reduce((widest, rect) => (rect.width > widest.width ? rect : widest));
+    const closed = polygons.filter(
+        (points) =>
+            points.length >= 4 && points[0] === points[points.length - 2] && points[1] === points[points.length - 1],
+    );
+    expect(closed).toHaveLength(1);
+    return closed[0];
 };
 
-const drawnRectangles = (shotDistance: number, unitSize: number, cell: { x: number; y: number }): IRecordedRect[] => {
-    const { graphics, rects } = recorder();
+const drawnPolygons = (shotDistance: number, unitSize: number, cell: { x: number; y: number }): number[][] => {
+    const { graphics, polygons } = recorder();
     const context = {
         fightProps: { hasFightStarted: () => true },
         currentActiveShotRange: {
@@ -86,44 +84,64 @@ const drawnRectangles = (shotDistance: number, unitSize: number, cell: { x: numb
     } as unknown as IGameplayDrawContext;
 
     SandboxDrawer.drawGameplayVisuals(graphics as never, context);
-    return rects;
+    return polygons;
 };
 
 /** Cell borders are the only x/y a whole-cell square may end on. */
 const onCellBorder = (value: number, axisMin: number) => (value - axisMin) % gridSettings.getStep() === 0;
 
+const logicalBounds = (shotDistance: number, unitSize: number, cell: { x: number; y: number }) => {
+    const center = cellCenter(cell);
+    const halfExtent = GridMath.getFullDamageSquareHalfExtent(shotDistance, unitSize, GridConstants.STEP);
+    return {
+        left: Math.max(center.x - halfExtent, gridSettings.getMinX()),
+        right: Math.min(center.x + halfExtent, gridSettings.getMaxX()),
+        bottom: Math.max(center.y - halfExtent, gridSettings.getMinY()),
+        top: Math.min(center.y + halfExtent, gridSettings.getMaxY()),
+    };
+};
+
 describe("the full-damage shot square", () => {
     test("uses one quiet boundary instead of nested glowing frames", () => {
-        expect(drawnRectangles(3.5, 1, { x: 5, y: 5 })).toHaveLength(1);
+        const closed = drawnPolygons(3.5, 1, { x: 5, y: 5 }).filter(
+            (points) => points[0] === points[points.length - 2] && points[1] === points[points.length - 1],
+        );
+        expect(closed).toHaveLength(1);
     });
 
-    test("floors a fractional shot distance and ends on cell borders", () => {
+    test("floors a fractional shot distance and follows the painted cell seams", () => {
         // 3.5 plays as three whole cells; the extra half cell only carries the edge from the unit's
         // own cell CENTER out to that cell's border, which is why the span is seven cells, not six.
+        const bounds = logicalBounds(3.5, 1, { x: 5, y: 5 });
         const border = drawnBorder(3.5, 1, { x: 5, y: 5 });
 
-        expect(border.width).toBe(7 * GridConstants.STEP);
-        expect(border.height).toBe(7 * GridConstants.STEP);
-        expect(onCellBorder(border.x, gridSettings.getMinX())).toBe(true);
-        expect(onCellBorder(border.y, gridSettings.getMinY())).toBe(true);
+        expect(bounds.right - bounds.left).toBe(7 * GridConstants.STEP);
+        expect(bounds.top - bounds.bottom).toBe(7 * GridConstants.STEP);
+        expect(onCellBorder(bounds.left, gridSettings.getMinX())).toBe(true);
+        expect(onCellBorder(bounds.bottom, gridSettings.getMinY())).toBe(true);
+        expect(border).toEqual(projectedRectPoints(bounds.left, bounds.bottom, bounds.right, bounds.top, gridSettings));
     });
 
     test("wraps a 2x2 attacker's whole footprint", () => {
         // A 2x2 is centred on the intersection of its four cells, so its own body already eats a full
         // cell of the half-extent on each side: three cells of reach spans 3 + 1 + 1 + 3 cells.
+        const bounds = logicalBounds(3, 2, { x: 5, y: 5 });
         const border = drawnBorder(3, 2, { x: 5, y: 5 });
 
-        expect(border.width).toBe(8 * GridConstants.STEP);
+        expect(bounds.right - bounds.left).toBe(8 * GridConstants.STEP);
+        expect(border).toEqual(projectedRectPoints(bounds.left, bounds.bottom, bounds.right, bounds.top, gridSettings));
     });
 
     test("never claims cells beyond the arena", () => {
         // A corner shooter's square would hang off two sides of the board; cells that do not exist can
         // not take a full 1/1 arrow, so the overlay stops at the edge.
+        const bounds = logicalBounds(6.5, 1, { x: 0, y: 0 });
         const border = drawnBorder(6.5, 1, { x: 0, y: 0 });
 
-        expect(border.x).toBe(gridSettings.getMinX());
-        expect(border.y).toBe(gridSettings.getMinY());
-        expect(border.x + border.width).toBeLessThanOrEqual(gridSettings.getMaxX());
-        expect(border.y + border.height).toBeLessThanOrEqual(gridSettings.getMaxY());
+        expect(bounds.left).toBe(gridSettings.getMinX());
+        expect(bounds.bottom).toBe(gridSettings.getMinY());
+        expect(bounds.right).toBeLessThanOrEqual(gridSettings.getMaxX());
+        expect(bounds.top).toBeLessThanOrEqual(gridSettings.getMaxY());
+        expect(border).toEqual(projectedRectPoints(bounds.left, bounds.bottom, bounds.right, bounds.top, gridSettings));
     });
 });

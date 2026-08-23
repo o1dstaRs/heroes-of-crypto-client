@@ -379,7 +379,10 @@ export class SandboxDrawer {
         const pulse = (Math.sin(pulsePhase) + 1) / 2;
         const cellSize = gs.getCellSize();
 
-        g.rect(left, bottom, width, height).stroke({
+        // The floor artwork has a hand-traced 16x16 grid, so an axis-aligned Graphics.rect cuts
+        // across its perspective seams. Project every side (including intermediate seam vertices)
+        // through the same mapping used by movement cells and ranged trajectories.
+        g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
             width: Math.max(1, cellSize * 0.012),
             color,
             alpha: (fightStarted ? 0.28 : 0.2) + pulse * 0.04,
@@ -395,14 +398,20 @@ export class SandboxDrawer {
             [right, top, -1, -1],
         ];
         for (const [cornerX, cornerY, towardX, towardY] of corners) {
-            g.moveTo(cornerX + towardX * bracket, cornerY)
-                .lineTo(cornerX, cornerY)
-                .lineTo(cornerX, cornerY + towardY * bracket)
-                .stroke({
-                    width: Math.max(1.25, cellSize * 0.014),
-                    color,
-                    alpha: 0.4 + 0.12 * pulse,
-                });
+            g.poly(
+                projectedPolyline(
+                    [
+                        { x: cornerX + towardX * bracket, y: cornerY },
+                        { x: cornerX, y: cornerY },
+                        { x: cornerX, y: cornerY + towardY * bracket },
+                    ],
+                    gs,
+                ),
+            ).stroke({
+                width: Math.max(1.25, cellSize * 0.014),
+                color,
+                alpha: 0.4 + 0.12 * pulse,
+            });
         }
     }
     private static drawProjectedRing(
