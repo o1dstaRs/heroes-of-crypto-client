@@ -86,6 +86,12 @@ import {
 } from "./effect_pops";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import {
+    formatAggrBlockedActionHint,
+    isAggrBlockedActionHint,
+    isManualAttackBlockedByAggr,
+    shouldResolveAggrAfterFirstDoubleShotObstacle,
+} from "./aggrBlockedActionHint";
+import {
     placementFacingDirectionForTeam,
     preservesFacingForPureVerticalSingleCellAttack,
     RenderableUnit,
@@ -5969,6 +5975,175 @@ export class Sandbox extends PixiScene {
      * The spawn lane is deliberately fixed at the four central columns for every placement preset, as the
      * Cemetery map design reserves that full-height strip between the left and right deployment fields.
      */
+    /** The target/obstacle on which the engine applies Aggr's gate after resolving the actual range ray. */
+    private resolveRangeAttackAggrIntent(
+        targetUnit: Unit,
+        exactAimPosition?: HoCMath.XY,
+    ): { primary?: Unit; stoppedByObstacle: boolean } {
+        const attacker = this.currentActiveUnit;
+        if (!attacker || !this.attackHandler) {
+            return { stoppedByObstacle: false };
+        }
+        const aimPosition = resolveLiveRangeProjectileTracePosition(
+            exactAimPosition,
+            () =>
+                attacker instanceof RenderableUnit
+                    ? this.resolveRangeAimForTarget(attacker, targetUnit)?.position
+                    : undefined,
+            targetUnit.getPosition(),
+        );
+        const throughShot = attacker.hasAbilityActive("Through Shot");
+        const ignoresStructures = attacker.hasAbilityActive("Large Caliber") || attacker.hasAbilityActive("Area Throw");
+        let evaluation = this.attackHandler.evaluateRangeAttack(
+            this.unitsHolder.getAllUnits(),
+            attacker,
+            attacker.getPosition(),
+            aimPosition,
+            throughShot,
+            false,
+            ignoresStructures,
+        );
+        const hasDoubleShot = AbilityHelper.hasDoubleShotAbility(attacker);
+        const obstacleIntersections =
+            this.grid.hasScatteredMountains() && hasDoubleShot && !ignoresStructures
+                ? this.attackHandler.getObstacleIntersections(attacker.getPosition(), aimPosition).slice(0, 2)
+                : [];
+        if (
+            shouldResolveAggrAfterFirstDoubleShotObstacle(
+                obstacleIntersections.length,
+                hasDoubleShot,
+                ignoresStructures,
+            )
+        ) {
+            // Projectile one removes the sole tombstone; projectile two is then evaluated on the unchanged
+            // ray. `isSelection` is the evaluator's read-only "ignore structures" mode, safe here because
+            // getObstacleIntersections proved there is exactly one structure to remove on this segment.
+            evaluation = this.attackHandler.evaluateRangeAttack(
+                this.unitsHolder.getAllUnits(),
+                attacker,
+                attacker.getPosition(),
+                aimPosition,
+                throughShot,
+                true,
+                ignoresStructures,
+            );
+        }
+        return {
+            primary: evaluation.affectedUnits[0]?.[0],
+            stoppedByObstacle: !!evaluation.attackObstacle,
+        };
+    }
+    private showAggrBlockedActionHint(forcedTarget: Unit | undefined = this.getLiveAggrForcedTarget()): boolean {
+        const activeUnit = this.currentActiveUnit;
+        if (!activeUnit || !forcedTarget) {
+            return false;
+        }
+
+        // A blocked attack must not leave the previous legal target's arrow, damage numbers, AOE outline,
+        // move silhouette, or attack cursor behind the explanation. This is also used by MouseDown so a
+        // quick move-and-click gets the same feedback even when hover() has not run at the new pointer yet.
+        this.hoverManager.clearAttackVisuals();
+        this.hoverManager.clearAOEArea();
+        this.hoverManager.clearHoverSilhouette();
+        this.hoverManager.hoverAttackFromCell = undefined;
+        this.hoverRangeAttackObstacle = undefined;
+        this.emitLocalMoveIntent(undefined);
+        this.sc_isHoveringAttackTarget = false;
+        this.sc_meleeCursorDirection = undefined;
+
+        const viewerTeam = this.getViewerTeam();
+        const concealedFromViewer =
+            forcedTarget.hasBuffActive("Hidden") && viewerTeam !== undefined && forcedTarget.getTeam() !== viewerTeam;
+        const hint = formatAggrBlockedActionHint(concealedFromViewer ? undefined : forcedTarget.getName());
+        if (this.sc_hoverInfoArr.length !== 1 || this.sc_hoverInfoArr[0] !== hint) {
+            this.cleanupHoverText(false);
+            this.sc_hoverInfoArr = [hint];
+            this.sc_hoverTextUpdateNeeded = true;
+        }
+        return true;
+    }
+    private clearAggrBlockedActionHint(): void {
+        if (!isAggrBlockedActionHint(this.sc_hoverInfoArr[0])) {
+            return;
+        }
+        this.sc_hoverInfoArr = [];
+        this.sc_hoverTextUpdateNeeded = true;
+    }
+    private isAttackBlockedByAggr(
+        resolvedPrimaryTarget: Unit | undefined,
+        kind: "melee" | "range" | "area" | "spell",
+    ): Unit | undefined {
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (
+            !forcedTarget ||
+            !isManualAttackBlockedByAggr(forcedTarget.getId(), {
+                kind,
+                resolvedPrimaryTargetId: resolvedPrimaryTarget?.getId(),
+            })
+        ) {
+            return undefined;
+        }
+        return forcedTarget;
+    }
+    private isRangeAttackBlockedByAggr(targetUnit: Unit, exactAimPosition?: HoCMath.XY): Unit | undefined {
+        const resolution = this.resolveRangeAttackAggrIntent(targetUnit, exactAimPosition);
+        if (!resolution.primary && resolution.stoppedByObstacle) {
+            const forcedTarget = this.getLiveAggrForcedTarget();
+            return forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })
+                ? forcedTarget
+                : undefined;
+        }
+        return this.isAttackBlockedByAggr(resolution.primary, "range");
+    }
+    private isRangedUnitAttackIntent(targetUnit: Unit): boolean {
+        const unit = this.currentActiveUnit;
+        if (
+            !(unit instanceof RenderableUnit) ||
+            unit.getAttackTypeSelection() !== AttackVals.RANGE ||
+            unit.getRangeShots() <= 0 ||
+            unit.hasDebuffActive("Range Null Field Aura") ||
+            unit.hasStatusApplied("Rangebane") ||
+            this.attackHandler.canBeAttackedByMelee(
+                unit.getPosition(),
+                unit.isSmallSize(),
+                this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
+            )
+        ) {
+            return false;
+        }
+        return (
+            unit.hasAbilityActive("No Melee") ||
+            HoCMath.getDistance(unit.getPosition(), targetUnit.getPosition()) > GridConstants.STEP * 1.5
+        );
+    }
+    private isUnitAttackBlockedByAggr(targetUnit: Unit): Unit | undefined {
+        const unit = this.currentActiveUnit;
+        const selection = unit?.getAttackTypeSelection();
+        if (selection === AttackVals.RANGE) {
+            if (this.isRangedUnitAttackIntent(targetUnit)) {
+                return this.isRangeAttackBlockedByAggr(targetUnit);
+            }
+            return unit?.hasAbilityActive("No Melee") ? undefined : this.isAttackBlockedByAggr(targetUnit, "melee");
+        }
+        if (selection !== AttackVals.MELEE && selection !== AttackVals.MELEE_MAGIC) {
+            return undefined;
+        }
+        return this.isAttackBlockedByAggr(targetUnit, "melee");
+    }
+    /**
+     * Aggr forced-target gate for attack HIGHLIGHTS. An aggravated unit (getTarget() set + target alive) can
+     * only attack the unit that aggr'd it, so no other enemy should draw a red attack highlight — mirrors the
+     * canAttackBy*Targets forced-target filter in updateCurrentMovePath. Returns true (attackable) when there
+     * is no active forced target, when the lock has released (target dead/gone), or when this IS the target.
+     */
+    private getLiveAggrForcedTarget(): Unit | undefined {
+        const forcedTargetId = this.currentActiveUnit?.getTarget();
+        if (!forcedTargetId) {
+            return undefined;
+        }
+        const forcedTarget = this.unitsHolder.getAllUnits().get(forcedTargetId);
+        return forcedTarget && !forcedTarget.isDead() ? forcedTarget : undefined;
+    }
     private rollScatteredMountains(): void {
         if (!this.scatteredMountainsAutoRoll()) {
             return;
@@ -6440,6 +6615,17 @@ export class Sandbox extends PixiScene {
                 }
                 const spellTarget = this.getUnitAtPosition(p);
                 if (spellTarget && !spellTarget.isDead()) {
+                    const spellTargetType = this.currentActiveSpell.getSpellTargetType();
+                    const aggrBlockedSpellTarget =
+                        !spellTarget.hasBuffActive("Hidden") &&
+                        (spellTargetType === SpellTargetType.ANY_ENEMY ||
+                            spellTargetType === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE)
+                            ? this.isAttackBlockedByAggr(spellTarget, "spell")
+                            : undefined;
+                    if (aggrBlockedSpellTarget) {
+                        this.showAggrBlockedActionHint(aggrBlockedSpellTarget);
+                        return;
+                    }
                     if (this.castSpellOnTarget(spellTarget)) {
                         return;
                     }
@@ -7477,6 +7663,11 @@ export class Sandbox extends PixiScene {
         const resolved = this.resolveObstacleAttack(worldPos);
         if (!resolved) {
             return false;
+        }
+        const forcedTarget = this.getLiveAggrForcedTarget();
+        if (forcedTarget && isManualAttackBlockedByAggr(forcedTarget.getId(), { kind: "obstacle" })) {
+            this.showAggrBlockedActionHint(forcedTarget);
+            return true;
         }
         return this.executeObstacleAttackSequence(resolved.unit, worldPos, resolved.attackFrom);
     }
@@ -8576,6 +8767,16 @@ export class Sandbox extends PixiScene {
         }
 
         const affectedGroups = AllAbilities.evaluateAffectedUnits(cells, this.unitsHolder, this.grid) ?? [];
+        // The authoritative range handler checks only the ordered primary ([0][0]); a forced target later
+        // in the splash does not make the throw legal. An empty splash is a legal miss and remains available.
+        {
+            const aggrBlockedAreaTarget = this.isAttackBlockedByAggr(affectedGroups[0]?.[0], "area");
+            if (aggrBlockedAreaTarget) {
+                this.showAggrBlockedActionHint(aggrBlockedAreaTarget);
+                return true;
+            }
+            this.clearAggrBlockedActionHint();
+        }
 
         // Aggr: an aggravated AOE unit can only attack the enemy that aggr'd it. Only preview/allow the throw
         // when its splash actually covers that forced target; suppress it (no AOE outline) anywhere else.
@@ -9364,6 +9565,23 @@ export class Sandbox extends PixiScene {
                 target,
                 replayAction?.type === "range_attack" ? replayAction : undefined,
             );
+            // No visible edge means there is nothing legal to aim at — drop a locally-initiated shot
+            // rather than sending an aimless action the engine rejects. A replay/authoritative action
+            // still goes through: its own recorded aim governs.
+            if (!aim && !replayAction) {
+                this.sc_moveBlocked = false;
+                return false;
+            }
+            {
+                const aggrBlockedTarget = replayAction
+                    ? undefined
+                    : this.isRangeAttackBlockedByAggr(target, aim?.position);
+                if (aggrBlockedTarget) {
+                    this.sc_moveBlocked = false;
+                    this.showAggrBlockedActionHint(aggrBlockedTarget);
+                    return false;
+                }
+            }
             const action: GameAction =
                 replayAction?.type === "range_attack"
                     ? {
@@ -9498,6 +9716,14 @@ export class Sandbox extends PixiScene {
                 });
             }
         } else {
+            {
+                const aggrBlockedTarget = replayAction ? undefined : this.isAttackBlockedByAggr(target, "melee");
+                if (aggrBlockedTarget) {
+                    this.sc_moveBlocked = false;
+                    this.showAggrBlockedActionHint(aggrBlockedTarget);
+                    return false;
+                }
+            }
             const routeMetadata = this.currentActiveKnownPaths?.get((attackFrom.x << 4) | attackFrom.y)?.[0];
             const action: GameAction =
                 replayAction?.type === "melee_attack"
@@ -10408,6 +10634,7 @@ export class Sandbox extends PixiScene {
         this.hoverRangeAttackObstacle = undefined;
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
+        this.clearAggrBlockedActionHint();
     }
     protected override canShowHoverForActiveUnit(): boolean {
         return true;
@@ -10451,6 +10678,7 @@ export class Sandbox extends PixiScene {
         // across the target during the short flight; otherwise hover() would draw the dashed line again.
         if (this.rangedProjectiles.hasActive()) {
             this.hoverManager.clearAttackVisuals();
+            this.clearAggrBlockedActionHint();
             return;
         }
 
