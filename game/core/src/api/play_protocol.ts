@@ -153,10 +153,10 @@ export interface PlayUnitState {
     baseAttack?: number;
     /**
      * The unit's board footprint in cells (proto fields 45/46): footprintWidth across x, footprintHeight
-     * up y, anchored on the max-corner baseCell. `size` cannot express a rectangle — a 2x1 and a 1x2 both
-     * carry size 2 — so every geometry decision must read these, not `size`. The wire sends 0 for "square
-     * of `size`", which is also what an older server sends; decodeUnitState resolves that default, so
-     * these are always a concrete, positive shape by the time any consumer sees them.
+     * up y, anchored on the max-corner baseCell. `size` cannot express a rectangle — a 2x1 and a 1x2 would
+     * both have to carry size 2 — so every geometry decision must read these, not `size`. An older server
+     * omits them entirely; decodeUnitState then falls back to a square of `size`, so these are always a
+     * concrete, positive shape by the time any consumer sees them.
      */
     footprintWidth: number;
     footprintHeight: number;
@@ -919,9 +919,9 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
         onHourglass: false,
         webMovementLocked: false,
         spellEntriesAuthoritative: false,
-        // 0 is the "absent" marker for the footprint pair, not a legal shape: the server writes 0 for a
-        // square unit and an older server writes nothing at all. Both are resolved to `size` after the
-        // loop, once `size` itself has been read (the fields can arrive in any order).
+        // 0 is the "absent" marker for the footprint pair, not a legal shape — a real side is always at
+        // least 1, so proto3 always puts both on the wire. Only an older server omits them. Resolved to
+        // `size` after the loop, once `size` itself has been read (the fields can arrive in any order).
         footprintWidth: 0,
         footprintHeight: 0,
     };
@@ -1036,10 +1036,10 @@ const decodeUnitState = (bytes: Uint8Array): PlayUnitState => {
             reader.skip(wireType);
         }
     }
-    // A rectangular footprint is the only shape `size` cannot describe, so a server that sends neither
-    // field (or sends the 0 it writes for square units) means "square of `size`" — the shape every
-    // shipped creature has. `size` itself defaults to 0 on a truncated unit, and a zero-area footprint
-    // would make every cell derivation collapse, so the floor of 1 keeps the geometry well-formed.
+    // A server that sends neither field is older than this feature, and everything it can describe is a
+    // square of `size` — the shape every shipped creature has. `size` itself defaults to 0 on a truncated
+    // unit, and a zero-area footprint would make every cell derivation collapse, so the floor of 1 keeps
+    // the geometry well-formed.
     unit.footprintWidth = unit.footprintWidth > 0 ? unit.footprintWidth : Math.max(1, unit.size);
     unit.footprintHeight = unit.footprintHeight > 0 ? unit.footprintHeight : Math.max(1, unit.size);
     return unit;
