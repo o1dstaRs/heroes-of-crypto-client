@@ -96,23 +96,12 @@ const getTargetCells = (
     grid: Grid,
     destination: { x: number; y: number },
 ): Array<{ x: number; y: number }> => {
-    if (unit.isSmallSize()) {
-        return [{ ...destination }];
-    }
-
-    const gridSettings = grid.getSettings();
-    const position = GridMath.getPositionForCell(
-        destination,
-        gridSettings.getMinX(),
-        gridSettings.getStep(),
-        gridSettings.getHalfStep(),
-    );
-    return GridMath.getFootprintCellsForPosition(
-        gridSettings,
-        position,
-        unit.getFootprintWidth(),
-        unit.getFootprintHeight(),
-    );
+    // `destination` is an ANCHOR — it comes out of PathHelper's known-path keys — so the body hangs off it
+    // towards -x / -y. Going through a position was how this was written when only squares existed, and it
+    // has to subtract the half-step that turns a cell CENTRE into the block's corner; without that the whole
+    // body lands one cell up and to the right of where the pather said it could stand, and the engine
+    // rejects the move. The shared anchor expansion says the same thing without the round trip.
+    return GridMath.getFootprintCellsForAnchor(destination, unit.getFootprintWidth(), unit.getFootprintHeight());
 };
 
 const estimateUnitValue = (unit: Unit): number =>

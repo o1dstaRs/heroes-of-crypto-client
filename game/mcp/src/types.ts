@@ -118,7 +118,11 @@ export interface PublicUnitState {
     team: TeamName;
     faction: string;
     level: number;
+    /** Legacy square side. A rectangle cannot be described by it — read footprintWidth/footprintHeight. */
     size: number;
+    /** The body's shape in cells, anchored on the MAX corner of `cells`. */
+    footprintWidth: number;
+    footprintHeight: number;
     cells: Array<{ x: number; y: number }>;
     hp: number;
     maxHp: number;

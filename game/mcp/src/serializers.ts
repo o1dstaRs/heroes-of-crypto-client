@@ -41,6 +41,8 @@ export const serializeUnit = (unit: Unit): PublicUnitState => ({
     faction: ToFactionName[unit.getFaction()] ?? enumLabel(FactionVals, unit.getFaction()),
     level: unit.getLevel(),
     size: unit.getSize(),
+    footprintWidth: unit.getFootprintWidth(),
+    footprintHeight: unit.getFootprintHeight(),
     cells: unit.getCells().map((cell) => ({ ...cell })),
     hp: unit.getHp(),
     maxHp: unit.getMaxHp(),
