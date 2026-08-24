@@ -39,7 +39,7 @@ const copy = isRu
           noDamage: "Нет сохранённой статистики урона.",
           armySetup: "Подготовка армий",
           artifacts: "Артефакты",
-          perk: "Перк",
+          doctrine: "Доктрина",
           augments: "Усиления",
           synergies: "Синергии",
           noSetup: "Подготовка этой армии не была сохранена в старом отчёте.",
@@ -86,7 +86,7 @@ const copy = isRu
           noDamage: "No unit damage was recorded.",
           armySetup: "Army setup",
           artifacts: "Artifacts",
-          perk: "Perk",
+          doctrine: "Doctrine",
           augments: "Augments",
           synergies: "Synergies",
           noSetup: "This army's setup was not recorded for the older report.",
@@ -137,7 +137,7 @@ const copy = isRu
         type Tier1Artifact,
         type Tier2Artifact,
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
-    import { getPerkProperties, type Perk } from "@heroesofcrypto/common/src/perks/perk_properties";
+    import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
     import { gameClientRoot } from "../lib/ranked-arena-client";
     import {
@@ -231,10 +231,10 @@ const copy = isRu
         return `<span class="artifact-chip"><img src="${escapeHtml(image)}" alt="" width="40" height="40" /><span><small>Tier ${tier}</small><strong>${escapeHtml(artifact.name)}</strong></span></span>`;
     };
 
-    const perkName = (id: number): string => {
-        const fallback = getPerkProperties(id as Perk).name;
+    const doctrineName = (id: number): string => {
+        const fallback = getDoctrineProperties(id as Doctrine).name;
         if (language !== "ru") return fallback;
-        return ({ Scout: "Разведчик", Spymaster: "Шпион", "Blind Fury": "Слепая ярость", None: "Нет" } as Record<
+        return ({ Scout: "Разведчик", Spymaster: "Шпион", "Battle Trance": "Боевой транс", None: "Нет" } as Record<
             string,
             string
         >)[fallback] ?? fallback;
@@ -362,7 +362,7 @@ const copy = isRu
                 <h3>${escapeHtml(player.username)}</h3>
                 <dl class="setup-list">
                     <div><dt>${escapeHtml(text("artifacts"))}</dt><dd class="artifact-list">${artifactCard(1, setup.artifactTier1)}${artifactCard(2, setup.artifactTier2)}</dd></div>
-                    <div><dt>${escapeHtml(text("perk"))}</dt><dd><span class="perk-chip">◈ ${escapeHtml(perkName(setup.perk))}</span></dd></div>
+                    <div><dt>${escapeHtml(text("doctrine"))}</dt><dd><span class="doctrine-chip">◈ ${escapeHtml(doctrineName(setup.doctrine))}</span></dd></div>
                     <div><dt>${escapeHtml(text("augments"))}</dt><dd class="augment-list">${augments || '<span class="setup-empty">—</span>'}</dd></div>
                     <div><dt>${escapeHtml(text("synergies"))}</dt><dd class="synergy-list">${synergies}</dd></div>
                 </dl>
@@ -936,7 +936,7 @@ const copy = isRu
 
     .match-page :global(.artifact-chip),
     .match-page :global(.augment-chip),
-    .match-page :global(.perk-chip),
+    .match-page :global(.doctrine-chip),
     .match-page :global(.synergy-chip) {
         display: inline-flex;
         align-items: center;

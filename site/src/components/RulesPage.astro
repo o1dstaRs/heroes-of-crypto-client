@@ -98,8 +98,8 @@ const quickFacts = [
         value: "5–7",
         label: isRu ? "очков апгрейдов" : "augment points",
         tip: isRu
-            ? "Перк даёт 5, 6 или 7 очков на командные апгрейды (броня, ближний бой, магия, стрельба, движение, зона расстановки) — чем меньше разведки, тем больше бюджет."
-            : "Your perk grants 5, 6, or 7 points for team augments (armor, melee, magic, ranged, movement, deployment)—less scouting buys a larger budget.",
+            ? "Доктрина даёт 5, 6 или 7 очков на командные апгрейды (броня, ближний бой, магия, стрельба, движение, зона расстановки) — чем меньше разведки, тем больше бюджет."
+            : "Your doctrine grants 5, 6, or 7 points for team augments (armor, melee, magic, ranged, movement, deployment)—less scouting buys a larger budget.",
     },
     {
         value: "−20 … +20",
@@ -245,7 +245,7 @@ const copy = isRu
               },
               {
                   title: "2. Апгрейды и синергии",
-                  text: "После драфта вы тратите бюджет перка на апгрейды. Бонус каждой фракции уже определён идентификатором матча и автоматически достигает уровня 1/2/3 при 2/4/6 юнитах этой фракции — выбирать синергию отдельно не нужно.",
+                  text: "После драфта вы тратите бюджет доктрины на апгрейды. Бонус каждой фракции уже определён идентификатором матча и автоматически достигает уровня 1/2/3 при 2/4/6 юнитах этой фракции — выбирать синергию отдельно не нужно.",
               },
               {
                   title: "3. Расстановка",
@@ -271,11 +271,11 @@ const copy = isRu
               "По задумке каждый юнит вносит в армию примерно одинаковый вес: более слабое существо просто приходит большим стеком, поэтому «плохих» юнитов нет. Побеждают не голые характеристики и громкие способности, а ваш план и то, как юниты работают в связке.",
               "Уровень юнита важен, но это не единственный критерий. В Heroes of Crypto слабый на вид юнит может включить нужную синергию, закрыть ауру, дать контроль или принести книгу заклинаний в отряд.",
               "Публичный список сейчас сфокусирован на четырех игровых фракциях: Хаос, Жизнь, Сила и Природа. Внутри них есть ближние бойцы, стрелки, маги, летающие юниты, крупные 2x2 существа и утилити-юниты с аурами.",
-              "В живом драфте семь этапов до подготовки: Перк + необязательная заявка на бан, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. После этого вы тратите очки на апгрейды и переходите к расстановке. Итоговый состав всё так же имеет схему 2/2/1/1.",
+              "В живом драфте семь этапов до подготовки: Доктрина + необязательная заявка на бан, Бандл, пики уровней 1, 2 и 3, артефакт 2 тира и пик уровня 4. После этого вы тратите очки на апгрейды и переходите к расстановке. Итоговый состав всё так же имеет схему 2/2/1/1.",
           ],
           draftSteps: [
               {
-                  title: "1. Перк и заявка на бан",
+                  title: "1. Доктрина и заявка на бан",
                   text: "Оба игрока действуют одновременно. Выбираете разведку на весь драфт и до её фиксации можете тайно предложить одного допустимого юнита для бана. Одна заявка срабатывает напрямую; одинаковые заявки гарантируют этот бан; из двух разных игра выбирает одну 50/50. Заявка заменяет автобан того же уровня, а не добавляет ещё один.",
               },
               {
@@ -284,7 +284,7 @@ const copy = isRu
               },
               {
                   title: "3–5. Пики 1–3 уровней",
-                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровнях 1 и 3, верхний/красный — на уровне 2. Серые портреты забанены. Если перк не вскрывает пик соперника, попытка взять уже занятого юнита раскрывает конфликт и возвращает вас к выбору.",
+                  text: "По одному существу на уровень. Нижний/зелёный игрок выбирает первым на уровнях 1 и 3, верхний/красный — на уровне 2. Серые портреты забанены. Если доктрина не вскрывает пик соперника, попытка взять уже занятого юнита раскрывает конфликт и возвращает вас к выбору.",
               },
               {
                   title: "6. Артефакт 2 тира",
@@ -299,7 +299,7 @@ const copy = isRu
               "Базовый пул драфта по уровням: 2/2/1/1 — бандл уже закрывает одно существо 1 уровня и одно 2 уровня.",
               "Игра случайно убирает 6 существ 1 уровня, 6 — 2 уровня, 3 — 3 уровня и 5 — 4 уровня. Заявка игрока может заменить один автобан на выбранного юнита того же уровня; она не увеличивает общее число банов. То, что предложено в бандлах, банить нельзя.",
               "Бан по уровню возможен только если в пуле остается достаточно вариантов на все пики обеих команд.",
-              "Что вы видите, решает только перк. Scout заранее открывает один слот уровня 1, один слот уровня 2 и один из слотов уровня 3 или 4; заявка на бан соперника его намерения не раскрывает.",
+              "Что вы видите, решает только доктрина. Scout заранее открывает один слот уровня 1, один слот уровня 2 и один из слотов уровня 3 или 4; заявка на бан соперника его намерения не раскрывает.",
           ],
           unitsTitle: "Как читать юнита",
           unitStats: [
@@ -323,7 +323,7 @@ const copy = isRu
           ],
           upgradesTitle: "Апгрейды команды: 5-7 очков, настоящие компромиссы",
           upgradesIntro:
-              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет — это то, что дал ваш перк: 5 очков за «Шпиона», 6 за «Разведчика», 7 за «Слепую ярость». Чем меньше видите драфт соперника, тем сильнее армия.",
+              "Апгрейды не являются косметикой. Они меняют размер зоны расстановки, живучесть армии, дальнюю игру, ближний урон и темп перемещения. Бюджет — это то, что дал ваш доктрина: 5 очков за «Шпиона», 6 за «Разведчика», 7 за «Слепую ярость». Чем меньше видите драфт соперника, тем сильнее армия.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -356,12 +356,12 @@ const copy = isRu
                   text: "+1 или +2 шага. Иногда лишняя клетка важнее лишнего урона.",
               },
           ],
-          perksTitle: "Перки: обзор стоит очков",
-          perksIntro:
-              "Перк — самый первый выбор в драфте, и он действует весь драфт. Он определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртого перка нет, и поменять перк позже нельзя.",
-          perksTableCaption: "Перки: обзор против очков апгрейдов",
-          perksColumns: ["Перк", "Что вы видите", "Очки апгрейдов"],
-          perks: [
+          doctrinesTitle: "Доктрины: обзор стоит очков",
+          doctrinesIntro:
+              "Доктрина — самый первый выбор в драфте, и он действует весь драфт. Он определяет, какую часть состава противника вы видите, и платит вам за неведение: чем меньше видите, тем больше бюджет апгрейдов. Четвёртого доктрины нет, и поменять доктрина позже нельзя.",
+          doctrinesTableCaption: "Доктрины: обзор против очков апгрейдов",
+          doctrinesColumns: ["Доктрина", "Что вы видите", "Очки апгрейдов"],
+          doctrines: [
               {
                   name: "Spymaster",
                   sees: "Все выборы противника, по мере того как он их делает.",
@@ -375,14 +375,14 @@ const copy = isRu
                   note: "Частичный обзор за средний бюджет.",
               },
               {
-                  name: "Blind Fury",
+                  name: "Battle Trance",
                   sees: "Ничего. Состав противника скрыт до самого боя.",
                   points: 7,
                   note: "Драфт вслепую — зато самая сильная армия.",
               },
           ],
-          perksOutro:
-              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому перк — решение не только про информацию, но и про размер армии. Если вы выберете существо, которое противник уже забрал, вас просто вернут к выбору — если только ваш перк не раскрывал этот слот.",
+          doctrinesOutro:
+              "Эти очки и есть весь бюджет апгрейдов, который вы тратите до расстановки, поэтому доктрина — решение не только про информацию, но и про размер армии. Если вы выберете существо, которое противник уже забрал, вас просто вернут к выбору — если только ваш доктрина не раскрывал этот слот.",
           synergiesTitle: "Синергии фракций: 2, 4 и 6 юнитов",
           synergiesIntro:
               "Когда в армии есть 2/4/6 юнитов одной фракции, открывается уровень синергии 1/2/3. У каждой фракции два возможных бонуса, и выбирать не нужно: какой из них действует в матче, определяется по идентификатору игры — ровно 50/50 для каждой фракции, независимо друг от друга, одинаково для вас и противника, и видно на панелях с первого экрана драфта.",
@@ -547,7 +547,7 @@ const copy = isRu
               },
               {
                   title: "2. Upgrade and synergize",
-                  text: "After the draft, spend your perk budget on augments. Each faction bonus is already fixed by the match ID and automatically reaches level 1/2/3 at 2/4/6 units of that faction—there is no separate synergy choice.",
+                  text: "After the draft, spend your doctrine budget on augments. Each faction bonus is already fixed by the match ID and automatically reaches level 1/2/3 at 2/4/6 units of that faction—there is no separate synergy choice.",
               },
               {
                   title: "3. Place",
@@ -573,11 +573,11 @@ const copy = isRu
               "Conceptually every unit pulls roughly the same weight in your army: a weaker creature simply arrives as a bigger stack, so no single unit is just 'better' than another. Fights are won by your plan and how your units synergize — not by raw stats or flashy abilities.",
               "Unit level matters, but it is not the whole game. A low-level unit can unlock the right synergy, carry an aura, bring control, or give your army a spellbook.",
               "The public roster is currently focused on four playable factions: Chaos, Life, Might, and Nature. Across them you get melee fighters, ranged units, spellcasters, flyers, large 2x2 creatures, and utility pieces with auras.",
-              "The live draft has seven stages before setup: Perk + optional ban proposal, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, and Level 4. You then spend augment points and place the same 2/2/1/1 roster — the order is what makes it a read on your opponent.",
+              "The live draft has seven stages before setup: Doctrine + optional ban proposal, Bundle, Level 1, Level 2, Level 3, Tier-2 artifact, and Level 4. You then spend augment points and place the same 2/2/1/1 roster — the order is what makes it a read on your opponent.",
           ],
           draftSteps: [
               {
-                  title: "1. Perk and ban proposal",
+                  title: "1. Doctrine and ban proposal",
                   text: "Both players act simultaneously. Choose your scouting stance and, before locking it, optionally nominate one eligible creature for a private ban. One nomination wins directly; matching nominations guarantee that ban; two different nominations are resolved 50/50. It replaces an auto-ban at that level rather than adding another.",
               },
               {
@@ -586,7 +586,7 @@ const copy = isRu
               },
               {
                   title: "3–5. Level 1–3 picks",
-                  text: "Take one creature at each level. The Lower/green seat picks first at levels 1 and 3; the Upper/red seat picks first at level 2. Greyed portraits are banned. If your perk hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
+                  text: "Take one creature at each level. The Lower/green seat picks first at levels 1 and 3; the Upper/red seat picks first at level 2. Greyed portraits are banned. If your doctrine hid an opponent pick, attempting the same creature reveals the collision and sends you back to choose again.",
               },
               {
                   title: "6. Tier-2 artifact",
@@ -601,7 +601,7 @@ const copy = isRu
               "The baseline draft pool by level is 2/2/1/1 — the bundle already covers one level-1 and one level-2.",
               "The game removes 6 level-1, 6 level-2, 3 level-3, and 5 level-4 creatures. A player nomination can replace one auto-ban with the nominated creature at the same level; it does not increase the total. Bundle offers are never eligible.",
               "A level can only be banned if enough units of that level remain available for every pick both teams are owed.",
-              "Only your perk controls vision. Scout preselects one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot; the opponent's private ban nomination reveals no intent.",
+              "Only your doctrine controls vision. Scout preselects one level-1 slot, one level-2 slot, and either the level-3 or level-4 slot; the opponent's private ban nomination reveals no intent.",
           ],
           unitsTitle: "How to read a unit",
           unitStats: [
@@ -625,7 +625,7 @@ const copy = isRu
           ],
           upgradesTitle: "Team upgrades: 5-7 points, real tradeoffs",
           upgradesIntro:
-              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft perk paid you: 5 points for Spymaster, 6 for Scout, 7 for Blind Fury. Seeing less of the opponent\u2019s draft is what buys the bigger army.",
+              "Augments are not cosmetics. They change deployment size, durability, ranged plans, melee damage, and tempo before the first unit acts. Your budget is whatever your draft doctrine paid you: 5 points for Spymaster, 6 for Scout, 7 for Battle Trance. Seeing less of the opponent\u2019s draft is what buys the bigger army.",
           upgrades: [
               {
                   icon: "/assets/images/units/abilities/board_augment_256.webp",
@@ -658,12 +658,12 @@ const copy = isRu
                   text: "+1 or +2 movement steps. Sometimes one extra cell is worth more than another damage buff.",
               },
           ],
-          perksTitle: "Perks: what you see costs you points",
-          perksIntro:
-              "Your perk is the very first pick of the draft, and it lasts the whole draft. It decides how much of the opponent's roster you watch — and it pays you for looking away: the less you see, the larger your augment budget. There is no fourth option and you cannot change it later.",
-          perksTableCaption: "Perks: reveal versus augment points",
-          perksColumns: ["Perk", "What you see", "Augment points"],
-          perks: [
+          doctrinesTitle: "Doctrines: what you see costs you points",
+          doctrinesIntro:
+              "Your doctrine is the very first pick of the draft, and it lasts the whole draft. It decides how much of the opponent's roster you watch — and it pays you for looking away: the less you see, the larger your augment budget. There is no fourth option and you cannot change it later.",
+          doctrinesTableCaption: "Doctrines: reveal versus augment points",
+          doctrinesColumns: ["Doctrine", "What you see", "Augment points"],
+          doctrines: [
               {
                   name: "Spymaster",
                   sees: "Every one of the opponent's picks, as they happen.",
@@ -677,14 +677,14 @@ const copy = isRu
                   note: "A partial read for a middling budget.",
               },
               {
-                  name: "Blind Fury",
+                  name: "Battle Trance",
                   sees: "Nothing. The opponent's roster stays hidden until the fight.",
                   points: 7,
                   note: "Draft blind, field the strongest army.",
               },
           ],
-          perksOutro:
-              "Those points are the whole augment budget you spend before placement, so the perk is an army-size decision as much as an information one. Picking a creature the opponent already took simply sends you back to pick again — unless your perk revealed that slot.",
+          doctrinesOutro:
+              "Those points are the whole augment budget you spend before placement, so the doctrine is an army-size decision as much as an information one. Picking a creature the opponent already took simply sends you back to pick again — unless your doctrine revealed that slot.",
           synergiesTitle: "Faction synergies: 2, 4, and 6 units",
           synergiesIntro:
               "When you field 2/4/6 units from the same faction, that faction reaches synergy level 1/2/3. Each faction has two possible bonuses, and there is nothing to pick: which one a match fields is drawn from the game id — an even 50/50 per faction, drawn independently, identical for you and your opponent, and shown on the rails from the first screen of the draft.",
@@ -845,7 +845,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Драфт" },
                   { href: "#rule-unit-stats", label: "Характеристики" },
                   { href: "#rule-augments", label: "Апгрейды" },
-                  { href: "#rule-perks", label: "Перки" },
+                  { href: "#rule-doctrines", label: "Доктрины" },
                   { href: "#rule-synergies", label: "Синергии" },
                   { href: "#rule-placement", label: "Расстановка" },
               ],
@@ -873,7 +873,7 @@ const guideNavigation = isRu
                   { href: "#rule-draft", label: "Draft" },
                   { href: "#rule-unit-stats", label: "Unit statistics" },
                   { href: "#rule-augments", label: "Augments" },
-                  { href: "#rule-perks", label: "Perks" },
+                  { href: "#rule-doctrines", label: "Doctrines" },
                   { href: "#rule-synergies", label: "Synergies" },
                   { href: "#rule-placement", label: "Placement" },
               ],
@@ -1181,38 +1181,38 @@ const factionDescriptions: Record<Language, Record<FactionName, string>> = {
         </div>
     </section>
 
-    <section class="section rules-section" id="rule-perks" tabindex="-1">
+    <section class="section rules-section" id="rule-doctrines" tabindex="-1">
         <div class="page-shell">
             <div class="section-heading rules-reading-width">
-                <p class="eyebrow">{isRu ? "Перки" : "Perks"}</p>
-                <SectionTitle class="rules-section-title">{copy.perksTitle}</SectionTitle>
-                <p>{copy.perksIntro}</p>
+                <p class="eyebrow">{isRu ? "Доктрины" : "Doctrines"}</p>
+                <SectionTitle class="rules-section-title">{copy.doctrinesTitle}</SectionTitle>
+                <p>{copy.doctrinesIntro}</p>
             </div>
-            <div class="rules-table-scroll" role="region" aria-labelledby="rules-perk-table-title" tabindex="0">
+            <div class="rules-table-scroll" role="region" aria-labelledby="rules-doctrine-table-title" tabindex="0">
                 <table class="rules-aug-table">
-                    <caption id="rules-perk-table-title">{copy.perksTableCaption}</caption>
+                    <caption id="rules-doctrine-table-title">{copy.doctrinesTableCaption}</caption>
                     <thead>
                         <tr>
-                            {copy.perksColumns.map((column) => <th scope="col">{column}</th>)}
+                            {copy.doctrinesColumns.map((column) => <th scope="col">{column}</th>)}
                         </tr>
                     </thead>
                     <tbody>
-                        {copy.perks.map((perk) => (
+                        {copy.doctrines.map((doctrine) => (
                             <tr>
                                 <th scope="row" class="rules-aug-name">
                                     <div>
-                                        <strong>{perk.name}</strong>
-                                        <em>{perk.note}</em>
+                                        <strong>{doctrine.name}</strong>
+                                        <em>{doctrine.note}</em>
                                     </div>
                                 </th>
-                                <td>{perk.sees}</td>
-                                <td>{perk.points}</td>
+                                <td>{doctrine.sees}</td>
+                                <td>{doctrine.points}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <p class="rules-reading-width">{copy.perksOutro}</p>
+            <p class="rules-reading-width">{copy.doctrinesOutro}</p>
         </div>
     </section>
 
