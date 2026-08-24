@@ -23,6 +23,7 @@ import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
 import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import type { BattlefieldUnitPreview } from "./RenderableUnit";
+import { placementFacingDirectionForTeam } from "./RenderableUnit";
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
 // Dedicated top layer for pointer-like attack markers. They must remain above units, badges, projected
@@ -1485,6 +1486,14 @@ export class HoverManager {
             outline.anchor.set(0.5);
             sprite.scale.set(scale, -scale);
             outline.scale.set(outlineScale, -outlineScale);
+            // Placement is a face-off: the silhouette mirrors like the unit it previews — red/UPPER
+            // looks left toward green. Without this the drag preview on the right flank faced
+            // off-board (live report). The live-preview branch above copies the real unit's facing.
+            {
+                const facing = placementFacingDirectionForTeam(selected.team);
+                sprite.scale.x *= facing;
+                outline.scale.x *= facing;
+            }
             sprite.x = projectedCenter.x;
             sprite.y = unitPreviewY(selected, projectedCenter.y, cellSize);
             outline.x = projectedCenter.x;
@@ -1557,10 +1566,11 @@ export class HoverManager {
             const projectedCenter = projectBattlefieldPoint(position, this.context.sceneSettings.getGridSettings());
             const scale = unitPreviewScale(props, tex, cellSize);
             const outlineScale = scale * 1.06;
+            const intentFacing = placementFacingDirectionForTeam(props.team);
             sprite.anchor.set(0.5);
             outline.anchor.set(0.5);
-            sprite.scale.set(scale, -scale);
-            outline.scale.set(outlineScale, -outlineScale);
+            sprite.scale.set(scale * intentFacing, -scale);
+            outline.scale.set(outlineScale * intentFacing, -outlineScale);
             sprite.x = projectedCenter.x;
             sprite.y = unitPreviewY(props, projectedCenter.y, cellSize);
             outline.x = projectedCenter.x;
