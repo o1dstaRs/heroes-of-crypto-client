@@ -9,8 +9,11 @@
 // drafted, not cast, so a codex of castable spells is the wrong place for them.
 
 import spellsJson from "@heroesofcrypto/common/src/configuration/spells.json";
+import { getSniperPower, SniperAugment } from "@heroesofcrypto/common/src/augments/augment_properties";
 
 import { allUnits, factionColors, type FactionName } from "./units-data";
+
+const sniperAugmentPowers = [SniperAugment.LEVEL_1, SniperAugment.LEVEL_2, SniperAugment.LEVEL_3].map(getSniperPower);
 
 export type SpellBook = "System" | "Life" | "Nature" | "Chaos" | "Death" | "Order";
 
@@ -178,11 +181,11 @@ const resolvedDescriptions: Record<string, string> = {
         "Resurrects fallen ally units on the battlefield, up to the caster stack's cumulative maximum hit points.",
     "Chaos:Fire Strike":
         "Sends a small fireball at an enemy in line of sight. Deals 6 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance. Stack power does not change the damage — it only gates the cast.",
-    "Nature:Meteorite":
+    "Chaos:Meteorite":
         "Calls a meteorite down on any 2x2 block of the battlefield, burning every enemy caught under it. Deals 4 damage for every creature alive in the caster's stack — less than Fire Strike, because it strikes them all at once.",
     "Nature:Lightning Strike":
         "Calls lightning down on an enemy anywhere on the battlefield — no wall, body or mountain can block it. Deals 150 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
-    "Chaos:Ring of Fire":
+    "Nature:Ring of Fire":
         "Bursts into flame around an enemy in line of sight. Every unit on a cell touching the target — friend or foe — burns for the same amount: 125 damage for every creature alive in the caster's stack.",
     "Nature:Meteor Shower":
         "Calls a meteor shower down on the battlefield. Deals 100 damage for every creature alive in the caster's stack, ignores armor, and is cut by magic resistance.",
@@ -195,8 +198,7 @@ const resolvedDescriptions: Record<string, string> = {
     "System:Might Augment": "Increases the entire team's base attack. Level 1: +8%. Level 2: +17%. Level 3: +27%.",
     "System:Empower Augment":
         "Increases all magic damage the entire team deals — offensive spells, Fire Wall, Fireforged Sword, Chain Lightning, Fire Breath and Fire Shield. Level 1: +7%. Level 2: +15%. Level 3: +24%.",
-    "System:Sniper Augment":
-        "Increases the team's ranged base attack and shot range. Level 1: +7% attack, +20% range. Level 2: +15% attack, +40% range. Level 3: +24% attack, +70% range.",
+    "System:Sniper Augment": `Increases the team's ranged base attack and shot range. Level 1: +${sniperAugmentPowers[0][0]}% attack, +${sniperAugmentPowers[0][1]}% range. Level 2: +${sniperAugmentPowers[1][0]}% attack, +${sniperAugmentPowers[1][1]}% range. Level 3: +${sniperAugmentPowers[2][0]}% attack, +${sniperAugmentPowers[2][1]}% range.`,
     "System:Movement Augment": "Boosts the entire team's movement steps. Level 1: +1 step. Level 2: +2 steps.",
 };
 
@@ -220,8 +222,7 @@ const descriptionsRu: Record<string, string> = {
     "System:Might Augment": "Повышает базовую атаку всей команды. Уровень 1: +8%. Уровень 2: +17%. Уровень 3: +27%.",
     "System:Empower Augment":
         "Повышает весь магический урон команды — атакующие заклинания, Огненную стену, Огненный меч, Цепную молнию, Огненное дыхание и Огненный щит. Уровень 1: +7%. Уровень 2: +15%. Уровень 3: +24%.",
-    "System:Sniper Augment":
-        "Повышает базовую атаку и дальность стрелков команды. Уровень 1: +7% атаки, +20% дальности. Уровень 2: +15% атаки, +40% дальности. Уровень 3: +24% атаки, +70% дальности.",
+    "System:Sniper Augment": `Повышает базовую атаку и дальность стрелков команды. Уровень 1: +${sniperAugmentPowers[0][0]}% атаки, +${sniperAugmentPowers[0][1]}% дальности. Уровень 2: +${sniperAugmentPowers[1][0]}% атаки, +${sniperAugmentPowers[1][1]}% дальности. Уровень 3: +${sniperAugmentPowers[2][0]}% атаки, +${sniperAugmentPowers[2][1]}% дальности.`,
     "System:Movement Augment": "Повышает перемещение всей команды. Уровень 1: +1 шаг. Уровень 2: +2 шага.",
     "System:Angelic Host": "Дает +1 к атаке, +1 к защите и +1 к дистанции перемещения.",
     "System:Craft":
@@ -259,11 +260,11 @@ const descriptionsRu: Record<string, string> = {
     "Death:Weakness": "Базовая атака юнита снижена на 30%.",
     "Chaos:Fire Strike":
         "Запускает небольшой огненный шар во врага в зоне видимости.\nУрон = 6 за каждое живое существо в стеке заклинателя.\nСила стека не меняет урон — она лишь определяет, можно ли вообще применить заклинание.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
-    "Nature:Meteorite":
+    "Chaos:Meteorite":
         "Обрушивает метеорит на любой участок поля боя 2x2 клетки, поражая всех врагов под ним.\nУрон = 4 за каждое живое существо в стеке заклинателя — меньше, чем у «Удара огнем», потому что бьет по всем сразу.",
     "Nature:Lightning Strike":
         "Призывает молнию на любого врага на поле боя — ни стена, ни тела, ни гора её не остановят.\nУрон = 150 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
-    "Chaos:Ring of Fire":
+    "Nature:Ring of Fire":
         "Вспыхивает пламенем вокруг врага в зоне видимости. Каждый юнит на соседней клетке — свой или чужой — горит так же.\nУрон = 125 за каждое живое существо в стеке заклинателя.",
     "Nature:Meteor Shower":
         "Обрушивает метеоритный дождь на поле боя.\nУрон = 100 за каждое живое существо в стеке заклинателя.\nМагический: игнорирует броню, но снижается сопротивлением магии.",
