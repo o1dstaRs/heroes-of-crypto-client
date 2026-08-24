@@ -84,6 +84,7 @@ import {
     dullingDefenseApplicationCount,
     type EffectFlash,
 } from "./effect_pops";
+import { doubleShotAbility } from "@heroesofcrypto/common/src/damage/ability_damage_projection";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import {
     formatAggrBlockedActionHint,
@@ -11501,13 +11502,23 @@ export class Sandbox extends PixiScene {
                                 this.attackHandler.getRangeAttackDivisor(this.currentActiveUnit, finalArrowEndPos);
                         }
 
-                        // Double Shot Logic (Legacy check) — Crafted Double Shot behaves identically.
-                        if (
-                            isRangeAttackContext &&
-                            (this.currentActiveUnit.hasAbilityActive("Double Shot") ||
-                                this.currentActiveUnit.hasAbilityActive("Crafted Double Shot"))
-                        ) {
-                            multiplier = 2; // Display double damage
+                        // Double Shot is NOT a flat x2: the second volley is a stack_powered ability
+                        // (20%..100% + luck, folded through the Dual Strike Charm) and it does not fly at
+                        // all on an empty quiver — pricing it as x2 overstated every forecast (mainline
+                        // 24f36e05). Price volley two with the engine's own multiplier instead.
+                        if (isRangeAttackContext) {
+                            const doubleShotHoverAbility = doubleShotAbility(this.currentActiveUnit);
+                            if (doubleShotHoverAbility && this.currentActiveUnit.getRangeShots() >= 2) {
+                                multiplier *=
+                                    1 +
+                                    AbilityHelper.withDualStrikeCharm(
+                                        this.currentActiveUnit.calculateAbilityMultiplier(
+                                            doubleShotHoverAbility,
+                                            abilityPower,
+                                        ),
+                                        this.currentActiveUnit,
+                                    );
+                            }
                         }
 
                         // --- [PORTED] Advanced Damage Logic from test_heroes.ts ---
