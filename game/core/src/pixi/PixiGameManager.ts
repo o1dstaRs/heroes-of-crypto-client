@@ -314,7 +314,8 @@ export class PixiGameManager {
         this._isLoading = true;
         this.onLoadingChanged.emit(true);
 
-        const { preloadCoreAssets, preloadAnimationAssets } = await import("./PixiTextureLoader");
+        const { preloadCoreAssets, preloadIdleAtlasAssets, preloadAnimationAssets } =
+            await import("./PixiTextureLoader");
         if (!isCurrentLifecycle()) {
             cleanupLoadingScreen();
             pixiApp.destroy();
@@ -362,26 +363,37 @@ export class PixiGameManager {
 
         this.LoadGame();
 
-        // 5. Tier 2: Background Load Animations
-        // We can pass a callback to update UI if needed
-        preloadAnimationAssets((p) => {
+        // 5. Tier 2: Background Load Animations — idle atlases FIRST, then the rest.
+        //
+        // Two hard-learned rules live here (the "board keeps its old disc art on first load" bug):
+        // - MUTATE this.textures, never replace it. Every scene captured this exact object in its
+        //   constructor (PixiScene: `this.textures = context.textures`), so assigning a fresh object
+        //   here stranded them on the Tier-1 snapshot forever — texAny could not see a single atlas
+        //   and units limped along on the lazy per-URL fallback instead.
+        // - Tell the scene each time a bundle lands. ensureVisual only runs on sync points, so an
+        //   already-spawned unit showing its static fallback keeps it until something pokes it.
+        const applyLoadedTextures = (newTextures: Partial<PreloadedPixiTextures>) => {
+            Object.assign(this.textures as Record<string, unknown>, newTextures);
+            this.m_scene?.onSupplementaryTexturesLoaded?.();
+        };
+        preloadIdleAtlasAssets((p) => {
             if (!isCurrentLifecycle()) return;
-            // TODO: Emit signal to UI / Scene about progress
-            // For now just log
-            // console.log("Background Asset Load:", p);
-            this.m_scene?.onBackgroundAssetLoad?.(p);
-        }).then((newTextures) => {
-            if (!isCurrentLifecycle()) return;
-            this.textures = { ...this.textures, ...newTextures } as PreloadedPixiTextures;
-            // Notify scene that assets are fully ready?
-            // Ideally Pixi handles texture updates automatically if we reference them by new Texture objects?
-            // Actually Pixi Assets cache uses string keys. If we request texture by name, it should appear.
-            // But existing Sprites showing "missing" texture won't auto-update unless re-assigned.
-            // However, separating "Core" vs "Anim" likely means TIER 2 assets are ONLY used for animations
-            // that trigger LATER. If user tries to play animation immediately, it might be missing.
-            // We'll rely on the fact that these are mostly specialized animations.
-            this.m_scene?.onBackgroundAssetLoad?.(1.0);
-        });
+            // The idle bundle is ~5% of the payload; report it as the first slice of the bar.
+            this.m_scene?.onBackgroundAssetLoad?.(p * 0.1);
+        })
+            .then((idleTextures) => {
+                if (!isCurrentLifecycle()) return undefined;
+                applyLoadedTextures(idleTextures);
+                return preloadAnimationAssets((p) => {
+                    if (!isCurrentLifecycle()) return;
+                    this.m_scene?.onBackgroundAssetLoad?.(0.1 + p * 0.9);
+                });
+            })
+            .then((newTextures) => {
+                if (!isCurrentLifecycle() || !newTextures) return;
+                applyLoadedTextures(newTextures);
+                this.m_scene?.onBackgroundAssetLoad?.(1.0);
+            });
 
         const initialOverlay = getUnitsOverlayFromScene(this.m_scene);
         if (initialOverlay) {

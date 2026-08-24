@@ -421,6 +421,11 @@ export abstract class PixiScene {
     protected hover(): void {}
     /** Optional hook for scenes to react to background asset loading progress (Tier 2) */
     public onBackgroundAssetLoad?(progress: number): void;
+    /**
+     * Optional hook fired after a background texture bundle merges into the SHARED textures map.
+     * Scenes re-resolve any visuals that fell back to static art while the atlases were missing.
+     */
+    public onSupplementaryTexturesLoaded?(): void;
     public MouseUp(): void {
         this.sc_mouseTracing = false;
         this.sc_calculatingPlacement = true;

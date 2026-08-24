@@ -15264,6 +15264,22 @@ export class Sandbox extends PixiScene {
         this.currentActivePathHashes = undefined;
     }
     // --- Tier 2 Asset Loading Feedback ---
+    public override onSupplementaryTexturesLoaded(): void {
+        // A freshly-arrived atlas bundle does not repaint anything by itself: ensureVisual runs only
+        // on sync points, so every unit spawned before the bundle keeps the static token it fell back
+        // to (the "old squared images on initial load" report). Re-resolve every live renderable now —
+        // ensureVisual rebuilds the idle atlas frames the moment texAny can finally see them.
+        if (!this.drawer || !this.unitsHolder) {
+            return; // bundle resolved while the scene is constructing or tearing down
+        }
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const unitsContainer = this.drawer.getUnitsContainer();
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (unit instanceof RenderableUnit && !unit.isDead()) {
+                unit.ensureVisual(unitsContainer, gs);
+            }
+        }
+    }
     private assetsLoadedLogged = false;
     public override onBackgroundAssetLoad(progress: number): void {
         // Simple visual feedback: show a small progress bar in bottom right corner
