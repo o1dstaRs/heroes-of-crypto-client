@@ -6169,14 +6169,15 @@ export class Sandbox extends PixiScene {
             this.dungeonVisuals?.setScatteredMountains([]);
             return;
         }
-        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS columns, full height — a fixed strip rather than
-        // "wherever nobody may stand". Those are not the same: the looser rule previously scattered slabs
-        // across a horizontal 16x4 belt and even into the deployment fields instead of between them.
+        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width. The deployment fields are
+        // the bottom and top row bands (RectanglePlacement carves y 1-3 and y 12-14 across the full board
+        // width), so the horizontal mid-board belt is the one strip that never collides with either army —
+        // a vertical strip would run straight through both fields. Matches scatteredMountainsForSeed.
         const free: HoCMath.XY[] = [];
         const size = GridConstants.GRID_SIZE;
         const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
-        for (let x = bandStart; x < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; x++) {
-            for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            for (let y = bandStart; y < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; y++) {
                 free.push({ x, y });
             }
         }
