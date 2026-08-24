@@ -316,10 +316,12 @@ const shouldHidePreFightOpponentUnit = (
     // Roster privacy is an explicit server policy, not an inherent property of Setup: public/reusable
     // matches keep the opponent visible by default. A private Setup suppresses opponent renderables even
     // if an over-broad snapshot carries them. An observer has no own team, so it suppresses every unit.
+    // Privacy applies to Setup (stage 0) ONLY — written as `=== 0`, not `!== 1`, so any later
+    // board sub-stage keeps the opponent visible (same fail-open rule as isRankedBoardPlacementStage).
     const isPrivateSplitSetup =
         snapshot.hideOpponentRosterDuringSetup === true &&
         snapshot.placementSplit === true &&
-        snapshot.placementStage !== 1;
+        snapshot.placementStage === 0;
     if (!options.hideOpponentPlacements || snapshot.fightStarted || snapshot.fightFinished) {
         return false;
     }

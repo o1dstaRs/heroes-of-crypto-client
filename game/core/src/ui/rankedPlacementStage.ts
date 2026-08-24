@@ -18,14 +18,18 @@ export const shouldHideRankedSetupOpponentRoster = (snapshot: RankedSetupRosterP
     snapshot.placementSplit === true &&
     snapshot.placementStage === 0;
 
+/** Every stage of the split flow past Setup (stage 0) is a board stage. FAIL-OPEN on purpose:
+ *  a gate written as `=== 1` silently stripped the READY footer and rosters from any later board
+ *  sub-stage, leaving the player with no way to confirm placement at all. */
+export const isRankedBoardPlacementStage = (
+    snapshot: Pick<RankedPlacementStage, "placementSplit" | "placementStage">,
+): boolean => !snapshot.placementSplit || snapshot.placementStage !== 0;
+
 /** The placement sidebar roster appears on Board, never behind the augment modal. */
 export const shouldShowRankedPlacementRosters = (
     snapshot: RankedPlacementStage,
     augmentOverlayOpen: boolean,
-): boolean =>
-    snapshot.phase === PlayPhase.PLACEMENT &&
-    !augmentOverlayOpen &&
-    (!snapshot.placementSplit || snapshot.placementStage === 1);
+): boolean => snapshot.phase === PlayPhase.PLACEMENT && !augmentOverlayOpen && isRankedBoardPlacementStage(snapshot);
 
 /** START_FIGHT is the split Setup lock only; Board/legacy placement uses the ordinary placement-ready action. */
 export const rankedPlacementLockActionType = (

@@ -110,6 +110,7 @@ import {
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import {
+    isRankedBoardPlacementStage,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
     shouldShowRankedPlacementRosters,
@@ -1657,7 +1658,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 }
 
                 const runSetup = !latestSnapshot.placementSplit || latestSnapshot.placementStage === 0;
-                const runBoard = !latestSnapshot.placementSplit || latestSnapshot.placementStage === 1;
+                const runBoard = isRankedBoardPlacementStage(latestSnapshot);
                 if (!runSetup && !runBoard) {
                     return;
                 }
@@ -1799,9 +1800,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         />
     );
     const rankedFooter =
-        snapshot.phase === PlayPhase.PLACEMENT &&
-        !isObserver &&
-        (!snapshot.placementSplit || snapshot.placementStage === 1) ? (
+        snapshot.phase === PlayPhase.PLACEMENT && !isObserver && isRankedBoardPlacementStage(snapshot) ? (
             <RankedReadyPlacementButton
                 canSubmit={canSubmit}
                 ready={ready}
@@ -1931,6 +1930,20 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
 }) => {
     const amountAlive = Math.max(0, Math.floor(selectedUnit.amountAlive));
     const maxSplitAmount = Math.max(0, amountAlive - 1);
+    // Delete permanently destroys the stack — no bench, no undo — so one stray click must not be
+    // enough. The first press arms the button; only a second press on the SAME unit commits, and
+    // the armed state falls back to normal after a few seconds or when the selection changes.
+    const [deleteArmed, setDeleteArmed] = useState(false);
+    useEffect(() => {
+        setDeleteArmed(false);
+    }, [selectedUnit.id]);
+    useEffect(() => {
+        if (!deleteArmed) {
+            return undefined;
+        }
+        const disarm = window.setTimeout(() => setDeleteArmed(false), 4000);
+        return () => window.clearTimeout(disarm);
+    }, [deleteArmed]);
     // Default to peeling a single off (1 / N-1), not a 50/50 split — the common ranked use is splitting a
     // lone unit to screen/body-block or bait a spell, so 1 is the far more frequent starting point.
     const [splitAmount, setSplitAmount] = useState(1);
@@ -2030,12 +2043,17 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                     variant="plain"
                     size="sm"
                     disabled={!canSubmit}
-                    onClick={() =>
+                    onClick={() => {
+                        if (!deleteArmed) {
+                            setDeleteArmed(true);
+                            return;
+                        }
+                        setDeleteArmed(false);
                         void submitGameAction({
                             type: "delete_unit",
                             unitId: selectedUnit.id,
-                        })
-                    }
+                        });
+                    }}
                     sx={{
                         ...hocSidebarImageButtonSx("danger"),
                         flex: 1,
@@ -2044,9 +2062,10 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                         minHeight: "29.25px",
                         maxHeight: "29.25px",
                         py: 0,
+                        ...(deleteArmed ? { fontWeight: "lg", textDecoration: "underline" } : {}),
                     }}
                 >
-                    Delete
+                    {deleteArmed ? "Sure?" : "Delete"}
                 </Button>
             </Stack>
             {!hasStackCapacity && maxUnits > 0 && (
@@ -2828,7 +2847,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     // window). During the split Setup stage the picker is forced open and the board is locked; during the
     // split Board stage the picker is locked shut (augments committed) and the board opens.
     const inSetupStage = snapshot.placementSplit && snapshot.placementStage === 0;
-    const inBoardStage = !snapshot.placementSplit || snapshot.placementStage === 1;
+    const inBoardStage = isRankedBoardPlacementStage(snapshot);
     // The augment step is its own screen again (owner request): forced open through the whole split Setup
     // stage, and in the legacy combined window it opens once and closes on lock-in.
     const augmentOverlayOpen = inSetupStage

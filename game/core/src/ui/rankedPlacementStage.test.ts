@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { PlayActionType, PlayPhase } from "../api/play_protocol";
 import {
+    isRankedBoardPlacementStage,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
     shouldShowRankedPlacementRosters,
@@ -92,5 +93,22 @@ describe("ranked placement lock action", () => {
         expect(rankedPlacementLockActionType({ placementSplit: false, placementStage: 0 })).toBe(
             PlayActionType.READY_PLACEMENT,
         );
+    });
+});
+
+describe("ranked board placement stage (fail-open)", () => {
+    test("legacy combined placement is always a board stage", () => {
+        expect(isRankedBoardPlacementStage({ placementSplit: false, placementStage: 0 })).toBe(true);
+    });
+
+    test("split Setup (stage 0) is not a board stage", () => {
+        expect(isRankedBoardPlacementStage({ placementSplit: true, placementStage: 0 })).toBe(false);
+    });
+
+    test("every split stage past Setup is a board stage — including ones newer than 1", () => {
+        expect(isRankedBoardPlacementStage({ placementSplit: true, placementStage: 1 })).toBe(true);
+        // The old `=== 1` gate stripped the READY footer from any later board sub-stage,
+        // leaving no confirm control on screen at all. Fail open instead.
+        expect(isRankedBoardPlacementStage({ placementSplit: true, placementStage: 2 })).toBe(true);
     });
 });
