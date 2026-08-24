@@ -216,16 +216,25 @@ function main() {
     let copied = 0;
     for (const file of atlasWebps) {
         const basename = path.basename(file);
+        const dest = path.join(imagesDir, basename);
         const pinnedHash = PINNED_ATLAS_SHA256[basename];
         if (pinnedHash) {
             const actualHash = sha256(file);
             if (actualHash !== pinnedHash) {
+                // A cloud sync that lags the approval must not brick regeneration on every OTHER
+                // atlas: when the approved file is already in place, keep it and move on. Only a
+                // missing approved copy is fatal — then there is nothing correct to ship.
+                if (fs.existsSync(dest) && sha256(dest) === pinnedHash) {
+                    console.warn(
+                        `⚠️ Keeping approved ${basename} (source copy at ${file} is a different revision).`,
+                    );
+                    continue;
+                }
                 throw new Error(
                     `Refusing to replace approved ${basename}: expected sha256 ${pinnedHash}, got ${actualHash} from ${file}`,
                 );
             }
         }
-        const dest = path.join(imagesDir, basename);
         try {
             fs.copyFileSync(file, dest);
             copied++;

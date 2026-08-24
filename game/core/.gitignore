@@ -5,7 +5,11 @@ dist.zip
 *.tgz
 lerna-debug.log
 images/
-src/generated/
+src/generated/*
+# EXCEPT the animation atlas metadata: pure JSON meta (no pixels) that the RenderableUnit
+# animation tests assert against. Committing it lets CI run those tests for real instead of
+# silently skipping them; regenerate with `bun run generate:animations` when art changes.
+!src/generated/animation_atlases.ts
 
 # env / secrets
 .env

@@ -93,6 +93,9 @@ export type AnimationStateName<_U extends AnimationUnitName = AnimationUnitName>
 `;
 
 fs.writeFileSync(path.join(generatedDir, "image_imports.ts"), imageImportsStub);
-fs.writeFileSync(path.join(generatedDir, "animation_atlases.ts"), animationAtlasesStub);
+// The atlas metadata is COMMITTED (see game/core/.gitignore) so the animation tests run for
+// real in CI — only stub it when the checkout somehow lacks it.
+const animationAtlasesPath = path.join(generatedDir, "animation_atlases.ts");
+if (!fs.existsSync(animationAtlasesPath)) fs.writeFileSync(animationAtlasesPath, animationAtlasesStub);
 
 console.log("Wrote CI typecheck stubs to src/generated/");
