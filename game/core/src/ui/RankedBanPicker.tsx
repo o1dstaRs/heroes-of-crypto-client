@@ -1,7 +1,7 @@
 import { Box, Button, Input, Modal, ModalDialog, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useEffect, useMemo, useState } from "react";
 
-import { getFactionOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
+import { getFactionOf, getLevelOf, ToFactionName, type CreatureId } from "@heroesofcrypto/common";
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
@@ -17,13 +17,16 @@ import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 
 const ALL_CREATURES = Object.entries(UNIT_ID_TO_NAME)
     .map(([id, name]) => ({ id: Number(id), name, faction: ToFactionName[getFactionOf(Number(id) as CreatureId)] }))
-    .filter((creature) => creature.id > 0 && creature.name !== "Unknown")
+    // Draft level >= 1 keeps the list to creatures a draft can actually offer: summon-only units
+    // (Arachna Spider sits in the NO_LEVEL bucket) can never appear in a draft, so banning one
+    // would silently waste the player's single ban.
+    .filter((creature) => creature.id > 0 && creature.name !== "Unknown" && getLevelOf(creature.id as CreatureId) >= 1)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-// One column per faction (owner call). Alphabetical across all 63 creatures made the list a wall of names
-// you had to read; by faction you can go straight to the roster you actually play against. Order matches the
-// draft's own, with Death last since it is the smallest and never appears in the draft pool.
-const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might", "Death"] as const;
+// One column per faction (owner call). Alphabetical across all the creatures made the list a wall of names
+// you had to read; by faction you can go straight to the roster you actually play against. Order matches
+// the draft's own.
+const FACTION_ORDER = ["Life", "Nature", "Chaos", "Might"] as const;
 
 const FACTION_COLOR: Record<string, string> = {
     Life: "#e0d3b0",
