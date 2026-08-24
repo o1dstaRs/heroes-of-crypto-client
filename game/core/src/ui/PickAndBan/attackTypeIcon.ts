@@ -7,7 +7,7 @@ export type DraftAttackIconKind = "RANGE" | "MAGIC" | "MELEE";
  * the Book of Chaos. Reuse the same book pictogram as the other magic units.
  */
 export const draftAttackIconKind = (creatureId: number, attackType: string): DraftAttackIconKind => {
-    if (creatureId === CreatureVals.ASH_MOTH) return "MAGIC";
+    if (creatureId === CreatureVals.WANDERING_MAGE) return "MAGIC";
     if (attackType === "RANGE" || attackType === "MAGIC") return attackType;
     return "MELEE";
 };

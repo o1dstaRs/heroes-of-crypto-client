@@ -64,8 +64,8 @@ export interface BattlefieldUnitPreview {
     y: number;
     rotation: number;
 }
-const ASH_MOTH_BOARD_TEXTURE = "wandering_mage_board_128";
-const ASH_MOTH_UNIT_NAME = "Wandering Mage";
+const WANDERING_MAGE_BOARD_TEXTURE = "wandering_mage_board_128";
+const WANDERING_MAGE_UNIT_NAME = "Wandering Mage";
 const THIEF_BOARD_TEXTURE = "thief_board_128";
 const THIEF_UNIT_NAME = "Thief";
 const SCAVENGER_UNIT_NAME = "Scavenger";
@@ -221,9 +221,9 @@ export const ORC_IDLE_BREATH_PERIOD_MS = 2600;
 // Owner-tuned: ten percent stronger than the previous 1.035% vertical breathing motion.
 const ORC_IDLE_BREATH_SCALE_AMPLITUDE = 0.01035 * 1.1;
 const ORC_IDLE_CHEST_EXPANSION_AMPLITUDE = 0.008;
-const ASH_MOTH_IDLE_BREATH_PERIOD_MS = ORC_IDLE_BREATH_PERIOD_MS;
-const ASH_MOTH_IDLE_BREATH_SCALE_AMPLITUDE = ORC_IDLE_BREATH_SCALE_AMPLITUDE;
-const ASH_MOTH_IDLE_CHEST_EXPANSION_AMPLITUDE = ORC_IDLE_CHEST_EXPANSION_AMPLITUDE;
+const WANDERING_MAGE_IDLE_BREATH_PERIOD_MS = ORC_IDLE_BREATH_PERIOD_MS;
+const WANDERING_MAGE_IDLE_BREATH_SCALE_AMPLITUDE = ORC_IDLE_BREATH_SCALE_AMPLITUDE;
+const WANDERING_MAGE_IDLE_CHEST_EXPANSION_AMPLITUDE = ORC_IDLE_CHEST_EXPANSION_AMPLITUDE;
 export const ORC_IDLE_BREATH_CYCLES_PER_AXE_TWIRL = 4;
 export const ORC_IDLE_AXE_TWIRL_FRAME_DURATION_MS = 120;
 const ORC_IDLE_AXE_TWIRL_FRAME_COUNT = 6;
@@ -270,8 +270,8 @@ const SCAVENGER_FLOURISH_FOOT_ANCHOR_Y = 190 / 192;
 // reference so switching away from the narrower idle canvas does not make the Scavenger shrink.
 const SCAVENGER_FLOURISH_RENDER_HEIGHT = 185;
 // Visual cadence only: this does not affect board movement speed or path duration.
-const ASH_MOTH_WALK_FPS = 13.44;
-const ASH_MOTH_WALK_CYCLE_DISTANCE_CELLS = 2;
+const WANDERING_MAGE_WALK_FPS = 13.44;
+const WANDERING_MAGE_WALK_CYCLE_DISTANCE_CELLS = 2;
 // Eight approved Peasant poses advance every quarter-cell: one full gait spans exactly two cells.
 const PEASANT_WALK_CYCLE_DISTANCE_CELLS = 2;
 // Stretch Troll's spatial gait cycle by 1 / 0.8 so its refreshed authored poses play 20% slower
@@ -294,13 +294,13 @@ const CENTAUR_WALK_FPS_MULTIPLIER = 1.605;
 const THIEF_WALK_FPS_MULTIPLIER = 4.8;
 // Keep every authored action frame, but play the complete combat sequence in half the old time.
 // Idle breathing and the movement loop deliberately retain their calmer cadence.
-const ASH_MOTH_COMBAT_ANIMATION_DURATION_MULTIPLIER = 0.5;
-const ASH_MOTH_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.15;
-const ASH_MOTH_IDLE_VISIBLE_HEIGHT_PX = 180;
+const WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER = 0.5;
+const WANDERING_MAGE_DEATH_ADDITIONAL_SPEED_MULTIPLIER = 1.15;
+const WANDERING_MAGE_IDLE_VISIBLE_HEIGHT_PX = 180;
 // Opaque subject heights measured from the shipped quarter-resolution sheets. Normalizing only the
 // cast and attack poses prevents their wider square canvases from making the mage zoom out mid-action.
 // Hit and death remain authored reactions: hit recoils naturally and death must be allowed to collapse.
-const ASH_MOTH_ACTION_VISIBLE_HEIGHTS: Readonly<Record<string, readonly number[]>> = {
+const WANDERING_MAGE_ACTION_VISIBLE_HEIGHTS: Readonly<Record<string, readonly number[]>> = {
     cast: [170, 171, 167, 169, 171, 166, 169, 169],
     attack: [162, 160, 157, 155, 153, 153, 159, 160],
     attack_up: [155, 152, 167, 171, 171, 148, 150, 151],
@@ -338,10 +338,10 @@ const inheritedAbsoluteScale = (container: Container): { x: number; y: number } 
 
 export function oneShotAnimationDurationMultiplier(unitName: string, stateName: string): number {
     // Wandering Mage has its own tuned combat cadence. Its death sequence is deliberately 15% faster.
-    if (unitName === ASH_MOTH_UNIT_NAME) {
+    if (unitName === WANDERING_MAGE_UNIT_NAME) {
         return (
-            ASH_MOTH_COMBAT_ANIMATION_DURATION_MULTIPLIER /
-            (stateName === "death" ? ASH_MOTH_DEATH_ADDITIONAL_SPEED_MULTIPLIER : 1)
+            WANDERING_MAGE_COMBAT_ANIMATION_DURATION_MULTIPLIER /
+            (stateName === "death" ? WANDERING_MAGE_DEATH_ADDITIONAL_SPEED_MULTIPLIER : 1)
         );
     }
 
@@ -363,10 +363,10 @@ export function oneShotAnimationDurationMultiplier(unitName: string, stateName: 
 }
 
 export function ashMothActionScaleMultiplier(stateName: string, frameIndex: number): number {
-    const heights = ASH_MOTH_ACTION_VISIBLE_HEIGHTS[stateName];
+    const heights = WANDERING_MAGE_ACTION_VISIBLE_HEIGHTS[stateName];
     if (!heights?.length) return 1;
     const safeFrameIndex = Math.max(0, Math.min(heights.length - 1, Math.floor(frameIndex)));
-    return ASH_MOTH_IDLE_VISIBLE_HEIGHT_PX / heights[safeFrameIndex];
+    return WANDERING_MAGE_IDLE_VISIBLE_HEIGHT_PX / heights[safeFrameIndex];
 }
 
 export function resolveAnimationAtlasState(_unitName: string, stateName: string): string {
@@ -422,10 +422,10 @@ export function ashMothIdleBreathScaleForElapsed(elapsedMs: number): number {
 }
 
 export function ashMothIdleBreathScalesForElapsed(elapsedMs: number): { x: number; y: number } {
-    const breath = Math.sin((elapsedMs / ASH_MOTH_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
+    const breath = Math.sin((elapsedMs / WANDERING_MAGE_IDLE_BREATH_PERIOD_MS) * Math.PI * 2);
     return {
-        x: 1 + Math.max(0, breath) * ASH_MOTH_IDLE_CHEST_EXPANSION_AMPLITUDE,
-        y: 1 + breath * ASH_MOTH_IDLE_BREATH_SCALE_AMPLITUDE,
+        x: 1 + Math.max(0, breath) * WANDERING_MAGE_IDLE_CHEST_EXPANSION_AMPLITUDE,
+        y: 1 + breath * WANDERING_MAGE_IDLE_BREATH_SCALE_AMPLITUDE,
     };
 }
 
@@ -536,9 +536,9 @@ export function tallBoardModelFootLineY(
 function usesTallBoardModel(props: UnitProperties, textureName?: string, hasAuthoredIdle = false): boolean {
     return (
         hasAuthoredIdle ||
-        textureName === ASH_MOTH_BOARD_TEXTURE ||
+        textureName === WANDERING_MAGE_BOARD_TEXTURE ||
         textureName === THIEF_BOARD_TEXTURE ||
-        props.name === ASH_MOTH_UNIT_NAME ||
+        props.name === WANDERING_MAGE_UNIT_NAME ||
         props.name === THIEF_UNIT_NAME ||
         props.name === SCAVENGER_UNIT_NAME ||
         props.name === ORC_UNIT_NAME ||
@@ -559,7 +559,7 @@ function usesRefreshedFullBodyScale(props: UnitProperties, hasAuthoredIdle: bool
         props.name !== ORC_UNIT_NAME &&
         props.name !== SCAVENGER_UNIT_NAME &&
         props.name !== THIEF_UNIT_NAME &&
-        props.name !== ASH_MOTH_UNIT_NAME
+        props.name !== WANDERING_MAGE_UNIT_NAME
     );
 }
 
@@ -602,7 +602,7 @@ const LEGACY_TALL_MODEL_FOOT_ANCHORS: Readonly<Record<string, Readonly<Record<st
         hit: 186 / 192,
         death: 186 / 192,
     },
-    [ASH_MOTH_UNIT_NAME]: {
+    [WANDERING_MAGE_UNIT_NAME]: {
         idle: 1,
         walk: 184 / 192,
         attack: 189 / 192,
@@ -715,7 +715,7 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     // Scavenger is the level-one Chaos thief. Preserve the engine-facing name while resolving the new art.
     if (trimmed === SCAVENGER_UNIT_NAME) return THIEF_UNIT_NAME as AnimationUnitName;
     // Animation assets retain their stable pre-rename key; only the player-facing creature name changed.
-    if (trimmed === ASH_MOTH_UNIT_NAME) return "Ash Moth" as AnimationUnitName;
+    if (trimmed === WANDERING_MAGE_UNIT_NAME) return "Ash Moth" as AnimationUnitName;
     // The approved Ember Executioner uses the custom fire idle resolved above. Never fall back to the
     // former Efreet action atlases, otherwise the creature changes identity mid-animation.
     if (trimmed === EFREET_UNIT_NAME) return null;
@@ -1648,23 +1648,23 @@ export class RenderableUnit extends Unit {
             CREATURE_SPRITE_ANIMATION_SETTINGS.enabled && !this.walkAnim && !this.oneShotAnim && usesThiefSilhouette
                 ? thiefIdleBreathScalesForElapsed(thiefIdleElapsedMs)
                 : undefined;
-        const idleAshMothBreathScales =
+        const idleWanderingMageBreathScales =
             CREATURE_SPRITE_ANIMATION_SETTINGS.enabled &&
             !this.walkAnim &&
             !this.oneShotAnim &&
-            props.name === ASH_MOTH_UNIT_NAME
+            props.name === WANDERING_MAGE_UNIT_NAME
                 ? ashMothIdleBreathScalesForElapsed(performance.now())
                 : undefined;
         const idleBreathScale =
             !this.walkAnim && !this.oneShotAnim
-                ? props.name === ASH_MOTH_UNIT_NAME
-                    ? (idleAshMothBreathScales?.y ?? 1)
+                ? props.name === WANDERING_MAGE_UNIT_NAME
+                    ? (idleWanderingMageBreathScales?.y ?? 1)
                     : usesThiefSilhouette
                       ? (idleThiefBreathScales?.y ?? 1)
                       : (idleOrcBreathScales?.y ?? 1)
                 : 1;
         const ashMothActionScale =
-            props.name === ASH_MOTH_UNIT_NAME && this.oneShotAnim
+            props.name === WANDERING_MAGE_UNIT_NAME && this.oneShotAnim
                 ? ashMothActionScaleMultiplier(this.oneShotAnim.stateName, this.oneShotAnim.frameIndex)
                 : 1;
         const renderedScaleY =
@@ -1676,7 +1676,7 @@ export class RenderableUnit extends Unit {
             battlefieldPerspectiveScale;
         const authoredDirectedScaleX =
             scaleX *
-            (idleAshMothBreathScales?.x ?? idleThiefBreathScales?.x ?? idleOrcBreathScales?.x ?? 1) *
+            (idleWanderingMageBreathScales?.x ?? idleThiefBreathScales?.x ?? idleOrcBreathScales?.x ?? 1) *
             ashMothActionScale *
             this.facingDirection *
             nativeBoardFacingMultiplier(props.name) *
@@ -2958,7 +2958,7 @@ export class RenderableUnit extends Unit {
         const hasThiefTransitions = props.name === THIEF_UNIT_NAME || props.name === SCAVENGER_UNIT_NAME;
         const hasAuthoredTurnInAndOut =
             hasThiefTransitions ||
-            props.name === ASH_MOTH_UNIT_NAME ||
+            props.name === WANDERING_MAGE_UNIT_NAME ||
             props.name === CENTAUR_UNIT_NAME ||
             props.name === DRYAD_UNIT_NAME ||
             props.name === LEPRECHAUN_UNIT_NAME ||
@@ -2975,8 +2975,8 @@ export class RenderableUnit extends Unit {
             flightPhases.flight.loop &&
             !flightPhases.landing.loop;
         const baseDurationPerFrameMs =
-            props.name === ASH_MOTH_UNIT_NAME
-                ? 1000 / ASH_MOTH_WALK_FPS
+            props.name === WANDERING_MAGE_UNIT_NAME
+                ? 1000 / WANDERING_MAGE_WALK_FPS
                 : 1000 /
                   (Math.max(1, config.meta.fps || 12) *
                       (props.name === ORC_UNIT_NAME
@@ -3048,7 +3048,9 @@ export class RenderableUnit extends Unit {
             completedCycles: 0,
             finishAfterCycle: false,
             distanceDriven:
-                props.name === PEASANT_UNIT_NAME || props.name === ASH_MOTH_UNIT_NAME || props.name === TROLL_UNIT_NAME,
+                props.name === PEASANT_UNIT_NAME ||
+                props.name === WANDERING_MAGE_UNIT_NAME ||
+                props.name === TROLL_UNIT_NAME,
         };
         this.sprite.texture = frames[0];
         if (props.name === PEASANT_UNIT_NAME && this.battlefieldAlphaHoleFillFilter) {
@@ -3088,7 +3090,7 @@ export class RenderableUnit extends Unit {
                 ? PEASANT_WALK_CYCLE_DISTANCE_CELLS
                 : unitName === TROLL_UNIT_NAME
                   ? TROLL_WALK_CYCLE_DISTANCE_CELLS
-                  : ASH_MOTH_WALK_CYCLE_DISTANCE_CELLS;
+                  : WANDERING_MAGE_WALK_CYCLE_DISTANCE_CELLS;
         const frameDistance = cycleDistance / gaitFrameCount;
         const absoluteGaitFrame = Math.floor(safeDistance / frameDistance + 1e-9);
         anim.completedCycles = Math.floor(absoluteGaitFrame / gaitFrameCount);
@@ -3302,7 +3304,7 @@ export class RenderableUnit extends Unit {
             unitName !== ORC_UNIT_NAME &&
             unitName !== SCAVENGER_UNIT_NAME &&
             unitName !== THIEF_UNIT_NAME &&
-            unitName !== ASH_MOTH_UNIT_NAME;
+            unitName !== WANDERING_MAGE_UNIT_NAME;
         // Preserve the exact scale already resolved by ensureVisual. Besides authored rectangular models,
         // every unit can now have different X/Y local scales to counter the rectangular board camera.
         const endScaleX = this.sprite.scale.x;

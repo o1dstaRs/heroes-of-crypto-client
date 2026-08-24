@@ -164,7 +164,7 @@ export const staticBattlefieldTextureNameForUnit = (unitName: string, unitSize =
 
 export const unitToTextureName = (unitName: string, textureType: TextureType, unitSize = 1) => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
-    // The stable protocol id remains ASH_MOTH, but the creature is presented as Wandering Mage. Its
+    // The stable protocol id remains WANDERING_MAGE, but the creature is presented as Wandering Mage. Its
     // authored field model is tall, while selection cards use the waist-up crop of that exact model.
     if (base === "wandering_mage") {
         return textureType === TextureType.LARGE ? "wandering_mage_512" : "wandering_mage_board_128";

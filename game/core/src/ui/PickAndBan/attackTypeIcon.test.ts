@@ -5,7 +5,7 @@ import { draftAttackIconKind } from "./attackTypeIcon";
 
 describe("draftAttackIconKind", () => {
     test("shows the existing magic book icon for Wandering Mage", () => {
-        expect(draftAttackIconKind(CreatureVals.ASH_MOTH, "MELEE")).toBe("MAGIC");
+        expect(draftAttackIconKind(CreatureVals.WANDERING_MAGE, "MELEE")).toBe("MAGIC");
     });
 
     test("keeps the configured icon for other units", () => {

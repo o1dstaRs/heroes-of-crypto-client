@@ -549,7 +549,7 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
 // ---- Draft copy, step rail and portrait states ------------------------------------------------
 
 const PHASE_HINT: Record<number, string> = {
-    [PickPhaseVals.PERK]:
+    [PickPhaseVals.DOCTRINE]:
         "Choose your scouting perk. It lasts the whole draft and decides which of the opponent's army slots you can watch.",
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
     [PickPhaseVals.PICK]:
@@ -561,7 +561,7 @@ const RULES_URL = "https://heroesofcrypto.io/rules";
 
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.DOCTRINE:
             return t("Pick one perk to continue.");
         case PickPhaseVals.INITIAL_PICK:
             return t("Pick one starting bundle.");
@@ -581,7 +581,7 @@ const STEP_LABELS = ["Bundle", "Lvl 1", "Lvl 2", "Map reveal", "Lvl 3", "Artifac
 
 const currentStep = (phase: number, level: number): number => {
     switch (phase) {
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.DOCTRINE:
         case PickPhaseVals.INITIAL_PICK:
             return 0;
         case PickPhaseVals.ARTIFACT_2:
@@ -2706,7 +2706,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     // perk before queuing, so the draft skips straight to BUNDLE. Fires once per PERK entry; the
     // server-echoed perk (perk > 0) then locks the panel and the phase advances.
     useEffect(() => {
-        if (pickPhase !== PickPhaseVals.PERK || perk !== 0 || busy) {
+        if (pickPhase !== PickPhaseVals.DOCTRINE || perk !== 0 || busy) {
             return;
         }
         const storedPerk = getPreGamePerk();
@@ -2868,7 +2868,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     // The perk step is a pass-through whenever a pre-game perk is stored (the usual case): the client
     // auto-commits it and the server advances. Until that lands there is nothing to choose, so the screen
     // says so instead of flashing the chooser's title, hint and turn chips.
-    const isPreparing = pickPhase < 0 || (pickPhase === PickPhaseVals.PERK && getPreGamePerk() !== Perk.Perk.NO_PERK);
+    const isPreparing =
+        pickPhase < 0 || (pickPhase === PickPhaseVals.DOCTRINE && getPreGamePerk() !== Perk.Perk.NO_PERK);
     // Phases whose confirm lives in the wide button at the bottom — they drop the header chips, the
     // sub-line and the imperative hint, exactly like the redesign.
     const isCommitPhase =
@@ -2877,7 +2878,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         pickPhase === PickPhaseVals.ARTIFACT_2;
     // PERK is now a perk-only phase; the server echoes the player's perk (perk > 0), which survives reload
     // and locks the panel.
-    const perkLocked = pickPhase === PickPhaseVals.PERK && perk > 0;
+    const perkLocked = pickPhase === PickPhaseVals.DOCTRINE && perk > 0;
     // INITIAL_PICK is the separate starting-bundle phase; the server echoes the picked bundle (picked.length > 0).
     const bundleLocked = pickPhase === PickPhaseVals.INITIAL_PICK && picked.length > 0;
     // Which bundle was chosen — local index if just picked, else recover it from the picked creatures.
@@ -2891,7 +2892,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     if (pickPhase < 0) {
         // No phase from the server yet — hold the spinner instead of briefly painting the perk step.
         panel = <CircularProgress />;
-    } else if (pickPhase === PickPhaseVals.PERK) {
+    } else if (pickPhase === PickPhaseVals.DOCTRINE) {
         // Pre-game perk auto-commit: if the player already chose a perk in the lobby (persisted),
         // the PERK phase is a brief pass-through — show a spinner while the auto-commit lands and the
         // server advances the phase, instead of flashing the chooser. Only fall back to the manual
@@ -3076,7 +3077,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                         </Typography>
                     )}
 
-                {pickPhase !== PickPhaseVals.PERK && (
+                {pickPhase !== PickPhaseVals.DOCTRINE && (
                     <>
                         {/* Both armies sit above the grid by default. Ranked/private callers can suppress the
                             opponent rail during the zero-second augment handoff before private Setup opens. */}
@@ -3272,7 +3273,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 };
 
 const PHASE_NAME: Record<number, string> = {
-    [PickPhaseVals.PERK]: t("Choose your perk"),
+    [PickPhaseVals.DOCTRINE]: t("Choose your perk"),
     [PickPhaseVals.INITIAL_PICK]: t("Choose your starting bundle"),
     [PickPhaseVals.PICK]: t("Pick a creature"),
     [PickPhaseVals.ARTIFACT_2]: t("Choose a Tier-2 artifact"),

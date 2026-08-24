@@ -12,7 +12,7 @@ import {
     PickPairRequest,
     PickBanRequest,
     ArtifactRequest,
-    PerkRequest,
+    DoctrineRequest,
     RevealRequest,
 } from "@heroesofcrypto/common";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
@@ -512,7 +512,7 @@ export function AuthProvider({ children }: Props) {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const perkRequest = new PerkRequest({ perk: perkId });
+        const perkRequest = new DoctrineRequest({ doctrine: perkId });
         const data = perkRequest.serializeBinary();
 
         await axiosGameInstance.post(`${endpoints.game.perk}`, data, {

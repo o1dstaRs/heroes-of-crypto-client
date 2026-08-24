@@ -2,7 +2,7 @@ import {
     Artifact,
     ArtifactRequest,
     Perk,
-    PerkRequest,
+    DoctrineRequest,
     CREATURES_JSON,
     CreatureByLevel,
     CreatureLevels,
@@ -129,7 +129,7 @@ const phaseName = (phase: number): string => {
             return "pick";
         case PickPhaseVals.BAN:
             return "ban";
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.DOCTRINE:
             return "perk";
         case PickPhaseVals.ARTIFACT_1:
             return "tier 1 artifact";
@@ -302,7 +302,7 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     const ownRangedCount = rangedCreatureCount(ownPicked);
     const choices: DraftChoice[] = [];
 
-    if (event.pp === PickPhaseVals.PERK) {
+    if (event.pp === PickPhaseVals.DOCTRINE) {
         // The AI takes the Scout perk (3 reveals, 6 upgrade points) by default.
         const perkId = Perk.Perk.THREE_REVEALS;
         const choiceId = `perk:${perkId}`;
@@ -652,7 +652,7 @@ const submitDraftChoice = async (choice: DraftChoice, authorization: string): Pr
     }
 
     if (choice.type === "perk") {
-        const request = new PerkRequest({ perk: choice.perkId ?? 0 });
+        const request = new DoctrineRequest({ doctrine: choice.perkId ?? 0 });
         await postPickBody(endpoints.game.perk, request.serializeBinary(), authorization);
         return;
     }

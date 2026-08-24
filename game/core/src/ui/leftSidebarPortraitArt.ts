@@ -31,7 +31,7 @@ export const LEFT_SIDEBAR_PORTRAIT_ART_CHECKPOINT_X: Readonly<Partial<Record<num
     [CreatureVals.MERMAID]: images.left_sidebar_mermaid_hd,
     [CreatureVals.DRYAD]: images.left_sidebar_dryad_hd,
     [CreatureVals.BLACKSMITH]: images.left_sidebar_blacksmith_hd,
-    [CreatureVals.ASH_MOTH]: images.left_sidebar_wandering_mage_hd,
+    [CreatureVals.WANDERING_MAGE]: images.left_sidebar_wandering_mage_hd,
     [CreatureVals.BEHOLDER]: images.left_sidebar_beholder_full,
     [CreatureVals.LEPRECHAUN]: images.left_sidebar_leprechaun,
     [CreatureVals.WHITE_TIGER]: images.left_sidebar_white_tiger,
