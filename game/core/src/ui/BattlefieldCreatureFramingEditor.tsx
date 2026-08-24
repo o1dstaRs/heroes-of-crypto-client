@@ -6,19 +6,24 @@ import React, { useEffect, useRef, useState } from "react";
 import { PREVIEW_PLACEMENT_GAME_ID, startPreviewPlaySession } from "../api/previewPlaySession";
 import { images } from "../generated/image_imports";
 import { battleSidebarWidth } from "../pixi/boardFit";
+import { refreshedBoardVisualProfileForUnit } from "../scenes/RenderableUnit";
 import type { IWindowSize } from "../scenes/VisibleState";
 import {
     BATTLEFIELD_CREATURE_FRAMING,
     BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY,
     DEFAULT_BATTLEFIELD_CREATURE_FRAMING,
+    formatFootprintShape,
     normalizeBattlefieldCreatureFraming,
     notifyBattlefieldCreatureFramingChanged,
+    parseFootprintShape,
     readBattlefieldCreatureVisualBounds,
     readStoredBattlefieldCreatureFraming,
+    resolveFootprintMode,
     setBattlefieldCreatureEditorActive,
     writeStoredBattlefieldCreatureFraming,
     type BattlefieldCreatureFraming,
     type BattlefieldCreatureVisualBounds,
+    type FootprintModeCandidate,
 } from "./battlefieldCreatureFraming";
 import { hocColors, hocDisplayFontFamily } from "./hocTheme";
 import { RankedGameView } from "./RankedGameView";
@@ -72,6 +77,28 @@ const EDITOR_CREATURES: EditorCreature[] = [1, 2, 3, 4].flatMap((level) =>
         .filter((creature) => creature.faction !== "Death")
         .sort((left, right) => FACTION_ORDER.indexOf(left.faction) - FACTION_ORDER.indexOf(right.faction)),
 );
+
+/** The engine's QA footprint override lives on the global object, in the format the engine parses. */
+const footprintOverrideHolder = globalThis as { __hocFootprintOverrides?: string };
+
+/**
+ * Whatever a developer had set by hand BEFORE this screen installed anything of its own, captured once at
+ * module load. Re-reading the live global on every render would feed this screen's own installation back
+ * into its selection, flipping the mode between "lend the shape" and "the shape is already declared" on
+ * alternate renders — and each flip would rebuild the board.
+ */
+const manualFootprintOverrideSource = footprintOverrideHolder.__hocFootprintOverrides;
+
+/** How wide each creature's authored battlefield art already reads, in cells (heightCells x widthScale). */
+const footprintModeCandidates: FootprintModeCandidate[] = EDITOR_CREATURES.map((creature) => {
+    const profile = refreshedBoardVisualProfileForUnit(creature.name);
+    return {
+        name: creature.name,
+        footprintWidth: creature.footprintWidth,
+        footprintHeight: creature.footprintHeight,
+        authoredArtWidthCells: profile.heightCells * profile.widthScale,
+    };
+});
 
 const generatedImages = images as Readonly<Record<string, string | undefined>>;
 
@@ -368,17 +395,29 @@ const formatTypeScriptConfig = (overrides: Record<string, BattlefieldCreatureFra
 
 export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const searchParams = new URLSearchParams(window.location.search);
-    const twoByOneMode = searchParams.get("footprint") === "2x1";
+    const requestedFootprint = parseFootprintShape(searchParams.get("footprint"));
+    const footprintModeActive = requestedFootprint !== undefined;
     const requestedLevelParam = searchParams.get("level");
-    const allLevelsMode = !twoByOneMode && (requestedLevelParam === null || requestedLevelParam === "all");
+    const allLevelsMode = !footprintModeActive && (requestedLevelParam === null || requestedLevelParam === "all");
     const requestedLevel = Number(requestedLevelParam);
     const editorLevel = [1, 2, 3, 4].includes(requestedLevel) ? requestedLevel : 1;
-    const filteredCreatures = twoByOneMode
-        ? EDITOR_CREATURES.filter((creature) => creature.footprintWidth === 2 && creature.footprintHeight === 1)
+    // No shipped creature declares footprint_width/footprint_height, so filtering creatures.json alone
+    // leaves this mode permanently empty. resolveFootprintMode answers with the creatures to show and with
+    // whatever the engine's QA override has to lend them to make the shape real on the board.
+    const footprintMode = requestedFootprint
+        ? resolveFootprintMode(requestedFootprint, footprintModeCandidates, manualFootprintOverrideSource)
+        : undefined;
+    const footprintOverrideSource = footprintMode?.overrideSource ?? "";
+    const filteredCreatures = footprintMode
+        ? EDITOR_CREATURES.filter((creature) => footprintMode.names.includes(creature.name))
         : allLevelsMode
           ? EDITOR_CREATURES
           : EDITOR_CREATURES.filter((creature) => creature.level === editorLevel);
-    const editorModeKey = twoByOneMode ? "footprint-2x1" : allLevelsMode ? "all-levels" : `level-${editorLevel}`;
+    const editorModeKey = requestedFootprint
+        ? `footprint-${formatFootprintShape(requestedFootprint)}:${footprintOverrideSource}`
+        : allLevelsMode
+          ? "all-levels"
+          : `level-${editorLevel}`;
     const idleAtlasUrls = idleAtlasUrlsForCreatures(filteredCreatures);
     const initialId = Number(searchParams.get("creature"));
     const [selectedCreatureId, setSelectedCreatureId] = useState(
@@ -420,6 +459,13 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
     }, [BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY]);
 
     useEffect(() => {
+        // The override has to be in place BEFORE the session builds its units: the engine reads it inside
+        // getCreatureConfig, and the ranked scene rebuilds unit properties through that same call, so the
+        // shape then survives every later hydrate for as long as this screen is open.
+        const previousOverrides = footprintOverrideHolder.__hocFootprintOverrides;
+        if (footprintOverrideSource) {
+            footprintOverrideHolder.__hocFootprintOverrides = footprintOverrideSource;
+        }
         startPreviewPlaySession({
             userTeam: TeamVals.LOWER,
             gridType: GridVals.NORMAL,
@@ -430,7 +476,10 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                 ? comparisonRowSizesKey.split(",").map((size) => Number(size))
                 : undefined,
         });
-    }, [comparisonRowSizesKey, editorModeKey, visibleCreatureIdsKey]);
+        return () => {
+            footprintOverrideHolder.__hocFootprintOverrides = previousOverrides;
+        };
+    }, [comparisonRowSizesKey, editorModeKey, footprintOverrideSource, visibleCreatureIdsKey]);
 
     useEffect(() => {
         setBattlefieldCreatureEditorActive(true);
@@ -452,7 +501,18 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
             <Typography sx={{ p: 4 }}>Battlefield creature editor is available only in development builds.</Typography>
         );
     }
-    if (!selectedCreature) return null;
+    if (!selectedCreature) {
+        // A shape nothing declares and no wide-art creature can stand in for leaves nothing to tune. Say so
+        // rather than rendering an empty battlefield that reads as a broken screen.
+        if (requestedFootprint) {
+            return (
+                <Typography sx={{ p: 4, color: hocColors.mutedStrong }}>
+                    {`Нет существ с формой ${requestedFootprint.width}×${requestedFootprint.height}: ни одно не объявляет её в creatures.json, и ни у одного нет подходящей отрисованной модели. Задайте globalThis.__hocFootprintOverrides = "Имя=${formatFootprintShape(requestedFootprint)}" перед загрузкой страницы.`}
+                </Typography>
+            );
+        }
+        return null;
+    }
 
     const persist = (
         next: Record<string, BattlefieldCreatureFraming>,
@@ -492,7 +552,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
         }
     };
     const switchLevel = (level: number) => {
-        if (!twoByOneMode && !allLevelsMode && level === editorLevel) return;
+        if (!footprintModeActive && !allLevelsMode && level === editorLevel) return;
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("level", String(level));
         nextUrl.searchParams.delete("footprint");
@@ -508,7 +568,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
         window.location.assign(nextUrl.toString());
     };
     const switchToTwoByOne = () => {
-        if (twoByOneMode) return;
+        if (requestedFootprint && formatFootprintShape(requestedFootprint) === "2x1") return;
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("footprint", "2x1");
         nextUrl.searchParams.delete("level");
@@ -566,7 +626,13 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                 </>
             ) : (
                 <Typography sx={{ position: "fixed", left: 32, top: 32, color: "#e0c999" }}>
-                    Загружаю модели {twoByOneMode ? "2×1" : allLevelsMode ? "всех уровней" : `уровня ${editorLevel}`}…
+                    Загружаю модели{" "}
+                    {requestedFootprint
+                        ? `${requestedFootprint.width}×${requestedFootprint.height}`
+                        : allLevelsMode
+                          ? "всех уровней"
+                          : `уровня ${editorLevel}`}
+                    …
                 </Typography>
             )}
             {!panelExpanded && (
@@ -659,8 +725,12 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                         BATTLEFIELD MODEL EDITOR
                     </Typography>
                     <Typography level="body-xs" sx={{ mt: 0.5, color: hocColors.muted }}>
-                        {twoByOneMode
-                            ? "Все существа 2×1 стоят одной линией по нижнему краю карты."
+                        {requestedFootprint
+                            ? `Существа ${requestedFootprint.width}×${requestedFootprint.height} стоят одной линией по нижнему краю карты.${
+                                  footprintMode?.seededNames.length
+                                      ? " Форма выдана QA-оверрайдом движка — данные существ не меняются."
+                                      : ""
+                              }`
                             : allLevelsMode
                               ? "Все существа L1–L4 разложены по четырём рядам: один уровень на ряд."
                               : `Существа L${editorLevel} стоят одной линией по нижнему краю карты.`}{" "}
@@ -683,9 +753,9 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                             <Button
                                 key={level}
                                 size="sm"
-                                variant={!twoByOneMode && level === editorLevel ? "solid" : "outlined"}
-                                color={!twoByOneMode && level === editorLevel ? "warning" : "neutral"}
-                                aria-pressed={!twoByOneMode && level === editorLevel}
+                                variant={!footprintModeActive && level === editorLevel ? "solid" : "outlined"}
+                                color={!footprintModeActive && level === editorLevel ? "warning" : "neutral"}
+                                aria-pressed={!footprintModeActive && level === editorLevel}
                                 onClick={() => switchLevel(level)}
                                 sx={{ minWidth: 0 }}
                             >
@@ -694,9 +764,9 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                         ))}
                         <Button
                             size="sm"
-                            variant={twoByOneMode ? "solid" : "outlined"}
-                            color={twoByOneMode ? "warning" : "neutral"}
-                            aria-pressed={twoByOneMode}
+                            variant={footprintModeActive ? "solid" : "outlined"}
+                            color={footprintModeActive ? "warning" : "neutral"}
+                            aria-pressed={footprintModeActive}
                             onClick={switchToTwoByOne}
                             sx={{ minWidth: 0 }}
                         >

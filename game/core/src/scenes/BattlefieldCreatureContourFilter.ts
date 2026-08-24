@@ -12,8 +12,15 @@ export const BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY = 0.6;
  * sprite receives the same treatment at render time so static art and every animation frame stay
  * visually consistent without duplicating the baked pass on the approved level-three set.
  */
-export function shouldApplyRuntimeBattlefieldContour(unitName: string, unitSize: number): boolean {
-    return staticBattlefieldTextureNameForUnit(unitName, unitSize) === undefined;
+export function shouldApplyRuntimeBattlefieldContour(
+    unitName: string,
+    footprintWidth: number,
+    footprintHeight: number = footprintWidth,
+): boolean {
+    // The footprint, not a scalar size: the approved cutout set is keyed by the ART TIER a body resolves to,
+    // and a rectangle resolves to the two-cell tier on either axis. Passing one number would ask about a
+    // square the unit is not, and silently double the rim on art that already bakes it.
+    return staticBattlefieldTextureNameForUnit(unitName, footprintWidth, footprintHeight) === undefined;
 }
 
 const VERTEX = /* glsl */ `

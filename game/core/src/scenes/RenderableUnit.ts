@@ -88,9 +88,28 @@ const WOLF_UNIT_NAME = "Wolf";
 const WOLF_RIDER_UNIT_NAME = "Wolf Rider";
 const GARGANTUAN_UNIT_NAME = "Gargantuan";
 export const TALL_BOARD_MODEL_FOOT_INSET_RATIO = 0.06;
+/**
+ * Authored pixels per footprint cell for the portrait-chip sizing path. One cell is the 128px chip and
+ * two cells the 256px one, so a footprint-derived box reproduces both shipped numbers exactly.
+ */
+export const BATTLEFIELD_CHIP_CELL_PIXELS = 128;
 /** Shared foot line for one-cell creatures, raised 25% of a cell from the lower seam. */
 export const BATTLEFIELD_SINGLE_CELL_Y_OFFSET_RATIO = 0.25;
 export const BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO = 0.7;
+
+/**
+ * How far below the footprint's centre the projected foot line sits, in cells.
+ *
+ * The feet stand just above the footprint's LOWER SEAM, and that seam is `footprintHeight / 2` below the
+ * centre — the only term a rectangle changes. The inset above the seam stays exactly as authored: a
+ * quarter of a cell for a one-cell-tall body and three tenths for the taller multi-row art, which
+ * reproduces both approved ratios (1 -> 0.25, 2 -> 0.7) unchanged.
+ */
+export function battlefieldFootLineOffsetCells(footprintHeight: number): number {
+    const insetAboveSeam =
+        footprintHeight > 1 ? 1 - BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO : 0.5 - BATTLEFIELD_SINGLE_CELL_Y_OFFSET_RATIO;
+    return footprintHeight / 2 - insetAboveSeam;
+}
 /** Bottom-row framing is the authored maximum; the top legal row is exactly fifteen percent smaller. */
 export const BATTLEFIELD_TOP_ROW_CREATURE_SCALE = 0.85;
 
@@ -115,33 +134,39 @@ export interface BattlefieldCreatureShadowProjection {
     alpha: number;
 }
 
-const battlefieldCreatureRowProgress = (logicalY: number, unitSize: number, gs: GridSettings): number => {
-    const footprintSide = unitSize === 2 ? 2 : 1;
-    const maximumBottomRow = Math.max(1, gs.getGridSize() - footprintSide);
+/**
+ * Which board row a figure stands on, normalized to 0 at the nearest row and 1 at the furthest legal one.
+ *
+ * Only the footprint's HEIGHT matters here: the logical position is the centre of the whole body, so the
+ * row its feet occupy is half the body's height below that centre, and a taller body also has fewer legal
+ * rows to stand on. A 2x1 therefore behaves exactly like a 1x1, which is the point.
+ */
+const battlefieldCreatureRowProgress = (logicalY: number, footprintHeight: number, gs: GridSettings): number => {
+    const maximumBottomRow = Math.max(1, gs.getGridSize() - footprintHeight);
     const bottomRow =
-        (logicalY - gs.getMinY() - (footprintSide * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
+        (logicalY - gs.getMinY() - (footprintHeight * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
     return Math.max(0, Math.min(1, bottomRow / maximumBottomRow));
 };
 
 /**
- * The two rows nearest the wall furnaces soften their dark rim. A 2x2 creature also softens one
- * anchor row earlier because its upper half already occupies that furnace-adjacent two-row band.
+ * The two rows nearest the wall furnaces soften their dark rim. A body two cells tall also softens one
+ * anchor row earlier because its upper half already occupies that furnace-adjacent two-row band — which
+ * is why the threshold is expressed as "one row above the top of the body" rather than as a size test.
  */
-export function battlefieldCreatureContourOpacity(logicalY: number, unitSize: number, gs: GridSettings): number {
-    const footprintSide = unitSize === 2 ? 2 : 1;
+export function battlefieldCreatureContourOpacity(logicalY: number, footprintHeight: number, gs: GridSettings): number {
     const bottomRow =
-        (logicalY - gs.getMinY() - (footprintSide * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
-    const firstFurnaceAffectedBottomRow = gs.getGridSize() - (unitSize === 2 ? 3 : 2);
+        (logicalY - gs.getMinY() - (footprintHeight * gs.getCellSize()) / 2) / Math.max(1, gs.getCellSize());
+    const firstFurnaceAffectedBottomRow = gs.getGridSize() - (footprintHeight + 1);
     return bottomRow >= firstFurnaceAffectedBottomRow - 0.001 ? BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY : 1;
 }
 
 export function battlefieldCreatureShadowProjection(
     logicalY: number,
-    unitSize: number,
+    footprintHeight: number,
     gs: GridSettings,
     unitName?: string,
 ): BattlefieldCreatureShadowProjection {
-    const rowProgress = battlefieldCreatureRowProgress(logicalY, unitSize, gs);
+    const rowProgress = battlefieldCreatureRowProgress(logicalY, footprintHeight, gs);
     const tuning = resolveBattlefieldShadowTuning(unitName);
     const interpolate = (bottom: number, top: number): number => bottom + (top - bottom) * rowProgress;
     return {
@@ -153,11 +178,15 @@ export function battlefieldCreatureShadowProjection(
 
 /**
  * Continuous perspective attenuation for a placed battlefield figure.
- * Small units distribute the 15% reduction evenly across 15 row transitions. A 2x2 footprint has
- * 14 legal transitions, so it traverses the same 100% -> 85% range across the rows it can occupy.
+ * One-cell-tall bodies distribute the 15% reduction evenly across 15 row transitions. A two-cell-tall
+ * body has 14 legal transitions, so it traverses the same 100% -> 85% range across the rows it can occupy.
  */
-export function battlefieldCreaturePerspectiveScale(logicalY: number, unitSize: number, gs: GridSettings): number {
-    const rowProgress = battlefieldCreatureRowProgress(logicalY, unitSize, gs);
+export function battlefieldCreaturePerspectiveScale(
+    logicalY: number,
+    footprintHeight: number,
+    gs: GridSettings,
+): number {
+    const rowProgress = battlefieldCreatureRowProgress(logicalY, footprintHeight, gs);
     return 1 - (1 - BATTLEFIELD_TOP_ROW_CREATURE_SCALE) * rowProgress;
 }
 /** The horned Gargantuan keeps the previously approved 20% enlargement. */
@@ -165,8 +194,18 @@ export const BATTLEFIELD_GARGANTUAN_SCALE_MULTIPLIER = 1.2;
 /** Every other four-cell silhouette receives another 10% on top of the approved 20%. */
 export const BATTLEFIELD_FOUR_CELL_SCALE_MULTIPLIER = 1.2 * 1.1;
 
-export function battlefieldCreatureScaleMultiplier(unitName: string, unitSize: number): number {
-    if (unitSize !== 2) return 1;
+/**
+ * The approved enlargement for a multi-cell silhouette. Both tiers were art-directed against the SQUARE
+ * footprints, so only those receive one: a rectangle already reads as a bigger creature because its
+ * sprite box is derived from its own cells (two of them along the long axis), and picking an enlargement
+ * tier for rectangular art is an art-direction call the owner has not made.
+ */
+export function battlefieldCreatureScaleMultiplier(
+    unitName: string,
+    footprintWidth: number,
+    footprintHeight = footprintWidth,
+): number {
+    if (footprintWidth !== 2 || footprintHeight !== 2) return 1;
     return unitName === GARGANTUAN_UNIT_NAME
         ? BATTLEFIELD_GARGANTUAN_SCALE_MULTIPLIER
         : BATTLEFIELD_FOUR_CELL_SCALE_MULTIPLIER;
@@ -521,15 +560,20 @@ export function orcActiveBattleCryBreathElapsed(elapsedMs: number): number {
     return Math.max(0, elapsedInSequence - cryWindowMs);
 }
 
-/** World-space ground line: normally six percent above the lower edge of the occupied cell. */
+/**
+ * World-space ground line for the UNPROJECTED (bench / roster) figure: normally six percent above the
+ * lower edge of the occupied cell. Only the footprint's height moves this line, so a 2x1 stands exactly
+ * where a 1x1 does; the half-cell the taller body adds back is the authored bench behaviour and is
+ * deliberately left as it is.
+ */
 export function tallBoardModelFootLineY(
     positionY: number,
     cellSize: number,
-    unitSize = 1,
+    footprintHeight = 1,
     footInsetRatio = TALL_BOARD_MODEL_FOOT_INSET_RATIO,
 ): number {
     const baseLine = positionY - cellSize * 0.5 + cellSize * footInsetRatio;
-    return baseLine + (unitSize === 2 ? cellSize * 0.5 : 0);
+    return baseLine + (footprintHeight > 1 ? cellSize * 0.5 : 0);
 }
 
 /** Tall board models stand on the lower edge of their tile instead of being centred like portrait chips. */
@@ -724,11 +768,25 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
     if (trimmed in animationAtlases) return trimmed as AnimationUnitName;
     return null;
 }
-function atlasImageKeyFromUnitAndState(unitName: string, state: string, size: number): ImageKey | null {
+/**
+ * Atlas tiers mirror the static ones: `_atlas_half` holds the two-cell art and `_atlas_quarter` the
+ * one-cell art. A rectangle spans two cells along its long side, so it asks for the half sheet and falls
+ * through to the quarter sheet below when — as today, for every creature — no half sheet is authored.
+ */
+function atlasImageKeyFromUnitAndState(
+    unitName: string,
+    state: string,
+    footprintWidth: number,
+    footprintHeight: number,
+): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
     const stateLower = state.toLowerCase();
     // same `_atlas_quarter` suffix you already use on UnitChip
-    const key = (size === 2 ? `${base}_${stateLower}_atlas_half` : `${base}_${stateLower}_atlas_quarter`) as ImageKey;
+    const key = (
+        footprintWidth > 1 || footprintHeight > 1
+            ? `${base}_${stateLower}_atlas_half`
+            : `${base}_${stateLower}_atlas_quarter`
+    ) as ImageKey;
     if (key in images) return key;
     const quarterKey = `${base}_${stateLower}_atlas_quarter` as ImageKey;
     if (quarterKey in images) return quarterKey;
@@ -740,9 +798,10 @@ function atlasImageKeyFromUnitAndState(unitName: string, state: string, size: nu
 
 function getStaticBattlefieldIdleConfig(
     unitName: string,
-    size: number,
+    footprintWidth: number,
+    footprintHeight: number,
 ): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
-    const textureName = staticBattlefieldTextureNameForUnit(unitName, size);
+    const textureName = staticBattlefieldTextureNameForUnit(unitName, footprintWidth, footprintHeight);
     if (!textureName) return null;
     const imageKey = textureName as ImageKey;
     if (!(imageKey in images)) return null;
@@ -756,11 +815,12 @@ function getStaticBattlefieldIdleConfig(
 
 function getDefaultAnimationConfig(
     unitName: string,
-    size: number,
+    footprintWidth: number,
+    footprintHeight = footprintWidth,
 ): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
-    const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, size);
+    const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
     if (staticBattlefieldIdle) return staticBattlefieldIdle;
-    if (unitName === EFREET_UNIT_NAME && size === 1) {
+    if (unitName === EFREET_UNIT_NAME && footprintWidth === 1 && footprintHeight === 1) {
         return {
             meta: EFREET_FIRE_IDLE_META,
             imageSrc: images[EFREET_FIRE_IDLE_IMAGE_KEY],
@@ -781,7 +841,7 @@ function getDefaultAnimationConfig(
           ? "default"
           : stateNames[0];
     const meta = unitStates[preferredState];
-    const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState, size);
+    const imageKey = atlasImageKeyFromUnitAndState(normalized, preferredState, footprintWidth, footprintHeight);
     if (!imageKey) return null;
     const imageSrc = images[imageKey];
     if (!imageSrc) return null;
@@ -792,11 +852,12 @@ function getDefaultAnimationConfig(
 function getAnimationStateConfig(
     unitName: string,
     state: string,
-    size: number,
+    footprintWidth: number,
+    footprintHeight = footprintWidth,
 ): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
-    const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, size);
+    const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
     if (staticBattlefieldIdle) return state === "idle" ? staticBattlefieldIdle : null;
-    if (unitName === EFREET_UNIT_NAME && state === "idle" && size === 1) {
+    if (unitName === EFREET_UNIT_NAME && state === "idle" && footprintWidth === 1 && footprintHeight === 1) {
         return {
             meta: EFREET_FIRE_IDLE_META,
             imageSrc: images[EFREET_FIRE_IDLE_IMAGE_KEY],
@@ -810,7 +871,7 @@ function getAnimationStateConfig(
     const unitStates = animationAtlases[normalized] as unknown as Record<string, AtlasMeta>;
     const meta = unitStates[resolvedState];
     if (!meta) return null;
-    const imageKey = atlasImageKeyFromUnitAndState(normalized, resolvedState, size);
+    const imageKey = atlasImageKeyFromUnitAndState(normalized, resolvedState, footprintWidth, footprintHeight);
     if (!imageKey) return null;
     const imageSrc = images[imageKey];
     if (!imageSrc) return null;
@@ -1018,32 +1079,59 @@ function flagWaveOffset(u: number, t: number, phase: number, height: number): nu
 interface StackPowerDrawState {
     power: number;
     cellSize: number;
-    unitSizeInCells: number;
+    footprintWidthInCells: number;
+    footprintHeightInCells: number;
     teamColor: number;
 }
 interface RosterCardDrawState {
     x: number;
     y: number;
     cell: number;
-    unitSize: number;
+    footprintWidth: number;
+    footprintHeight: number;
     projected: boolean;
     name: string;
     teamColor: number;
 }
 
-/** Exact painted-grid footprint used by a revealed opponent's deployment marker. */
+/**
+ * Cell-relative extent of a ground effect along ONE footprint axis.
+ *
+ * Every one of these effects was authored as a pair of numbers — the one-cell value and the two-cell one —
+ * which is a straight line through two points, so each further footprint cell simply adds another
+ * interval. Both authored values come back untouched for a body one or two cells across.
+ */
+function footprintEffectExtent(oneCell: number, twoCells: number, footprintSide: number): number {
+    return oneCell + (twoCells - oneCell) * (footprintSide - 1);
+}
+
+/**
+ * Ground rings are circles around every SQUARE body — which is every shipped creature — so that case
+ * keeps the literal circle call and its geometry is untouched. Only a rectangle needs the oval form.
+ */
+function drawFootprintOval(g: Graphics, x: number, y: number, radiusX: number, radiusY: number): Graphics {
+    return radiusX === radiusY ? g.circle(x, y, radiusX) : g.ellipse(x, y, radiusX, radiusY);
+}
+
+/**
+ * Exact painted-grid footprint used by a revealed opponent's deployment marker.
+ *
+ * The marker must cover the cells the unit actually occupies, so the two half-extents are taken from the
+ * footprint separately. They coincide for every square body, which is every shipped creature.
+ */
 export function revealedOpponentFootprintPoints(
     logicalCenter: HoCMath.XY,
-    unitSize: number,
+    footprintWidth: number,
+    footprintHeight: number,
     gs: GridSettings,
 ): number[] {
-    const footprintSide = unitSize === 2 ? 2 : 1;
-    const halfSide = (gs.getStep() * footprintSide) / 2;
+    const halfWidth = (gs.getStep() * footprintWidth) / 2;
+    const halfHeight = (gs.getStep() * footprintHeight) / 2;
     return projectedRectPoints(
-        logicalCenter.x - halfSide,
-        logicalCenter.y - halfSide,
-        logicalCenter.x + halfSide,
-        logicalCenter.y + halfSide,
+        logicalCenter.x - halfWidth,
+        logicalCenter.y - halfHeight,
+        logicalCenter.x + halfWidth,
+        logicalCenter.y + halfHeight,
         gs,
     );
 }
@@ -1513,7 +1601,12 @@ export class RenderableUnit extends Unit {
         this.watchBattlefieldCreatureFramingChanges(worldRoot, gs, props.name);
         const logicalPos = this.getPosition();
         const pos = this.useBattlefieldVisualProjection ? projectBattlefieldPoint(logicalPos, gs) : logicalPos;
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        // Every draw decision below is taken from the unit's own footprint rather than its square `size`,
+        // which is only the art tier. They agree for every shipped creature (all 1x1 or 2x2).
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
+        const isRectangularFootprint = footprintWidth !== footprintHeight;
+        const texName = unitToTextureName(props.name, TextureType.SMALL, footprintWidth, footprintHeight);
         const hasAuthoredIdle = this.hasAnimationState("idle");
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
         const refreshedFullBodyScale = usesRefreshedFullBodyScale(props, hasAuthoredIdle);
@@ -1573,14 +1666,20 @@ export class RenderableUnit extends Unit {
         }
         // Legacy portrait chips use a fixed board texture. Full-body models instead key their authored
         // visible bounds to the live cell size so viewport scaling cannot change their battlefield footprint.
-        const battlefieldCreatureScale = battlefieldCreatureScaleMultiplier(props.name, props.size);
+        const battlefieldCreatureScale = battlefieldCreatureScaleMultiplier(
+            props.name,
+            footprintWidth,
+            footprintHeight,
+        );
         const battlefieldPerspectiveScale = this.useBattlefieldVisualProjection
-            ? battlefieldCreaturePerspectiveScale(logicalPos.y, props.size, gs)
+            ? battlefieldCreaturePerspectiveScale(logicalPos.y, footprintHeight, gs)
             : 1;
         const editorFraming = resolveStoredBattlefieldCreatureFraming(props.name);
-        const targetSize = tallBoardModel
-            ? gs.getCellSize() * this.visualScaleMultiplier * battlefieldCreatureScale
-            : (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier * battlefieldCreatureScale;
+        // The chip box is the footprint measured in authored pixels: 128 across one cell, 256 across two.
+        const chipTargetWidth =
+            footprintWidth * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
+        const chipTargetHeight =
+            footprintHeight * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
         // The rectangular board fit intentionally scales cell positions differently on X and Y. Undo that
         // camera deformation on the artwork alone so creatures keep their original square-fit screen size.
         const inheritedScale = inheritedAbsoluteScale(worldRoot);
@@ -1604,15 +1703,23 @@ export class RenderableUnit extends Unit {
               ? SCAVENGER_FLOURISH_RENDER_HEIGHT
               : currentHeight;
         const visibleHeight = scaleReferenceHeight * (usesThiefSilhouette ? thiefVisibleHeightRatio : 1);
+        const visibleWidth = currentWidth * (usesThiefSilhouette ? thiefVisibleWidthRatio : 1);
         const refreshedVisualProfile = refreshedBoardVisualProfileForUnit(props.name);
         const boardModelHeightCells = refreshedFullBodyScale
             ? refreshedVisualProfile.heightCells
             : props.name === SCAVENGER_UNIT_NAME
               ? SCAVENGER_BOARD_MODEL_HEIGHT_CELLS
               : 1.5;
-        const scaleY = tallBoardModel
-            ? (gs.getCellSize() * boardModelHeightCells * battlefieldCreatureScale) / visibleHeight
-            : targetSize / currentWidth;
+        // `heightCells` is authored against a body ONE cell tall. A square footprint expresses its extra
+        // rows through the approved enlargement multiplier instead, so only a rectangle multiplies the
+        // authored height by the rows it really occupies.
+        const boardModelTargetHeightCells =
+            boardModelHeightCells * (isRectangularFootprint ? footprintHeight : 1) * battlefieldCreatureScale;
+        // A square chip is authored square, so one width-keyed scale already fits both axes; keeping that
+        // exact expression for square footprints leaves every shipped creature byte-identical.
+        const chipScaleX = chipTargetWidth / currentWidth;
+        const chipScaleY = isRectangularFootprint ? chipTargetHeight / currentHeight : chipScaleX;
+        const scaleY = tallBoardModel ? (gs.getCellSize() * boardModelTargetHeightCells) / visibleHeight : chipScaleY;
         // Idle/walk stay inside the requested width. Action sheets and Orc's square padded atlases must
         // keep a uniform scale: capping that transparent canvas independently used to visibly narrow him.
         const tallBoardWidthCells =
@@ -1621,13 +1728,19 @@ export class RenderableUnit extends Unit {
                 : props.name === THIEF_UNIT_NAME
                   ? 1
                   : 1.1;
+        // A mechanically rectangular body takes its width from the cells it occupies. The authored
+        // `widthScale` exists to FAKE exactly this silhouette on creatures that stay 1x1 (White Tiger reads
+        // 1.18 x 1.695 cells, i.e. two cells across), so applying both would stretch one sprite twice.
+        const rectangularScaleX = (gs.getCellSize() * footprintWidth) / visibleWidth;
         const scaleX = tallBoardModel
-            ? refreshedFullBodyScale || this.oneShotAnim || props.name === ORC_UNIT_NAME || showingScavengerFlourish
-                ? scaleY * (refreshedFullBodyScale ? refreshedVisualProfile.widthScale : 1)
-                : usesThiefSilhouette
-                  ? (gs.getCellSize() * tallBoardWidthCells) / (currentWidth * thiefVisibleWidthRatio)
-                  : Math.min(scaleY, (gs.getCellSize() * tallBoardWidthCells) / currentWidth)
-            : scaleY;
+            ? isRectangularFootprint
+                ? rectangularScaleX
+                : refreshedFullBodyScale || this.oneShotAnim || props.name === ORC_UNIT_NAME || showingScavengerFlourish
+                  ? scaleY * (refreshedFullBodyScale ? refreshedVisualProfile.widthScale : 1)
+                  : usesThiefSilhouette
+                    ? (gs.getCellSize() * tallBoardWidthCells * footprintWidth) / visibleWidth
+                    : Math.min(scaleY, (gs.getCellSize() * tallBoardWidthCells * footprintWidth) / currentWidth)
+            : chipScaleX;
         // The bottom anchor is the creature's foot line. Breathing stretches/compresses only the
         // vertical scale around that anchor, so the robe and torso rise while both feet stay planted.
         const orcIdleElapsedMs = this.isActiveTurn
@@ -1752,8 +1865,8 @@ export class RenderableUnit extends Unit {
             shouldFillBattlefieldAlphaHoles(props.name) && !(props.name === PEASANT_UNIT_NAME && this.walkAnim)
                 ? getBattlefieldAlphaHoleFillFilter()
                 : undefined;
-        const runtimeContourFilter = shouldApplyRuntimeBattlefieldContour(props.name, props.size)
-            ? getBattlefieldCreatureContourFilter(battlefieldCreatureContourOpacity(logicalPos.y, props.size, gs))
+        const runtimeContourFilter = shouldApplyRuntimeBattlefieldContour(props.name, footprintWidth, footprintHeight)
+            ? getBattlefieldCreatureContourFilter(battlefieldCreatureContourOpacity(logicalPos.y, footprintHeight, gs))
             : undefined;
         const unmanagedFilters = (this.sprite.filters ?? []).filter(
             (filter) =>
@@ -1794,13 +1907,13 @@ export class RenderableUnit extends Unit {
         } else if (!this.silhouetteShadow.parent || this.silhouetteShadow.parent !== worldRoot) {
             worldRoot.addChild(this.silhouetteShadow);
         }
-        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, props.size, gs, props.name);
+        const shadowProjection = battlefieldCreatureShadowProjection(logicalPos.y, footprintHeight, gs, props.name);
         const shadowTuning = resolveBattlefieldShadowTuning(props.name);
         if (this.silhouetteShadow.texture !== currentTexture) this.silhouetteShadow.texture = currentTexture;
         if (this.silhouetteShadow.anchor.x !== 0.5 || this.silhouetteShadow.anchor.y !== footAnchorY) {
             this.silhouetteShadow.anchor.set(0.5, footAnchorY);
         }
-        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, props.size, gs);
+        const shadowRowProgress = battlefieldCreatureRowProgress(logicalPos.y, footprintHeight, gs);
         const interpolateShadowValue = (bottom: number, top: number): number =>
             bottom + (top - bottom) * shadowRowProgress;
         // The editor authors the upper-row length directly. Perspective is divided out here so the lower
@@ -1887,12 +2000,18 @@ export class RenderableUnit extends Unit {
         // A restrained contact patch hides harmless transparent padding in authored frames and plants the
         // creature without trying to draw a separate connector for every boot, hoof or claw.
         const modelWidth = currentWidth * Math.abs(authoredDirectedScaleX);
-        const footprintWidth = gs.getCellSize() * (props.size === 2 ? 1.55 : 0.88);
+        // The patch grows with the body it plants: the two authored sizes (0.88 / 1.55 cells across,
+        // 0.09 / 0.13 cells deep) are the one- and two-cell ends of one straight line, so each further
+        // footprint cell simply adds another interval on that axis.
+        const contactPatchWidth = gs.getCellSize() * (0.88 + (footprintWidth - 1) * 0.67);
         const contactWidth =
-            Math.max(gs.getCellSize() * 0.28, Math.min(modelWidth * 0.52, footprintWidth * 0.72)) *
+            Math.max(gs.getCellSize() * 0.28, Math.min(modelWidth * 0.52, contactPatchWidth * 0.72)) *
             screenSizeCompensation.x;
         const contactHeight =
-            gs.getCellSize() * (props.size === 2 ? 0.13 : 0.09) * (this.canFly() ? 0.78 : 1) * screenSizeCompensation.y;
+            gs.getCellSize() *
+            (0.09 + (footprintHeight - 1) * 0.04) *
+            (this.canFly() ? 0.78 : 1) *
+            screenSizeCompensation.y;
         if (this.shadowDrawWidth !== contactWidth || this.shadowDrawHeight !== contactHeight) {
             this.shadow
                 .clear()
@@ -1933,7 +2052,7 @@ export class RenderableUnit extends Unit {
         // --- stack power indicator ---
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
         // --- turn status indicator ---
-        this.ensureHourglassIndicator(worldRoot, gs, props, pos);
+        this.ensureHourglassIndicator(worldRoot, pos);
         // --- stun/skip indicator: top-left corner (same slot as the hourglass, mutually exclusive) ---
         {
             const r = this.buildCornerIcon(
@@ -1942,7 +2061,6 @@ export class RenderableUnit extends Unit {
                 this.stunSprite,
                 "stop",
                 pos,
-                props,
                 0,
                 0,
                 this.shouldShowStopIcon(),
@@ -1958,7 +2076,6 @@ export class RenderableUnit extends Unit {
                 this.respondSprite,
                 "tag",
                 pos,
-                props,
                 1,
                 0,
                 this.shouldShowRespondTag(),
@@ -2013,12 +2130,12 @@ export class RenderableUnit extends Unit {
         const logicalPosition = this.getPosition();
         const currentGround = this.getBattlefieldGroundReference(logicalPosition, gs);
         const previewGround = this.getBattlefieldGroundReference(position, gs);
-        const unitSize = this.getUnitProperties().size;
+        const footprintHeight = this.getFootprintHeight();
         const currentPerspectiveScale = this.useBattlefieldVisualProjection
-            ? battlefieldCreaturePerspectiveScale(logicalPosition.y, unitSize, gs)
+            ? battlefieldCreaturePerspectiveScale(logicalPosition.y, footprintHeight, gs)
             : 1;
         const previewPerspectiveScale = this.useBattlefieldVisualProjection
-            ? battlefieldCreaturePerspectiveScale(position.y, unitSize, gs)
+            ? battlefieldCreaturePerspectiveScale(position.y, footprintHeight, gs)
             : 1;
         const perspectiveRatio = previewPerspectiveScale / Math.max(0.001, currentPerspectiveScale);
 
@@ -2036,7 +2153,9 @@ export class RenderableUnit extends Unit {
     /** Exact ground reference used by both the live sprite and every movement/attack preview. */
     private getBattlefieldGroundReference(logicalPosition: HoCMath.XY, gs: GridSettings): HoCMath.XY {
         const props = this.getUnitProperties();
-        const textureName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
+        const textureName = unitToTextureName(props.name, TextureType.SMALL, footprintWidth, footprintHeight);
         const tallBoardModel = usesTallBoardModel(props, textureName, this.hasAnimationState("idle"));
         const visualProfile = refreshedBoardVisualProfileForUnit(props.name);
         if (!this.useBattlefieldVisualProjection) {
@@ -2046,18 +2165,20 @@ export class RenderableUnit extends Unit {
                     ? tallBoardModelFootLineY(
                           logicalPosition.y,
                           gs.getCellSize(),
-                          props.size,
+                          footprintHeight,
                           visualProfile.footInsetRatio,
                       )
                     : logicalPosition.y,
             };
         }
 
-        const battlefieldYOffsetRatio =
-            props.size === 2 ? BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO : BATTLEFIELD_SINGLE_CELL_Y_OFFSET_RATIO;
-        // A one-cell creature always uses the same projected foot line. Historical per-creature Y
-        // nudges made feet float on several different baselines; keep those profiles only for 2x2 art.
-        const authoredBattlefieldOffsetY = props.size === 2 ? (visualProfile.offsetYCells ?? 0) : 0;
+        // The foot line hangs below the footprint's centre by half the body's height, less the authored
+        // inset above its lower seam — so a two-cell-tall body plants its feet in its LOWER cell instead
+        // of floating in the upper one, while a 2x1 stands exactly where a 1x1 does.
+        const battlefieldYOffsetRatio = battlefieldFootLineOffsetCells(footprintHeight);
+        // A one-cell-tall creature always uses the same projected foot line. Historical per-creature Y
+        // nudges made feet float on several different baselines; keep those profiles only for taller art.
+        const authoredBattlefieldOffsetY = footprintHeight > 1 ? (visualProfile.offsetYCells ?? 0) : 0;
         return projectBattlefieldPoint(
             {
                 x: logicalPosition.x,
@@ -2375,10 +2496,15 @@ export class RenderableUnit extends Unit {
         this.activeAura.visible = true;
 
         const cell = gs.getCellSize();
-        const isLarge = this.getUnitProperties().size === 2;
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
+        const isMultiCell = footprintWidth > 1 || footprintHeight > 1;
         // Begin the turn waves on the portrait rim (slightly inside it), rather than in the empty
         // space above/outside the creature. This keeps the indicator visually attached to the cap.
-        const baseR = cell * (isLarge ? 0.86 : 0.47);
+        // Taking one semi-axis from each footprint side is what keeps the SAME single pulse attached to a
+        // rectangular body: the shape follows the cells, never the creature.
+        const baseRadiusX = cell * footprintEffectExtent(0.47, 0.86, footprintWidth);
+        const baseRadiusY = cell * footprintEffectExtent(0.47, 0.86, footprintHeight);
         const t = performance.now() / 1000;
 
         const g = this.activeAura;
@@ -2386,7 +2512,8 @@ export class RenderableUnit extends Unit {
 
         // 1. Soft pulsing inner glow that breathes with the waves.
         const pulse = 0.5 + 0.5 * Math.sin(t * 3.0);
-        g.circle(pos.x, pos.y, baseR * (1.05 + 0.1 * pulse)).fill({
+        const glowGrowth = 1.05 + 0.1 * pulse;
+        drawFootprintOval(g, pos.x, pos.y, baseRadiusX * glowGrowth, baseRadiusY * glowGrowth).fill({
             color: this.activeAuraColor,
             alpha: 0.1 + 0.1 * pulse,
         });
@@ -2394,13 +2521,17 @@ export class RenderableUnit extends Unit {
         // 2. Expanding light rings radiating outward, staggered so a new wave emerges as the last fades.
         const ringCount = 3;
         const cycleSec = 1.8;
-        const maxR = baseR * (isLarge ? 1.5 : 1.35) * 1.15;
+        const maxGrowth = (isMultiCell ? 1.5 : 1.35) * 1.15;
         for (let i = 0; i < ringCount; i++) {
             const phase = (t / cycleSec + i / ringCount) % 1;
-            const r = baseR + (maxR - baseR) * phase;
+            const growth = 1 + (maxGrowth - 1) * phase;
             const a = (1 - phase) * 0.55;
             const width = 2 + (1 - phase) * 2.5;
-            g.circle(pos.x, pos.y, r).stroke({ color: this.activeAuraColor, alpha: a, width });
+            drawFootprintOval(g, pos.x, pos.y, baseRadiusX * growth, baseRadiusY * growth).stroke({
+                color: this.activeAuraColor,
+                alpha: a,
+                width,
+            });
         }
     }
     /** Lightweight transparent sprite-sheet glow for the unit whose turn is currently active. */
@@ -2426,11 +2557,9 @@ export class RenderableUnit extends Unit {
         }
 
         const cell = gs.getCellSize();
-        const isLarge = this.getUnitProperties().size === 2;
-        const side = cell * (isLarge ? 2.8 : 1.55);
         this.activeTurnFireSprite.position.set(pos.x, pos.y);
-        this.activeTurnFireSprite.width = side;
-        this.activeTurnFireSprite.height = side;
+        this.activeTurnFireSprite.width = cell * footprintEffectExtent(1.55, 2.8, this.getFootprintWidth());
+        this.activeTurnFireSprite.height = cell * footprintEffectExtent(1.55, 2.8, this.getFootprintHeight());
         this.activeTurnFireSprite.zIndex = 4000 - pos.y - 0.7;
         this.activeTurnFireSprite.visible = true;
     }
@@ -2453,8 +2582,9 @@ export class RenderableUnit extends Unit {
         this.waterShieldAura.visible = true;
 
         const cell = gs.getCellSize();
-        const isLarge = this.getUnitProperties().size === 2;
-        const ringR = cell * (isLarge ? 0.92 : 0.52);
+        // One semi-axis per footprint side, so the ring circles the feet of a rectangular body too.
+        const ringRadiusX = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintWidth());
+        const ringRadiusY = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintHeight());
         const t = performance.now() / 1000;
         const color = 0x66ccff; // light blue
 
@@ -2463,24 +2593,33 @@ export class RenderableUnit extends Unit {
 
         // Faint breathing halo.
         const pulse = 0.5 + 0.5 * Math.sin(t * 2.2);
-        g.circle(pos.x, pos.y, ringR * (1.02 + 0.04 * pulse)).fill({ color, alpha: 0.06 + 0.05 * pulse });
+        const haloGrowth = 1.02 + 0.04 * pulse;
+        drawFootprintOval(g, pos.x, pos.y, ringRadiusX * haloGrowth, ringRadiusY * haloGrowth).fill({
+            color,
+            alpha: 0.06 + 0.05 * pulse,
+        });
 
         // The shield ring itself.
-        g.circle(pos.x, pos.y, ringR).stroke({ color, alpha: 0.55, width: 2 });
+        drawFootprintOval(g, pos.x, pos.y, ringRadiusX, ringRadiusY).stroke({ color, alpha: 0.55, width: 2 });
 
         // Small dots circulating clockwise around the ring.
         const dotCount = 8;
         for (let i = 0; i < dotCount; i++) {
             const a = (i / dotCount) * Math.PI * 2 + t * 1.4;
             const dotR = 2.2 + 1.3 * (0.5 + 0.5 * Math.sin(t * 3 + i));
-            g.circle(pos.x + ringR * Math.cos(a), pos.y + ringR * Math.sin(a), dotR).fill({ color, alpha: 0.85 });
+            g.circle(pos.x + ringRadiusX * Math.cos(a), pos.y + ringRadiusY * Math.sin(a), dotR).fill({
+                color,
+                alpha: 0.85,
+            });
         }
         // A few inner dots spinning the other way for a watery swirl.
         const innerCount = 4;
         for (let i = 0; i < innerCount; i++) {
             const a = (i / innerCount) * Math.PI * 2 - t * 1.0;
-            const r = ringR * 0.72;
-            g.circle(pos.x + r * Math.cos(a), pos.y + r * Math.sin(a), 1.6).fill({ color, alpha: 0.6 });
+            g.circle(pos.x + ringRadiusX * 0.72 * Math.cos(a), pos.y + ringRadiusY * 0.72 * Math.sin(a), 1.6).fill({
+                color,
+                alpha: 0.6,
+            });
         }
     }
     /**
@@ -2501,8 +2640,10 @@ export class RenderableUnit extends Unit {
         this.whirlpoolAura.visible = true;
 
         const cell = gs.getCellSize();
-        const isLarge = this.getUnitProperties().size === 2;
-        const radius = cell * (isLarge ? 1.12 : 0.66);
+        // The pool is already an ellipse (a circular funnel seen in perspective). Its horizontal extent now
+        // follows the footprint's width and its depth the footprint's height, on top of that squash.
+        const radiusX = cell * footprintEffectExtent(0.66, 1.12, this.getFootprintWidth());
+        const radiusY = cell * footprintEffectExtent(0.66, 1.12, this.getFootprintHeight());
         const squash = 0.42;
         const time = performance.now() / 1000;
         const pulse = 0.5 + 0.5 * Math.sin(time * 4.2);
@@ -2510,12 +2651,12 @@ export class RenderableUnit extends Unit {
         g.clear();
 
         // Deep centre + translucent water shelf: the dark eye makes the inward spiral read as a funnel.
-        g.ellipse(pos.x, pos.y, radius, radius * squash).fill({ color: 0x063b5c, alpha: 0.28 + pulse * 0.06 });
-        g.ellipse(pos.x, pos.y, radius * 0.32, radius * squash * 0.34).fill({
+        g.ellipse(pos.x, pos.y, radiusX, radiusY * squash).fill({ color: 0x063b5c, alpha: 0.28 + pulse * 0.06 });
+        g.ellipse(pos.x, pos.y, radiusX * 0.32, radiusY * squash * 0.34).fill({
             color: 0x021b35,
             alpha: 0.72,
         });
-        g.ellipse(pos.x, pos.y, radius * (0.95 + pulse * 0.03), radius * squash).stroke({
+        g.ellipse(pos.x, pos.y, radiusX * (0.95 + pulse * 0.03), radiusY * squash).stroke({
             color: 0x42d7ff,
             alpha: 0.46,
             width: Math.max(1.5, cell * 0.025),
@@ -2528,10 +2669,10 @@ export class RenderableUnit extends Unit {
         for (let arm = 0; arm < arms; arm++) {
             for (let point = 0; point < points; point++) {
                 const progress = point / (points - 1);
-                const r = radius * (0.94 - progress * 0.7);
+                const coil = 0.94 - progress * 0.7;
                 const angle = -time * 3.25 + (arm / arms) * Math.PI * 2 + progress * Math.PI * 1.7;
-                const x = pos.x + Math.cos(angle) * r;
-                const y = pos.y + Math.sin(angle) * r * squash;
+                const x = pos.x + Math.cos(angle) * radiusX * coil;
+                const y = pos.y + Math.sin(angle) * radiusY * coil * squash;
                 if (point === 0) g.moveTo(x, y);
                 else g.lineTo(x, y);
             }
@@ -2545,9 +2686,13 @@ export class RenderableUnit extends Unit {
         // Foam and droplets race around the rim at different radii, breaking up the perfect geometry.
         for (let i = 0; i < 12; i++) {
             const angle = -time * (3.6 + (i % 3) * 0.25) + (i / 12) * Math.PI * 2;
-            const orbit = radius * (0.72 + (i % 4) * 0.07);
+            const orbit = 0.72 + (i % 4) * 0.07;
             const size = cell * (0.018 + (i % 3) * 0.008);
-            g.circle(pos.x + Math.cos(angle) * orbit, pos.y + Math.sin(angle) * orbit * squash, size).fill({
+            g.circle(
+                pos.x + Math.cos(angle) * radiusX * orbit,
+                pos.y + Math.sin(angle) * radiusY * orbit * squash,
+                size,
+            ).fill({
                 color: i % 3 === 0 ? 0xd9f8ff : 0x64dcff,
                 alpha: 0.62 + (i % 2) * 0.2,
             });
@@ -2567,7 +2712,12 @@ export class RenderableUnit extends Unit {
         this.freezeCrust.visible = true;
 
         const cell = gs.getCellSize();
-        const half = cell * (this.getUnitProperties().size === 2 ? 1.02 : 0.56);
+        // The pane covers the body, so its two half-extents follow the two footprint sides. Everything the
+        // frost DECORATES with (stroke widths, glint and spark sizes) keeps one scalar taken from the
+        // shorter side: those are thicknesses, not extents, and must not stretch with the pane.
+        const halfWidth = cell * footprintEffectExtent(0.56, 1.02, this.getFootprintWidth());
+        const halfHeight = cell * footprintEffectExtent(0.56, 1.02, this.getFootprintHeight());
+        const half = Math.min(halfWidth, halfHeight);
         const t = performance.now() / 1000;
         const shimmer = 0.5 + 0.5 * Math.sin(t * 1.6);
         const ice = 0xbfe8ff;
@@ -2577,15 +2727,15 @@ export class RenderableUnit extends Unit {
 
         // A softly rounded frozen pane, with a second diffuse rim that gives the shell some thickness.
         const corner = half * 0.18;
-        g.roundRect(pos.x - half, pos.y - half, half * 2, half * 2, corner)
+        g.roundRect(pos.x - halfWidth, pos.y - halfHeight, halfWidth * 2, halfHeight * 2, corner)
             .fill({ color: ice, alpha: 0.08 + 0.035 * shimmer })
             .stroke({ color: iceBright, alpha: 0.44 + 0.08 * shimmer, width: 1.4 });
         const rimInset = half * 0.045;
         g.roundRect(
-            pos.x - half + rimInset,
-            pos.y - half + rimInset,
-            (half - rimInset) * 2,
-            (half - rimInset) * 2,
+            pos.x - halfWidth + rimInset,
+            pos.y - halfHeight + rimInset,
+            (halfWidth - rimInset) * 2,
+            (halfHeight - rimInset) * 2,
             corner * 0.82,
         ).stroke({ color: ice, alpha: 0.2 + 0.05 * shimmer, width: half * 0.055 });
 
@@ -2600,8 +2750,8 @@ export class RenderableUnit extends Unit {
             const perpendicularY = outwardX;
             const side = (((i * 5) % 7) - 3) / 3;
             const radius = half * normalizedRadius;
-            const baseX = pos.x + nx * half;
-            const baseY = pos.y + ny * half;
+            const baseX = pos.x + nx * halfWidth;
+            const baseY = pos.y + ny * halfHeight;
             const startX = baseX - perpendicularX * radius * (0.9 + Math.abs(side) * 0.15);
             const startY = baseY - perpendicularY * radius * (0.9 + Math.abs(side) * 0.15);
             const endX = baseX + perpendicularX * radius * (0.78 - side * 0.08);
@@ -2630,8 +2780,8 @@ export class RenderableUnit extends Unit {
             const outwardY = ny / len;
             const perpendicularX = -outwardY;
             const perpendicularY = outwardX;
-            const startX = pos.x + nx * half;
-            const startY = pos.y + ny * half;
+            const startX = pos.x + nx * halfWidth;
+            const startY = pos.y + ny * halfHeight;
             const depth = half * (0.2 + (i % 3) * 0.035);
             const bend = half * ((((i * 5) % 7) - 3) * 0.018);
             const midX = startX - outwardX * depth * 0.55 + perpendicularX * bend;
@@ -2650,8 +2800,8 @@ export class RenderableUnit extends Unit {
         // Three restrained highlights pulse in place instead of orbiting around the unit.
         for (let i = 0; i < 3; i++) {
             const [nx, ny] = FREEZE_FROST_PATCHES[i * 4 + 1];
-            const glintX = pos.x + nx * half * 0.82;
-            const glintY = pos.y + ny * half * 0.82;
+            const glintX = pos.x + nx * halfWidth * 0.82;
+            const glintY = pos.y + ny * halfHeight * 0.82;
             const twinkle = 0.5 + 0.5 * Math.sin(t * 3.2 + i * 2.3);
             const glintRadius = half * (0.018 + 0.008 * twinkle);
             g.moveTo(glintX - glintRadius, glintY).lineTo(glintX + glintRadius, glintY);
@@ -2679,8 +2829,8 @@ export class RenderableUnit extends Unit {
         // Caustic sparks: soft points of light, each wandering an independent slow path and breathing on its
         // own cycle. Held well inside the pane (±0.46·half) so they read as refractions within the ice.
         for (let i = 0; i < 4; i++) {
-            const cx = pos.x + Math.sin(t * (0.55 + i * 0.17) + i * 1.7) * half * 0.46;
-            const cy = pos.y + Math.cos(t * (0.63 + i * 0.13) + i * 2.6) * half * 0.46;
+            const cx = pos.x + Math.sin(t * (0.55 + i * 0.17) + i * 1.7) * halfWidth * 0.46;
+            const cy = pos.y + Math.cos(t * (0.63 + i * 0.13) + i * 2.6) * halfHeight * 0.46;
             const breathe = 0.5 + 0.5 * Math.sin(t * (1.1 + i * 0.4) + i * 1.3);
             const r = half * (0.05 + 0.035 * breathe);
             gl.circle(cx, cy, r).fill({ color: ice, alpha: 0.05 + 0.06 * breathe });
@@ -2693,8 +2843,8 @@ export class RenderableUnit extends Unit {
         const sweepPhase = (t % 4.6) / 4.6;
         const sweepPos = -1 + 2 * sweepPhase;
         const sweepFade = Math.sin(sweepPhase * Math.PI);
-        const sweepCx = pos.x + sweepPos * half * 0.72;
-        const sweepCy = pos.y - sweepPos * half * 0.72;
+        const sweepCx = pos.x + sweepPos * halfWidth * 0.72;
+        const sweepCy = pos.y - sweepPos * halfHeight * 0.72;
         const sweepArm = half * 0.44;
         gl.moveTo(sweepCx - sweepArm, sweepCy - sweepArm)
             .lineTo(sweepCx + sweepArm, sweepCy + sweepArm)
@@ -2729,8 +2879,9 @@ export class RenderableUnit extends Unit {
         this.waterShieldBreakGfx.visible = true;
 
         const cell = gs.getCellSize();
-        const isLarge = this.getUnitProperties().size === 2;
-        const ringR = cell * (isLarge ? 0.92 : 0.52);
+        // The burst snaps outward from the same ring the shield drew, so it reads as that ring breaking.
+        const ringRadiusX = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintWidth());
+        const ringRadiusY = cell * footprintEffectExtent(0.52, 0.92, this.getFootprintHeight());
         const p = elapsed / DURATION_MS; // 0 -> 1
         const ease = 1 - (1 - p) * (1 - p); // easeOutQuad
         const fade = 1 - p;
@@ -2742,20 +2893,32 @@ export class RenderableUnit extends Unit {
         // Brief inner splash flash at the very start.
         if (p < 0.35) {
             const fp = 1 - p / 0.35;
-            g.circle(pos.x, pos.y, ringR * (0.5 + 0.6 * p)).fill({ color: 0xbfe8ff, alpha: 0.3 * fp });
+            const splash = 0.5 + 0.6 * p;
+            drawFootprintOval(g, pos.x, pos.y, ringRadiusX * splash, ringRadiusY * splash).fill({
+                color: 0xbfe8ff,
+                alpha: 0.3 * fp,
+            });
         }
 
         // The ring snapping outward and thinning as it fades.
-        const r = ringR * (1 + 1.25 * ease);
-        g.circle(pos.x, pos.y, r).stroke({ color, alpha: 0.75 * fade, width: Math.max(0.5, 3 * fade) });
+        const snap = 1 + 1.25 * ease;
+        drawFootprintOval(g, pos.x, pos.y, ringRadiusX * snap, ringRadiusY * snap).stroke({
+            color,
+            alpha: 0.75 * fade,
+            width: Math.max(0.5, 3 * fade),
+        });
 
         // A spray of droplets flung outward from the ring, shrinking as they go.
         const dropletCount = 16;
         for (let i = 0; i < dropletCount; i++) {
             const a = (i / dropletCount) * Math.PI * 2 + (i % 3) * 0.5;
-            const dist = ringR * (1 + (1.5 + 0.15 * (i % 4)) * ease);
+            const flight = 1 + (1.5 + 0.15 * (i % 4)) * ease;
             const dropR = Math.max(0.4, (2.6 - (i % 3) * 0.5) * fade);
-            g.circle(pos.x + Math.cos(a) * dist, pos.y + Math.sin(a) * dist, dropR).fill({
+            g.circle(
+                pos.x + Math.cos(a) * ringRadiusX * flight,
+                pos.y + Math.sin(a) * ringRadiusY * flight,
+                dropR,
+            ).fill({
                 color,
                 alpha: 0.9 * fade,
             });
@@ -2773,7 +2936,7 @@ export class RenderableUnit extends Unit {
     private startSelectionAnimationInternal(): void {
         if (!this.sprite) return;
         const props = this.getUnitProperties();
-        const config = getDefaultAnimationConfig(props.name, props.size);
+        const config = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
         if (!config) return;
         const { meta, imageSrc, imageKey, cacheKey } = config;
         let frames = atlasFramesCache.get(cacheKey);
@@ -2947,7 +3110,7 @@ export class RenderableUnit extends Unit {
             this.stepSelectionAnimation();
             return;
         }
-        const config = getAnimationStateConfig(props.name, "walk", props.size);
+        const config = getAnimationStateConfig(props.name, "walk", this.getFootprintWidth(), this.getFootprintHeight());
         if (!config) return;
         let frames = atlasFramesCache.get(config.cacheKey);
         if (!frames) {
@@ -3291,7 +3454,12 @@ export class RenderableUnit extends Unit {
         // restore original small board texture
         if (this.sprite) {
             const props = this.getUnitProperties();
-            const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+            const texName = unitToTextureName(
+                props.name,
+                TextureType.SMALL,
+                this.getFootprintWidth(),
+                this.getFootprintHeight(),
+            );
             const tex = this.texResolver(texName);
             if (tex) this.sprite.texture = tex;
         }
@@ -3331,8 +3499,8 @@ export class RenderableUnit extends Unit {
     }
     /**
      * Returns the geometric center of the unit's footprint in world coordinates.
-     * For 1x1 units: Same as position (center of tile).
-     * For 2x2 units: Center of the 2x2 block.
+     * `position` is already that centre for any WxH body — one cell's centre for a 1x1, the shared corner
+     * of a 2x2, the middle of the long side for a 2x1 — so nothing here has to reason about the shape.
      */
     public getVisualCenter(gs: GridSettings): HoCMath.XY {
         if (!this.useBattlefieldVisualProjection) return this.getPosition();
@@ -3345,7 +3513,9 @@ export class RenderableUnit extends Unit {
     private oneShotAnim?: OneShotAnimState;
     public hasAnimationState(stateName: string): boolean {
         const props = this.getUnitProperties();
-        return getAnimationStateConfig(props.name, stateName, props.size) !== null;
+        return (
+            getAnimationStateConfig(props.name, stateName, this.getFootprintWidth(), this.getFootprintHeight()) !== null
+        );
     }
     public isPlayingOneShotAnimation(stateName?: string): boolean {
         return !!this.oneShotAnim && (!stateName || this.oneShotAnim.stateName === stateName);
@@ -3364,7 +3534,12 @@ export class RenderableUnit extends Unit {
             return false;
         }
         const props = this.getUnitProperties();
-        const config = getAnimationStateConfig(props.name, stateName, props.size);
+        const config = getAnimationStateConfig(
+            props.name,
+            stateName,
+            this.getFootprintWidth(),
+            this.getFootprintHeight(),
+        );
         // If config/atlas not found, just fire callback immediately.
         if (!config || !this.sprite) {
             if (onComplete) onComplete();
@@ -3610,6 +3785,8 @@ export class RenderableUnit extends Unit {
         }
 
         const cell = gs.getCellSize() * this.visualScaleMultiplier;
+        const footprintWidth = this.getFootprintWidth();
+        const footprintHeight = this.getFootprintHeight();
         const captionGap = cell * 0.3;
         const fontSize = Math.max(9, Math.round(cell * 0.15));
         const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
@@ -3619,7 +3796,8 @@ export class RenderableUnit extends Unit {
             previousDrawState.x !== logicalPos.x ||
             previousDrawState.y !== logicalPos.y ||
             previousDrawState.cell !== cell ||
-            previousDrawState.unitSize !== props.size ||
+            previousDrawState.footprintWidth !== footprintWidth ||
+            previousDrawState.footprintHeight !== footprintHeight ||
             previousDrawState.projected !== this.useBattlefieldVisualProjection ||
             previousDrawState.name !== props.name ||
             previousDrawState.teamColor !== teamColor;
@@ -3627,21 +3805,23 @@ export class RenderableUnit extends Unit {
         if (needsRedraw) {
             const plate = this.rosterCardPlate!;
             plate.clear();
-            const footprintSide = props.size === 2 ? 2 : 1;
-            const halfFootprint = (gs.getStep() * footprintSide) / 2;
-            const logicalBottom = logicalPos.y - halfFootprint;
+            // The marker must cover exactly the cells the unit stands on, so each half-extent comes from
+            // its own footprint side. They are equal for every square body, which is every shipped one.
+            const halfFootprintWidth = (gs.getStep() * footprintWidth) / 2;
+            const halfFootprintHeight = (gs.getStep() * footprintHeight) / 2;
+            const logicalBottom = logicalPos.y - halfFootprintHeight;
             const footprintPoints = this.useBattlefieldVisualProjection
-                ? revealedOpponentFootprintPoints(logicalPos, props.size, gs)
+                ? revealedOpponentFootprintPoints(logicalPos, footprintWidth, footprintHeight, gs)
                 : [
-                      logicalPos.x - halfFootprint,
+                      logicalPos.x - halfFootprintWidth,
                       logicalBottom,
-                      logicalPos.x + halfFootprint,
+                      logicalPos.x + halfFootprintWidth,
                       logicalBottom,
-                      logicalPos.x + halfFootprint,
-                      logicalPos.y + halfFootprint,
-                      logicalPos.x - halfFootprint,
-                      logicalPos.y + halfFootprint,
-                      logicalPos.x - halfFootprint,
+                      logicalPos.x + halfFootprintWidth,
+                      logicalPos.y + halfFootprintHeight,
+                      logicalPos.x - halfFootprintWidth,
+                      logicalPos.y + halfFootprintHeight,
+                      logicalPos.x - halfFootprintWidth,
                       logicalBottom,
                   ];
             // Highlight the cell itself instead of tracing it with a thin red outline. A fixed enemy red is
@@ -3673,7 +3853,8 @@ export class RenderableUnit extends Unit {
                 x: logicalPos.x,
                 y: logicalPos.y,
                 cell,
-                unitSize: props.size,
+                footprintWidth,
+                footprintHeight,
                 projected: this.useBattlefieldVisualProjection,
                 name: props.name,
                 teamColor,
@@ -3935,9 +4116,10 @@ export class RenderableUnit extends Unit {
             x = aboveHead.x;
             y = aboveHead.y;
         } else {
-            const unitSizeInCells = props.size === 2 ? 2 : 1;
+            // Clear the body's own half-height, which is the footprint's HEIGHT in cells: a two-row body
+            // would otherwise sit its count ribbon on the seam between its own cells.
             x = pos.x;
-            y = pos.y + iconSide * unitSizeInCells * 0.5 + geometry.flagHeight * 0.5 + margin;
+            y = pos.y + iconSide * this.getFootprintHeight() * 0.5 + geometry.flagHeight * 0.5 + margin;
         }
         const flagFraming = resolveStoredBattlefieldCreatureFraming(props.name);
         x += (flagFraming.flagOffsetXCells ?? 0) * gs.getCellSize();
@@ -3949,12 +4131,7 @@ export class RenderableUnit extends Unit {
         const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
         if (container.visible !== visible) container.visible = visible;
     }
-    private ensureHourglassIndicator(
-        worldRoot: Container,
-        gs: GridSettings,
-        props: UnitProperties,
-        pos: HoCMath.XY,
-    ): void {
+    private ensureHourglassIndicator(worldRoot: Container, pos: HoCMath.XY): void {
         const shouldRender =
             (this.visualMode ?? "normal") === "normal" &&
             this.getAmountAlive() > 0 &&
@@ -3989,9 +4166,12 @@ export class RenderableUnit extends Unit {
         if (sprite.texture !== tex) sprite.texture = tex;
         if (!sprite.visible) sprite.visible = true;
 
-        const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
-        const iconSide = Math.round((visualSide * 20) / 72);
-        const unitHalfSize = visualSide / 2;
+        // The icon belongs in the body's TOP-LEFT corner, so each half-extent comes from its own footprint
+        // side; on a two-cell-wide body the old single half-extent left the hourglass inside the creature.
+        // Its own size still follows the shorter side, keeping it proportionate to a one-cell-tall body.
+        const halfWidth = (this.getFootprintWidth() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
+        const halfHeight = (this.getFootprintHeight() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
+        const iconSide = Math.round((Math.min(halfWidth, halfHeight) * 2 * 20) / 72);
         const halfIcon = iconSide / 2;
 
         if (sprite.width !== iconSide) sprite.width = iconSide;
@@ -4001,8 +4181,8 @@ export class RenderableUnit extends Unit {
 
         const zIndex = 4000 - pos.y + 2;
         if (container.zIndex !== zIndex) container.zIndex = zIndex;
-        const x = pos.x - unitHalfSize + halfIcon;
-        const y = pos.y + unitHalfSize - halfIcon;
+        const x = pos.x - halfWidth + halfIcon;
+        const y = pos.y + halfHeight - halfIcon;
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (!container.visible) container.visible = true;
     }
@@ -4081,7 +4261,6 @@ export class RenderableUnit extends Unit {
         sprite: Sprite | undefined,
         texKey: string,
         pos: HoCMath.XY,
-        props: UnitProperties,
         ax: number,
         ay: number,
         shouldShow: boolean,
@@ -4113,9 +4292,12 @@ export class RenderableUnit extends Unit {
         if (icon.texture !== tex) icon.texture = tex;
         if (!icon.visible) icon.visible = true;
 
-        const visualSide = (props.size === 2 ? 256 : 128) * this.visualScaleMultiplier;
-        const iconSide = Math.round((visualSide * 20) / 72);
-        const reach = visualSide / 2 - iconSide / 2;
+        // Reach out to the real edges of the body: a rectangle's corners are not equidistant on both axes.
+        const halfWidth = (this.getFootprintWidth() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
+        const halfHeight = (this.getFootprintHeight() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
+        const iconSide = Math.round((Math.min(halfWidth, halfHeight) * 2 * 20) / 72);
+        const reachX = halfWidth - iconSide / 2;
+        const reachY = halfHeight - iconSide / 2;
 
         if (icon.width !== iconSide) icon.width = iconSide;
         if (icon.height !== iconSide) icon.height = iconSide;
@@ -4124,8 +4306,8 @@ export class RenderableUnit extends Unit {
 
         const zIndex = 4000 - pos.y + 2;
         if (container.zIndex !== zIndex) container.zIndex = zIndex;
-        const x = pos.x + ax * reach;
-        const y = pos.y + ay * reach;
+        const x = pos.x + ax * reachX;
+        const y = pos.y + ay * reachY;
         if (container.x !== x || container.y !== y) container.position.set(x, y);
         if (!container.visible) container.visible = true;
         return { container, sprite: icon };
@@ -4429,7 +4611,7 @@ export class RenderableUnit extends Unit {
      */
     public prewarmDefaultAtlasFrame(): Texture | undefined {
         const props = this.getUnitProperties();
-        const config = getDefaultAnimationConfig(props.name, props.size);
+        const config = getDefaultAnimationConfig(props.name, this.getFootprintWidth(), this.getFootprintHeight());
         if (!config) {
             return undefined;
         }
@@ -4546,10 +4728,15 @@ export class RenderableUnit extends Unit {
         // Stack power is now integrated into the five sections of the vertical flag. Keep this state for
         // placement-preview/gameplay consumers, but never allocate or show the former detached pip bar.
         const power = this.projectedStackPower ?? this.getStackPower();
-        const unitSizeInCells = props.size === 2 ? 2 : 1;
         const cellSize = gs.getCellSize() * this.visualScaleMultiplier;
         const teamColor = props.team === TeamVals.NO_TEAM ? NO_TEAM_ROSTER_COLOR : resolveTeamColor(props.team);
-        this.stackPowerDrawState = { power, cellSize, unitSizeInCells, teamColor };
+        this.stackPowerDrawState = {
+            power,
+            cellSize,
+            footprintWidthInCells: this.getFootprintWidth(),
+            footprintHeightInCells: this.getFootprintHeight(),
+            teamColor,
+        };
         if (this.stackPowerContainer?.visible) this.stackPowerContainer.visible = false;
     }
     protected override refreshAbilitiesDescriptions(_synergyAbilityPowerIncrease: number): void {

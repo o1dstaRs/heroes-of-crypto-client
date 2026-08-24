@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
+import { GridMath, GridVals, TeamVals, getCreaturesByLevel } from "@heroesofcrypto/common";
 
-import { getPreviewPlaySnapshot, startPreviewPlaySession } from "./previewPlaySession";
+import { PlayActionType } from "./play_protocol";
+import { applyPreviewPlayAction, getPreviewPlaySnapshot, startPreviewPlaySession } from "./previewPlaySession";
 
 describe("battlefield framing comparison layout", () => {
     test("aligns every level-four creature footprint to the bottom row", () => {
@@ -150,5 +151,41 @@ describe("battlefield framing comparison layout", () => {
             comparisonFixedSlotCount: 6,
         });
         expect(getPreviewPlaySnapshot()?.units).toHaveLength(0);
+    });
+});
+
+describe("preview placement round trip", () => {
+    test("a two-cell placement comes back with the same cells and a max-corner base cell", () => {
+        // The fake server is the only end-to-end exercise of a rectangular PLACE_UNIT the client has: the
+        // action carries the cell LIST and the base cell is re-derived from it. Deriving the wrong corner
+        // rebuilds the body in the wrong direction on the next hydrate, which is invisible for a square.
+        startPreviewPlaySession({
+            userTeam: TeamVals.LOWER,
+            gridType: GridVals.NORMAL,
+            lowerArmy: [...getCreaturesByLevel(1)],
+            upperArmy: [],
+            spreadLowerArmyAcrossBoard: true,
+        });
+        const wolf = getPreviewPlaySnapshot()?.units.find((unit) => unit.name === "Wolf");
+        expect(wolf).toBeDefined();
+
+        const baseCell = { x: 9, y: 2 };
+        const cells = GridMath.getFootprintCellsForAnchor(baseCell, wolf!.footprintWidth, wolf!.footprintHeight);
+        expect(cells).toHaveLength(2);
+
+        const response = applyPreviewPlayAction({
+            actionId: "place-1",
+            gameId: "preview-placement",
+            playerId: "preview-player-lower",
+            expectedSequence: getPreviewPlaySnapshot()?.latestSequence ?? 0,
+            type: PlayActionType.PLACE_UNIT,
+            unitId: wolf!.id,
+            cells,
+        });
+        expect(response.accepted).toBe(true);
+
+        const placed = getPreviewPlaySnapshot()?.units.find((unit) => unit.id === wolf!.id);
+        expect(placed?.cells).toEqual(cells);
+        expect(placed?.baseCell).toEqual(baseCell);
     });
 });

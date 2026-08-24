@@ -4,6 +4,7 @@ import {
     Augment,
     FightStateManager,
     Doctrine,
+    GridMath,
     TeamVals,
     type GameAction,
     type TeamType,
@@ -234,53 +235,69 @@ const canPlayAuthoritativeRecord = (action: GameAction, snapshot: PlaySnapshot |
 
 const isRangedSnapshotUnit = (unit: PlayUnitState): boolean => unit.attackType === AttackVals.RANGE;
 
-const cellsForSnapshotUnitAt = (unit: PlayUnitState, cell: { x: number; y: number }): { x: number; y: number }[] => {
-    if (unit.size <= 1) {
-        return [{ x: cell.x, y: cell.y }];
-    }
-    return [
-        { x: cell.x, y: cell.y },
-        { x: cell.x + 1, y: cell.y },
-        { x: cell.x, y: cell.y + 1 },
-        { x: cell.x + 1, y: cell.y + 1 },
-    ];
-};
+/**
+ * The unit's board footprint in cells. The snapshot decoder resolves footprintWidth/footprintHeight for
+ * every unit (falling back to a `size` x `size` square for an older server), but a hand-built snapshot in
+ * a test or dev fixture may still omit them, so fall back to `size` here too. `size` alone is not a
+ * shape — a 2x1 and a 1x2 both carry size 2 — so nothing below may branch on it.
+ */
+const snapshotUnitWidth = (unit: PlayUnitState): number => Math.max(1, Math.floor(unit.footprintWidth || unit.size));
+
+const snapshotUnitHeight = (unit: PlayUnitState): number => Math.max(1, Math.floor(unit.footprintHeight || unit.size));
+
+/**
+ * The cells a unit anchored at `anchor` occupies. `anchor` is the MAX corner — the same cell the engine
+ * calls the base cell — and the footprint hangs down-left of it, so this stays interchangeable with
+ * Unit.getBaseCell()/getCells() and with the base cell the server derives back out of the cell list.
+ */
+const cellsForSnapshotUnitAt = (unit: PlayUnitState, anchor: { x: number; y: number }): { x: number; y: number }[] =>
+    GridMath.getFootprintCellsForAnchor(anchor, snapshotUnitWidth(unit), snapshotUnitHeight(unit));
 
 const cellKey = (cell: { x: number; y: number }): string => `${cell.x}:${cell.y}`;
 
+/** The depth-3 default deployment zone, the one every army is auto-placed into before it is rearranged. */
+const DEFAULT_PLACEMENT_MIN_X = 1;
+const DEFAULT_PLACEMENT_MAX_X = 14;
+const defaultPlacementRows = (team: TeamType): { minY: number; maxY: number } =>
+    team === TeamVals.UPPER ? { minY: 12, maxY: 14 } : { minY: 1, maxY: 3 };
+
 const isDefaultPlacementCell = (cell: { x: number; y: number }, team: TeamType): boolean => {
-    const inX = cell.x >= 1 && cell.x <= 14;
-    const inY = team === TeamVals.UPPER ? cell.y >= 12 && cell.y <= 14 : cell.y >= 1 && cell.y <= 3;
+    const rows = defaultPlacementRows(team);
+    const inX = cell.x >= DEFAULT_PLACEMENT_MIN_X && cell.x <= DEFAULT_PLACEMENT_MAX_X;
+    const inY = cell.y >= rows.minY && cell.y <= rows.maxY;
     return inX && inY;
 };
 
-const fallbackPlacementAnchors = (team: TeamType, large: boolean, ranged: boolean): Array<{ x: number; y: number }> => {
-    const xs = large ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14];
-    const ys =
-        team === TeamVals.UPPER
-            ? large
-                ? ranged
-                    ? [13, 12]
-                    : [12, 13]
-                : ranged
-                  ? [14, 13, 12]
-                  : [12, 13, 14]
-            : large
-              ? ranged
-                  ? [1, 2]
-                  : [2, 1]
-              : ranged
-                ? [1, 2, 3]
-                : [3, 2, 1];
+/**
+ * Centre-out anchor candidates for a `width` x `height` stack, as MAX-corner anchors.
+ *
+ * The two x ladders are the tuned ones this screen has always used — dense for a one-cell-wide stack,
+ * strided by two for a wider one so consecutive candidates cannot overlap — shifted by (width - 1) into
+ * max-corner terms, which leaves the CELLS a 1x1 or 2x2 lands on exactly where they were. The y ladder is
+ * the team's full three-row list, filtered to rows whose whole `height`-tall footprint stays inside the
+ * zone; for heights 1 and 2 that filter reproduces the previously hardcoded per-height lists verbatim.
+ * Both filters exist because an anchor whose body spills out of the zone is a candidate the caller's
+ * cell-by-cell guard would only reject later, wasting the slot.
+ */
+const fallbackPlacementAnchors = (
+    team: TeamType,
+    width: number,
+    height: number,
+    ranged: boolean,
+): Array<{ x: number; y: number }> => {
+    const rows = defaultPlacementRows(team);
+    const xs = (width > 1 ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14])
+        .map((x) => x + width - 1)
+        .filter((x) => x - width + 1 >= DEFAULT_PLACEMENT_MIN_X && x <= DEFAULT_PLACEMENT_MAX_X);
+    const ys = (
+        team === TeamVals.UPPER ? (ranged ? [14, 13, 12] : [12, 13, 14]) : ranged ? [1, 2, 3] : [3, 2, 1]
+    ).filter((y) => y - height + 1 >= rows.minY && y <= rows.maxY);
 
     return ys.flatMap((y) => xs.map((x) => ({ x, y })));
 };
 
-const modelPlacementAnchors = (unit: PlayUnitState, team: TeamType): { x: number; y: number }[] => {
-    const ranged = isRangedSnapshotUnit(unit);
-    const large = unit.size > 1;
-    return fallbackPlacementAnchors(team, large, ranged);
-};
+const modelPlacementAnchors = (unit: PlayUnitState, team: TeamType): { x: number; y: number }[] =>
+    fallbackPlacementAnchors(team, snapshotUnitWidth(unit), snapshotUnitHeight(unit), isRangedSnapshotUnit(unit));
 
 const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Partial<PlayAction>[] => {
     const occupied = new Set<string>();
@@ -293,10 +310,18 @@ const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Pa
         }
     }
 
+    // Biggest body first: it needs the largest contiguous hole, and a one-cell stack dropped in the middle
+    // of the zone can leave no room for one. Ranked by footprint AREA rather than by `size`, so a two-cell
+    // rectangle sorts between a 1x1 and a 2x2 instead of tying with whichever square shares its `size`.
     const unplaced = snapshot.units
         .filter((unit) => unit.team === team && !unit.dead && (!unit.placed || !unit.cells.length))
         .sort((a, b) => {
-            if (a.size !== b.size) return b.size - a.size;
+            const areaA = snapshotUnitWidth(a) * snapshotUnitHeight(a);
+            const areaB = snapshotUnitWidth(b) * snapshotUnitHeight(b);
+            if (areaA !== areaB) return areaB - areaA;
+            const spanA = Math.max(snapshotUnitWidth(a), snapshotUnitHeight(a));
+            const spanB = Math.max(snapshotUnitWidth(b), snapshotUnitHeight(b));
+            if (spanA !== spanB) return spanB - spanA;
             if (isRangedSnapshotUnit(a) !== isRangedSnapshotUnit(b)) return isRangedSnapshotUnit(a) ? 1 : -1;
             return b.initiative - a.initiative;
         });
@@ -333,9 +358,10 @@ const createModelPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Pa
 
 /**
  * Put a freshly drafted army straight onto its own edge in one readable horizontal line. The line is
- * centred, keeps a one-cell gap whenever the complete roster fits with gaps, and aligns 2x2 creatures to
- * the same outer baseline as 1x1 creatures. Reconnects that already contain manually placed stacks fall
- * back to the collision-safe tactical anchors above instead of moving the player's existing layout.
+ * centred, keeps a one-cell gap whenever the complete roster fits with gaps, and aligns multi-cell
+ * creatures of any footprint to the same front line as one-cell creatures. Reconnects that already
+ * contain manually placed stacks fall back to the collision-safe tactical anchors above instead of
+ * moving the player's existing layout.
  */
 const createInitialPlayerPlacementActions = (snapshot: PlaySnapshot, team: TeamType): Partial<PlayAction>[] => {
     const aliveTeamUnits = snapshot.units.filter((unit) => unit.team === team && !unit.dead);
@@ -347,24 +373,28 @@ const createInitialPlayerPlacementActions = (snapshot: PlaySnapshot, team: TeamT
         return createModelPlacementActions(snapshot, team);
     }
 
-    const availableWidth = 14;
-    const unitWidth = (unit: PlayUnitState): number => (unit.size > 1 ? 2 : 1);
-    const occupiedWidth = unplaced.reduce((sum, unit) => sum + unitWidth(unit), 0);
+    const availableWidth = DEFAULT_PLACEMENT_MAX_X - DEFAULT_PLACEMENT_MIN_X + 1;
+    const occupiedWidth = unplaced.reduce((sum, unit) => sum + snapshotUnitWidth(unit), 0);
     const gap = occupiedWidth + Math.max(0, unplaced.length - 1) <= availableWidth ? 1 : 0;
     const lineWidth = occupiedWidth + gap * Math.max(0, unplaced.length - 1);
-    let x = 1 + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
+    // The cursor walks the line's LEFT edge; the anchor a cell list is built from is the max corner, so
+    // each unit's anchor sits (width - 1) to the right of it.
+    let x = DEFAULT_PLACEMENT_MIN_X + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
 
     return unplaced.map((unit) => {
-        const large = unit.size > 1;
+        const width = snapshotUnitWidth(unit);
+        const height = snapshotUnitHeight(unit);
+        const rows = defaultPlacementRows(team);
         const anchor = {
-            x,
-            // Start on the zone row nearest the battlefield centre. Lower's top available row is 3;
-            // a 2x2 stack anchors on 2 so its upper cells also land on 3. Upper mirrors that front line
-            // on row 12 (a large stack then extends one row outward, toward its own edge).
-            y: team === TeamVals.UPPER ? 12 : large ? 2 : 3,
+            x: x + width - 1,
+            // Every stack's front edge lands on the zone row nearest the battlefield centre, whatever its
+            // height, because the body always extends AWAY from that centre: lower's front row is 3 and
+            // the footprint hangs downward from the anchor, so the anchor IS row 3; upper's front row is
+            // 12 and its body extends upward, so the anchor is (12 + height - 1).
+            y: team === TeamVals.UPPER ? rows.minY + height - 1 : rows.maxY,
         };
         const cells = cellsForSnapshotUnitAt(unit, anchor);
-        x += unitWidth(unit) + gap;
+        x += width + gap;
         return {
             type: PlayActionType.PLACE_UNIT,
             unitId: unit.id,

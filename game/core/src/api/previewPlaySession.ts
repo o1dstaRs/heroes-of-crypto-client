@@ -18,6 +18,7 @@ import {
     GridVals,
     HoCConfig,
     Doctrine,
+    GridMath,
     PlacementPositionType,
     RectanglePlacement,
     TeamType,
@@ -86,9 +87,10 @@ export interface PreviewPlacementOptions {
     comparisonFixedSlotCount?: number;
 }
 
+// The footprint pair used to live here, because the wire type had no shape beyond the scalar `size`. It
+// is part of PlayUnitState now, so the preview and the real ranked path share one geometry contract and
+// only the layout bookkeeping stays local.
 type PreviewUnitState = PlayUnitState & {
-    footprintWidth: number;
-    footprintHeight: number;
     previewSlotIndex: number;
 };
 
@@ -157,16 +159,13 @@ const PLACEMENT_ZONE_DEPTH = [3, 4, 6];
 
 const cellKey = (cell: PlayCell): number => (cell.x << 4) | cell.y;
 
-/** A fixed rectangular footprint hangs down-left of its max-corner base cell and never rotates. */
-const footprintOf = (base: PlayCell, width: number, height: number): PlayCell[] => {
-    const cells: PlayCell[] = [];
-    for (let dx = 0; dx < width; dx += 1) {
-        for (let dy = 0; dy < height; dy += 1) {
-            cells.push({ x: base.x - dx, y: base.y - dy });
-        }
-    }
-    return cells;
-};
+/**
+ * A fixed rectangular footprint hangs down-left of its max-corner base cell and never rotates. The engine
+ * owns that rule (GridMath.getFootprintCellsForAnchor) and the preview must not hold a second copy of it:
+ * a divergence here would move the preview's units off the cells a real session would give them.
+ */
+const footprintOf = (base: PlayCell, width: number, height: number): PlayCell[] =>
+    GridMath.getFootprintCellsForAnchor(base, width, height);
 
 /**
  * Deploy a team inside its placement zone, because that is the state a real placement screen opens in:
@@ -184,9 +183,12 @@ const deployTeam = (units: PreviewUnitState[], team: TeamType, zoneDepth: number
         zoneDepth,
     );
     const blocked = new Set<number>();
-    // Large units first: they need a 2x2 hole, and a small unit dropped in the middle of the zone can
-    // leave no room for one.
-    for (const unit of [...units].sort((a, b) => b.size - a.size)) {
+    // Biggest body first: it needs the largest contiguous hole, and a one-cell stack dropped in the middle
+    // of the zone can leave no room for one. Ranked by footprint AREA, not by `size`: a two-cell rectangle
+    // carries the same `size` as the square it is half of, so `size` cannot order it against either.
+    for (const unit of [...units].sort(
+        (a, b) => b.footprintWidth * b.footprintHeight - a.footprintWidth * a.footprintHeight,
+    )) {
         const candidates = placement
             .possibleCellPositions(
                 unit.footprintWidth === 1 && unit.footprintHeight === 1,
@@ -430,9 +432,13 @@ export const getPreviewPlaySnapshot = (): PlaySnapshot | undefined => {
     return session;
 };
 
-/** A 2x2 unit's base cell is the max corner of its footprint — the scene rebuilds the footprint from it. */
-const baseCellOf = (cells: PlayCell[]): PlayCell =>
-    cells.reduce((best, cell) => (cell.x >= best.x && cell.y >= best.y ? cell : best), cells[0]);
+/**
+ * A unit's base cell is the max corner of its footprint — the scene rebuilds the footprint from it, so a
+ * wrong answer here rebuilds the body in the wrong direction on the next hydrate. The engine's reducer
+ * takes the per-axis maximum rather than looking for one cell that dominates on both axes, which is the
+ * same answer for a rectangle and a defined one for a truncated cell set.
+ */
+const baseCellOf = (cells: PlayCell[]): PlayCell => GridMath.getFootprintAnchorForCells(cells) ?? cells[0];
 
 const bump = (snapshot: PlaySnapshot, units?: PlayUnitState[]): PlaySnapshot => ({
     ...snapshot,

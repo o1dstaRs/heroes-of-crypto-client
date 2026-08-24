@@ -30,6 +30,16 @@ export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
 const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
 const SHOT_RANGE_COLOR = 0xe7bc6a;
 
+/**
+ * The owner's body, in cells, for overlays that grow out of it. Both sides are needed because an aura
+ * square hugs the footprint: it reaches half a cell past a side of 1 and a whole cell past a side of 2,
+ * and only a square body makes those two the same number.
+ */
+export interface IFootprintExtent {
+    width: number;
+    height: number;
+}
+
 export interface ILingeringTrack {
     x: number;
     y: number;
@@ -62,12 +72,12 @@ export interface IGameplayDrawContext {
         xy: HoCMath.XY;
         attackRange: number; // World distance radius
         auraRanges: { range: number; isBuff: boolean }[]; // Range in cells
-        isSmall: boolean;
+        footprint: IFootprintExtent;
     };
     hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
-        isSmall: boolean;
+        footprint: IFootprintExtent;
     };
     lingeringTracks: ILingeringTrack[];
     hoveredMoveRange?: HoCMath.XY[];
@@ -150,14 +160,14 @@ export class SandboxDrawer {
 
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
-            const { xy, attackRange, auraRanges, isSmall } = sidebarUnitRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, isSmall, gs, hoverGlowPhase, 0.7);
+            const { xy, attackRange, auraRanges, footprint } = sidebarUnitRanges;
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, attackRange, auraRanges, footprint, gs, hoverGlowPhase, 0.7);
         }
 
         // 0.51 Hovered Aura Ranges
         if (hoveredAuraRanges) {
-            const { xy, auraRanges, isSmall } = hoveredAuraRanges;
-            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs, hoverGlowPhase, 0.7);
+            const { xy, auraRanges, footprint } = hoveredAuraRanges;
+            SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, footprint, gs, hoverGlowPhase, 0.7);
         }
 
         // 0.6 Active Unit Aura Range (Requested Feature)
@@ -173,9 +183,12 @@ export class SandboxDrawer {
                 // The range drawer performs the battlefield projection itself. Passing the sprite's
                 // already projected centre here bent the active aura a second time.
                 const xy = currentActiveUnit.getPosition();
-                const isSmall = currentActiveUnit.isSmallSize();
+                const footprint = {
+                    width: currentActiveUnit.getFootprintWidth(),
+                    height: currentActiveUnit.getFootprintHeight(),
+                };
                 // Draw only Aura ranges (skip attack range as it's handled elsewhere or we can add it if needed)
-                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, isSmall, gs, hoverGlowPhase, 0.5);
+                SandboxDrawer.drawAuraAndAttackRanges(g, xy, 0, auraRanges, footprint, gs, hoverGlowPhase, 0.5);
             }
         }
 
@@ -278,7 +291,7 @@ export class SandboxDrawer {
         xy: HoCMath.XY,
         attackRange: number,
         auraRanges: { range: number; isBuff: boolean }[],
-        isSmall: boolean,
+        footprint: IFootprintExtent,
         gs: GridSettings,
         pulsePhase: number,
         alphaMultiplier = 1.0,
@@ -300,25 +313,28 @@ export class SandboxDrawer {
                 const { range, isBuff } = aura;
                 const color = isBuff ? 0x00ff00 : 0xff0000; // Green for Buff, Red for Debuff
 
-                // Calculate half-extent based on range cells
-                // Formula: (Range + (UnitSizeCells / 2)) * CellSize
-                const unitHalfSizeCells = isSmall ? 0.5 : 1.0;
+                // Half-extent per axis: the aura reaches `range` cells out from the BODY, so each side of
+                // the square starts half that axis' footprint away from the centre. The old single
+                // `isSmall ? 0.5 : 1.0` is this formula for a square body; a 2x1 owner would otherwise
+                // advertise a whole extra cell of reach above and below itself.
                 const cellSize = gs.getCellSize();
-                const extent = (range + unitHalfSizeCells) * cellSize - cellSize * 0.055;
-                const feather = Math.min(cellSize * 0.28, extent * 0.12);
+                const extentX = (range + footprint.width / 2) * cellSize - cellSize * 0.055;
+                const extentY = (range + footprint.height / 2) * cellSize - cellSize * 0.055;
+                const feather = Math.min(cellSize * 0.28, Math.min(extentX, extentY) * 0.12);
 
                 // Nested, very transparent sheets feather the edge instead of producing a hard rectangle.
                 const featherLayers = 5;
                 for (let layer = 0; layer < featherLayers; layer++) {
                     const inset = (feather * layer) / (featherLayers - 1);
-                    const layerExtent = extent - inset;
+                    const layerExtentX = extentX - inset;
+                    const layerExtentY = extentY - inset;
                     const layerAlpha = (0.022 + layer * 0.006) * alphaMultiplier;
                     g.poly(
                         projectedRectPoints(
-                            xy.x - layerExtent,
-                            xy.y - layerExtent,
-                            xy.x + layerExtent,
-                            xy.y + layerExtent,
+                            xy.x - layerExtentX,
+                            xy.y - layerExtentY,
+                            xy.x + layerExtentX,
+                            xy.y + layerExtentY,
                             gs,
                         ),
                     ).fill({
@@ -332,14 +348,15 @@ export class SandboxDrawer {
                 const cycle = (((pulsePhase / (Math.PI * 2)) % 1) + 1) % 1;
                 for (let waveIndex = 0; waveIndex < 3; waveIndex++) {
                     const progress = (cycle + waveIndex / 3) % 1;
-                    const waveExtent = Math.max(cellSize * 0.42, extent * progress);
+                    const waveExtentX = Math.max(cellSize * 0.42, extentX * progress);
+                    const waveExtentY = Math.max(cellSize * 0.42, extentY * progress);
                     const fade = Math.sin(progress * Math.PI);
                     g.poly(
                         projectedRectPoints(
-                            xy.x - waveExtent,
-                            xy.y - waveExtent,
-                            xy.x + waveExtent,
-                            xy.y + waveExtent,
+                            xy.x - waveExtentX,
+                            xy.y - waveExtentY,
+                            xy.x + waveExtentX,
+                            xy.y + waveExtentY,
                             gs,
                         ),
                     ).stroke({

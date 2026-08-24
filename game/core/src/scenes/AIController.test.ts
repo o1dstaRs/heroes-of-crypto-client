@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import * as HoC from "@heroesofcrypto/common";
 import {
     AttackVals,
+    GridMath,
     GridSettings,
     TeamVals,
     type GameAction,
@@ -16,7 +17,13 @@ import type { LocalModelOpponentConfig } from "./LocalModelOpponent";
 import type { RenderableUnit } from "./RenderableUnit";
 import { SceneSettings } from "./SceneSettings";
 
-const createUnit = (id = "ai-unit-1", team = TeamVals.LOWER): RenderableUnit =>
+const createUnit = (
+    id = "ai-unit-1",
+    team = TeamVals.LOWER,
+    // Every shipped creature is 1x1 or 2x2, but the geometry the controller hands the engine has to hold
+    // for any WxH body, so the stub carries a real footprint instead of a "small or large" boolean.
+    footprint: { width: number; height: number } = { width: 1, height: 1 },
+): RenderableUnit =>
     ({
         canMove: () => true,
         getId: () => id,
@@ -27,7 +34,12 @@ const createUnit = (id = "ai-unit-1", team = TeamVals.LOWER): RenderableUnit =>
         getAttackTypeSelection: () => AttackVals.MELEE,
         getSteps: () => 10,
         hasAbilityActive: () => false,
-        isSmallSize: () => true,
+        isSmallSize: () => footprint.width === 1 && footprint.height === 1,
+        getFootprintWidth: () => footprint.width,
+        getFootprintHeight: () => footprint.height,
+        // The real Unit method: the body hangs down-left of its anchor.
+        getFootprintCellsForAnchor: (anchor: HoCMath.XY) =>
+            GridMath.getFootprintCellsForAnchor(anchor, footprint.width, footprint.height),
         isOnHourglass: () => false,
         setOnHourglass: () => undefined,
     }) as unknown as RenderableUnit;
@@ -322,6 +334,74 @@ describe("AIController", () => {
         // still on here — both stay true.
         expect(controller.isAIActive).toBe(true);
         expect(buttonManager.sc_isAIActive).toBe(true);
+    });
+
+    it("strikes from a cell adjacent to the attacker's BODY, not only to its anchor", async () => {
+        // A 2x1 anchored at (2,2) covers (1,2) as well, and the engine's own gate
+        // (AttackHandler: getFootprintCellsForAnchor(attackFrom) vs the target's cells) accepts a strike on
+        // (0,2) from there. Asking the same question about the anchor alone answers "not adjacent" and
+        // silently demotes a legal strike to a bare move — the "AI walks up and never swings" failure.
+        const unit = createUnit("wide-unit", TeamVals.LOWER, { width: 2, height: 1 });
+        const target = {
+            getId: () => "target-1",
+            getTeam: () => 2,
+            getCells: () => [{ x: 0, y: 2 }],
+        };
+        const adjacencyArguments: HoCMath.XY[][] = [];
+        const executeAttackSequence = mock(async () => true);
+        const sceneSettings = new SceneSettings(new GridSettings(4, 512, 0, 512, 0, 0, 0), true);
+        let moveCompletion: Promise<void> | undefined;
+
+        const context = {
+            applyGameAction: () => true,
+            executeAttackSequence,
+            executeMoveSequence: mock((_unit, _path, _footprint, onComplete) => {
+                moveCompletion = Promise.resolve(onComplete?.());
+                return true;
+            }),
+            getButtonManager: () => ({ refreshButtons: mock(() => undefined), sc_isAIActive: true }),
+            getCurrentActiveUnit: () => unit,
+            getGrid: () => ({
+                getOccupantUnitId: () => "target-1",
+                areCellsAdjacent: (left: HoCMath.XY[], right: HoCMath.XY[]) => {
+                    adjacencyArguments.push(left);
+                    // The engine's rule: any cell of one body touching any cell of the other.
+                    return left.some((from) =>
+                        right.some((to) => Math.abs(from.x - to.x) <= 1 && Math.abs(from.y - to.y) <= 1 && from !== to),
+                    );
+                },
+            }),
+            getGridMatrix: () => [],
+            getHoverManager: () => ({ showSilhouetteForUnit: mock(() => undefined) }),
+            getPathHelper: () => ({}),
+            getSceneLog: () => ({ updateLog: mock(() => undefined) }),
+            getSceneSettings: () => sceneSettings,
+            getUnitsHolder: () => ({ getAllUnits: () => new Map([["target-1", target]]) }),
+            refreshUnits: mock(() => undefined),
+            setCurrentActiveKnownPaths: mock(() => undefined),
+            setSelectedAttackType: mock(() => undefined),
+        } as unknown as IAIContext;
+
+        const controller = new AIController(context);
+        controller.isAIActive = true;
+        controller.performingAction = true;
+
+        await (
+            controller as unknown as {
+                handleMoveAndMeleeAttack(
+                    unit: RenderableUnit,
+                    action: ReturnType<typeof createMoveAndAttackAction>,
+                    wasAIActive: boolean,
+                ): Promise<boolean>;
+            }
+        ).handleMoveAndMeleeAttack(unit, createMoveAndAttackAction({ x: 2, y: 2 }, { x: 0, y: 2 }), false);
+        await moveCompletion;
+
+        expect(adjacencyArguments[0]).toEqual([
+            { x: 2, y: 2 },
+            { x: 1, y: 2 },
+        ]);
+        expect(executeAttackSequence).toHaveBeenCalledTimes(1);
     });
 
     // --- shipped default-strategy routing (performAction → decideTurn) -------------------------------

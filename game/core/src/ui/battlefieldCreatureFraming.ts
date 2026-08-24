@@ -190,3 +190,108 @@ export const publishBattlefieldCreatureVisualBounds = (
 
 export const readBattlefieldCreatureVisualBounds = (unitName: string): BattlefieldCreatureVisualBounds | undefined =>
     visualBounds.get(unitName);
+
+/**
+ * ----------------------------------------------------------------------------------------------------
+ * Rectangular footprint mode (`?footprint=WxH`) for the framing editor.
+ *
+ * No shipped creature declares `footprint_width` / `footprint_height`: which creature becomes rectangular
+ * is a balance and art decision, not an engineering one. So the editor's rectangular mode borrows the
+ * shape through the engine's QA override (`globalThis.__hocFootprintOverrides`) instead of editing any
+ * creature's data, and it borrows it for the creatures whose battlefield ART is already drawn that wide —
+ * their `widthScale` fakes today exactly the silhouette the mechanical footprint expresses tomorrow.
+ *
+ * These are pure so the selection can be pinned by tests; the editor supplies the catalog and the
+ * authored art width, which keeps this module free of any dependency on the scene renderer.
+ * ----------------------------------------------------------------------------------------------------
+ */
+export interface FootprintShape {
+    width: number;
+    height: number;
+}
+
+export interface FootprintModeCandidate {
+    name: string;
+    /** The creature's declared footprint, i.e. creatures.json (or its `size`, squared, as the fallback). */
+    footprintWidth: number;
+    footprintHeight: number;
+    /** How many cells across the creature's authored battlefield art already reads. */
+    authoredArtWidthCells: number;
+}
+
+export interface FootprintModeSelection {
+    /** Creature names to show, in catalog order. */
+    names: string[];
+    /** Of those, the ones that only carry the shape because this mode lent it to them. */
+    seededNames: string[];
+    /** The value to install in `globalThis.__hocFootprintOverrides`; empty when nothing needs lending. */
+    overrideSource: string;
+}
+
+/** Art authored across two horizontal cells reads at least this many cells wide. */
+export const AUTHORED_ART_TWO_CELL_WIDTH = 1.8;
+
+export const formatFootprintShape = (shape: FootprintShape): string => `${shape.width}x${shape.height}`;
+
+/** `2x1` / `1x2` / any `WxH`. Anything else is not a footprint request. */
+export const parseFootprintShape = (value: string | null | undefined): FootprintShape | undefined => {
+    const parsed = value ? /^([0-9]+)x([0-9]+)$/.exec(value.trim()) : null;
+    if (!parsed) return undefined;
+    const width = Number(parsed[1]);
+    const height = Number(parsed[2]);
+    return width > 0 && height > 0 ? { width, height } : undefined;
+};
+
+/** Read the engine's override string back into a map, in the exact format the engine itself parses. */
+export const parseFootprintOverrides = (source: string | undefined): Map<string, FootprintShape> => {
+    const overrides = new Map<string, FootprintShape>();
+    for (const entry of (source ?? "").split(",")) {
+        const separator = entry.lastIndexOf("=");
+        if (separator <= 0) continue;
+        const shape = parseFootprintShape(entry.slice(separator + 1));
+        if (shape) overrides.set(entry.slice(0, separator).trim(), shape);
+    }
+    return overrides;
+};
+
+const shapesMatch = (left: FootprintShape, right: FootprintShape): boolean =>
+    left.width === right.width && left.height === right.height;
+
+/**
+ * Which creatures the rectangular mode shows, and what it has to lend them to make that true.
+ *
+ * A creature that already carries the requested shape — from creatures.json, or from an override a
+ * developer typed into the console — is taken as it is and nothing is lent. Only when NO creature carries
+ * it does the mode seed it onto the wide-art candidates, which is the state the editor is in today.
+ */
+export const resolveFootprintMode = (
+    requested: FootprintShape,
+    candidates: readonly FootprintModeCandidate[],
+    manualOverrideSource?: string,
+): FootprintModeSelection => {
+    const manualOverrides = parseFootprintOverrides(manualOverrideSource);
+    const declared = candidates.filter((candidate) =>
+        shapesMatch(
+            manualOverrides.get(candidate.name) ?? {
+                width: candidate.footprintWidth,
+                height: candidate.footprintHeight,
+            },
+            requested,
+        ),
+    );
+    // Only a body wider than it is tall can borrow art that is merely drawn wide; a taller shape has no
+    // stand-in and is left to an explicit console override.
+    const seeded =
+        declared.length || requested.width <= requested.height
+            ? []
+            : candidates.filter((candidate) => candidate.authoredArtWidthCells >= AUTHORED_ART_TWO_CELL_WIDTH);
+    const entries = [
+        ...[...manualOverrides].map(([name, shape]) => `${name}=${formatFootprintShape(shape)}`),
+        ...seeded.map((candidate) => `${candidate.name}=${formatFootprintShape(requested)}`),
+    ];
+    return {
+        names: (seeded.length ? seeded : declared).map((candidate) => candidate.name),
+        seededNames: seeded.map((candidate) => candidate.name),
+        overrideSource: seeded.length ? entries.join(",") : "",
+    };
+};

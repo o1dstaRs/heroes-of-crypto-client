@@ -15,6 +15,8 @@ export interface AuthoritativeUnitState {
     hp: number;
     maxHp: number;
     attackType: number;
+    /** Legacy square side. Geometry belongs to footprintWidth/footprintHeight; `size` cannot tell a 2x1
+     * from a 1x2 (both carry size 2) and survives only for art tiers and older snapshots. */
     size: number;
     baseCell: AuthoritativeCell;
     cells: AuthoritativeCell[];
@@ -88,6 +90,14 @@ export interface AuthoritativeUnitState {
      */
     baseArmor?: number;
     baseAttack?: number;
+    /**
+     * The unit's board footprint in cells, anchored on the max-corner `baseCell`. The play decoder always
+     * resolves these (falling back to a `size` x `size` square for an older server), so a snapshot that
+     * came off the wire has them; they stay optional because hand-built snapshots in tests and dev
+     * fixtures predate the pair, and those are all square units where `size` is the same answer.
+     */
+    footprintWidth?: number;
+    footprintHeight?: number;
 }
 
 export interface AuthoritativeJournalEntry {

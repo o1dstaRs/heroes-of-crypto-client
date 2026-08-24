@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import {
+    AUTHORED_ART_TWO_CELL_WIDTH,
     BATTLEFIELD_CREATURE_FRAMING,
     BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY,
+    formatFootprintShape,
     normalizeBattlefieldCreatureFraming,
+    parseFootprintOverrides,
+    parseFootprintShape,
     readStoredBattlefieldCreatureFraming,
+    resolveFootprintMode,
     resolveStoredBattlefieldCreatureFraming,
     writeStoredBattlefieldCreatureFraming,
+    type FootprintModeCandidate,
 } from "./battlefieldCreatureFraming";
 
 const values = new Map<string, string>();
@@ -199,5 +205,77 @@ describe("battlefield creature framing drafts", () => {
             flagOffsetXCells: 0,
             flagOffsetYCells: 0,
         });
+    });
+});
+
+describe("rectangular footprint editor mode", () => {
+    // Two creatures whose art is already drawn two cells across (White Tiger reads 1.18 x 1.695 ~ 2.0
+    // cells), one that is not, and one that already declares the shape in its own data.
+    const wideArt: FootprintModeCandidate = {
+        name: "White Tiger",
+        footprintWidth: 1,
+        footprintHeight: 1,
+        authoredArtWidthCells: 2.0,
+    };
+    const alsoWideArt: FootprintModeCandidate = {
+        name: "Hyena",
+        footprintWidth: 1,
+        footprintHeight: 1,
+        authoredArtWidthCells: 2.02,
+    };
+    const squareArt: FootprintModeCandidate = {
+        name: "Squire",
+        footprintWidth: 1,
+        footprintHeight: 1,
+        authoredArtWidthCells: 1.5,
+    };
+    const catalog = [wideArt, alsoWideArt, squareArt];
+
+    test("reads and writes shapes in the format the engine parses", () => {
+        expect(parseFootprintShape("2x1")).toEqual({ width: 2, height: 1 });
+        expect(parseFootprintShape(" 1x2 ")).toEqual({ width: 1, height: 2 });
+        expect(parseFootprintShape("2x0")).toBeUndefined();
+        expect(parseFootprintShape("wide")).toBeUndefined();
+        expect(parseFootprintShape(null)).toBeUndefined();
+        expect(formatFootprintShape({ width: 2, height: 1 })).toBe("2x1");
+        expect([...parseFootprintOverrides("White Tiger=2x1,Hyena=1x2")]).toEqual([
+            ["White Tiger", { width: 2, height: 1 }],
+            ["Hyena", { width: 1, height: 2 }],
+        ]);
+        expect([...parseFootprintOverrides(undefined)]).toEqual([]);
+    });
+
+    test("lends 2x1 to the creatures already drawn two cells wide, since no creature declares it", () => {
+        const mode = resolveFootprintMode({ width: 2, height: 1 }, catalog);
+        expect(mode.names).toEqual(["White Tiger", "Hyena"]);
+        expect(mode.seededNames).toEqual(["White Tiger", "Hyena"]);
+        expect(mode.overrideSource).toBe("White Tiger=2x1,Hyena=2x1");
+        expect(AUTHORED_ART_TWO_CELL_WIDTH).toBe(1.8);
+    });
+
+    test("takes a creature that declares the shape as it is and lends nothing", () => {
+        const declared = { ...wideArt, name: "Declared", footprintWidth: 2, footprintHeight: 1 };
+        const mode = resolveFootprintMode({ width: 2, height: 1 }, [...catalog, declared]);
+        expect(mode.names).toEqual(["Declared"]);
+        expect(mode.seededNames).toEqual([]);
+        expect(mode.overrideSource).toBe("");
+    });
+
+    test("honours a shape a developer set by hand and keeps it installed", () => {
+        const mode = resolveFootprintMode({ width: 1, height: 2 }, catalog, "Hyena=1x2");
+        expect(mode.names).toEqual(["Hyena"]);
+        expect(mode.seededNames).toEqual([]);
+        expect(mode.overrideSource).toBe("");
+
+        // A hand-set override for another shape is carried through when this mode also has to lend one,
+        // so switching into 2x1 never silently drops what the console had already put in place.
+        const mixed = resolveFootprintMode({ width: 2, height: 1 }, catalog, "Squire=1x2");
+        expect(mixed.overrideSource).toBe("Squire=1x2,White Tiger=2x1,Hyena=2x1");
+    });
+
+    test("refuses to fake a taller-than-wide shape out of merely wide art", () => {
+        const mode = resolveFootprintMode({ width: 1, height: 2 }, catalog);
+        expect(mode.names).toEqual([]);
+        expect(mode.overrideSource).toBe("");
     });
 });

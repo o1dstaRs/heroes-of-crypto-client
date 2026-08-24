@@ -292,11 +292,22 @@ const getRouteForCell = (
     cell: { x: number; y: number },
 ): IReadonlyWeightedRoute | undefined => knownPaths.get(cellKey(cell))?.[0];
 
+/**
+ * The cells the mover's body would cover after landing on `destination`.
+ *
+ * `destination` is one cell out of the pather's knownPaths, and a body of more than one cell hangs off it
+ * rather than sitting on it, so the shape has to be re-expanded here or the action claims the wrong
+ * ground and the engine rejects the move. The expansion is the engine's own
+ * (GridMath.getFootprintCellsForPosition), fed the destination cell's centre, so this and the engine's
+ * fallback (post_move_actor_availability.resolveMoveTargetCells) always name the same cells — including
+ * for a 2x2, where both deliberately keep the legacy reading of the destination as the block's low corner.
+ */
 const getTargetCells = (
     unit: Unit,
     grid: Grid,
     destination: { x: number; y: number },
 ): Array<{ x: number; y: number }> => {
+    // A one-cell body covers exactly its destination; skipping the round trip below keeps that obvious.
     if (unit.isSmallSize()) {
         return [{ ...destination }];
     }

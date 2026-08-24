@@ -27,6 +27,7 @@ import {
     ashMothActionScaleMultiplier,
     battlefieldCreaturePerspectiveScale,
     battlefieldCreatureContourOpacity,
+    battlefieldFootLineOffsetCells,
     battlefieldCreatureScaleMultiplier,
     battlefieldCreatureShadowProjection,
     BATTLEFIELD_FOUR_CELL_SCALE_MULTIPLIER,
@@ -2117,7 +2118,7 @@ describe("RenderableUnit revealed roster card", () => {
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
-        expect(revealedOpponentFootprintPoints(singleCenter, 1, gridSettings)).toEqual(
+        expect(revealedOpponentFootprintPoints(singleCenter, 1, 1, gridSettings)).toEqual(
             projectedCellPoints(singleCell, gridSettings),
         );
 
@@ -2129,7 +2130,7 @@ describe("RenderableUnit revealed roster card", () => {
         ];
         const largeCenter = GridMath.getPositionForCells(gridSettings, largeCells)!;
         const step = gridSettings.getStep();
-        expect(revealedOpponentFootprintPoints(largeCenter, 2, gridSettings)).toEqual(
+        expect(revealedOpponentFootprintPoints(largeCenter, 2, 2, gridSettings)).toEqual(
             projectedRectPoints(
                 largeCenter.x - step,
                 largeCenter.y - step,
@@ -2403,5 +2404,194 @@ describe("RenderableUnit dodge animation", () => {
         expect(sprite!.rotation).toBe(0);
         expect(unit.isDodging()).toBe(false);
         expect(worldRoot.children.length).toBe(childrenBefore);
+    });
+});
+
+/**
+ * Rectangular footprints (2x1, 1x2 — any WxH). No shipped creature declares one yet, so these build the
+ * shape through the engine's QA override, which is the same lever a browser session uses. Every case here
+ * either asserts the rectangle's own geometry or pins that a square body is left exactly as it was.
+ */
+describe("rectangular footprints", () => {
+    const withFootprintOverride = <T>(source: string, body: () => T): T => {
+        const holder = globalThis as { __hocFootprintOverrides?: string };
+        const previous = holder.__hocFootprintOverrides;
+        holder.__hocFootprintOverrides = source;
+        try {
+            return body();
+        } finally {
+            holder.__hocFootprintOverrides = previous;
+        }
+    };
+
+    const spriteOf = (unit: RenderableUnit) =>
+        (unit as unknown as { sprite?: { scale: { x: number; y: number }; texture: Texture; x: number; y: number } })
+            .sprite!;
+
+    const placedUnit = (
+        name: string,
+        faction: string,
+        texture: string,
+        position: { x: number; y: number },
+    ): RenderableUnit => {
+        const unit = createRenderableUnit(TeamVals.LOWER, faction, name, texture, () => Texture.WHITE);
+        unit.setPosition(position.x, position.y);
+        unit.setBattlefieldVisualProjection(true);
+        unit.ensureVisual(new Container(), gridSettings);
+        return unit;
+    };
+
+    test("carries the declared shape onto the unit itself", () => {
+        const wide = withFootprintOverride("White Tiger=2x1", () =>
+            createRenderableUnit(TeamVals.LOWER, "Nature", "White Tiger", "white_tiger_512"),
+        );
+        expect(wide.getFootprintWidth()).toBe(2);
+        expect(wide.getFootprintHeight()).toBe(1);
+        expect(wide.getCells()).toHaveLength(2);
+        // The anchor is the footprint's top-right cell; the body extends towards -x.
+        const anchor = wide.getBaseCell();
+        expect(
+            wide
+                .getCells()
+                .map((cell) => `${cell.x}:${cell.y}`)
+                .sort(),
+        ).toEqual([`${anchor.x - 1}:${anchor.y}`, `${anchor.x}:${anchor.y}`].sort());
+    });
+
+    test("draws a two-cell-wide body exactly two cells wide, without stretching it twice", () => {
+        // White Tiger's authored `widthScale` of 1.695 FAKES a 2x1 silhouette on a mechanically 1x1 body,
+        // so the mechanical rectangle must land on the same rendered width instead of multiplying the two.
+        const position = { x: 384, y: 640 };
+        const square = placedUnit("White Tiger", "Nature", "white_tiger_512", position);
+        const wide = withFootprintOverride("White Tiger=2x1", () =>
+            placedUnit("White Tiger", "Nature", "white_tiger_512", position),
+        );
+        const squareSprite = spriteOf(square);
+        const wideSprite = spriteOf(wide);
+        const renderedWidth = (sprite: typeof squareSprite) => sprite.texture.width * Math.abs(sprite.scale.x);
+        const renderedHeight = (sprite: typeof squareSprite) => sprite.texture.height * Math.abs(sprite.scale.y);
+
+        // Two cells across, times the creature's approved editor framing, times the row's perspective.
+        const expectedWidth =
+            2 *
+            gridSettings.getCellSize() *
+            BATTLEFIELD_CREATURE_FRAMING["White Tiger"].scaleX *
+            battlefieldCreaturePerspectiveScale(position.y, 1, gridSettings);
+        expect(renderedWidth(wideSprite)).toBeCloseTo(expectedWidth, 6);
+        // Same figure, same height, same ground point: only the width derivation changed.
+        expect(renderedHeight(wideSprite)).toBeCloseTo(renderedHeight(squareSprite), 6);
+        expect(wideSprite.y).toBeCloseTo(squareSprite.y, 6);
+        // And within a fraction of a percent of the silhouette widthScale was hand-tuned to produce.
+        expect(renderedWidth(wideSprite)).toBeCloseTo(renderedWidth(squareSprite), 0);
+    });
+
+    test("plants a taller body on its own lower seam instead of floating in the upper cell", () => {
+        expect(battlefieldFootLineOffsetCells(1)).toBeCloseTo(BATTLEFIELD_SINGLE_CELL_Y_OFFSET_RATIO, 8);
+        expect(battlefieldFootLineOffsetCells(2)).toBeCloseTo(BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO, 8);
+        // A body two cells tall has its seam a full cell below the centre; a wide-but-short one does not.
+        expect(battlefieldFootLineOffsetCells(3)).toBeCloseTo(1.2, 8);
+
+        const position = { x: 384, y: 640 };
+        const square = placedUnit("White Tiger", "Nature", "white_tiger_512", position);
+        const wide = withFootprintOverride("White Tiger=2x1", () =>
+            placedUnit("White Tiger", "Nature", "white_tiger_512", position),
+        );
+        const tall = withFootprintOverride("White Tiger=1x2", () =>
+            placedUnit("White Tiger", "Nature", "white_tiger_512", position),
+        );
+        expect(spriteOf(wide).y).toBeCloseTo(spriteOf(square).y, 6);
+        expect(spriteOf(tall).y).toBeLessThan(spriteOf(square).y);
+    });
+
+    test("keeps every row-derived quantity keyed on the footprint's height alone", () => {
+        const rowPosition = (row: number) =>
+            GridMath.getPositionForCell(
+                { x: 4, y: row },
+                gridSettings.getMinX(),
+                gridSettings.getStep(),
+                gridSettings.getHalfStep(),
+            );
+        // Standing on row 13 the furnace rim only softens once the body itself reaches into the top band:
+        // a one-row-tall body does not, a two-row-tall one does. Width never enters the question, so a 2x1
+        // reads exactly like a 1x1 and a 1x2 exactly like a 2x2.
+        const centreOfRow13 = rowPosition(13).y;
+        expect(battlefieldCreatureContourOpacity(centreOfRow13, 1, gridSettings)).toBe(1);
+        expect(battlefieldCreatureContourOpacity(centreOfRow13 + gridSettings.getHalfStep(), 2, gridSettings)).toBe(
+            0.6,
+        );
+        // The taller body also has one legal row fewer, so it reaches full attenuation sooner.
+        expect(battlefieldCreaturePerspectiveScale(rowPosition(15).y, 1, gridSettings)).toBeCloseTo(
+            BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
+            8,
+        );
+        expect(battlefieldCreaturePerspectiveScale(rowPosition(15).y, 2, gridSettings)).toBeCloseTo(
+            BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
+            8,
+        );
+        expect(battlefieldCreatureShadowProjection(centreOfRow13, 2, gridSettings).lengthScale).not.toBeCloseTo(
+            battlefieldCreatureShadowProjection(centreOfRow13, 1, gridSettings).lengthScale,
+            8,
+        );
+    });
+
+    test("marks a revealed opponent's real rectangle rather than a square straddling the seam", () => {
+        const wideCells = [
+            { x: 12, y: 8 },
+            { x: 13, y: 8 },
+        ];
+        const wideCenter = GridMath.getPositionForCells(gridSettings, wideCells)!;
+        const step = gridSettings.getStep();
+        expect(revealedOpponentFootprintPoints(wideCenter, 2, 1, gridSettings)).toEqual(
+            projectedRectPoints(
+                wideCenter.x - step,
+                wideCenter.y - step / 2,
+                wideCenter.x + step,
+                wideCenter.y + step / 2,
+                gridSettings,
+            ),
+        );
+
+        const tallCells = [
+            { x: 12, y: 8 },
+            { x: 12, y: 9 },
+        ];
+        const tallCenter = GridMath.getPositionForCells(gridSettings, tallCells)!;
+        expect(revealedOpponentFootprintPoints(tallCenter, 1, 2, gridSettings)).toEqual(
+            projectedRectPoints(
+                tallCenter.x - step / 2,
+                tallCenter.y - step,
+                tallCenter.x + step / 2,
+                tallCenter.y + step,
+                gridSettings,
+            ),
+        );
+    });
+
+    test("bands an attack from the rows a rectangular body really occupies", () => {
+        const wideAttacker = [
+            { x: 4, y: 6 },
+            { x: 5, y: 6 },
+        ];
+        // Directly to the side of the right-hand cell: same row, so the side strike.
+        expect(attackAnimationVerticalBandForFootprints(wideAttacker, [{ x: 6, y: 6 }])).toBe("side");
+        // A target one row up is reached with the upward strike even though it is beyond the wide body's
+        // left cell — only the row RANGES are compared.
+        expect(attackAnimationVerticalBandForFootprints(wideAttacker, [{ x: 3, y: 7 }])).toBe("up");
+        expect(attackAnimationVerticalBandForFootprints(wideAttacker, [{ x: 5, y: 5 }])).toBe("down");
+
+        const tallAttacker = [
+            { x: 4, y: 6 },
+            { x: 4, y: 7 },
+        ];
+        // Both of a two-row body's rows are valid side-attack rows.
+        expect(attackAnimationVerticalBandForFootprints(tallAttacker, [{ x: 5, y: 6 }])).toBe("side");
+        expect(attackAnimationVerticalBandForFootprints(tallAttacker, [{ x: 5, y: 7 }])).toBe("side");
+        expect(attackAnimationVerticalBandForFootprints(tallAttacker, [{ x: 5, y: 8 }])).toBe("up");
+    });
+
+    test("leaves the approved enlargement to the square footprints it was art-directed for", () => {
+        expect(battlefieldCreatureScaleMultiplier("Black Dragon", 2, 2)).toBeCloseTo(1.32);
+        expect(battlefieldCreatureScaleMultiplier("White Tiger", 2, 1)).toBe(1);
+        expect(battlefieldCreatureScaleMultiplier("White Tiger", 1, 2)).toBe(1);
     });
 });

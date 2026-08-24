@@ -13,7 +13,6 @@ import {
     UnitProperties,
     GridMath,
     HoCLib,
-    GridConstants,
     type IWeightedRoute,
 } from "@heroesofcrypto/common";
 import { SceneSettings } from "./SceneSettings";
@@ -52,11 +51,31 @@ const THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO = 186 / 192;
 const usesTallThiefPreview = (props: UnitProperties): boolean =>
     props.size === 1 && (props.name === "Thief" || props.name === "Scavenger");
 
+/**
+ * Footprint sides read straight off raw properties. Unit.getFootprintWidth() is not available here: the
+ * hover surfaces preview bench selections, relayed opponent intents and snapshot payloads, any of which
+ * can be a plain UnitProperties bag that predates footprints and carries only `size`.
+ */
+export const footprintWidthOf = (props: UnitProperties): number =>
+    GridMath.normalizeFootprintSide(props.footprint_width, GridMath.normalizeFootprintSide(props.size));
+
+export const footprintHeightOf = (props: UnitProperties): number =>
+    GridMath.normalizeFootprintSide(props.footprint_height, GridMath.normalizeFootprintSide(props.size));
+
+/** Whether these properties describe a body that covers more than its anchor cell. */
+const occupiesManyCells = (props: UnitProperties): boolean =>
+    footprintWidthOf(props) > 1 || footprintHeightOf(props) > 1;
+
 const unitPreviewScale = (props: UnitProperties, texture: Texture, cellSize: number): number => {
     if (usesTallThiefPreview(props)) {
         return (cellSize * 1.5) / (Math.max(1, texture.height) * THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO);
     }
-    return (props.size === 2 ? 256 : 128) / Math.max(1, texture.width);
+    // 128 authored pixels is one cell of board art, so a ghost spans as many of them as its footprint is
+    // WIDE — 128 for a 1x1 and 256 for a 2x2, the two numbers this used to hard-code off `size`. Height
+    // deliberately follows the texture's own aspect: the art tiers are square (_128 / _256) and none of
+    // them is rectangular yet, so a wide creature's vertical framing stays RenderableUnit's authored
+    // profile rather than a stretch applied here.
+    return (128 * footprintWidthOf(props)) / Math.max(1, texture.width);
 };
 
 const unitPreviewY = (props: UnitProperties, centerY: number, cellSize: number): number =>
@@ -92,21 +111,25 @@ export const meleeSwordSpriteCenter = (
 });
 
 /**
- * Intersection of the landing-cell -> target-centre ray with the target's square footprint.
+ * Intersection of the landing-cell -> target-centre ray with the target's footprint rectangle.
  * Cardinal landings meet the middle of an edge; diagonal landings meet the corresponding corner.
+ *
+ * The two half-extents are separate because a rectangular body reaches further on its long axis; they
+ * are equal for every square shape, which is why the callers used to pass a single number.
  */
 export const meleeSwordTargetPoint = (
     landingCenter: HoCMath.XY,
     targetCenter: HoCMath.XY,
-    targetHalfExtent: number,
+    targetHalfExtentX: number,
+    targetHalfExtentY: number = targetHalfExtentX,
 ): HoCMath.XY => {
     const dx = landingCenter.x - targetCenter.x;
     const dy = landingCenter.y - targetCenter.y;
     const maxAxis = Math.max(Math.abs(dx), Math.abs(dy));
     if (maxAxis === 0) return { ...targetCenter };
     return {
-        x: targetCenter.x + (dx / maxAxis) * targetHalfExtent,
-        y: targetCenter.y + (dy / maxAxis) * targetHalfExtent,
+        x: targetCenter.x + (dx / maxAxis) * targetHalfExtentX,
+        y: targetCenter.y + (dy / maxAxis) * targetHalfExtentY,
     };
 };
 
@@ -237,9 +260,16 @@ export class HoverManager {
             | undefined;
         if (!active?.getBattlefieldPreviewAt) return undefined;
         const activeProps = active.getUnitProperties();
-        const activeSize = activeProps.size === 2 ? 2 : 1;
-        const requestedSize = props.size === 2 ? 2 : 1;
-        if (activeProps.name !== props.name || activeSize !== requestedSize) return undefined;
+        // The live frame may only be cloned onto a preview that stands on the same rectangle. Comparing
+        // `size` collapsed 2x1 and 2x2 onto the same number, so a stack of one shape could borrow the
+        // other's transform.
+        if (
+            activeProps.name !== props.name ||
+            footprintWidthOf(activeProps) !== footprintWidthOf(props) ||
+            footprintHeightOf(activeProps) !== footprintHeightOf(props)
+        ) {
+            return undefined;
+        }
         return active.getBattlefieldPreviewAt(logicalPosition, this.context.sceneSettings.getGridSettings());
     }
     private applyLiveUnitPreview(
@@ -344,7 +374,8 @@ export class HoverManager {
         center: HoCMath.XY,
         radius: number,
         isBuff: boolean,
-        isSmallUnit: boolean,
+        footprintWidth: number,
+        footprintHeight = footprintWidth,
         alphaMultiplier = 1.0,
     ): void {
         // Aesthetic Configuration
@@ -355,13 +386,18 @@ export class HoverManager {
         const strokeWidth = 2;
 
         const gs = this.context.sceneSettings.getGridSettings();
-        const halfSize = isSmallUnit ? gs.getHalfStep() : gs.getStep();
-        const extent = radius + halfSize; // Total distance from center to edge of aura square
+        // The aura reaches `radius` out from the BODY, so each axis is widened by that axis' own half
+        // footprint: half a cell for a side of 1, a whole cell for a side of 2 — the previous
+        // isSmallUnit branch, once per axis instead of once for both.
+        const extentX = radius + GridMath.normalizeFootprintSide(footprintWidth) * gs.getHalfStep();
+        const extentY = radius + GridMath.normalizeFootprintSide(footprintHeight) * gs.getHalfStep();
 
         const auraGraphics = this.ensureAuraGraphics();
         if (!auraGraphics) return;
         auraGraphics
-            .poly(projectedRectPoints(center.x - extent, center.y - extent, center.x + extent, center.y + extent, gs))
+            .poly(
+                projectedRectPoints(center.x - extentX, center.y - extentY, center.x + extentX, center.y + extentY, gs),
+            )
             .fill({ color: fillColor, alpha: fillAlpha })
             .stroke({ width: strokeWidth, color: color, alpha: strokeAlpha });
     }
@@ -464,7 +500,9 @@ export class HoverManager {
         const props = currentActiveUnit.getUnitProperties();
         const hash = (x: number, y: number) => (x << 4) | y;
 
-        if (props.footprint_width === 1 && props.footprint_height === 1) {
+        // A one-cell body is reachable exactly when its own cell is in the path set; anything larger has to
+        // find a whole footprint that fits, which is what the candidate finder answers.
+        if (!occupiesManyCells(props)) {
             return currentActivePathHashes.has(hash(cell.x, cell.y));
         }
 
@@ -478,51 +516,37 @@ export class HoverManager {
         if (!currentActiveUnit || !currentActivePathHashes) return null;
 
         const hash = (x: number, y: number) => (x << 4) | y;
-        const size = GridConstants.GRID_SIZE;
-        const inBounds = (c: HoCMath.XY) => c.x >= 0 && c.y >= 0 && c.x < size && c.y < size;
-
-        // If you want explicit bounds safety, uncomment this and use `inBounds` below
-        // const gs = this.context.sceneSettings.getGridSettings();
-        // const minX = 0;
-        // const minY = 0;
-        // const maxX = GridConstants.GRID_SIZE - 1;
-        // const maxY = GridConstants.GRID_SIZE - 1;
-        // const inBounds = (c: HoCMath.XY) =>
-        //     c.x >= minX && c.x <= maxX && c.y >= minY && c.y <= maxY;
+        const gs = this.context.sceneSettings.getGridSettings();
 
         const props = currentActiveUnit.getUnitProperties();
-        const footprints: HoCMath.XY[][] = [];
-        for (let cursorDx = 0; cursorDx < props.footprint_width; cursorDx++) {
-            for (let cursorDy = 0; cursorDy < props.footprint_height; cursorDy++) {
-                const minX = cell.x - cursorDx;
-                const minY = cell.y - cursorDy;
+        const width = footprintWidthOf(props);
+        const height = footprintHeightOf(props);
+
+        // Every footprint that COVERS the hovered cell is a candidate landing: the cursor may sit on any
+        // of the body's W*H cells. The candidate order decides which landing wins when several are legal,
+        // so it is kept exactly as it was — cursor cell as the block's minimum corner first, then the
+        // block sliding down and left over it — which is also the order the placement ghost enumerates.
+        for (let cursorDx = 0; cursorDx < width; cursorDx++) {
+            for (let cursorDy = 0; cursorDy < height; cursorDy++) {
+                const anchor = { x: cell.x - cursorDx + width - 1, y: cell.y - cursorDy + height - 1 };
+                // Reject the whole block before any of its cells is hashed: an off-board cell packs into
+                // (x << 4) | y as a key that collides with a real one ((-1 << 4) | y === -1 for every y).
+                if (!GridMath.isFootprintWithinGrid(gs, anchor, width, height)) continue;
+
+                // Ascending from the minimum corner, so the LAST cell is the anchor. Callers hand this
+                // list straight to executeMoveSequence as the move path, which keys the route metadata off
+                // its final cell — and only the anchor is a key in knownPaths.
                 const footprint: HoCMath.XY[] = [];
-                for (let dx = 0; dx < props.footprint_width; dx++) {
-                    for (let dy = 0; dy < props.footprint_height; dy++) {
-                        footprint.push({ x: minX + dx, y: minY + dy });
+                for (let dx = 0; dx < width; dx++) {
+                    for (let dy = 0; dy < height; dy++) {
+                        footprint.push({ x: anchor.x - width + 1 + dx, y: anchor.y - height + 1 + dy });
                     }
                 }
-                footprints.push(footprint);
+                if (!footprint.every((c) => currentActivePathHashes.has(hash(c.x, c.y)))) continue;
+                if (!currentActiveKnownPaths?.has(hash(anchor.x, anchor.y))) continue;
+
+                return footprint;
             }
-        }
-
-        for (const footprint of footprints) {
-            // If you want explicit grid-bounds checking:
-            // if (!footprint.every(inBounds)) continue;
-
-            const allInPath = footprint.every((c) => inBounds(c) && currentActivePathHashes.has(hash(c.x, c.y)));
-            if (!allInPath) continue;
-
-            const anchor = footprint.reduce(
-                (current, candidate) => ({
-                    x: Math.max(current.x, candidate.x),
-                    y: Math.max(current.y, candidate.y),
-                }),
-                { x: Number.MIN_SAFE_INTEGER, y: Number.MIN_SAFE_INTEGER },
-            );
-            if (!currentActiveKnownPaths?.has(hash(anchor.x, anchor.y))) continue;
-
-            return footprint;
         }
 
         return null;
@@ -622,19 +646,18 @@ export class HoverManager {
         this.hoveredUnitId = unit.getId();
     }
     public getHighlightRectForUnit(unit: Unit): { x: number; y: number; w: number; h: number } | undefined {
-        // Use the exact world position of the unit (center of mass/sprite)
+        // Use the exact world position of the unit, which is the CENTRE of its whole footprint.
         const pos = unit.getPosition();
         const gs = this.context.sceneSettings.getGridSettings();
-        const size = unit.getSize();
         const cellSize = gs.getCellSize();
 
-        // Calculate dimensions based on unit size
-        // Size 1 = 32x32, Size 2 = 64x64
-        const w = cellSize * size;
-        const h = cellSize * size;
+        // The rect is the body's own cells: one cell per footprint side. `size` gave the same answer for
+        // 1x1 and 2x2 and a square for everything else, which both over-covered the short axis (hovering
+        // empty board lit the unit) and under-covered the long one (half the body was not hoverable).
+        const w = cellSize * unit.getFootprintWidth();
+        const h = cellSize * unit.getFootprintHeight();
 
-        // Calculate Top-Left corner relative to the center position
-        // pos.x is center, so x = pos.x - width/2
+        // Top-left corner relative to that centre.
         const x = pos.x - w / 2;
         const y = pos.y - h / 2;
 
@@ -925,8 +948,9 @@ export class HoverManager {
                 centerPos = rUnit.getVisualCenter(this.context.sceneSettings.getGridSettings());
             }
             const baseWidth = tex.width || 1;
-            const targetSize = targetUnit.getSize() === 2 ? 256 : 128;
-            const scale = targetSize / baseWidth;
+            // Same authored-pixels-per-cell rule as the hover ghost (unitPreviewScale): the overlay is as
+            // wide as the body it covers, so it never overhangs a narrow creature.
+            const scale = (128 * targetUnit.getFootprintWidth()) / baseWidth;
             silhouette.anchor.set(0.5);
             silhouette.scale.set(scale, -scale);
             silhouette.position.set(centerPos.x, centerPos.y);
@@ -1649,19 +1673,24 @@ export class HoverManager {
         const gs = this.context.sceneSettings.getGridSettings();
         const props = currentActiveUnit.getUnitProperties();
 
-        let centerPos: HoCMath.XY | undefined;
+        let centerPos: HoCMath.XY;
         let footprintCells: HoCMath.XY[];
 
-        if (props.footprint_width > 1 || props.footprint_height > 1) {
+        if (occupiesManyCells(props)) {
             const candidate = this.findLargeUnitMoveCandidate(cell);
             if (!candidate) {
                 this.clearHoverSilhouette();
                 return;
             }
-            // candidate is HoCMath.XY[] (footprint)
-            // We need center.
+            // The ghost stands on the centre of the landing rectangle. Any rectangle resolves, so there is
+            // no shape here that can leave the preview without a position.
             footprintCells = candidate;
-            centerPos = GridMath.getPositionForCells(gs, candidate);
+            centerPos = GridMath.getPositionForFootprintAnchor(
+                gs,
+                GridMath.getFootprintAnchorForCells(candidate) ?? cell,
+                footprintWidthOf(props),
+                footprintHeightOf(props),
+            );
         } else {
             if (!this.isCellReachableForActiveUnit(cell)) {
                 this.clearHoverSilhouette();
@@ -1669,11 +1698,6 @@ export class HoverManager {
             }
             footprintCells = [cell];
             centerPos = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        }
-
-        if (!centerPos) {
-            this.clearHoverSilhouette();
-            return;
         }
 
         this.hoverBattlefieldFootprintCells = footprintCells;
@@ -1708,7 +1732,7 @@ export class HoverManager {
             return;
         }
 
-        const isLarge = selected.footprint_width > 1 || selected.footprint_height > 1;
+        const isLarge = occupiesManyCells(selected);
         const cellHash = (cell.x << 4) | cell.y;
 
         let teamFromPlacement: TeamType | undefined;
@@ -1766,13 +1790,21 @@ export class HoverManager {
             }
             const ownKeys = new Set(ownCells?.map((own) => `${own.x}:${own.y}`) ?? []);
             const blocked = new Set(occupiedKeys);
+            const width = footprintWidthOf(selected);
+            const height = footprintHeightOf(selected);
+            // Every W x H block that covers the cursor cell, in the same order the move-candidate finder
+            // uses: cursor cell as the block's minimum corner first, then the block sliding down and left
+            // over it. Off-board anchors are dropped before any cell is hashed, since an out-of-grid cell
+            // packs into (x << 4) | y as a key that collides with a real one.
             const footprints: HoCMath.XY[][] = [];
-            for (let cursorDx = 0; cursorDx < selected.footprint_width; cursorDx++) {
-                for (let cursorDy = 0; cursorDy < selected.footprint_height; cursorDy++) {
+            for (let cursorDx = 0; cursorDx < width; cursorDx++) {
+                for (let cursorDy = 0; cursorDy < height; cursorDy++) {
+                    const anchor = { x: cell.x - cursorDx + width - 1, y: cell.y - cursorDy + height - 1 };
+                    if (!GridMath.isFootprintWithinGrid(gs, anchor, width, height)) continue;
                     const footprint: HoCMath.XY[] = [];
-                    for (let dx = 0; dx < selected.footprint_width; dx++) {
-                        for (let dy = 0; dy < selected.footprint_height; dy++) {
-                            footprint.push({ x: cell.x - cursorDx + dx, y: cell.y - cursorDy + dy });
+                    for (let dx = 0; dx < width; dx++) {
+                        for (let dy = 0; dy < height; dy++) {
+                            footprint.push({ x: anchor.x - width + 1 + dx, y: anchor.y - height + 1 + dy });
                         }
                     }
                     footprints.push(footprint);
@@ -1782,10 +1814,6 @@ export class HoverManager {
                 footprints.find((footprint) =>
                     footprint.every(
                         (candidate) =>
-                            candidate.x >= 0 &&
-                            candidate.y >= 0 &&
-                            candidate.x < gs.getGridSize() &&
-                            candidate.y < gs.getGridSize() &&
                             allowedForPath?.has((candidate.x << 4) | candidate.y) &&
                             (!blocked.has(`${candidate.x}:${candidate.y}`) ||
                                 ownKeys.has(`${candidate.x}:${candidate.y}`)),
@@ -1837,15 +1865,13 @@ export class HoverManager {
 
         // Check 2: Large Unit Shape
         if (!invalid && isLarge) {
-            if (candidateCells.length !== selected.footprint_width * selected.footprint_height) {
-                invalid = true; // Should ideally limit to valid cells, but if we can't find 4, it's invalid
-            } else if (
-                !this.context.pathHelper.areCellsFormingFootprint(
-                    candidateCells,
-                    selected.footprint_width,
-                    selected.footprint_height,
-                )
-            ) {
+            const width = footprintWidthOf(selected);
+            const height = footprintHeightOf(selected);
+            if (candidateCells.length !== width * height) {
+                // The fallback above degrades to the single cell under the cursor when no whole block
+                // fits, and a partial body is never placeable.
+                invalid = true;
+            } else if (!this.context.pathHelper.areCellsFormingFootprint(candidateCells, width, height)) {
                 invalid = true;
             }
         }

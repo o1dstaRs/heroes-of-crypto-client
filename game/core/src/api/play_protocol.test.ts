@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { GridMath } from "@heroesofcrypto/common";
+
 import {
     decodePlayEvent,
     decodePlaySnapshot,
@@ -114,6 +116,51 @@ describe("play protobuf decoder", () => {
 
         expect(decoded.units[0]?.onHourglass).toBe(true);
         expect(decoded.units[1]?.onHourglass).toBe(false);
+    });
+
+    test("decodes a rectangular footprint and round-trips its cells (proto fields 45 and 46)", () => {
+        // A 2x1 is the shape `size` cannot express: it carries size 2, the same scalar a 2x2 carries.
+        const cell = (x: number, y: number): number[] => [...intField(1, x), ...intField(2, y)];
+        const wide = [
+            ...stringField(1, "wide-1"),
+            ...intField(10, 2),
+            ...messageField(11, cell(5, 4)),
+            ...messageField(12, cell(5, 4)),
+            ...messageField(12, cell(4, 4)),
+            ...intField(45, 2),
+            ...intField(46, 1),
+        ];
+        const snapshot = new Uint8Array([...stringField(1, "game-1"), ...messageField(12, wide)]);
+
+        const decoded = decodePlaySnapshot(snapshot).units[0];
+
+        expect(decoded?.footprintWidth).toBe(2);
+        expect(decoded?.footprintHeight).toBe(1);
+        // The shape survives a rebuild from the decoded dimensions: the cells the snapshot carries are the
+        // cells the client would claim for the same anchor, so a re-sent placement keeps the same ground.
+        const rebuilt = GridMath.getFootprintCellsForAnchor(
+            decoded!.baseCell,
+            decoded!.footprintWidth,
+            decoded!.footprintHeight,
+        );
+        expect(rebuilt).toEqual(decoded!.cells);
+    });
+
+    test("reads an absent or zero footprint as a square of `size`", () => {
+        // Field 45/46 are appended, so an older server sends neither; the current server sends 0 for a
+        // square creature. Both have to mean "size x size" or every shipped unit changes shape on the wire.
+        const older = [...stringField(1, "large-1"), ...intField(10, 2)];
+        const zeroed = [...stringField(1, "small-1"), ...intField(10, 1), ...intField(45, 0), ...intField(46, 0)];
+        const snapshot = new Uint8Array([
+            ...stringField(1, "game-1"),
+            ...messageField(12, older),
+            ...messageField(12, zeroed),
+        ]);
+
+        const decoded = decodePlaySnapshot(snapshot);
+
+        expect([decoded.units[0]?.footprintWidth, decoded.units[0]?.footprintHeight]).toEqual([2, 2]);
+        expect([decoded.units[1]?.footprintWidth, decoded.units[1]?.footprintHeight]).toEqual([1, 1]);
     });
 
     test("decodes the Terrifying Gaze forbidden target (proto field 44)", () => {

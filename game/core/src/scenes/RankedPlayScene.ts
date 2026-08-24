@@ -90,6 +90,38 @@ export const rankedSystemMoveSceneLogLine = (
     return `${unitName} moved by ${reason} to(${cell.x}, ${cell.y})`;
 };
 
+/**
+ * Unit ids whose wire footprint has already been reported as disagreeing with the local creature config.
+ * The snapshot arrives about once a second, so without this the first divergence would bury the console.
+ */
+const warnedFootprintMismatchUnitIds = new Set<string>();
+
+/**
+ * A footprint disagreement between client and server is a HARD desync, unlike a stat disagreement: the two
+ * sides then believe the unit stands on different cells, and every move, attack and placement the client
+ * offers is one the server refuses. The client keeps deriving the shape from its own creature config (the
+ * richer source, and the one the renderer already uses), so the wire pair is used only as a detector.
+ */
+const warnOnFootprintMismatch = (unitState: AuthoritativeUnitState, properties: UnitProperties): void => {
+    const wireWidth = unitState.footprintWidth;
+    const wireHeight = unitState.footprintHeight;
+    // An older server sends neither, which is not a disagreement — it is simply no opinion.
+    if (!wireWidth || !wireHeight) {
+        return;
+    }
+    if (wireWidth === properties.footprint_width && wireHeight === properties.footprint_height) {
+        return;
+    }
+    if (warnedFootprintMismatchUnitIds.has(unitState.id)) {
+        return;
+    }
+    warnedFootprintMismatchUnitIds.add(unitState.id);
+    console.warn(
+        `Footprint desync for ${properties.name} (${unitState.id}): server says ${wireWidth}x${wireHeight}, ` +
+            `local config says ${properties.footprint_width}x${properties.footprint_height}`,
+    );
+};
+
 export const authoritativeUnitToSandboxUnitState = (
     unitState: AuthoritativeUnitState,
     options?: { statsAuthoritative?: boolean },
@@ -98,6 +130,7 @@ export const authoritativeUnitToSandboxUnitState = (
     if (!properties) {
         return undefined;
     }
+    warnOnFootprintMismatch(unitState, properties);
 
     return {
         properties,
@@ -175,35 +208,40 @@ export const revealedOpponentRowScale = (total: number): number =>
     total <= 6 ? 0.85 : Math.max(0.55, (0.85 * 6) / total);
 
 /**
+ * One unit's board footprint in cells. The scalar `size` used to stand in for this, but it cannot tell a
+ * 2x1 from a 1x2 — the two extents have to travel separately or a rectangle is laid out as a square.
+ */
+export interface IPlacementFootprint {
+    width: number;
+    height: number;
+}
+
+/**
  * Cell footprints for a centred default deployment line on the zone row nearest the battlefield.
- * One-cell gaps are kept whenever the full roster fits; 2x2 creatures consume two horizontal cells and
- * extend away from the battlefield so their front edge stays aligned with every 1x1 creature.
+ * One-cell gaps are kept whenever the full roster fits; a creature wider than one cell consumes that many
+ * horizontal cells and every creature extends away from the battlefield, so all their front edges stay
+ * aligned. Cells are anchored on the MAX corner, the same anchor Unit.getBaseCell() reports.
  */
 export const centeredPlacementLineCells = (
-    sizes: readonly number[],
+    footprints: readonly IPlacementFootprint[],
     minCellX: number,
     maxCellX: number,
     frontRowY: number,
     isUpper: boolean,
 ): HoCMath.XY[][] => {
-    const widths = sizes.map((size) => (size > 1 ? 2 : 1));
     const availableWidth = Math.max(0, maxCellX - minCellX + 1);
-    const occupiedWidth = widths.reduce((sum, width) => sum + width, 0);
-    const gap = occupiedWidth + Math.max(0, widths.length - 1) <= availableWidth ? 1 : 0;
-    const lineWidth = occupiedWidth + gap * Math.max(0, widths.length - 1);
+    const occupiedWidth = footprints.reduce((sum, footprint) => sum + footprint.width, 0);
+    const gap = occupiedWidth + Math.max(0, footprints.length - 1) <= availableWidth ? 1 : 0;
+    const lineWidth = occupiedWidth + gap * Math.max(0, footprints.length - 1);
+    // The cursor walks the line's LEFT edge; the anchor is (width - 1) to the right of it.
     let x = minCellX + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
 
-    return widths.map((width) => {
-        const y = width > 1 && !isUpper ? frontRowY - 1 : frontRowY;
-        const cells =
-            width > 1
-                ? [
-                      { x, y },
-                      { x: x + 1, y },
-                      { x, y: y + 1 },
-                      { x: x + 1, y: y + 1 },
-                  ]
-                : [{ x, y }];
+    return footprints.map(({ width, height }) => {
+        // The body always grows away from the battlefield: upward from the front row for the upper team,
+        // downward for the lower one. Since the footprint hangs DOWN-left of its anchor, growing upward
+        // means lifting the anchor by (height - 1) and growing downward means leaving it on the front row.
+        const y = isUpper ? frontRowY + height - 1 : frontRowY;
+        const cells = GridMath.getFootprintCellsForAnchor({ x: x + width - 1, y }, width, height);
         x += width + gap;
         return cells;
     });
@@ -213,37 +251,40 @@ export const centeredPlacementLineCells = (
  * Vertical twin of centeredPlacementLineCells for the live left/right rectangular deployment zones.
  * The red baseline zone is a narrow strip on the board's right edge, so its roster must run along Y;
  * trying to fit six stacks across the strip's three X columns silently discarded half of the army.
- * Large creatures occupy two rows and extend away from the battlefield into the zone's second column.
+ * Creatures taller than one cell occupy that many rows, and every creature extends away from the
+ * battlefield into the zone's deeper columns.
  */
 export const centeredPlacementColumnCells = (
-    sizes: readonly number[],
+    footprints: readonly IPlacementFootprint[],
     minCellY: number,
     maxCellY: number,
     frontColumnX: number,
     isRight: boolean,
 ): HoCMath.XY[][] => {
-    const heights = sizes.map((size) => (size > 1 ? 2 : 1));
     const availableHeight = Math.max(0, maxCellY - minCellY + 1);
-    const occupiedHeight = heights.reduce((sum, height) => sum + height, 0);
-    const gap = occupiedHeight + Math.max(0, heights.length - 1) <= availableHeight ? 1 : 0;
-    const columnHeight = occupiedHeight + gap * Math.max(0, heights.length - 1);
+    const occupiedHeight = footprints.reduce((sum, footprint) => sum + footprint.height, 0);
+    const gap = occupiedHeight + Math.max(0, footprints.length - 1) <= availableHeight ? 1 : 0;
+    const columnHeight = occupiedHeight + gap * Math.max(0, footprints.length - 1);
+    // The cursor walks the column's BOTTOM edge; the anchor is (height - 1) above it.
     let y = minCellY + Math.max(0, Math.floor((availableHeight - columnHeight) / 2));
 
-    return heights.map((height) => {
-        const x = height > 1 && !isRight ? frontColumnX - 1 : frontColumnX;
-        const cells =
-            height > 1
-                ? [
-                      { x, y },
-                      { x: x + 1, y },
-                      { x, y: y + 1 },
-                      { x: x + 1, y: y + 1 },
-                  ]
-                : [{ x, y }];
+    return footprints.map(({ width, height }) => {
+        // Mirror of the line layout on the other axis: the body grows to the right of the front column for
+        // the right-hand team and to its left for the left-hand one, and the anchor is the max corner.
+        const x = isRight ? frontColumnX + width - 1 : frontColumnX;
+        const cells = GridMath.getFootprintCellsForAnchor({ x, y: y + height - 1 }, width, height);
         y += height + gap;
         return cells;
     });
 };
+
+/** The board footprint the client's local creature config gives a unit; `size` is not a shape. */
+export const placementFootprintOfUnitState = (unitState: {
+    properties: Pick<UnitProperties, "size" | "footprint_width" | "footprint_height">;
+}): IPlacementFootprint => ({
+    width: GridMath.normalizeFootprintSide(unitState.properties.footprint_width, unitState.properties.size),
+    height: GridMath.normalizeFootprintSide(unitState.properties.footprint_height, unitState.properties.size),
+});
 
 /** Minimal grid surface the occupancy audit needs (see reconcileRankedGridOccupancy). */
 export interface IOccupancyAuditGrid {
@@ -293,9 +334,13 @@ export const reconcileRankedGridOccupancy = (
         if (inSync) {
             continue;
         }
-        grid.cleanupAll(id, unitState.properties.attack_range, unitState.properties.size === 1);
+        // isSmallUnit decides which aggro stamp cleanupAll removes, so it has to describe the BODY: a
+        // one-cell body, not a `size` of 1. A rectangle carries the `size` of the square it is half of, so
+        // reading the scalar here would leave a two-cell unit's aggro behind on every re-registration.
+        const footprint = placementFootprintOfUnitState(unitState);
+        grid.cleanupAll(id, unitState.properties.attack_range, footprint.width === 1 && footprint.height === 1);
         // Trust the authoritative cells incl. lava/water standing — same reasoning as hydrateSceneState.
-        grid.occupyCells(
+        const occupied = grid.occupyCells(
             unitState.cells.map((cell) => ({ ...cell })),
             id,
             unitState.team,
@@ -303,7 +348,12 @@ export const reconcileRankedGridOccupancy = (
             true,
             true,
         );
-        fixed.push(id);
+        // Only report a unit as fixed once the grid actually took it. A refused re-registration leaves the
+        // unit with NO cells at all, and calling that "fixed" is worse than the divergence this heals: the
+        // caller would stop looking, and the board would stay silently empty under that unit forever.
+        if (occupied) {
+            fixed.push(id);
+        }
     }
     return fixed;
 };
@@ -2054,11 +2104,19 @@ export class RankedPlayScene extends Sandbox {
             if (!unit || unit.isDead()) continue;
             if (!occupancyFixed.has(id) && rankedUnitCellsMatchAuthoritative(unit.getCells(), unitState.cells))
                 continue;
+            // Any axis-aligned rectangle resolves to a centre, so an undefined answer means the snapshot's
+            // cell list is not a footprint at all (a truncated or interleaved cell array). Silently
+            // skipping it is what let a drifted unit stay drifted forever, so say so.
             const position = GridMath.getPositionForCells(this.sc_sceneSettings.getGridSettings(), unitState.cells);
             if (position) {
                 unit.setPosition(position.x, position.y);
                 unit.syncVisual(this.drawer.getUnitsContainer(), this.sc_sceneSettings.getGridSettings());
                 geometryFixed = true;
+            } else {
+                console.warn(
+                    `Ranked heal skipped ${unitState.properties.name}: cells are not a rectangle`,
+                    unitState.cells,
+                );
             }
         }
         if (!fixed.length && !geometryFixed) return;
@@ -2197,6 +2255,9 @@ export class RankedPlayScene extends Sandbox {
         for (const placementIndex of [0, 1]) {
             const placement = this.placementManager.getPlacement(opponentTeam, placementIndex);
             if (placement) {
+                // possibleCellPositions(true) is the ONE-CELL anchor set, i.e. every cell of the zone —
+                // which is exactly what this needs: the bounds below and the per-cell guard further down
+                // both ask "is this cell inside the opponent's zone", not "may a body be anchored here".
                 zoneCells.push(...placement.possibleCellPositions(true));
             }
         }
@@ -2222,7 +2283,7 @@ export class RankedPlayScene extends Sandbox {
                 return positions;
             }
             footprints = centeredPlacementColumnCells(
-                revealedUnits.map((unit) => unit.properties.size),
+                revealedUnits.map(placementFootprintOfUnitState),
                 Math.min(...frontColumnYs),
                 Math.max(...frontColumnYs),
                 frontColumnX,
@@ -2238,7 +2299,7 @@ export class RankedPlayScene extends Sandbox {
                 return positions;
             }
             footprints = centeredPlacementLineCells(
-                revealedUnits.map((unit) => unit.properties.size),
+                revealedUnits.map(placementFootprintOfUnitState),
                 Math.min(...frontRowXs),
                 Math.max(...frontRowXs),
                 frontRowY,

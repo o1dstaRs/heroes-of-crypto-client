@@ -1821,7 +1821,16 @@ export class AIController {
         // the target (target unreachable this turn) yet still emit a move+attack, leaving attackFrom not
         // actually adjacent to the target — which the engine rejects (attack_not_available). Detect that
         // and just advance to the reachable cell this turn; the strike lands once the unit is adjacent.
-        if (route && !this.context.getGrid().areCellsAdjacent([attackFromCell], unitToAttack.getCells())) {
+        // The test has to be the engine's own (AttackHandler: getFootprintCellsForAnchor(attackFrom) vs
+        // the target's cells), because a body reaches from EVERY cell it covers, not just its anchor.
+        // Asking only about the anchor is strictly stricter than the engine and downgrades legal strikes
+        // to moves whenever the target sits beside one of the attacker's other cells.
+        if (
+            route &&
+            !this.context
+                .getGrid()
+                .areCellsAdjacent(currentUnit.getFootprintCellsForAnchor(attackFromCell), unitToAttack.getCells())
+        ) {
             return this.handleMoveOnly(currentUnit, action, wasAIActive, attackFromCell);
         }
         const authoritativeAction = this.modelAction(currentUnit, {
@@ -1849,10 +1858,12 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const attackFromPos = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-        // For large (2x2) units the AI emits the top-right anchor cell and the stored position is
-        // the 2x2 center (anchor - halfStep). Build the occupied footprint from that center and
-        // hand it to executeMoveSequence so the unit lands exactly where the silhouette shows;
-        // otherwise the move fallback mis-anchors it by one cell diagonally (wrong stand/attack pos).
+        // For any body bigger than one cell the AI emits a single anchor cell, and the unit's stored
+        // position is the footprint's CENTRE, not that cell's centre. Build the occupied footprint from
+        // the anchor's cell centre and re-centre the position on it, so the unit lands exactly where the
+        // silhouette shows; otherwise the move fallback mis-anchors it by one cell diagonally (wrong
+        // stand/attack pos). getFootprintCellsForPosition is the engine's own expansion, including the
+        // 2x2 reading resolveMoveTargetCells keeps, so every shape resolves the way the engine will.
         let moveFootprint: HoCMath.XY[] | undefined;
         if (attackFromPos) {
             if (!currentUnit.isSmallSize()) {
@@ -2015,7 +2026,12 @@ export class AIController {
         // still label it MELEE_ATTACK with a moved attack-from cell — leaving attackFrom reachable but
         // NOT adjacent to the target, which the engine rejects (attack_not_available). Detect that and
         // just advance to the (reachable) cell this turn; the strike lands once the unit is adjacent.
-        if (!this.context.getGrid().areCellsAdjacent([attackFromCell], targetUnit.getCells())) {
+        // Mirrors the engine's own test on the attacker's whole body (see handleMoveAndMeleeAttack).
+        if (
+            !this.context
+                .getGrid()
+                .areCellsAdjacent(currentUnit.getFootprintCellsForAnchor(attackFromCell), targetUnit.getCells())
+        ) {
             return this.handleMoveOnly(currentUnit, action, wasAIActive, attackFromCell);
         }
 
@@ -2178,7 +2194,7 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const moveToPos = GridMath.getPositionForCell(cellToMove, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-        // Same 2x2 footprint correction as handleMoveAndMeleeAttack: land the large unit where the
+        // Same footprint correction as handleMoveAndMeleeAttack: land a multi-cell body where the
         // silhouette shows instead of letting the move fallback mis-anchor it by one cell diagonally.
         // (Always computed — it feeds the action's targetCells regardless of whether we draw a silhouette.)
         let moveFootprint: HoCMath.XY[] | undefined;

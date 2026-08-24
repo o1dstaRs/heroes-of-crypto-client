@@ -38,6 +38,7 @@ import {
     restoreRankedStepsMoraleMultiplier,
     centeredPlacementColumnCells,
     centeredPlacementLineCells,
+    placementFootprintOfUnitState,
     revealedOpponentRowScale,
     revealedOpponentRowX,
     revealedOpponentRowY,
@@ -88,6 +89,85 @@ const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSn
     centerDried: false,
     units,
     upNext: [],
+});
+
+describe("ranked rectangular footprints", () => {
+    const GRID = new GridSettings(
+        GridConstants.GRID_SIZE,
+        GridConstants.MAX_Y,
+        GridConstants.MIN_Y,
+        GridConstants.MAX_X,
+        GridConstants.MIN_X,
+        GridConstants.MOVEMENT_DELTA,
+        GridConstants.UNIT_SIZE_DELTA,
+    );
+
+    /**
+     * No shipped creature declares a rectangle yet — turning one rectangular is a balance and art call.
+     * The engine's QA override is the supported way to exercise the shape without touching creature data,
+     * and it is re-read on every config build, so it can be set and cleared around a single test.
+     */
+    const withFootprintOverride = <T>(override: string, body: () => T): T => {
+        const holder = globalThis as { __hocFootprintOverrides?: string };
+        const previous = holder.__hocFootprintOverrides;
+        holder.__hocFootprintOverrides = override;
+        try {
+            return body();
+        } finally {
+            holder.__hocFootprintOverrides = previous;
+        }
+    };
+
+    test("hydrates a 2x1 snapshot unit and re-derives exactly the cells it arrived with", () => {
+        withFootprintOverride("White Tiger=2x1", () => {
+            const baseCell = { x: 7, y: 3 };
+            const cells = GridMath.getFootprintCellsForAnchor(baseCell, 2, 1);
+            const state = authoritativeSnapshotToSandboxSceneState(
+                placementSnapshot([
+                    unitState({
+                        id: "white-tiger-1",
+                        name: "White Tiger",
+                        creatureId: CreatureVals.WHITE_TIGER,
+                        // `size` is max(width, height), so a 2x1 is indistinguishable from a 2x2 by it alone.
+                        size: 2,
+                        footprintWidth: 2,
+                        footprintHeight: 1,
+                        placed: true,
+                        baseCell,
+                        cells,
+                    }),
+                ]),
+            );
+            const hydrated = state.units[0];
+
+            expect(hydrated).toBeDefined();
+            expect(hydrated.properties.footprint_width).toBe(2);
+            expect(hydrated.properties.footprint_height).toBe(1);
+            expect(placementFootprintOfUnitState(hydrated)).toEqual({ width: 2, height: 1 });
+
+            // Re-serialise: the cells resolve to a centre, and that centre resolves back to the same cells
+            // and the same max-corner anchor. That round trip is what every hydrate, occupancy heal and
+            // placement submit rides on, and it used to have no answer at all for a two-cell body.
+            const position = GridMath.getPositionForCells(GRID, hydrated.cells);
+            expect(position).toBeDefined();
+            expect(GridMath.getFootprintCellsForPosition(GRID, position!, 2, 1)).toEqual(cells);
+            expect(GridMath.getFootprintAnchorForCells(hydrated.cells)).toEqual(baseCell);
+        });
+    });
+
+    test("keeps the two shipped square shapes square when the snapshot carries no footprint", () => {
+        // An older server sends neither field, and the wire type defaults them to `size` x `size`. Every
+        // creature in the catalog is one of these two, so this is the path that must not move an inch.
+        const state = authoritativeSnapshotToSandboxSceneState(
+            placementSnapshot([
+                unitState({ id: "peasant-1", name: "Peasant", creatureId: CreatureVals.PEASANT, size: 1 }),
+                unitState({ id: "angel-1", name: "Angel", creatureId: CreatureVals.ANGEL, size: 2 }),
+            ]),
+        );
+
+        expect(placementFootprintOfUnitState(state.units[0])).toEqual({ width: 1, height: 1 });
+        expect(placementFootprintOfUnitState(state.units[1])).toEqual({ width: 2, height: 2 });
+    });
 });
 
 describe("ranked system movement log", () => {
@@ -1316,23 +1396,34 @@ describe("revealed opponent roster row", () => {
     const MAX_X = GridConstants.MAX_X;
     const STEP = GridConstants.MAX_Y / GridConstants.GRID_SIZE;
 
+    // The five shipped shapes these layouts have to serve. Only the squares exist in the catalog today;
+    // the rectangles are the shapes the layout must not collapse back into a square.
+    const SMALL = { width: 1, height: 1 };
+    const LARGE = { width: 2, height: 2 };
+    const WIDE = { width: 2, height: 1 };
+    const TALL = { width: 1, height: 2 };
+    /** Cell sets, not cell lists: every one of these layouts is consumed as an unordered footprint. */
+    const cellSet = (cells: { x: number; y: number }[]): string[] => cells.map((cell) => `${cell.x}:${cell.y}`).sort();
+
     test("centres revealed opponents on the front cells of the upper placement zone", () => {
-        const footprints = centeredPlacementLineCells([1, 1, 1, 1, 1, 2], 1, 14, 12, true);
+        const footprints = centeredPlacementLineCells([SMALL, SMALL, SMALL, SMALL, SMALL, LARGE], 1, 14, 12, true);
         const occupiedXs = footprints.flat().map((cell) => cell.x);
 
         expect(Math.min(...occupiedXs)).toBe(2);
         expect(Math.max(...occupiedXs)).toBe(13);
         expect(footprints.slice(0, 5).every((cells) => cells.length === 1 && cells[0].y === 12)).toBe(true);
-        expect(footprints[5]).toEqual([
-            { x: 12, y: 12 },
-            { x: 13, y: 12 },
-            { x: 12, y: 13 },
-            { x: 13, y: 13 },
-        ]);
+        expect(cellSet(footprints[5])).toEqual(
+            cellSet([
+                { x: 12, y: 12 },
+                { x: 13, y: 12 },
+                { x: 12, y: 13 },
+                { x: 13, y: 13 },
+            ]),
+        );
     });
 
     test("centres the full red army vertically inside its baseline right-side zone", () => {
-        const footprints = centeredPlacementColumnCells([1, 1, 1, 1, 1, 2], 1, 14, 12, true);
+        const footprints = centeredPlacementColumnCells([SMALL, SMALL, SMALL, SMALL, SMALL, LARGE], 1, 14, 12, true);
         const occupied = footprints.flat();
 
         expect(footprints.slice(0, 5).map((cells) => cells[0])).toEqual([
@@ -1342,31 +1433,85 @@ describe("revealed opponent roster row", () => {
             { x: 12, y: 8 },
             { x: 12, y: 10 },
         ]);
-        expect(footprints[5]).toEqual([
-            { x: 12, y: 12 },
-            { x: 13, y: 12 },
-            { x: 12, y: 13 },
-            { x: 13, y: 13 },
-        ]);
+        expect(cellSet(footprints[5])).toEqual(
+            cellSet([
+                { x: 12, y: 12 },
+                { x: 13, y: 12 },
+                { x: 12, y: 13 },
+                { x: 13, y: 13 },
+            ]),
+        );
         expect(occupied.every((cell) => cell.x >= 12 && cell.x <= 14 && cell.y >= 1 && cell.y <= 14)).toBe(true);
     });
 
     test("mirrors large creatures inward from the green zone's front column", () => {
-        expect(centeredPlacementColumnCells([2], 1, 14, 3, false)[0]).toEqual([
-            { x: 2, y: 7 },
-            { x: 3, y: 7 },
-            { x: 2, y: 8 },
-            { x: 3, y: 8 },
-        ]);
+        expect(cellSet(centeredPlacementColumnCells([LARGE], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 2, y: 7 },
+                { x: 3, y: 7 },
+                { x: 2, y: 8 },
+                { x: 3, y: 8 },
+            ]),
+        );
     });
 
     test("mirrors a large creature away from the battlefield for the lower zone", () => {
-        expect(centeredPlacementLineCells([2], 1, 14, 3, false)[0]).toEqual([
-            { x: 7, y: 2 },
-            { x: 8, y: 2 },
-            { x: 7, y: 3 },
-            { x: 8, y: 3 },
-        ]);
+        expect(cellSet(centeredPlacementLineCells([LARGE], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 2 },
+                { x: 8, y: 2 },
+                { x: 7, y: 3 },
+                { x: 8, y: 3 },
+            ]),
+        );
+    });
+
+    test("lays a 2x1 out two cells wide and one row tall, on the front row itself", () => {
+        // The old layout keyed the row offset off the WIDTH, so a wide-but-short body was pushed a row
+        // back and reserved a row it does not occupy. Its front edge belongs on the front row like a 1x1's.
+        expect(cellSet(centeredPlacementLineCells([WIDE], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 3 },
+                { x: 8, y: 3 },
+            ]),
+        );
+        expect(cellSet(centeredPlacementLineCells([WIDE], 1, 14, 12, true)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 12 },
+                { x: 8, y: 12 },
+            ]),
+        );
+    });
+
+    test("lays a 1x2 out one cell wide and two rows deep, away from the battlefield", () => {
+        expect(cellSet(centeredPlacementLineCells([TALL], 1, 14, 3, false)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 2 },
+                { x: 7, y: 3 },
+            ]),
+        );
+        expect(cellSet(centeredPlacementLineCells([TALL], 1, 14, 12, true)[0])).toEqual(
+            cellSet([
+                { x: 7, y: 12 },
+                { x: 7, y: 13 },
+            ]),
+        );
+    });
+
+    test("advances the line cursor by each unit's own width, so rectangles never overlap", () => {
+        const footprints = centeredPlacementLineCells([WIDE, SMALL, WIDE], 1, 14, 3, false);
+        const keys = footprints.flat().map((cell) => `${cell.x}:${cell.y}`);
+
+        expect(footprints.map((cells) => cells.length)).toEqual([2, 1, 2]);
+        expect(new Set(keys).size).toBe(keys.length);
+    });
+
+    test("advances the column cursor by each unit's own height, so rectangles never overlap", () => {
+        const footprints = centeredPlacementColumnCells([TALL, SMALL, TALL], 1, 14, 12, true);
+        const keys = footprints.flat().map((cell) => `${cell.x}:${cell.y}`);
+
+        expect(footprints.map((cells) => cells.length)).toEqual([2, 1, 2]);
+        expect(new Set(keys).size).toBe(keys.length);
     });
 
     test("spreads the army across the full board width, inside both edges", () => {

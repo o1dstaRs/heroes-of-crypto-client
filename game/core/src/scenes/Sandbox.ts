@@ -1,6 +1,6 @@
 import { Sprite, Graphics, Container, Texture, BlurFilter, RenderTexture, Text, TextStyle } from "pixi.js";
 import { PixiDrawer } from "../pixi/PixiDrawer";
-import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR, visibleAuraRanges } from "./SandboxDrawer";
+import { SandboxDrawer, ENEMY_TURN_HIGHLIGHT_COLOR, visibleAuraRanges, type IFootprintExtent } from "./SandboxDrawer";
 import {
     AttackHandler,
     Augment,
@@ -116,6 +116,8 @@ import { PixiRenderableSpell } from "./RenderableSpell";
 import { indexUnitTeam, resolveLineTeamFlag } from "./scene_log_flag";
 import {
     combatFootprintCellsForBase,
+    footprintHeightOf,
+    footprintWidthOf,
     HoverManager,
     meleeSwordFacingAngle,
     meleeSwordTargetPoint,
@@ -375,6 +377,12 @@ export const resolveMeleeAttackFromPointer = (params: {
     }
     return params.resolveAttackFrom();
 };
+
+/** A unit's body in cells, for the overlays (aura squares) that measure outward from it. */
+const footprintExtentOf = (unit: Unit): IFootprintExtent => ({
+    width: unit.getFootprintWidth(),
+    height: unit.getFootprintHeight(),
+});
 
 /** Horizontal sword facing for the resolved landing: the blade always points from attacker to target. */
 export const resolveMeleeCursorDirection = (attackFromX: number, targetX: number): "left" | "right" =>
@@ -783,7 +791,7 @@ export class Sandbox extends PixiScene {
     private sc_hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
-        isSmall: boolean;
+        footprint: IFootprintExtent;
     };
     // Movement Visualization
     private sc_placementMoveRange?: HoCMath.XY[];
@@ -1639,12 +1647,12 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const props = unit.getUnitProperties();
         let center: HoCMath.XY | undefined;
-        if (props.size === 2) {
+        if (footprintWidthOf(props) > 1 || footprintHeightOf(props) > 1) {
             // findLargeUnitMoveCandidate needs the active unit's reachable-path hashes, which the viewer
-            // never has for the OPPONENT's unit — so it always returned null and large opponents got no
-            // move silhouette (small ones worked, since they skip that path). Pick a valid 2x2 footprint
+            // never has for the OPPONENT's unit — so it always returned null and multi-cell opponents got
+            // no move silhouette (one-cell ones worked, since they skip that path). Pick a valid footprint
             // around the relayed cell from board geometry + occupancy instead.
-            const footprint = this.findOpponentLargeUnitFootprint(intent.cell, unit.getId());
+            const footprint = this.findOpponentLargeUnitFootprint(unit, intent.cell);
             center = footprint ? GridMath.getPositionForCells(gs, footprint) : undefined;
         } else {
             center = GridMath.getPositionForCell(intent.cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
@@ -1656,50 +1664,34 @@ export class Sandbox extends PixiScene {
         this.hoverManager.showOpponentIntentSilhouette(props, center);
     }
     /**
-     * Pick a 2x2 footprint around `cell` for a relayed opponent large-unit move silhouette, without the
-     * active unit's reachable-path data (we don't have it for the opponent). Mirrors the local candidate
-     * finder's anchor order and accepts the first footprint that's in-bounds and free of OTHER units
-     * (the moving unit itself still sits on its old cells). Falls back to the first in-bounds footprint
-     * so a hint always renders.
+     * Pick the footprint around `cell` for a relayed opponent move silhouette, without the active unit's
+     * reachable-path data (we don't have it for the opponent). Every block that COVERS the relayed cell is
+     * a candidate — the sender's cursor may have sat on any cell of the body — and the first one that is
+     * on the board and free of OTHER units wins (the moving unit itself still sits on its old cells).
+     * Falls back to the first on-board block so a hint always renders.
+     *
+     * The candidate order matters: the relayed cell is the MINIMUM corner of the destination
+     * (getMoveDestinationSilhouetteCell sends it that way), so that block has to be tried first.
      */
-    private findOpponentLargeUnitFootprint(cell: HoCMath.XY, movingUnitId: string): HoCMath.XY[] | undefined {
-        const size = GridConstants.GRID_SIZE;
-        const inBounds = (c: HoCMath.XY): boolean => c.x >= 0 && c.y >= 0 && c.x < size && c.y < size;
-        const footprints: HoCMath.XY[][] = [
-            [
-                { x: cell.x, y: cell.y },
-                { x: cell.x + 1, y: cell.y },
-                { x: cell.x, y: cell.y + 1 },
-                { x: cell.x + 1, y: cell.y + 1 },
-            ],
-            [
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-                { x: cell.x - 1, y: cell.y + 1 },
-                { x: cell.x, y: cell.y + 1 },
-            ],
-            [
-                { x: cell.x, y: cell.y - 1 },
-                { x: cell.x + 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y },
-                { x: cell.x + 1, y: cell.y },
-            ],
-            [
-                { x: cell.x - 1, y: cell.y - 1 },
-                { x: cell.x, y: cell.y - 1 },
-                { x: cell.x - 1, y: cell.y },
-                { x: cell.x, y: cell.y },
-            ],
-        ];
-        const unoccupied = footprints.find(
-            (fp) =>
-                fp.every(inBounds) &&
-                fp.every((c) => {
-                    const occ = this.grid.getOccupantUnitId(c);
-                    return !occ || occ === movingUnitId;
-                }),
+    private findOpponentLargeUnitFootprint(unit: Unit, cell: HoCMath.XY): HoCMath.XY[] | undefined {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const width = unit.getFootprintWidth();
+        const height = unit.getFootprintHeight();
+        const footprints: HoCMath.XY[][] = [];
+        for (let cursorDy = 0; cursorDy < height; cursorDy++) {
+            for (let cursorDx = 0; cursorDx < width; cursorDx++) {
+                const anchor = { x: cell.x - cursorDx + width - 1, y: cell.y - cursorDy + height - 1 };
+                if (!GridMath.isFootprintWithinGrid(gs, anchor, width, height)) continue;
+                footprints.push(unit.getFootprintCellsForAnchor(anchor));
+            }
+        }
+        const unoccupied = footprints.find((fp) =>
+            fp.every((c) => {
+                const occ = this.grid.getOccupantUnitId(c);
+                return !occ || occ === unit.getId();
+            }),
         );
-        return unoccupied ?? footprints.find((fp) => fp.every(inBounds));
+        return unoccupied ?? footprints[0];
     }
     private clearPlacementBench(): void {
         this.stopPlacementBenchSlideAnimation();
@@ -2327,10 +2319,14 @@ export class Sandbox extends PixiScene {
 
         const selected = this.sc_selectedUnitProperties;
         if (!this.selectionFromOverlay || !selected) return undefined;
+        // Reuse the cached preview only for the same creature standing on the same rectangle — `size`
+        // reports one number for both 2x1 and 2x2, so a shape change alone would have kept the stale body.
         const cachedProps = this.overlayPlacementPreviewUnit?.getUnitProperties();
-        const cachedSize = cachedProps?.size === 2 ? 2 : 1;
-        const selectedSize = selected.size === 2 ? 2 : 1;
-        if (!this.overlayPlacementPreviewUnit || cachedProps?.name !== selected.name || cachedSize !== selectedSize) {
+        const sameShape =
+            !!cachedProps &&
+            footprintWidthOf(cachedProps) === footprintWidthOf(selected) &&
+            footprintHeightOf(cachedProps) === footprintHeightOf(selected);
+        if (!this.overlayPlacementPreviewUnit || cachedProps?.name !== selected.name || !sameShape) {
             this.overlayPlacementPreviewUnit?.destroyVisuals();
             this.overlayPlacementPreviewRoot?.destroy({ children: true });
 
@@ -2644,37 +2640,21 @@ export class Sandbox extends PixiScene {
                 continue;
             }
 
-            // A 2x2 unit's visual center is the shared corner of its four footprint cells — half a step
-            // down-left of its baseCell (always the max corner) center. getPositionForCells only returns
-            // a value for a 1- or 4-cell array, so a heartbeat snapshot captured while the server is
-            // mid-AI-planning (which can carry a PARTIAL 2-3 cell footprint for the active large unit)
-            // falls through to the raw getPositionForCell(baseCell), landing the unit on the baseCell
-            // center — exactly (halfStep, halfStep) off diagonally. The next clean 4-cell snapshot
-            // re-centers it: the intermittent "half-cell diagonal jerk" seen while the AI deliberates.
-            // Rebuild the full footprint from baseCell so both the render position AND grid occupancy are
-            // correct regardless of how many cells the snapshot carried.
+            // A multi-cell unit stands on the CENTRE of its footprint, not on its baseCell. A heartbeat
+            // snapshot captured while the server is mid-AI-planning can carry a PARTIAL footprint for the
+            // active unit (2 of a 2x2's 4 cells), and a partial set is not a rectangle, so it has no
+            // centre — that used to fall through to the raw baseCell centre and land the unit exactly
+            // (halfStep, halfStep) off diagonally, the intermittent "half-cell jerk" seen while the AI
+            // deliberates. baseCell IS the anchor, so rebuild the whole body down-left from it instead:
+            // both the render position and the grid occupancy below are then right whatever the snapshot
+            // carried.
             let cells = unitState.cells;
             let position = GridMath.getPositionForCells(gs, cells);
             if (!position) {
-                const cornerCenter = GridMath.getPositionForCell(
-                    unitState.baseCell,
-                    gs.getMinX(),
-                    gs.getStep(),
-                    gs.getHalfStep(),
-                );
-                const rebuilt = GridMath.getFootprintCellsForPosition(
-                    gs,
-                    cornerCenter,
-                    unit.getFootprintWidth(),
-                    unit.getFootprintHeight(),
-                );
-                const rebuiltPosition = GridMath.getPositionForCells(gs, rebuilt);
-                position = rebuiltPosition ?? cornerCenter;
-                if (rebuilt.length === unit.getFootprintWidth() * unit.getFootprintHeight()) cells = rebuilt;
+                cells = unit.getFootprintCellsForAnchor(unitState.baseCell);
+                position = this.footprintCenterForAnchor(unit, unitState.baseCell);
             }
-            if (position) {
-                unit.setPosition(position.x, position.y);
-            }
+            unit.setPosition(position.x, position.y);
 
             // Trust the recorded/authoritative position: pass canOccupyLava/Water = true. Deriving them
             // from hasAbilityActive("Made of Fire"/"Made of Water") silently FAILED the occupy for units
@@ -3253,12 +3233,12 @@ export class Sandbox extends PixiScene {
         return moveEvent.path.length > 0 && !this.isRecordedMoveFootprintOnly(unit, moveEvent);
     }
     /**
-     * Anchor cell for an opponent large-unit move's destination silhouette. The renderer rebuilds the
-     * 2x2 footprint from this single cell via findOpponentLargeUnitFootprint, whose first candidate
-     * extends up-right — so the cell must be the footprint's MIN (bottom-left) corner for the rebuilt
-     * tiles to match where the unit actually lands. getRecordedMoveDestCell returns targetCells[0],
-     * which is the footprint's TOP-left, so for large units it placed the preview one cell above the
-     * real landing. Small units occupy a single cell and are unambiguous.
+     * The cell an opponent's move-destination silhouette is pinned to. The renderer rebuilds the whole
+     * footprint from this single cell via findOpponentLargeUnitFootprint, whose first candidate treats it
+     * as the block's MIN (bottom-left) corner — so that is what must be sent for the rebuilt tiles to
+     * match where the unit actually lands. getRecordedMoveDestCell returns targetCells[0], which is not
+     * that corner, so for multi-cell units it placed the preview beside the real landing. A one-cell body
+     * is unambiguous.
      */
     private getMoveDestinationSilhouetteCell(
         unit: RenderableUnit,
@@ -3959,26 +3939,16 @@ export class Sandbox extends PixiScene {
         path?: HoCMath.XY[],
     ): Promise<void> {
         const gs = this.sc_sceneSettings.getGridSettings();
-        const anchorPos = GridMath.getPositionForCell(attackFrom, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        // A large 2x2 unit's anchor cell is NOT its visual center — the center is the shared corner of
-        // its four footprint cells, half a step down-left of the anchor cell's center. Using the
-        // single-cell center (getPositionForCell) left large attackers standing "in between cells"
-        // after a move+melee. Derive the real footprint (matching the server's aiFootprintForCell) and
-        // move to its center, passing those cells as targetCells so grid occupancy lands on them too.
-        let toPos = anchorPos;
+        // A multi-cell attacker's anchor cell is NOT its visual center — the center is the middle of the
+        // whole footprint, which extends down-left from the anchor. Using the single-cell center
+        // (getPositionForCell) left large attackers standing "in between cells" after a move+melee.
+        // Derive the real footprint (matching the server's aiFootprintForCell) and move to its center,
+        // passing those cells as targetCells so grid occupancy lands on them too.
+        let toPos = GridMath.getPositionForCell(attackFrom, gs.getMinX(), gs.getStep(), gs.getHalfStep());
         let targetCells: HoCMath.XY[] = [];
-        if (anchorPos && !attacker.isSmallSize()) {
-            const footprint = GridMath.getFootprintCellsForPosition(
-                gs,
-                anchorPos,
-                attacker.getFootprintWidth(),
-                attacker.getFootprintHeight(),
-            );
-            const footprintCenter = GridMath.getPositionForCells(gs, footprint);
-            if (footprintCenter) {
-                toPos = footprintCenter;
-                targetCells = footprint;
-            }
+        if (!attacker.isSmallSize()) {
+            targetCells = attacker.getFootprintCellsForAnchor(attackFrom);
+            toPos = this.footprintCenterForAnchor(attacker, attackFrom);
         }
         // Anchor the walk to the recorded route's first cell (the attacker's pre-move position) rather
         // than its CURRENT position. A board resync can snap the attacker onto attackFrom before this
@@ -3987,22 +3957,9 @@ export class Sandbox extends PixiScene {
         // large-unit start the same way as the destination so the walk's first point matches the route.
         let fromPos = attacker.getPosition();
         if (path && path.length >= 2) {
-            const startAnchor = GridMath.getPositionForCell(path[0], gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            if (startAnchor) {
-                fromPos = startAnchor;
-                if (!attacker.isSmallSize()) {
-                    const startFootprint = GridMath.getFootprintCellsForPosition(
-                        gs,
-                        startAnchor,
-                        attacker.getFootprintWidth(),
-                        attacker.getFootprintHeight(),
-                    );
-                    const startCenter = GridMath.getPositionForCells(gs, startFootprint);
-                    if (startCenter) {
-                        fromPos = startCenter;
-                    }
-                }
-            }
+            fromPos = attacker.isSmallSize()
+                ? GridMath.getPositionForCell(path[0], gs.getMinX(), gs.getStep(), gs.getHalfStep())
+                : this.footprintCenterForAnchor(attacker, path[0]);
         }
         if (Math.abs(fromPos.x - toPos.x) < 0.1 && Math.abs(fromPos.y - toPos.y) < 0.1) {
             return; // Already at the attack-from cell — stationary melee, nothing to walk.
@@ -4683,7 +4640,6 @@ export class Sandbox extends PixiScene {
             const attackFromPos = this.getObstacleAttackFromPosition(unit, action.attackFrom);
             if (
                 action.path?.length &&
-                attackFromPos &&
                 (Math.abs(currentPos.x - attackFromPos.x) > 0.1 || Math.abs(currentPos.y - attackFromPos.y) > 0.1)
             ) {
                 await new Promise<void>((resolve) => {
@@ -4810,20 +4766,11 @@ export class Sandbox extends PixiScene {
         const afterById = new Map(record.stateAfter.units.map((u) => [u.properties.id, u]));
         const casterAfter = afterById.get(caster.getId());
         const targetAfter = target ? afterById.get(target.getId()) : undefined;
-        // baseCell is the max corner; a 2x2 unit sits half a step down-left of it (see hydrateSceneState).
-        // Subtract the half-step for a large caster/target so a swapped large unit lands on its footprint
-        // center, not the baseCell corner (which would leave it half a cell off diagonally).
-        const cellToPos = (cell: HoCMath.XY, unit: RenderableUnit): HoCMath.XY | undefined => {
-            const p = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            if (!p || unit.isSmallSize()) return p;
-            const footprint = GridMath.getFootprintCellsForPosition(
-                gs,
-                p,
-                unit.getFootprintWidth(),
-                unit.getFootprintHeight(),
-            );
-            return GridMath.getPositionForCells(gs, footprint) ?? p;
-        };
+        // baseCell is the anchor, and a multi-cell body hangs down-left of it (see hydrateSceneState), so a
+        // swapped unit has to land on its footprint's centre rather than on the anchor cell's centre — the
+        // difference is half a cell diagonally for a 2x2.
+        const cellToPos = (cell: HoCMath.XY, unit: RenderableUnit): HoCMath.XY =>
+            this.footprintCenterForAnchor(unit, cell);
         const newCasterPos = casterAfter?.baseCell ? cellToPos(casterAfter.baseCell, caster) : undefined;
         const newTargetPos = targetAfter?.baseCell && target ? cellToPos(targetAfter.baseCell, target) : undefined;
         const oldCasterPos = { ...caster.getPosition() };
@@ -5829,8 +5776,13 @@ export class Sandbox extends PixiScene {
             } else {
                 placement = upperRightPlacement;
             }
-            const isSmallUnit = selectedUnit.getSize() === 1;
-            const allowedCells = placement.possibleCellPositions(isSmallUnit);
+            // possibleCellPositions hands back ANCHOR cells — ones that leave room for the whole body
+            // inside the zone — and it needs both sides to inset the two axes independently.
+            const allowedCells = placement.possibleCellPositions(
+                selectedUnit.isSmallSize(),
+                selectedUnit.getFootprintWidth(),
+                selectedUnit.getFootprintHeight(),
+            );
             HoCLib.shuffle(allowedCells);
             const gs = this.sc_sceneSettings.getGridSettings();
             // Prepare the set of all valid placement hashes for this team to verify boundaries
@@ -5871,16 +5823,10 @@ export class Sandbox extends PixiScene {
                 orderedCells.push(c);
             }
             for (const cell of orderedCells) {
-                // 2. Define the full footprint
-                let cellsToOccupy: HoCMath.XY[] = [cell];
-                if (!isSmallUnit) {
-                    cellsToOccupy = [
-                        { x: cell.x, y: cell.y },
-                        { x: cell.x + 1, y: cell.y },
-                        { x: cell.x, y: cell.y + 1 },
-                        { x: cell.x + 1, y: cell.y + 1 },
-                    ];
-                }
+                // 2. Define the full footprint. Every candidate is an anchor, so the body hangs down-left
+                // of it — growing up-right instead put the clone on cells the engine never assigns it, and
+                // for a non-square body it also loses the one legal column at the zone's low edge.
+                const cellsToOccupy = selectedUnit.getFootprintCellsForAnchor(cell);
                 // 3. CHECK: Boundaries (Ensure EVERY cell is inside the placement zone)
                 // Even if the anchor is valid, a large unit might spill out.
                 if (teamAllowedHashes) {
@@ -6709,36 +6655,15 @@ export class Sandbox extends PixiScene {
                             // If attackFrom is far, we need a path.
                             // Distance check to prevent zero-length moves (more robust than isSameCell)
                             // currentPos is already defined in outer scope
-                            const targetPos = GridMath.getPositionForCell(
-                                attackFrom,
-                                gs.getMinX(),
-                                gs.getStep(),
-                                gs.getHalfStep(),
-                            );
-                            let isAtTarget = false;
-
-                            if (targetPos) {
-                                // For large (2x2) units, attackFrom is the footprint's anchor (top-right)
-                                // cell; the unit's actual position is the footprint CENTER, a halfStep
-                                // down-left of that cell's center (mirrors the `position - halfStep`
-                                // footprint math the move branch below uses). Comparing currentPos to the
-                                // raw cell center left a static large RANGED attacker (Tsar Cannon,
-                                // Gargantuan) reading as "needs to move", so it searched for a route to its
-                                // own cell, found none, and silently never fired. Offset the comparison so
-                                // "already in place" is detected and the shot fires immediately.
-                                const attackFootprint = GridMath.getFootprintCellsForPosition(
-                                    gs,
-                                    targetPos,
-                                    this.currentActiveUnit.getFootprintWidth(),
-                                    this.currentActiveUnit.getFootprintHeight(),
-                                );
-                                const attackPosition = GridMath.getPositionForCells(gs, attackFootprint) ?? targetPos;
-                                const dx = Math.abs(currentPos.x - attackPosition.x);
-                                const dy = Math.abs(currentPos.y - attackPosition.y);
-                                if (dx < 0.1 && dy < 0.1) {
-                                    isAtTarget = true;
-                                }
-                            }
+                            // attackFrom is the footprint's ANCHOR cell, while the unit's position is the
+                            // centre of its whole body. Comparing currentPos to the raw cell centre left a
+                            // static multi-cell RANGED attacker (Tsar Cannon, Gargantuan) reading as "needs
+                            // to move", so it searched for a route to its own cell, found none, and
+                            // silently never fired.
+                            const attackPosition = this.footprintCenterForAnchor(this.currentActiveUnit, attackFrom);
+                            const isAtTarget =
+                                Math.abs(currentPos.x - attackPosition.x) < 0.1 &&
+                                Math.abs(currentPos.y - attackPosition.y) < 0.1;
 
                             // In authoritative-replay (ranked) mode a melee_attack action already
                             // carries the move `path`, so the server moves-and-attacks in a single
@@ -6769,24 +6694,10 @@ export class Sandbox extends PixiScene {
                                     if (routes && routes.length > 0) {
                                         const route = routes[0].route;
 
-                                        // Calculate footprint exactly as test_heroes.ts does for large units
-                                        // It shifts the center by -halfStep, effectively treating attackFrom as Top-Right ??
-                                        // or ensuring collision detection center alignment.
-                                        const position = GridMath.getPositionForCell(
-                                            attackFrom,
-                                            gs.getMinX(),
-                                            gs.getStep(),
-                                            gs.getHalfStep(),
-                                        );
-                                        if (!position) {
-                                            return;
-                                        }
-                                        const candidate = GridMath.getFootprintCellsForPosition(
-                                            gs,
-                                            position,
-                                            this.currentActiveUnit.getFootprintWidth(),
-                                            this.currentActiveUnit.getFootprintHeight(),
-                                        );
+                                        // The body the unit will occupy once it has walked there: attackFrom
+                                        // is the anchor, so the footprint hangs down-left from it — the same
+                                        // cells the engine occupies when it resolves this attack.
+                                        const candidate = this.currentActiveUnit.getFootprintCellsForAnchor(attackFrom);
 
                                         this.executeMoveSequence(
                                             this.currentActiveUnit,
@@ -6854,30 +6765,25 @@ export class Sandbox extends PixiScene {
                 if (!this.currentActiveUnit.isSmallSize()) {
                     const candidate = this.hoverManager.findLargeUnitMoveCandidate(cell);
                     if (!candidate) return;
-                    const targetPos = GridMath.getPositionForCells(gs, candidate);
-                    if (targetPos) {
-                        const dx = Math.abs(currentPos.x - targetPos.x);
-                        const dy = Math.abs(currentPos.y - targetPos.y);
-                        if (dx < 0.1 && dy < 0.1) {
-                            console.log("Move target is same as current position. Ignoring.");
-                            return;
-                        }
+                    // Any rectangle the candidate finder returns has an anchor and therefore a centre, so
+                    // the destination is never optional here.
+                    const anchor = GridMath.getFootprintAnchorForCells(candidate);
+                    if (!anchor) return;
+                    const targetPos = this.footprintCenterForAnchor(this.currentActiveUnit, anchor);
+                    if (Math.abs(currentPos.x - targetPos.x) < 0.1 && Math.abs(currentPos.y - targetPos.y) < 0.1) {
+                        console.log("Move target is same as current position. Ignoring.");
+                        return;
                     }
                     // A footprint-only move animates as a straight A->B line, cutting across whatever
                     // lies between — on the Mountains map that reads as walking/flying THROUGH the
                     // rocks. Use the real route (keyed by the footprint's anchor = max corner) when it
                     // exists: walkers always follow it; flyers keep their straight glide unless the
                     // straight segment would cross a standing rock.
-                    const anchor = candidate.reduce(
-                        (acc, c) => ({ x: Math.max(acc.x, c.x), y: Math.max(acc.y, c.y) }),
-                        { x: Number.MIN_SAFE_INTEGER, y: Number.MIN_SAFE_INTEGER },
-                    );
                     const route = this.currentActiveKnownPaths.get((anchor.x << 4) | anchor.y)?.[0]?.route;
                     const wantsRoute =
                         !!route?.length &&
                         (!this.currentActiveUnit.canFly() ||
-                            (targetPos !== undefined &&
-                                this.straightSegmentBlockedForFlyer(this.currentActiveUnit, currentPos, targetPos)));
+                            this.straightSegmentBlockedForFlyer(this.currentActiveUnit, currentPos, targetPos));
                     if (wantsRoute && route) {
                         this.executeMoveSequence(this.currentActiveUnit, route, candidate);
                     } else {
@@ -7647,7 +7553,7 @@ export class Sandbox extends PixiScene {
                     worldPos,
                     targets.attackCells,
                     unit.getCells(),
-                    target.isSmallSize() ? [target.getBaseCell()] : target.getCells(),
+                    target.getCells(),
                     unit.isSmallSize(),
                     unit.getAttackRange(),
                     target.isSmallSize(),
@@ -8084,10 +7990,7 @@ export class Sandbox extends PixiScene {
             return [];
         }
         const gs = this.sc_sceneSettings.getGridSettings();
-        const cells = GridMath.getCellsAroundFootprint(
-            gs,
-            target.isSmallSize() ? [target.getBaseCell()] : target.getCells(),
-        );
+        const cells = GridMath.getCellsAroundFootprint(gs, target.getCells());
         const seen = new Set<string>([caster.getId(), target.getId()]);
         const splashed: Unit[] = [];
         for (const cell of cells) {
@@ -8421,10 +8324,6 @@ export class Sandbox extends PixiScene {
         }
 
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
-        if (!attackFromPos) {
-            return false;
-        }
-
         const currentPos = unit.getPosition();
         const alreadyAtAttackCell =
             Math.abs(currentPos.x - attackFromPos.x) < 0.1 && Math.abs(currentPos.y - attackFromPos.y) < 0.1;
@@ -8438,10 +8337,8 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        // A one-cell body needs no override: the move lands on the single destination cell.
         const footprint = unit.isSmallSize() ? undefined : this.getLargeUnitObstacleFootprint(unit, attackFromCell);
-        if (!unit.isSmallSize() && !footprint) {
-            return false;
-        }
 
         this.executeMoveSequence(unit, route, footprint, () => {
             this.applyObstacleAttackAction(unit, targetPosition, attackFromCell, onComplete);
@@ -8581,28 +8478,30 @@ export class Sandbox extends PixiScene {
             onImpact?.(shotIndex);
         }
     }
-    private getObstacleAttackFromPosition(unit: RenderableUnit, attackFromCell: HoCMath.XY): HoCMath.XY | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const position = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        if (!position) {
-            return undefined;
-        }
-        if (unit.isSmallSize()) return position;
-        const footprint = GridMath.getFootprintCellsForPosition(
-            gs,
-            position,
+    /**
+     * Where a unit's body stands when its ANCHOR sits on `anchor` — the one conversion every landing cell
+     * in this scene needs.
+     *
+     * An attack-from cell, a move destination and a base cell are all ANCHORS: the footprint's top-right
+     * cell, with the body extending down-left from it (Unit.getFootprintCellsForAnchor). The unit's
+     * position, though, is the CENTRE of that whole rectangle — half a cell down-left of the anchor cell's
+     * centre for a 2-wide/2-tall body, and exactly the cell centre for a 1x1. Comparing a large unit's
+     * position against the raw cell centre is what once made a static large shooter read as "not in place
+     * yet" and silently never fire.
+     */
+    private footprintCenterForAnchor(unit: Unit, anchor: HoCMath.XY): HoCMath.XY {
+        return GridMath.getPositionForFootprintAnchor(
+            this.sc_sceneSettings.getGridSettings(),
+            anchor,
             unit.getFootprintWidth(),
             unit.getFootprintHeight(),
         );
-        return GridMath.getPositionForCells(gs, footprint) ?? position;
     }
-    private getLargeUnitObstacleFootprint(unit: Unit, attackFromCell: HoCMath.XY): HoCMath.XY[] | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const position = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-        if (!position) {
-            return undefined;
-        }
-        return GridMath.getFootprintCellsForPosition(gs, position, unit.getFootprintWidth(), unit.getFootprintHeight());
+    private getObstacleAttackFromPosition(unit: RenderableUnit, attackFromCell: HoCMath.XY): HoCMath.XY {
+        return this.footprintCenterForAnchor(unit, attackFromCell);
+    }
+    private getLargeUnitObstacleFootprint(unit: Unit, attackFromCell: HoCMath.XY): HoCMath.XY[] {
+        return unit.getFootprintCellsForAnchor(attackFromCell);
     }
     /**
      * Reuse the exact obstacle ray test from committed ranged attacks for every visible aiming line.
@@ -8730,27 +8629,23 @@ export class Sandbox extends PixiScene {
         this.hoverManager.hoverAttackFromCell = attackFromCell;
         const attackFromPos = this.getObstacleAttackFromPosition(unit, attackFromCell);
         const cellCenter = hoveredObstacleCenter;
-        if (attackFromPos) {
-            this.hoverManager.updateHoverSilhouette(attackFromPos);
-            // Aim at the target's own grid anchor, not the raw pointer. The sword keeps one fixed cell-size
-            // scale, while the projected endpoints determine only its position and facing.
-            //
-            // Suppressed once the swing is committed: the marker is redrawn every frame while the pointer
-            // rests on the target, so clearing it once at attack time was immediately undone.
-            if (!this.isStrikeInFlight()) {
-                const attackPreview = unit.getBattlefieldPreviewAt(attackFromPos, gs);
-                this.hoverManager.drawAttackArrow(
-                    attackPreview
-                        ? { x: attackPreview.x, y: attackPreview.y }
-                        : projectBattlefieldPoint(attackFromPos, gs),
-                    projectBattlefieldPoint(cellCenter, gs),
-                    undefined,
-                    undefined,
-                    "melee",
-                    true,
-                    meleeSwordFacingAngle(attackFromPos, cellCenter),
-                );
-            }
+        this.hoverManager.updateHoverSilhouette(attackFromPos);
+        // Aim at the target's own grid anchor, not the raw pointer. The sword keeps one fixed cell-size
+        // scale, while the projected endpoints determine only its position and facing.
+        //
+        // Suppressed once the swing is committed: the marker is redrawn every frame while the pointer
+        // rests on the target, so clearing it once at attack time was immediately undone.
+        if (!this.isStrikeInFlight()) {
+            const attackPreview = unit.getBattlefieldPreviewAt(attackFromPos, gs);
+            this.hoverManager.drawAttackArrow(
+                attackPreview ? { x: attackPreview.x, y: attackPreview.y } : projectBattlefieldPoint(attackFromPos, gs),
+                projectBattlefieldPoint(cellCenter, gs),
+                undefined,
+                undefined,
+                "melee",
+                true,
+                meleeSwordFacingAngle(attackFromPos, cellCenter),
+            );
         }
         if (this.grid.hasScatteredMountains()) {
             this.dungeonVisuals.highlightScatteredMountains([cellCenter]);
@@ -10427,12 +10322,15 @@ export class Sandbox extends PixiScene {
 
         unit.setPosition(startPos.x, startPos.y);
 
-        // For large units, recompute a sensible anchor destCell
+        // For multi-cell units, recompute a sensible anchor destCell. Derived from the footprint rather
+        // than from getCellForPosition, which only lands on the anchor while both sides are 1 or 2.
         if (pathLooksLikeFootprintOnly) {
-            const anchor = GridMath.getCellForPosition(gs, newWorldPos);
-            if (anchor) {
-                destCell = anchor;
-            }
+            destCell = GridMath.getFootprintAnchorForPosition(
+                gs,
+                newWorldPos,
+                unit.getFootprintWidth(),
+                unit.getFootprintHeight(),
+            );
         }
 
         // --- Build world-space path for visual animation ---
@@ -10781,7 +10679,7 @@ export class Sandbox extends PixiScene {
                         this.sc_hoveredAuraRanges = {
                             xy: hoverTargetUnit.getPosition(),
                             auraRanges: finalAuras,
-                            isSmall: hoverTargetUnit.isSmallSize(),
+                            footprint: footprintExtentOf(hoverTargetUnit),
                         };
                     }
                 }
@@ -11267,29 +11165,12 @@ export class Sandbox extends PixiScene {
                             attackFromCell = attackFrom;
                             this.hoverManager.hoverAttackFromCell = attackFrom;
 
-                            // Silhouette center = the geometric center of the unit's 2x2 footprint at the
-                            // landing cell (matches where replayMeleeApproach puts it). attackFrom is the
-                            // footprint's TOP-RIGHT anchor — getLargeUnitAttackCells pushes the top-right
-                            // corner and the 2x2 extends down-left from it — so the center is that cell's
-                            // center offset a half step down-left. (The prior getPositionForCells(footprint)
-                            // path was wrong: the map value is a LIST of candidate anchor corners, not a
-                            // single 2x2 footprint, so it returned the anchor's own center and left the
-                            // preview half a cell up-right of the real landing.)
-                            attackFromPos = GridMath.getPositionForCell(
-                                attackFrom,
-                                gs.getMinX(),
-                                gs.getStep(),
-                                gs.getHalfStep(),
-                            );
-                            if (!this.currentActiveUnit.isSmallSize()) {
-                                const attackFootprint = GridMath.getFootprintCellsForPosition(
-                                    gs,
-                                    attackFromPos,
-                                    this.currentActiveUnit.getFootprintWidth(),
-                                    this.currentActiveUnit.getFootprintHeight(),
-                                );
-                                attackFromPos = GridMath.getPositionForCells(gs, attackFootprint) ?? attackFromPos;
-                            }
+                            // Silhouette center = the geometric center of the unit's footprint at the
+                            // landing cell (matches where replayMeleeApproach puts it). attackFrom is that
+                            // footprint's ANCHOR — getLargeUnitAttackCells pushes anchors, and the body
+                            // extends down-left from one — so the centre is the anchor cell's centre pulled
+                            // back by half the body on each axis.
+                            attackFromPos = this.footprintCenterForAnchor(this.currentActiveUnit, attackFrom);
 
                             this.hoverManager.updateHoverSilhouette(attackFromPos);
                         } else {
@@ -11345,9 +11226,15 @@ export class Sandbox extends PixiScene {
                             // Pick one of eight stable anchors around the target footprint (four edge
                             // midpoints + four corners), then project that logical anchor through the same
                             // transform as the painted grid. This matches the side selected by the pointer.
-                            const targetHalfExtent = gs.getHalfStep() * (targetUnit.isSmallSize() ? 1 : 2);
+                            // Half the target's body on each axis: the blade stops on the edge it is
+                            // actually pointing at, which is a different distance on a rectangle's two axes.
                             arrowEndPos = projectBattlefieldPoint(
-                                meleeSwordTargetPoint(attackFromPos, targetUnit.getPosition(), targetHalfExtent),
+                                meleeSwordTargetPoint(
+                                    attackFromPos,
+                                    targetUnit.getPosition(),
+                                    gs.getHalfStep() * targetUnit.getFootprintWidth(),
+                                    gs.getHalfStep() * targetUnit.getFootprintHeight(),
+                                ),
                                 gs,
                             );
                             arrowEndVisual = arrowEndPos;
@@ -11453,7 +11340,7 @@ export class Sandbox extends PixiScene {
                                     this.sc_mouseWorld,
                                     this.canAttackByMeleeTargets.attackCells,
                                     this.currentActiveUnit.getCells(),
-                                    targetUnit.isSmallSize() ? [targetUnit.getBaseCell()] : targetUnit.getCells(),
+                                    targetUnit.getCells(),
                                     this.currentActiveUnit.isSmallSize(),
                                     this.currentActiveUnit.getAttackRange(),
                                     targetUnit.isSmallSize(),
@@ -11589,14 +11476,12 @@ export class Sandbox extends PixiScene {
                         let effectiveAttackRate = attackRate;
 
                         if (warAngerAuraEffect) {
+                            // Sample the auras on the cells the attacker will really stand on. attackFromCell
+                            // is the landing ANCHOR, so the body hangs down-left of it; the three cells this
+                            // used to push grew UP-RIGHT instead, which sampled cells no shape ever occupies.
                             const cells: HoCMath.XY[] = attackFromCell
-                                ? [attackFromCell]
+                                ? this.currentActiveUnit.getFootprintCellsForAnchor(attackFromCell)
                                 : this.currentActiveUnit.getCells();
-                            if (!this.currentActiveUnit.isSmallSize() && attackFromCell) {
-                                cells.push({ x: attackFromCell.x + 1, y: attackFromCell.y });
-                                cells.push({ x: attackFromCell.x, y: attackFromCell.y + 1 });
-                                cells.push({ x: attackFromCell.x + 1, y: attackFromCell.y + 1 });
-                            }
 
                             const newAttackRate =
                                 attackRate -
@@ -12561,12 +12446,12 @@ export class Sandbox extends PixiScene {
         // shot aimed at someone behind it -- which is just as much an attack as aiming at the rock itself.
         const pointerMeleeAttack = this.resolveUnitMeleeAttack(p);
         if (pointerMeleeAttack) {
-            const gs = this.sc_sceneSettings.getGridSettings();
-            const attackFromPosition = GridMath.getPositionForCell(
+            // Face the blade from where the body will stand, not from its anchor cell: hover() draws its
+            // arrow from that same footprint centre, and for a multi-cell unit the two are half a cell
+            // apart — enough to flip the cursor the wrong way when the pointer sits between them.
+            const attackFromPosition = this.footprintCenterForAnchor(
+                pointerMeleeAttack.unit,
                 pointerMeleeAttack.attackFrom,
-                gs.getMinX(),
-                gs.getStep(),
-                gs.getHalfStep(),
             );
             this.sc_meleeCursorDirection = resolveMeleeCursorDirection(attackFromPosition.x, p.x);
         } else {
@@ -12685,14 +12570,28 @@ export class Sandbox extends PixiScene {
 
         this.updatePlacementSplitFromCursor(this.sc_mouseWorld ?? unit.getPosition());
     }
-    private placementSplitFootprint(cell: HoCMath.XY, isSmall: boolean): HoCMath.XY[] {
-        if (isSmall) return [{ x: cell.x, y: cell.y }];
-        return [
-            { x: cell.x, y: cell.y },
-            { x: cell.x + 1, y: cell.y },
-            { x: cell.x, y: cell.y + 1 },
-            { x: cell.x + 1, y: cell.y + 1 },
-        ];
+    /**
+     * Where a split-off stack would land with the cursor on `cell`.
+     *
+     * The peeled stack is the same creature, so it has the SOURCE's footprint — a 2x1 splits into a 2x1,
+     * never into a square. As with the drag ghost, the cursor may sit on any cell of the body: the blocks
+     * covering it are tried in the same order (cursor cell as the minimum corner first, then the block
+     * sliding down and left over it) and the first one that is empty and inside the zone wins. Anchors
+     * whose body would leave the board are dropped before any cell is hashed.
+     */
+    private placementSplitFootprints(unit: Unit, cell: HoCMath.XY): HoCMath.XY[][] {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const width = unit.getFootprintWidth();
+        const height = unit.getFootprintHeight();
+        const footprints: HoCMath.XY[][] = [];
+        for (let cursorDx = 0; cursorDx < width; cursorDx++) {
+            for (let cursorDy = 0; cursorDy < height; cursorDy++) {
+                const anchor = { x: cell.x - cursorDx + width - 1, y: cell.y - cursorDy + height - 1 };
+                if (!GridMath.isFootprintWithinGrid(gs, anchor, width, height)) continue;
+                footprints.push(unit.getFootprintCellsForAnchor(anchor));
+            }
+        }
+        return footprints;
     }
     protected isValidEmptySplitTarget(cells: HoCMath.XY[], team: TeamType): boolean {
         const allowed = this.placementManager.getAllowedPlacementCellHashesForTeam(team);
@@ -12708,13 +12607,13 @@ export class Sandbox extends PixiScene {
             return;
         }
         const gs = this.sc_sceneSettings.getGridSettings();
-        const isSmall = source.getSize() === 1;
-        const footprint = this.placementSplitFootprint(GridMath.getCellForPosition(gs, p), isSmall);
         // Lock the destination on the FIRST empty cell the drag reaches (default peel 1 → N-1/1). It stays put
         // afterwards, so moving the mouse sweeps the ratio instead of re-selecting the cell under the cursor
         // (the placement zone is almost all empty, so re-selecting would pin the peel at 1 forever).
-        if (!this.splitDragTargetCells && this.isValidEmptySplitTarget(footprint, source.getTeam())) {
-            this.splitDragTargetCells = footprint;
+        if (!this.splitDragTargetCells) {
+            this.splitDragTargetCells = this.placementSplitFootprints(source, GridMath.getCellForPosition(gs, p)).find(
+                (footprint) => this.isValidEmptySplitTarget(footprint, source.getTeam()),
+            );
         }
         // Peel scales with how far the cursor is pulled from the locked cell: on it = 1 (N-1/1), ~5 cells out =
         // all-but-one (1/N-1); pull back toward the cell to peel fewer.
@@ -12923,7 +12822,10 @@ export class Sandbox extends PixiScene {
         const pos = unit.getPosition();
         this.splitHintText = this.ensureSplitText(this.splitHintText, 20, 0xffe08a);
         this.splitHintText.text = "⇧ Shift + drag to split";
-        this.splitHintText.position.set(pos.x, pos.y + gs.getCellSize() * (unit.getSize() === 2 ? 1.35 : 0.95));
+        // Clear of the sprite's head: 0.95 cells above a one-cell-tall body, 1.35 above a two-cell one —
+        // the same two offsets as before, now derived from the height rather than from `size`.
+        const hintOffsetCells = 0.95 + (unit.getFootprintHeight() - 1) * 0.4;
+        this.splitHintText.position.set(pos.x, pos.y + gs.getCellSize() * hintOffsetCells);
         this.splitHintText.visible = true;
     }
     private clearSplitHint(): void {
@@ -13447,7 +13349,7 @@ export class Sandbox extends PixiScene {
                   xy: HoCMath.XY;
                   attackRange: number;
                   auraRanges: { range: number; isBuff: boolean }[];
-                  isSmall: boolean;
+                  footprint: IFootprintExtent;
               }
             | undefined;
 
@@ -13493,7 +13395,7 @@ export class Sandbox extends PixiScene {
                               })()
                             : 0,
                     auraRanges,
-                    isSmall: u.isSmallSize(),
+                    footprint: footprintExtentOf(u),
                 };
             }
         }
@@ -14547,7 +14449,20 @@ export class Sandbox extends PixiScene {
         // is idempotent and also repairs a ranked replay that arrived on a stale local grid.
         if (event.cells.length) {
             this.grid.cleanupAll(unit.getId(), unit.getAttackRange(), unit.isSmallSize());
-            this.grid.occupyCells(event.cells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true);
+            // A refused occupy leaves the summon VISIBLE but absent from the grid: unhoverable,
+            // untargetable, and standing on cells the board still believes are free — and the refusal used
+            // to be discarded. The event's cells are authoritative, so a refusal means they disagree with
+            // the body built here (a partial footprint, or a shape this client does not give the creature):
+            // retry on the unit's own footprint, and report it if even that is rejected rather than leaving
+            // the stack off the board in silence.
+            if (!this.grid.occupyCells(event.cells, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true)) {
+                const own = unit.getCells();
+                if (!this.grid.occupyCells(own, unit.getId(), unit.getTeam(), unit.getAttackRange(), true, true)) {
+                    console.error(
+                        `Critical: summoned ${unit.getName()} could not occupy its ${own.length}-cell footprint`,
+                    );
+                }
+            }
         }
         this.layoutVersion++;
         this.gridMatrix = this.grid.getMatrix();
