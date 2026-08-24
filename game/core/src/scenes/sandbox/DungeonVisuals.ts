@@ -531,7 +531,8 @@ export class DungeonVisuals {
     private mountainQuarterTextures?: { source: Texture; quarters: Texture[] };
     /**
      * The scattered-object art: nine approved Cemetery obstacles in a 3x3 atlas of 256x461 transparent
-     * tiles. Every roll uses each variant exactly once; transparent padding carries the per-object width,
+     * tiles. A roll deals the full nine-variant deck first, then fills the remaining slots with repeats
+     * (12 stones over 9 variants: exactly three repeat); transparent padding carries the per-object width,
      * height and base-centre tuning from the local obstacle editor.
      */
     private static readonly MOUNTAIN_TILES_KEY = "cemetery_obstacles_9x_256";
