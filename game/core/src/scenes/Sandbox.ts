@@ -378,6 +378,9 @@ export interface SandboxSceneUnitState {
     /** Aggr forced target: the unit id this unit is compelled to attack (empty/undefined = none). Restored
      *  on rebuild so attack arrows never point at anyone but the forced target. */
     forcedTargetId?: string;
+    /** Terrifying Gaze forbidden target: the one enemy this unit cannot attack. Restored independently of
+     *  Aggr so every other enemy remains available after a rebuild or ranked snapshot. */
+    forbiddenTargetId?: string;
     /** Remaining laps for a mechanically active Break effect. Ranked normally treats snapshot effects as
      *  display-only, but Break must exist in Unit.effects before passive/stat refresh so disabled abilities
      *  (notably Angelic Host) stay disabled in local previews too. */
@@ -2116,6 +2119,7 @@ export class Sandbox extends PixiScene {
                 baseCell: unitState.baseCell,
                 attackType: unitState.attackType as AttackType,
                 forcedTargetId: unitState.forcedTargetId,
+                forbiddenTargetId: unitState.forbiddenTargetId,
             });
         }
 
@@ -2757,6 +2761,8 @@ export class Sandbox extends PixiScene {
         // Restore the Aggr forced-target lock so a rebuilt unit still only offers its compelled target
         // (empty string clears it — the source died or the effect expired).
         renderableUnit.setTarget(unitState.forcedTargetId ?? "");
+        // Terrifying Gaze is the inverse: restore only the prohibited gazer, never a blanket attack lock.
+        renderableUnit.setForbiddenTarget(unitState.forbiddenTargetId ?? "");
         return renderableUnit;
     }
     private captureSceneState(): SandboxSceneState {
@@ -2777,6 +2783,7 @@ export class Sandbox extends PixiScene {
                 attackType: unit.getAttackTypeSelection(),
                 onHourglass: unit.isOnHourglass(),
                 forcedTargetId: unit.getTarget() || undefined,
+                forbiddenTargetId: unit.getForbiddenTarget() || undefined,
                 mechanicalBreakLaps: unit.getEffect("Break")?.getLaps(),
             });
         }
