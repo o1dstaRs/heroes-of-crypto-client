@@ -47,7 +47,8 @@ export interface PerkCopy {
  */
 export const PERK_COPY: Record<number, PerkCopy> = {
     [Perk.Perk.THREE_REVEALS]: {
-        iconImage: images.perk_scout,
+        // perk_scout art has not landed in the shared drive yet - fall back to the other scouting icon.
+        iconImage: (images as Partial<Record<string, string>>).perk_scout ?? images.perk_spymaster,
         tagline: "Half their army, spread across every tier",
         detail:
             "Opens three of the opponent's six army slots — one per tier block, not three at random: " +

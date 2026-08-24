@@ -272,7 +272,15 @@ describe("committed creature portrait framing", () => {
         expect([...getCreaturesByLevel(2)].sort((a, b) => a - b)).toEqual(
             expectedLegacySources.map(([creatureId]) => creatureId).sort((a, b) => a - b),
         );
+        // SHIPPED-ART PIN (2026-08-24): these two legacy crops have not landed in the shared Drive
+        // yet, so the table falls back to the base 512 art for them (unit_ui_constants). Drop a slug
+        // from this set the moment its pick_l2_legacy_<slug>_512.webp uploads.
+        const pendingLegacyUploads = new Set<string>(["white_tiger", "manticore"]);
         for (const [creatureId, slug] of expectedLegacySources) {
+            if (pendingLegacyUploads.has(slug)) {
+                expect(UNIT_ID_TO_IMAGE[creatureId]).toContain(`${slug}_512.webp`);
+                continue;
+            }
             expect(UNIT_ID_TO_IMAGE[creatureId]).toContain(`pick_l2_legacy_${slug}_512.webp`);
         }
     });

@@ -50,7 +50,8 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.FAIRY]: images.fairy_512,
     [CreatureVals.LEPRECHAUN]: images.leprechaun_512,
     [CreatureVals.ELF]: images.pick_l2_legacy_elf_512,
-    [CreatureVals.WHITE_TIGER]: images.pick_l2_legacy_white_tiger_512,
+    [CreatureVals.WHITE_TIGER]:
+        (images as Partial<Record<string, string>>).pick_l2_legacy_white_tiger_512 ?? images.white_tiger_512,
     [CreatureVals.SATYR]: images.pick_l2_legacy_satyr_512,
     [CreatureVals.MANTIS]: images.mantis_512,
     [CreatureVals.UNICORN]: images.unicorn_512,
@@ -71,9 +72,10 @@ export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.TSAR_CANNON]: images.tsar_cannon_512,
     [CreatureVals.ANGEL]: images.angel_512,
     [CreatureVals.CHAMPION]: images.champion_512,
-    [CreatureVals.ASH_MOTH]: images.wandering_mage_512,
+    [CreatureVals.WANDERING_MAGE]: images.wandering_mage_512,
     [CreatureVals.MONK]: images.monk_512,
-    [CreatureVals.MANTICORE]: images.pick_l2_legacy_manticore_512,
+    [CreatureVals.MANTICORE]:
+        (images as Partial<Record<string, string>>).pick_l2_legacy_manticore_512 ?? images.manticore_512,
     [CreatureVals.BATTLE_MAGE]: images.pick_l2_legacy_battle_mage_512,
     [CreatureVals.NIGHTMARE]: images.nightmare_512,
     [MAGIC_DRAGON_CREATURE_ID]: images.magic_dragon_512,
@@ -132,7 +134,7 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.TSAR_CANNON]: "Tsar Cannon",
     [CreatureVals.ANGEL]: "Angel",
     [CreatureVals.CHAMPION]: "Champion",
-    [CreatureVals.ASH_MOTH]: "Wandering Mage",
+    [CreatureVals.WANDERING_MAGE]: "Wandering Mage",
     [CreatureVals.MONK]: "Monk",
     [CreatureVals.MANTICORE]: "Manticore",
     [CreatureVals.BATTLE_MAGE]: "Battle Mage",
@@ -154,9 +156,11 @@ const generatedImageMap = images as Readonly<Record<string, string | undefined>>
 export const fullBodyCreatureImage = (creatureId: number): string | undefined => {
     if (creatureId === CreatureVals.ORC) return images.orc_model_full;
     if (creatureId === CreatureVals.SCAVENGER) return images.thief_model_full;
-    if (creatureId === CreatureVals.ASH_MOTH) return images.wandering_mage_portrait_full;
-    if (creatureId === CreatureVals.EFREET) return images.efreet_portrait_full_v7;
-    if (creatureId === CreatureVals.MANTIS) return images.mantis_portrait_full_v3;
+    if (creatureId === CreatureVals.WANDERING_MAGE) return images.wandering_mage_portrait_full;
+    if (creatureId === CreatureVals.EFREET)
+        return (images as Partial<Record<string, string>>).efreet_portrait_full_v7 ?? images.efreet_portrait_full_v5;
+    if (creatureId === CreatureVals.MANTIS)
+        return (images as Partial<Record<string, string>>).mantis_portrait_full_v3 ?? images.mantis_portrait_full_v2;
     if (creatureId === CreatureVals.THUNDERBIRD) return images.thunderbird_portrait_full_v2;
     const slug = UNIT_ID_TO_NAME[creatureId]?.toLowerCase().replaceAll(" ", "_");
     return slug ? generatedImageMap[`${slug}_portrait_full`] : undefined;
