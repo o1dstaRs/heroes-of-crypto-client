@@ -17,7 +17,7 @@ import {
     GridSettings,
     GridVals,
     HoCConfig,
-    Perk,
+    Doctrine,
     PlacementPositionType,
     RectanglePlacement,
     TeamType,
@@ -63,7 +63,7 @@ const PLACEMENT_SECONDS = 120;
 /** Long-bodied comparison art spans two cells even while the stable engine catalog remains one-cell. */
 const HORIZONTAL_COMPARISON_FOOTPRINTS = new Set(["Wolf", "Centaur", "Wolf Rider", "Nomad"]);
 
-/** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout perk's whole 6-point budget. */
+/** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout doctrine's whole 6-point budget. */
 const LOWER_AUGMENTS = { placement: 2, armor: 2, might: 1, empower: 0, sniper: 0, movement: 1 } as const;
 
 export interface PreviewPlacementOptions {
@@ -381,11 +381,11 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         centerDried: false,
         upNext: [],
         damageStats: [],
-        // The perk sets the augment budget the sidebar recaps. The opponent's perk, artifacts and
+        // The doctrine sets the augment budget the sidebar recaps. The opponent's doctrine, artifacts and
         // augments stay 0 before the fight starts — that redaction is the server's, and copying it keeps
         // the preview from showing information the real screen hides.
-        lowerPerk: viewerIsLower ? Perk.Perk.THREE_REVEALS : 0,
-        upperPerk: viewerIsLower ? 0 : Perk.Perk.THREE_REVEALS,
+        lowerDoctrine: viewerIsLower ? Doctrine.Doctrine.THREE_REVEALS : 0,
+        upperDoctrine: viewerIsLower ? 0 : Doctrine.Doctrine.THREE_REVEALS,
         lowerArtifactTier1: viewerIsLower ? 1 : 0,
         lowerArtifactTier2: viewerIsLower ? 1 : 0,
         upperArtifactTier1: viewerIsLower ? 0 : 1,

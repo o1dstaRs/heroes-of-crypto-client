@@ -508,14 +508,14 @@ export function AuthProvider({ children }: Props) {
         });
     }, []);
 
-    const perk = useCallback(async (perkId: number) => {
+    const doctrine = useCallback(async (doctrineId: number) => {
         refreshLocalStorageFromCookie();
         const accessToken = localStorage.getItem(STORAGE_KEY);
 
-        const perkRequest = new DoctrineRequest({ doctrine: perkId });
-        const data = perkRequest.serializeBinary();
+        const doctrineRequest = new DoctrineRequest({ doctrine: doctrineId });
+        const data = doctrineRequest.serializeBinary();
 
-        await axiosGameInstance.post(`${endpoints.game.perk}`, data, {
+        await axiosGameInstance.post(`${endpoints.game.doctrine}`, data, {
             responseType: "arraybuffer",
             headers: {
                 "Content-Type": "application/octet-stream",
@@ -915,7 +915,7 @@ export function AuthProvider({ children }: Props) {
             pickPair,
             pick,
             artifact,
-            perk,
+            doctrine,
             ban,
             reveal,
             getCurrentGame,
@@ -946,7 +946,7 @@ export function AuthProvider({ children }: Props) {
             pickPair,
             pick,
             artifact,
-            perk,
+            doctrine,
             ban,
             reveal,
             getCurrentGame,

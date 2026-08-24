@@ -1,7 +1,7 @@
 import {
     Artifact,
     ArtifactRequest,
-    Perk,
+    Doctrine,
     DoctrineRequest,
     CREATURES_JSON,
     CreatureByLevel,
@@ -28,14 +28,14 @@ import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 interface DraftChoice {
     label: string;
     index: number;
-    type: "pick_pair" | "pick" | "ban" | "artifact" | "perk";
+    type: "pick_pair" | "pick" | "ban" | "artifact" | "doctrine";
     summary: string;
     pairIndex?: number;
     pair?: [number, number];
     creatureId?: number;
     artifactId?: number;
     artifactTier?: number;
-    perkId?: number;
+    doctrineId?: number;
     score: number;
     tags: string[];
 }
@@ -130,7 +130,7 @@ const phaseName = (phase: number): string => {
         case PickPhaseVals.BAN:
             return "ban";
         case PickPhaseVals.DOCTRINE:
-            return "perk";
+            return "doctrine";
         case PickPhaseVals.ARTIFACT_1:
             return "tier 1 artifact";
         case PickPhaseVals.ARTIFACT_2:
@@ -303,18 +303,18 @@ const buildDraftChoices = (event: IPickPhaseEventData, failedChoiceIds: Set<stri
     const choices: DraftChoice[] = [];
 
     if (event.pp === PickPhaseVals.DOCTRINE) {
-        // The AI takes the Scout perk (3 reveals, 6 upgrade points) by default.
-        const perkId = Perk.Perk.THREE_REVEALS;
-        const choiceId = `perk:${perkId}`;
+        // The AI takes the Scout doctrine (3 reveals, 6 upgrade points) by default.
+        const doctrineId = Doctrine.Doctrine.THREE_REVEALS;
+        const choiceId = `doctrine:${doctrineId}`;
         if (!failedChoiceIds.has(choiceId)) {
             choices.push({
                 label: labels[0] ?? "1",
                 index: 1,
-                type: "perk",
-                perkId,
+                type: "doctrine",
+                doctrineId,
                 score: 1,
-                summary: `Perk: ${Perk.getPerkProperties(perkId).name}`,
-                tags: ["perk"],
+                summary: `Doctrine: ${Doctrine.getDoctrineProperties(doctrineId).name}`,
+                tags: ["doctrine"],
             });
         }
         return choices;
@@ -651,9 +651,9 @@ const submitDraftChoice = async (choice: DraftChoice, authorization: string): Pr
         return;
     }
 
-    if (choice.type === "perk") {
-        const request = new DoctrineRequest({ doctrine: choice.perkId ?? 0 });
-        await postPickBody(endpoints.game.perk, request.serializeBinary(), authorization);
+    if (choice.type === "doctrine") {
+        const request = new DoctrineRequest({ doctrine: choice.doctrineId ?? 0 });
+        await postPickBody(endpoints.game.doctrine, request.serializeBinary(), authorization);
         return;
     }
 
@@ -733,8 +733,8 @@ export const LocalModelDraftOpponent: React.FC<{ eventUrl: string; userTeam: Tea
                         ? `pair:${choice.pairIndex ?? 0}`
                         : choice.type === "artifact"
                           ? `artifact:${choice.artifactTier ?? 0}:${choice.artifactId ?? 0}`
-                          : choice.type === "perk"
-                            ? `perk:${choice.perkId ?? 0}`
+                          : choice.type === "doctrine"
+                            ? `doctrine:${choice.doctrineId ?? 0}`
                             : `${choice.type}:${choice.creatureId ?? 0}`;
                 try {
                     console.info("[local model draft]", choice.summary);

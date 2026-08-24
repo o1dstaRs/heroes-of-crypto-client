@@ -28,8 +28,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Pick one starting bundle.": "Выберите один стартовый набор.",
     "Choose one of the two bundles first.": "Сначала выберите один из двух наборов.",
     "Confirm bundle": "Подтвердить набор",
-    "Choose your perk": "Выберите перк",
-    "Pick one perk to continue.": "Выберите перк, чтобы продолжить.",
+    "Choose your doctrine": "Выберите перк",
+    "Pick one doctrine to continue.": "Выберите перк, чтобы продолжить.",
     "Pick rejected — choose another.": "Выбор отклонён — выберите другое.",
     "Your army": "Ваша армия",
     "In your army": "В вашей армии",
@@ -81,7 +81,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Artifact 2": "Артефакт 2",
     Place: "Расстановка",
     "Green (lower) picks first, then red (upper)": "Зелёный (нижний) выбирает первым, затем красный (верхний)",
-    "Choose your scouting perk. It lasts the whole draft and decides which of the opponent's army slots you can watch.":
+    "Choose your scouting doctrine. It lasts the whole draft and decides which of the opponent's army slots you can watch.":
         "Выберите перк разведки. Он действует весь драфт и определяет, какие слоты армии противника вы видите.",
     "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.":
         "Каждый набор даёт два существа и артефакт 1-го уровня. Выберите один.",
@@ -311,7 +311,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "Усиления и синергии для этого старого матча не записаны.",
     "Combat setup not recorded": "Боевая настройка не записана",
     "None recorded": "Не записано",
-    Perk: "Перк",
+    Doctrine: "Перк",
     "{count} pts": "{count} оч.",
     Placement: "Расстановка",
     Empower: "Усиление",
@@ -432,7 +432,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Try the ranked queue again, or sharpen your strategy against the AI.":
         "Попробуйте рейтинговый поиск снова или потренируйтесь против ИИ.",
 
-    // Perk names and every player-facing line used by the arena and the draft.
+    // Doctrine names and every player-facing line used by the arena and the draft.
     Scout: "Разведчик",
     Spymaster: "Мастер шпионажа",
     "Blind Fury": "Слепая ярость",
@@ -459,11 +459,11 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "5 из 7 очков усилений — на два уровня меньше максимума.",
     "All 7 upgrade points — the full budget, enough for two level-3 augments plus a level-1.":
         "Все 7 очков усилений — хватит на два усиления 3-го уровня и одно 1-го.",
-    "The middle line, and the only perk guaranteed to show you something at every power tier — including one of their two heavyweights. Take it when you want a read on their plan and can spare a single augment level to get it.":
+    "The middle line, and the only doctrine guaranteed to show you something at every power tier — including one of their two heavyweights. Take it when you want a read on their plan and can spare a single augment level to get it.":
         "Сбалансированный выбор и единственный перк, который гарантированно показывает часть армии на каждом уровне силы, включая одного из двух тяжеловесов. Берите его, если хотите читать план соперника и готовы пожертвовать одним уровнем усиления.",
-    "Total information: you ban what actually threatens you and pick real counters instead of guessing. It is the most expensive perk, so it pays off when you know the matchups well enough to convert what you see into better picks.":
+    "Total information: you ban what actually threatens you and pick real counters instead of guessing. It is the most expensive doctrine, so it pays off when you know the matchups well enough to convert what you see into better picks.":
         "Полная информация: баньте реальные угрозы и выбирайте контрмеры без догадок. Это самый дорогой перк, поэтому он выгоден, если вы хорошо знаете сочетания существ.",
-    "Trades every scrap of information for raw army strength. Take it when you have a composition you trust and would rather be stronger than informed. Perks are chosen independently, so expect that your opponent may still be watching you.":
+    "Trades every scrap of information for raw army strength. Take it when you have a composition you trust and would rather be stronger than informed. Doctrines are chosen independently, so expect that your opponent may still be watching you.":
         "Меняет всю информацию на чистую силу армии. Берите его для проверенного состава, когда сила важнее разведки. Перки выбираются независимо, поэтому противник всё ещё может видеть ваши выборы.",
     Chosen: "Выбрано",
     "Lvl {level}": "Ур. {level}",
@@ -501,7 +501,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Tier-1 artifact": "Артефакт 1-го уровня",
     "Level {level} slot": "Слот уровня {level}",
     "Tier-{tier} artifact — not drafted yet": "Артефакт {tier}-го уровня — ещё не выбран",
-    "Level {level} — revealed by your perk (flips to the unit once your opponent picks here)":
+    "Level {level} — revealed by your doctrine (flips to the unit once your opponent picks here)":
         "Уровень {level} — открыт вашим перком (существо появится после выбора соперника)",
     "Level {level} — hidden": "Уровень {level} — скрыто",
     "Confirming this pick lights {faction} — {label} lvl {level}: {description}":
@@ -513,7 +513,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
         "{faction} — {label}: заблокировано; до ур. 1 нужно ещё отрядов фракции {faction}: {count}",
 
     // Read-only draft spectator.
-    "Choosing perks": "Выбор перков",
+    "Choosing doctrines": "Выбор перков",
     "Opening bundles": "Выбор стартовых наборов",
     "Picking creatures": "Выбор существ",
     "Banning creatures": "Бан существ",
@@ -567,7 +567,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Synergies: {list}": "Синергии: {list}",
     "Edit augments": "Изменить усиления",
     "Done editing": "Завершить редактирование",
-    "Perk: {name}": "Перк: {name}",
+    "Doctrine: {name}": "Перк: {name}",
     "Augments ({spent}/{budget} pts)": "Усиления ({spent}/{budget} оч.)",
     "{name} augment": "Усиление «{name}»",
     "{name} augment — level {level}": "Усиление «{name}» — уровень {level}",

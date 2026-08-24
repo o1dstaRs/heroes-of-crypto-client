@@ -224,7 +224,7 @@ export const shouldSuppressInspectedUnitRangesForSpell = (spell: Spell): boolean
 export const captureFightSetupForHydration = (fightProps: FightProperties) =>
     [TeamVals.LOWER, TeamVals.UPPER].map((team) => ({
         team,
-        perk: fightProps.getPerk(team),
+        doctrine: fightProps.getDoctrine(team),
         placement: fightProps.getAugmentPlacementLevel(team),
         armor: fightProps.getAugmentArmor(team),
         might: fightProps.getAugmentMight(team),
@@ -246,7 +246,7 @@ export const restoreFightSetupAfterHydrationReset = (
 ): void => {
     for (const setup of priorSetup) {
         fightProps.setSynergyVariants(setup.synergyVariants);
-        fightProps.setPerkPerTeam(setup.team, setup.perk);
+        fightProps.setDoctrinePerTeam(setup.team, setup.doctrine);
         fightProps.setAugmentPerTeam(setup.team, { type: "Placement", value: setup.placement });
         fightProps.setAugmentPerTeam(setup.team, { type: "Armor", value: setup.armor });
         fightProps.setAugmentPerTeam(setup.team, { type: "Might", value: setup.might });
@@ -2449,7 +2449,7 @@ export class Sandbox extends PixiScene {
         const priorObstacleHitsLeft = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftLeft() : undefined;
         const priorObstacleHitsRight = priorGridWasBlock ? priorFightProps.getObstacleHitsLeftRight() : undefined;
 
-        // Preserve each team's SETUP (perk + augments + artifacts + synergies) across reset(): reset() builds
+        // Preserve each team's SETUP (doctrine + augments + artifacts + synergies) across reset(): reset() builds
         // a fresh FightProperties and the authoritative scene state itself does not carry these into hydrate.
         // Without this, full ranked hydrates silently lose setup-driven placement, stats, and visible buffs.
         const priorSetup = captureFightSetupForHydration(priorFightProps);
@@ -2459,7 +2459,7 @@ export class Sandbox extends PixiScene {
         fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         fightProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         // Restore BEFORE rebuildFromFightProps so every setup-derived placement/stat/buff is available while
-        // units are reconstructed. Perk goes first inside the helper because augment restores budget-check it.
+        // units are reconstructed. Doctrine goes first inside the helper because augment restores budget-check it.
         restoreFightSetupAfterHydrationReset(fightProps, priorSetup);
         fightProps.setGridType(snapshot.gridType);
         this.grid.refreshWithNewType(snapshot.gridType);

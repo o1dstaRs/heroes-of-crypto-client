@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
-import { Perk } from "@heroesofcrypto/common";
+import { Doctrine } from "@heroesofcrypto/common";
 
 import { images } from "../generated/image_imports";
-import { getPerkIconImage } from "./perkCopy";
+import { getDoctrineIconImage } from "./doctrineCopy";
 
 /**
- * Every selectable perk must resolve to art that actually ships.
+ * Every selectable doctrine must resolve to art that actually ships.
  *
- * PerkProperties.imageKey used to be built as `perk_<slug>_256` — perk_three_reveals_256,
- * perk_see_all_256, perk_see_none_256 — while the art has always shipped as perk_scout,
- * perk_spymaster and perk_blind_fury. Not one of those keys resolved to anything, and nothing
+ * DoctrineProperties.imageKey used to be built as `doctrine_<slug>_256` — doctrine_three_reveals_256,
+ * doctrine_see_all_256, doctrine_see_none_256 — while the art has always shipped as doctrine_scout,
+ * doctrine_spymaster and doctrine_blind_fury. Not one of those keys resolved to anything, and nothing
  * failed: the icon just silently rendered nothing.
  */
 // CI has no Dropbox access, so it runs against generate_ci_stubs.js's `images = {}` stub (empty by
@@ -23,20 +23,20 @@ import { getPerkIconImage } from "./perkCopy";
 // checks run.
 const hasRealImageManifest = Object.keys(images as Record<string, string>).length > 0;
 
-describe("perk art resolves", () => {
-    test("every selectable perk has an imageKey pointing at a real asset", () => {
+describe("doctrine art resolves", () => {
+    test("every selectable doctrine has an imageKey pointing at a real asset", () => {
         if (!hasRealImageManifest) return;
-        const missing = Perk.PERK_LIST.filter((perk) => !(perk.imageKey in (images as Record<string, string>))).map(
-            (perk) => `${perk.name} -> ${perk.imageKey}`,
-        );
+        const missing = Doctrine.DOCTRINE_LIST.filter(
+            (doctrine) => !(doctrine.imageKey in (images as Record<string, string>)),
+        ).map((doctrine) => `${doctrine.name} -> ${doctrine.imageKey}`);
 
         expect(missing).toEqual([]);
     });
 
     test("the client's icon lookup returns a usable image for each of them", () => {
         if (!hasRealImageManifest) return;
-        for (const perk of Perk.PERK_LIST) {
-            expect(`${perk.name}: ${typeof getPerkIconImage(perk.id)}`).toBe(`${perk.name}: string`);
+        for (const doctrine of Doctrine.DOCTRINE_LIST) {
+            expect(`${doctrine.name}: ${typeof getDoctrineIconImage(doctrine.id)}`).toBe(`${doctrine.name}: string`);
         }
     });
 });

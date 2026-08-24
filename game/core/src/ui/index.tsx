@@ -6,7 +6,7 @@ import {
     getPickTeamView,
     GridVals,
     isPickSimComplete,
-    Perk,
+    Doctrine,
     PickPhaseVals,
     TeamVals,
     TeamType,
@@ -281,7 +281,7 @@ const BUNDLE_PREVIEW_STATE: PickBanContextType = {
         [31, 16, 11], // Peasant + Hyena + Helm of Focus
     ],
     tier2Offers: [],
-    perk: 0,
+    doctrine: 0,
     upgradePoints: 0,
     artifactTier1: 0,
     artifactTier2: 0,
@@ -352,9 +352,9 @@ const LevelOnePickPreview: React.FC = () => (
  * The other two /preview/picks routes are frozen fixtures — one pose each, nothing to click. This one is
  * the real thing minus the network: the same StainedGlassWindow the ranked game renders, but its state
  * comes from common's pick_sim state machine instead of the server's SSE stream, and its four submit
- * calls (perk / bundle / creature / tier-2 artifact) drive that machine instead of POSTing.
+ * calls (doctrine / bundle / creature / tier-2 artifact) drive that machine instead of POSTing.
  *
- * So the whole ladder is clickable — perk, starting bundle, the four creature picks, the tier-2
+ * So the whole ladder is clickable — doctrine, starting bundle, the four creature picks, the tier-2
  * artifact — and it ends exactly where the ranked flow ends, on the AUGMENTS handoff to placement.
  * Placement itself is a real game session and is NOT part of this route.
  *
@@ -384,7 +384,7 @@ const localDraftOpponentAction = (state: IPickSimState): PickAction | null => {
     }
     switch (phase.phase) {
         case PickPhaseVals.DOCTRINE:
-            return { type: "select_perk", team: LOCAL_DRAFT_OPPONENT, perk: Perk.Perk.SEE_NONE };
+            return { type: "select_doctrine", team: LOCAL_DRAFT_OPPONENT, doctrine: Doctrine.Doctrine.SEE_NONE };
         case PickPhaseVals.INITIAL_PICK:
             return { type: "select_bundle", team: LOCAL_DRAFT_OPPONENT, bundleIndex: localDraftRng(2) };
         case PickPhaseVals.ARTIFACT_2: {
@@ -414,7 +414,7 @@ const localDraftOpponentAction = (state: IPickSimState): PickAction | null => {
 
 /**
  * Run the opponent until the ball is back in the player's court. A rejected action is the loop's exit
- * condition, not an error: in the simultaneous phases (perk, bundle, tier-2) the opponent has already
+ * condition, not an error: in the simultaneous phases (doctrine, bundle, tier-2) the opponent has already
  * moved and is simply waiting on the human, which the sim reports as a rejection.
  */
 const runLocalDraftOpponent = (start: IPickSimState): IPickSimState => {
@@ -484,7 +484,7 @@ const LocalPlayableDraft: React.FC = () => {
     // Has the player already moved in this phase? Only meaningful for the three simultaneous phases —
     // the creature picks belong to one side at a time, so being an actor there IS your turn.
     const alreadyActed =
-        (view.phase === PickPhaseVals.DOCTRINE && state.lower.perk !== Perk.Perk.NO_PERK) ||
+        (view.phase === PickPhaseVals.DOCTRINE && state.lower.doctrine !== Doctrine.Doctrine.NO_DOCTRINE) ||
         (view.phase === PickPhaseVals.INITIAL_PICK && state.lower.selectedBundleIndex !== undefined) ||
         (view.phase === PickPhaseVals.ARTIFACT_2 && state.lower.tier2Artifact !== undefined);
 
@@ -503,7 +503,7 @@ const LocalPlayableDraft: React.FC = () => {
     }, [view.knownOpponentCreatures]);
 
     const watchedSlots = useMemo(() => {
-        const mode = Perk.PERKS[state.lower.perk]?.revealMode;
+        const mode = Doctrine.DOCTRINES[state.lower.doctrine]?.revealMode;
         if (mode === "all") {
             return LOCAL_DRAFT_SLOT_LEVELS.map((_, i) => i);
         }
@@ -511,7 +511,7 @@ const LocalPlayableDraft: React.FC = () => {
             return [0, 2, 4];
         }
         return [];
-    }, [state.lower.perk]);
+    }, [state.lower.doctrine]);
 
     const pickBanValue: PickBanContextType = useMemo(
         () => ({
@@ -530,22 +530,23 @@ const LocalPlayableDraft: React.FC = () => {
             revealsRemaining: 0,
             initialBundles: view.bundles.map((bundle) => [...bundle] as [number, number, number]),
             tier2Offers: view.tier2Offers,
-            perk: state.lower.perk,
-            upgradePoints: Perk.PERKS[state.lower.perk]?.upgradePoints ?? 0,
+            doctrine: state.lower.doctrine,
+            upgradePoints: Doctrine.DOCTRINES[state.lower.doctrine]?.upgradePoints ?? 0,
             artifactTier1: view.artifacts.find(([tier]) => tier === 1)?.[1] ?? 0,
             artifactTier2: view.artifacts.find(([tier]) => tier === 2)?.[1] ?? 0,
             requiredLevel: view.requiredCreatureLevel,
             mapType: GridVals.NORMAL,
             autoPickedSignal: 0,
         }),
-        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.lower.perk],
+        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.lower.doctrine],
     );
 
     // Only the four submit calls are replaced; StainedGlassWindow reads nothing else off the auth context.
     const authValue = useMemo(
         () =>
             ({
-                perk: async (perkId: number) => apply({ type: "select_perk", team: LOCAL_DRAFT_TEAM, perk: perkId }),
+                doctrine: async (doctrineId: number) =>
+                    apply({ type: "select_doctrine", team: LOCAL_DRAFT_TEAM, doctrine: doctrineId }),
                 pickPair: async (pairIndex: number) =>
                     apply({ type: "select_bundle", team: LOCAL_DRAFT_TEAM, bundleIndex: pairIndex }),
                 pick: async (creatureId: number) =>
@@ -601,7 +602,7 @@ const LocalPlayableDraft: React.FC = () => {
                             <div style={{ color: "rgba(239,228,204,0.9)" }}>
                                 Артефакты: {view.artifacts.map(([tier, id]) => `T${tier}:${id}`).join(", ") || "—"}
                                 {" · "}
-                                очки прокачки: {Perk.PERKS[state.lower.perk]?.upgradePoints ?? 0}
+                                очки прокачки: {Doctrine.DOCTRINES[state.lower.doctrine]?.upgradePoints ?? 0}
                             </div>
                             <button
                                 type="button"

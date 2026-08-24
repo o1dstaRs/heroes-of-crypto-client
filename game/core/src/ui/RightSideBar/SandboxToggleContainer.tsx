@@ -483,7 +483,7 @@ const SandboxToggleContainer = ({
     // drafted during the pick/ban phase and shown read-only (RankedArtifactsPanel), so the ranked view
     // passes false to hide the picker while keeping the augment/synergy togglers.
     showArtifactPicker = true,
-    // Upgrade-point budget for augments. In ranked this is the perk's allotment (5/6/7 via
+    // Upgrade-point budget for augments. In ranked this is the doctrine's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
 }: {

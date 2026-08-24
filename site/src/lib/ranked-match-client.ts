@@ -23,7 +23,7 @@ export interface RankedMatchUnitPerformance {
 export interface RankedMatchTeamSetup {
     artifactTier1: number;
     artifactTier2: number;
-    perk: number;
+    doctrine: number;
     augmentPlacement: number;
     augmentArmor: number;
     augmentMight: number;
@@ -136,7 +136,7 @@ const normalizeSetup = (value: unknown): RankedMatchTeamSetup => {
     return {
         artifactTier1: nonNegativeInteger(row.artifactTier1),
         artifactTier2: nonNegativeInteger(row.artifactTier2),
-        perk: nonNegativeInteger(row.perk),
+        doctrine: nonNegativeInteger(row.doctrine),
         augmentPlacement: nonNegativeInteger(row.augmentPlacement),
         augmentArmor: nonNegativeInteger(row.augmentArmor),
         augmentMight: nonNegativeInteger(row.augmentMight),

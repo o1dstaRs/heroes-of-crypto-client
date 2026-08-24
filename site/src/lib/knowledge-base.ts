@@ -142,7 +142,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               [
                   "Перки",
                   "Три перка драфта: сколько состава противника вы видите и сколько очков апгрейдов даёт каждый.",
-                  "rules-perks",
+                  "rules-doctrines",
                   "перки разведка очки Scout Spymaster Blind Fury",
               ],
               [
@@ -191,7 +191,7 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
               ],
               [
                   "Draft",
-                  "Perk, bundles, bans, pick order, and the 2/2/1/1 roster by unit level.",
+                  "Doctrine, bundles, bans, pick order, and the 2/2/1/1 roster by unit level.",
                   "rules-draft",
                   "selection picks tiers",
               ],
@@ -208,10 +208,10 @@ const rulesEntries = (language: Language): KnowledgeEntry[] => {
                   "upgrades points",
               ],
               [
-                  "Perks",
-                  "The three draft perks: how much of the opponent you see, and the augment points it pays.",
-                  "rules-perks",
-                  "perks scout spymaster blind fury points",
+                  "Doctrines",
+                  "The three draft doctrines: how much of the opponent you see, and the augment points it pays.",
+                  "rules-doctrines",
+                  "doctrines scout spymaster blind fury points",
               ],
               [
                   "Faction synergies",

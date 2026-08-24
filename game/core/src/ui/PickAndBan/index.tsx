@@ -7,7 +7,7 @@ import {
     getCreaturesByLevel,
     HoCConfig,
     HoCConstants,
-    Perk,
+    Doctrine,
     PickPhaseVals,
     SynergyKeysToPower,
     synergyVariantsForSeed,
@@ -31,15 +31,15 @@ import React, { useEffect, useState } from "react";
 import { images as rawImages } from "../../generated/image_imports";
 import { t, useTranslation } from "../../i18n/i18n";
 import { isFullscreenActive, onFullscreenChange, toggleFullscreen } from "../fullscreen";
-import { getPreGamePerk } from "../../utils/preGamePerk";
+import { getPreGameDoctrine } from "../../utils/preGameDoctrine";
 import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
-import { PerkIcon } from "../PerkIcon";
+import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
-import { getPerkCopy } from "../perkCopy";
+import { getDoctrineCopy } from "../doctrineCopy";
 import { ArrowShieldIcon } from "../svg/arrow_shield";
 import { BootIcon } from "../svg/boot";
 import { FistIcon } from "../svg/fist";
@@ -75,7 +75,7 @@ const DRAFT_TOOLTIP_SX = {
 } as const;
 
 // Every hint on the draft uses the same dark forged tooltip treatment. Keeping the wrapper local to
-// this screen also catches plain-string hints (button/artifact/fullscreen), not only rich perk copy.
+// this screen also catches plain-string hints (button/artifact/fullscreen), not only rich doctrine copy.
 const Tooltip: React.FC<React.ComponentProps<typeof JoyTooltip>> = ({ sx, ...props }) => (
     <JoyTooltip
         {...props}
@@ -550,7 +550,7 @@ export const DraftTitle: React.FC<{ children: React.ReactNode; subtitle?: React.
 
 const PHASE_HINT: Record<number, string> = {
     [PickPhaseVals.DOCTRINE]:
-        "Choose your scouting perk. It lasts the whole draft and decides which of the opponent's army slots you can watch.",
+        "Choose your scouting doctrine. It lasts the whole draft and decides which of the opponent's army slots you can watch.",
     [PickPhaseVals.INITIAL_PICK]: "Each bundle gives you two creatures and a Tier-1 artifact. Pick one.",
     [PickPhaseVals.PICK]:
         "Greyed portraits are banned. Opponent picks are hidden — if you pick one they already took, you'll re-pick.",
@@ -562,7 +562,7 @@ const RULES_URL = "https://heroesofcrypto.io/rules";
 const phaseAction = (phase: number, level: number): string => {
     switch (phase) {
         case PickPhaseVals.DOCTRINE:
-            return t("Pick one perk to continue.");
+            return t("Pick one doctrine to continue.");
         case PickPhaseVals.INITIAL_PICK:
             return t("Pick one starting bundle.");
         case PickPhaseVals.PICK:
@@ -576,7 +576,7 @@ const phaseAction = (phase: number, level: number): string => {
     }
 };
 
-// The perk no longer owns a step of its own — it is answered on the Bundle screen.
+// The doctrine no longer owns a step of its own — it is answered on the Bundle screen.
 const STEP_LABELS = ["Bundle", "Lvl 1", "Lvl 2", "Map reveal", "Lvl 3", "Artifact 2", "Lvl 4", "Augments", "Place"];
 
 const currentStep = (phase: number, level: number): number => {
@@ -1536,13 +1536,13 @@ export const PickCommitButton: React.FC<{
 
 // ---- Stage panels ---------------------------------------------------------
 
-const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perkId: number) => void }> = ({
+const DoctrinePanel: React.FC<{ disabled: boolean; selected: number; onSelect: (doctrineId: number) => void }> = ({
     disabled,
     selected,
     onSelect,
 }) => (
     <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
-        {[...Perk.PERK_LIST]
+        {[...Doctrine.DOCTRINE_LIST]
             .sort((a, b) => a.upgradePoints - b.upgradePoints)
             .map((p) => {
                 const isSelected = selected === p.id;
@@ -1565,7 +1565,7 @@ const PerkPanel: React.FC<{ disabled: boolean; selected: number; onSelect: (perk
                                         boxShadow: "0 0 0 1px rgba(194,151,84,.52), 0 3px 10px rgba(0,0,0,.55)",
                                     }}
                                 >
-                                    <PerkIcon perkId={p.id} />
+                                    <DoctrineIcon doctrineId={p.id} />
                                 </Box>
                                 <Typography level="title-md">{p.name}</Typography>
                             </Box>
@@ -2081,9 +2081,10 @@ const ArtifactPanel: React.FC<{
 
 // ---- t("Your army") summary bar ---------------------------------------------
 
-const perkName = (perkId: number): string => Perk.getPerkProperties(perkId as Perk.Perk)?.name ?? "";
+const doctrineName = (doctrineId: number): string =>
+    Doctrine.getDoctrineProperties(doctrineId as Doctrine.Doctrine)?.name ?? "";
 
-// A hairline between the groups a rail carries: perk | synergies | the army | artifacts.
+// A hairline between the groups a rail carries: doctrine | synergies | the army | artifacts.
 const BarDivider: React.FC<{ strong?: boolean }> = ({ strong }) => (
     <Box
         sx={{
@@ -2265,10 +2266,10 @@ const placeIntoLevelSlots = (picked: number[]): { id: number; level: number }[] 
     return ARMY_LAYOUT.map((level) => ({ id: byLevel[level].shift() ?? 0, level }));
 };
 
-// Sticky bottom-center summary of the player's own draft so far — chosen perk (perk), picked units, and
+// Sticky bottom-center summary of the player's own draft so far — chosen doctrine (doctrine), picked units, and
 // picked artifacts. Stays pinned as the draft advances so the player always sees the army they're building.
 export const MyDraftBar: React.FC<{
-    perk: number;
+    doctrine: number;
     picked: number[];
     artifactTier1: number;
     artifactTier2: number;
@@ -2280,7 +2281,7 @@ export const MyDraftBar: React.FC<{
     /** Creature staged for confirmation, so its synergy can be previewed. */
     pendingId?: number;
 }> = ({
-    perk,
+    doctrine,
     picked,
     artifactTier1,
     artifactTier2,
@@ -2290,10 +2291,10 @@ export const MyDraftBar: React.FC<{
     gameId,
     pendingId,
 }) => {
-    // The perk is chosen before entering the draft. During the short gap before the server echoes it,
-    // keep showing that persisted choice instead of falling back to the old no-perk emoji.
-    const visiblePerk = perk > 0 ? perk : getPreGamePerk();
-    const visiblePerkCopy = getPerkCopy(visiblePerk);
+    // The doctrine is chosen before entering the draft. During the short gap before the server echoes it,
+    // keep showing that persisted choice instead of falling back to the old no-doctrine emoji.
+    const visibleDoctrine = doctrine > 0 ? doctrine : getPreGameDoctrine();
+    const visibleDoctrineCopy = getDoctrineCopy(visibleDoctrine);
     const t1 = artifactTier1 ? Artifact.getTier1ArtifactProperties(artifactTier1 as Artifact.Tier1Artifact) : undefined;
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
     // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
@@ -2354,14 +2355,14 @@ export const MyDraftBar: React.FC<{
                     title={
                         <Box sx={{ width: 330, maxWidth: "78vw", p: 0.45, display: "grid", gap: 0.65 }}>
                             <Typography level="title-sm" sx={{ color: "#efe4cc" }}>
-                                {perkName(visiblePerk)}
+                                {doctrineName(visibleDoctrine)}
                             </Typography>
                             <Typography level="body-xs" sx={{ color: "rgba(255,255,255,.88)", lineHeight: 1.35 }}>
-                                {visiblePerkCopy?.detail}
+                                {visibleDoctrineCopy?.detail}
                             </Typography>
-                            {visiblePerkCopy && (
+                            {visibleDoctrineCopy && (
                                 <Typography level="body-xs" sx={{ color: "#dcb158", lineHeight: 1.3 }}>
-                                    {visiblePerkCopy.budget}
+                                    {visibleDoctrineCopy.budget}
                                 </Typography>
                             )}
                         </Box>
@@ -2382,7 +2383,7 @@ export const MyDraftBar: React.FC<{
                             border: "1px solid rgba(220,177,88,0.45)",
                         }}
                     >
-                        <PerkIcon perkId={visiblePerk} />
+                        <DoctrineIcon doctrineId={visibleDoctrine} />
                     </Box>
                 </Tooltip>
                 <BarDivider strong />
@@ -2504,17 +2505,17 @@ interface StainedGlassProps {
 }
 
 // The opponent's army rendered as EXACTLY 6 fixed level-ordered slots [L1,L1,L2,L2,L3,L4]. Each slot shows one
-// of three states: a portrait (the opponent has picked there AND your perk reveals it), an eye (your
-// perk watches that slot but the opponent hasn't filled it yet), or a "?" (not revealed by your perk).
+// of three states: a portrait (the opponent has picked there AND your doctrine reveals it), an eye (your
+// doctrine watches that slot but the opponent hasn't filled it yet), or a "?" (not revealed by your doctrine).
 // `opponentPicked` is a slot-ALIGNED array (length = ARMY_LAYOUT.length): the creature id at each watched slot
 // the opponent has filled, and 0 elsewhere — so a creature stays at its true positional slot (a bundle L2 at
 // index 2 vs a separately-picked L2 at index 3) instead of being bucket-filled left-to-right. `watchedSlots`
-// is the set of slot indices (0..5) your scouting perk watches — a watched-but-empty slot shows the eye.
+// is the set of slot indices (0..5) your scouting doctrine watches — a watched-but-empty slot shows the eye.
 export const OpponentDraftBar: React.FC<{
     opponentPicked: number[];
     opponentLabel: string;
-    // Opponent slot indices (0..5) this player's scouting perk actually watches — server-authoritative
-    // (SSE `ws` / slotsSeen), seeded at perk selection: all six for Spymaster, the three tier-block-random
+    // Opponent slot indices (0..5) this player's scouting doctrine actually watches — server-authoritative
+    // (SSE `ws` / slotsSeen), seeded at doctrine selection: all six for Spymaster, the three tier-block-random
     // slots for Scout, none for Blind Fury.
     watchedSlots: number[];
     onInspect?: (creatureId: number) => void;
@@ -2525,8 +2526,8 @@ export const OpponentDraftBar: React.FC<{
     // Build the 6 fixed level-ordered slots directly from the slot-aligned reveal array (no bucketing), so each
     // creature lands at its real slot index — preserving bundle-vs-picked ordering within a level.
     const slots = ARMY_LAYOUT.map((level, i) => ({ id: opponentPicked[i] ?? 0, level }));
-    // The exact slot indices your perk watches, straight from the server (NOT the first-N slots): the Scout
-    // perk watches three tier-block-random slots the server seeded, so the eye lands on the SAME slot the
+    // The exact slot indices your doctrine watches, straight from the server (NOT the first-N slots): the Scout
+    // doctrine watches three tier-block-random slots the server seeded, so the eye lands on the SAME slot the
     // reveal flips — no longer a misleading fixed 1-2-3. A watched-but-not-yet-picked slot shows the eye.
     const watched = new Set(watchedSlots);
     return (
@@ -2576,7 +2577,7 @@ export const OpponentDraftBar: React.FC<{
                     },
                 }}
             >
-                {/* Only the picks your perk reveals count — a hidden slot cannot light a synergy. */}
+                {/* Only the picks your doctrine reveals count — a hidden slot cannot light a synergy. */}
                 <SynergyDots picked={opponentPicked} tone="opponent" gameId={gameId} />
                 <BarDivider strong />
                 <Box sx={{ display: "flex", gap: 0.55, flexWrap: "nowrap", flex: "0 0 auto" }}>
@@ -2613,7 +2614,7 @@ export const OpponentDraftBar: React.FC<{
                             return (
                                 <Tooltip
                                     key={`opp-eye-${i}`}
-                                    title={`Level ${slot.level} — revealed by your perk (flips to the unit once your opponent picks here)`}
+                                    title={`Level ${slot.level} — revealed by your doctrine (flips to the unit once your opponent picks here)`}
                                     variant="soft"
                                 >
                                     <Box
@@ -2643,7 +2644,7 @@ export const OpponentDraftBar: React.FC<{
                                 </Tooltip>
                             );
                         }
-                        // Not revealed by your perk -> face-down slot.
+                        // Not revealed by your doctrine -> face-down slot.
                         return (
                             <Tooltip key={`opp-hidden-${i}`} title={`Level ${slot.level} — hidden`} variant="soft">
                                 <Box
@@ -2689,7 +2690,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         requiredLevel,
         banned,
         picked,
-        perk,
+        doctrine,
         upgradePoints,
         artifactTier1,
         artifactTier2,
@@ -2697,27 +2698,27 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
         watchedSlots,
         mapType,
     } = usePickBanEvents();
-    const { perk: sendPerk, pickPair, pick, artifact } = useAuthContext();
+    const { doctrine: sendDoctrine, pickPair, pick, artifact } = useAuthContext();
     const [busy, setBusy] = useState(false);
 
-    // Pre-game perk auto-commit: when the draft enters the PERK phase and the player hasn't committed
-    // a perk yet (perk === 0), immediately commit the one they chose in the lobby (persisted in
-    // localStorage). This makes the PERK phase effectively invisible — the player already chose their
-    // perk before queuing, so the draft skips straight to BUNDLE. Fires once per PERK entry; the
-    // server-echoed perk (perk > 0) then locks the panel and the phase advances.
+    // Pre-game doctrine auto-commit: when the draft enters the DOCTRINE phase and the player hasn't committed
+    // a doctrine yet (doctrine === 0), immediately commit the one they chose in the lobby (persisted in
+    // localStorage). This makes the DOCTRINE phase effectively invisible — the player already chose their
+    // doctrine before queuing, so the draft skips straight to BUNDLE. Fires once per DOCTRINE entry; the
+    // server-echoed doctrine (doctrine > 0) then locks the panel and the phase advances.
     useEffect(() => {
-        if (pickPhase !== PickPhaseVals.DOCTRINE || perk !== 0 || busy) {
+        if (pickPhase !== PickPhaseVals.DOCTRINE || doctrine !== 0 || busy) {
             return;
         }
-        const storedPerk = getPreGamePerk();
-        if (storedPerk === Perk.Perk.NO_PERK) {
+        const storedDoctrine = getPreGameDoctrine();
+        if (storedDoctrine === Doctrine.Doctrine.NO_DOCTRINE) {
             return;
         }
-        void sendPerk(storedPerk);
-        // No setBusy here: sendPerk is a fire-and-forget POST; the panel re-renders locked once the
-        // server echoes perk > 0 via the pick-events stream. A transient busy guard isn't needed
-        // because perk !== 0 (the guard above) prevents re-entry once committed.
-    }, [pickPhase, perk, busy, sendPerk]);
+        void sendDoctrine(storedDoctrine);
+        // No setBusy here: sendDoctrine is a fire-and-forget POST; the panel re-renders locked once the
+        // server echoes doctrine > 0 via the pick-events stream. A transient busy guard isn't needed
+        // because doctrine !== 0 (the guard above) prevents re-entry once committed.
+    }, [pickPhase, doctrine, busy, sendDoctrine]);
     // Remember what the player chose this phase so the UI can confirm it while the opponent acts.
     const [selection, setSelection] = useState<{ phase: number; value: number } | null>(null);
     // The board is drawn at a fixed 1340x880 and only scaled to fit the window — never re-flowed.
@@ -2857,28 +2858,29 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
     const selectedValue = selection && selection.phase === pickPhase ? selection.value : -1;
     const hint = t(PHASE_HINT[pickPhase] ?? "");
     // "Taken" units are the opponent picks we legitimately know about: the ones we've collided on locally
-    // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting perk /
-    // reveal perks. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
+    // (a 409 re-pick) PLUS the ones the server has already revealed to us through our scouting doctrine /
+    // reveal doctrines. Those arrive in `opponentPicked` (the `op` field) — a slot-aligned array carrying the
     // creature id at each watched-and-filled slot and 0 (NO_CREATURE) elsewhere, so we drop the empties.
     // Mirrors getKnownOpponentCreatures() in the pick sim (and the LocalModelDraftOpponent path) so the grid
     // greys out units we already know are gone instead of letting us pick into a guaranteed collision.
     const knownOpponentPicked = opponentPicked.filter((id) => !!id && id !== CreatureVals.NO_CREATURE);
     const opponentTaken = Array.from(new Set([...collided, ...knownOpponentPicked]));
     const isHandoff = isAugmentHandoffPhase(pickPhase);
-    // The perk step is a pass-through whenever a pre-game perk is stored (the usual case): the client
+    // The doctrine step is a pass-through whenever a pre-game doctrine is stored (the usual case): the client
     // auto-commits it and the server advances. Until that lands there is nothing to choose, so the screen
     // says so instead of flashing the chooser's title, hint and turn chips.
     const isPreparing =
-        pickPhase < 0 || (pickPhase === PickPhaseVals.DOCTRINE && getPreGamePerk() !== Perk.Perk.NO_PERK);
+        pickPhase < 0 ||
+        (pickPhase === PickPhaseVals.DOCTRINE && getPreGameDoctrine() !== Doctrine.Doctrine.NO_DOCTRINE);
     // Phases whose confirm lives in the wide button at the bottom — they drop the header chips, the
     // sub-line and the imperative hint, exactly like the redesign.
     const isCommitPhase =
         pickPhase === PickPhaseVals.PICK ||
         pickPhase === PickPhaseVals.INITIAL_PICK ||
         pickPhase === PickPhaseVals.ARTIFACT_2;
-    // PERK is now a perk-only phase; the server echoes the player's perk (perk > 0), which survives reload
+    // DOCTRINE is now a doctrine-only phase; the server echoes the player's doctrine (doctrine > 0), which survives reload
     // and locks the panel.
-    const perkLocked = pickPhase === PickPhaseVals.DOCTRINE && perk > 0;
+    const doctrineLocked = pickPhase === PickPhaseVals.DOCTRINE && doctrine > 0;
     // INITIAL_PICK is the separate starting-bundle phase; the server echoes the picked bundle (picked.length > 0).
     const bundleLocked = pickPhase === PickPhaseVals.INITIAL_PICK && picked.length > 0;
     // Which bundle was chosen — local index if just picked, else recover it from the picked creatures.
@@ -2890,24 +2892,24 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     let panel: React.ReactNode = <CircularProgress />;
     if (pickPhase < 0) {
-        // No phase from the server yet — hold the spinner instead of briefly painting the perk step.
+        // No phase from the server yet — hold the spinner instead of briefly painting the doctrine step.
         panel = <CircularProgress />;
     } else if (pickPhase === PickPhaseVals.DOCTRINE) {
-        // Pre-game perk auto-commit: if the player already chose a perk in the lobby (persisted),
-        // the PERK phase is a brief pass-through — show a spinner while the auto-commit lands and the
+        // Pre-game doctrine auto-commit: if the player already chose a doctrine in the lobby (persisted),
+        // the DOCTRINE phase is a brief pass-through — show a spinner while the auto-commit lands and the
         // server advances the phase, instead of flashing the chooser. Only fall back to the manual
-        // PerkPanel when there is no pre-game perk to commit (e.g. storage unavailable).
-        if (getPreGamePerk() === Perk.Perk.NO_PERK) {
+        // DoctrinePanel when there is no pre-game doctrine to commit (e.g. storage unavailable).
+        if (getPreGameDoctrine() === Doctrine.Doctrine.NO_DOCTRINE) {
             panel = (
-                <PerkPanel
-                    disabled={disabled || perkLocked}
-                    selected={perkLocked ? perk : selectedValue}
-                    onSelect={(id) => void send(id, () => sendPerk(id))}
+                <DoctrinePanel
+                    disabled={disabled || doctrineLocked}
+                    selected={doctrineLocked ? doctrine : selectedValue}
+                    onSelect={(id) => void send(id, () => sendDoctrine(id))}
                 />
             );
         }
         // Otherwise panel stays <CircularProgress />: the auto-commit useEffect fires, the server
-        // echoes perk > 0, the daemon advances to BUNDLE, and this branch stops rendering.
+        // echoes doctrine > 0, the daemon advances to BUNDLE, and this branch stops rendering.
     } else if (pickPhase === PickPhaseVals.INITIAL_PICK) {
         // Starting-bundle phase: choose one bundle {L1 + L2 + Tier-1 artifact}.
         panel = (
@@ -3097,7 +3099,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             }}
                         >
                             <MyDraftBar
-                                perk={perk}
+                                doctrine={doctrine}
                                 picked={picked}
                                 artifactTier1={artifactTier1}
                                 artifactTier2={artifactTier2}
@@ -3273,7 +3275,7 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 };
 
 const PHASE_NAME: Record<number, string> = {
-    [PickPhaseVals.DOCTRINE]: t("Choose your perk"),
+    [PickPhaseVals.DOCTRINE]: t("Choose your doctrine"),
     [PickPhaseVals.INITIAL_PICK]: t("Choose your starting bundle"),
     [PickPhaseVals.PICK]: t("Pick a creature"),
     [PickPhaseVals.ARTIFACT_2]: t("Choose a Tier-2 artifact"),
