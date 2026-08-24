@@ -1946,7 +1946,9 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
         setSplitAmount(1);
     }, [amountAlive, selectedUnit.id]);
 
-    if (maxSplitAmount < 1) return null;
+    // A 1-unit stack cannot split, but it can still be DELETED — with auto-deploy there is no
+    // bench, so hiding the whole panel here removed the only way to act on single-unit screens.
+    const canShowSplit = maxSplitAmount >= 1;
 
     return (
         <Box
@@ -1979,45 +1981,51 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
                     "&:hover .MuiTypography-root": { color: hocColors.orange },
                 }}
             >
-                <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                    <Typography level="body-sm">{sliderValue}</Typography>
-                    <Typography level="body-sm">{amountAlive - sliderValue}</Typography>
-                </Box>
-                <Slider
-                    sx={hocSplitterSliderSx}
-                    min={1}
-                    max={Math.max(1, maxSplitAmount)}
-                    value={sliderValue}
-                    disabled={!canSplit}
-                    step={1}
-                    aria-label="Ranked unit split slider"
-                    onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
-                />
+                {canShowSplit && (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                        <Typography level="body-sm">{sliderValue}</Typography>
+                        <Typography level="body-sm">{amountAlive - sliderValue}</Typography>
+                    </Box>
+                )}
+                {canShowSplit && (
+                    <Slider
+                        sx={hocSplitterSliderSx}
+                        min={1}
+                        max={Math.max(1, maxSplitAmount)}
+                        value={sliderValue}
+                        disabled={!canSplit}
+                        step={1}
+                        aria-label="Ranked unit split slider"
+                        onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
+                    />
+                )}
             </Stack>
             <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", mt: 1.5 }}>
-                <Button
-                    variant="plain"
-                    size="sm"
-                    disabled={!canSplit}
-                    onClick={() =>
-                        void submitGameAction({
-                            type: "split_unit",
-                            unitId: selectedUnit.id,
-                            amount: sliderValue,
-                        })
-                    }
-                    sx={{
-                        ...hocSidebarImageButtonSx("neutral"),
-                        flex: 1,
-                        minWidth: 0,
-                        height: "29.25px",
-                        minHeight: "29.25px",
-                        maxHeight: "29.25px",
-                        py: 0,
-                    }}
-                >
-                    Split
-                </Button>
+                {canShowSplit && (
+                    <Button
+                        variant="plain"
+                        size="sm"
+                        disabled={!canSplit}
+                        onClick={() =>
+                            void submitGameAction({
+                                type: "split_unit",
+                                unitId: selectedUnit.id,
+                                amount: sliderValue,
+                            })
+                        }
+                        sx={{
+                            ...hocSidebarImageButtonSx("neutral"),
+                            flex: 1,
+                            minWidth: 0,
+                            height: "29.25px",
+                            minHeight: "29.25px",
+                            maxHeight: "29.25px",
+                            py: 0,
+                        }}
+                    >
+                        Split
+                    </Button>
+                )}
                 <Button
                     variant="plain"
                     size="sm"
