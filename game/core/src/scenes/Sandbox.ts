@@ -10912,6 +10912,18 @@ export class Sandbox extends PixiScene {
                         this.attackHandler.canLandRangeAttack(
                             this.currentActiveUnit,
                             this.grid.getEnemyAggrMatrixByUnitId(this.currentActiveUnit.getId()),
+                        ) &&
+                        // A shot lands on the center of a VISIBLE EDGE of the target, never on its center,
+                        // so a unit covered on every side (boxed in by its own allies and/or mountains) has
+                        // no legal aim point and cannot be shot at all. Gating the whole range CONTEXT here
+                        // — not just the static-target set — keeps the long-range visual relaxation below
+                        // from re-offering a shot the engine now rejects. Through Shot pierces bodies, so a
+                        // piercing shooter only loses an edge to a hard BLOCK obstacle.
+                        GridMath.hasObservableRangeAttackEdge(
+                            this.grid.getMatrix(),
+                            targetUnit.getCells(),
+                            this.currentActiveUnit.getTeam(),
+                            this.currentActiveUnit.hasAbilityActive("Through Shot"),
                         );
 
                     // 1. Static Range Priority
@@ -14813,9 +14825,24 @@ export class Sandbox extends PixiScene {
                     // const rangeDist = this.currentActiveUnit.getRangeShotDistance() * GridConstants.STEP; // Unused
                     // const attackerPos = this.currentActiveUnit.getPosition(); // Unused
 
+                    // Through Shot pierces bodies: for a piercing shooter only a hard BLOCK obstacle hides
+                    // an edge, so it keeps targets a plain shooter cannot see.
+                    const isThroughShot = this.currentActiveUnit.hasAbilityActive("Through Shot");
                     for (const enemy of enemyTeam) {
                         // Relaxed: Allow long range shots (penalty applied later).
-                        if (!enemy.hasBuffActive("Hidden")) {
+                        if (
+                            !enemy.hasBuffActive("Hidden") &&
+                            // A shot lands on the center of a VISIBLE EDGE, so a unit whose every edge is
+                            // covered — boxed in by its own allies and/or mountains — offers nothing legal to
+                            // aim at and is not a target. Same rule the engine enforces, so the client never
+                            // offers a shot the server would reject.
+                            GridMath.hasObservableRangeAttackEdge(
+                                this.grid.getMatrix(),
+                                enemy.getCells(),
+                                this.currentActiveUnit.getTeam(),
+                                isThroughShot,
+                            )
+                        ) {
                             // Additionally check if unit is hittable (e.g. not dead, effectively already checked by being in enemyTeam mostly)
                             this.canAttackByRangeTargets.add(enemy.getId());
                         }
