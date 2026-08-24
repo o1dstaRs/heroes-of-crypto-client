@@ -11,6 +11,9 @@
 import { Perk } from "@heroesofcrypto/common";
 
 const PRE_GAME_PERK_STORAGE_KEY = "hoc:pre-game-perk";
+// The same choice under its pre-rename key ("doctrine", identical numeric values) — read as a
+// fallback and migrated forward so nobody's saved pick silently resets to the default.
+const LEGACY_PRE_GAME_DOCTRINE_STORAGE_KEY = "hoc:pre-game-doctrine";
 
 // Default perk when the player has never picked one: THREE_REVEALS (the middle-of-the-road
 // scouting option, 6 upgrade points — a sensible neutral default).
@@ -19,10 +22,15 @@ export const DEFAULT_PRE_GAME_PERK: Perk.Perk = Perk.Perk.THREE_REVEALS;
 /** The perk the player chose in the lobby, or the default if none chosen yet. */
 export const getPreGamePerk = (): Perk.Perk => {
     try {
-        const raw = localStorage.getItem(PRE_GAME_PERK_STORAGE_KEY);
+        const raw =
+            localStorage.getItem(PRE_GAME_PERK_STORAGE_KEY) ??
+            localStorage.getItem(LEGACY_PRE_GAME_DOCTRINE_STORAGE_KEY);
         const parsed = raw ? Number(raw) : NaN;
         // Must be one of the 3 selectable perks (THREE_REVEALS / SEE_ALL / SEE_NONE).
         if (parsed === Perk.Perk.THREE_REVEALS || parsed === Perk.Perk.SEE_ALL || parsed === Perk.Perk.SEE_NONE) {
+            if (!localStorage.getItem(PRE_GAME_PERK_STORAGE_KEY)) {
+                localStorage.setItem(PRE_GAME_PERK_STORAGE_KEY, String(parsed));
+            }
             return parsed;
         }
     } catch {
