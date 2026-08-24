@@ -6169,10 +6169,12 @@ export class Sandbox extends PixiScene {
             this.dungeonVisuals?.setScatteredMountains([]);
             return;
         }
-        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width. The deployment fields are
-        // the bottom and top row bands (RectanglePlacement carves y 1-3 and y 12-14 across the full board
-        // width), so the horizontal mid-board belt is the one strip that never collides with either army —
-        // a vertical strip would run straight through both fields. Matches scatteredMountainsForSeed.
+        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width. The SANDBOX still deploys
+        // in the bottom/top row bands (common RectanglePlacement via PlacementManager: y 1-3 and y 12-14,
+        // full width), so the horizontal mid-board belt is the one strip that never collides with either
+        // army here. RANKED is different: its zones are SIDE-oriented (server SideRectanglePlacement), so
+        // scatteredMountainsForSeed uses the vertical columns band instead. If the sandbox ever goes
+        // side-oriented like ranked, rotate this band with it.
         const free: HoCMath.XY[] = [];
         const size = GridConstants.GRID_SIZE;
         const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
