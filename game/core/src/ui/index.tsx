@@ -44,13 +44,7 @@ import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { AugmentStepPreview } from "./AugmentStepPreview";
 import { PlacementStepPreview } from "./PlacementStepPreview";
-import { PortraitFramingEditor } from "./PortraitFramingEditor";
-import { LeftSidebarPortraitEditor } from "./LeftSidebarPortraitEditor";
-import { BattlefieldCreatureFramingEditor } from "./BattlefieldCreatureFramingEditor";
-import { BattlefieldShadowEditor } from "./BattlefieldShadowEditor";
-import { AmbientFireTuningEditor } from "./AmbientFireTuningEditor";
 import { SIDE_FIRE_DEFINITIONS } from "../scenes/sandbox/ambientFireTuning";
-import { LavaAnimationTuningEditor } from "./LavaAnimationTuningEditor";
 import { LocalModelDraftOpponent } from "./PickAndBan/LocalModelDraftOpponent";
 import AutoPickToast from "./PickAndBan/AutoPickToast";
 import { buildApiUrl, endpoints, HOST_GAME_API } from "../api/axios";
@@ -74,6 +68,27 @@ import { RankedGameView } from "./RankedGameView";
 import { getMarkedVsAiDifficulty, isMarkedVsAiGame, vsAiDifficultyLabel } from "../utils/aiOpponent";
 
 const LoadingScreenFireEditor = React.lazy(() => import("./LoadingScreenFireEditor"));
+// Every dev editor is lazy so the production entry chunk never carries them: their routes below are
+// mounted only under import.meta.env.DEV, and a literal DEV guard + dynamic import lets Rollup drop
+// the whole subtree from a production build instead of shipping guarded-but-present code.
+const PortraitFramingEditor = React.lazy(() =>
+    import("./PortraitFramingEditor").then((m) => ({ default: m.PortraitFramingEditor })),
+);
+const LeftSidebarPortraitEditor = React.lazy(() =>
+    import("./LeftSidebarPortraitEditor").then((m) => ({ default: m.LeftSidebarPortraitEditor })),
+);
+const BattlefieldCreatureFramingEditor = React.lazy(() =>
+    import("./BattlefieldCreatureFramingEditor").then((m) => ({ default: m.BattlefieldCreatureFramingEditor })),
+);
+const BattlefieldShadowEditor = React.lazy(() =>
+    import("./BattlefieldShadowEditor").then((m) => ({ default: m.BattlefieldShadowEditor })),
+);
+const AmbientFireTuningEditor = React.lazy(() =>
+    import("./AmbientFireTuningEditor").then((m) => ({ default: m.AmbientFireTuningEditor })),
+);
+const LavaAnimationTuningEditor = React.lazy(() =>
+    import("./LavaAnimationTuningEditor").then((m) => ({ default: m.LavaAnimationTuningEditor })),
+);
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) {
@@ -368,7 +383,7 @@ const localDraftOpponentAction = (state: IPickSimState): PickAction | null => {
         return null;
     }
     switch (phase.phase) {
-        case PickPhaseVals.PERK:
+        case PickPhaseVals.DOCTRINE:
             return { type: "select_perk", team: LOCAL_DRAFT_OPPONENT, perk: Perk.Perk.SEE_NONE };
         case PickPhaseVals.INITIAL_PICK:
             return { type: "select_bundle", team: LOCAL_DRAFT_OPPONENT, bundleIndex: localDraftRng(2) };
@@ -469,7 +484,7 @@ const LocalPlayableDraft: React.FC = () => {
     // Has the player already moved in this phase? Only meaningful for the three simultaneous phases —
     // the creature picks belong to one side at a time, so being an actor there IS your turn.
     const alreadyActed =
-        (view.phase === PickPhaseVals.PERK && state.lower.perk !== Perk.Perk.NO_PERK) ||
+        (view.phase === PickPhaseVals.DOCTRINE && state.lower.perk !== Perk.Perk.NO_PERK) ||
         (view.phase === PickPhaseVals.INITIAL_PICK && state.lower.selectedBundleIndex !== undefined) ||
         (view.phase === PickPhaseVals.ARTIFACT_2 && state.lower.tier2Artifact !== undefined);
 
@@ -1007,51 +1022,100 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
         <Routes>
             {/* Offline sandbox is available without login */}
             <Route path="/" element={<Heroes windowSize={windowSize} />} />
-            {/* Backend-free visual fixture: intentionally remains on the starting-bundle phase. */}
-            <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
-            {/* Backend-free visual fixture for the first creature-pick phase. */}
-            <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
-            {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
-            <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
-            {/* Backend-free augment step: the ranked "Choose your augments" screen with no game behind it. */}
-            <Route path="/preview/augments" element={<AugmentStepPreview />} />
-            {/* Backend-free pre-fight placement: the ranked board+sidebar driven by an in-memory session. */}
-            <Route path="/preview/placement" element={<PlacementStepPreview windowSize={windowSize} />} />
-            {/* Local-only visual calibration tool. Draft values persist in localStorage until exported. */}
-            <Route path="/dev/portrait-framing" element={<PortraitFramingEditor />} />
-            {/* Per-creature art crop and linked portrait/stat sizing for the left sandbox/battle sidebar only. */}
-            <Route path="/dev/left-sidebar-portraits" element={<LeftSidebarPortraitEditor />} />
-            {/* Real-map model calibration: direct drag, independent X/Y scale and local draft export. */}
-            <Route
-                path="/dev/battlefield-framing"
-                element={<BattlefieldCreatureFramingEditor windowSize={windowSize} />}
-            />
-            {/* Live top/bottom endpoint tuning for animated battlefield silhouette shadows. */}
-            <Route path="/dev/shadow-editor" element={<BattlefieldShadowEditor windowSize={windowSize} />} />
-            {/* Real-map ambient-fire calibration with live position, size and glow controls. */}
-            <Route path="/dev/fire-editor" element={<AmbientFireTuningEditor windowSize={windowSize} />} />
-            {/* Side-brazier-only calibration using the pit-style video fire requested for the map edges. */}
-            <Route
-                path="/dev/side-fire-editor"
-                element={
-                    <AmbientFireTuningEditor
-                        windowSize={windowSize}
-                        definitions={SIDE_FIRE_DEFINITIONS}
-                        title="SIDE FIRE EDITOR"
+            {/* Dev-only harnesses and calibration editors. The literal import.meta.env.DEV guard is the
+                actual prod gate: a production build statically drops every route below (and, with the lazy
+                imports above, their chunks), so none of these are reachable — or even shipped — in prod.
+                The in-component IS_PROD guards remain as a second line of defense. */}
+            {import.meta.env.DEV && (
+                <>
+                    {/* Backend-free visual fixture: intentionally remains on the starting-bundle phase. */}
+                    <Route path="/preview/picks/bundle" element={<BundlePickPreview />} />
+                    {/* Backend-free visual fixture for the first creature-pick phase. */}
+                    <Route path="/preview/picks/level1" element={<LevelOnePickPreview />} />
+                    {/* Backend-free but PLAYABLE draft: bundle -> picks -> tier-2 artifact -> placement handoff. */}
+                    <Route path="/preview/picks/local" element={<LocalPlayableDraft />} />
+                    {/* Backend-free augment step: the ranked "Choose your augments" screen with no game behind it. */}
+                    <Route path="/preview/augments" element={<AugmentStepPreview />} />
+                    {/* Backend-free pre-fight placement: the ranked board+sidebar driven by an in-memory session. */}
+                    <Route path="/preview/placement" element={<PlacementStepPreview windowSize={windowSize} />} />
+                    {/* Local-only visual calibration tool. Draft values persist in localStorage until exported. */}
+                    <Route
+                        path="/dev/portrait-framing"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <PortraitFramingEditor />
+                            </React.Suspense>
+                        }
                     />
-                }
-            />
-            {/* Live 60-frame lava-atlas calibration: playback, color, geometry, light and procedural splashes. */}
-            <Route path="/dev/lava-editor" element={<LavaAnimationTuningEditor windowSize={windowSize} />} />
-            {/* Real loading-screen preview with independently tunable overall and lower fire zones. */}
-            <Route
-                path="/dev/loading-fire-editor"
-                element={
-                    <React.Suspense fallback={null}>
-                        <LoadingScreenFireEditor />
-                    </React.Suspense>
-                }
-            />
+                    {/* Per-creature art crop and linked portrait/stat sizing for the left sandbox/battle sidebar only. */}
+                    <Route
+                        path="/dev/left-sidebar-portraits"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LeftSidebarPortraitEditor />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Real-map model calibration: direct drag, independent X/Y scale and local draft export. */}
+                    <Route
+                        path="/dev/battlefield-framing"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <BattlefieldCreatureFramingEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Live top/bottom endpoint tuning for animated battlefield silhouette shadows. */}
+                    <Route
+                        path="/dev/shadow-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <BattlefieldShadowEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Real-map ambient-fire calibration with live position, size and glow controls. */}
+                    <Route
+                        path="/dev/fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <AmbientFireTuningEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Side-brazier-only calibration using the pit-style video fire requested for the map edges. */}
+                    <Route
+                        path="/dev/side-fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <AmbientFireTuningEditor
+                                    windowSize={windowSize}
+                                    definitions={SIDE_FIRE_DEFINITIONS}
+                                    title="SIDE FIRE EDITOR"
+                                />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Live 60-frame lava-atlas calibration: playback, color, geometry, light and procedural splashes. */}
+                    <Route
+                        path="/dev/lava-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LavaAnimationTuningEditor windowSize={windowSize} />
+                            </React.Suspense>
+                        }
+                    />
+                    {/* Real loading-screen preview with independently tunable overall and lower fire zones. */}
+                    <Route
+                        path="/dev/loading-fire-editor"
+                        element={
+                            <React.Suspense fallback={null}>
+                                <LoadingScreenFireEditor />
+                            </React.Suspense>
+                        }
+                    />
+                </>
+            )}
             {/* Online routes require authentication */}
             <Route
                 path="/play"
