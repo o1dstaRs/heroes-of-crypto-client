@@ -276,3 +276,70 @@ describe("aura squares hug the owner's body", () => {
         expect(wide).not.toEqual(auraOutline({ width: 2, height: 2 }, range, xy));
     });
 });
+
+/**
+ * The client's two AI seats hand the engine a move's `targetCells` themselves, so they have to expand a
+ * destination the same way the engine does — from the ANCHOR, growing towards -x / -y.
+ *
+ * Both used to detour through the destination cell's own CENTRE and expand from there. That is off by one
+ * for a SQUARE body: at a cell centre the surrounding-cells expansion returns the block growing up-and-right
+ * of the anchor, while the anchor's real body grows down-and-left, so a 2x2 claimed {x..x+1} x {y..y+1}
+ * where the engine occupies {x-1..x} x {y-1..y}. A 2x1 and a 1x2 land on the same cells either way, which is
+ * why only a square exposes it — and why this test pins the square case first.
+ */
+describe("a client AI seat expands a move destination from the anchor", () => {
+    const anchor: HoCMath.XY = { x: 8, y: 8 };
+    const key = (cells: readonly HoCMath.XY[]) =>
+        cells
+            .map((c) => `${c.x},${c.y}`)
+            .sort()
+            .join(" ");
+
+    // What the cell-centre round trip produced, kept explicit so the regression cannot come back quietly.
+    const viaCellCentre = (unit: Unit) =>
+        GridMath.getFootprintCellsForPosition(
+            gridSettings,
+            GridMath.getPositionForCell(
+                anchor,
+                gridSettings.getMinX(),
+                gridSettings.getStep(),
+                gridSettings.getHalfStep(),
+            ),
+            unit.getFootprintWidth(),
+            unit.getFootprintHeight(),
+        );
+
+    test("a 2x2 body hangs down-and-left of its anchor, which the cell-centre route got wrong", () => {
+        const queen = createUnit("Nature", "Arachna Queen", "arachna_queen_512");
+        expect([queen.getFootprintWidth(), queen.getFootprintHeight()]).toEqual([2, 2]);
+
+        const correct = GridMath.getFootprintCellsForAnchor(anchor, 2, 2);
+        expect(key(correct)).toBe("7,7 7,8 8,7 8,8");
+        // The old route really did name a different block — otherwise this test proves nothing.
+        expect(key(viaCellCentre(queen))).toBe("8,8 8,9 9,8 9,9");
+        expect(key(viaCellCentre(queen))).not.toBe(key(correct));
+    });
+
+    test("a rectangle lands on the same cells either way, which is why a square had to be checked", () => {
+        overrides("White Tiger=2x1,Hyena=1x2");
+        for (const [faction, name, texture] of [
+            ["Nature", "White Tiger", "white_tiger_512"],
+            ["Might", "Hyena", "hyena_512"],
+        ] as const) {
+            const unit = createUnit(faction, name, texture);
+            const correct = GridMath.getFootprintCellsForAnchor(
+                anchor,
+                unit.getFootprintWidth(),
+                unit.getFootprintHeight(),
+            );
+            expect(key(viaCellCentre(unit))).toBe(key(correct));
+        }
+    });
+
+    test("a one-cell body is its own destination", () => {
+        const peasant = createUnit("Life", "Peasant", "peasant_512");
+        expect([peasant.getFootprintWidth(), peasant.getFootprintHeight()]).toEqual([1, 1]);
+        expect(key(viaCellCentre(peasant))).toBe("8,8");
+        expect(key(GridMath.getFootprintCellsForAnchor(anchor, 1, 1))).toBe("8,8");
+    });
+});

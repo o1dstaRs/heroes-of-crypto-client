@@ -99,8 +99,11 @@ const warnedFootprintMismatchUnitIds = new Set<string>();
 /**
  * A footprint disagreement between client and server is a HARD desync, unlike a stat disagreement: the two
  * sides then believe the unit stands on different cells, and every move, attack and placement the client
- * offers is one the server refuses. The client keeps deriving the shape from its own creature config (the
- * richer source, and the one the renderer already uses), so the wire pair is used only as a detector.
+ * offers is one the server refuses.
+ *
+ * The server's value is the one applied (see the spread in getUnitPropertiesFromAuthoritativeState); this
+ * warning exists because a disagreement still means the two bundles ship different creature data, which is a
+ * deployment problem worth seeing in the console even though the board itself stays consistent.
  */
 const warnOnFootprintMismatch = (unitState: AuthoritativeUnitState, properties: UnitProperties): void => {
     const wireWidth = unitState.footprintWidth;
@@ -851,6 +854,17 @@ const getUnitPropertiesFromAuthoritativeState = (
             return {
                 ...baseProperties,
                 ...abilityOverride,
+                // The SERVER's footprint wins. Geometry is not a stat: if the two sides disagree about which
+                // cells a unit stands on, every move, attack and placement the client offers is one the
+                // server refuses, and the board silently diverges. The wire pair is absent from an older
+                // server (and 0 is not a legal side), in which case the local creature config is the only
+                // opinion available and is used unchanged.
+                ...(unitState.footprintWidth && unitState.footprintHeight
+                    ? {
+                          footprint_width: unitState.footprintWidth,
+                          footprint_height: unitState.footprintHeight,
+                      }
+                    : {}),
                 // Unit normally synthesizes the one initial charge for a direct-cast ability while building a
                 // fresh creature. A ranked snapshot's explicit spell-entry marker makes even an empty list
                 // authoritative, so reconnecting a Queen must not recreate a spent stolen spell.

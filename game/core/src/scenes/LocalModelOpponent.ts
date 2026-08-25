@@ -295,37 +295,22 @@ const getRouteForCell = (
 /**
  * The cells the mover's body would cover after landing on `destination`.
  *
- * `destination` is one cell out of the pather's knownPaths, and a body of more than one cell hangs off it
- * rather than sitting on it, so the shape has to be re-expanded here or the action claims the wrong
- * ground and the engine rejects the move. The expansion is the engine's own
- * (GridMath.getFootprintCellsForPosition), fed the destination cell's centre, so this and the engine's
- * fallback (post_move_actor_availability.resolveMoveTargetCells) always name the same cells — including
- * for a 2x2, where both deliberately keep the legacy reading of the destination as the block's low corner.
+ * `destination` is one cell out of the pather's knownPaths, which makes it an ANCHOR — the footprint's
+ * top-right cell — so the body hangs off it towards -x / -y rather than sitting on it. It has to be
+ * re-expanded here or the action claims the wrong ground and the engine rejects the move.
+ *
+ * This used to detour through the destination cell's own CENTRE and expand from there, which is off by one
+ * for a square body: at a cell centre the surrounding-cells expansion returns the block growing up-and-right
+ * from the anchor, while the anchor's real body grows down-and-left. A 2x2 therefore proposed
+ * {x..x+1} x {y..y+1} where the engine occupies {x-1..x} x {y-1..y}. Rectangles were unaffected — a 2x1 and
+ * a 1x2 land on the same cells either way — so only a square exposed it.
  */
 const getTargetCells = (
     unit: Unit,
     grid: Grid,
     destination: { x: number; y: number },
-): Array<{ x: number; y: number }> => {
-    // A one-cell body covers exactly its destination; skipping the round trip below keeps that obvious.
-    if (unit.isSmallSize()) {
-        return [{ ...destination }];
-    }
-
-    const gridSettings = grid.getSettings();
-    const position = GridMath.getPositionForCell(
-        destination,
-        gridSettings.getMinX(),
-        gridSettings.getStep(),
-        gridSettings.getHalfStep(),
-    );
-    return GridMath.getFootprintCellsForPosition(
-        gridSettings,
-        position,
-        unit.getFootprintWidth(),
-        unit.getFootprintHeight(),
-    );
-};
+): Array<{ x: number; y: number }> =>
+    GridMath.getFootprintCellsForAnchor(destination, unit.getFootprintWidth(), unit.getFootprintHeight());
 
 const getTargetTotalHp = (unit: Unit): number => (unit.getAmountAlive() - 1) * unit.getMaxHp() + unit.getHp();
 

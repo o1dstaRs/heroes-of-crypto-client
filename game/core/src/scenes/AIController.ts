@@ -1858,23 +1858,31 @@ export class AIController {
         const gs = this.context.getSceneSettings().getGridSettings();
         const attackFromPos = GridMath.getPositionForCell(attackFromCell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
-        // For any body bigger than one cell the AI emits a single anchor cell, and the unit's stored
-        // position is the footprint's CENTRE, not that cell's centre. Build the occupied footprint from
-        // the anchor's cell centre and re-centre the position on it, so the unit lands exactly where the
-        // silhouette shows; otherwise the move fallback mis-anchors it by one cell diagonally (wrong
-        // stand/attack pos). getFootprintCellsForPosition is the engine's own expansion, including the
-        // 2x2 reading resolveMoveTargetCells keeps, so every shape resolves the way the engine will.
+        // For any body bigger than one cell the AI emits a single ANCHOR cell — the footprint's top-right —
+        // and the unit's stored position is the block's CENTRE, not that cell's centre. Expand the body from
+        // the anchor and re-centre the position on it, so the unit lands exactly where the silhouette shows.
+        //
+        // Routing through the anchor cell's own centre (what this did) is off by one for a square body: at a
+        // cell centre the surrounding-cells expansion returns the block that starts at the anchor and grows
+        // up-and-right, while the anchor's real body grows down-and-left. A 2x2 therefore claimed
+        // {x..x+1} x {y..y+1} where the engine occupies {x-1..x} x {y-1..y}, and the move was refused or
+        // silently mis-placed. Rectangles were unaffected only because a 2x1 and a 1x2 happen to land on the
+        // same cells either way, which is exactly why this survived until a square was checked.
         let moveFootprint: HoCMath.XY[] | undefined;
         if (attackFromPos) {
             if (!currentUnit.isSmallSize()) {
-                moveFootprint = GridMath.getFootprintCellsForPosition(
-                    gs,
-                    attackFromPos,
+                moveFootprint = GridMath.getFootprintCellsForAnchor(
+                    attackFromCell,
                     currentUnit.getFootprintWidth(),
                     currentUnit.getFootprintHeight(),
                 );
-                const center = GridMath.getPositionForCells(gs, moveFootprint);
-                if (center) Object.assign(attackFromPos, center);
+                const center = GridMath.getPositionForFootprintAnchor(
+                    gs,
+                    attackFromCell,
+                    currentUnit.getFootprintWidth(),
+                    currentUnit.getFootprintHeight(),
+                );
+                Object.assign(attackFromPos, center);
             }
             this.context.getHoverManager().showSilhouetteForUnit(currentUnit.getUnitProperties(), attackFromPos);
         }
