@@ -207,17 +207,34 @@ export class HoverManager {
         // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
         // artwork comes from the Dropbox-backed generated image set; load it explicitly so the melee
         // geometry never starts with Texture.EMPTY.
-        void Assets.load<Texture>(images.cursor_melee).then((texture) => {
+        //
+        // Both loads are best-effort. They are cursor DECORATION — the sword and the arrowhead drawn at the
+        // end of a hover line — and every geometry decision in this class works without them. Pixi's asset
+        // pipeline reaches for `document` while resolving a URL, so it throws outright wherever there is no
+        // DOM, and an unguarded load took the whole HoverManager down with it rather than costing a cursor
+        // ornament.
+        this.loadCursorTexture(images.cursor_melee, (texture) => {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
-            texture.source.scaleMode = "nearest";
             this.hoverAttackSwordTexture = texture;
         });
         // Same treatment for the ranged marker: the flight line ends in this arrow instead of a
         // drawn triangle, so the shot reads as an actual arrow in flight rather than a pointer.
-        void Assets.load<Texture>(images.cursor_ranged).then((texture) => {
-            texture.source.scaleMode = "nearest";
+        this.loadCursorTexture(images.cursor_ranged, (texture) => {
             this.hoverRangedArrowTexture = texture;
         });
+    }
+    /** Best-effort cursor art: never let a decoration failure break hover construction. */
+    private loadCursorTexture(asset: string, apply: (texture: Texture) => void): void {
+        try {
+            void Assets.load<Texture>(asset)
+                .then((texture) => {
+                    texture.source.scaleMode = "nearest";
+                    apply(texture);
+                })
+                .catch(() => undefined);
+        } catch {
+            // No asset pipeline here (headless, or a environment without a DOM). Geometry is unaffected.
+        }
     }
     private isGraphicsUsable(graphics?: Graphics): graphics is Graphics {
         const state = graphics as (Graphics & { destroyed?: boolean; context?: unknown }) | undefined;
