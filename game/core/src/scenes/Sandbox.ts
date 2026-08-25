@@ -2232,8 +2232,11 @@ export class Sandbox extends PixiScene {
         if (rangeShotDistance > 0) {
             this.sc_currentActiveShotRange = {
                 xy: position,
-                distance: GridMath.getFullDamageSquareHalfExtent(
+                // Per-axis extents, like every live shot-range site: the scalar form paints the
+                // overlay half a cell past the band the engine enforces on a rectangle's thin axis.
+                distance: GridMath.getFullDamageHalfExtents(
                     rangeShotDistance,
+                    isSmallUnit ? 1 : 2,
                     isSmallUnit ? 1 : 2,
                     GridConstants.STEP,
                 ),
