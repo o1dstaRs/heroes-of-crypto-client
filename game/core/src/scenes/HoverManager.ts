@@ -1471,6 +1471,24 @@ export class HoverManager {
 
         this.ensureHoverSilhouetteParams(selected, boundsCenter, false);
     }
+    /**
+     * Placement is a face-off: both armies look at the battlefield centre, so a preview's horizontal
+     * mirroring is a function of its TEAM and nothing else — the same rule Sandbox re-asserts on every
+     * placed unit every frame. Applied to whichever branch produced the sprite, because the two branches
+     * disagree by construction: the texture branch has no facing of its own, and the live branch inherits
+     * the source's, which before the fight can be any direction the source last happened to hold.
+     *
+     * During the fight this must NOT run: facing there follows the direction a unit walked or the target it
+     * is striking, and forcing the team direction would spin previews back to a deployment pose.
+     */
+    private applyPlacementFacing(sprite: Sprite, outline: Sprite, selected: UnitProperties): void {
+        if (FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
+            return;
+        }
+        const facing = placementFacingDirectionForTeam(selected.team);
+        sprite.scale.x = Math.abs(sprite.scale.x) * facing;
+        outline.scale.x = Math.abs(outline.scale.x) * facing;
+    }
     private ensureHoverSilhouetteParams(
         selected: UnitProperties,
         boundsCenter: HoCMath.XY,
@@ -1513,6 +1531,12 @@ export class HoverManager {
         const cellSize = this.context.sceneSettings.getGridSettings().getCellSize();
         if (livePreview) {
             this.applyLiveUnitPreview(sprite, outline, livePreview, outlineGrowth);
+            // The live branch inherits the SOURCE sprite's facing, which is right during the fight (facing
+            // there follows movement) but only accidentally right before it. Placement has one rule and the
+            // board asserts it on every unit every frame: red/UPPER faces left, green/LOWER faces right. The
+            // preview of a placement must obey the rule it is previewing, whichever source it was cloned
+            // from — otherwise the ghost points one way and the unit turns the other the moment it lands.
+            this.applyPlacementFacing(sprite, outline, selected);
         } else {
             const projectedCenter = projectBattlefieldPoint(boundsCenter, this.context.sceneSettings.getGridSettings());
             const scale = unitPreviewScale(selected, tex, cellSize);
@@ -1521,14 +1545,7 @@ export class HoverManager {
             outline.anchor.set(0.5);
             sprite.scale.set(scale, -scale);
             outline.scale.set(outlineScale, -outlineScale);
-            // Placement is a face-off: the silhouette mirrors like the unit it previews — red/UPPER
-            // looks left toward green. Without this the drag preview on the right flank faced
-            // off-board (live report). The live-preview branch above copies the real unit's facing.
-            {
-                const facing = placementFacingDirectionForTeam(selected.team);
-                sprite.scale.x *= facing;
-                outline.scale.x *= facing;
-            }
+            this.applyPlacementFacing(sprite, outline, selected);
             sprite.x = projectedCenter.x;
             sprite.y = unitPreviewY(selected, projectedCenter.y, cellSize);
             outline.x = projectedCenter.x;
@@ -1671,6 +1688,10 @@ export class HoverManager {
         const y = unitPreviewY(props, center.y, cellSize) + this.boardHoverYOffset;
         sprite.scale.set(scale, -scale);
         outline.scale.set(outlineScale, -outlineScale);
+        // Same placement rule as every other preview. This path is currently unreachable — nothing assigns
+        // `boardHoverProps` — but it is a public entry point, and leaving the one silhouette renderer
+        // without a facing is how this bug would come back the day someone wires it up.
+        this.applyPlacementFacing(sprite, outline, props);
         sprite.x = center.x;
         sprite.y = y;
         outline.x = center.x;
