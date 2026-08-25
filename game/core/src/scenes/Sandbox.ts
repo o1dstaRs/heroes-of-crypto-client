@@ -787,7 +787,7 @@ export class Sandbox extends PixiScene {
     // Sandbox-only manual synergy picking (owner call): each team's explicitly chosen variant per
     // faction, re-applied by refreshSynergyNumbers on top of the fight-wide seeded/default variant.
     private sc_synergyVariantChoicePerTeam: Map<TeamType, { [factionName: string]: SpecificSynergy }> = new Map();
-    private sc_hoveredShotRange?: { xy: HoCMath.XY; distance: number };
+    private sc_hoveredShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY };
     private sc_hoveredAuraRanges?: {
         xy: HoCMath.XY;
         auraRanges: { range: number; isBuff: boolean }[];
@@ -5436,9 +5436,10 @@ export class Sandbox extends PixiScene {
             rangeShotCells > 0
                 ? {
                       xy: activeUnit.getPosition(),
-                      distance: GridMath.getFullDamageSquareHalfExtent(
+                      distance: GridMath.getFullDamageHalfExtents(
                           rangeShotCells,
-                          activeUnit.getSize(),
+                          activeUnit.getFootprintWidth(),
+                          activeUnit.getFootprintHeight(),
                           GridConstants.STEP,
                       ),
                   }
@@ -10707,9 +10708,10 @@ export class Sandbox extends PixiScene {
                     if (dist > 0) {
                         this.sc_hoveredShotRange = {
                             xy: hoverTargetUnit.getPosition(),
-                            distance: GridMath.getFullDamageSquareHalfExtent(
+                            distance: GridMath.getFullDamageHalfExtents(
                                 dist,
-                                hoverTargetUnit.getSize(),
+                                hoverTargetUnit.getFootprintWidth(),
+                                hoverTargetUnit.getFootprintHeight(),
                                 GridConstants.STEP,
                             ),
                         };
@@ -12333,9 +12335,10 @@ export class Sandbox extends PixiScene {
                 shotDist > 0
                     ? {
                           xy: targetUnit.getPosition(),
-                          distance: GridMath.getFullDamageSquareHalfExtent(
+                          distance: GridMath.getFullDamageHalfExtents(
                               shotDist,
-                              targetUnit.getSize(),
+                              targetUnit.getFootprintWidth(),
+                              targetUnit.getFootprintHeight(),
                               GridConstants.STEP,
                           ),
                       }
@@ -13401,15 +13404,16 @@ export class Sandbox extends PixiScene {
         }
 
         // Calculate shift-selected range
-        let shiftSelectedShotRange: { xy: HoCMath.XY; distance: number } | undefined;
+        let shiftSelectedShotRange: { xy: HoCMath.XY; distance: number | HoCMath.XY } | undefined;
         if (this.currentShiftedUnit?.getAttackType() === AttackVals.RANGE) {
             const dist = this.currentShiftedUnit.getRangeShotDistance();
             if (dist > 0) {
                 shiftSelectedShotRange = {
                     xy: this.currentShiftedUnit.getPosition(),
-                    distance: GridMath.getFullDamageSquareHalfExtent(
+                    distance: GridMath.getFullDamageHalfExtents(
                         dist,
-                        this.currentShiftedUnit.getSize(),
+                        this.currentShiftedUnit.getFootprintWidth(),
+                        this.currentShiftedUnit.getFootprintHeight(),
                         GridConstants.STEP,
                     ),
                 };
@@ -14804,9 +14808,10 @@ export class Sandbox extends PixiScene {
         if (rangeShotCells > 0) {
             this.sc_currentActiveShotRange = {
                 xy: nextUnit.getPosition(),
-                distance: GridMath.getFullDamageSquareHalfExtent(
+                distance: GridMath.getFullDamageHalfExtents(
                     rangeShotCells,
-                    nextUnit.getSize(),
+                    nextUnit.getFootprintWidth(),
+                    nextUnit.getFootprintHeight(),
                     GridConstants.STEP,
                 ),
             };

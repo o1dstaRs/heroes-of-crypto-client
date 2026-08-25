@@ -58,9 +58,11 @@ export interface ILingeringTrack {
 
 export interface IGameplayDrawContext {
     fightProps: FightProperties;
-    currentActiveShotRange?: { xy: HoCMath.XY; distance: number };
-    shiftSelectedShotRange?: { xy: HoCMath.XY; distance: number }; // [NEW] Shift-click range
-    hoveredShotRange?: { xy: HoCMath.XY; distance: number };
+    // `distance` is the full-damage half-extent: one number for a square body, a per-axis pair for a
+    // rectangular one (see GridMath.getFullDamageHalfExtents).
+    currentActiveShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY };
+    shiftSelectedShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY }; // [NEW] Shift-click range
+    hoveredShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY };
     isActiveUnitMoving: boolean;
     gridSettings: GridSettings;
     hoverGlowPhase: number;
@@ -370,13 +372,17 @@ export class SandboxDrawer {
     }
     private static clampSquareToBoard(
         xy: HoCMath.XY,
-        halfExtent: number,
+        // Per axis, because a body that is not square does not cover a square: a 2x1 shooter reaches half a
+        // cell further on x than on y. A plain number keeps the old behaviour for every square body.
+        halfExtent: number | HoCMath.XY,
         gs: GridSettings,
     ): { left: number; bottom: number; width: number; height: number } | undefined {
-        const left = Math.max(xy.x - halfExtent, gs.getMinX());
-        const right = Math.min(xy.x + halfExtent, gs.getMaxX());
-        const bottom = Math.max(xy.y - halfExtent, gs.getMinY());
-        const top = Math.min(xy.y + halfExtent, gs.getMaxY());
+        const halfX = typeof halfExtent === "number" ? halfExtent : halfExtent.x;
+        const halfY = typeof halfExtent === "number" ? halfExtent : halfExtent.y;
+        const left = Math.max(xy.x - halfX, gs.getMinX());
+        const right = Math.min(xy.x + halfX, gs.getMaxX());
+        const bottom = Math.max(xy.y - halfY, gs.getMinY());
+        const top = Math.min(xy.y + halfY, gs.getMaxY());
         const width = right - left;
         const height = top - bottom;
         return width > 0 && height > 0 ? { left, bottom, width, height } : undefined;
@@ -384,7 +390,7 @@ export class SandboxDrawer {
     private static drawShotRangeSquare(
         g: Graphics,
         xy: HoCMath.XY,
-        halfExtent: number,
+        halfExtent: number | HoCMath.XY,
         gs: GridSettings,
         pulsePhase: number,
         color: number,

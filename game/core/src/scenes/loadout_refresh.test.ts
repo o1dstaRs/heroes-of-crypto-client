@@ -38,6 +38,8 @@ const makeScene = (
         activeUnitPosition?: { x: number; y: number };
         rangeShotDistance?: number;
         unitSize?: number;
+        footprintWidth?: number;
+        footprintHeight?: number;
         selectedUnitId?: string;
         liveProperties?: Record<string, unknown>;
     } = {},
@@ -69,6 +71,8 @@ const makeScene = (
                   getPosition: () => overrides.activeUnitPosition,
                   getRangeShotDistance: () => overrides.rangeShotDistance ?? 0,
                   getSize: () => overrides.unitSize ?? 1,
+                  getFootprintWidth: () => overrides.footprintWidth ?? overrides.unitSize ?? 1,
+                  getFootprintHeight: () => overrides.footprintHeight ?? overrides.unitSize ?? 1,
               }
             : undefined,
         updateCurrentMovePath: (cell: { x: number; y: number }) => {
@@ -132,9 +136,10 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
 
         // Five cells are measured centre-to-centre. The visible boundary needs another half cell to reach
         // the far seam of the fifth cell; using 5 * STEP stopped through the middle of that outer row.
+        // The extent is carried per axis — equal on both for a square body, which every shipped one is.
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: 5.5 * GridConstants.STEP,
+            distance: { x: 5.5 * GridConstants.STEP, y: 5.5 * GridConstants.STEP },
         });
     });
 
@@ -149,7 +154,27 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
 
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: 6 * GridConstants.STEP,
+            distance: { x: 6 * GridConstants.STEP, y: 6 * GridConstants.STEP },
+        });
+    });
+
+    // A body that is not square does not cover a square: the band reaches the same whole cells out from the
+    // BODY on both axes, so a 2x1 shooter's full-damage area is half a cell wider than it is tall. Collapsing
+    // that to one number painted the overlay past the band the engine enforces on the thin axis.
+    test("a 2x1 shooter's full-damage square is wider than it is tall", () => {
+        const { scene } = makeScene({
+            activeUnitPosition: { x: 100, y: 100 },
+            rangeShotDistance: 5,
+            unitSize: 2,
+            footprintWidth: 2,
+            footprintHeight: 1,
+        });
+
+        runRefresh(scene);
+
+        expect(scene.sc_currentActiveShotRange).toEqual({
+            xy: { x: 100, y: 100 },
+            distance: { x: 6 * GridConstants.STEP, y: 5.5 * GridConstants.STEP },
         });
     });
 
