@@ -1611,7 +1611,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         refreshedIdlePhaseRatio: number;
     };
 
-    assetTest("renders Wolf at a compact rider-like height with the approved independent width and height", () => {
+    assetTest("renders Wolf at its compact rider-like height, width taken from the two cells it occupies", () => {
         const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
@@ -1620,8 +1620,12 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const scaleY = Math.abs(internals.sprite?.scale.y ?? 0);
 
         expect(WOLF_BOARD_MODEL_HEIGHT_CELLS).toBeCloseTo(1.05 * 0.99);
-        expect(scaleX / scaleY).toBeCloseTo(
-            BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleX / BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleY,
+        // Wolf ships 2x1 now: a mechanically rectangular body takes its WIDTH from the cells it
+        // occupies (the authored widthScale existed to fake this silhouette while it was 1x1), while
+        // its authored compact height stays exactly as approved.
+        expect(unit.getFootprintWidth()).toBe(2);
+        expect(scaleX * (internals.sprite?.texture.width ?? 0)).toBeCloseTo(
+            gridSettings.getCellSize() * unit.getFootprintWidth() * BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleX,
         );
         expect(scaleY * (internals.sprite?.texture.height ?? 0)).toBeCloseTo(
             gridSettings.getCellSize() * WOLF_BOARD_MODEL_HEIGHT_CELLS * BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleY,

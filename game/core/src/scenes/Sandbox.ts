@@ -2165,7 +2165,7 @@ export class Sandbox extends PixiScene {
     protected getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
         return this.placementManager.getPlacement(teamType, placementIndex);
     }
-    /** Get unit by world position using grid occupancy */
+    /** Get unit by world position: grid occupancy first, then the rendered silhouette. */
     private getUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = GridMath.getCellForPosition(gs, worldPos);
@@ -2179,8 +2179,35 @@ export class Sandbox extends PixiScene {
                 // occupantId is a terrain obstacle (mountain "B"/"H", lava "L", water "W"),
                 // not a real unit. Don't short-circuit here, otherwise a floating bench/pick
                 // creature rendered over this cell becomes unselectable. Fall through to the
-                // bench hit-test below.
+                // sprite and bench hit-tests below.
             }
+        }
+        // The drawn body is taller than — and for the mounted class hangs past — the ground it
+        // occupies, so a click on the visible silhouette often lands on a cell that holds nothing.
+        // Fall back to sprite hit-testing then; among overlapping silhouettes the frontmost-drawn
+        // one wins, which is the body the click visually touched. An OCCUPIED cell above keeps
+        // priority so dense formations stay targetable by the ground a unit stands on.
+        let spriteHit: { unit: Unit; depth: number } | undefined;
+        for (const candidate of this.unitsHolder.getAllUnits().values()) {
+            if (candidate.isDead()) {
+                continue;
+            }
+            const renderable = candidate as unknown as {
+                spriteHitDepth?: (point: HoCMath.XY, gridSettings: GridSettings) => number | undefined;
+            };
+            if (typeof renderable.spriteHitDepth !== "function") {
+                continue;
+            }
+            const depth = renderable.spriteHitDepth(worldPos, gs);
+            if (depth === undefined) {
+                continue;
+            }
+            if (!spriteHit || depth > spriteHit.depth) {
+                spriteHit = { unit: candidate, depth };
+            }
+        }
+        if (spriteHit) {
+            return spriteHit.unit;
         }
         if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return this.getBenchUnitAtPosition(worldPos);

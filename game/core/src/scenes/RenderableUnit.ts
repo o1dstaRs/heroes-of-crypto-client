@@ -2,6 +2,7 @@ import {
     Container,
     Sprite,
     Graphics,
+    Point,
     Text,
     TextStyle,
     Texture,
@@ -1596,6 +1597,26 @@ export class RenderableUnit extends Unit {
         for (const spell of this.pixiSpells) {
             spell.syncAmount(remainingByName.get(spell.getName()) ?? 0);
         }
+    }
+    /**
+     * Whether a LOGICAL board point lands inside this unit's rendered sprite box — and at what draw
+     * depth. The silhouette rises well above (and, for the mounted class, hangs past) the cells the
+     * unit stands on, so a selection click on the visible body often misses every occupied cell; the
+     * scene falls back to this test and, among overlapping silhouettes, picks the highest depth (the
+     * frontmost-drawn body — the one the click visually touched). The projection into the sprite's
+     * own coordinate space happens here, so callers never need to know whether this unit renders on
+     * the trapezoid battlefield or the flat board.
+     */
+    public spriteHitDepth(logicalPoint: HoCMath.XY, gs: GridSettings): number | undefined {
+        const sprite = this.sprite;
+        if (!sprite || this.isDestroyed || !sprite.visible || !sprite.parent || sprite.alpha <= 0) {
+            return undefined;
+        }
+        const visualPoint = this.useBattlefieldVisualProjection
+            ? projectBattlefieldPoint(logicalPoint, gs)
+            : logicalPoint;
+        const local = sprite.toLocal(new Point(visualPoint.x, visualPoint.y), sprite.parent);
+        return sprite.getLocalBounds().containsPoint(local.x, local.y) ? sprite.zIndex : undefined;
     }
     /** Ensure sprite + badge exist and are laid out for the current unit state. */
     public ensureVisual(worldRoot: Container, gs: GridSettings): number | undefined {
