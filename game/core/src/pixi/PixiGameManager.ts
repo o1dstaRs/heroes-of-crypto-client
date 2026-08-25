@@ -44,6 +44,12 @@ import { getScenesGrouped } from "./PixiScene";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import type { SandboxReplay } from "../replay/sandbox_replay";
 
+// Every fight this client hosts — sandbox, vs-AI, previews, ranked hydration — plays the
+// SIDE-oriented board (owner call 2026-08-25: everything fights left-to-right now). Set as the
+// process default so it survives every FightStateManager.reset() a scene performs; the ranked
+// server enforces the same geometry on its side.
+FightStateManager.setDefaultSideOrientedPlacement(true);
+
 // A scene that (optionally) exposes the overlay
 type SceneWithUnitsOverlay = PixiScene & {
     getUnitsOverlay?: () => UnitsOverlay | undefined;

@@ -6116,18 +6116,17 @@ export class Sandbox extends PixiScene {
             this.dungeonVisuals?.setScatteredMountains([]);
             return;
         }
-        // The band is the middle SCATTERED_MOUNTAIN_BAND_ROWS rows, full width. The SANDBOX still deploys
-        // in the bottom/top row bands (common RectanglePlacement via PlacementManager: y 1-3 and y 12-14,
-        // full width), so the horizontal mid-board belt is the one strip that never collides with either
-        // army here. RANKED is different: its zones are SIDE-oriented (server SideRectanglePlacement), so
-        // scatteredMountainsForSeed uses the vertical columns band instead. If the sandbox ever goes
-        // side-oriented like ranked, rotate this band with it.
+        // The band follows the board orientation: side-oriented boards (the default everywhere now —
+        // owner call 2026-08-25) deploy on the left/right x-bands, so the neutral strip is the middle
+        // COLUMNS, full height, matching scatteredMountainsForSeed exactly. A classic board keeps the
+        // horizontal middle-rows belt between its bottom/top zones.
+        const sideOriented = FightStateManager.getInstance().getFightProperties().isSideOrientedPlacement();
         const free: HoCMath.XY[] = [];
         const size = GridConstants.GRID_SIZE;
         const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
-        for (let x = 0; x < size; x++) {
-            for (let y = bandStart; y < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; y++) {
-                free.push({ x, y });
+        for (let major = bandStart; major < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; major++) {
+            for (let minor = 0; minor < size; minor++) {
+                free.push(sideOriented ? { x: major, y: minor } : { x: minor, y: major });
             }
         }
         // Partial Fisher-Yates: the first N of a shuffled list are distinct by construction and uniformly
@@ -11368,6 +11367,8 @@ export class Sandbox extends PixiScene {
                                 targetUnit.getBaseCell(),
                                 targetUnit.isSmallSize(),
                                 this.currentActiveUnit.getTeam(),
+                                targetUnit.getFootprintHeight(),
+                                FightStateManager.getInstance().getFightProperties().isSideOrientedPlacement(),
                             );
                             if (abilitiesWithPositionCoeff && abilitiesWithPositionCoeff.length) {
                                 for (const awpc of abilitiesWithPositionCoeff) {

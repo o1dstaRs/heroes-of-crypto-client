@@ -183,8 +183,8 @@ export class DrawableSquarePlacement extends SquarePlacement implements IDrawabl
 
 export class DrawableRectanglePlacement extends RectanglePlacement implements IDrawablePlacement {
     private readonly visualGridSettings: GridSettings;
-    public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3) {
-        super(gs, pos, size);
+    public constructor(gs: GridSettings, pos: PlacementPositionType, size = 3, sideOriented = false) {
+        super(gs, pos, size, sideOriented);
         this.visualGridSettings = gs;
     }
     public draw(gfx: Graphics, _frameContainer: Container): void {

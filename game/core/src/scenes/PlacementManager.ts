@@ -38,11 +38,15 @@ export class PlacementManager {
         const placementType = fp.getPlacementType();
 
         if (placementType === PlacementType.RECTANGLE) {
+            // Zones follow the fight's board orientation: side-oriented boards deploy on the
+            // LEFT/RIGHT x-bands (LOWER = left, UPPER = right) exactly like the server's zones.
+            const sideOriented = fp.isSideOrientedPlacement();
             if (0 in augLower) {
                 this.lowerPlacements[0] = new DrawableRectanglePlacement(
                     this.gridSettings,
                     PlacementPositionType.LOWER_LEFT,
                     augLower[0],
+                    sideOriented,
                 );
             }
             if (0 in augUpper) {
@@ -50,6 +54,7 @@ export class PlacementManager {
                     this.gridSettings,
                     PlacementPositionType.UPPER_LEFT,
                     augUpper[0],
+                    sideOriented,
                 );
             }
         } else {

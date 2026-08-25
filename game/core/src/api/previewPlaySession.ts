@@ -181,6 +181,7 @@ const deployTeam = (units: PreviewUnitState[], team: TeamType, zoneDepth: number
         GRID,
         isLower ? PlacementPositionType.LOWER_LEFT : PlacementPositionType.UPPER_RIGHT,
         zoneDepth,
+        true, // every surface plays the side-oriented board now (left/right x-bands)
     );
     const blocked = new Set<number>();
     // Biggest body first: it needs the largest contiguous hole, and a one-cell stack dropped in the middle
