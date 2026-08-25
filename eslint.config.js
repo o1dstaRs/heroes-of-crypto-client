@@ -5,6 +5,33 @@ const typescriptPlugin = require("@typescript-eslint/eslint-plugin");
 const typescriptParser = require("@typescript-eslint/parser");
 const globals = require("globals");
 
+/**
+ * A unit's stored geometry is the CENTRE of its W x H block, and its identity on the board is the ANCHOR
+ * (the top-right cell). `getCellForPosition(gs, unit.getPosition())` names the cell that centre falls in,
+ * which IS the anchor only while both sides are at most 2 — for a 2x1 / 1x2 merely because the centre lands
+ * exactly on a cell boundary and `floor` breaks the tie towards the anchor. A body three cells deep centres
+ * on its MIDDLE cell, so the shortcut silently returns the wrong cell.
+ *
+ * That reads so naturally as "the unit's cell" that it was written independently in a dozen places across
+ * the engine, the server and the client, and every one of them had to be found and fixed by hand. This rule
+ * is the guard: ask the unit for `getBaseCell()`, or convert explicitly with
+ * `GridMath.getFootprintAnchorForPosition(gs, position, width, height)`.
+ */
+const FOOTPRINT_GEOMETRY_RESTRICTIONS = [
+    {
+        selector:
+            "CallExpression[callee.property.name='getCellForPosition'] > CallExpression.arguments[callee.property.name='getPosition']",
+        message:
+            "A unit's position is its footprint CENTRE, not its anchor cell. Use unit.getBaseCell() (or GridMath.getFootprintAnchorForPosition) so a body deeper than 2 cells resolves to the right cell.",
+    },
+    {
+        selector:
+            "CallExpression[callee.name='getCellForPosition'] > CallExpression.arguments[callee.property.name='getPosition']",
+        message:
+            "A unit's position is its footprint CENTRE, not its anchor cell. Use unit.getBaseCell() (or getFootprintAnchorForPosition) so a body deeper than 2 cells resolves to the right cell.",
+    },
+];
+
 module.exports = [
     {
         files: ["game/**/src/**/*.{ts,tsx}"],
@@ -65,6 +92,7 @@ module.exports = [
             ],
             "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
             "lines-between-class-members": ["error", "never"],
+            "no-restricted-syntax": ["error", ...FOOTPRINT_GEOMETRY_RESTRICTIONS],
         },
         settings: {
             react: {

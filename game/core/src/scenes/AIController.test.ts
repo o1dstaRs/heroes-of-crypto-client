@@ -17,6 +17,9 @@ import type { LocalModelOpponentConfig } from "./LocalModelOpponent";
 import type { RenderableUnit } from "./RenderableUnit";
 import { SceneSettings } from "./SceneSettings";
 
+/** The board the stubs below are measured on; the specs build their own equivalents per case. */
+const STUB_GRID_SETTINGS = new GridSettings(4, 400, 0, 400, 0, 0, 0);
+
 const createUnit = (
     id = "ai-unit-1",
     team = TeamVals.LOWER,
@@ -40,6 +43,16 @@ const createUnit = (
         // The real Unit method: the body hangs down-left of its anchor.
         getFootprintCellsForAnchor: (anchor: HoCMath.XY) =>
             GridMath.getFootprintCellsForAnchor(anchor, footprint.width, footprint.height),
+        // Also the real Unit method. Derived rather than fixed, because the controller feeds this straight
+        // to the engine as an attack-from ANCHOR, and a stub that answered with the cell under the body's
+        // CENTRE would agree with the engine only for shapes at most 2 cells on a side.
+        getBaseCell: () =>
+            GridMath.getFootprintAnchorForPosition(
+                STUB_GRID_SETTINGS,
+                { x: 0, y: 0 },
+                footprint.width,
+                footprint.height,
+            ),
         isOnHourglass: () => false,
         setOnHourglass: () => undefined,
     }) as unknown as RenderableUnit;

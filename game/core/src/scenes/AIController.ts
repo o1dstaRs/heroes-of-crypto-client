@@ -1039,8 +1039,9 @@ export class AIController {
         wasAIActive: boolean,
     ): Promise<boolean> {
         const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
-        const gs = this.context.getSceneSettings().getGridSettings();
-        const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        // executeAttackSequence reads this as the shooter's ANCHOR, and a unit's position is its
+        // footprint CENTRE — the two only coincide while both sides are at most 2.
+        const attackFrom = currentUnit.getBaseCell();
         if (!target || !attackFrom) {
             return false;
         }
@@ -1701,8 +1702,7 @@ export class AIController {
 
         if (action.type === "range_attack") {
             const target = this.context.getUnitsHolder().getAllUnits().get(action.targetId);
-            const gs = this.context.getSceneSettings().getGridSettings();
-            const attackFrom = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+            const attackFrom = currentUnit.getBaseCell();
             if (!target || !attackFrom) {
                 this.recordLocalModelResult(currentUnit, legalAction, decisionId, false, "missing_range_target");
                 return false;
@@ -2019,8 +2019,7 @@ export class AIController {
         this.context.setCurrentActiveKnownPaths(action.currentActiveKnownPaths());
 
         const cellToAttack = action.cellToAttack();
-        const gs = this.context.getSceneSettings().getGridSettings();
-        const attackFromCell = action.cellToMove() || GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        const attackFromCell = action.cellToMove() || currentUnit.getBaseCell();
 
         if (!cellToAttack || !attackFromCell) return false;
 
@@ -2067,8 +2066,7 @@ export class AIController {
         this.context.setCurrentActiveKnownPaths(action.currentActiveKnownPaths());
 
         const cellToAttack = action.cellToAttack();
-        const gs = this.context.getSceneSettings().getGridSettings();
-        const attackFromCell = GridMath.getCellForPosition(gs, currentUnit.getPosition());
+        const attackFromCell = currentUnit.getBaseCell();
 
         if (!cellToAttack || !attackFromCell) return false;
 
