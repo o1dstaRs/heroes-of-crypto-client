@@ -138,6 +138,27 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
         expect(movePathCells).toHaveLength(1);
     });
 
+    /**
+     * The reach is keyed off the unit's ANCHOR, because that is what getMovePath looks up. Asserting only
+     * that ONE cell was handed over cannot tell the anchor from the cell the body's centre happens to fall
+     * in — for every shape that ships today those are the same cell, so the distinction is invisible until
+     * a body is three deep.
+     *
+     * A 1x3 on column 8, rows 0..2, has its centre at the MIDDLE cell's centre: {64, 192} names cell (8,1)
+     * while the anchor — the top-right cell, and the only one that is a key in knownPaths — is (8,2).
+     */
+    test("keys the reach off the ANCHOR, not the cell the body's centre lands in", () => {
+        const { scene, movePathCells } = makeScene({
+            activeUnitPosition: { x: 64, y: 192 },
+            footprintWidth: 1,
+            footprintHeight: 3,
+        });
+
+        runRefresh(scene);
+
+        expect(movePathCells).toEqual([{ x: 8, y: 2 }]);
+    });
+
     test("recomputes the shot square through the outer edges of every full-damage cell", () => {
         const { scene } = makeScene({ activeUnitPosition: { x: 100, y: 100 }, rangeShotDistance: 5 });
 
