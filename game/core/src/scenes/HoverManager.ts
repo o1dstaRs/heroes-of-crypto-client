@@ -497,6 +497,8 @@ export class HoverManager {
         if (!currentActiveUnit) return false;
         if (!currentActivePathHashes || !currentActivePathHashes.size) return false;
 
+        if (!GridMath.isCellWithinGrid(this.context.sceneSettings.getGridSettings(), cell)) return false;
+
         const props = currentActiveUnit.getUnitProperties();
         const hash = (x: number, y: number) => (x << 4) | y;
 
@@ -1746,7 +1748,11 @@ export class HoverManager {
 
         const cell = GridMath.getCellForPosition(gs, logicalWorldPos);
         this.clearAuraVisuals();
-        if (!cell) {
+        // A pointer OFF the board still produces a cell — getCellForPosition is an unclamped floor-divide.
+        // The 4-bits-per-axis cell hash then ALIASES rather than missing: y = 16 sets the low bit of x, so
+        // `(x << 4) | 16` is the key of the real cell (x | 1, 0), and an off-board cursor would light up a
+        // placement silhouette on row 0.
+        if (!cell || !GridMath.isCellWithinGrid(gs, cell)) {
             this.clearHoverSilhouette();
             return;
         }

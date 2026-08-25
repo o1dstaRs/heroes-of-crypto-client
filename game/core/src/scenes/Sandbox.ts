@@ -6080,9 +6080,11 @@ export class Sandbox extends PixiScene {
             unit.getRangeShots() <= 0 ||
             unit.hasDebuffActive("Range Null Field Aura") ||
             unit.hasStatusApplied("Rangebane") ||
+            // The unit itself: the legacy boolean can only describe 1x1 or 2x2, and a rectangle squeezed
+            // through it is tested on cells it does not stand on — the cursor then refuses a legal shot.
             this.attackHandler.canBeAttackedByMelee(
                 unit.getPosition(),
-                unit.isSmallSize(),
+                unit,
                 this.grid.getEnemyAggrMatrixByUnitId(unit.getId()),
             )
         ) {
@@ -6808,6 +6810,10 @@ export class Sandbox extends PixiScene {
                     return;
                 } else {
                     if (!this.hoverManager.isCellReachableForActiveUnit(cell)) return;
+                    // The cell came from an unclamped floor-divide of a pointer position, and the cell hash
+                    // packs four bits per axis — an off-board y = 16 aliases onto the real cell (x | 1, 0),
+                    // which would run a route the player never aimed at.
+                    if (!GridMath.isCellWithinGrid(gs, cell)) return;
                     const key = (cell.x << 4) | cell.y;
                     const routes = this.currentActiveKnownPaths.get(key);
                     if (routes && routes.length > 0) {

@@ -30,6 +30,12 @@ const FOOTPRINT_GEOMETRY_RESTRICTIONS = [
         message:
             "A unit's position is its footprint CENTRE, not its anchor cell. Use unit.getBaseCell() (or getFootprintAnchorForPosition) so a body deeper than 2 cells resolves to the right cell.",
     },
+    {
+        selector:
+            "CallExpression[callee.property.name='canBeAttackedByMelee'] > CallExpression.arguments[callee.property.name='isSmallSize']",
+        message:
+            "canBeAttackedByMelee's boolean form can only describe 1x1 or 2x2, so a rectangle is tested on cells it does not stand on and reads as melee-pinned where it is free. Pass the unit itself.",
+    },
 ];
 
 module.exports = [
