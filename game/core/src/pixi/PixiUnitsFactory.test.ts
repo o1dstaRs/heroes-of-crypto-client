@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 
+import { images } from "@/generated/image_imports";
+
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "./PixiUnitsFactory";
+
+/**
+ * Whether this checkout has the real art bundle. CI generates a stub image map that answers `in` with true
+ * for EVERY key, so any assertion of the form "this asset is not shipped, so we fall back" is vacuous there.
+ * A key that cannot exist in the real bundle separates the two.
+ */
+const SHIPS_REAL_ART = !("__hoc_stub_probe_key_that_never_ships" in images);
 
 test("uses tall full-body textures for authored board creatures", () => {
     expect(unitToTextureName("Wandering Mage", TextureType.SMALL, 1)).toBe("wandering_mage_board_128");
@@ -58,9 +67,23 @@ test("degrades a rectangular footprint to the nearest shipped battlefield art", 
     expect(unitToTextureName("Griffin", TextureType.SMALL, 2, 1)).toBe("griffin_battlefield_side_right_v2");
     expect(staticBattlefieldTextureNameForUnit("Griffin", 2, 1)).toBe("griffin_battlefield_side_right_v2");
     expect(staticBattlefieldTextureNameForUnit("Griffin", 2, 2)).toBeUndefined();
-    // Nothing ships `white_tiger_256x128` or `white_tiger_256`, so the one-cell chip is what is left.
-    expect(unitToTextureName("White Tiger", TextureType.SMALL, 2, 1)).toBe("white_tiger_128");
-    expect(unitToTextureName("Hyena", TextureType.SMALL, 1, 2)).toBe("hyena_128");
+    // A creature with no rectangular and no two-cell art falls the rest of the way to its one-cell chip.
+    // The exact rung it lands on is asserted against the REAL bundle only: CI replaces the generated image
+    // map with a stub whose `in` reports every key as present (deliberately, so asset tests need no art
+    // download), which makes an "is this shipped?" question unanswerable there. What must hold everywhere is
+    // that the name resolves to something — a texture nothing can resolve renders as nothing at all.
+    for (const [name, width, height] of [
+        ["White Tiger", 2, 1],
+        ["Hyena", 1, 2],
+    ] as const) {
+        const resolved = unitToTextureName(name, TextureType.SMALL, width, height);
+        expect(resolved in images).toBe(true);
+        expect(resolved.startsWith(name.toLowerCase().replace(/ /g, "_"))).toBe(true);
+        if (!SHIPS_REAL_ART) {
+            continue;
+        }
+        expect(resolved).toBe(`${name.toLowerCase().replace(/ /g, "_")}_128`);
+    }
     // Card and sidebar art is a portrait of the creature and never depends on the footprint.
     expect(unitToTextureName("White Tiger", TextureType.LARGE, 2, 1)).toBe("white_tiger_512");
 });
