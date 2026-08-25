@@ -207,11 +207,24 @@ const deployTeam = (units: PreviewUnitState[], team: TeamType, zoneDepth: number
             unit.placed = true;
             unit.cells = cells;
             unit.baseCell = { ...base };
-            // Same one-cell buffer the server keeps between auto-placed stacks.
+            // Same one-cell buffer the server keeps between auto-placed stacks — including its bounds
+            // check. `cellKey` packs four bits per axis, so an off-board neighbour does not miss, it
+            // ALIASES: y = 16 sets the low bit of x, making key(x, 16) === key(x | 1, 0), which would blank
+            // a real cell in row 0. Today no caller reaches row 15 (deploy depth is always 3), so this is a
+            // trap rather than a live bug — guarded here so a deeper strip cannot spring it.
             for (const cell of cells) {
                 for (let dx = -1; dx <= 1; dx += 1) {
                     for (let dy = -1; dy <= 1; dy += 1) {
-                        blocked.add(cellKey({ x: cell.x + dx, y: cell.y + dy }));
+                        const neighbour = { x: cell.x + dx, y: cell.y + dy };
+                        if (
+                            neighbour.x < 0 ||
+                            neighbour.y < 0 ||
+                            neighbour.x >= GridConstants.GRID_SIZE ||
+                            neighbour.y >= GridConstants.GRID_SIZE
+                        ) {
+                            continue;
+                        }
+                        blocked.add(cellKey(neighbour));
                     }
                 }
             }
