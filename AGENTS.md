@@ -173,10 +173,13 @@ Multiple agents run on this repo **at the same time**. Rules:
   references, source artwork, generated images, textures, portraits, icons, sprites, animation frames, atlases,
   audio, video, fonts, metadata, datasets, previews, screenshots, exports, backups, and intermediate work.
   Do not save any of these files to Dropbox or another synchronized cloud folder unless the user explicitly asks.
-- Runtime game images are canonical only in the local workspace directory referenced by HOC_IMAGES_LOC
-  (normally ~/Workplace/heroesofcrypto-assets/images). Animation atlases and metadata are canonical only under
-  HOC_ANIMATIONS_LOC/output (normally ~/Workplace/heroesofcrypto-assets/animations/output). Never write new
-  game art or generated data to Dropbox or another synchronized cloud folder unless the user explicitly asks.
+- Runtime game images are canonical only in the directory referenced by HOC_IMAGES_LOC. Since 2026-08 that
+  is the shared Google Drive art folder ("$HOME/Google Drive/My Drive/heroesofcrypto/images"); a machine
+  without the Drive mount may keep a local checkout at ~/Workplace/heroesofcrypto-assets/images, which is
+  also the fallback the build uses when HOC_IMAGES_LOC is unset. Animation atlases and metadata are
+  canonical only under HOC_ANIMATIONS_LOC/output. The former Dropbox folder is RETIRED: never read from or
+  write to it (stale copies there silently roll art back), and never scatter game art into any other
+  synchronized cloud folder.
   Never add game art to game/core/public or another tracked game directory.
 - Store intermediate image-generation work under game/core/tmp/imagegen. Store final static game images as
   compressed WebP files in the local HOC_IMAGES_LOC folder; store animation atlas WebPs and *_meta.json files
