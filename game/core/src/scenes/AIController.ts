@@ -2205,16 +2205,28 @@ export class AIController {
         // Same footprint correction as handleMoveAndMeleeAttack: land a multi-cell body where the
         // silhouette shows instead of letting the move fallback mis-anchor it by one cell diagonally.
         // (Always computed — it feeds the action's targetCells regardless of whether we draw a silhouette.)
+        //
+        // `cellToMove` is an ANCHOR out of the pather, so the body hangs off it towards -x / -y. Expanding
+        // from the anchor CELL'S CENTRE instead returns the block growing up-and-right, which for a square
+        // body is a different block entirely: at the board's far edge that names an off-board column and the
+        // engine rejects the move outright (the AI then re-proposes it every trigger), and in the interior it
+        // passes validation while standing the unit one cell diagonally off where the pather put it.
         let moveFootprint: HoCMath.XY[] | undefined;
         if (moveToPos && !currentUnit.isSmallSize()) {
-            moveFootprint = GridMath.getFootprintCellsForPosition(
-                gs,
-                moveToPos,
+            moveFootprint = GridMath.getFootprintCellsForAnchor(
+                cellToMove,
                 currentUnit.getFootprintWidth(),
                 currentUnit.getFootprintHeight(),
             );
-            const center = GridMath.getPositionForCells(gs, moveFootprint);
-            if (center) Object.assign(moveToPos, center);
+            Object.assign(
+                moveToPos,
+                GridMath.getPositionForFootprintAnchor(
+                    gs,
+                    cellToMove,
+                    currentUnit.getFootprintWidth(),
+                    currentUnit.getFootprintHeight(),
+                ),
+            );
         }
 
         const moveAction = this.modelAction(currentUnit, {
