@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import { FactionVals, type UnitProperties } from "@heroesofcrypto/common";
 
-import { formatSidebarStat } from "./sidebarMetrics";
+import { formatSidebarAttackModifier, formatSidebarModifier, formatSidebarStat } from "./sidebarMetrics";
 import { areUnitStatsPropsEqual } from "./unitStatsMemo";
 import { DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING } from "../leftSidebarPortraitTuning";
 import type { IVisibleOverallImpact } from "../../scenes/VisibleState";
@@ -43,6 +43,22 @@ test("a reconciled live unit invalidates through its rebuilt impact", () => {
             { unitProperties: liveUnit, overallImpact: impact(), factionType: FactionVals.NO_FACTION },
         ),
     ).toBe(false);
+});
+
+test("stat modifiers keep their sign, drop float noise, and vanish at zero", () => {
+    expect(formatSidebarModifier(2.4000000953674316)).toBe("+2.4");
+    expect(formatSidebarModifier(-1.25)).toBe("-1.25");
+    expect(formatSidebarModifier(0)).toBe("");
+    expect(formatSidebarAttackModifier(5, 1.5)).toBe("+5 x1.5");
+    expect(formatSidebarAttackModifier(-2, 0.75)).toBe("-2 x0.75");
+    expect(formatSidebarAttackModifier(0, 1)).toBe("");
+});
+
+// The armor pair dedups on the FORMATTED figures: two armors that differ only past the displayed
+// hundredths must collapse to the single regular-armor cell.
+test("ranged armor hides when it formats identically to melee armor", () => {
+    expect(formatSidebarStat(3.4512) === formatSidebarStat(3.4534)).toBe(true);
+    expect(formatSidebarStat(3.45) === formatSidebarStat(3.46)).toBe(false);
 });
 
 test("sidebar stats preserve meaningful decimals and omit trailing zeroes", () => {

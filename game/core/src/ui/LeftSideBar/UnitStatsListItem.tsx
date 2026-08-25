@@ -1,4 +1,5 @@
 import {
+    HoCConfig,
     HoCConstants,
     UnitProperties,
     AttackVals,
@@ -53,7 +54,13 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
-import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
+import {
+    formatSidebarAttackModifier,
+    formatSidebarModifier,
+    formatSidebarStat,
+    useSidebarMetrics,
+    type ISidebarMetrics,
+} from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
@@ -1054,11 +1061,12 @@ const EffectTiles: React.FC<{
  * component silently drops both, and the stat explanations stop appearing on hover with nothing in the
  * console to say why. If this stops forwarding, the tooltips go quiet again.
  */
-// Every figure on this plate is the FINAL, effective one: attack already carries attack_mod and the
-// multiplier, armor its armor_mod, steps their steps_mod, luck its luck_mod, and magic resist / range
-// shots the mods that REPLACE their base. The plate used to print the signed delta beside each of them
-// ("+2", "-1", "x1.5") as well, which meant a stat could show two or three numbers at once and the reader
-// had to work out which one actually applied. Only the effective value is shown now.
+// OWNER call (2026-08-25): every figure on this plate is the FINAL, effective one — AND the signed
+// delta ("+2", "-1", "x1.5") renders beside it as a small coloured chip. An earlier pass dropped the
+// chips in favour of totals-only, and the owner called that a regression: a buffed stat must say it is
+// buffed without the reader diffing against the creature card from memory.
+const MOD_UP_COLOR = "#7ee787";
+const MOD_DOWN_COLOR = "#ff8a7a";
 
 const StatValue = React.forwardRef<
     HTMLDivElement,
@@ -1067,8 +1075,9 @@ const StatValue = React.forwardRef<
         value: string | number;
         color: string;
         metrics: ISidebarMetrics;
+        modifier?: string;
     } & React.HTMLAttributes<HTMLDivElement>
->(({ icon, value, color, metrics, ...tooltipProps }, ref) => (
+>(({ icon, value, color, metrics, modifier, ...tooltipProps }, ref) => (
     // No buff/debuff frame: a modified stat used to get a pulsing green or red ring, which on creatures
     // that carry a permanent modifier sat on screen for the whole fight and read as clutter.
     <Box
@@ -1085,6 +1094,19 @@ const StatValue = React.forwardRef<
             sx={{ whiteSpace: "nowrap", fontWeight: 600, fontSynthesis: "weight" }}
         >
             {value}
+            {modifier && (
+                <Box
+                    component="span"
+                    sx={{
+                        fontSize: "0.68em",
+                        ml: "2px",
+                        fontWeight: 700,
+                        color: modifier.startsWith("-") || modifier.startsWith("x0.") ? MOD_DOWN_COLOR : MOD_UP_COLOR,
+                    }}
+                >
+                    {modifier}
+                </Box>
+            )}
         </Typography>
     </Box>
 ));
@@ -1154,8 +1176,22 @@ const StatItem: React.FC<{
     secondValue?: string | number;
     secondColor?: string;
     secondTooltip?: string;
-}> = ({ icon, value, tooltip, color, metrics, secondIcon, secondValue, secondColor, secondTooltip }) => {
-    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} />;
+    modifier?: string;
+    secondModifier?: string;
+}> = ({
+    icon,
+    value,
+    tooltip,
+    color,
+    metrics,
+    secondIcon,
+    secondValue,
+    secondColor,
+    secondTooltip,
+    modifier,
+    secondModifier,
+}) => {
+    const first = <StatValue icon={icon} value={value} color={color} metrics={metrics} modifier={modifier} />;
 
     return (
         <Box
@@ -1198,6 +1234,7 @@ const StatItem: React.FC<{
                             value={secondValue}
                             color={secondColor ?? color}
                             metrics={metrics}
+                            modifier={secondModifier}
                         />
                     </Tooltip>
                 )}
@@ -1254,6 +1291,26 @@ const UnitStatsLayout: React.FC<{
         // (range_shots_mod) and a granted shot_distance — show its ranged stats too.
         (unitProperties.shot_distance > 0 && (unitProperties.range_shots_mod || unitProperties.range_shots) > 0);
 
+    // magic_resist_mod and range_shots_mod replace their bases instead of adding to them, so their visible
+    // labels are the difference from base rather than the raw replacement value.
+    const magicResistDelta = unitProperties.magic_resist_mod
+        ? unitProperties.magic_resist_mod - unitProperties.magic_resist
+        : 0;
+    const rangeShotsDelta = unitProperties.range_shots_mod
+        ? unitProperties.range_shots_mod - unitProperties.range_shots
+        : 0;
+    const attackModifier = formatSidebarAttackModifier(unitProperties.attack_mod, unitProperties.attack_multiplier);
+    // Ranked snapshots carry final luck in `luck` and intentionally leave luck_mod at zero. Diffing against
+    // the configured base makes this display-only label work in ranked and the local sandbox alike.
+    const configuredLuck = HoCConfig.getCreatureConfig(
+        unitProperties.team,
+        ToFactionName[unitProperties.faction],
+        unitProperties.name,
+        unitProperties.large_texture_name,
+        0,
+    ).luck;
+    const luckDelta = unitProperties.luck + unitProperties.luck_mod - configuredLuck;
+
     // Order matters: the seven stats every creature has come first, in a fixed sequence, and the handful
     // that only some carry are appended after them. Otherwise a conditional cell in the middle re-seats
     // everything behind it, and the same stat lands in a different grid slot from one creature to the next.
@@ -1279,6 +1336,7 @@ const UnitStatsLayout: React.FC<{
                 tooltip="Attack type and multiplier"
                 color={attackTypeSelected === AttackVals.RANGE ? "#ffd700" : "#a52a2a"}
                 metrics={metrics}
+                modifier={attackModifier}
             />
             <StatItem
                 icon={<ShieldIcon />}
@@ -1286,6 +1344,7 @@ const UnitStatsLayout: React.FC<{
                 tooltip={hasDifferentRangeArmor ? "Armor against melee attacks" : "Armor"}
                 color="#4682b4"
                 metrics={metrics}
+                modifier={formatSidebarModifier(unitProperties.armor_mod)}
                 // A creature that armours differently against arrows shows both figures in ONE cell, the
                 // way morale and luck share theirs. They are the same stat read against two attack types,
                 // so splitting them across the grid made the pair read as unrelated -- and the second cell
@@ -1301,6 +1360,7 @@ const UnitStatsLayout: React.FC<{
                 tooltip="Magic resist in %"
                 color="#8a2be2"
                 metrics={metrics}
+                modifier={formatSidebarModifier(magicResistDelta)}
             />
             {/* Movement range and initiative share a cell: both answer "how does this stack move through
                 the turn", and pairing them keeps the plate at seven fixed slots. */}
@@ -1314,6 +1374,7 @@ const UnitStatsLayout: React.FC<{
                 tooltip="Movement budget in cells: straight costs 1, diagonal ~1.41 — spent exactly, no rounding"
                 color={unitProperties.movement_type === MovementVals.FLY ? "#00ff7f" : "#8b4513"}
                 metrics={metrics}
+                modifier={formatSidebarModifier(stepsMod)}
                 secondIcon={<HourglassIcon />}
                 secondValue={formatSidebarStat(unitProperties.initiative)}
                 secondColor={isDarkMode ? "#f5fefd" : "#000000"}
@@ -1332,6 +1393,7 @@ const UnitStatsLayout: React.FC<{
                 secondValue={formatSidebarStat(Math.round(unitProperties.luck + unitProperties.luck_mod))}
                 secondColor="#ff4040"
                 secondTooltip="Luck raises damage rolls and the power of abilities"
+                secondModifier={formatSidebarModifier(luckDelta)}
             />
             {/* Spellbook scroll count: the only readout of how many casts a spellcaster has left —
                 without it, answering that question means opening the spellbook. */}
@@ -1358,6 +1420,7 @@ const UnitStatsLayout: React.FC<{
                     icon={<QuiverIcon />}
                     value={formatSidebarStat(unitProperties.range_shots_mod || unitProperties.range_shots)}
                     tooltip="Number of ranged shots"
+                    modifier={formatSidebarModifier(rangeShotsDelta)}
                     color="#cd5c5c"
                     metrics={metrics}
                 />
@@ -1917,7 +1980,9 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({ unitProperti
 
         const meleeArmor = Math.max(1, unitProperties.base_armor + unitProperties.armor_mod);
         const rangeArmor = Math.max(1, unitProperties.range_armor + unitProperties.armor_mod);
-        const hasDifferentRangeArmor = meleeArmor !== rangeArmor;
+        // Compared FORMATTED, not raw: two armors that differ only past the displayed hundredths render
+        // as the same "X.YY" twice, and a duplicated figure reads as a bug, not information.
+        const hasDifferentRangeArmor = formatSidebarStat(meleeArmor) !== formatSidebarStat(rangeArmor);
 
         const largeTextureName = unitProperties.large_texture_name;
 
