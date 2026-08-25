@@ -10,6 +10,7 @@ import Box from "@mui/joy/Box";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import UnitInputAndActions from "./UnitInputAndActions";
+import UnitSplitter from "./UnitSplitter";
 import Toggler from "../Toggler";
 import MapSettingsRadioButtons from "./MapSettingsRadioButtons";
 // Sandbox has its own picker. SideToggleContainer is the ranked draft's layout: every augment card is
@@ -122,6 +123,12 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
         };
     }, [manager]);
 
+    const handleSplit = (group1: number, group2: number) => {
+        if (group1 > 0 && group2 > 0) {
+            manager.Split(group1);
+        }
+    };
+
     const closeAllExcept = (exceptSection: string) => {
         Object.entries(setOpenRefs.current).forEach(([section, setOpen]) => {
             if (section !== exceptSection && setOpen) {
@@ -226,6 +233,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                                 selectedUnitCount={unitProperties.amount_alive || 0}
                                 selectedTeamType={unitProperties.team}
                             />
+                            <UnitSplitter totalUnits={unitProperties.amount_alive || 0} onSplit={handleSplit} />
                         </List>
                     </Toggler>
                 </Box>

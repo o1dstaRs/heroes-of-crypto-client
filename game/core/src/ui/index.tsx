@@ -1231,6 +1231,18 @@ const App: React.FC = () => {
     );
 };
 
+// QA footprint overrides straight from the URL, so a rectangular-body session survives a reload:
+// ?footprints=White Tiger=2x1,Hyena=1x2 installs the engine's __hocFootprintOverrides global before
+// any scene constructs a unit. Same string format the engine parses; no shipped creature declares a
+// rectangle, so without this (or the console global) every body is square by design. Distinct from
+// the framing editor's ?footprint=WxH, which SELECTS a shape and lends it by authored art width.
+{
+    const footprintOverrides = new URLSearchParams(window.location.search).get("footprints");
+    if (footprintOverrides) {
+        (globalThis as { __hocFootprintOverrides?: string }).__hocFootprintOverrides = footprintOverrides;
+    }
+}
+
 // Reuse an existing root across hot-reloads / re-evaluations instead of calling createRoot()
 // on the same #root container twice (React warns and leaks the previous root otherwise).
 const container = document.getElementById("root") as HTMLElement & {
