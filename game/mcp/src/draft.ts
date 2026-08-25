@@ -560,6 +560,14 @@ export const placeDraftUnit = (
     // Canonical MAX-corner expansion — everywhere else `baseCell` means the anchor and the body
     // hangs down-left. The old min-corner loop produced a correct SET but the opposite convention,
     // a trap for any future bounds guard here (and it never bounds-checked the upper edge).
+    //
+    // The explicit within-grid gate is load-bearing: getPositionForCells validates the SHAPE (the
+    // cells tile their bounding box) but not the BOARD, so without it an anchor near the low edge
+    // "places" a rectangular body with cells at x/y = -1 and the engine rejects the driver's
+    // follow-up actions instead of this throw naming the bad cell.
+    if (!GridMath.isFootprintWithinGrid(gridSettings, baseCell, unit.getFootprintWidth(), unit.getFootprintHeight())) {
+        throw new Error(`Cannot place ${unit.getName()} at ${baseCell.x}:${baseCell.y}`);
+    }
     const cells = GridMath.getFootprintCellsForAnchor(baseCell, unit.getFootprintWidth(), unit.getFootprintHeight());
     const position = GridMath.getPositionForCells(gridSettings, cells);
     if (!position) {
