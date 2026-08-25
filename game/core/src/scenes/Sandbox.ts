@@ -5428,10 +5428,9 @@ export class Sandbox extends PixiScene {
         if (!activeUnit) {
             return;
         }
-        const currentCell = GridMath.getCellForPosition(
-            this.sc_sceneSettings.getGridSettings(),
-            activeUnit.getPosition(),
-        );
+        // getMovePath keys on the footprint ANCHOR, and `position` is the body's centre — the two agree
+        // only while both sides are at most 2, so read the anchor directly.
+        const currentCell = activeUnit.getBaseCell();
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
         }
@@ -7042,7 +7041,7 @@ export class Sandbox extends PixiScene {
         }
 
         // Recompute movement/targeting paths now that a spell is armed (parity with legacy).
-        const currentCell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), caster.getPosition());
+        const currentCell = caster.getBaseCell();
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
         }
@@ -11181,7 +11180,7 @@ export class Sandbox extends PixiScene {
                         } else {
                             // Static Range Attack (No movement)
                             attackFromPos = this.currentActiveUnit.getPosition();
-                            attackFromCell = GridMath.getCellForPosition(gs, attackFromPos);
+                            attackFromCell = this.currentActiveUnit.getBaseCell();
                             this.hoverManager.hoverAttackFromCell = attackFromCell;
                             this.hoverManager.hideSilhouettesOnly();
                         }
@@ -11373,6 +11372,7 @@ export class Sandbox extends PixiScene {
                                 this.currentActiveUnit.getTeam(),
                                 targetUnit.getFootprintHeight(),
                                 FightStateManager.getInstance().getFightProperties().isSideOrientedPlacement(),
+                                targetUnit.getFootprintWidth(),
                             );
                             if (abilitiesWithPositionCoeff && abilitiesWithPositionCoeff.length) {
                                 for (const awpc of abilitiesWithPositionCoeff) {
@@ -12355,8 +12355,8 @@ export class Sandbox extends PixiScene {
         // --- 2. Movement Visualization (Placement Phase) ---
         if (!fightProps.hasFightStarted()) {
             if (targetUnit && targetUnit.canMove()) {
-                const pos = targetUnit.getPosition();
-                const cell = GridMath.getCellForPosition(this.sc_sceneSettings.getGridSettings(), pos);
+                // The anchor getMovePath expects, not the cell the body's centre lands in.
+                const cell = targetUnit.getBaseCell();
                 if (cell) {
                     const key = {
                         unitId: targetUnit.getId(),
@@ -14801,10 +14801,8 @@ export class Sandbox extends PixiScene {
             nextUnit.selectAttackType(priorAttackTypeSelection);
         }
 
-        const currentCell = GridMath.getCellForPosition(
-            this.sc_sceneSettings.getGridSettings(),
-            nextUnit.getPosition(),
-        );
+        // The anchor, not the cell under the centre — see refreshActiveUnitReach.
+        const currentCell = nextUnit.getBaseCell();
         if (currentCell) {
             this.updateCurrentMovePath(currentCell);
         }

@@ -15,7 +15,7 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { GridConstants, GridSettings } from "@heroesofcrypto/common";
+import { GridConstants, GridMath, GridSettings } from "@heroesofcrypto/common";
 
 import { Sandbox } from "./Sandbox";
 
@@ -73,6 +73,15 @@ const makeScene = (
                   getSize: () => overrides.unitSize ?? 1,
                   getFootprintWidth: () => overrides.footprintWidth ?? overrides.unitSize ?? 1,
                   getFootprintHeight: () => overrides.footprintHeight ?? overrides.unitSize ?? 1,
+                  // Derived exactly as the real Unit does, so the stand-in cannot disagree with the engine
+                  // about which cell a body of a given shape is anchored on.
+                  getBaseCell: () =>
+                      GridMath.getFootprintAnchorForPosition(
+                          gridSettings,
+                          overrides.activeUnitPosition!,
+                          overrides.footprintWidth ?? overrides.unitSize ?? 1,
+                          overrides.footprintHeight ?? overrides.unitSize ?? 1,
+                      ),
               }
             : undefined,
         updateCurrentMovePath: (cell: { x: number; y: number }) => {
