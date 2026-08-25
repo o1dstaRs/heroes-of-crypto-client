@@ -2350,6 +2350,10 @@ export class Sandbox extends PixiScene {
             this.drawer.getUnitsContainer().addChild(this.overlayPlacementPreviewRoot);
         }
 
+        // The preview body is built team-less (NO_TEAM), so it cannot inherit the deployment facing —
+        // aim it from the REAL selected unit's team every pass: red/UPPER previews face left toward
+        // the enemy exactly like the unit will once dropped.
+        this.overlayPlacementPreviewUnit.setBoardFacing(placementFacingDirectionForTeam(selected.team));
         this.overlayPlacementPreviewUnit.ensureVisual(
             this.overlayPlacementPreviewRoot!,
             this.sc_sceneSettings.getGridSettings(),

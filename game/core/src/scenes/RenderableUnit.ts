@@ -1399,7 +1399,10 @@ export class RenderableUnit extends Unit {
         ru.isShowingScavengerFlourishFrame = false;
         ru.selectionAnimFrameIndex = -1;
         ru.walkAnim = undefined;
-        ru.facingDirection = 1;
+        // Fresh units face the ENEMY, not a fixed screen direction: green/LOWER deploys on the left
+        // and faces right, red/UPPER deploys on the right and faces left. Movement during the fight
+        // re-aims facing from the walk direction as before.
+        ru.facingDirection = placementFacingDirectionForTeam(ru.getTeam());
         ru.stackForcedHidden = false;
         ru.isActiveTurn = false;
         ru.isDestroyed = false;
@@ -3705,7 +3708,7 @@ export class RenderableUnit extends Unit {
         this.spawnAnim = undefined;
         this.oneShotAnim = undefined;
         this.walkAnim = undefined;
-        this.facingDirection = 1;
+        this.facingDirection = placementFacingDirectionForTeam(this.getTeam());
         // Spellbook sprites live in a scene-shared container, not under this unit's own display
         // objects, so destroying the unit's sprite/containers above does not free them. Leaving them
         // behind orphans them in that shared container — and because ranked snapshots constantly
