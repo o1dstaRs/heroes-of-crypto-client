@@ -557,12 +557,10 @@ export const placeDraftUnit = (
     unit: Unit,
     baseCell: { x: number; y: number },
 ): { x: number; y: number }[] => {
-    const cells = Array.from({ length: unit.getFootprintWidth() }).flatMap((_, dx) =>
-        Array.from({ length: unit.getFootprintHeight() }, (__, dy) => ({
-            x: baseCell.x + dx,
-            y: baseCell.y + dy,
-        })),
-    );
+    // Canonical MAX-corner expansion — everywhere else `baseCell` means the anchor and the body
+    // hangs down-left. The old min-corner loop produced a correct SET but the opposite convention,
+    // a trap for any future bounds guard here (and it never bounds-checked the upper edge).
+    const cells = GridMath.getFootprintCellsForAnchor(baseCell, unit.getFootprintWidth(), unit.getFootprintHeight());
     const position = GridMath.getPositionForCells(gridSettings, cells);
     if (!position) {
         throw new Error(`Cannot place ${unit.getName()} at ${baseCell.x}:${baseCell.y}`);

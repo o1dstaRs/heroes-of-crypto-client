@@ -914,10 +914,14 @@ export class HoverManager {
 
         const targetProps = targetUnit.getUnitProperties();
         const livePreview = this.getLiveUnitPreview(targetProps, targetUnit.getPosition(), targetUnit);
+        // Board art, never the _512 card portrait, and the REAL shape: passing `size` as both axes
+        // collapsed the rectangular texture tiers, so the ghost picked a different texture (and a
+        // different normalized scale) than the live sprite.
         const texName = unitToTextureName(
             targetUnit.getName(),
-            targetUnit.getSize() === 2 ? TextureType.LARGE : TextureType.SMALL,
-            targetUnit.getSize(),
+            TextureType.SMALL,
+            targetUnit.getFootprintWidth(),
+            targetUnit.getFootprintHeight(),
         );
         const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) return;
@@ -1448,8 +1452,8 @@ export class HoverManager {
         if (this.hoverAttackFromCell && selected) {
             this.hoverBattlefieldFootprintCells = combatFootprintCellsForBase(
                 this.hoverAttackFromCell,
-                selected.footprint_width,
-                selected.footprint_height,
+                footprintWidthOf(selected),
+                footprintHeightOf(selected),
             );
             // We force red tint for attack
             this.ensureHoverSilhouetteParams(selected, boundsCenter, true);
@@ -1474,7 +1478,12 @@ export class HoverManager {
     ): void {
         const outlineGrowth = exactPlacementCopy ? 1 : 1.06;
         const livePreview = this.getLiveUnitPreview(selected, boundsCenter, previewUnit);
-        const texName = unitToTextureName(selected.name, TextureType.SMALL, selected.size);
+        const texName = unitToTextureName(
+            selected.name,
+            TextureType.SMALL,
+            footprintWidthOf(selected),
+            footprintHeightOf(selected),
+        );
         const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) {
             this.clearHoverSilhouette();
@@ -1558,7 +1567,12 @@ export class HoverManager {
      */
     public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
         const livePreview = this.getLiveUnitPreview(props, position);
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const texName = unitToTextureName(
+            props.name,
+            TextureType.SMALL,
+            footprintWidthOf(props),
+            footprintHeightOf(props),
+        );
         const tex = livePreview?.texture ?? this.context.texAny(texName);
         if (!tex) {
             this.clearOpponentIntentSilhouette();
@@ -1618,7 +1632,12 @@ export class HoverManager {
         }
     }
     public updateBoardHoverSilhouette(props: UnitProperties, center: HoCMath.XY): void {
-        const texName = unitToTextureName(props.name, TextureType.SMALL, props.size);
+        const texName = unitToTextureName(
+            props.name,
+            TextureType.SMALL,
+            footprintWidthOf(props),
+            footprintHeightOf(props),
+        );
         const tex = this.context.texAny(texName);
         if (!tex) {
             this.clearHoverSilhouette();

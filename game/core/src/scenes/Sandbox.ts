@@ -2123,6 +2123,16 @@ export class Sandbox extends PixiScene {
                     max_hp: unitState.maxHp || baseProperties.max_hp,
                     attack_type_selected: unitState.attackType || baseProperties.attack_type_selected,
                     stack_power: unitState.stackPower || baseProperties.stack_power,
+                    // The SERVER's footprint wins, exactly like the ranked hydrate: the snapshot's
+                    // cells drive occupancy, so a local-config drift (or a one-sided
+                    // __hocFootprintOverrides) must not leave the renderer on a different shape
+                    // than the grid. Absent wire fields mean "no opinion" and keep local config.
+                    ...(unitState.footprintWidth && unitState.footprintHeight
+                        ? {
+                              footprint_width: unitState.footprintWidth,
+                              footprint_height: unitState.footprintHeight,
+                          }
+                        : {}),
                 } as UnitProperties,
                 team,
                 placed: unitState.placed,

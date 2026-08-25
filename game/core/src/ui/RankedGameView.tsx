@@ -255,29 +255,32 @@ const cellsForSnapshotUnitAt = (unit: PlayUnitState, anchor: { x: number; y: num
 
 const cellKey = (cell: { x: number; y: number }): string => `${cell.x}:${cell.y}`;
 
-/** The depth-3 default deployment zone, the one every army is auto-placed into before it is rearranged. */
-const DEFAULT_PLACEMENT_MIN_X = 1;
-const DEFAULT_PLACEMENT_MAX_X = 14;
-const defaultPlacementRows = (team: TeamType): { minY: number; maxY: number } =>
-    team === TeamVals.UPPER ? { minY: 12, maxY: 14 } : { minY: 1, maxY: 3 };
+/**
+ * The depth-3 default deployment zone, the one every army is auto-placed into before it is
+ * rearranged. SIDE-oriented (the ranked board): LOWER deploys the LEFT columns x 1-3, UPPER the
+ * RIGHT columns x 12-14, both spanning rows y 1-14 — exactly the server's SideRectanglePlacement.
+ * The old top/bottom rows sent every auto-generated PLACE_UNIT outside the server's zone, so the
+ * whole army fell through to server scatter.
+ */
+const DEFAULT_PLACEMENT_MIN_Y = 1;
+const DEFAULT_PLACEMENT_MAX_Y = 14;
+const defaultPlacementCols = (team: TeamType): { minX: number; maxX: number } =>
+    team === TeamVals.UPPER ? { minX: 12, maxX: 14 } : { minX: 1, maxX: 3 };
 
 const isDefaultPlacementCell = (cell: { x: number; y: number }, team: TeamType): boolean => {
-    const rows = defaultPlacementRows(team);
-    const inX = cell.x >= DEFAULT_PLACEMENT_MIN_X && cell.x <= DEFAULT_PLACEMENT_MAX_X;
-    const inY = cell.y >= rows.minY && cell.y <= rows.maxY;
+    const cols = defaultPlacementCols(team);
+    const inX = cell.x >= cols.minX && cell.x <= cols.maxX;
+    const inY = cell.y >= DEFAULT_PLACEMENT_MIN_Y && cell.y <= DEFAULT_PLACEMENT_MAX_Y;
     return inX && inY;
 };
 
 /**
- * Centre-out anchor candidates for a `width` x `height` stack, as MAX-corner anchors.
- *
- * The two x ladders are the tuned ones this screen has always used — dense for a one-cell-wide stack,
- * strided by two for a wider one so consecutive candidates cannot overlap — shifted by (width - 1) into
- * max-corner terms, which leaves the CELLS a 1x1 or 2x2 lands on exactly where they were. The y ladder is
- * the team's full three-row list, filtered to rows whose whole `height`-tall footprint stays inside the
- * zone; for heights 1 and 2 that filter reproduces the previously hardcoded per-height lists verbatim.
- * Both filters exist because an anchor whose body spills out of the zone is a candidate the caller's
- * cell-by-cell guard would only reject later, wasting the slot.
+ * Centre-out anchor candidates for a `width` x `height` stack, as MAX-corner anchors, on the
+ * SIDE-oriented zones. The tuned ladders this screen has always used transpose with the board:
+ * the dense/strided centre-out ladder now walks the LATERAL axis (y), shifted by (height - 1)
+ * into max-corner terms; the depth preference (ranged hides at the back of the zone, melee leads
+ * at the front) walks x — back is x=1 for LOWER and x=14 for UPPER. Both filters drop anchors
+ * whose body would spill out of the zone, which the caller's cell guard would only reject later.
  */
 const fallbackPlacementAnchors = (
     team: TeamType,
@@ -285,15 +288,15 @@ const fallbackPlacementAnchors = (
     height: number,
     ranged: boolean,
 ): Array<{ x: number; y: number }> => {
-    const rows = defaultPlacementRows(team);
-    const xs = (width > 1 ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14])
-        .map((x) => x + width - 1)
-        .filter((x) => x - width + 1 >= DEFAULT_PLACEMENT_MIN_X && x <= DEFAULT_PLACEMENT_MAX_X);
-    const ys = (
-        team === TeamVals.UPPER ? (ranged ? [14, 13, 12] : [12, 13, 14]) : ranged ? [1, 2, 3] : [3, 2, 1]
-    ).filter((y) => y - height + 1 >= rows.minY && y <= rows.maxY);
+    const cols = defaultPlacementCols(team);
+    const ys = (height > 1 ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14])
+        .map((y) => y + height - 1)
+        .filter((y) => y - height + 1 >= DEFAULT_PLACEMENT_MIN_Y && y <= DEFAULT_PLACEMENT_MAX_Y);
+    const xs = (team === TeamVals.UPPER ? (ranged ? [14, 13, 12] : [12, 13, 14]) : ranged ? [1, 2, 3] : [3, 2, 1])
+        .map((x) => (team === TeamVals.LOWER ? x + width - 1 : x))
+        .filter((x) => x - width + 1 >= cols.minX && x <= cols.maxX);
 
-    return ys.flatMap((y) => xs.map((x) => ({ x, y })));
+    return xs.flatMap((x) => ys.map((y) => ({ x, y })));
 };
 
 const modelPlacementAnchors = (unit: PlayUnitState, team: TeamType): { x: number; y: number }[] =>
@@ -373,28 +376,29 @@ const createInitialPlayerPlacementActions = (snapshot: PlaySnapshot, team: TeamT
         return createModelPlacementActions(snapshot, team);
     }
 
-    const availableWidth = DEFAULT_PLACEMENT_MAX_X - DEFAULT_PLACEMENT_MIN_X + 1;
-    const occupiedWidth = unplaced.reduce((sum, unit) => sum + snapshotUnitWidth(unit), 0);
-    const gap = occupiedWidth + Math.max(0, unplaced.length - 1) <= availableWidth ? 1 : 0;
-    const lineWidth = occupiedWidth + gap * Math.max(0, unplaced.length - 1);
-    // The cursor walks the line's LEFT edge; the anchor a cell list is built from is the max corner, so
-    // each unit's anchor sits (width - 1) to the right of it.
-    let x = DEFAULT_PLACEMENT_MIN_X + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
+    // The line is VERTICAL on the side-oriented zones: it walks the lateral axis (y) and every
+    // stack's front edge lands on the zone column nearest the battlefield centre.
+    const availableSpan = DEFAULT_PLACEMENT_MAX_Y - DEFAULT_PLACEMENT_MIN_Y + 1;
+    const occupiedSpan = unplaced.reduce((sum, unit) => sum + snapshotUnitHeight(unit), 0);
+    const gap = occupiedSpan + Math.max(0, unplaced.length - 1) <= availableSpan ? 1 : 0;
+    const lineSpan = occupiedSpan + gap * Math.max(0, unplaced.length - 1);
+    // The cursor walks the line's BOTTOM edge; the anchor a cell list is built from is the max
+    // corner, so each unit's anchor sits (height - 1) above it.
+    let y = DEFAULT_PLACEMENT_MIN_Y + Math.max(0, Math.floor((availableSpan - lineSpan) / 2));
 
     return unplaced.map((unit) => {
         const width = snapshotUnitWidth(unit);
         const height = snapshotUnitHeight(unit);
-        const rows = defaultPlacementRows(team);
+        const cols = defaultPlacementCols(team);
         const anchor = {
-            x: x + width - 1,
-            // Every stack's front edge lands on the zone row nearest the battlefield centre, whatever its
-            // height, because the body always extends AWAY from that centre: lower's front row is 3 and
-            // the footprint hangs downward from the anchor, so the anchor IS row 3; upper's front row is
-            // 12 and its body extends upward, so the anchor is (12 + height - 1).
-            y: team === TeamVals.UPPER ? rows.minY + height - 1 : rows.maxY,
+            // Lower's front column is 3 and the footprint hangs leftward from the anchor, so the
+            // anchor IS column 3; upper's front column is 12 and its body extends rightward, so the
+            // anchor is (12 + width - 1).
+            x: team === TeamVals.UPPER ? cols.minX + width - 1 : cols.maxX,
+            y: y + height - 1,
         };
         const cells = cellsForSnapshotUnitAt(unit, anchor);
-        x += width + gap;
+        y += height + gap;
         return {
             type: PlayActionType.PLACE_UNIT,
             unitId: unit.id,

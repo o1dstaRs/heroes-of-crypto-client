@@ -306,8 +306,10 @@ export const getEnemiesWithinMovementRange = (
     return enemies.length ? enemies : undefined;
 };
 
+// The ring around the caster's WHOLE body, not its anchor cell: for a multi-cell caster the
+// anchor ring includes the caster's own cells and misses everything off the body's far side.
 export const getAvailableSummonCells = (caster: Unit, grid: Grid, spell: Spell): Array<{ x: number; y: number }> => {
-    const candidates = GridMath.getCellsAroundCell(grid.getSettings(), caster.getBaseCell());
+    const candidates = GridMath.getCellsAroundFootprint(grid.getSettings(), caster.getCells());
     return candidates.filter((cell) => SpellHelper.canCastSummon(spell, grid.getMatrix(), cell));
 };
 
