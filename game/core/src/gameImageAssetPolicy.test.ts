@@ -99,16 +99,31 @@ describe("game image asset policy", () => {
         ).toBe(true);
     });
 
-    test("applies the size ceiling to atlas-named images in the static image directory", () => {
+    test("exempts atlas-named WebPs from the size ceiling — AGENTS' rule, wherever they sit", () => {
+        // AGENTS.md: "animation atlas WebPs are exempt from only that size ceiling", with no directory
+        // scoping — and the real art source carries multi-megabyte ambient/creature atlases beside the
+        // statics. They still must be valid WebP: only the ceiling is waived.
         expect(
             validateGameImageAsset({
                 fileName: "angel_default_atlas.webp",
                 sizeBytes: MAX_STATIC_GAME_IMAGE_BYTES + 1,
                 header: WEBP_HEADER,
             }),
-        ).toContain(
-            `angel_default_atlas.webp: ${MAX_STATIC_GAME_IMAGE_BYTES + 1} bytes exceeds the ${MAX_STATIC_GAME_IMAGE_BYTES}-byte image limit`,
-        );
+        ).toEqual([]);
+        expect(
+            validateGameImageAsset({
+                fileName: "ambient_fire_video_torch_left_64_atlas.webp",
+                sizeBytes: 4_014_612,
+                header: WEBP_HEADER,
+            }),
+        ).toEqual([]);
+        expect(
+            validateGameImageAsset({
+                fileName: "angel_default_atlas.webp",
+                sizeBytes: MAX_STATIC_GAME_IMAGE_BYTES + 1,
+                header: new Uint8Array(12),
+            }).some((violation) => violation.includes("not a valid WebP")),
+        ).toBe(true);
     });
 
     test("keeps the generated image manifest WebP-only", () => {

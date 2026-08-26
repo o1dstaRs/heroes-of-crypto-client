@@ -1,7 +1,18 @@
 import { open, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-export const MAX_STATIC_GAME_IMAGE_BYTES = 120_000;
+// AGENTS.md is the policy of record: static game images are WebP no larger than 1,766,026 bytes, and
+// animation-atlas WebPs are exempt from ONLY the size ceiling (they still must be valid WebP). The
+// previous 120,000-byte constant contradicted that documented rule and had never actually run against
+// the real art set — every machine's HOC_IMAGES_LOC contained "Dropbox", which the checker skips, so
+// the gate was vacuous until the Google Drive switch made it live.
+export const MAX_STATIC_GAME_IMAGE_BYTES = 1_766_026;
+
+const ATLAS_WEBP = /_atlas(?:_half|_quarter)?(?:_v\d+)?\.webp$/i;
+
+export function isAtlasWebP(fileName: string): boolean {
+    return ATLAS_WEBP.test(fileName);
+}
 
 const IMAGE_FILE = /\.(?:apng|avif|bmp|gif|heic|heif|ico|jpe?g|png|psd|svg|tiff?|webp)$/i;
 const WEBP_FILE = /\.webp$/i;
@@ -51,7 +62,7 @@ export function validateGameImageAsset({ fileName, sizeBytes, header }: GameImag
         violations.push(`${fileName}: file contents are not a valid WebP container`);
     }
 
-    if (sizeBytes > MAX_STATIC_GAME_IMAGE_BYTES) {
+    if (sizeBytes > MAX_STATIC_GAME_IMAGE_BYTES && !isAtlasWebP(fileName)) {
         violations.push(`${fileName}: ${sizeBytes} bytes exceeds the ${MAX_STATIC_GAME_IMAGE_BYTES}-byte image limit`);
     }
 
