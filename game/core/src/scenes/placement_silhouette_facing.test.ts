@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Texture } from "pixi.js";
 
 import { FightStateManager, GridConstants, GridSettings, TeamVals } from "@heroesofcrypto/common";
@@ -73,7 +73,15 @@ const makeContext = (activeUnit?: unknown): ISandboxHoverContext =>
         hasActiveSelection: () => false,
     }) as unknown as ISandboxHoverContext;
 
+// The fight state is a process-wide SINGLETON and bun runs many test files per process, so a file that
+// leaves it dirty breaks whichever file happens to follow it. Reset on the way OUT as well as in: the
+// last test here starts a fight, and leaving that set made mountainHitBarLayout's collapse test fail
+// whenever it was scheduled after this file — an order-dependent failure that looks exactly like CI flake.
 beforeEach(() => {
+    FightStateManager.getInstance().reset();
+});
+
+afterEach(() => {
     FightStateManager.getInstance().reset();
 });
 
