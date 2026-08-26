@@ -107,6 +107,7 @@ import {
 } from "./aggrBlockedActionHint";
 import {
     placementFacingDirectionForTeam,
+    previewPlacementFacing,
     preservesFacingForPureVerticalSingleCellAttack,
     RenderableUnit,
 } from "./RenderableUnit";
@@ -2391,9 +2392,10 @@ export class Sandbox extends PixiScene {
         }
 
         // The preview body is built team-less (NO_TEAM), so it cannot inherit the deployment facing —
-        // aim it from the REAL selected unit's team every pass: red/UPPER previews face left toward
-        // the enemy exactly like the unit will once dropped.
-        this.overlayPlacementPreviewUnit.setBoardFacing(placementFacingDirectionForTeam(selected.team));
+        // and the overlay CHIP is team-less too (the picker is a catalog; the drop assigns the side).
+        // Aim from the real team when there is one, else from the hovered board half: a ghost over the
+        // right half faces left exactly like the unit will once dropped there.
+        this.overlayPlacementPreviewUnit.setBoardFacing(previewPlacementFacing(selected.team, this.sc_mouseWorld.x));
         this.overlayPlacementPreviewUnit.ensureVisual(
             this.overlayPlacementPreviewRoot!,
             this.sc_sceneSettings.getGridSettings(),

@@ -79,6 +79,7 @@ import {
     tallBoardModelFootLineY,
     thiefIdleBreathScaleForElapsed,
     thiefIdleBreathScalesForElapsed,
+    previewPlacementFacing,
 } from "./RenderableUnit";
 import { projectBattlefieldPoint, projectedCellPoints, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import {
@@ -144,6 +145,18 @@ beforeEach(() => {
 afterEach(() => {
     HoCLib.setDeterministicRandomSource(undefined);
     CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
+});
+
+describe("preview placement facing", () => {
+    test("a teamless overlay ghost faces by the hovered board half; a real team always wins", () => {
+        // The army overlay is a team-less catalog: its chips carry NO_TEAM until the drop assigns a
+        // side, and the ghost must already face the way the dropped unit will.
+        expect(previewPlacementFacing(TeamVals.NO_TEAM, 512)).toBe(-1);
+        expect(previewPlacementFacing(TeamVals.NO_TEAM, -512)).toBe(1);
+        expect(previewPlacementFacing(TeamVals.NO_TEAM, 0)).toBe(1);
+        expect(previewPlacementFacing(TeamVals.UPPER, -512)).toBe(-1);
+        expect(previewPlacementFacing(TeamVals.LOWER, 512)).toBe(1);
+    });
 });
 
 describe("battlefield movement preview", () => {

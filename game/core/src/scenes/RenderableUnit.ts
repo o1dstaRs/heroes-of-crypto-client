@@ -425,6 +425,20 @@ export function placementFacingDirectionForTeam(team: TeamType): -1 | 1 {
     return team === TeamVals.UPPER ? -1 : 1;
 }
 
+/**
+ * Deployment facing for a PREVIEW that may not know its team yet. The army overlay is a team-less
+ * catalog — its chips carry NO_TEAM until the drop assigns a side — so a ghost hovering the RIGHT half
+ * of the board must already face left the way the dropped unit will (the "ghost points right until I
+ * place it" bug). A real team always wins; the board-half rule only fills the teamless gap. World x = 0
+ * is the battlefield centre line.
+ */
+export function previewPlacementFacing(team: TeamType, worldX: number): -1 | 1 {
+    if (team === TeamVals.UPPER || team === TeamVals.LOWER) {
+        return placementFacingDirectionForTeam(team);
+    }
+    return worldX > 0 ? -1 : 1;
+}
+
 export type AttackAnimationVerticalBand = "up" | "side" | "down";
 
 /**
