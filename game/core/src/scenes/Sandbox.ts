@@ -163,6 +163,7 @@ import {
 } from "./spell_targeting";
 import type { AuthoritativeGameSnapshot, SceneGameActionTransport } from "../game_action_transport";
 import { cloneReplayData, SandboxReplayRecorder, type SandboxReplay } from "../replay/sandbox_replay";
+import { pierceSweepPreviewOptions } from "./pierceSweepPreview";
 
 /**
  * Client-side aim projection for an offensive spell: what ONE target actually takes.
@@ -11901,15 +11902,20 @@ export class Sandbox extends PixiScene {
                                 this.currentActiveUnit.hasAbilityActive("Fire Breath") ||
                                 this.currentActiveUnit.hasAbilityActive("Skewer Strike")
                             ) {
-                                const attackerHasFireBreath = this.currentActiveUnit.hasAbilityActive("Fire Breath");
+                                // Fire Breath and Skewer Strike sweep through the same helper but with
+                                // DIFFERENT flags — see pierceSweepPreviewOptions. Previewing Skewer with
+                                // Fire Breath's pierceLargeUnits outlined units behind a LARGE target that
+                                // the spear never reaches.
+                                const sweep = pierceSweepPreviewOptions(this.currentActiveUnit);
+                                const attackerHasFireBreath = sweep.source === "Fire Breath";
                                 const targets = AbilityHelper.nextStandingTargets(
                                     this.currentActiveUnit,
                                     targetUnit,
                                     this.grid,
                                     this.unitsHolder,
                                     attackFromCell,
-                                    true,
-                                    this.currentActiveUnit.hasAbilityActive("Skewer Strike"),
+                                    sweep.pierceLargeUnits,
+                                    sweep.onlyOppositeTeam,
                                 );
 
                                 for (const enemy of targets) {
@@ -11932,10 +11938,7 @@ export class Sandbox extends PixiScene {
                                     if (enemy.getId() === targetUnit.getId()) {
                                         continue;
                                     }
-                                    secondaryHits.push({
-                                        unit: enemy,
-                                        source: attackerHasFireBreath ? "Fire Breath" : "Skewer Strike",
-                                    });
+                                    secondaryHits.push({ unit: enemy, source: sweep.source });
                                 }
                             }
 
