@@ -53,6 +53,7 @@ import { SwordIcon } from "../svg/sword";
 import { MapBadge, MapRevealModal } from "./MapReveal";
 import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
+import { boardFootprintLabel } from "./boardFootprintLabel";
 import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhaseVisibility";
 
 const images = rawImages as Record<string, string>;
@@ -105,6 +106,9 @@ interface CreatureFullConfig {
     shot_distance: number;
     level: number;
     size: number;
+    // Declared only by a creature whose board body is NOT the square `size x size` block.
+    footprint_width?: number;
+    footprint_height?: number;
     abilities?: string[];
 }
 
@@ -254,11 +258,7 @@ const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) =
                 {usesShots && <StatChip icon={<QuiverIcon />} label={t("Shots")} value={c.range_shots} />}
                 <StatChip icon={<ShieldIcon />} label={t("Armor")} value={c.armor} />
                 <StatChip icon={<MagicShieldIcon />} label={t("Magic resist")} value={`${c.magic_resist}%`} />
-                <StatChip
-                    icon={<ArrowShieldIcon />}
-                    label={t("Size on the board")}
-                    value={c.size === 2 ? "2×2" : "1×1"}
-                />
+                <StatChip icon={<ArrowShieldIcon />} label={t("Size on the board")} value={boardFootprintLabel(c)} />
                 <StatChip icon={<InitiativeIcon />} label={t("Initiative")} value={c.initiative} />
                 <StatChip icon={<BootIcon />} label={t("Movement steps")} value={c.steps} />
             </Box>
