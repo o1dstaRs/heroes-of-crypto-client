@@ -7435,9 +7435,18 @@ export class Sandbox extends PixiScene {
         const team = caster.getTeam();
 
         // 1. Summon path (e.g. RANDOM_CLOSE_TO_CASTER summon spells).
-        const randomCell = GridMath.getRandomGridCellAroundPosition(gs, this.gridMatrix, team, caster.getPosition());
+        // Seat the summon with the body it will actually have: Summon Wolves spawns a 2x1 Wolf, and the
+        // engine refuses an EXPLICIT cell that cannot hold it rather than re-routing, so validating the
+        // random draw as a 1x1 silently loses the player's cast. The draw is still preferred whenever it
+        // fits, which is every 1x1 summon.
+        const randomCell = SpellHelper.resolveSummonAnchor(
+            spell,
+            this.gridMatrix,
+            GridMath.getCellsAroundFootprint(gs, caster.getCells()),
+            GridMath.getRandomGridCellAroundPosition(gs, this.gridMatrix, team, caster.getPosition()),
+        );
         const amountToSummon = Math.floor(caster.getAmountAlive() * spell.getPower());
-        if (amountToSummon > 0 && SpellHelper.canCastSummon(spell, this.gridMatrix, randomCell)) {
+        if (amountToSummon > 0 && randomCell) {
             const action: GameAction = {
                 type: "cast_spell",
                 casterId: caster.getId(),

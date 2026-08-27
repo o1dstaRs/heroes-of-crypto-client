@@ -591,10 +591,14 @@ const getEnemiesWithinMovementRange = (
 
 // The ring around the caster's WHOLE body, not its anchor cell: for a multi-cell caster the
 // anchor ring includes the caster's own cells and misses everything off the body's far side.
-const getAvailableSummonCells = (caster: Unit, grid: Grid, spell: Spell): Array<{ x: number; y: number }> =>
-    GridMath.getCellsAroundFootprint(grid.getSettings(), caster.getCells()).filter((cell) =>
-        SpellHelper.canCastSummon(spell, grid.getMatrix(), cell),
+const getAvailableSummonCells = (caster: Unit, grid: Grid, spell: Spell): Array<{ x: number; y: number }> => {
+    // ...and the body the SUMMONED creature has, not the 1x1 canCastSummon assumes by default. Summon
+    // Wolves spawns a Wolf, which ships 2x1, so "this one cell is free" offers seats the engine refuses.
+    const { width, height } = SpellHelper.summonFootprintOf(spell);
+    return GridMath.getCellsAroundFootprint(grid.getSettings(), caster.getCells()).filter((cell) =>
+        SpellHelper.canCastSummon(spell, grid.getMatrix(), cell, width, height),
     );
+};
 
 const createSpellActions = (options: LocalModelActionOptions, actions: LocalModelLegalAction[]): void => {
     const { activeUnit, grid, pathHelper, unitsHolder } = options;

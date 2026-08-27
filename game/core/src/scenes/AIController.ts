@@ -1293,8 +1293,15 @@ export class AIController {
             // Summon (e.g. RANDOM_CLOSE_TO_CASTER): spawn allies near the caster.
             if (spell.isSummon() && tt === SpellTargetType.RANDOM_CLOSE_TO_CASTER) {
                 const amount = Math.floor(caster.getAmountAlive() * spell.getPower());
-                const cell = GridMath.getRandomGridCellAroundPosition(gs, gridMatrix, team, caster.getPosition());
-                if (amount > 0 && cell && SpellHelper.canCastSummon(spell, gridMatrix, cell)) {
+                // The summoned creature's real body decides this, not the 1x1 default — see
+                // SpellHelper.resolveSummonAnchor. The random draw wins whenever it can seat the body.
+                const cell = SpellHelper.resolveSummonAnchor(
+                    spell,
+                    gridMatrix,
+                    GridMath.getCellsAroundFootprint(gs, caster.getCells()),
+                    GridMath.getRandomGridCellAroundPosition(gs, gridMatrix, team, caster.getPosition()),
+                );
+                if (amount > 0 && cell) {
                     consider(amount * 8, { spellName: name, targetCell: cell });
                 }
                 continue;
