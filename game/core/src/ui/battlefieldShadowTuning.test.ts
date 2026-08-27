@@ -124,7 +124,7 @@ describe("battlefield shadow tuning", () => {
             Behemoth: [0.097, 1.251, 1.042, 0.994],
             Gargantuan: [0.038, 0.478, 0.776, 0.939],
             Abomination: [-0.008, 0.608, 0.825, 0.915],
-            "Magic Dragon": [0.08, 0.531, 0.868, 0.91],
+            "Magic Dragon": [0.12, 0.42, 0.868, 0.94],
         } as const;
 
         for (const [name, [offsetXCells, offsetYCells, lengthScale, widthScale]] of Object.entries(expectedTopRows)) {
@@ -163,6 +163,31 @@ describe("battlefield shadow tuning", () => {
             offsetYCells: 0.272,
             rotationDegrees: -14,
             segmentLengthMultipliers: [1, 1, 1, 1],
+        });
+    });
+
+    test("preserves the owner's explicit Magic Dragon lower and upper rows", () => {
+        expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE["Magic Dragon"]).toEqual({
+            bottom: {
+                lengthScale: 0.7378,
+                widthScale: 0.852558,
+                alpha: 0.45,
+                offsetXCells: 0.12,
+                offsetYCells: 0.42,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            top: {
+                lengthScale: 0.868,
+                widthScale: 0.94,
+                alpha: 0.45,
+                offsetXCells: 0.12,
+                offsetYCells: 0.42,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            contactAlpha: 0.15,
+            contactShadowVisible: true,
         });
     });
 });

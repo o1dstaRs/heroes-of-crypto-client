@@ -102,7 +102,7 @@ export const normalizeBattlefieldShadowTuning = (
 ): BattlefieldShadowTuning => {
     const top = normalizeRow(value?.top, DEFAULT_BATTLEFIELD_SHADOW_TUNING.top);
     return {
-        bottom: automaticBottomRow(top),
+        bottom: value?.bottom ? normalizeRow(value.bottom, automaticBottomRow(top)) : automaticBottomRow(top),
         top,
         contactAlpha: clamp(value?.contactAlpha, DEFAULT_BATTLEFIELD_SHADOW_TUNING.contactAlpha, 0, 1),
         contactShadowVisible:
@@ -247,12 +247,21 @@ const ABOMINATION_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
 });
 
 const MAGIC_DRAGON_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    bottom: {
+        lengthScale: 0.7378,
+        widthScale: 0.852558,
+        alpha: 0.45,
+        offsetXCells: 0.12,
+        offsetYCells: 0.42,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
     top: {
         lengthScale: 0.868,
-        widthScale: 0.91,
+        widthScale: 0.94,
         alpha: 0.45,
-        offsetXCells: 0.08,
-        offsetYCells: 0.531,
+        offsetXCells: 0.12,
+        offsetYCells: 0.42,
         rotationDegrees: -14,
         segmentLengthMultipliers: [1, 1, 1, 1],
     },

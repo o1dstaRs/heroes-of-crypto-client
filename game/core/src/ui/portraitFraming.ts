@@ -91,9 +91,7 @@ export const PORTRAIT_FRAMING_CHECKPOINT_X: Readonly<Partial<Record<number, Port
 });
 
 /** Production baseline used by every portrait consumer. */
-export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {
-    ...PORTRAIT_FRAMING_CHECKPOINT_X,
-};
+export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {};
 
 // Preserve the JSON tuned in the dev editor. The temporary OSG-2308 namespace hid the existing v3
 // settings from the app; keep it only as a fallback so no newer local edits are lost.

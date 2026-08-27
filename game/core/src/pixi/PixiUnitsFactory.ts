@@ -197,6 +197,8 @@ export const staticBattlefieldTextureNameForUnit = (
     footprintHeight = footprintWidth,
 ): string | undefined => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
+    const finalTexture = `${base}_final`;
+    if (finalTexture in images) return finalTexture;
     if (base === "thunderbird" && spansTwoCells(footprintWidth, footprintHeight)) {
         return "thunderbird_battlefield_side_right_v2";
     }
@@ -213,12 +215,12 @@ export const unitToTextureName = (
     const base = unitName.toLowerCase().replace(/ /g, "_");
     // The stable protocol id remains WANDERING_MAGE, but the creature is presented as Wandering Mage. Its
     // authored field model is tall, while selection cards use the waist-up crop of that exact model.
-    if (base === "wandering_mage") {
-        return textureType === TextureType.LARGE ? "wandering_mage_512" : "wandering_mage_board_128";
+    if (base === "wandering_mage" && textureType === TextureType.LARGE) {
+        return "wandering_mage_512";
     }
     // Scavenger keeps its gameplay identity/config, but now uses the authored Thief visual set.
-    if (base === "scavenger") {
-        return textureType === TextureType.LARGE ? "thief_model_full" : "thief_board_128";
+    if (base === "scavenger" && textureType === TextureType.LARGE) {
+        return "thief_model_full";
     }
     if (base === "thunderbird" && textureType === TextureType.LARGE) {
         return "thunderbird_512_v2";
