@@ -6785,7 +6785,20 @@ export class Sandbox extends PixiScene {
                     // swallowed the click: targetUnit came back as your own unit, the enemy test below
                     // failed, and the attack was abandoned with nothing drawn, logged or sent. Hover reads
                     // cell occupancy and so still promised the attack — which is why it looked random.
+                    // The pointer resolve WINS when it produced one. It is the same call that decided the
+                    // sword cursor, and it is the engine-validated answer (melee target set, adjacency,
+                    // cowardice, forced target), so taking its target is what makes the click act on the
+                    // attack the cursor promised. Deriving a second, independent target here is what broke
+                    // it: getUnitSpriteAtPosition returns the FRONTMOST overlapping sprite and excludes only
+                    // the acting unit, so a third creature whose tall art reaches over the clicked cell won
+                    // the pick — and then either the adjacency guard below refused the stale attackFrom, or
+                    // the enemy test failed outright on an ally. Both abandoned the click in silence: no
+                    // strike, no message, no action sent for the server to reject. That is the "attack
+                    // cursor showed but the click did nothing, from time to time" report. The sprite/
+                    // occupancy pick stays as the fallback for everything the melee resolve does not cover
+                    // (ranged, spell-less clicks on a body outside the melee target set).
                     const targetUnit =
+                        pointerMeleeAttack?.target ??
                         this.getUnitSpriteAtPosition(p, this.currentActiveUnit.getId()) ??
                         (occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined);
                     if (targetUnit) {
@@ -6803,6 +6816,17 @@ export class Sandbox extends PixiScene {
                                     targetUnit.getCells(),
                                 )
                             ) {
+                                // Now that the click takes the resolve's own target this should be
+                                // unreachable, and it must never go back to being a silent abort: dropping
+                                // the player's click with no strike, no message and no request is exactly
+                                // what made this class invisible for so long. Say so, loudly, if it trips.
+
+                                console.warn(
+                                    `[melee] click abandoned: ${this.currentActiveUnit.getName()} cannot reach ` +
+                                        `${targetUnit.getName()} from ${attackFrom.x},${attackFrom.y} ` +
+                                        `(target cells ${JSON.stringify(targetUnit.getCells().map((c) => [c.x, c.y]))}, ` +
+                                        `resolvedTarget=${pointerMeleeAttack?.target.getName() ?? "none"})`,
+                                );
                                 this.hoverManager.hoverAttackFromCell = undefined;
                                 this.hoverManager.clearAttackVisuals();
                                 return;
