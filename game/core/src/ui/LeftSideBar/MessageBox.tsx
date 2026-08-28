@@ -40,6 +40,10 @@ const moreTimeButtonLabelPlus4Url = new URL(
     "../../../images/ui_more_time_button_forged_label_plus4_v2.webp",
     import.meta.url,
 ).toString();
+const enemyTurnButtonBlankUrl = new URL(
+    "../../../images/ui_enemy_turn_button_forged_blank_v1.webp",
+    import.meta.url,
+).toString();
 
 // Exact crop supplied for the new command-panel direction. Only the frame and stone surface remain baked
 // into the high-resolution 432x114 plate; START is live HoC Forge text, so the same type system can be used
@@ -883,16 +887,17 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                         // sidebars. Deriving height from its width made it shrink in the expanded
                                         // viewport and left oversized empty gaps above and below it. The footer
                                         // itself is absolutely positioned, so this does not move other content.
-                                        height: `${Math.round((cannotAct ? 12 : 20) * metrics.fontScale)}px`,
+                                        height: `${Math.round(20 * metrics.fontScale)}px`,
                                         py: 0,
                                         px: "2px",
-                                        // A hairline in the timer's own gold, dimmer than the groove's 1.5px
-                                        // frame so it reads as belonging to the gauge without competing with
-                                        // it — the two are the same object, one above the other.
-                                        border: cannotAct ? `1px solid ${hocColors.gold}80` : 0,
-                                        borderRadius: cannotAct ? undefined : 0,
-                                        backgroundColor: cannotAct ? undefined : "transparent",
-                                        backgroundImage: cannotAct ? "none" : `url(${moreTimeButtonLabelPlus4Url})`,
+                                        // Both states use the same forged silhouette. The opponent state swaps
+                                        // in a text-free plate so its live label remains localizable and legible.
+                                        border: 0,
+                                        borderRadius: 0,
+                                        backgroundColor: "transparent",
+                                        backgroundImage: `url(${
+                                            cannotAct ? enemyTurnButtonBlankUrl : moreTimeButtonLabelPlus4Url
+                                        })`,
                                         backgroundRepeat: "no-repeat",
                                         backgroundPosition: "center",
                                         backgroundSize: "100% 100%",
@@ -902,11 +907,14 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                         textTransform: "uppercase",
                                         // The active label is baked into the exact-size v2 bitmap at 104% of
                                         // the previous lettering. Keep the live text only for accessibility.
-                                        color: cannotAct ? undefined : "transparent",
-                                        textShadow: cannotAct ? undefined : "none",
+                                        color: cannotAct ? hocColors.parchment : "transparent",
+                                        textShadow: cannotAct
+                                            ? "0 1px 1px rgba(0,0,0,.95), 0 0 2px rgba(224,183,100,.38)"
+                                            : "none",
+                                        letterSpacing: cannotAct ? hocDisplayLetterSpacing : undefined,
                                         // Width keeps the approved slight overpaint. Height is now explicit above,
                                         // so no fullscreen-state guess is needed and the centre stays fixed.
-                                        transform: cannotAct ? "none" : "scale(1.2, 1)",
+                                        transform: "scale(1.2, 1)",
                                         transformOrigin: "center",
                                         transition:
                                             "border-color 140ms ease, box-shadow 140ms ease, filter 140ms ease, transform 140ms ease",
@@ -927,6 +935,11 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                                 ? "brightness(1.18)"
                                                 : `brightness(1.3) saturate(1.2) drop-shadow(0 0 4px ${hocColors.gold}cc) drop-shadow(0 0 10px ${hocColors.gold}73)`,
                                             transform: cannotAct ? "none" : "scale(1.24, 1.04)",
+                                        },
+                                        "&:disabled": {
+                                            opacity: 1,
+                                            color: hocColors.parchment,
+                                            WebkitTextFillColor: hocColors.parchment,
                                         },
                                         // The label is baked into the bitmap. In the expanded viewport, repaint
                                         // only its central strip at the measured windowed/fullscreen width ratio;
