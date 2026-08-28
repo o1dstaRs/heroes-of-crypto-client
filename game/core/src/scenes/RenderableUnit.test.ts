@@ -683,11 +683,11 @@ describe("battlefield row perspective scale", () => {
 describe("furnace-cast battlefield shadow", () => {
     test("grows toward the upper furnace row and stays compact at both extremes", () => {
         expect(BATTLEFIELD_SHADOW_BOTTOM_ROW_LENGTH_SCALE).toBeCloseTo(
-            BATTLEFIELD_SHADOW_TOP_ROW_LENGTH_SCALE * 0.85,
+            BATTLEFIELD_SHADOW_TOP_ROW_LENGTH_SCALE * 0.9,
             8,
         );
         expect(BATTLEFIELD_SHADOW_TOP_ROW_LENGTH_SCALE).toBe(0.678);
-        expect(BATTLEFIELD_SHADOW_BOTTOM_ROW_ALPHA).toBe(0.332143);
+        expect(BATTLEFIELD_SHADOW_BOTTOM_ROW_ALPHA).toBe(0.45);
         expect(BATTLEFIELD_SHADOW_TOP_ROW_ALPHA).toBe(0.45);
         const bottom = GridMath.getPositionForCell(
             { x: 4, y: 0 },
@@ -713,7 +713,7 @@ describe("furnace-cast battlefield shadow", () => {
         expect(topProjection.widthScale).toBeCloseTo(BATTLEFIELD_SHADOW_TOP_ROW_WIDTH_SCALE, 8);
         expect(topProjection.alpha).toBeCloseTo(BATTLEFIELD_SHADOW_TOP_ROW_ALPHA, 8);
         expect(topProjection.lengthScale).toBeGreaterThan(bottomProjection.lengthScale);
-        expect(topProjection.widthScale).toBeGreaterThan(bottomProjection.widthScale);
+        expect(topProjection.widthScale).toBe(bottomProjection.widthScale);
     });
 
     test("follows the live unit position and rescales during movement between rows", () => {
@@ -761,10 +761,10 @@ describe("furnace-cast battlefield shadow", () => {
             gridSettings.getCellSize() * peasantShadow.top.offsetYCells * BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
             8,
         );
-        // The intact upper shadow is the approved maximum; the lower one is exactly 15% shorter in
+        // The intact upper shadow is the approved maximum; the lower one is exactly 10% shorter in
         // screen space even though the creature itself follows the opposite perspective scale.
-        expect((internals.silhouetteShadow?.scale.y ?? 0) / bottomLengthScale).toBeCloseTo(1 / 0.85, 8);
-        expect(internals.silhouetteShadow?.alpha ?? 0).toBeGreaterThan(bottomAlpha);
+        expect((internals.silhouetteShadow?.scale.y ?? 0) / bottomLengthScale).toBeCloseTo(1 / 0.9, 8);
+        expect(internals.silhouetteShadow?.alpha ?? 0).toBe(bottomAlpha);
     });
 
     test("mirrors horizontal placement and rotation exactly with the creature facing", () => {
@@ -1624,7 +1624,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         refreshedIdlePhaseRatio: number;
     };
 
-    assetTest("renders Wolf at its compact rider-like height, width taken from the two cells it occupies", () => {
+    assetTest("keeps Wolf at its authored proportions inside its two-cell footprint", () => {
         const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
@@ -1633,12 +1633,13 @@ describe("refreshed idle cadence and quadruped scale", () => {
         const scaleY = Math.abs(internals.sprite?.scale.y ?? 0);
 
         expect(WOLF_BOARD_MODEL_HEIGHT_CELLS).toBeCloseTo(1.05 * 0.99);
-        // Wolf ships 2x1 now: a mechanically rectangular body takes its WIDTH from the cells it
-        // occupies (the authored widthScale existed to fake this silhouette while it was 1x1), while
-        // its authored compact height stays exactly as approved.
+        // Wolf ships 2x1 now, but occupancy must not stretch the square-authored figure horizontally.
         expect(unit.getFootprintWidth()).toBe(2);
         expect(scaleX * (internals.sprite?.texture.width ?? 0)).toBeCloseTo(
-            gridSettings.getCellSize() * unit.getFootprintWidth() * BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleX,
+            gridSettings.getCellSize() *
+                WOLF_BOARD_MODEL_HEIGHT_CELLS *
+                refreshedBoardVisualProfileForUnit("Wolf").widthScale *
+                BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleX,
         );
         expect(scaleY * (internals.sprite?.texture.height ?? 0)).toBeCloseTo(
             gridSettings.getCellSize() * WOLF_BOARD_MODEL_HEIGHT_CELLS * BATTLEFIELD_CREATURE_FRAMING.Wolf.scaleY,
@@ -2475,9 +2476,8 @@ describe("rectangular footprints", () => {
         ).toEqual([`${anchor.x - 1}:${anchor.y}`, `${anchor.x}:${anchor.y}`].sort());
     });
 
-    test("draws a two-cell-wide body exactly two cells wide, without stretching it twice", () => {
-        // White Tiger's authored `widthScale` of 1.695 FAKES a 2x1 silhouette on a mechanically 1x1 body,
-        // so the mechanical rectangle must land on the same rendered width instead of multiplying the two.
+    test("keeps a two-cell-wide body at its authored figure proportions", () => {
+        // Mechanical occupancy changes the footprint only; it must not alter the already approved artwork.
         const position = { x: 384, y: 640 };
         const square = placedUnit("White Tiger", "Nature", "white_tiger_512", position);
         const wide = withFootprintOverride("White Tiger=2x1", () =>
@@ -2488,18 +2488,9 @@ describe("rectangular footprints", () => {
         const renderedWidth = (sprite: typeof squareSprite) => sprite.texture.width * Math.abs(sprite.scale.x);
         const renderedHeight = (sprite: typeof squareSprite) => sprite.texture.height * Math.abs(sprite.scale.y);
 
-        // Two cells across, times the creature's approved editor framing, times the row's perspective.
-        const expectedWidth =
-            2 *
-            gridSettings.getCellSize() *
-            BATTLEFIELD_CREATURE_FRAMING["White Tiger"].scaleX *
-            battlefieldCreaturePerspectiveScale(position.y, 1, gridSettings);
-        expect(renderedWidth(wideSprite)).toBeCloseTo(expectedWidth, 6);
-        // Same figure, same height, same ground point: only the width derivation changed.
+        expect(renderedWidth(wideSprite)).toBeCloseTo(renderedWidth(squareSprite), 6);
         expect(renderedHeight(wideSprite)).toBeCloseTo(renderedHeight(squareSprite), 6);
         expect(wideSprite.y).toBeCloseTo(squareSprite.y, 6);
-        // And within a fraction of a percent of the silhouette widthScale was hand-tuned to produce.
-        expect(renderedWidth(wideSprite)).toBeCloseTo(renderedWidth(squareSprite), 0);
     });
 
     test("plants a taller body on its own lower seam instead of floating in the upper cell", () => {

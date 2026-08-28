@@ -174,7 +174,7 @@ describe("battlefield shadow tuning", () => {
             Behemoth: [0.097, 1.251, 1.042, 0.994],
             Gargantuan: [0.038, 0.478, 0.776, 0.939],
             Abomination: [-0.008, 0.608, 0.825, 0.915],
-            "Magic Dragon": [0.08, 0.531, 0.868, 0.91],
+            "Magic Dragon": [0.12, 0.42, 0.868, 0.94],
         } as const;
 
         for (const [name, [offsetXCells, offsetYCells, lengthScale, widthScale]] of Object.entries(expectedTopRows)) {

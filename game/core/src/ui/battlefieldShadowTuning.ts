@@ -267,10 +267,10 @@ const ABOMINATION_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
 const MAGIC_DRAGON_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
     top: {
         lengthScale: 0.868,
-        widthScale: 0.91,
+        widthScale: 0.94,
         alpha: 0.45,
-        offsetXCells: 0.08,
-        offsetYCells: 0.531,
+        offsetXCells: 0.12,
+        offsetYCells: 0.42,
         rotationDegrees: -14,
         segmentLengthMultipliers: [1, 1, 1, 1],
     },

@@ -49,12 +49,37 @@ import {
     type BattlefieldCreatureFramingChangeDetail,
 } from "../ui/battlefieldCreatureFraming";
 import {
+    BATTLEFIELD_SHADOW_SEGMENT_COUNT,
     DEFAULT_BATTLEFIELD_SHADOW_TUNING,
     publishBattlefieldShadowVisualBounds,
     resolveBattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 export type TexResolver = (name: string) => Texture | undefined;
+
+const battlefieldShadowSegmentTextureCache = new WeakMap<Texture, readonly Texture[]>();
+
+/** Four untrimmed atlas slices that meet at the original sprite centre without changing its source texture. */
+const battlefieldShadowSegmentTextures = (texture: Texture): readonly Texture[] => {
+    const cached = battlefieldShadowSegmentTextureCache.get(texture);
+    if (cached) return cached;
+    const segmentWidth = texture.frame.width / BATTLEFIELD_SHADOW_SEGMENT_COUNT;
+    const segments = Array.from(
+        { length: BATTLEFIELD_SHADOW_SEGMENT_COUNT },
+        (_, index) =>
+            new Texture({
+                source: texture.source,
+                frame: new Rectangle(
+                    texture.frame.x + segmentWidth * index,
+                    texture.frame.y,
+                    segmentWidth,
+                    texture.frame.height,
+                ),
+            }),
+    );
+    battlefieldShadowSegmentTextureCache.set(texture, segments);
+    return segments;
+};
 export interface BattlefieldUnitPreview {
     texture: Texture;
     anchorX: number;
@@ -1255,6 +1280,8 @@ export class RenderableUnit extends Unit {
     private motionBlurFilter?: BlurFilter;
     private shadow?: Graphics;
     private silhouetteShadow?: Sprite;
+    private silhouetteShadowSegments: Sprite[] = [];
+    private silhouetteShadowSegmented = false;
     private groundCastShadow?: Sprite;
     private silhouetteShadowBlurFilter?: BlurFilter | null;
     private shadowDrawWidth = 0;
@@ -1455,6 +1482,8 @@ export class RenderableUnit extends Unit {
         ru.dodgeAnim = undefined;
         ru.dodgeBlurFilter = undefined;
         ru.silhouetteShadow = undefined;
+        ru.silhouetteShadowSegments = [];
+        ru.silhouetteShadowSegmented = false;
         ru.groundCastShadow = undefined;
         ru.silhouetteShadowBlurFilter = undefined;
         ru.battlefieldAlphaHoleFillFilter = undefined;
@@ -1643,7 +1672,6 @@ export class RenderableUnit extends Unit {
         // which is only the art tier. They agree for every shipped creature (all 1x1 or 2x2).
         const footprintWidth = this.getFootprintWidth();
         const footprintHeight = this.getFootprintHeight();
-        const isRectangularFootprint = footprintWidth !== footprintHeight;
         const texName = unitToTextureName(props.name, TextureType.SMALL, footprintWidth, footprintHeight);
         const hasAuthoredIdle = this.hasAnimationState("idle");
         const tallBoardModel = usesTallBoardModel(props, texName, hasAuthoredIdle);
@@ -1713,11 +1741,11 @@ export class RenderableUnit extends Unit {
             ? battlefieldCreaturePerspectiveScale(logicalPos.y, footprintHeight, gs)
             : 1;
         const editorFraming = resolveStoredBattlefieldCreatureFraming(props.name);
-        // The chip box is the footprint measured in authored pixels: 128 across one cell, 256 across two.
-        const chipTargetWidth =
-            footprintWidth * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
-        const chipTargetHeight =
-            footprintHeight * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
+        // Gameplay occupancy must never deform the authored creature. Rectangular 2x1 bodies use the
+        // shorter footprint side for visual sizing, exactly like the approved local sandbox rendering.
+        const visualFootprintSide = Math.min(footprintWidth, footprintHeight);
+        const chipTargetSide =
+            visualFootprintSide * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier * battlefieldCreatureScale;
         // The rectangular board fit intentionally scales cell positions differently on X and Y. Undo that
         // camera deformation on the artwork alone so creatures keep their original square-fit screen size.
         const inheritedScale = inheritedAbsoluteScale(worldRoot);
@@ -1748,15 +1776,11 @@ export class RenderableUnit extends Unit {
             : props.name === SCAVENGER_UNIT_NAME
               ? SCAVENGER_BOARD_MODEL_HEIGHT_CELLS
               : 1.5;
-        // `heightCells` is authored against a body ONE cell tall. A square footprint expresses its extra
-        // rows through the approved enlargement multiplier instead, so only a rectangle multiplies the
-        // authored height by the rows it really occupies.
-        const boardModelTargetHeightCells =
-            boardModelHeightCells * (isRectangularFootprint ? footprintHeight : 1) * battlefieldCreatureScale;
-        // A square chip is authored square, so one width-keyed scale already fits both axes; keeping that
-        // exact expression for square footprints leaves every shipped creature byte-identical.
-        const chipScaleX = chipTargetWidth / currentWidth;
-        const chipScaleY = isRectangularFootprint ? chipTargetHeight / currentHeight : chipScaleX;
+        // `heightCells` describes the artwork, while footprint width/height describes occupied cells.
+        // Keeping those concepts separate preserves the source aspect ratio for every rectangular body.
+        const boardModelTargetHeightCells = boardModelHeightCells * battlefieldCreatureScale;
+        const chipScaleX = chipTargetSide / currentWidth;
+        const chipScaleY = chipTargetSide / currentHeight;
         const scaleY = tallBoardModel ? (gs.getCellSize() * boardModelTargetHeightCells) / visibleHeight : chipScaleY;
         // Idle/walk stay inside the requested width. Action sheets and Orc's square padded atlases must
         // keep a uniform scale: capping that transparent canvas independently used to visibly narrow him.
@@ -1766,18 +1790,12 @@ export class RenderableUnit extends Unit {
                 : props.name === THIEF_UNIT_NAME
                   ? 1
                   : 1.1;
-        // A mechanically rectangular body takes its width from the cells it occupies. The authored
-        // `widthScale` exists to FAKE exactly this silhouette on creatures that stay 1x1 (White Tiger reads
-        // 1.18 x 1.695 cells, i.e. two cells across), so applying both would stretch one sprite twice.
-        const rectangularScaleX = (gs.getCellSize() * footprintWidth) / visibleWidth;
         const scaleX = tallBoardModel
-            ? isRectangularFootprint
-                ? rectangularScaleX
-                : refreshedFullBodyScale || this.oneShotAnim || props.name === ORC_UNIT_NAME || showingScavengerFlourish
-                  ? scaleY * (refreshedFullBodyScale ? refreshedVisualProfile.widthScale : 1)
-                  : usesThiefSilhouette
-                    ? (gs.getCellSize() * tallBoardWidthCells * footprintWidth) / visibleWidth
-                    : Math.min(scaleY, (gs.getCellSize() * tallBoardWidthCells * footprintWidth) / currentWidth)
+            ? refreshedFullBodyScale || this.oneShotAnim || props.name === ORC_UNIT_NAME || showingScavengerFlourish
+                ? scaleY * (refreshedFullBodyScale ? refreshedVisualProfile.widthScale : 1)
+                : usesThiefSilhouette
+                  ? (gs.getCellSize() * tallBoardWidthCells * visualFootprintSide) / visibleWidth
+                  : Math.min(scaleY, (gs.getCellSize() * tallBoardWidthCells * visualFootprintSide) / currentWidth)
             : chipScaleX;
         // The bottom anchor is the creature's foot line. Breathing stretches/compresses only the
         // vertical scale around that anchor, so the robe and torso rise while both feet stay planted.
@@ -1968,6 +1986,28 @@ export class RenderableUnit extends Unit {
         ) {
             this.silhouetteShadow.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
         }
+        const segmentLengthMultipliers = Array.from({ length: BATTLEFIELD_SHADOW_SEGMENT_COUNT }, (_, index) =>
+            interpolateShadowValue(
+                shadowTuning.bottom.segmentLengthMultipliers[index] ?? 1,
+                shadowTuning.top.segmentLengthMultipliers[index] ?? 1,
+            ),
+        );
+        this.silhouetteShadowSegmented = segmentLengthMultipliers.some(
+            (multiplier) => Math.abs(multiplier - 1) > 0.001,
+        );
+        if (this.silhouetteShadowSegmented && this.silhouetteShadowSegments.length === 0) {
+            this.silhouetteShadowSegments = battlefieldShadowSegmentTextures(currentTexture).map((texture, index) => {
+                const segment = new Sprite(texture);
+                // Outside-range anchors place every cropped band around the original sprite centre.
+                segment.anchor.set(BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index, footAnchorY);
+                segment.tint = 0x000000;
+                segment.blendMode = "multiply";
+                segment.roundPixels = false;
+                segment.zIndex = 4000 - pos.y - 0.75;
+                worldRoot.addChild(segment);
+                return segment;
+            });
+        }
         const silhouetteScaleX = this.sprite.scale.x * shadowProjection.widthScale;
         // A positive local Y scale is inverted by the y-up world root, projecting the cutout downward from
         // its authored foot row. The regular creature uses a negative Y scale to remain upright.
@@ -1999,19 +2039,64 @@ export class RenderableUnit extends Unit {
             this.silhouetteShadow.rotation = silhouetteRotation;
         }
         const silhouetteVisible = spriteVisible && this.visualMode === "normal" && this.useBattlefieldVisualProjection;
-        if (this.silhouetteShadow.visible !== silhouetteVisible) {
-            this.silhouetteShadow.visible = silhouetteVisible;
+        const wholeSilhouetteVisible = silhouetteVisible && !this.silhouetteShadowSegmented;
+        if (this.silhouetteShadow.visible !== wholeSilhouetteVisible) {
+            this.silhouetteShadow.visible = wholeSilhouetteVisible;
         }
         const silhouetteAlpha = shadowProjection.alpha * (isHidden ? 0.55 : 1) * (this.canFly() ? 0.8 : 1);
         if (this.silhouetteShadow.alpha !== silhouetteAlpha) this.silhouetteShadow.alpha = silhouetteAlpha;
 
-        const silhouetteBounds = this.silhouetteShadow.getBounds();
+        if (this.silhouetteShadowSegments.length > 0) {
+            const textures = battlefieldShadowSegmentTextures(currentTexture);
+            for (let index = 0; index < this.silhouetteShadowSegments.length; index++) {
+                const segment = this.silhouetteShadowSegments[index];
+                if (segment.parent !== worldRoot) worldRoot.addChild(segment);
+                if (segment.texture !== textures[index]) segment.texture = textures[index];
+                const anchorX = BATTLEFIELD_SHADOW_SEGMENT_COUNT / 2 - index;
+                if (segment.anchor.x !== anchorX || segment.anchor.y !== footAnchorY) {
+                    segment.anchor.set(anchorX, footAnchorY);
+                }
+                const installedSegmentFilters = segment.filters ?? [];
+                if (
+                    desiredShadowFilters.length !== installedSegmentFilters.length ||
+                    desiredShadowFilters.some((filter, filterIndex) => filter !== installedSegmentFilters[filterIndex])
+                ) {
+                    segment.filters = desiredShadowFilters.length ? desiredShadowFilters : null;
+                }
+                const segmentScaleY = silhouetteScaleY * (segmentLengthMultipliers[index] ?? 1);
+                if (segment.scale.x !== silhouetteScaleX || segment.scale.y !== segmentScaleY) {
+                    segment.scale.set(silhouetteScaleX, segmentScaleY);
+                }
+                if (segment.x !== silhouetteX || segment.y !== silhouetteY) {
+                    segment.position.set(silhouetteX, silhouetteY);
+                }
+                if (segment.rotation !== silhouetteRotation) segment.rotation = silhouetteRotation;
+                if (segment.alpha !== silhouetteAlpha) segment.alpha = silhouetteAlpha;
+                const segmentVisible = silhouetteVisible && this.silhouetteShadowSegmented;
+                if (segment.visible !== segmentVisible) segment.visible = segmentVisible;
+            }
+        }
+
+        const silhouetteBounds = (
+            this.silhouetteShadowSegmented ? this.silhouetteShadowSegments : [this.silhouetteShadow]
+        ).reduce(
+            (combined, displayObject) => {
+                const bounds = displayObject.getBounds();
+                return {
+                    left: Math.min(combined.left, bounds.x),
+                    top: Math.min(combined.top, bounds.y),
+                    right: Math.max(combined.right, bounds.x + bounds.width),
+                    bottom: Math.max(combined.bottom, bounds.y + bounds.height),
+                };
+            },
+            { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity },
+        );
         publishBattlefieldShadowVisualBounds(props.name, {
             bounds: {
-                x: silhouetteBounds.x,
-                y: silhouetteBounds.y,
-                width: silhouetteBounds.width,
-                height: silhouetteBounds.height,
+                x: silhouetteBounds.left,
+                y: silhouetteBounds.top,
+                width: silhouetteBounds.right - silhouetteBounds.left,
+                height: silhouetteBounds.bottom - silhouetteBounds.top,
             },
             cellWidth: gs.getCellSize() * inheritedScale.x,
             cellHeight: gs.getCellSize() * inheritedScale.y,
@@ -2263,11 +2348,17 @@ export class RenderableUnit extends Unit {
     public setBattlefieldVisualProjection(enabled: boolean): void {
         this.useBattlefieldVisualProjection = enabled;
     }
+    private setSilhouetteShadowVisibility(visible: boolean): void {
+        if (this.silhouetteShadow) this.silhouetteShadow.visible = visible && !this.silhouetteShadowSegmented;
+        for (const segment of this.silhouetteShadowSegments) {
+            segment.visible = visible && this.silhouetteShadowSegmented;
+        }
+    }
     public setVisualVisible(visible: boolean): void {
         this.visualMode = visible ? "normal" : "hidden";
         if (this.sprite) this.sprite.visible = visible;
         if (this.shadow) this.shadow.visible = visible;
-        if (this.silhouetteShadow) this.silhouetteShadow.visible = visible && this.useBattlefieldVisualProjection;
+        this.setSilhouetteShadowVisibility(visible && this.useBattlefieldVisualProjection);
         if (this.groundCastShadow) this.groundCastShadow.visible = visible && this.useBattlefieldVisualProjection;
         // The roster card belongs to "revealed" mode, which this call always leaves.
         if (this.rosterCard) this.rosterCard.visible = false;
@@ -2298,9 +2389,7 @@ export class RenderableUnit extends Unit {
             this.shadow.visible = visible;
             this.shadow.alpha = active ? 0.1 : 0.35;
         }
-        if (this.silhouetteShadow) {
-            this.silhouetteShadow.visible = !active && visible && this.useBattlefieldVisualProjection;
-        }
+        this.setSilhouetteShadowVisibility(!active && visible && this.useBattlefieldVisualProjection);
         if (this.groundCastShadow) {
             this.groundCastShadow.visible = !active && visible && this.useBattlefieldVisualProjection;
         }
@@ -2419,7 +2508,7 @@ export class RenderableUnit extends Unit {
         if (!inGrid) {
             if (this.sprite) this.sprite.visible = false;
             if (this.shadow) this.shadow.visible = false;
-            if (this.silhouetteShadow) this.silhouetteShadow.visible = false;
+            this.setSilhouetteShadowVisibility(false);
             if (this.groundCastShadow) this.groundCastShadow.visible = false;
             if (this.badgeContainer) this.badgeContainer.visible = false;
             if (this.stackPowerContainer) this.stackPowerContainer.visible = false;
@@ -2440,6 +2529,9 @@ export class RenderableUnit extends Unit {
             if (this.shadow && this.shadow.zIndex !== baseZ - 0.5) this.shadow.zIndex = baseZ - 0.5;
             if (this.silhouetteShadow && this.silhouetteShadow.zIndex !== baseZ - 0.75) {
                 this.silhouetteShadow.zIndex = baseZ - 0.75;
+            }
+            for (const segment of this.silhouetteShadowSegments) {
+                if (segment.zIndex !== baseZ - 0.75) segment.zIndex = baseZ - 0.75;
             }
             if (this.groundCastShadow && this.groundCastShadow.zIndex !== baseZ - 0.85) {
                 this.groundCastShadow.zIndex = baseZ - 0.85;
@@ -3668,6 +3760,9 @@ export class RenderableUnit extends Unit {
             this.silhouetteShadow = undefined;
             this.silhouetteShadowBlurFilter = undefined;
         }
+        for (const segment of this.silhouetteShadowSegments) segment.destroy();
+        this.silhouetteShadowSegments = [];
+        this.silhouetteShadowSegmented = false;
         if (this.groundCastShadow) {
             this.groundCastShadow.destroy();
             this.groundCastShadow = undefined;
@@ -4549,6 +4644,10 @@ export class RenderableUnit extends Unit {
         if (this.silhouetteShadow) {
             this.silhouetteShadow.x += anim.dx * env;
             this.silhouetteShadow.y += anim.dy * env;
+        }
+        for (const segment of this.silhouetteShadowSegments) {
+            segment.x += anim.dx * env;
+            segment.y += anim.dy * env;
         }
         if (this.groundCastShadow) {
             this.groundCastShadow.x += anim.dx * env;
