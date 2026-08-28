@@ -45,6 +45,7 @@ import {
     isAuraRangeSynergy,
     isFlyArmorSynergy,
 } from "./SynergiesConstants";
+import { orderSidebarBuffs, orderSidebarDebuffs } from "./effectOrder";
 import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
@@ -1419,19 +1420,11 @@ const UnitStatsLayout: React.FC<{
             (emitsAura || !isAuraRangeSynergy(synergyKey)) && (isFlyingUnit || !isFlyArmorSynergy(synergyKey)),
     );
 
-    // Fixed reading order down the well after them: the army-wide, whole-fight things first — augments,
-    // then artifacts — and the per-turn traffic last. Ranked rather than sorted by arrival, so a buff never
-    // jumps groups the moment something else expires; the sort is stable, so inside a group the engine's
-    // own order survives.
-    const buffRank = (buff: IVisibleImpact): number => {
-        if (buff.name.endsWith(" Augment")) return 0;
-        if (buff.description.startsWith("Artifact.")) return 1;
-        return 2;
-    };
-    const orderedBuffs = buffs
-        .map((buff, index) => ({ buff, index }))
-        .sort((a, b) => buffRank(a.buff) - buffRank(b.buff) || a.index - b.index)
-        .map((entry) => entry.buff);
+    // MOST RECENT FIRST, for both wells — see effectOrder.ts. The grouping still decides the blocks; the
+    // finished list is reversed, so the per-turn traffic leads (newest leftmost) and the permanent
+    // army-wide augments settle at the far end.
+    const orderedBuffs = orderSidebarBuffs(buffs);
+    const orderedDebuffs = orderSidebarDebuffs(debuffs);
     // Three stat rows, always — the well below scrolls if a creature carries more than nine.
     const statRowHeight = Math.round(metrics.statIconPx + 12);
     const statWellHeight = statRowHeight * 3 + STAT_ROW_GAP * 2;
@@ -1734,7 +1727,7 @@ const UnitStatsLayout: React.FC<{
                         }}
                     >
                         <IconScrollWell height={debuffPaintWellHeight}>
-                            <EffectTiles effects={debuffs} title="Debuffs" metrics={metrics} />
+                            <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} />
                         </IconScrollWell>
                     </Box>
                 </PanelSection>
