@@ -63,6 +63,7 @@ import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import LeftSideBar from "./LeftSideBar";
 import SynergiesRow from "./LeftSideBar/SynergiesRow";
 import { Main } from "./Main";
+import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import Popover from "./Popover";
 import RightSideBar from "./RightSideBar";
 import { MapBadge } from "./PickAndBan/MapReveal";
@@ -1697,6 +1698,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             >
                 <CssVarsProvider>
                     <CssBaseline />
+                    {!pixiReady && <LoadingFullscreenToggle />}
                     {/* The gold rule closing the gap between the board and each bar. It was mounted only in
                         the sandbox and on the pick screen, so a ranked fight — which builds its own layout
                         around the same two sidebars — never drew it and the board simply ran into the
@@ -1825,9 +1827,9 @@ const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsProps> = 
     return (
         <Box
             sx={{
-                width: "93%",
+                width: "100%",
                 mx: "auto",
-                mt: 0.5,
+                mt: "auto !important",
                 mb: 0.25,
                 px: 0.75,
                 pt: 1,

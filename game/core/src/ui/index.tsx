@@ -40,6 +40,7 @@ import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
+import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
@@ -240,6 +241,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
             <div className="container" style={{ display: "flex" }}>
                 <CssVarsProvider>
                     <CssBaseline />
+                    {isLoading && <LoadingFullscreenToggle />}
                     {!isLoading && <LeftSideBar gameStarted={started} windowSize={windowSize} />}
                     {!isLoading && (
                         <RightSideBar
