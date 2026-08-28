@@ -8,12 +8,13 @@
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
 import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
 import { ArtifactToggler } from "./ArtifactToggler";
+import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 import { armorAugmentLabel } from "./augmentLabels";
 import {
     DEFAULT_SANDBOX_PANEL_EXPANSION,
@@ -486,19 +487,81 @@ const SandboxToggleContainer = ({
     // Upgrade-point budget for augments. In ranked this is the doctrine's allotment (5/6/7 via
     // getUpgradePoints); Sandbox omits it and gets the full MAX_AUGMENT_POINTS default.
     budgetPoints = HoCConstants.MAX_AUGMENT_POINTS,
+    // Ranked reads this to gate its commit button: fires whenever the remaining augment points change.
+    // Sandbox omits it.
+    onReadyChange,
+    // Ranked snapshots own the committed build. Rehydrate from it so a refresh/remount does not show a
+    // blank picker with a full budget while the server is still enforcing the already-spent points.
+    authoritativeSelections,
 }: {
     side: string;
     teamType: TeamType;
     showArtifactPicker?: boolean;
     budgetPoints?: number;
+    onReadyChange?: (state: { pointsRemaining: number; allSynergiesSelected: boolean }) => void;
+    authoritativeSelections?: AugmentSelections;
 }) => {
-    const [totalPoints, setTotalPoints] = useState(budgetPoints);
-    const [placementSelection, setPlacementSelection] = useState<number | null>(null);
-    const [armorSelection, setArmorSelection] = useState<number | null>(null);
-    const [mightSelection, setMightSelection] = useState<number | null>(null);
-    const [empowerSelection, setEmpowerSelection] = useState<number | null>(null);
-    const [sniperSelection, setSniperSelection] = useState<number | null>(null);
-    const [movementSelection, setMovementSelection] = useState<number | null>(null);
+    const authoritativePlacement = authoritativeSelections?.placement;
+    const authoritativeArmor = authoritativeSelections?.armor;
+    const authoritativeMight = authoritativeSelections?.might;
+    const authoritativeEmpower = authoritativeSelections?.empower;
+    const authoritativeSniper = authoritativeSelections?.sniper;
+    const authoritativeMovement = authoritativeSelections?.movement;
+    const [totalPoints, setTotalPoints] = useState(() =>
+        authoritativeSelections ? remainingAugmentPoints(budgetPoints, authoritativeSelections) : budgetPoints,
+    );
+    const [placementSelection, setPlacementSelection] = useState<number | null>(authoritativePlacement ?? null);
+    const [armorSelection, setArmorSelection] = useState<number | null>(authoritativeArmor ?? null);
+    const [mightSelection, setMightSelection] = useState<number | null>(authoritativeMight ?? null);
+    const [empowerSelection, setEmpowerSelection] = useState<number | null>(authoritativeEmpower ?? null);
+    const [sniperSelection, setSniperSelection] = useState<number | null>(authoritativeSniper ?? null);
+    const [movementSelection, setMovementSelection] = useState<number | null>(authoritativeMovement ?? null);
+
+    // Re-seed when the server's committed build changes under us (a snapshot after our own AUGMENT lands,
+    // or a remount mid-placement). Only when the whole build is present, so a partial payload cannot blank
+    // a selection the player has already made.
+    useEffect(() => {
+        if (
+            authoritativePlacement === undefined ||
+            authoritativeArmor === undefined ||
+            authoritativeMight === undefined ||
+            authoritativeEmpower === undefined ||
+            authoritativeSniper === undefined ||
+            authoritativeMovement === undefined
+        ) {
+            return;
+        }
+        setPlacementSelection(authoritativePlacement);
+        setArmorSelection(authoritativeArmor);
+        setMightSelection(authoritativeMight);
+        setEmpowerSelection(authoritativeEmpower);
+        setSniperSelection(authoritativeSniper);
+        setMovementSelection(authoritativeMovement);
+        setTotalPoints(
+            remainingAugmentPoints(budgetPoints, {
+                placement: authoritativePlacement,
+                armor: authoritativeArmor,
+                might: authoritativeMight,
+                empower: authoritativeEmpower,
+                sniper: authoritativeSniper,
+                movement: authoritativeMovement,
+            }),
+        );
+    }, [
+        budgetPoints,
+        authoritativePlacement,
+        authoritativeArmor,
+        authoritativeMight,
+        authoritativeEmpower,
+        authoritativeSniper,
+        authoritativeMovement,
+    ]);
+
+    // Report readiness up to ranked. Synergies are drawn per game and level from the drafted factions, so
+    // there is nothing here for the player to complete — same contract SideToggleContainer reports.
+    useEffect(() => {
+        onReadyChange?.({ pointsRemaining: totalPoints, allSynergiesSelected: true });
+    }, [onReadyChange, totalPoints]);
     // Opening a team lands on Augments with Board Placement already showing — the first thing you set for a
     // side — instead of a bar of shut headers you have to click twice to get anywhere.
     const [togglerType, setTogglerType] = useState<

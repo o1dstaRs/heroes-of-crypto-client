@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, test } from "bun:test";
 
 import { PlayActionType, PlayPhase } from "../api/play_protocol";
@@ -142,5 +145,40 @@ describe("shouldShowRankedAugmentPicker", () => {
 
     test("is placement-only — never during the fight", () => {
         expect(shouldShowRankedAugmentPicker({ phase: PlayPhase.PLAY }, false, false, false)).toBe(false);
+    });
+});
+
+/**
+ * The two augment pickers have different SHAPES and each belongs in one place.
+ *
+ * SideToggleContainer expands every augment card at once — right on the full-screen Setup step, wrong in
+ * the narrow sidebar, where it stacks three tall radio groups and pushes the artifacts and the rest of the
+ * panel off the bottom. SandboxToggleContainer is the compact form: a row of augment icons with only the
+ * chosen augment's options underneath. Both drive the same picker underneath, so this is layout only.
+ */
+describe("the ranked sidebar uses the compact augment picker", () => {
+    const source = readFileSync(join(import.meta.dir, "RankedGameView.tsx"), "utf8");
+
+    test("the sidebar mounts the compact container and the full-screen step keeps the expanded one", () => {
+        const sidebar = source.slice(
+            source.indexOf("augmentsEditableInSidebar ? ("),
+            source.indexOf("<RankedAugmentSummary"),
+        );
+        expect(sidebar).toContain("<SandboxToggleContainer");
+        expect(sidebar).not.toContain("<SideToggleContainer");
+        // The Setup step still gets the expanded cards — it has the room for them.
+        expect(source).toContain("<SideToggleContainer");
+    });
+
+    test("the compact picker is still wired to the authoritative build and the commit gate", () => {
+        // Layout change only: dropping either prop would silently show a blank picker with a full budget,
+        // or leave the "Lock in augments" button unable to tell when the points are spent.
+        const sidebar = source.slice(
+            source.indexOf("<SandboxToggleContainer"),
+            source.indexOf("<RankedAugmentSummary"),
+        );
+        expect(sidebar).toContain("authoritativeSelections={augmentAuthoritativeSelections}");
+        expect(sidebar).toContain("onReadyChange={setAugmentReady}");
+        expect(sidebar).toContain("showArtifactPicker={false}");
     });
 });

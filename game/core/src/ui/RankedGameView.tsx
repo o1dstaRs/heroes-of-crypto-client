@@ -83,6 +83,7 @@ import {
     useDraftScale,
 } from "./PickAndBan";
 import { PickLanternFire } from "./PickAndBan/PickLanternFire";
+import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
@@ -2957,7 +2958,13 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             position — so the sidebar carries the live picker until you lock in, then the
                             read-only recap. See augmentsEditableInSidebar for why the server allows it. */}
                         {augmentsEditableInSidebar ? (
-                            <SideToggleContainer
+                            // The SIDEBAR uses the compact sandbox shape: one row of augment icons with only
+                            // the chosen augment's options underneath. SideToggleContainer expands every
+                            // augment card at once, which is right on the full-screen Setup step but in this
+                            // narrow column stacks three tall radio groups and pushes the artifacts and the
+                            // rest of the panel off the bottom. Same picker underneath — both route their
+                            // choice through the pixi manager — so this is layout only.
+                            <SandboxToggleContainer
                                 side={userTeam === TeamVals.LOWER ? "green" : "red"}
                                 teamType={userTeam}
                                 showArtifactPicker={false}
