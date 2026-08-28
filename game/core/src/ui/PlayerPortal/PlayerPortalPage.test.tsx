@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { CreatureVals } from "@heroesofcrypto/common";
 
 import {
+    PLAYER_PORTAL_STRATEGY_TILE_OVERLAP,
+    PLAYER_PORTAL_STRATEGY_TILE_SIZE,
     playerPortalArtifactInfo,
     playerPortalCreatureLineupLabel,
     playerPortalMostPlayedFirst,
+    playerPortalStrategyVisibleShare,
 } from "./PlayerPortalPage";
 
 describe("player portal artifact history", () => {
@@ -17,6 +20,33 @@ describe("player portal artifact history", () => {
 
     test("does not invent metadata for an unknown historical id", () => {
         expect(playerPortalArtifactInfo(2, 999)).toBeUndefined();
+    });
+});
+
+describe("player portal combo portraits", () => {
+    /**
+     * A combo names three creatures, so all three have to be recognisable. Every portrait except the last
+     * is painted over by the one after it, and what survives is its left-hand strip — mostly backdrop on a
+     * centrally framed portrait. The original 24-of-54px overlap left only 55% of each covered tile (41%
+     * on mobile) and the middle creature read as an empty gap between its two legible neighbours.
+     */
+    test("a covered portrait keeps enough width to identify the creature", () => {
+        for (const breakpoint of ["xs", "sm"] as const) {
+            expect(playerPortalStrategyVisibleShare(breakpoint)).toBeGreaterThanOrEqual(0.75);
+        }
+    });
+
+    test("the overlap is real, so a trio still reads as one line-up", () => {
+        for (const breakpoint of ["xs", "sm"] as const) {
+            expect(PLAYER_PORTAL_STRATEGY_TILE_OVERLAP[breakpoint]).toBeGreaterThan(0);
+            expect(PLAYER_PORTAL_STRATEGY_TILE_OVERLAP[breakpoint]).toBeLessThan(
+                PLAYER_PORTAL_STRATEGY_TILE_SIZE[breakpoint],
+            );
+        }
+    });
+
+    test("the mobile tile stays smaller than the desktop one", () => {
+        expect(PLAYER_PORTAL_STRATEGY_TILE_SIZE.xs).toBeLessThan(PLAYER_PORTAL_STRATEGY_TILE_SIZE.sm);
     });
 });
 
