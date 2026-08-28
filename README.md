@@ -43,9 +43,9 @@ bun run --cwd game/heroes-of-crypto-common build:proto
 Env variables:
 
 ```bash
-# path to the images folder containing the *.webp assets
-HOC_IMAGES_LOC=./path/to/images
-HOC_ANIMATIONS_LOC=./path/to/animations
+# Canonical Google Drive game-art folders
+export HOC_IMAGES_LOC="/Users/zolotukhin/Google Drive/My Drive/heroesofcrypto/images"
+export HOC_ANIMATIONS_LOC="/Users/zolotukhin/Google Drive/My Drive/heroesofcrypto/animations"
 
 # Public Google OAuth web client ID. Use the same value in .env and .env.production.
 VITE_GOOGLE_CLIENT_ID=1234567890-example.apps.googleusercontent.com

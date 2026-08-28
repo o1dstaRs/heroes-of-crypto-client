@@ -5,7 +5,7 @@ import type { IHoverInfo } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 
 /**
- * Cursor modes for the themed in-game cursor. Each maps to the Dropbox-backed generated image set.
+ * Cursor modes for the themed in-game cursor. Each maps to the Google Drive-backed generated image set.
  *
  * HoMM-style behaviour: the attack cursor (sword/bow/magic) ONLY appears when the cursor is actively
  * over an enemy unit the active unit can attack — not merely from having selected an attack type.

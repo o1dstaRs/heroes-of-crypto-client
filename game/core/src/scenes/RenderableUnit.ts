@@ -81,7 +81,7 @@ const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
 const ACTIVE_TURN_FIRE_FRAME_MS = 1000 / 18;
 // OPTIONAL lookup on purpose: the effect below is disabled and its 500 KB atlas lives in the
-// review-source Dropbox staging area (over the 120 KB static-image ceiling), so the generated image
+// review-source Google Drive staging area (over the 120 KB static-image ceiling), so the generated image
 // manifest does not carry the key. A typed property access here made the whole client build demand
 // art the images folder deliberately does not ship (the 2026-08-22 deploy abort). Restoring the
 // effect means promoting the atlas back into the images folder — this lookup then finds it again.

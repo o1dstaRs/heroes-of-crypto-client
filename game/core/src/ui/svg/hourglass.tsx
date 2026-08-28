@@ -1,7 +1,7 @@
 import { createSvgIcon } from "@mui/material/utils";
 import React from "react";
 
-/** Canonical hourglass artwork from Dropbox (`ui/svg/hourglass-hourglass-svgrepo-com.svg`). */
+/** Canonical hourglass artwork from Google Drive (`ui/svg/hourglass-hourglass-svgrepo-com.svg`). */
 export const HourglassIcon = createSvgIcon(
     <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
         <path

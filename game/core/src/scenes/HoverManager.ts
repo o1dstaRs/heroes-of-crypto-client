@@ -124,7 +124,7 @@ export class HoverManager {
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
         // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
-        // artwork comes from the Dropbox-backed generated image set; load it explicitly so the melee
+        // artwork comes from the Google Drive-backed generated image set; load it explicitly so the melee
         // geometry never starts with Texture.EMPTY.
         void Assets.load<Texture>(images.cursor_melee).then((texture) => {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.

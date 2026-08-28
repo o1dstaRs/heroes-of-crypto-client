@@ -13,11 +13,11 @@ import { getDoctrineIconImage } from "./doctrineCopy";
  * doctrine_spymaster and doctrine_blind_fury. Not one of those keys resolved to anything, and nothing
  * failed: the icon just silently rendered nothing.
  */
-// CI has no Dropbox access, so it runs against generate_ci_stubs.js's `images = {}` stub (empty by
+// CI has no Google Drive access, so it runs against generate_ci_stubs.js's `images = {}` stub (empty by
 // design — that script only exists to let `tsc --noEmit` resolve the import, see its own header
 // comment) rather than the real generate_image_imports.js manifest. There is nothing here to check
 // against a manifest with zero real entries, so — mirroring gameImageAssetPolicy.test.ts's own
-// Dropbox-dependent test, which early-returns the same way when its real data source is unavailable —
+// cloud-drive-dependent test, which early-returns the same way when its real data source is unavailable —
 // these bodies no-op under the stub instead of failing on data the environment cannot provide. Locally
 // (and in any CI that ever gains real image generation) the manifest is always non-empty and the real
 // checks run.
