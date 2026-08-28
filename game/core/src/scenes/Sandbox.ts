@@ -1104,8 +1104,10 @@ export class Sandbox extends PixiScene {
         // overrides resolveSceneLogTeamFlag() to "" since it rebuilds + prefixes its own log by unit id.
         this.sc_sceneLog.setTeamFlagResolver((line) => this.resolveSceneLogTeamFlag(line));
         this.refreshVisibleStateIfNeeded();
-        // Re-roll the rock every time the mountain board is picked — including picking it again after a
-        // detour through another map, which is the whole point of rolling here rather than once at startup.
+        // Re-install the rocks every time the mountain board is picked — including picking it again after a
+        // detour through another map. This is a DERIVATION, not a fresh draw: the layout and the barrel
+        // count both come from the fight id, so re-picking the Cemetery within one session rebuilds the
+        // same board rather than rolling a new one. A new fight id is what changes it.
         this.rollScatteredMountains();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
