@@ -17,10 +17,37 @@ const MAGIC_DRAGON_CREATURE_ID = extendedCreatureVals.MAGIC_DRAGON ?? 57;
 export const WANDERING_MAGE_CREATURE_ID = extendedCreatureVals.WANDERING_MAGE ?? extendedCreatureVals.ASH_MOTH ?? 49;
 
 const runtimeImages = images as Readonly<Record<string, string | undefined>>;
+const missingPickSandboxPortraits: string[] = [];
+/**
+ * The pick/sandbox portrait for a creature, degrading to its established 512 portrait when the newer
+ * art has not reached this machine's art source yet.
+ *
+ * This map is built at MODULE SCOPE, so throwing here takes the whole client down — a white screen and
+ * ~30 dead test files — for what is only a nicer portrait. That is what happens today on any checkout
+ * whose art source lacks the `_pick_sandbox_x2` batch, and CI cannot warn about it because
+ * scripts/generate_ci_stubs.js invents a stub for every key the source mentions. So a missing batch
+ * degrades loudly (one grouped console warning naming every creature) instead of fatally; a creature
+ * with NEITHER portrait is still a genuine packaging error and still throws.
+ */
 const pickSandboxPortrait = (slug: string): string => {
     const portrait = runtimeImages[`${slug}_pick_sandbox_x2`];
-    if (!portrait) throw new Error(`Missing pick/sandbox portrait for ${slug}`);
-    return portrait;
+    if (portrait) {
+        return portrait;
+    }
+    const fallback = runtimeImages[`${slug}_512`];
+    if (!fallback) throw new Error(`Missing pick/sandbox portrait for ${slug}, and no ${slug}_512 to fall back on`);
+    if (!missingPickSandboxPortraits.length) {
+        // Report once, after this module finishes building, so the list is complete rather than one
+        // line per creature interleaved with the rest of boot.
+        queueMicrotask(() => {
+            console.warn(
+                `[art] falling back to _512 portraits — ${missingPickSandboxPortraits.length} pick/sandbox portraits ` +
+                    `are missing from this art source: ${missingPickSandboxPortraits.join(", ")}`,
+            );
+        });
+    }
+    missingPickSandboxPortraits.push(slug);
+    return fallback;
 };
 
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {
