@@ -9,6 +9,7 @@ import {
     Rectangle,
     BlurFilter,
     ColorMatrixFilter,
+    FillGradient,
 } from "pixi.js";
 import {
     Unit,
@@ -24,6 +25,7 @@ import {
     FightStateManager,
     AbilityHelper,
     AllAbilities,
+    type Effect,
     type TeamType,
 } from "@heroesofcrypto/common";
 import { PixiRenderableSpell } from "./RenderableSpell";
@@ -32,7 +34,7 @@ import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
-import { teamColor as resolveTeamColor } from "./teamColors";
+import { TEAM_COLOR_GREEN, TEAM_COLOR_RED, teamColor as resolveTeamColor } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import {
@@ -54,6 +56,7 @@ import {
     publishBattlefieldShadowVisualBounds,
     resolveBattlefieldShadowTuning,
 } from "../ui/battlefieldShadowTuning";
+import { stunBadgeLayout } from "../ui/stunBadgeTuning";
 import { creatureHeadPriorityZone, type CreatureDepthSortCandidate } from "./battlefieldCreatureDepthSort";
 export type TexResolver = (name: string) => Texture | undefined;
 
@@ -80,6 +83,31 @@ const battlefieldShadowSegmentTextures = (texture: Texture): readonly Texture[] 
     battlefieldShadowSegmentTextureCache.set(texture, segments);
     return segments;
 };
+
+const CAN_RENDER_FLAG_GRADIENT =
+    typeof document !== "undefined" && document.createElement("canvas").getContext("2d") !== null;
+const GREEN_ARMY_FLAG_GRADIENT = CAN_RENDER_FLAG_GRADIENT
+    ? new FillGradient({
+          end: { x: 1, y: 0 },
+          textureSpace: "local",
+          colorStops: [
+              { offset: 0, color: 0x176238 },
+              { offset: 0.5, color: 0x0b3d20 },
+              { offset: 1, color: 0x176238 },
+          ],
+      })
+    : undefined;
+const RED_ARMY_FLAG_GRADIENT = CAN_RENDER_FLAG_GRADIENT
+    ? new FillGradient({
+          end: { x: 1, y: 0 },
+          textureSpace: "local",
+          colorStops: [
+              { offset: 0, color: 0x7b1928 },
+              { offset: 0.5, color: 0x510c16 },
+              { offset: 1, color: 0x7b1928 },
+          ],
+      })
+    : undefined;
 export interface BattlefieldUnitPreview {
     texture: Texture;
     anchorX: number;
@@ -1110,6 +1138,21 @@ const FLAG_WAVE_CYCLES = 1.15;
 const FLAG_WAVE_SPEED = 2.6;
 /** Heroes-IV-style count ribbon stays horizontal above the creature. */
 const BATTLEFIELD_FLAG_ROTATION = 0;
+/** Requested permanent enlargement of the active-turn arrow, independent of its animated breath. */
+export const ACTIVE_TURN_POINTER_SIZE_SCALE = 1.06;
+/** A warm, slightly orange gold that stays legible against both army colours. */
+const ACTIVE_FLAG_GLOW_COLOR = 0xffd05a;
+/** Twice the previous cadence: one complete grow/shrink breath every 1.4 seconds. */
+const ACTIVE_FLAG_GLOW_SPEED = (Math.PI * 2) / 1.4;
+/** Normalized 0..1 pulse shared by the active-turn pointer's glow and scale. */
+const activeFlagPulse = (timeSeconds: number): number => {
+    const cosineBreath = 0.5 - Math.cos(timeSeconds * ACTIVE_FLAG_GLOW_SPEED) * 0.5;
+    return cosineBreath * cosineBreath * (3 - 2 * cosineBreath);
+};
+export const activeFlagScaleForTime = (timeSeconds: number): number => 1 + activeFlagPulse(timeSeconds) * 0.08;
+export const activeFlagGlowAlphaForTime = (timeSeconds: number): number => 0.32 + activeFlagPulse(timeSeconds) * 0.58;
+export const activeTurnPointerGap = (flagHeight: number, flagWidth: number): number =>
+    Math.max(2, flagHeight * 0.13) + flagWidth * (0.06 / 0.42);
 /**
  * The top edge sways slightly less than the bottom, so the cloth's height breathes instead of the whole
  * banner sliding up and down as a rigid block.
@@ -1274,6 +1317,8 @@ const BOARD_FONT_FAMILY = HOC_NUMERIC_FONT_FAMILY;
  * icons, so the two neutral states look like the same state.
  */
 const NO_TEAM_ROSTER_COLOR = 0xd0d0d0;
+const RESPOND_EMBLEM_CANVAS_SCALE = 2.25;
+const RESPOND_EMBLEM_HEIGHT_SCALE = 0.8;
 
 export class RenderableUnit extends Unit {
     private texResolver!: TexResolver;
@@ -1297,7 +1342,11 @@ export class RenderableUnit extends Unit {
     private shadowDrawHeight = 0;
     private badgeContainer?: Container;
     private badgeHeader?: Graphics;
+    private badgeFlagGlow?: Graphics;
+    private badgeFlagGlowBlurFilter?: BlurFilter | null;
     private badgeFlag?: Graphics;
+    private activeTurnPointer?: Graphics;
+    private activeTurnPointerSuppressed = false;
     private badgeText?: Text;
     private badgeDrawState?: BadgeDrawState;
     private battlefieldFramingChangeListener?: EventListener;
@@ -1313,12 +1362,14 @@ export class RenderableUnit extends Unit {
     private projectedStackPower?: number;
     private hourglassContainer?: Container;
     private hourglassSprite?: Sprite;
-    /** Stun/skip indicator (shown when the unit is skipping its turn) — shares the hourglass corner. */
+    /** Stun/skip badge occupies the hourglass slot immediately left of the amount flag. */
     private stunContainer?: Container;
     private stunSprite?: Sprite;
-    /** Retaliation tag (shown once the unit has used its response attack this round). */
+    /** Crossed-swords emblem behind the flag once the unit has used its response attack this round. */
     private respondContainer?: Container;
     private respondSprite?: Sprite;
+    private respondFeedbackUntilMs = 0;
+    private respondFeedbackTimer?: ReturnType<typeof setTimeout>;
     private spawnAnim?: SpawnAnimState;
     private boardSelected = false;
     private selectionAnimFrames?: Texture[];
@@ -1463,6 +1514,10 @@ export class RenderableUnit extends Unit {
         ru.badgeEmphasisScale = 1;
         ru.badgeAmountOverride = undefined;
         ru.badgeHeader = undefined;
+        ru.badgeFlagGlow = undefined;
+        ru.badgeFlagGlowBlurFilter = undefined;
+        ru.activeTurnPointer = undefined;
+        ru.activeTurnPointerSuppressed = false;
         ru.badgeDrawState = undefined;
         ru.battlefieldFramingChangeListener = undefined;
         ru.battlefieldFramingWorldRoot = undefined;
@@ -2187,38 +2242,8 @@ export class RenderableUnit extends Unit {
         this.ensureBadge(worldRoot, gs, props, pos);
         // --- stack power indicator ---
         this.ensureStackPowerIndicator(worldRoot, gs, props, pos);
-        // --- turn status indicator ---
-        this.ensureHourglassIndicator(worldRoot, pos);
-        // --- stun/skip indicator: top-left corner (same slot as the hourglass, mutually exclusive) ---
-        {
-            const r = this.buildCornerIcon(
-                worldRoot,
-                this.stunContainer,
-                this.stunSprite,
-                "stop",
-                pos,
-                0,
-                0,
-                this.shouldShowStopIcon(),
-            );
-            this.stunContainer = r.container;
-            this.stunSprite = r.sprite;
-        }
-        // --- retaliation tag: right-center edge (clear of flag/stack/hourglass) ---
-        {
-            const r = this.buildCornerIcon(
-                worldRoot,
-                this.respondContainer,
-                this.respondSprite,
-                "tag",
-                pos,
-                1,
-                0,
-                this.shouldShowRespondTag(),
-            );
-            this.respondContainer = r.container;
-            this.respondSprite = r.sprite;
-        }
+        // --- turn status indicators: grouped immediately left of the amount flag ---
+        this.ensureFlagStatusIndicators();
         return scaleY;
     }
     public setSpriteRotation(rotation: number) {
@@ -2383,7 +2408,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = visible && this.shouldShowStopIcon();
+            this.stunContainer.visible = visible && this.shouldShowStunIndicator();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = visible && this.shouldShowRespondTag();
@@ -2415,7 +2440,7 @@ export class RenderableUnit extends Unit {
             this.hourglassContainer.visible = !active && visible && this.shouldShowHourglassIndicator();
         }
         if (this.stunContainer) {
-            this.stunContainer.visible = !active && visible && this.shouldShowStopIcon();
+            this.stunContainer.visible = !active && visible && this.shouldShowStunIndicator();
         }
         if (this.respondContainer) {
             this.respondContainer.visible = !active && visible && this.shouldShowRespondTag();
@@ -2508,7 +2533,7 @@ export class RenderableUnit extends Unit {
         if (this.stackPowerContainer) this.stackPowerContainer.zIndex = depth + 1;
         if (this.hourglassContainer) this.hourglassContainer.zIndex = depth + 2;
         if (this.stunContainer) this.stunContainer.zIndex = depth + 2;
-        if (this.respondContainer) this.respondContainer.zIndex = depth + 2;
+        if (this.respondContainer) this.respondContainer.zIndex = 0;
         if (this.freezeCrust) this.freezeCrust.zIndex = depth + 0.5;
         if (this.freezeLight) this.freezeLight.zIndex = depth + 0.55;
         if (this.waterShieldBreakGfx) this.waterShieldBreakGfx.zIndex = depth + 0.6;
@@ -2528,6 +2553,7 @@ export class RenderableUnit extends Unit {
             if (this.hourglassContainer) this.hourglassContainer.visible = false;
             if (this.stunContainer) this.stunContainer.visible = false;
             if (this.respondContainer) this.respondContainer.visible = false;
+            if (this.activeAura) this.activeAura.visible = false;
             if (this.activeTurnFireSprite) this.activeTurnFireSprite.visible = false;
             if (this.whirlpoolAura) this.whirlpoolAura.visible = false;
             return;
@@ -2557,8 +2583,8 @@ export class RenderableUnit extends Unit {
                 this.hourglassContainer.zIndex = baseZ + 2;
             }
             if (this.stunContainer && this.stunContainer.zIndex !== baseZ + 2) this.stunContainer.zIndex = baseZ + 2;
-            if (this.respondContainer && this.respondContainer.zIndex !== baseZ + 2) {
-                this.respondContainer.zIndex = baseZ + 2;
+            if (this.respondContainer && this.respondContainer.zIndex !== 0) {
+                this.respondContainer.zIndex = 0;
             }
         }
 
@@ -2567,7 +2593,7 @@ export class RenderableUnit extends Unit {
         // ownership (5a20846) silently removed the turn cue for plain units, and a per-unit variant
         // read as two different pulse animations. Aura REACH is telegraphed separately by the
         // SandboxDrawer range rings. Suppressed while moving/attacking so the action reads clearly.
-        const showActiveAura = this.isHoverTurnAura || (this.isActiveTurn && !this.suppressActiveAura);
+        const showActiveAura = this.isHoverTurnAura;
         if (showActiveAura && !this.isDead()) {
             this.updateActiveAura(worldRoot, gs, pos);
         } else {
@@ -3245,6 +3271,7 @@ export class RenderableUnit extends Unit {
     }
     /** Start an authored Heroes-III-style walking loop when the creature provides one. */
     public startBoardWalkAnimation(horizontalDirection: number, travelDistanceCells?: number): void {
+        this.suppressActiveTurnPointer();
         const props = this.getUnitProperties();
         if (!this.sprite) return;
         this.setBoardFacingFromMovement(horizontalDirection);
@@ -3669,6 +3696,7 @@ export class RenderableUnit extends Unit {
      * @param onComplete Callback when animation finishes
      */
     public playOneShotAnimation(stateName: string, onComplete?: () => void): boolean {
+        this.suppressActiveTurnPointer();
         if (!CREATURE_SPRITE_ANIMATION_SETTINGS.enabled) {
             this.oneShotAnim = undefined;
             this.walkAnim = undefined;
@@ -3753,6 +3781,10 @@ export class RenderableUnit extends Unit {
         this.battlefieldFramingWorldRoot = undefined;
         this.battlefieldFramingGridSettings = undefined;
         this.isDestroyed = true;
+        if (this.respondFeedbackTimer !== undefined) {
+            clearTimeout(this.respondFeedbackTimer);
+            this.respondFeedbackTimer = undefined;
+        }
 
         if (this.dodgeAnim) {
             for (const ghost of this.dodgeAnim.ghosts) {
@@ -3799,7 +3831,10 @@ export class RenderableUnit extends Unit {
             this.badgeContainer.destroy({ children: true });
             this.badgeContainer = undefined;
             this.badgeHeader = undefined;
+            this.badgeFlagGlow = undefined;
+            this.badgeFlagGlowBlurFilter = undefined;
             this.badgeFlag = undefined;
+            this.activeTurnPointer = undefined;
             this.badgeText = undefined;
             this.badgeDrawState = undefined;
         }
@@ -4036,7 +4071,13 @@ export class RenderableUnit extends Unit {
      *
      * The number stays put while the small right-hand tail moves subtly, preserving readability.
      */
-    private drawBadgeFlag(flag: Graphics, g: BadgeFlagGeometry, teamColor: number, _stackPower: number): void {
+    private drawBadgeFlag(
+        flag: Graphics,
+        glow: Graphics,
+        g: BadgeFlagGeometry,
+        teamColor: number,
+        _stackPower: number,
+    ): void {
         const t = performance.now() / 1000;
         const phase = this.badgeFlagPhase();
         const span = g.bannerRight - g.bannerLeft;
@@ -4046,7 +4087,8 @@ export class RenderableUnit extends Unit {
         const xs: number[] = [];
         for (let i = 0; i <= FLAG_WAVE_SEGMENTS; i++) {
             const u = i / FLAG_WAVE_SEGMENTS;
-            const offset = flagWaveOffset(u, t, phase, g.flagHeight);
+            // The acting unit's flag is deliberately rigid: all active-turn motion belongs to the pointer.
+            const offset = this.isActiveTurn ? 0 : flagWaveOffset(u, t, phase, g.flagHeight);
             xs.push(g.bannerLeft + span * u);
             topY.push(g.bannerTop + offset * FLAG_WAVE_TOP_FACTOR);
             bottomY.push(g.bannerBottom + offset);
@@ -4057,21 +4099,30 @@ export class RenderableUnit extends Unit {
 
         // Traced twice — once to fill, once to outline — because a Graphics path is consumed by the op
         // that closes it.
-        const trace = (): void => {
-            flag.moveTo(xs[0], topY[0]);
+        const trace = (target: Graphics): void => {
+            target.moveTo(xs[0], topY[0]);
             for (let i = 1; i <= last; i++) {
-                flag.lineTo(xs[i], topY[i]);
+                target.lineTo(xs[i], topY[i]);
             }
-            flag.lineTo(g.bannerRight - g.notchDepth, notchTipY);
+            target.lineTo(g.bannerRight - g.notchDepth, notchTipY);
             for (let i = last; i >= 0; i--) {
-                flag.lineTo(xs[i], bottomY[i]);
+                target.lineTo(xs[i], bottomY[i]);
             }
-            flag.closePath();
+            target.closePath();
         };
 
+        glow.clear();
+        glow.visible = false;
+
         flag.clear();
-        trace();
-        flag.fill({ color: teamColor, alpha: 0.98 });
+        trace(flag);
+        const teamGradient =
+            teamColor === TEAM_COLOR_GREEN
+                ? GREEN_ARMY_FLAG_GRADIENT
+                : teamColor === TEAM_COLOR_RED
+                  ? RED_ARMY_FLAG_GRADIENT
+                  : undefined;
+        flag.fill(teamGradient ?? { color: teamColor, alpha: 1 });
 
         // Ten-percent shade under the digits increases local contrast without looking like a separate badge
         // or changing the team's red/green identity. The inset is larger than the cloth-wave amplitude, so
@@ -4086,9 +4137,6 @@ export class RenderableUnit extends Unit {
             1,
         ).fill({ color: 0x000000, alpha: 0.1 });
 
-        trace();
-        flag.stroke({ width: g.borderWidth, color: g.borderColor, alpha: g.borderAlpha, join: "round" });
-
         // Highlight along the top hem — it follows the wave, which is most of what sells the cloth as
         // curved rather than as a rectangle sliding up and down.
         const hemInset = Math.max(1, g.flagHeight * 0.05);
@@ -4097,6 +4145,103 @@ export class RenderableUnit extends Unit {
             flag.lineTo(xs[i] - (i === last ? hemInset : 0), topY[i] + hemInset);
         }
         flag.stroke({ width: 0.75, color: 0xffffff, alpha: 0.32, cap: "round" });
+
+        // Trace the animated silhouette once more and draw the gold edge last. `pixelLine` keeps the contour
+        // at one physical screen pixel instead of letting the board/camera scale squeeze the 0.75-local-pixel
+        // stroke onto changing sub-pixel coverage. The cloth still waves, but its gold edge no longer appears
+        // to thicken, fade or "float" between animation frames.
+        trace(flag);
+        flag.stroke({
+            width: g.borderWidth,
+            color: g.borderColor,
+            alpha: g.borderAlpha,
+            join: "round",
+            pixelLine: true,
+        });
+    }
+    /**
+     * Draw the active-turn marker in badge-local coordinates.
+     *
+     * The battlefield root is y-up, so the arrow tip sits at local y=0 while the body extends toward
+     * positive y. On screen this becomes the requested downward arrow, positioned above the flag.
+     */
+    private drawActiveTurnPointer(pointer: Graphics, glow: Graphics, geometry: BadgeFlagGeometry): void {
+        if (
+            !this.isActiveTurn ||
+            this.activeTurnPointerSuppressed ||
+            this.visualMode !== "normal" ||
+            this.getAmountAlive() <= 0
+        ) {
+            if (pointer.visible) pointer.visible = false;
+            if (glow.visible) glow.visible = false;
+            return;
+        }
+
+        const arrowHeight = Math.max(8, geometry.flagHeight * 0.82) * ACTIVE_TURN_POINTER_SIZE_SCALE;
+        const arrowHalfWidth = Math.max(4, geometry.headerWidth * 0.16) * ACTIVE_TURN_POINTER_SIZE_SCALE;
+        const shaftHalfWidth = arrowHalfWidth * 0.42;
+        const headHeight = arrowHeight * 0.47;
+        const flagGap = activeTurnPointerGap(geometry.flagHeight, geometry.headerWidth);
+        const timeSeconds = performance.now() / 1000;
+        const activeGlow = activeFlagGlowAlphaForTime(timeSeconds);
+        const pointerScale = activeFlagScaleForTime(timeSeconds);
+
+        const trace = (target: Graphics): void => {
+            target
+                .moveTo(-shaftHalfWidth, arrowHeight)
+                .lineTo(shaftHalfWidth, arrowHeight)
+                .lineTo(shaftHalfWidth, headHeight)
+                .lineTo(arrowHalfWidth, headHeight)
+                .lineTo(0, 0)
+                .lineTo(-arrowHalfWidth, headHeight)
+                .lineTo(-shaftHalfWidth, headHeight)
+                .closePath();
+        };
+
+        const pointerY = geometry.bannerBottom + flagGap;
+        glow.clear();
+        trace(glow);
+        glow.stroke({
+            width: Math.max(4, geometry.flagHeight * 0.34),
+            color: ACTIVE_FLAG_GLOW_COLOR,
+            alpha: activeGlow * 0.16,
+            join: "round",
+        });
+        trace(glow);
+        glow.stroke({
+            width: Math.max(2, geometry.flagHeight * 0.16),
+            color: ACTIVE_FLAG_GLOW_COLOR,
+            alpha: activeGlow * 0.36,
+            join: "round",
+        });
+        glow.position.set(0, pointerY);
+        glow.scale.set(pointerScale);
+        glow.visible = true;
+        if (this.badgeFlagGlowBlurFilter) {
+            this.badgeFlagGlowBlurFilter.strength = 1.6 + activeGlow * 1.4;
+        }
+
+        pointer.clear();
+        trace(pointer);
+        pointer.fill({ color: 0xffc83d, alpha: 1 });
+        trace(pointer);
+        pointer.stroke({
+            width: 1,
+            color: 0x100d08,
+            alpha: 1,
+            join: "miter",
+            pixelLine: true,
+        });
+        pointer.position.set(0, pointerY);
+        pointer.scale.set(pointerScale);
+        if (!pointer.visible) pointer.visible = true;
+    }
+    /** Hide both parts synchronously so the marker is gone before the first movement/action frame. */
+    private suppressActiveTurnPointer(): void {
+        if (!this.isActiveTurn) return;
+        this.activeTurnPointerSuppressed = true;
+        if (this.activeTurnPointer?.visible) this.activeTurnPointer.visible = false;
+        if (this.badgeFlagGlow?.visible) this.badgeFlagGlow.visible = false;
     }
     private watchBattlefieldCreatureFramingChanges(worldRoot: Container, gs: GridSettings, unitName: string): void {
         if (typeof window === "undefined" || import.meta.env.PROD || import.meta.env.VITE_IS_PROD === "true") return;
@@ -4121,8 +4266,27 @@ export class RenderableUnit extends Unit {
         }
         if (!this.badgeContainer) {
             this.badgeContainer = new Container();
+            // Keep the response emblem behind the flag through deterministic child order. Enabling local
+            // z-index sorting here can either raise it over the cloth or drop it out of the rendered batch.
+            this.badgeContainer.sortableChildren = false;
             this.badgeHeader = new Graphics();
+            this.badgeFlagGlow = new Graphics();
+            this.badgeFlagGlow.blendMode = "add";
+            try {
+                this.badgeFlagGlowBlurFilter = new BlurFilter({
+                    strength: 2,
+                    quality: 3,
+                    kernelSize: 5,
+                    resolution: "inherit",
+                    antialias: "inherit",
+                });
+                this.badgeFlagGlowBlurFilter.padding = 8;
+                this.badgeFlagGlow.filters = [this.badgeFlagGlowBlurFilter];
+            } catch {
+                this.badgeFlagGlowBlurFilter = null;
+            }
             this.badgeFlag = new Graphics();
+            this.activeTurnPointer = new Graphics();
             this.badgeText = new Text({
                 text: "0",
                 style: new TextStyle({
@@ -4134,7 +4298,13 @@ export class RenderableUnit extends Unit {
             });
             this.badgeText.anchor.set(0.5);
             this.badgeText.scale.y = -1;
-            this.badgeContainer.addChild(this.badgeHeader, this.badgeFlag, this.badgeText);
+            this.badgeContainer.addChild(
+                this.badgeHeader,
+                this.badgeFlagGlow,
+                this.badgeFlag,
+                this.activeTurnPointer,
+                this.badgeText,
+            );
             if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
             this.badgeContainer.zIndex = 4000 - pos.y + 1; // Initial Set
             worldRoot.addChild(this.badgeContainer);
@@ -4142,18 +4312,44 @@ export class RenderableUnit extends Unit {
             // Force re-parent if container changed (e.g. from worldRoot to unitsContainer)
             worldRoot.addChild(this.badgeContainer);
         }
+        // Reset live containers preserved by hot reload too; child order below is the single layer authority.
+        if (this.badgeContainer.sortableChildren) this.badgeContainer.sortableChildren = false;
         // Hot module replacement can preserve a unit created before the rigid header was introduced.
         // Upgrade that live container in place so testing never requires rebuilding the whole fight.
-        if (!this.badgeHeader) {
-            this.badgeHeader = new Graphics();
-            this.badgeContainer.addChild(this.badgeHeader, this.badgeFlag!, this.badgeText!);
+        if (!this.badgeHeader || !this.badgeFlagGlow || !this.activeTurnPointer) {
+            this.badgeHeader ??= new Graphics();
+            this.badgeFlagGlow ??= new Graphics();
+            this.activeTurnPointer ??= new Graphics();
+            this.badgeFlagGlow.blendMode = "add";
+            try {
+                this.badgeFlagGlowBlurFilter = new BlurFilter({
+                    strength: 2,
+                    quality: 3,
+                    kernelSize: 5,
+                    resolution: "inherit",
+                    antialias: "inherit",
+                });
+                this.badgeFlagGlowBlurFilter.padding = 8;
+                this.badgeFlagGlow.filters = [this.badgeFlagGlowBlurFilter];
+            } catch {
+                this.badgeFlagGlowBlurFilter = null;
+            }
+            this.badgeContainer.addChild(
+                this.badgeHeader,
+                this.badgeFlagGlow,
+                this.badgeFlag!,
+                this.activeTurnPointer,
+                this.badgeText!,
+            );
             this.badgeDrawState = undefined;
         }
         const iconSide = gs.getCellSize() * this.visualScaleMultiplier;
         const amount = this.badgeAmountOverride ?? this.getAmountAlive();
         const stackPower = Math.max(0, Math.min(5, Math.round(this.projectedStackPower ?? this.getStackPower())));
         const header = this.badgeHeader!;
+        const flagGlow = this.badgeFlagGlow!;
         const flag = this.badgeFlag!;
+        const activeTurnPointer = this.activeTurnPointer!;
         const text = this.badgeText!;
         const container = this.badgeContainer!;
         // The selected Heroes-IV-style treatment is a single horizontal count ribbon. Clear and hide the
@@ -4235,9 +4431,9 @@ export class RenderableUnit extends Unit {
                     bannerBottom: headerHeight * 0.5,
                     notchDepth,
                     flagHeight: headerHeight,
-                    borderWidth: 1,
-                    borderColor: 0x090604,
-                    borderAlpha: 0.82,
+                    borderWidth: 0.75,
+                    borderColor: 0xb08a45,
+                    borderAlpha: 1,
                     headerWidth,
                     headerHeight,
                 },
@@ -4246,7 +4442,10 @@ export class RenderableUnit extends Unit {
         if (flag.rotation !== BATTLEFIELD_FLAG_ROTATION) flag.rotation = BATTLEFIELD_FLAG_ROTATION;
         const geometry = this.badgeDrawState!.geometry;
         if (flag.x !== 0 || flag.y !== 0) flag.position.set(0, 0);
-        this.drawBadgeFlag(flag, geometry, teamColor, stackPower);
+        this.drawBadgeFlag(flag, flagGlow, geometry, teamColor, stackPower);
+        this.drawActiveTurnPointer(activeTurnPointer, flagGlow, geometry);
+        // The flag stays static during the active turn; only authored preview emphasis may resize it.
+        const renderedBadgeScale = this.badgeEmphasisScale;
         // Centre the ribbon above the actual rendered creature image rather than above its logical cell.
         // This keeps the badge over the head for tall, short and multi-cell creatures alike.
         const spriteBounds = this.sprite?.getBounds();
@@ -4254,7 +4453,7 @@ export class RenderableUnit extends Unit {
         let x: number;
         let y: number;
         if (spriteBounds && spriteBounds.width > 0 && spriteBounds.height > 0) {
-            const screenHalfHeight = geometry.flagHeight * parentScale.y * this.badgeEmphasisScale * 0.5;
+            const screenHalfHeight = geometry.flagHeight * parentScale.y * renderedBadgeScale * 0.5;
             const aboveHead = worldRoot.toLocal({
                 x: spriteBounds.x + spriteBounds.width * 0.5,
                 y: spriteBounds.y - margin - screenHalfHeight,
@@ -4271,70 +4470,117 @@ export class RenderableUnit extends Unit {
         x += (flagFraming.flagOffsetXCells ?? 0) * gs.getCellSize();
         y -= (flagFraming.flagOffsetYCells ?? 0) * gs.getCellSize();
         if (container.x !== x || container.y !== y) container.position.set(x, y);
-        if (container.scale.x !== this.badgeEmphasisScale || container.scale.y !== this.badgeEmphasisScale) {
-            container.scale.set(this.badgeEmphasisScale, this.badgeEmphasisScale);
+        if (container.scale.x !== renderedBadgeScale || container.scale.y !== renderedBadgeScale) {
+            container.scale.set(renderedBadgeScale, renderedBadgeScale);
         }
         const visible = this.visualMode !== "hidden" && (amount > 0 || isRevealed);
         if (container.visible !== visible) container.visible = visible;
     }
-    private ensureHourglassIndicator(worldRoot: Container, pos: HoCMath.XY): void {
-        const shouldRender =
+    /** Keep turn-state badges attached on the left and the spent-response crossed swords behind the count flag. */
+    private ensureFlagStatusIndicators(): void {
+        const badge = this.badgeContainer;
+        const geometry = this.badgeDrawState?.geometry;
+        const canRender =
             (this.visualMode ?? "normal") === "normal" &&
             this.getAmountAlive() > 0 &&
-            this.shouldShowHourglassIndicator();
-        if (!this.hourglassContainer && !shouldRender) return;
-        if (!shouldRender) {
-            if (this.hourglassContainer?.visible) this.hourglassContainer.visible = false;
-            return;
+            Boolean(badge?.visible && geometry);
+
+        const syncIcon = (
+            container: Container | undefined,
+            sprite: Sprite | undefined,
+            texKey: string,
+            shouldShow: boolean,
+        ): { container?: Container; sprite?: Sprite } => {
+            const shouldRender = canRender && shouldShow;
+            if (!container && !shouldRender) return { container, sprite };
+            if (!shouldRender || !badge) {
+                if (container?.visible) container.visible = false;
+                return { container, sprite };
+            }
+
+            const tex = this.texResolver(texKey);
+            if (!tex) {
+                if (container?.visible) container.visible = false;
+                return { container, sprite };
+            }
+            if (!container) {
+                container = new Container();
+                sprite = new Sprite(tex);
+                sprite.anchor.set(0.5);
+                container.addChild(sprite);
+                badge.addChild(container);
+            } else if (container.parent !== badge) {
+                badge.addChild(container);
+            }
+            if (sprite!.texture !== tex) sprite!.texture = tex;
+            if (!container.visible) container.visible = true;
+            if (!sprite!.visible) sprite!.visible = true;
+            return { container, sprite };
+        };
+
+        const hourglass = syncIcon(
+            this.hourglassContainer,
+            this.hourglassSprite,
+            "hourglass",
+            this.shouldShowHourglassIndicator(),
+        );
+        this.hourglassContainer = hourglass.container;
+        this.hourglassSprite = hourglass.sprite;
+
+        const stun = syncIcon(this.stunContainer, this.stunSprite, "stun_hand_forged", this.shouldShowStunIndicator());
+        this.stunContainer = stun.container;
+        this.stunSprite = stun.sprite;
+
+        const respond = syncIcon(this.respondContainer, this.respondSprite, "tag", this.shouldShowRespondTag());
+        this.respondContainer = respond.container;
+        this.respondSprite = respond.sprite;
+
+        // The count cloth hides the swords' central crossing; only blades and hilts protrude around it.
+        if (badge && respond.container?.parent === badge) {
+            if (respond.container.zIndex !== 0) respond.container.zIndex = 0;
+            if (badge.getChildIndex(respond.container) !== 0) badge.setChildIndex(respond.container, 0);
         }
 
-        const tex = this.texResolver("hourglass");
-        if (!tex) {
-            if (this.hourglassContainer?.visible) this.hourglassContainer.visible = false;
-            return;
+        if (!canRender || !geometry) return;
+        // Match the amount flag exactly in height. The hourglass source has nine transparent pixels on the
+        // right side of its 64 px canvas; tuck that empty inset into the flag so the visible gold bar reads
+        // as physically attached while its top and bottom remain perfectly level with the cloth.
+        const iconSide = geometry.flagHeight;
+        if (hourglass.container?.visible && hourglass.sprite?.visible) {
+            const { container, sprite } = hourglass;
+            if (sprite.width !== iconSide) sprite.width = iconSide;
+            if (sprite.height !== iconSide) sprite.height = iconSide;
+            const flippedScaleY = -Math.abs(sprite.scale.y);
+            if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
+            const hourglassTransparentInset = iconSide * (9 / 64);
+            const x = geometry.bannerLeft - iconSide * 0.5 + hourglassTransparentInset;
+            if (container.x !== x || container.y !== 0) container.position.set(x, 0);
         }
 
-        if (!this.hourglassContainer) {
-            this.hourglassContainer = new Container();
-            this.hourglassSprite = new Sprite(tex);
-            this.hourglassSprite.anchor.set(0.5);
-            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            this.hourglassContainer.zIndex = 4000 - pos.y + 2;
-            this.hourglassContainer.addChild(this.hourglassSprite);
-            worldRoot.addChild(this.hourglassContainer);
-        } else if (this.hourglassContainer.parent !== worldRoot) {
-            worldRoot.addChild(this.hourglassContainer);
+        if (stun.container?.visible && stun.sprite?.visible) {
+            const { container, sprite } = stun;
+            const layout = stunBadgeLayout(iconSide, geometry.bannerLeft);
+            if (sprite.width !== layout.width) sprite.width = layout.width;
+            if (sprite.height !== layout.height) sprite.height = layout.height;
+            const flippedScaleY = -Math.abs(sprite.scale.y);
+            if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
+            if (container.x !== layout.centerX || container.y !== 0) container.position.set(layout.centerX, 0);
         }
 
-        const container = this.hourglassContainer;
-        const sprite = this.hourglassSprite;
-        if (!container || !sprite) return;
-        if (sprite.texture !== tex) sprite.texture = tex;
-        if (!sprite.visible) sprite.visible = true;
-
-        // The icon belongs in the body's TOP-LEFT corner, so each half-extent comes from its own footprint
-        // side; on a two-cell-wide body the old single half-extent left the hourglass inside the creature.
-        // Its own size still follows the shorter side, keeping it proportionate to a one-cell-tall body.
-        const halfWidth = (this.getFootprintWidth() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
-        const halfHeight = (this.getFootprintHeight() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
-        const iconSide = Math.round((Math.min(halfWidth, halfHeight) * 2 * 20) / 72);
-        const halfIcon = iconSide / 2;
-
-        if (sprite.width !== iconSide) sprite.width = iconSide;
-        if (sprite.height !== iconSide) sprite.height = iconSide;
-        const flippedScaleY = -Math.abs(sprite.scale.y);
-        if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
-
-        const zIndex = 4000 - pos.y + 2;
-        if (container.zIndex !== zIndex) container.zIndex = zIndex;
-        const x = pos.x - halfWidth + halfIcon;
-        const y = pos.y + halfHeight - halfIcon;
-        if (container.x !== x || container.y !== y) container.position.set(x, y);
-        if (!container.visible) container.visible = true;
+        if (respond.container?.visible && respond.sprite?.visible) {
+            const { container, sprite } = respond;
+            const emblemSide = geometry.headerWidth * RESPOND_EMBLEM_CANVAS_SCALE;
+            if (sprite.width !== emblemSide) sprite.width = emblemSide;
+            const emblemHeight = emblemSide * RESPOND_EMBLEM_HEIGHT_SCALE;
+            if (sprite.height !== emblemHeight) sprite.height = emblemHeight;
+            const flippedScaleY = -Math.abs(sprite.scale.y);
+            if (sprite.scale.y !== flippedScaleY) sprite.scale.y = flippedScaleY;
+            const x = (geometry.bannerLeft + geometry.bannerRight) * 0.5;
+            if (container.x !== x || container.y !== 0) container.position.set(x, 0);
+        }
     }
     private shouldShowHourglassIndicator(): boolean {
-        // A stunned/skipping unit shows the stun icon in this same corner instead, so suppress the
-        // hourglass when skipping (mirrors legacy, where stop and hourglass were mutually exclusive).
+        // A stunned/skipping unit shows the stun state instead, so suppress the hourglass as before.
         if (this.isSkippingForDisplay()) return false;
         const fightProps = FightStateManager.getInstance().getFightProperties();
         return this.isOnHourglass() || fightProps.hourglassIncludes(this.getId());
@@ -4364,8 +4610,41 @@ export class RenderableUnit extends Unit {
         // every responder (processOneInTheFieldAbility) and, in ranked, synced from the snapshot
         // (RankedPlayScene). FightProperties' replied set is the sandbox-authoritative fallback. Either => true.
         return (
-            this.responded || FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId())
+            this.responded ||
+            FightStateManager.getInstance().getFightProperties().hasAlreadyRepliedAttack(this.getId()) ||
+            performance.now() < this.respondFeedbackUntilMs
         );
+    }
+    /** Build/reveal the response layer in the same tick the combat engine records a retaliation. */
+    public override setResponded(hasResponded: boolean): void {
+        super.setResponded(hasResponded);
+        if (hasResponded) {
+            // Floating attack/response feedback remains on screen for roughly this interval. The latch is
+            // only a presentation fallback: while the per-lap engine state remains true the emblem stays
+            // visible indefinitely, and once it clears the timer removes this last-action confirmation.
+            const feedbackMs = 1600;
+            // `fromBase` upgrades an existing Unit instance without running subclass field initializers,
+            // so treat the first value as zero instead of letting Math.max(undefined, ...) become NaN.
+            this.respondFeedbackUntilMs = Math.max(this.respondFeedbackUntilMs || 0, performance.now() + feedbackMs);
+            if (this.respondFeedbackTimer !== undefined) clearTimeout(this.respondFeedbackTimer);
+            this.respondFeedbackTimer = setTimeout(() => {
+                this.respondFeedbackTimer = undefined;
+                if (performance.now() < this.respondFeedbackUntilMs || this.shouldShowRespondTag()) return;
+                if (this.respondContainer) this.respondContainer.visible = false;
+            }, feedbackMs + 20);
+        }
+        // Attack resolution can be the target's last scene update for the whole turn. Build and lay out
+        // the marker here so the actual retaliation—not a later move or activation—makes it appear.
+        if (this.shouldShowRespondTag() && !this.respondContainer && this.badgeContainer && this.badgeDrawState) {
+            this.ensureFlagStatusIndicators();
+        }
+        if (!this.respondContainer) return;
+        const visible =
+            this.shouldShowRespondTag() &&
+            (this.visualMode ?? "normal") === "normal" &&
+            this.getAmountAlive() > 0 &&
+            Boolean(this.badgeContainer?.visible);
+        if (this.respondContainer.visible !== visible) this.respondContainer.visible = visible;
     }
     /** Sync the authoritative "already hourglassed (waited) this lap" flag from a ranked snapshot. */
     public setHasHourglassed(value: boolean): void {
@@ -4378,6 +4657,26 @@ export class RenderableUnit extends Unit {
     /** Sync the authoritative "skipping this turn" (Stun/Blindness) flag from a ranked snapshot. */
     public setSkipping(value: boolean): void {
         this.skippingThisTurnSynced = value;
+        // Snapshot metadata is applied after the board sprite has already been drawn. Refresh this local
+        // badge immediately; otherwise the queue shows Stun while the board waits until the unit's turn.
+        this.refreshTurnStatusIndicators();
+    }
+    /** Keep live sandbox effects and snapshot-only ranked state on the same visual update path. */
+    private refreshTurnStatusIndicators(): void {
+        if (this.badgeContainer && this.badgeDrawState) this.ensureFlagStatusIndicators();
+    }
+    public override applyEffect(effect: Effect): boolean {
+        const applied = super.applyEffect(effect);
+        if (applied && ["Stun", "Blindness", "Freeze"].includes(effect.getName())) {
+            this.refreshTurnStatusIndicators();
+        }
+        return applied;
+    }
+    public override deleteEffect(effectName: string): void {
+        super.deleteEffect(effectName);
+        if (["Stun", "Blindness", "Freeze"].includes(effectName)) {
+            this.refreshTurnStatusIndicators();
+        }
     }
     /**
      * Whether to show the stun icon / treat the unit as skipping this turn FOR DISPLAY — the live effect
@@ -4387,80 +4686,18 @@ export class RenderableUnit extends Unit {
         return this.skippingThisTurnSynced || this.isSkippingThisTurn();
     }
     /**
-     * Whether to draw the "stop" corner icon on the board. A skipping unit normally shows it — EXCEPT under
-     * "Freeze", where the ice crust already reads as "this unit can't act", so the icon would just clutter
+     * Whether to draw the stun badge beside the flag. A skipping unit normally shows it — EXCEPT under
+     * "Freeze", where the ice crust already reads as "this unit can't act", so the badge would just clutter
      * the frozen shell. The hourglass stays suppressed regardless: that keys off isSkippingForDisplay, which
-     * Freeze keeps true. (Up-next/ALT views have no ice crust, so their stop icon is unaffected by this.)
+     * Freeze keeps true. (Up-next/ALT views have no ice crust, so their stun icon is unaffected by this.)
      */
-    private shouldShowStopIcon(): boolean {
+    private shouldShowStunIndicator(): boolean {
         return this.isSkippingForDisplay() && !this.hasStatusEffect("Freeze");
-    }
-    /**
-     * Create/refresh a small corner icon on the unit (stun, retaliation tag, …). Anchored by
-     * (ax, ay) where -1/0/+1 select left/center/right and bottom/center/top. Returns the persisted
-     * container+sprite so the caller can store them. Modeled on ensureHourglassIndicator so all the
-     * unit overlays size and depth-sort identically.
-     */
-    private buildCornerIcon(
-        worldRoot: Container,
-        container: Container | undefined,
-        sprite: Sprite | undefined,
-        texKey: string,
-        pos: HoCMath.XY,
-        ax: number,
-        ay: number,
-        shouldShow: boolean,
-    ): { container?: Container; sprite?: Sprite } {
-        const shouldRender = (this.visualMode ?? "normal") === "normal" && this.getAmountAlive() > 0 && shouldShow;
-        if (!container && !shouldRender) return { container, sprite };
-        if (!shouldRender) {
-            if (container?.visible) container.visible = false;
-            return { container, sprite };
-        }
-
-        const tex = this.texResolver(texKey);
-        if (!tex) {
-            if (container?.visible) container.visible = false;
-            return { container, sprite };
-        }
-
-        if (!container) {
-            container = new Container();
-            sprite = new Sprite(tex);
-            sprite.anchor.set(0.5);
-            if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
-            container.addChild(sprite);
-            worldRoot.addChild(container);
-        } else if (container.parent !== worldRoot) {
-            worldRoot.addChild(container);
-        }
-        const icon = sprite!;
-        if (icon.texture !== tex) icon.texture = tex;
-        if (!icon.visible) icon.visible = true;
-
-        // Reach out to the real edges of the body: a rectangle's corners are not equidistant on both axes.
-        const halfWidth = (this.getFootprintWidth() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
-        const halfHeight = (this.getFootprintHeight() * BATTLEFIELD_CHIP_CELL_PIXELS * this.visualScaleMultiplier) / 2;
-        const iconSide = Math.round((Math.min(halfWidth, halfHeight) * 2 * 20) / 72);
-        const reachX = halfWidth - iconSide / 2;
-        const reachY = halfHeight - iconSide / 2;
-
-        if (icon.width !== iconSide) icon.width = iconSide;
-        if (icon.height !== iconSide) icon.height = iconSide;
-        const flippedScaleY = -Math.abs(icon.scale.y);
-        if (icon.scale.y !== flippedScaleY) icon.scale.y = flippedScaleY;
-
-        const zIndex = 4000 - pos.y + 2;
-        if (container.zIndex !== zIndex) container.zIndex = zIndex;
-        const x = pos.x + ax * reachX;
-        const y = pos.y + ay * reachY;
-        if (container.x !== x || container.y !== y) container.position.set(x, y);
-        if (!container.visible) container.visible = true;
-        return { container, sprite: icon };
     }
     public setActiveTurn(active: boolean): void {
         if (this.isActiveTurn === active) return;
         this.isActiveTurn = active;
+        this.activeTurnPointerSuppressed = false;
         if (active) {
             this.activeTurnAnimationStartedAtMs = performance.now();
         } else if (this.getUnitProperties().name === SCAVENGER_UNIT_NAME) {
@@ -4522,6 +4759,7 @@ export class RenderableUnit extends Unit {
     /** Temporarily hide the active-turn aura (e.g. while the unit is moving or attacking). */
     public setSuppressActiveAura(suppress: boolean): void {
         this.suppressActiveAura = suppress;
+        if (suppress) this.suppressActiveTurnPointer();
     }
     /**
      * Apply a brief positional "recoil": the sprite/shadow jerk by (dx, dy) and spring back over
@@ -4564,6 +4802,7 @@ export class RenderableUnit extends Unit {
      */
     public playDodgeAnimation(dx: number, dy: number): void {
         if (!this.sprite || this.isDestroyed) return;
+        this.suppressActiveTurnPointer();
         // Lean INTO the dodge: tip the sprite toward the escape direction so the sidestep reads as a
         // committed lean rather than a horizontal teleport. Screen-x sign picks the tilt side.
         const lean = (dx >= 0 ? -1 : 1) * DODGE_LEAN_RAD;

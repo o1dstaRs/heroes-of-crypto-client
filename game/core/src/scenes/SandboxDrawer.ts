@@ -20,7 +20,9 @@ export const visibleAuraRanges = (
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
-import { projectedCellPoints, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
+import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
+import { drawMovementArea, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
+export { movementFillAlphaForPhase } from "./movementAreaVisual";
 
 /**
  * Red used across the board to signal "it is the enemy's turn" in ranked play — the active-unit
@@ -29,6 +31,18 @@ import { projectedCellPoints, projectedPolyline, projectedRectPoints } from "./s
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
 const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
 const SHOT_RANGE_COLOR = 0xe7bc6a;
+
+const movementCellKey = (cell: HoCMath.XY): number => (cell.x << 8) | cell.y;
+
+/** Reachable destinations never repaint the cells already occupied by the creature whose turn it is. */
+export const movementCellsOutsideUnitFootprint = (
+    reachable: readonly HoCMath.XY[],
+    occupied: readonly HoCMath.XY[],
+): HoCMath.XY[] => {
+    if (!occupied.length) return [...reachable];
+    const occupiedKeys = new Set(occupied.map(movementCellKey));
+    return reachable.filter((cell) => !occupiedKeys.has(movementCellKey(cell)));
+};
 
 /**
  * The owner's body, in cells, for overlays that grow out of it. Both sides are needed because an aura
@@ -149,7 +163,7 @@ export class SandboxDrawer {
         // 0. Placement/sandbox movement preview uses the same continuous sheet as live combat. Keeping
         // this on a separate dot renderer made the sandbox look like a different rules/UI mode.
         if (ctx.hoveredMoveRange && ctx.hoveredMoveRange.length > 0) {
-            SandboxDrawer.drawMovementArea(movementGraphics, ctx.hoveredMoveRange, gs, movementColor, hoverGlowPhase);
+            drawMovementArea(movementGraphics, ctx.hoveredMoveRange, gs, movementColor, hoverGlowPhase);
         }
 
         // 0. Hovered Unit Range (New Feature - Unified Visuals)
@@ -210,18 +224,30 @@ export class SandboxDrawer {
 
         // Enemy inspection stays underneath the active white cells, so it cannot recolour the current mover.
         if (hasHoveredMovement && ctx.hoveredUnitMoveRangeIsEnemy) {
-            SandboxDrawer.drawMovementArea(movementGraphics, hoveredUnitMoveRange!, gs, 0xff3b3b, hoverGlowPhase);
+            drawMovementArea(
+                movementGraphics,
+                hoveredUnitMoveRange!,
+                gs,
+                ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
+                hoverGlowPhase,
+            );
         }
 
         // White is the authoritative "unit whose turn it is" colour over enemy inspection.
         if (currentActivePath && currentActiveUnit && !sc_isAnimating) {
-            SandboxDrawer.drawMovementArea(movementGraphics, currentActivePath, gs, movementColor, hoverGlowPhase);
+            drawMovementArea(
+                movementGraphics,
+                movementCellsOutsideUnitFootprint(currentActivePath, currentActiveUnit.getCells()),
+                gs,
+                movementColor,
+                hoverGlowPhase,
+            );
         }
 
         // Ally inspection stays seamless, but uses an antique brown-gold wash so it cannot be mistaken for
         // the active unit's authoritative white movement range.
         if (hasHoveredMovement && !ctx.hoveredUnitMoveRangeIsEnemy) {
-            SandboxDrawer.drawMovementArea(
+            drawMovementArea(
                 movementGraphics,
                 hoveredUnitMoveRange!,
                 gs,
@@ -263,29 +289,6 @@ export class SandboxDrawer {
                 placementManager.draw(g, placementFrameContainer, restrictToTeam);
             }
             hoverManager.drawHoverPlacementCell(g);
-        }
-    }
-    private static drawMovementArea(
-        g: Graphics,
-        cells: HoCMath.XY[],
-        gs: GridSettings,
-        color: number,
-        phase: number,
-        opacityScale = 1,
-    ): void {
-        if (!cells.length) return;
-        const pulse = (Math.sin(phase * 0.65) + 1) * 0.5;
-        // The board's own dark seams provide the cell boundaries. A moderately visible white wash
-        // keeps the reachable area readable without bringing back the opaque grey outlined grid.
-        const movementFillAlpha = 0.05 + pulse * 0.01;
-
-        for (const cell of cells) {
-            // Use the full projected cell so every movement edge sits on the painted stone seam.
-            const polygon = projectedCellPoints(cell, gs);
-            g.poly(polygon).fill({
-                color,
-                alpha: movementFillAlpha * opacityScale,
-            });
         }
     }
     private static drawAuraAndAttackRanges(

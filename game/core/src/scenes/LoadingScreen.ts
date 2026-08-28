@@ -22,7 +22,9 @@ import {
 
 const FORGING_BACKGROUND_URL = images.loading_screen_forging_base;
 const FORGING_LAVA_URL = images.loading_screen_forging_lava_strip;
-const DRAGON_MEDALLION_URL = images.loading_screen_dragon_medallion;
+// Keep the cache key versioned. A missing hashed asset is served by the SPA fallback in production, and
+// browsers may otherwise cache that HTML response under this image URL long after the file is restored.
+const DRAGON_MEDALLION_URL = `${images.loading_screen_dragon_medallion}?v=20260825`;
 const FORGING_EXACT_OVERLAY_URL = images.loading_screen_forging_exact_overlay;
 
 const FIRE_ATLAS_DEFINITIONS: Record<
@@ -66,6 +68,9 @@ const MIRRORED_BAR_TOP = 700;
 const MIRRORED_BAR_HALF_WIDTH = TRACK_MIDDLE_X - MIRRORED_BAR_LEFT_X;
 const MIRRORED_BAR_HEIGHT = 116;
 const MIRRORED_BAR_RIGHT_X = TRACK_MIDDLE_X + MIRRORED_BAR_HALF_WIDTH;
+// The approved overlay's original right spear tip extends a few pixels beyond the mirrored runtime bar.
+// Cut that baked tail as well so it cannot remain visible as a detached shard after recomposition.
+const MIRRORED_BAR_OVERLAY_CUTOUT_RIGHT_PADDING = 24;
 export const LOADING_SCREEN_MEDALLION_ASSET_SIZE = 105;
 const LABEL_Y = 821;
 
@@ -148,7 +153,12 @@ export class LoadingScreen extends Container {
             )
             // The bar is recomposed below from mutually exclusive loaded and unloaded copies. Removing
             // the baked bar here is what makes the unloaded copy's 80% opacity physically visible.
-            .rect(MIRRORED_BAR_LEFT_X, MIRRORED_BAR_TOP, MIRRORED_BAR_HALF_WIDTH * 2, MIRRORED_BAR_HEIGHT)
+            .rect(
+                MIRRORED_BAR_LEFT_X,
+                MIRRORED_BAR_TOP,
+                MIRRORED_BAR_HALF_WIDTH * 2 + MIRRORED_BAR_OVERLAY_CUTOUT_RIGHT_PADDING,
+                MIRRORED_BAR_HEIGHT,
+            )
             .cut();
         this.exactOverlayMask.eventMode = "none";
         this.exactOverlaySprite.mask = this.exactOverlayMask;

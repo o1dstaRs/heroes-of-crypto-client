@@ -1,4 +1,4 @@
-import { TeamVals, TeamType } from "@heroesofcrypto/common";
+import { TeamType } from "@heroesofcrypto/common";
 
 import Avatar from "@mui/joy/Avatar";
 import Box from "@mui/joy/Box";
@@ -10,7 +10,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IVisibleState, IVisibleUnit } from "../../scenes/VisibleState";
-import { TeamAmountFlag } from "../TeamAmountFlag";
+import { getTeamFlagBackground, TeamAmountFlag } from "../TeamAmountFlag";
+import { useSynchronizedActiveTurnQueuePulse } from "../activeTurnQueuePulse";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { CREATURE_PORTRAIT_ASPECT } from "../creaturePortraitVisual";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
@@ -50,12 +51,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     isAura,
 }) => {
     if (stackPower <= 0) return null;
-    const isLower = teamType === TeamVals.LOWER;
-    const activeColor = isLower
-        ? "rgba(0, 210, 0, 1)"
-        : teamType === TeamVals.UPPER
-          ? "rgba(255, 0, 0, 1)"
-          : "rgba(255, 255, 255, 0.85)";
+    const activeBackground = getTeamFlagBackground(teamType);
     const emptyColor = "rgba(34, 34, 34, 0.7)";
 
     return (
@@ -80,7 +76,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
                     key={`pip_${i}`}
                     sx={{
                         flex: 1,
-                        backgroundColor: i < stackPower ? activeColor : emptyColor,
+                        background: i < stackPower ? activeBackground : emptyColor,
                         borderRadius: "2px",
                         border: `1px solid rgba(0, 0, 0, 0.8)`,
                         boxSizing: "border-box",
@@ -94,7 +90,7 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
 export const UpNext: React.FC = () => {
     const [visibleState, setVisibleState] = useState<IVisibleState>({} as IVisibleState);
     const [stableVisibleUnits, setStableVisibleUnits] = useState<IVisibleUnit[]>([]);
-    const [queueScroll, setQueueScroll] = useState({ visible: false, progress: 0, thumbFraction: 1, offsetPx: 0 });
+    const [queueScroll, setQueueScroll] = useState({ visible: false, progress: 0, thumbFraction: 1 });
     const queueScrollRef = useRef<HTMLDivElement | null>(null);
 
     const manager = usePixiManager();
@@ -138,6 +134,10 @@ export const UpNext: React.FC = () => {
     }, [visibleState.hasFinished, visibleState.lapNumber, visibleUnitsSignature]);
 
     const displayedUnits = useMemo(() => [...stableVisibleUnits].reverse(), [stableVisibleUnits]);
+    // handleNextUnitActivation appends the acting unit before the queue is reversed for display, so the
+    // first portrait is always the creature currently taking its turn.
+    const activeUnitId = displayedUnits[0]?.id;
+    const activeTurnPulseRef = useSynchronizedActiveTurnQueuePulse(activeUnitId);
 
     // Pre-decode the up-next units' animation atlases during idle time so that selecting any of
     // them later is instant (the decoded image is already cached). requestIdleCallback keeps this
@@ -187,13 +187,11 @@ export const UpNext: React.FC = () => {
             visible: maxScroll > 1,
             progress: maxScroll > 0 ? strip.scrollLeft / maxScroll : 0,
             thumbFraction: strip.scrollWidth > 0 ? Math.min(1, strip.clientWidth / strip.scrollWidth) : 1,
-            offsetPx: strip.scrollLeft,
         };
         setQueueScroll((current) =>
             current.visible === next.visible &&
             Math.abs(current.progress - next.progress) < 0.001 &&
-            Math.abs(current.thumbFraction - next.thumbFraction) < 0.001 &&
-            Math.abs(current.offsetPx - next.offsetPx) < 0.5
+            Math.abs(current.thumbFraction - next.thumbFraction) < 0.001
                 ? current
                 : next,
         );
@@ -316,7 +314,31 @@ export const UpNext: React.FC = () => {
                                             willChange: "transform, opacity, filter",
                                         }}
                                     >
-                                        <Box sx={{ position: "relative", display: "inline-block", lineHeight: 0 }}>
+                                        <Box
+                                            ref={unit.id === activeUnitId ? activeTurnPulseRef : undefined}
+                                            aria-current={unit.id === activeUnitId ? "true" : undefined}
+                                            data-active-turn-portrait={unit.id === activeUnitId ? "true" : undefined}
+                                            sx={{
+                                                position: "relative",
+                                                display: "inline-block",
+                                                lineHeight: 0,
+                                                transformOrigin: "50% 50%",
+                                                willChange:
+                                                    unit.id === activeUnitId
+                                                        ? "transform, opacity, box-shadow"
+                                                        : "auto",
+                                                zIndex: unit.id === activeUnitId ? 1 : "auto",
+                                                outline:
+                                                    unit.id === activeUnitId
+                                                        ? "1px solid rgba(232, 194, 112, 0.9)"
+                                                        : "none",
+                                                outlineOffset: "-1px",
+                                                boxShadow:
+                                                    unit.id === activeUnitId
+                                                        ? "inset 0 0 12px rgba(225, 173, 74, 0.28), 0 0 10px rgba(225, 173, 74, 0.48)"
+                                                        : "none",
+                                            }}
+                                        >
                                             {unit.name && UNIT_NAME_TO_ID[unit.name.trim()] !== undefined ? (
                                                 <CreaturePortraitImage
                                                     creatureId={UNIT_NAME_TO_ID[unit.name.trim()]}
@@ -355,64 +377,46 @@ export const UpNext: React.FC = () => {
                                                 teamType={unit.teamType}
                                                 isAura={false}
                                             />
+                                            {unit.isSkipping ? (
+                                                <img
+                                                    src={stopImg}
+                                                    alt="Skipping"
+                                                    style={{
+                                                        position: "absolute",
+                                                        top: 0,
+                                                        left: 0, // Top Left
+                                                        width: `${markerPx}px`,
+                                                        height: `${markerPx}px`,
+                                                        zIndex: 2,
+                                                        transition: "opacity 140ms ease-out",
+                                                    }}
+                                                />
+                                            ) : unit.isOnHourglass ? (
+                                                <img
+                                                    src={hourglassImg}
+                                                    alt="On Hourglass"
+                                                    style={{
+                                                        position: "absolute",
+                                                        top: 0,
+                                                        left: 0, // Top Left
+                                                        width: `${markerPx}px`,
+                                                        height: `${markerPx}px`,
+                                                        zIndex: 2,
+                                                        transition: "opacity 140ms ease-out",
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <TeamAmountFlag
+                                                amount={unit.amount}
+                                                teamType={unit.teamType}
+                                                right="0"
+                                                scale={0.85}
+                                            />
                                         </Box>
-                                        {unit.isSkipping ? (
-                                            <img
-                                                src={stopImg}
-                                                alt="Skipping"
-                                                style={{
-                                                    position: "absolute",
-                                                    top: 0,
-                                                    left: 0, // Top Left
-                                                    width: `${markerPx}px`,
-                                                    height: `${markerPx}px`,
-                                                    zIndex: 2,
-                                                    transition: "opacity 140ms ease-out",
-                                                }}
-                                            />
-                                        ) : unit.isOnHourglass ? (
-                                            <img
-                                                src={hourglassImg}
-                                                alt="On Hourglass"
-                                                style={{
-                                                    position: "absolute",
-                                                    top: 0,
-                                                    left: 0, // Top Left
-                                                    width: `${markerPx}px`,
-                                                    height: `${markerPx}px`,
-                                                    zIndex: 2,
-                                                    transition: "opacity 140ms ease-out",
-                                                }}
-                                            />
-                                        ) : null}
-                                        <TeamAmountFlag
-                                            amount={unit.amount}
-                                            teamType={unit.teamType}
-                                            right="0"
-                                            scale={0.85}
-                                        />
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
                         </Stack>
-                        {displayedUnits.length > 0 && (
-                            <Box
-                                aria-hidden="true"
-                                sx={{
-                                    position: "absolute",
-                                    zIndex: 30,
-                                    top: `${queuePortraitTopInsetPx}px`,
-                                    left: `${-queueScroll.offsetPx}px`,
-                                    width: `${metrics.avatarPx}px`,
-                                    height: `${portraitHeight(metrics.avatarPx)}px`,
-                                    border: "1px solid rgba(232, 194, 112, 0.9)",
-                                    boxSizing: "border-box",
-                                    boxShadow:
-                                        "inset 0 0 12px rgba(225, 173, 74, 0.28), 0 0 10px rgba(225, 173, 74, 0.48)",
-                                    pointerEvents: "none",
-                                }}
-                            />
-                        )}
                         {queueScroll.visible && (
                             <Box
                                 role="scrollbar"
