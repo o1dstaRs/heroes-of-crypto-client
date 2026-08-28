@@ -16,7 +16,9 @@ import {
     UnitsHolder,
     scatteredMountainsForSeed,
     SCATTERED_MOUNTAIN_BAND_ROWS,
-    SCATTERED_MOUNTAIN_COUNT,
+    SCATTERED_MOUNTAIN_MAX_COUNT,
+    SCATTERED_MOUNTAIN_MIN_COUNT,
+    scatteredMountainCountForSeed,
     type GameEvent,
 } from "@heroesofcrypto/common";
 
@@ -1854,17 +1856,34 @@ describe("ranked ability-transfer scene log", () => {
     });
 });
 
-// Ranked derives its stones from the game id and the sandbox rolls its own, so the COUNT is the one thing
-// both boards must share. Sandbox.ts used to restate it locally, which meant a ranked-side change left the
-// sandbox scattering the old number — the whole point of importing it from common now.
-describe("cemetery stone count", () => {
-    test("matches common, and ranked derives exactly that many", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBe(9);
-        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(9);
+// Ranked and the sandbox now build a cemetery through the SAME seeded generator, so the count is rolled
+// per game (9-12) rather than restated on either side. Sandbox.ts used to keep a Math.random() twin of
+// that generator, which meant a ranked-side change left static games scattering the old number.
+describe("cemetery barrel count", () => {
+    test("every board rolls a count inside the range, and derives exactly that many stones", () => {
+        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(9);
+        expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBe(12);
+        for (let i = 0; i < 200; i++) {
+            const gameId = `cemetery-game-${i}`;
+            const rolled = scatteredMountainCountForSeed(gameId);
+            expect(rolled).toBeGreaterThanOrEqual(SCATTERED_MOUNTAIN_MIN_COUNT);
+            expect(rolled).toBeLessThanOrEqual(SCATTERED_MOUNTAIN_MAX_COUNT);
+            expect(scatteredMountainsForSeed(gameId).length).toBe(rolled);
+        }
     });
 
-    test("fits the neutral band with room to spare", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBeLessThanOrEqual(GridConstants.GRID_SIZE * SCATTERED_MOUNTAIN_BAND_ROWS);
+    test("the count genuinely varies rather than sitting at one end", () => {
+        const seen = new Set<number>();
+        for (let i = 0; i < 200; i++) {
+            seen.add(scatteredMountainCountForSeed(`ranked-spread-${i}`));
+        }
+        expect(seen.size).toBe(SCATTERED_MOUNTAIN_MAX_COUNT - SCATTERED_MOUNTAIN_MIN_COUNT + 1);
+    });
+
+    test("even the largest roll fits the neutral band with room to spare", () => {
+        expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBeLessThanOrEqual(
+            GridConstants.GRID_SIZE * SCATTERED_MOUNTAIN_BAND_ROWS,
+        );
     });
 });
 

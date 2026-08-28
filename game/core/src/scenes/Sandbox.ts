@@ -30,9 +30,7 @@ import {
     SpellHelper,
     SmokeHelper,
     hasActiveTimeDenial,
-    SCATTERED_MOUNTAIN_BAND_ROWS,
-    SCATTERED_MOUNTAIN_COUNT,
-    SCATTERED_MOUNTAIN_VARIANTS,
+    scatteredMountainsForSeed,
     VineHelper,
     FireWallHelper,
     RayTraversal,
@@ -6280,44 +6278,22 @@ export class Sandbox extends PixiScene {
         // owner call 2026-08-25) deploy on the left/right x-bands, so the neutral strip is the middle
         // COLUMNS, full height, matching scatteredMountainsForSeed exactly. A classic board keeps the
         // horizontal middle-rows belt between its bottom/top zones.
-        const sideOriented = FightStateManager.getInstance().getFightProperties().isSideOrientedPlacement();
-        const free: HoCMath.XY[] = [];
-        const size = GridConstants.GRID_SIZE;
-        const bandStart = (size >> 1) - (SCATTERED_MOUNTAIN_BAND_ROWS >> 1);
-        for (let major = bandStart; major < bandStart + SCATTERED_MOUNTAIN_BAND_ROWS; major++) {
-            for (let minor = 0; minor < size; minor++) {
-                free.push(sideOriented ? { x: major, y: minor } : { x: minor, y: major });
-            }
-        }
-        // Partial Fisher-Yates: the first N of a shuffled list are distinct by construction and uniformly
-        // drawn, which a "pick at random and retry on collision" loop is not once the band gets crowded.
-        const wanted = Math.min(SCATTERED_MOUNTAIN_COUNT, free.length);
-        for (let i = 0; i < wanted; i++) {
-            const j = i + Math.floor(Math.random() * (free.length - i));
-            const swap = free[i];
-            free[i] = free[j];
-            free[j] = swap;
-        }
-        const chosen = free.slice(0, wanted);
-        this.grid.setScatteredMountains(chosen);
-        // Every variant appears once, and the surplus slots are filled by random repeats. Drawing each slot
-        // independently at random would routinely show the same stone three times and leave others unused —
-        // with more slots than variants, dealing the full set first is what guarantees the spread.
-        const deck: number[] = [];
-        for (let v = 0; v < SCATTERED_MOUNTAIN_VARIANTS; v++) {
-            deck.push(v);
-        }
-        while (deck.length < wanted) {
-            deck.push(Math.floor(Math.random() * SCATTERED_MOUNTAIN_VARIANTS));
-        }
-        for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const swap = deck[i];
-            deck[i] = deck[j];
-            deck[j] = swap;
-        }
+        // One roll, one rule. A static game's barrels now come from the SAME seeded generator the ranked
+        // server, both seats and every replay use, keyed on this fight's own id — so a Cemetery board is
+        // built identically everywhere, and the barrel COUNT is rolled per game (9-12) exactly like the
+        // map itself rather than being a fixed number drawn locally. This block used to be a hand-copied
+        // Math.random() twin of scatteredMountainsForSeed: it re-derived the same band, the same partial
+        // Fisher-Yates and the same variant deck, which is three chances to drift from the server's idea
+        // of the same board.
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+        const layout = scatteredMountainsForSeed(
+            fightProperties.getId(),
+            GridConstants.GRID_SIZE,
+            fightProperties.isSideOrientedPlacement(),
+        );
+        this.grid.setScatteredMountains(layout.map((rock) => rock.cell));
         this.dungeonVisuals?.setScatteredMountains(
-            chosen.map((cell, index) => ({ x: cell.x, y: cell.y, variant: deck[index] })),
+            layout.map((rock) => ({ x: rock.cell.x, y: rock.cell.y, variant: rock.variant })),
         );
     }
     public override setGridType(gridType: GridType): void {
