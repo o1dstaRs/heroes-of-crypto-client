@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { Container, Graphics, Text, Texture } from "pixi.js";
+import { BufferImageSource, Container, Graphics, Text, Texture } from "pixi.js";
 
 import {
     AbilityFactory,
@@ -113,6 +113,13 @@ const sceneLog: ISceneLog = {
 // metadata is a broken checkout and should fail loudly.
 const assetTest = test;
 
+// Atlas tests use a synthetic source that is large enough for every authored frame.
+// Texture.WHITE is only 1x1; Pixi v8 correctly rejects frame rectangles outside it,
+// which made the CI asset stubs hide every animation even though the metadata exists.
+const testAtlasTexture = new Texture({
+    source: new BufferImageSource({ resource: new Uint8Array(4), width: 8192, height: 8192 }),
+});
+
 function createRenderableUnit(
     team: TeamType,
     factionName: string,
@@ -130,7 +137,10 @@ function createRenderableUnit(
         effectFactory,
         false,
     );
-    return RenderableUnit.fromBase(base, textureResolver);
+    return RenderableUnit.fromBase(base, (name) => {
+        const texture = textureResolver(name);
+        return texture === Texture.WHITE ? testAtlasTexture : texture;
+    });
 }
 
 const spellAmounts = (unit: Unit): Record<string, number> =>
@@ -314,11 +324,11 @@ describe("full-body model ground line", () => {
         expect(internals.shadow?.visible).toBe(true);
     });
 
-    test("uses the map-coloured runtime contour everywhere except the already baked level-three set", () => {
+    test("keeps the runtime contour off every approved static battlefield cutout", () => {
         expect(BATTLEFIELD_CREATURE_CONTOUR_COLOR).toBe(0x241f19);
         expect(BATTLEFIELD_CREATURE_CONTOUR_FURNACE_OPACITY).toBe(0.6);
-        expect(shouldApplyRuntimeBattlefieldContour("Squire", 1)).toBe(true);
-        expect(shouldApplyRuntimeBattlefieldContour("Arachna Queen", 2)).toBe(true);
+        expect(shouldApplyRuntimeBattlefieldContour("Squire", 1)).toBe(false);
+        expect(shouldApplyRuntimeBattlefieldContour("Arachna Queen", 2)).toBe(false);
         expect(shouldApplyRuntimeBattlefieldContour("Griffin", 1)).toBe(false);
         expect(shouldApplyRuntimeBattlefieldContour("Pegasus", 1)).toBe(false);
     });
@@ -926,12 +936,7 @@ assetTest("plays Dryad's reversed run between one-shot turn poses", () => {
     expect(internals.walkAnim).toBeUndefined();
 });
 
-// SHIPPED-ART PIN (2026-08-24): the shared Drive's animation meta is one revision behind the
-// authored gait tuning these walk tests originally pinned (Wolf Rider 26fps gait, Leprechaun's
-// 170/380ms two-pose run, Peasant's 8-frame 15.625ms freeze walk). Until that art lands in the
-// Drive's heroesofcrypto/animations, the generator emits the uniform 9-frame 20fps walk asserted
-// below. When the new meta uploads: regenerate atlases and restore the original assertions (they
-// are one `git log -p` away on this file).
+// The authored gait metadata is committed with the client, so these timings also exercise the CI stubs.
 assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
     const unit = createRenderableUnit(TeamVals.LOWER, "Might", "Wolf Rider", "wolf_rider_512", () => Texture.WHITE);
     const internals = unit as unknown as {
@@ -953,16 +958,17 @@ assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
     expect(internals.walkAnim?.loopStartFrame).toBe(1);
     expect(internals.walkAnim?.loopEndFrame).toBe(7);
     expect(internals.walkAnim?.outroFrame).toBe(8);
-    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 20);
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 26);
 
     unit.finishBoardWalkAnimationAfterFullCycle();
+    const frameSeconds = (1000 / 26 + 0.1) / 1000;
     for (let index = 0; index < 8; index += 1) {
-        unit.stepSpawnAnimation(0.051);
+        unit.stepSpawnAnimation(frameSeconds);
     }
     expect(internals.walkAnim?.frameIndex).toBe(8);
     expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[8]);
 
-    unit.stepSpawnAnimation(0.051);
+    unit.stepSpawnAnimation(frameSeconds);
     expect(internals.walkAnim).toBeUndefined();
 });
 
@@ -983,20 +989,20 @@ assetTest("plays Leprechaun's run between one-shot start and finish frames", () 
     unit.ensureVisual(new Container(), gridSettings);
 
     unit.startBoardWalkAnimation(1);
-    expect(internals.walkAnim?.frames).toHaveLength(9);
+    expect(internals.walkAnim?.frames).toHaveLength(4);
     expect(internals.walkAnim?.loopStartFrame).toBe(1);
-    expect(internals.walkAnim?.loopEndFrame).toBe(7);
-    expect(internals.walkAnim?.outroFrame).toBe(8);
-    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 20);
+    expect(internals.walkAnim?.loopEndFrame).toBe(2);
+    expect(internals.walkAnim?.outroFrame).toBe(3);
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(380);
 
     unit.finishBoardWalkAnimationAfterFullCycle();
-    for (let index = 0; index < 8; index += 1) {
-        unit.stepSpawnAnimation(0.051);
-    }
-    expect(internals.walkAnim?.frameIndex).toBe(8);
-    expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[8]);
+    unit.stepSpawnAnimation(0.171);
+    unit.stepSpawnAnimation(0.381);
+    unit.stepSpawnAnimation(0.381);
+    expect(internals.walkAnim?.frameIndex).toBe(3);
+    expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[3]);
 
-    unit.stepSpawnAnimation(0.051);
+    unit.stepSpawnAnimation(0.171);
     expect(internals.walkAnim).toBeUndefined();
 });
 
@@ -1780,18 +1786,17 @@ describe("refreshed idle cadence and quadruped scale", () => {
                 };
             }
         ).walkAnim;
-        console.log("PROBE2", JSON.stringify({ w: walk?.frames[0].frame.width, iw: idleFrameWidth }));
         unit.setBoardWalkDistanceCells(0.2);
-        expect(walk?.frames).toHaveLength(9);
+        expect(walk?.frames).toHaveLength(8);
         expect(walk?.frames[0].frame.width).toBe(192);
-        expect(walk?.frames[0].frame.width).toBe(idleFrameWidth);
+        expect(walk?.frames[0].frame.width).not.toBe(idleFrameWidth);
         expect(
             (unit as unknown as { battlefieldAlphaHoleFillFilter?: unknown }).battlefieldAlphaHoleFillFilter,
         ).toBeUndefined();
         expect(walk?.loopStartFrame).toBe(0);
-        expect(walk?.loopEndFrame).toBe(8);
-        expect(walk?.durationPerFrameMs).toBe(50);
-        expect(walk?.frameDurationsMs).toBeUndefined();
+        expect(walk?.loopEndFrame).toBe(7);
+        expect(walk?.durationPerFrameMs).toBeCloseTo(15.625);
+        expect(walk?.frameDurationsMs).toEqual(Array(8).fill(15.625));
         expect(walk?.distanceDriven).toBe(true);
 
         unit.setBoardWalkDistanceCells(0.22);

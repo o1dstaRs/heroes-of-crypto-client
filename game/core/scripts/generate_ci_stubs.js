@@ -22,6 +22,12 @@ const scanImageKeys = (directory) => {
         if (!/\.(?:ts|tsx)$/.test(entry.name)) continue;
         const source = fs.readFileSync(fullPath, "utf8");
         for (const match of source.matchAll(/\bimages\.([A-Za-z0-9_]+)/g)) imageKeys.add(match[1]);
+        // Pick/sandbox portraits are intentionally resolved through runtimeImages with a slug, so they
+        // do not appear as `images.some_key` property accesses. Keep the reverse URL lookup complete in
+        // CI as well; otherwise roster tests silently fall back to unframed, unmirrored textures.
+        for (const match of source.matchAll(/\bpickSandboxPortrait\("([A-Za-z0-9_]+)"\)/g)) {
+            imageKeys.add(`${match[1]}_pick_sandbox_x2`);
+        }
     }
 };
 scanImageKeys(sourceDir);

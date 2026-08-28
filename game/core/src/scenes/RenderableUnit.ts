@@ -841,6 +841,10 @@ function getStaticBattlefieldIdleConfig(
     footprintWidth: number,
     footprintHeight: number,
 ): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
+    // The explicit animation switch is also the authored-atlas test/dev switch. Production keeps it
+    // off and uses the approved static battlefield cutouts; when enabled, do not let those cutouts
+    // shadow every idle/walk/action atlas.
+    if (CREATURE_SPRITE_ANIMATION_SETTINGS.enabled) return null;
     const textureName = staticBattlefieldTextureNameForUnit(unitName, footprintWidth, footprintHeight);
     if (!textureName) return null;
     const imageKey = textureName as ImageKey;
@@ -896,7 +900,12 @@ function getAnimationStateConfig(
     footprintHeight = footprintWidth,
 ): { meta: AtlasMeta; imageSrc: string; imageKey: ImageKey; cacheKey: string } | null {
     const staticBattlefieldIdle = getStaticBattlefieldIdleConfig(unitName, footprintWidth, footprintHeight);
-    if (staticBattlefieldIdle) return state === "idle" ? staticBattlefieldIdle : null;
+    if (staticBattlefieldIdle) {
+        if (state === "idle") return staticBattlefieldIdle;
+        // Production deliberately freezes the approved static figures, except Peasant's separately
+        // approved walking strip. Let that one walk resolve its atlas without enabling every action.
+        if (!(state === "walk" && creatureWalkAnimationEnabledForUnit(unitName))) return null;
+    }
     if (unitName === EFREET_UNIT_NAME && state === "idle" && footprintWidth === 1 && footprintHeight === 1) {
         return {
             meta: EFREET_FIRE_IDLE_META,
@@ -1921,9 +1930,13 @@ export class RenderableUnit extends Unit {
             shouldFillBattlefieldAlphaHoles(props.name) && !(props.name === PEASANT_UNIT_NAME && this.walkAnim)
                 ? getBattlefieldAlphaHoleFillFilter()
                 : undefined;
-        const runtimeContourFilter = shouldApplyRuntimeBattlefieldContour(props.name, footprintWidth, footprintHeight)
-            ? getBattlefieldCreatureContourFilter(battlefieldCreatureContourOpacity(logicalPos.y, footprintHeight, gs))
-            : undefined;
+        const runtimeContourFilter =
+            CREATURE_SPRITE_ANIMATION_SETTINGS.enabled ||
+            shouldApplyRuntimeBattlefieldContour(props.name, footprintWidth, footprintHeight)
+                ? getBattlefieldCreatureContourFilter(
+                      battlefieldCreatureContourOpacity(logicalPos.y, footprintHeight, gs),
+                  )
+                : undefined;
         const unmanagedFilters = (this.sprite.filters ?? []).filter(
             (filter) =>
                 filter !== retiredBattlefieldStyleFilter &&

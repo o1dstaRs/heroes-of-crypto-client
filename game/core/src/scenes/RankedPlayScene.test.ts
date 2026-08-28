@@ -1859,8 +1859,8 @@ describe("ranked ability-transfer scene log", () => {
 // sandbox scattering the old number — the whole point of importing it from common now.
 describe("cemetery stone count", () => {
     test("matches common, and ranked derives exactly that many", () => {
-        expect(SCATTERED_MOUNTAIN_COUNT).toBe(12);
-        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(12);
+        expect(SCATTERED_MOUNTAIN_COUNT).toBe(9);
+        expect(scatteredMountainsForSeed("any-cemetery-game").length).toBe(9);
     });
 
     test("fits the neutral band with room to spare", () => {

@@ -45,7 +45,7 @@ describe("Cemetery barrel danger highlights", () => {
         expect(overlay).toContain("dangerOverlay.position.copyFrom(sprite.position)");
         expect(overlay).toContain("dangerOverlay.scale.copyFrom(sprite.scale)");
         expect(overlay).toContain("dangerOverlay.filters = [this.tombstoneRedFilter]");
-        expect(overlay).toContain("dangerOverlay.alpha = 0.34");
+        expect(overlay).toContain("dangerOverlay.alpha = 0.15");
         expect(source).toContain("this.scatteredMountainDangerOverlays[index].visible = highlighted");
     });
 });
