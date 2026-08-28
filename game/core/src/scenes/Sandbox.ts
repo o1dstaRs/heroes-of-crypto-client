@@ -88,6 +88,7 @@ import {
     doubleShotAbility,
     type IAttackDamageProjection,
 } from "@heroesofcrypto/common";
+import { pickFrontmostSpriteHit, type ISpriteHitCandidate } from "./frontmostSpriteHit";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
@@ -2243,10 +2244,11 @@ export class Sandbox extends PixiScene {
     protected getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
         return this.placementManager.getPlacement(teamType, placementIndex);
     }
-    /** Pick the frontmost rendered creature whose visible sprite box contains this board point. */
-    private getUnitSpriteAtPosition(worldPos: HoCMath.XY): Unit | undefined {
+    /** Pick the frontmost rendered creature whose visible sprite box contains this board point.
+     *  `excludeUnitId` keeps a unit from stealing a click aimed PAST itself — see pickFrontmostSpriteHit. */
+    private getUnitSpriteAtPosition(worldPos: HoCMath.XY, excludeUnitId?: string): Unit | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
-        let spriteHit: { unit: Unit; depth: number } | undefined;
+        const candidates: ISpriteHitCandidate<Unit>[] = [];
         for (const candidate of this.unitsHolder.getAllUnits().values()) {
             if (candidate.isDead()) continue;
             const renderable = candidate as unknown as {
@@ -2255,9 +2257,9 @@ export class Sandbox extends PixiScene {
             if (typeof renderable.spriteHitDepth !== "function") continue;
             const depth = renderable.spriteHitDepth(worldPos, gs);
             if (depth === undefined) continue;
-            if (!spriteHit || depth > spriteHit.depth) spriteHit = { unit: candidate, depth };
+            candidates.push({ unit: candidate, unitId: candidate.getId(), depth });
         }
-        return spriteHit?.unit;
+        return pickFrontmostSpriteHit(candidates, excludeUnitId);
     }
     /** Get unit by world position: grid occupancy first, then the rendered silhouette. */
     private getUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
@@ -6776,9 +6778,15 @@ export class Sandbox extends PixiScene {
                 const cell = GridMath.getCellForPosition(gs, p);
                 if (cell) {
                     const occupantId = this.grid.getOccupantUnitId(cell);
-                    // Prefer the visible creature body, then fall back to its occupied support cell.
+                    // Prefer the visible creature body, then fall back to its occupied support cell — but
+                    // never let the ACTING unit win this pick. Its own sprite box reaches about a cell and a
+                    // half up from its feet (and ~1.7 cells wide for the wide-art creatures), and depth is
+                    // `4000 - position.y`, so an attacker standing below its target sits in FRONT of it and
+                    // swallowed the click: targetUnit came back as your own unit, the enemy test below
+                    // failed, and the attack was abandoned with nothing drawn, logged or sent. Hover reads
+                    // cell occupancy and so still promised the attack — which is why it looked random.
                     const targetUnit =
-                        this.getUnitSpriteAtPosition(p) ??
+                        this.getUnitSpriteAtPosition(p, this.currentActiveUnit.getId()) ??
                         (occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined);
                     if (targetUnit) {
                         if (targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {

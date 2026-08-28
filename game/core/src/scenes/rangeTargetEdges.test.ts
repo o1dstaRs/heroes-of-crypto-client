@@ -274,11 +274,24 @@ describe("ranged target edge selection", () => {
             source.indexOf("// Unit Attack Interaction"),
             source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
         );
-        const spriteTarget = attackClick.indexOf("this.getUnitSpriteAtPosition(p)");
+        const spriteTarget = attackClick.indexOf("this.getUnitSpriteAtPosition(p,");
         const occupiedCellFallback = attackClick.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
 
         expect(spriteTarget).toBeGreaterThanOrEqual(0);
         expect(occupiedCellFallback).toBeGreaterThan(spriteTarget);
+    });
+
+    test("but the acting unit is excluded from that pick, so it cannot swallow its own attack click", () => {
+        // A board sprite stands ~1.5 cells tall from its foot line and depth is `4000 - position.y`, so an
+        // attacker one cell BELOW its target both covers the target's cell and outranks it. Without this
+        // exclusion the click resolved to the player's OWN unit, the enemy test failed, and the attack was
+        // dropped in silence while hover — which reads cell occupancy — kept promising it.
+        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+        const attackClick = source.slice(
+            source.indexOf("// Unit Attack Interaction"),
+            source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
+        );
+        expect(attackClick).toContain("this.getUnitSpriteAtPosition(p, this.currentActiveUnit.getId())");
     });
 
     test("does not draw a second Fire Strike rail over the live spell beam", () => {
