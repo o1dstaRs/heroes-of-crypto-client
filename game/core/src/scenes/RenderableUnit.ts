@@ -1187,8 +1187,8 @@ const FLAG_WAVE_CYCLES = 1.15;
 const FLAG_WAVE_SPEED = 2.6;
 /** Heroes-IV-style count ribbon stays horizontal above the creature. */
 const BATTLEFIELD_FLAG_ROTATION = 0;
-/** Active-turn arrow is 30% larger than its original geometry, independent of its animated breath. */
-export const ACTIVE_TURN_POINTER_SIZE_SCALE = 1.3;
+/** Active-turn arrow is 30% larger than its previous 1.06 scale, independent of its animated breath. */
+export const ACTIVE_TURN_POINTER_SIZE_SCALE = 1.378;
 /** A warm, slightly orange gold that stays legible against both army colours. */
 const ACTIVE_FLAG_GLOW_COLOR = 0xffd05a;
 /** Twice the previous cadence: one complete grow/shrink breath every 1.4 seconds. */
