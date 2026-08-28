@@ -20,6 +20,7 @@ export const visibleAuraRanges = (
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
+import { placementZonePolygon } from "@/pixi/PixiDrawablePlacement";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import { drawMovementArea, drawMovementAreaCalibration, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
 export { movementFillAlphaForPhase } from "./movementAreaVisual";
@@ -228,6 +229,15 @@ export interface IPlacementDrawContext {
      * never sees the opponent's placement area — revealed enemy units are shown there instead.
      */
     restrictToTeam?: TeamType;
+    /**
+     * Footprints of the units already standing on the board, grid-confirmed by the caller. Drawn as a
+     * pale wash so the free ground in a deployment zone reads at a glance — the tall silhouettes cover
+     * far more board than the cells they actually hold, which makes "what is still free" guesswork
+     * without it. Empty/omitted draws nothing.
+     */
+    occupiedFootprints?: readonly (readonly HoCMath.XY[])[];
+    /** Grid settings for the occupied-cell wash (the polygons are perspective-projected). */
+    gridSettings?: GridSettings;
     /**
      * Visual-only switch for the red/green deployment fields. Placement rules and hover validation
      * remain active when this is false, so the zones can be restored without changing game logic.
@@ -446,7 +456,30 @@ export class SandboxDrawer {
             if (showTeamPlacementZones) {
                 placementManager.draw(g, placementFrameContainer, restrictToTeam);
             }
+            // Under the zones and under the hover preview: an occupied-ground wash must never outrank
+            // the cell the player is about to click, and the hover's own footprint reads on top of it.
+            SandboxDrawer.drawOccupiedFootprints(g, ctx.occupiedFootprints, ctx.gridSettings);
             hoverManager.drawHoverPlacementCell(g);
+        }
+    }
+    /**
+     * Pale white ground under every unit already standing on the board, one rounded shape per FOOTPRINT
+     * (so a 2x1 reads as one body, not two tiles — the same treatment the hover preview uses). Purely
+     * informational: it answers "which cells are still free" during deployment, which the drawn
+     * silhouettes actively obscure by covering more board than they occupy.
+     */
+    private static drawOccupiedFootprints(
+        g: Graphics,
+        footprints: readonly (readonly HoCMath.XY[])[] | undefined,
+        gs: GridSettings | undefined,
+    ): void {
+        if (!footprints?.length || !gs) return;
+        const size = gs.getCellSize();
+        for (const cells of footprints) {
+            if (!cells.length) continue;
+            g.poly(placementZonePolygon(cells, gs))
+                .fill({ color: 0xffffff, alpha: 0.14 })
+                .stroke({ width: Math.max(1, size * 0.02), color: 0xffffff, alpha: 0.4 });
         }
     }
     private static drawAuraAndAttackRanges(

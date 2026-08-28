@@ -1857,12 +1857,14 @@ describe("ranked ability-transfer scene log", () => {
     });
 });
 
-// Ranked and the sandbox now build a cemetery through the SAME seeded generator, so the count is rolled
-// per game (9-12) rather than restated on either side. Sandbox.ts used to keep a Math.random() twin of
-// that generator, which meant a ranked-side change left static games scattering the old number.
+// Ranked and the sandbox build a cemetery through the SAME seeded generator, so the count is derived on
+// both sides rather than restated on either. Sandbox.ts used to keep a Math.random() twin of that
+// generator, which meant a ranked-side change left static games scattering the old number. The count is
+// the owner's fixed twelve (2026-08-28); the range plumbing survives so restoring variety is one
+// constant.
 describe("cemetery barrel count", () => {
     test("every board rolls a count inside the range, and derives exactly that many stones", () => {
-        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(9);
+        expect(SCATTERED_MOUNTAIN_MIN_COUNT).toBe(12);
         expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBe(12);
         for (let i = 0; i < 200; i++) {
             const gameId = `cemetery-game-${i}`;
@@ -1873,12 +1875,12 @@ describe("cemetery barrel count", () => {
         }
     });
 
-    test("the count genuinely varies rather than sitting at one end", () => {
+    test("every ranked board carries the same twelve barrels", () => {
         const seen = new Set<number>();
         for (let i = 0; i < 200; i++) {
             seen.add(scatteredMountainCountForSeed(`ranked-spread-${i}`));
         }
-        expect(seen.size).toBe(SCATTERED_MOUNTAIN_MAX_COUNT - SCATTERED_MOUNTAIN_MIN_COUNT + 1);
+        expect([...seen]).toEqual([12]);
     });
 
     test("even the largest roll fits the neutral band with room to spare", () => {

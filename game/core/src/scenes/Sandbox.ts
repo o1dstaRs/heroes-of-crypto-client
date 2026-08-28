@@ -2276,18 +2276,15 @@ export class Sandbox extends PixiScene {
                 // occupantId is a terrain obstacle (mountain "B"/"H", lava "L", water "W"),
                 // not a real unit. Don't short-circuit here, otherwise a floating bench/pick
                 // creature rendered over this cell becomes unselectable. Fall through to the
-                // sprite and bench hit-tests below.
+                // bench hit-test below.
             }
         }
-        // The drawn body is taller than — and for the mounted class hangs past — the ground it
-        // occupies, so a click on the visible silhouette often lands on a cell that holds nothing.
-        // Fall back to sprite hit-testing then; among overlapping silhouettes the frontmost-drawn
-        // one wins, which is the body the click visually touched. An OCCUPIED cell above keeps
-        // priority so dense formations stay targetable by the ground a unit stands on.
-        const spriteHit = this.getUnitSpriteAtPosition(worldPos);
-        if (spriteHit) {
-            return spriteHit;
-        }
+        // OWNER CALL (2026-08-28): SELECTION is by the CELLS a unit stands on, never by its drawn
+        // silhouette. A full-body sprite reaches well above (and, for the mounted class, past) its
+        // ground, so hit-testing the art let a click land on a unit whose cells the cursor was
+        // nowhere near — and stole clicks aimed at whatever actually occupies the cell underneath.
+        // Attack targeting keeps its own body-first rule on the click path; only selection is
+        // ground-truth, so getUnitSpriteAtPosition stays for that path.
         if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return this.getBenchUnitAtPosition(worldPos);
         }
@@ -15395,8 +15392,29 @@ export class Sandbox extends PixiScene {
             placementFrameContainer: this.placementFrameContainer,
             restrictToTeam: this.getPlacementDrawTeam(),
             showTeamPlacementZones: Sandbox.DRAW_TEAM_PLACEMENT_ZONES && !isBattlefieldShadowEditorActive(),
+            occupiedFootprints: this.occupiedBoardFootprints(),
+            gridSettings: this.sc_sceneSettings.getGridSettings(),
         });
         this.drawPlacementSplitOverlay();
+    }
+    /**
+     * The footprints of units genuinely standing on the board, for the deployment free-space wash.
+     *
+     * Membership is taken from the GRID, not from the unit list: a bench/roster creature and the
+     * placement preview both carry a position and cells, and only the grid knows which cells are
+     * actually held. Filtering per cell (rather than trusting getCells()) also drops the stale half of
+     * a body mid-move.
+     */
+    private occupiedBoardFootprints(): HoCMath.XY[][] {
+        const groups: HoCMath.XY[][] = [];
+        for (const unit of this.unitsHolder.getAllUnits().values()) {
+            if (unit.isDead()) continue;
+            const held = unit.getCells().filter((cell) => this.grid.getOccupantUnitId(cell) === unit.getId());
+            if (held.length) {
+                groups.push(held);
+            }
+        }
+        return groups;
     }
     /**
      * Which team's placement zone should be drawn. Undefined draws both (sandbox). Ranked play
