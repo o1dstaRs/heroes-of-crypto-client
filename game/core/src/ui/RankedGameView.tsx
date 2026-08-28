@@ -109,7 +109,6 @@ import {
 } from "./hocTheme";
 import {
     hasOffGridSubmitCell,
-    isPlacementMutationAction,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
@@ -279,9 +278,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const snapshotRef = useRef<PlaySnapshot | null>(null);
     const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
-    // The scene applies a placement drag optimistically before the HTTP request resolves. Keep only one
-    // such mutation in flight so a second drag cannot be computed from a position the server just rejected.
-    const placementSubmissionPendingRef = useRef(false);
     const replayTimersRef = useRef<number[]>([]);
     const storedReplayRef = useRef<RankedReplay | undefined>(undefined);
     const replayAutoplayStartedRef = useRef(false);
@@ -1163,14 +1159,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 
     const transport = useCallback<SceneGameActionTransport>(
         (action, transportOptions) => {
-            const isPlacementMutation = isPlacementMutationAction(action);
-            if (isPlacementMutation && placementSubmissionPendingRef.current) {
-                return {
-                    handled: true,
-                    completed: false,
-                    message: "Waiting for placement update",
-                };
-            }
             // Auto-expire the turn-resolution gate: if it has been pending too long, the submit/playback
             // chain that should have cleared it is stuck. Don't block submissions forever (which would
             // silently freeze an autobattle AI) — treat a long-pending gate as stale and proceed.
@@ -1245,14 +1233,16 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 pendingTurnResolutionRef.current = true;
                 pendingTurnResolutionSinceRef.current = Date.now();
             }
-            if (isPlacementMutation) {
-                placementSubmissionPendingRef.current = true;
-            }
-            void submitGameAction(action, transportOptions).finally(() => {
-                if (isPlacementMutation) {
-                    placementSubmissionPendingRef.current = false;
-                }
-            });
+            // No in-flight gate on placement drags. Refusing a second drag while the first is airborne
+            // dropped it silently on any real latency — the scene skips its local apply when completed is
+            // false, and Sandbox then clears the selection, so a click within one round trip did nothing at
+            // all and deselected the stack. Ordering was never the exposure: queueActionSubmission
+            // serializes submissions and builds each envelope INSIDE the queued closure off a freshly read
+            // sequence, and the server deliberately exempts place/split/delete from the placement sequence
+            // gate ("your units, your zone, no cross-team ordering dependency"). Stale optimistic state is
+            // repaired by reconciling from the authoritative snapshot — see shouldPlayAuthoritativeAction —
+            // not by throwing the player's input away.
+            void submitGameAction(action, transportOptions);
             return { handled: true, completed: true };
         },
         [
