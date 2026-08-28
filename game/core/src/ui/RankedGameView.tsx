@@ -108,9 +108,11 @@ import {
 } from "./hocTheme";
 import {
     hasOffGridSubmitCell,
+    isPlacementMutationAction,
     rejectionErrorFromPlayEvent,
     resolveEffectiveLocalModelOpponentConfig,
     shouldApplyActionResponseSnapshotToViewer,
+    shouldPlayAuthoritativeAction,
     shouldRecoverRejectedMoveFollowUp,
 } from "./rankedActionResponse";
 import {
@@ -275,6 +277,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const snapshotRef = useRef<PlaySnapshot | null>(null);
     const synergyGameIdRef = useRef<string | undefined>(undefined);
     const actionQueueRef = useRef<Promise<void>>(Promise.resolve());
+    // The scene applies a placement drag optimistically before the HTTP request resolves. Keep only one
+    // such mutation in flight so a second drag cannot be computed from a position the server just rejected.
+    const placementSubmissionPendingRef = useRef(false);
     const replayTimersRef = useRef<number[]>([]);
     const storedReplayRef = useRef<RankedReplay | undefined>(undefined);
     const replayAutoplayStartedRef = useRef(false);
@@ -420,6 +425,9 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const playAuthoritativeRecordData = useCallback(
         async (record: RankedReplayActionRecord, stateAfterSnapshot?: PlaySnapshot): Promise<boolean> => {
             if (!pixiReady) {
+                return false;
+            }
+            if (!shouldPlayAuthoritativeAction(record.action)) {
                 return false;
             }
             // Already animated by the other delivery channel. An own action is delivered TWICE — once
@@ -1153,6 +1161,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
 
     const transport = useCallback<SceneGameActionTransport>(
         (action, transportOptions) => {
+            const isPlacementMutation = isPlacementMutationAction(action);
+            if (isPlacementMutation && placementSubmissionPendingRef.current) {
+                return {
+                    handled: true,
+                    completed: false,
+                    message: "Waiting for placement update",
+                };
+            }
             // Auto-expire the turn-resolution gate: if it has been pending too long, the submit/playback
             // chain that should have cleared it is stuck. Don't block submissions forever (which would
             // silently freeze an autobattle AI) — treat a long-pending gate as stale and proceed.
@@ -1227,7 +1243,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                 pendingTurnResolutionRef.current = true;
                 pendingTurnResolutionSinceRef.current = Date.now();
             }
-            void submitGameAction(action, transportOptions);
+            if (isPlacementMutation) {
+                placementSubmissionPendingRef.current = true;
+            }
+            void submitGameAction(action, transportOptions).finally(() => {
+                if (isPlacementMutation) {
+                    placementSubmissionPendingRef.current = false;
+                }
+            });
             return { handled: true, completed: true };
         },
         [
