@@ -71,8 +71,8 @@ test("sidebar stats preserve meaningful decimals and omit trailing zeroes", () =
     expect(formatSidebarStat(2.4000000953674316)).toBe("2.4");
 });
 
-test("left battle portrait uses the approved inset and seven-percent creature reduction", () => {
+test("left battle portrait uses the approved inset and neutral prepared-art scale", () => {
     expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.containerOffsetX).toBe(1);
     expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.containerWidth).toBe(99);
-    expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.artScale).toBe(0.93);
+    expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING.artScale).toBe(1);
 });

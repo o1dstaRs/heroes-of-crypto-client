@@ -19,79 +19,46 @@ import {
     normalizeLeftSidebarPortraitTuning,
 } from "./leftSidebarPortraitTuning";
 
-test("left sidebar portrait tuning contains the exported per-creature settings", () => {
-    expect(Object.keys(LEFT_SIDEBAR_PORTRAIT_TUNING)).toHaveLength(56);
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING[6]).toEqual({
-        artScale: 1.5,
-        artOffsetX: -1,
-        artOffsetY: 17,
-        containerWidth: 99,
-        containerOffsetX: 1,
-    });
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING[39]?.artOffsetX).toBe(25);
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING[34]).toMatchObject({ artScale: 0.8, artOffsetX: 38, artOffsetY: 59 });
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING[49]?.artScale).toBe(0.77);
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING[51]?.artScale).toBe(1.48);
+test("left sidebar keeps prepared left-screen portraits neutral", () => {
+    expect(LEFT_SIDEBAR_PORTRAIT_TUNING).toEqual({});
 });
 
-test("left sidebar portrait checkpoint X is the active production set", () => {
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING).toBe(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X);
-    expect(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY).toBe("hoc-dev-left-sidebar-portrait-tuning-v1");
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[13]).toEqual({
-        artScale: 0.86,
-        artOffsetX: 4,
-        artOffsetY: -14,
-        containerWidth: 99,
-        containerOffsetX: 1,
-    });
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[3]).toMatchObject({ artScale: 0.68, artOffsetX: 10, artOffsetY: -16 });
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[6]).toMatchObject({ artScale: 1.5, artOffsetX: -1, artOffsetY: 17 });
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[23]).toMatchObject({ artScale: 1.05, artOffsetY: 27 });
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[39]).toMatchObject({ artScale: 1.18, artOffsetX: 25, artOffsetY: 15 });
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[43]).toMatchObject({ artScale: 0.78, artOffsetX: 38 });
-    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[51]).toMatchObject({ artScale: 1.48, artOffsetX: 5, artOffsetY: 39 });
+test("legacy editor checkpoint stays available but inactive", () => {
+    expect(LEFT_SIDEBAR_PORTRAIT_TUNING).not.toBe(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X);
+    expect(LEFT_SIDEBAR_PORTRAIT_TUNING_STORAGE_KEY).toBe("hoc-dev-left-screen-portrait-tuning-v1");
+    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[13]).toMatchObject({ artScale: 0.78, artOffsetY: -76 });
+    expect(LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X[51]).toMatchObject({ artScale: 3, artOffsetX: -41, artOffsetY: 20 });
 });
 
-test("left sidebar mirrors only the Valkyrie artwork", () => {
-    expect(resolveLeftSidebarPortraitArt(34)).toMatchObject({
-        artScaleX: -1,
-        source: expect.stringContaining("left_sidebar_valkyrie_hd.webp"),
+test("left sidebar uses the dedicated Centaur source without legacy framing", () => {
+    expect(resolveLeftSidebarPortraitArt(11)).toMatchObject({
+        source: expect.stringContaining("centaur_left_screen_x2.webp"),
+        usesFraming: false,
+        fit: "contain",
+        baseScale: 1,
     });
-    expect(resolveLeftSidebarPortraitArt(33).artScaleX).toBeUndefined();
 });
 
-test("requested left-sidebar creatures use project-owned HD crops", () => {
-    const expectedHdSources: Record<number, string> = {
-        3: "troglodyte",
-        11: "centaur",
-        12: "berserker",
-        13: "wolf_rider",
-        15: "nomad",
-        22: "fairy",
-        24: "elf",
-        31: "peasant",
-        32: "squire",
-        33: "arbalester",
-        34: "valkyrie",
-        35: "pikeman",
-        36: "healer",
-        46: "mermaid",
-        47: "dryad",
-        48: "blacksmith",
-        49: "wandering_mage",
-        55: "battle_mage",
+test("requested left-sidebar creatures use the project-owned left-screen set", () => {
+    const expectedSources: Record<number, string> = {
+        3: "troglodyte_left_screen_x2.webp",
+        11: "centaur_left_screen_x2.webp",
+        13: "wolf_rider_left_screen_x2.webp",
+        34: "valkyrie_left_screen_x2.webp",
+        51: "wyvern_left_screen_x2.webp",
     };
 
-    for (const [creatureId, sourceName] of Object.entries(expectedHdSources)) {
-        expect(resolveLeftSidebarPortraitArt(Number(creatureId)).source).toContain(
-            `left_sidebar_${sourceName}_hd.webp`,
-        );
+    for (const [creatureId, sourceName] of Object.entries(expectedSources)) {
+        expect(resolveLeftSidebarPortraitArt(Number(creatureId))).toMatchObject({
+            source: expect.stringContaining(sourceName),
+            usesFraming: false,
+        });
     }
 });
 
 test("left sidebar portrait tuning keeps the approved global baseline", () => {
     expect(DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING).toEqual({
-        artScale: 0.93,
+        artScale: 1,
         artOffsetX: 0,
         artOffsetY: 0,
         containerWidth: 99,
