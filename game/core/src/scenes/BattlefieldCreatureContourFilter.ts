@@ -98,6 +98,17 @@ void main(void) {
 `;
 
 const sharedContourFilters = new Map<number, Filter | null>();
+/**
+ * How many times one opacity may fail to compile before its contour is written off for the session.
+ *
+ * Not 1: the FIRST `Filter.from` of a process reliably throws in a headless/not-yet-warm renderer and
+ * then every later call succeeds, so giving up after a single failure permanently strips the contour
+ * from whichever creature happened to ask first — a silently different-looking unit for the rest of
+ * the session, and an order-dependent trap in tests (whichever spec renders first eats the failure).
+ * A genuinely unsupported renderer still throws twice and is disabled exactly as before.
+ */
+const CONTOUR_COMPILE_ATTEMPTS = 2;
+const contourCompileFailures = new Map<number, number>();
 
 /** One immutable shader instance per approved opacity is safe to share across creature sprites. */
 export function getBattlefieldCreatureContourFilter(contourOpacity = 1): Filter | undefined {
@@ -111,10 +122,16 @@ export function getBattlefieldCreatureContourFilter(contourOpacity = 1): Filter 
         });
         filter.resolution = Math.min(globalThis.devicePixelRatio || 1, 2);
         filter.padding = 3;
+        contourCompileFailures.delete(safeOpacity);
         sharedContourFilters.set(safeOpacity, filter);
     } catch {
         // Headless tests and unsupported renderers keep the original art rather than failing gameplay.
-        sharedContourFilters.set(safeOpacity, null);
+        const failures = (contourCompileFailures.get(safeOpacity) ?? 0) + 1;
+        contourCompileFailures.set(safeOpacity, failures);
+        if (failures >= CONTOUR_COMPILE_ATTEMPTS) {
+            sharedContourFilters.set(safeOpacity, null);
+        }
+        return undefined;
     }
     return sharedContourFilters.get(safeOpacity) ?? undefined;
 }
