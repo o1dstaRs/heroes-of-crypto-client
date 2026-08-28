@@ -268,30 +268,32 @@ describe("ranged target edge selection", () => {
         expect(source).toContain("const target = this.getUnitAtPosition(this.sc_mouseWorld)");
     });
 
-    test("lets a ranged attack click target the visible creature body before falling back to its cells", () => {
+    test("an attack click targets the cells a unit stands on, never its drawn sprite", () => {
+        // OWNER CALL (2026-08-28), the same rule selection follows. Sprite hit-testing aimed the strike at
+        // whatever art was drawn over the clicked cell instead of what occupies it: clicking a Crusader
+        // struck the Troglodyte next to it, and when the mis-picked body was not adjacent the reachability
+        // guard dropped the click with no strike, no message and no request. Excluding just the acting unit
+        // was not enough — any third creature's overhanging art could win the pick.
         const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
         const attackClick = source.slice(
             source.indexOf("// Unit Attack Interaction"),
             source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
         );
-        const spriteTarget = attackClick.indexOf("this.getUnitSpriteAtPosition(p,");
-        const occupiedCellFallback = attackClick.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
+        const code = attackClick
+            .split("\n")
+            .filter((line) => !line.trim().startsWith("//"))
+            .join("\n");
 
-        expect(spriteTarget).toBeGreaterThanOrEqual(0);
-        expect(occupiedCellFallback).toBeGreaterThan(spriteTarget);
-    });
+        // The engine-validated melee resolve first (it also drew the cursor), then grid occupancy.
+        const resolved = code.indexOf("pointerMeleeAttack?.target");
+        const occupiedCell = code.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
+        expect(resolved).toBeGreaterThanOrEqual(0);
+        expect(occupiedCell).toBeGreaterThan(resolved);
 
-    test("but the acting unit is excluded from that pick, so it cannot swallow its own attack click", () => {
-        // A board sprite stands ~1.5 cells tall from its foot line and depth is `4000 - position.y`, so an
-        // attacker one cell BELOW its target both covers the target's cell and outranks it. Without this
-        // exclusion the click resolved to the player's OWN unit, the enemy test failed, and the attack was
-        // dropped in silence while hover — which reads cell occupancy — kept promising it.
-        const source = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
-        const attackClick = source.slice(
-            source.indexOf("// Unit Attack Interaction"),
-            source.indexOf("if (this.currentActiveUnit && this.currentActiveKnownPaths"),
-        );
-        expect(attackClick).toContain("this.getUnitSpriteAtPosition(p, this.currentActiveUnit.getId())");
+        // Comments are stripped first: the block explains WHY the sprite pick is gone, and naming it in
+        // prose must not read as calling it.
+        expect(code).not.toContain("getUnitSpriteAtPosition(");
+        expect(code).not.toContain("spriteHitDepth(");
     });
 
     test("does not draw a second Fire Strike rail over the live spell beam", () => {

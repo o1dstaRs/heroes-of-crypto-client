@@ -42,7 +42,7 @@ const clickAttackBlock = (source: string): string => {
 };
 
 describe("melee click acts on the target the cursor promised", () => {
-    test("the click takes the resolve's own target, ahead of any sprite hit-test", () => {
+    test("the click takes the resolve's target, then grid occupancy — and never the sprite", () => {
         const block = clickAttackBlock(sandboxSource());
         const code = block
             .split("\n")
@@ -50,17 +50,13 @@ describe("melee click acts on the target the cursor promised", () => {
             .join("\n");
 
         const resolved = code.indexOf("pointerMeleeAttack?.target");
-        const spriteHit = code.indexOf("this.getUnitSpriteAtPosition(p, this.currentActiveUnit.getId())");
         const occupancy = code.indexOf("this.unitsHolder.getAllUnits().get(occupantId)");
 
-        // All three still exist — the sprite/occupancy pick remains the fallback for ranged and for
-        // bodies outside the melee target set.
         expect(resolved).toBeGreaterThan(-1);
-        expect(spriteHit).toBeGreaterThan(-1);
-        expect(occupancy).toBeGreaterThan(-1);
-        // ...but the engine-validated resolve is consulted FIRST.
-        expect(resolved).toBeLessThan(spriteHit);
-        expect(spriteHit).toBeLessThan(occupancy);
+        expect(occupancy).toBeGreaterThan(resolved);
+        // OWNER CALL: a unit is attacked through the ground it holds, never its drawn body.
+        expect(code).not.toContain("getUnitSpriteAtPosition(");
+        expect(code).not.toContain("spriteHitDepth(");
     });
 
     test("the reachability guard reports itself instead of dropping the click in silence", () => {

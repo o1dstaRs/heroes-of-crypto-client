@@ -88,7 +88,6 @@ import {
     doubleShotAbility,
     type IAttackDamageProjection,
 } from "@heroesofcrypto/common";
-import { pickFrontmostSpriteHit, type ISpriteHitCandidate } from "./frontmostSpriteHit";
 import { UnitsOverlay } from "./UnitsOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
@@ -2244,24 +2243,12 @@ export class Sandbox extends PixiScene {
     protected getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined {
         return this.placementManager.getPlacement(teamType, placementIndex);
     }
-    /** Pick the frontmost rendered creature whose visible sprite box contains this board point.
-     *  `excludeUnitId` keeps a unit from stealing a click aimed PAST itself — see pickFrontmostSpriteHit. */
-    private getUnitSpriteAtPosition(worldPos: HoCMath.XY, excludeUnitId?: string): Unit | undefined {
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const candidates: ISpriteHitCandidate<Unit>[] = [];
-        for (const candidate of this.unitsHolder.getAllUnits().values()) {
-            if (candidate.isDead()) continue;
-            const renderable = candidate as unknown as {
-                spriteHitDepth?: (point: HoCMath.XY, gridSettings: GridSettings) => number | undefined;
-            };
-            if (typeof renderable.spriteHitDepth !== "function") continue;
-            const depth = renderable.spriteHitDepth(worldPos, gs);
-            if (depth === undefined) continue;
-            candidates.push({ unit: candidate, unitId: candidate.getId(), depth });
-        }
-        return pickFrontmostSpriteHit(candidates, excludeUnitId);
-    }
-    /** Get unit by world position: grid occupancy first, then the rendered silhouette. */
+    /* Sprite hit-testing for picking units is deliberately gone. Both the click that SELECTS a unit and
+     * the click that ATTACKS one resolve through the cells a unit occupies (OWNER CALL 2026-08-28), so
+     * there is no caller left for a frontmost-sprite pick and re-adding one would silently reopen the
+     * class it caused: strikes landing on whichever body was drawn over the cell. The pure helper in
+     * frontmostSpriteHit.ts is kept for rendering-order work; it must not be wired back into targeting. */
+    /** Get unit by world position: the cells it occupies, then the bench. */
     private getUnitAtPosition(worldPos: HoCMath.XY): Unit | undefined {
         const gs = this.sc_sceneSettings.getGridSettings();
         const cell = GridMath.getCellForPosition(gs, worldPos);
@@ -2278,12 +2265,12 @@ export class Sandbox extends PixiScene {
                 // bench hit-test below.
             }
         }
-        // OWNER CALL (2026-08-28): SELECTION is by the CELLS a unit stands on, never by its drawn
-        // silhouette. A full-body sprite reaches well above (and, for the mounted class, past) its
-        // ground, so hit-testing the art let a click land on a unit whose cells the cursor was
-        // nowhere near — and stole clicks aimed at whatever actually occupies the cell underneath.
-        // Attack targeting keeps its own body-first rule on the click path; only selection is
-        // ground-truth, so getUnitSpriteAtPosition stays for that path.
+        // OWNER CALL (2026-08-28): picking a unit — to SELECT it or to ATTACK it — goes by the CELLS it
+        // stands on, never by its drawn silhouette. A full-body sprite reaches well above (and, for the
+        // mounted class, past) its ground, so hit-testing the art let a click land on a unit whose cells
+        // the cursor was nowhere near, and stole clicks aimed at whatever actually occupies the cell
+        // underneath. The rule was first applied to selection and then extended to attack targeting, once
+        // the same sprite pick was found striking the wrong enemy.
         if (!FightStateManager.getInstance().getFightProperties().hasFightStarted()) {
             return this.getBenchUnitAtPosition(worldPos);
         }
@@ -6785,21 +6772,20 @@ export class Sandbox extends PixiScene {
                     // swallowed the click: targetUnit came back as your own unit, the enemy test below
                     // failed, and the attack was abandoned with nothing drawn, logged or sent. Hover reads
                     // cell occupancy and so still promised the attack — which is why it looked random.
-                    // The pointer resolve WINS when it produced one. It is the same call that decided the
-                    // sword cursor, and it is the engine-validated answer (melee target set, adjacency,
-                    // cowardice, forced target), so taking its target is what makes the click act on the
-                    // attack the cursor promised. Deriving a second, independent target here is what broke
-                    // it: getUnitSpriteAtPosition returns the FRONTMOST overlapping sprite and excludes only
-                    // the acting unit, so a third creature whose tall art reaches over the clicked cell won
-                    // the pick — and then either the adjacency guard below refused the stale attackFrom, or
-                    // the enemy test failed outright on an ally. Both abandoned the click in silence: no
-                    // strike, no message, no action sent for the server to reject. That is the "attack
-                    // cursor showed but the click did nothing, from time to time" report. The sprite/
-                    // occupancy pick stays as the fallback for everything the melee resolve does not cover
-                    // (ranged, spell-less clicks on a body outside the melee target set).
+                    // OWNER CALL (2026-08-28): a unit is attacked by clicking THE CELLS IT STANDS ON,
+                    // never its drawn silhouette — the same rule selection follows. Art overhangs its
+                    // ground (about a cell and a half up from the foot line, ~1.7 cells wide for the wide
+                    // portraits), so hit-testing the sprite aimed the strike at whatever was drawn over
+                    // the cell rather than what occupies it: clicking a Crusader struck the Troglodyte
+                    // beside it (test server game 40a72b86), and when the mis-picked body was not adjacent
+                    // the guard below dropped the click with no strike, no message and no request at all.
+                    //
+                    // So the target comes from the melee resolve — the same engine-validated call that
+                    // decided the sword cursor, which is what makes the click land the attack the cursor
+                    // promised — and otherwise from grid occupancy under the pointer. Nothing here reads
+                    // the sprite.
                     const targetUnit =
                         pointerMeleeAttack?.target ??
-                        this.getUnitSpriteAtPosition(p, this.currentActiveUnit.getId()) ??
                         (occupantId ? this.unitsHolder.getAllUnits().get(occupantId) : undefined);
                     if (targetUnit) {
                         if (targetUnit.getTeam() !== this.currentActiveUnit.getTeam()) {
