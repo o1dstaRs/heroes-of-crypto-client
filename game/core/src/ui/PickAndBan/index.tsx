@@ -40,17 +40,8 @@ import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBa
 import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import { getDoctrineCopy } from "../doctrineCopy";
-import { ArrowShieldIcon } from "../svg/arrow_shield";
-import { BootIcon } from "../svg/boot";
-import { FistIcon } from "../svg/fist";
-import { HeartIcon } from "../svg/heart";
-import { MagicShieldIcon } from "../svg/magic_shield";
-import { QuiverIcon } from "../svg/quiver";
-import { ShieldIcon } from "../svg/shield";
-import { ShotRangeIcon } from "../svg/shot_range";
-import { InitiativeIcon } from "../svg/initiative";
-import { SwordIcon } from "../svg/sword";
 import { MapBadge, MapRevealModal } from "./MapReveal";
+import { PickLanternFire } from "./PickLanternFire";
 import { Timer } from "./Timer";
 import { draftAttackIconKind } from "./attackTypeIcon";
 import { boardFootprintLabel } from "./boardFootprintLabel";
@@ -58,8 +49,9 @@ import { isAugmentHandoffPhase, shouldShowOpponentDraftRail } from "./draftPhase
 
 const images = rawImages as Record<string, string>;
 const watchedEyeImage = images.pick_phase_watched_eye;
-const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v7;
+const draftBackgroundImage = images.pick_phase_heroic_hearth_tavern_background_v10;
 const pickCommitTextureImage = images.ui_draft_action_stone_texture_v1;
+const fullscreenControlImage = images.ui_control_fullscreen_forged_bronze_v1;
 const OPPONENT_ARMY_BACKGROUND = "linear-gradient(90deg, rgba(31,5,8,.65), rgba(68,8,13,.55) 50%, rgba(31,5,8,.65))";
 const OPPONENT_ARMY_TEXT_COLOR = "#f0e7e9";
 
@@ -92,6 +84,7 @@ const creatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMA
 
 interface CreatureFullConfig {
     name: string;
+    exp: number;
     hp: number;
     attack: number;
     attack_damage_min: number;
@@ -111,6 +104,10 @@ interface CreatureFullConfig {
     footprint_height?: number;
     abilities?: string[];
 }
+
+const STARTING_STACK_EXPERIENCE_BUDGET = 1000;
+const startingStackAmount = (config: CreatureFullConfig): number =>
+    config.exp > 0 ? Math.max(1, Math.ceil(STARTING_STACK_EXPERIENCE_BUDGET / config.exp)) : 1;
 
 // Index every creature by name once (creatures.json is faction -> { name -> config }, plus a version key).
 const creatureConfigByName: Map<string, { faction: string; config: CreatureFullConfig }> = (() => {
@@ -143,6 +140,32 @@ const abilityDescription = (abilityName: string): string => {
     }
 };
 
+const BoardFootprintIcon: React.FC<{ width: number; height: number }> = ({ width, height }) => {
+    const cells = [
+        [2, 2, 0, 0],
+        [13, 2, 1, 0],
+        [2, 13, 0, 1],
+        [13, 13, 1, 1],
+    ] as const;
+    return (
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+            {cells.map(([x, y, column, row]) => (
+                <rect
+                    key={`${x}-${y}`}
+                    x={x}
+                    y={y}
+                    width="9"
+                    height="9"
+                    rx="1.5"
+                    fill={column < width && row < height ? "#b98532" : "rgba(185,133,50,.10)"}
+                    stroke={column < width && row < height ? "#f0c777" : "rgba(240,199,119,.42)"}
+                    strokeWidth="1.2"
+                />
+            ))}
+        </svg>
+    );
+};
+
 const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label: string }> = ({
     icon,
     value,
@@ -159,10 +182,20 @@ const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label:
                 borderRadius: "12px",
                 bgcolor: "rgba(255,255,255,0.05)",
                 minWidth: 0,
-                "& svg": { width: 22, height: 22, flex: "0 0 auto" },
+                "& svg": { width: 26, height: 26, flex: "0 0 auto" },
             }}
         >
-            {icon}
+            {typeof icon === "string" ? (
+                <Box
+                    component="img"
+                    src={icon}
+                    alt=""
+                    aria-hidden
+                    sx={{ width: 28, height: 28, flex: "0 0 auto", objectFit: "contain" }}
+                />
+            ) : (
+                icon
+            )}
             <Typography sx={{ fontSize: 19, fontWeight: 700, color: "#efe4cc", whiteSpace: "nowrap" }}>
                 {value}
             </Typography>
@@ -173,7 +206,7 @@ const StatChip: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label:
 // Top readout showing the currently inspected (hovered) creature's stats + abilities, so players can read
 // what a unit does before picking it. The header always reserves its space; revealing it must not shove the
 // hovered portrait away from the cursor.
-const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) => {
+export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) => {
     if (!creatureId) {
         return null;
     }
@@ -186,6 +219,9 @@ const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) =
     // inapplicable mechanic look like a real zero-valued stat (for example on Berserker).
     const usesShotDistance = c.attack_type === "RANGE" && c.shot_distance > 0;
     const usesShots = c.attack_type === "RANGE" && c.range_shots > 0;
+    const footprintWidth = c.footprint_width ?? c.size;
+    const footprintHeight = c.footprint_height ?? c.size;
+    const amount = startingStackAmount(c);
     const img = creatureImage(creatureId);
     const abilities = (c.abilities ?? []).filter(Boolean);
     // A lone passive gets the 108px hero treatment; two use 94px each. Additional passives share this
@@ -215,17 +251,49 @@ const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) =
             }}
         >
             {img && (
-                <CreaturePortraitImage
-                    creatureId={creatureId}
-                    alt={c.name}
+                <Box
+                    aria-label={`${c.name}: ${amount}`}
                     sx={{
                         width: "92px",
                         height: "124px",
                         borderRadius: "7px",
                         border: "2px solid rgba(255,255,255,.18)",
                         flex: "0 0 auto",
+                        overflow: "hidden",
+                        position: "relative",
                     }}
-                />
+                >
+                    <CreaturePortraitImage
+                        creatureId={creatureId}
+                        alt={c.name}
+                        sx={{ width: "100%", height: "100%", zIndex: 1, isolation: "isolate" }}
+                    />
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            zIndex: 2,
+                            height: 31,
+                            display: "grid",
+                            placeItems: "center",
+                            color: "#efe4cc",
+                            fontSize: 19,
+                            fontWeight: 700,
+                            fontVariantNumeric: "tabular-nums",
+                            lineHeight: 1,
+                            textShadow: "0 1px 2px #000, 0 0 3px #000",
+                            background:
+                                "linear-gradient(180deg, rgba(8,7,6,0) 0%, rgba(8,7,6,.78) 34%, rgba(8,7,6,.96) 100%)",
+                            pointerEvents: "none",
+                        }}
+                    >
+                        <Box component="span" sx={{ transform: "translateY(4.1px)" }}>
+                            {amount}
+                        </Box>
+                    </Box>
+                </Box>
             )}
             <Box sx={{ flex: "0 0 168px", width: 168, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 30, fontWeight: 700, color: "#efe4cc", lineHeight: 1.1 }}>
@@ -245,22 +313,44 @@ const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creatureId }) =
                     gap: "8px",
                 }}
             >
-                <StatChip icon={<HeartIcon />} label={t("Hit points")} value={`${c.hp}/${c.hp}`} />
+                <StatChip icon={images.stat_health_gold_v2} label={t("Hit points")} value={`${c.hp}/${c.hp}`} />
                 <StatChip
-                    icon={<FistIcon />}
+                    icon={images.stat_damage_gold_v2}
                     label={t("Damage")}
                     value={`${c.attack_damage_min} - ${c.attack_damage_max}`}
                 />
-                <StatChip icon={<SwordIcon />} label={t("Attack")} value={c.attack} />
+                <StatChip
+                    icon={
+                        c.attack_type === "RANGE" ? images.stat_ranged_attack_gold_v2 : images.stat_melee_attack_gold_v2
+                    }
+                    label={t("Attack")}
+                    value={c.attack}
+                />
                 {usesShotDistance && (
-                    <StatChip icon={<ShotRangeIcon />} label={t("Shot distance")} value={c.shot_distance} />
+                    <StatChip
+                        icon={images.stat_shot_range_gold_v2_arc}
+                        label={t("Shot distance")}
+                        value={c.shot_distance}
+                    />
                 )}
-                {usesShots && <StatChip icon={<QuiverIcon />} label={t("Shots")} value={c.range_shots} />}
-                <StatChip icon={<ShieldIcon />} label={t("Armor")} value={c.armor} />
-                <StatChip icon={<MagicShieldIcon />} label={t("Magic resist")} value={`${c.magic_resist}%`} />
-                <StatChip icon={<ArrowShieldIcon />} label={t("Size on the board")} value={boardFootprintLabel(c)} />
-                <StatChip icon={<InitiativeIcon />} label={t("Initiative")} value={c.initiative} />
-                <StatChip icon={<BootIcon />} label={t("Movement steps")} value={c.steps} />
+                {usesShots && <StatChip icon={images.stat_ammo_gold_v2} label={t("Shots")} value={c.range_shots} />}
+                <StatChip icon={images.stat_armor_gold_v2} label={t("Armor")} value={c.armor} />
+                <StatChip
+                    icon={images.stat_magic_resist_gold_v2}
+                    label={t("Magic resist")}
+                    value={`${c.magic_resist}%`}
+                />
+                <StatChip
+                    icon={<BoardFootprintIcon width={footprintWidth} height={footprintHeight} />}
+                    label={t("Size on the board")}
+                    value={boardFootprintLabel(c)}
+                />
+                <StatChip icon={images.stat_initiative_gold_v2} label={t("Initiative")} value={c.initiative} />
+                <StatChip
+                    icon={c.movement_type === "FLY" ? images.stat_fly_gold_v2 : images.stat_walk_gold_v2}
+                    label={t("Movement steps")}
+                    value={c.steps}
+                />
             </Box>
             <>
                 <Divider orientation="vertical" sx={{ display: { xs: "none", lg: "block" } }} />
@@ -688,8 +778,10 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                     bgcolor: "transparent",
                                     border: "2px solid rgba(145,104,67,.82)",
                                     color: labelColor,
-                                    boxShadow:
-                                        "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.28), 0 2px 5px rgba(0,0,0,.5)",
+                                    filter: done ? "grayscale(1)" : "none",
+                                    boxShadow: active
+                                        ? "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.28), 0 0 8px rgba(255,211,100,.98), 0 0 18px rgba(237,159,39,.82), 0 2px 5px rgba(0,0,0,.55)"
+                                        : "inset 0 0 0 1px rgba(12,9,7,.95), inset 0 0 0 3px rgba(79,68,58,.28), 0 2px 5px rgba(0,0,0,.5)",
                                     isolation: "isolate",
                                     "&::before": {
                                         content: '""',
@@ -699,12 +791,8 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                         inset: 2,
                                         borderRadius: "6px",
                                         zIndex: -1,
-                                        background: active
-                                            ? "rgba(213,170,83,.64)"
-                                            : done
-                                              ? "rgba(69,72,74,.5)"
-                                              : "rgba(17,16,15,.82)",
-                                        boxShadow: active ? "0 0 7px rgba(222,174,77,.3)" : "none",
+                                        background: done ? "rgba(69,72,74,.5)" : "rgba(17,16,15,.82)",
+                                        boxShadow: "none",
                                     },
                                     "&::after": {
                                         content: '""',
@@ -715,7 +803,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                         borderRadius: "8px",
                                         border: "1px solid rgba(52,44,38,.92)",
                                         boxShadow: "inset 0 1px 0 rgba(224,174,99,.18)",
-                                        filter: active ? "brightness(1.25)" : done ? "sepia(.25)" : "brightness(.8)",
+                                        filter: done ? "sepia(.25)" : "brightness(.8)",
                                     },
                                 }}
                             >
@@ -768,7 +856,7 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                                 mt: "12px",
                                 position: "relative",
                                 opacity: done ? 1 : 0.62,
-                                filter: done ? "drop-shadow(0 0 3px rgba(224,169,83,.28))" : "none",
+                                filter: done ? "grayscale(1) drop-shadow(0 0 3px rgba(190,190,190,.22))" : "none",
                                 "&::before": {
                                     content: '""',
                                     position: "absolute",
@@ -852,30 +940,20 @@ export const DraftBottomControls: React.FC<{
                         display: "grid",
                         placeItems: "center",
                         cursor: "pointer",
-                        color: "#dcb158",
                         bgcolor: "transparent",
+                        backgroundImage: `url(${fullscreenControlImage})`,
+                        backgroundPosition: "center",
+                        backgroundRepeat: "no-repeat",
+                        backgroundSize: "contain",
                         border: 0,
-                        "&:hover": { color: "#f1cf76", bgcolor: "transparent" },
+                        transition: "filter 140ms ease, transform 140ms ease",
+                        "&:hover": {
+                            bgcolor: "transparent",
+                            filter: "brightness(1.12)",
+                            transform: "scale(1.06)",
+                        },
                     }}
-                >
-                    <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                    >
-                        {isFullscreen ? (
-                            <path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M9 21v-3a2 2 0 0 0-2-2H4M15 21v-3a2 2 0 0 1 2-2h3" />
-                        ) : (
-                            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
-                        )}
-                    </svg>
-                </Box>
+                />
             </Tooltip>
         </>
     );
@@ -898,6 +976,9 @@ const FLY_ICON_DISPLAY_SCALE = 220 / 170;
 const CREATURE_TILE_DISPLAY_SCALE = 0.99;
 const CREATURE_PORTRAIT_FILL_SCALE = 1.019;
 const BAN_SLASH_FRAME_COUNT = 14;
+const BAN_SLASH_AXIS_DEGREES = -53.4;
+const BAN_SLASH_LENGTH_SCALE = 1.28;
+const BAN_SLASH_LENGTH_TRANSFORM = `rotate(${BAN_SLASH_AXIS_DEGREES}deg) scaleX(${BAN_SLASH_LENGTH_SCALE}) rotate(${-BAN_SLASH_AXIS_DEGREES}deg)`;
 
 // Attack and movement use the same matching silver pictogram set. Muted cards carry the same visual
 // weight as their dimmed captions, so a banned creature cannot keep a bright class icon.
@@ -981,6 +1062,7 @@ const CreaturePortrait: React.FC<{
     onInspectEnd,
 }) => {
     const selectable = state === "available" && !disabled && !!onClick;
+    const unavailable = state === "banned" || state === "taken";
     const ring = pending ? "#3B9B5C" : state === "picked" ? "#3B9B5C" : "rgba(255,255,255,0.18)";
     const config = creatureFullConfig(creatureId)?.config;
     const src = creatureImage(creatureId);
@@ -1006,7 +1088,7 @@ const CreaturePortrait: React.FC<{
                 maxHeight: fill ? `${CREATURE_PORTRAIT_FILL_SCALE * 100}%` : undefined,
                 alignSelf: fill ? "center" : undefined,
                 borderRadius: "10px",
-                overflow: "hidden",
+                overflow: "visible",
                 border: `2px solid ${ring}`,
                 cursor: selectable ? "pointer" : "default",
                 opacity: 1,
@@ -1038,14 +1120,14 @@ const CreaturePortrait: React.FC<{
                 <CreaturePortraitImage
                     creatureId={creatureId}
                     alt={creatureName(creatureId)}
-                    sx={{ width: "100%", height: "100%" }}
-                    imageStyle={{
-                        filter: state === "banned" || state === "taken" ? "grayscale(1)" : "none",
-                        // A committed creature keeps its artwork fully opaque. Dimming the foreground
-                        // while leaving the environment at full strength made the background appear to
-                        // sit on top of translucent characters (most visibly on Berserker). The green
-                        // frame/check already communicates the picked state; only unavailable cards dim.
-                        opacity: state === "banned" || state === "taken" ? 0.5 : 1,
+                    sx={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "8px",
+                        zIndex: 1,
+                        isolation: "isolate",
+                        filter: unavailable ? "grayscale(1)" : "none",
+                        opacity: unavailable ? 0.5 : 1,
                     }}
                 />
             ) : (
@@ -1064,6 +1146,9 @@ const CreaturePortrait: React.FC<{
                         isolation: "isolate",
                         minWidth: 0,
                         minHeight: 24,
+                        borderBottomLeftRadius: "8px",
+                        borderBottomRightRadius: "8px",
+                        overflow: "hidden",
                         px: 0.7,
                         display: "flex",
                         alignItems: "center",
@@ -1121,7 +1206,7 @@ const CreaturePortrait: React.FC<{
                     sx={{
                         position: "absolute",
                         inset: 0,
-                        zIndex: 2,
+                        zIndex: 4,
                         pointerEvents: "none",
                         borderRadius: "8px",
                         backgroundImage: `url(${images.pick_ban_slash_variant2_atlas})`,
@@ -1129,6 +1214,8 @@ const CreaturePortrait: React.FC<{
                         backgroundSize: `${BAN_SLASH_FRAME_COUNT * 100}% 100%`,
                         backgroundPosition: "0% 0",
                         animation: `hocBanSlashCut 580ms steps(${BAN_SLASH_FRAME_COUNT - 1}, end) forwards`,
+                        transform: BAN_SLASH_LENGTH_TRANSFORM,
+                        transformOrigin: "center",
                         willChange: "background-position",
                         "@media (prefers-reduced-motion: reduce)": {
                             animation: "none",
@@ -1141,8 +1228,8 @@ const CreaturePortrait: React.FC<{
                 <Box
                     sx={{
                         position: "absolute",
-                        bottom: caption ? 24 : 2,
-                        right: 4,
+                        top: 5,
+                        right: 6,
                         zIndex: 4,
                         color: "#7CFC9B",
                         fontSize: 22,
@@ -2980,6 +3067,8 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
 
     return (
         <Sheet variant="solid" sx={draftShellSx}>
+            <PickLanternFire slot={0} />
+            <PickLanternFire slot={1} />
             {/* One fixed-size board. The shell around it only paints background, so enlarging the window
                 (or going fullscreen) adds empty background around this box and never reflows it. */}
             <Box sx={draftBoardSx(draftScale)} onMouseLeave={endInspect}>

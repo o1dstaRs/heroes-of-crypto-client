@@ -29,3 +29,7 @@ export const subscribeBattleSystemControls = (listener: Listener): (() => void) 
     listeners.add(listener);
     return () => listeners.delete(listener);
 };
+
+/** The master hint must disappear as soon as its fan opens, while child-button hints remain visible. */
+export const shouldShowSystemMenuLabel = (menuOpen: boolean, label: string | undefined): boolean =>
+    !!label && (!menuOpen || label !== "System controls");

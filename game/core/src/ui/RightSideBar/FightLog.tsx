@@ -522,7 +522,8 @@ export const FightLog = ({ text }: { text: string }) => {
                                                       "&::before": {
                                                           content: '""',
                                                           position: "absolute",
-                                                          left: "-3px",
+                                                          // Keep the turn node attached to its event and clear of leading icons.
+                                                          left: "10px",
                                                           top: "50%",
                                                           width: "5px",
                                                           height: "5px",

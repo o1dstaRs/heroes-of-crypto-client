@@ -30,6 +30,7 @@ import { useSocial } from "./SocialProvider";
 import {
     getBattleSystemControlsActive,
     getBattleSystemControlsServerSnapshot,
+    shouldShowSystemMenuLabel,
     subscribeBattleSystemControls,
 } from "./systemControlsMode";
 import {
@@ -1222,7 +1223,7 @@ export const SocialDock: React.FC = () => {
                         </Box>
                     ) : null}
                 </Box>
-                {systemMenuLabel ? (
+                {systemMenuLabel && shouldShowSystemMenuLabel(systemMenuOpen, systemMenuLabel.text) ? (
                     <Box
                         aria-hidden="true"
                         sx={{

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { AttackVals } from "@heroesofcrypto/common";
 import { images } from "../../generated/image_imports";
 import type { IHoverInfo } from "../../scenes/VisibleState";
 import { usePixiManager } from "../../pixi/PixiGameManager";
@@ -31,23 +30,11 @@ const CURSOR_IMAGE: Record<CursorMode, string> = {
     magic: images.cursor_magic,
 };
 
-function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
-    // HoMM-style: the attack cursor only shows when actively aiming at an attackable enemy. The
-    // active unit's selected attack type then picks which attack cursor image (sword/bow/magic) to use.
+export function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
+    // Target highlights, trajectories and edge colours already communicate attack intent. Always retain
+    // the standard game pointer directly over the target so it never disappears or changes under the hand.
     if (hoverInfo?.isHoveringAttackTarget) {
-        const attackType = hoverInfo.attackType;
-        if (attackType === AttackVals.MELEE) {
-            return "melee";
-        }
-        if (attackType === AttackVals.RANGE) {
-            return "ranged";
-        }
-        if (attackType === AttackVals.MAGIC || attackType === AttackVals.MELEE_MAGIC) {
-            return "magic";
-        }
-        // Attack target hovered but attack type not reported (e.g. a spell-target hover): show melee
-        // sword as a generic "attack/aim" cursor rather than falling back to default.
-        return "melee";
+        return "default";
     }
     // Hovering any other (non-attackable) unit reads as "interactive" — inspect / potential target.
     if (hoverInfo?.unitName) {
@@ -56,10 +43,7 @@ function resolveCursorMode(hoverInfo: IHoverInfo | undefined): CursorMode {
     return "default";
 }
 
-function cursorCss(mode: CursorMode): string {
-    // The board renders the directional sword itself. Keeping a second OS sword/arrow over it produces
-    // two competing markers, so the native cursor disappears for exactly the duration of a melee aim.
-    if (mode === "melee") return "none";
+export function cursorCss(mode: CursorMode): string {
     const hot = CURSOR_HOTSPOT[mode];
     return `url("${CURSOR_IMAGE[mode]}") ${hot.x} ${hot.y}, auto`;
 }
@@ -85,17 +69,8 @@ export function useGameCursor(): void {
     useEffect(() => {
         const mode = resolveCursorMode(hoverInfo);
         document.body.style.cursor = cursorCss(mode);
-        let hiddenCursorStyle: HTMLStyleElement | undefined;
-        if (mode === "melee") {
-            // Child controls can declare their own cursor and override an inherited body value. The
-            // temporary rule guarantees that the system pointer stays hidden over every canvas layer.
-            hiddenCursorStyle = document.createElement("style");
-            hiddenCursorStyle.textContent = "body, body * { cursor: none !important; }";
-            document.head.appendChild(hiddenCursorStyle);
-        }
         return () => {
             document.body.style.cursor = "";
-            hiddenCursorStyle?.remove();
         };
     }, [hoverInfo]);
 }
