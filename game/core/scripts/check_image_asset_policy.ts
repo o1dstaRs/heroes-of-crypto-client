@@ -1,15 +1,10 @@
-import path from "node:path";
-
+import { resolveImagesLocation } from "../src/assetLocations";
 import { findGameImageAssetViolations, MAX_STATIC_GAME_IMAGE_BYTES } from "../src/gameImageAssetPolicy";
 
 if (import.meta.main) {
-    const localImageDirectory = path.resolve(import.meta.dir, "../../../../heroesofcrypto-assets/images");
-    const configuredImageDirectory = process.env.HOC_IMAGES_LOC;
-    const imageDirectory =
-        process.argv[2] ||
-        (configuredImageDirectory && !configuredImageDirectory.includes("Dropbox")
-            ? configuredImageDirectory
-            : localImageDirectory);
+    // Always the configured art source: this gate spent its whole life checking a directory that did
+    // not exist, so it reports which directory it read rather than passing quietly.
+    const imageDirectory = resolveImagesLocation(process.env, process.argv[2]);
 
     const violations = await findGameImageAssetViolations(imageDirectory);
     if (violations.length > 0) {
@@ -21,6 +16,7 @@ if (import.meta.main) {
     }
 
     console.log(
-        `Local game image policy passed: WebP-only static images at or below ${MAX_STATIC_GAME_IMAGE_BYTES} bytes.`,
+        `Local game image policy passed for ${imageDirectory}: ` +
+            `WebP-only static images at or below ${MAX_STATIC_GAME_IMAGE_BYTES} bytes.`,
     );
 }

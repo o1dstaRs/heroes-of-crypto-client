@@ -16,14 +16,11 @@ function sha256(file) {
     return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 }
 
-// Root directory where all meta.jsons live (you can override via CLI)
-const localAnimationsRoot = path.resolve(__dirname, "../../../../heroesofcrypto-assets/animations/output");
-const configuredAnimationsRoot = process.env.HOC_ANIMATIONS_LOC;
-const animationsRoot =
-    process.argv[2] ||
-    (configuredAnimationsRoot && !configuredAnimationsRoot.includes("Dropbox")
-        ? path.join(configuredAnimationsRoot, "output")
-        : localAnimationsRoot);
+// Root directory where all meta.jsons live: always HOC_ANIMATIONS_LOC, or an explicit CLI override.
+// See src/assetLocations.ts for why there is no fallback path here.
+const { resolveAnimationsOutputLocation } = require("../src/assetLocations");
+
+const animationsRoot = resolveAnimationsOutputLocation(process.env, process.argv[2]);
 
 // TARGET IMAGES DIR: ../images from this script location
 const imagesDir = path.resolve(__dirname, "../images");
