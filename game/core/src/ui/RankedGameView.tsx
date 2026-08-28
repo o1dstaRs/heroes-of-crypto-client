@@ -120,6 +120,7 @@ import {
     isRankedBoardPlacementStage,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
+    shouldShowRankedAugmentPicker,
     shouldShowRankedPlacementRosters,
 } from "./rankedPlacementStage";
 import { syncRankedSnapshotSynergies } from "./rankedSynergySync";
@@ -2740,6 +2741,50 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         pointsRemaining: 1,
         allSynergiesSelected: false,
     });
+    // The committed augment build, straight from the authoritative snapshot. Shared by the Setup step's
+    // full-screen picker and the sidebar picker below so the two can never describe different builds.
+    const augmentAuthoritativeSelections = useMemo(
+        () => ({
+            placement:
+                (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentPlacement : snapshot.upperAugmentPlacement) ?? 0,
+            armor: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentArmor : snapshot.upperAugmentArmor) ?? 0,
+            might: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentMight : snapshot.upperAugmentMight) ?? 0,
+            empower: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentEmpower : snapshot.upperAugmentEmpower) ?? 0,
+            sniper: (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentSniper : snapshot.upperAugmentSniper) ?? 0,
+            movement:
+                (userTeam === TeamVals.LOWER ? snapshot.lowerAugmentMovement : snapshot.upperAugmentMovement) ?? 0,
+        }),
+        [
+            userTeam,
+            snapshot.lowerAugmentPlacement,
+            snapshot.upperAugmentPlacement,
+            snapshot.lowerAugmentArmor,
+            snapshot.upperAugmentArmor,
+            snapshot.lowerAugmentMight,
+            snapshot.upperAugmentMight,
+            snapshot.lowerAugmentEmpower,
+            snapshot.upperAugmentEmpower,
+            snapshot.lowerAugmentSniper,
+            snapshot.upperAugmentSniper,
+            snapshot.lowerAugmentMovement,
+            snapshot.upperAugmentMovement,
+        ],
+    );
+    /**
+     * Augments stay adjustable in the sidebar while you position the board.
+     *
+     * The SERVER has always allowed this — validateAction gates AUGMENT only on team ownership, and
+     * play_session says so outright: "Setup choices (augments/synergies) stay EDITABLE through the board
+     * stage — a player may re-spend their points while positioning, right up until their own board-ready",
+     * noting that "the client hides those controls after ready, so only the UI was holding the rule up".
+     * When the augment step became its own screen the sidebar was left with a read-only recap, which took
+     * that ability away for no reason on the server's side. This puts the picker back beside the board.
+     *
+     * Not shown while the Setup step's own full-screen picker is up (that would be two live pickers on one
+     * build), and it collapses to the read-only recap once you lock in — which is exactly where the server
+     * stops accepting changes.
+     */
+    const augmentsEditableInSidebar = shouldShowRankedAugmentPicker(snapshot, augmentOverlayOpen, isObserver, ready);
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
     const augmentInspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const cancelAugmentInspectEnd = useCallback(() => {
@@ -2918,9 +2963,21 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                             RankedPlayScene.propagateAugmentation (the AUGMENT play-action); artifacts are
                             drafted in pick/ban (read-only above), so the sandbox-only artifact picker
                             stays hidden. */}
-                        {/* Augments are chosen on their OWN screen (the overlay below), like every other
-                            draft phase; the sidebar keeps a read-only recap of what was committed. */}
-                        <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                        {/* The Setup step picks augments on its own screen, but they stay EDITABLE while you
+                            position — so the sidebar carries the live picker until you lock in, then the
+                            read-only recap. See augmentsEditableInSidebar for why the server allows it. */}
+                        {augmentsEditableInSidebar ? (
+                            <SideToggleContainer
+                                side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                teamType={userTeam}
+                                showArtifactPicker={false}
+                                budgetPoints={augmentBudget}
+                                authoritativeSelections={augmentAuthoritativeSelections}
+                                onReadyChange={setAugmentReady}
+                            />
+                        ) : (
+                            <RankedAugmentSummary snapshot={snapshot} userTeam={userTeam} budget={augmentBudget} />
+                        )}
                         {/* The augment step is its own full screen, built like every draft phase before it:
                             same gradient, same 1340px column, army rails on top and the progress rail at the
                             bottom — not a dialog floating over the placement board. */}
@@ -3070,32 +3127,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                         teamType={userTeam}
                                                         showArtifactPicker={false}
                                                         budgetPoints={augmentBudget}
-                                                        authoritativeSelections={{
-                                                            placement:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentPlacement
-                                                                    : snapshot.upperAugmentPlacement) ?? 0,
-                                                            armor:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentArmor
-                                                                    : snapshot.upperAugmentArmor) ?? 0,
-                                                            might:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentMight
-                                                                    : snapshot.upperAugmentMight) ?? 0,
-                                                            empower:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentEmpower
-                                                                    : snapshot.upperAugmentEmpower) ?? 0,
-                                                            sniper:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentSniper
-                                                                    : snapshot.upperAugmentSniper) ?? 0,
-                                                            movement:
-                                                                (userTeam === TeamVals.LOWER
-                                                                    ? snapshot.lowerAugmentMovement
-                                                                    : snapshot.upperAugmentMovement) ?? 0,
-                                                        }}
+                                                        authoritativeSelections={augmentAuthoritativeSelections}
                                                         onReadyChange={setAugmentReady}
                                                     />
                                                 </Box>

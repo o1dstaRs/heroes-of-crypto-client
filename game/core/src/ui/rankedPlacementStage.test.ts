@@ -5,6 +5,7 @@ import {
     isRankedBoardPlacementStage,
     rankedPlacementLockActionType,
     shouldHideRankedSetupOpponentRoster,
+    shouldShowRankedAugmentPicker,
     shouldShowRankedPlacementRosters,
 } from "./rankedPlacementStage";
 
@@ -110,5 +111,36 @@ describe("ranked board placement stage (fail-open)", () => {
         // The old `=== 1` gate stripped the READY footer from any later board sub-stage,
         // leaving no confirm control on screen at all. Fail open instead.
         expect(isRankedBoardPlacementStage({ placementSplit: true, placementStage: 2 })).toBe(true);
+    });
+});
+
+/**
+ * Augments must stay adjustable in the sidebar while positioning — the regression this pins is that the
+ * ability silently vanished when the augment step became its own screen, even though the SERVER never
+ * stopped accepting the change (validateAction gates AUGMENT on team ownership alone, and play_session
+ * says setup choices "stay EDITABLE through the board stage ... right up until their own board-ready").
+ */
+describe("shouldShowRankedAugmentPicker", () => {
+    const placement = { phase: PlayPhase.PLACEMENT };
+
+    test("shows the live picker while positioning the board", () => {
+        expect(shouldShowRankedAugmentPicker(placement, false, false, false)).toBe(true);
+    });
+
+    test("stays hidden behind the Setup step's own full-screen picker", () => {
+        // Two live pickers on one build would let the same points be spent twice over.
+        expect(shouldShowRankedAugmentPicker(placement, true, false, false)).toBe(false);
+    });
+
+    test("collapses to the recap once the player locks in, which is where the server stops accepting", () => {
+        expect(shouldShowRankedAugmentPicker(placement, false, false, true)).toBe(false);
+    });
+
+    test("never offers picking to an observer", () => {
+        expect(shouldShowRankedAugmentPicker(placement, false, true, false)).toBe(false);
+    });
+
+    test("is placement-only — never during the fight", () => {
+        expect(shouldShowRankedAugmentPicker({ phase: PlayPhase.PLAY }, false, false, false)).toBe(false);
     });
 });
