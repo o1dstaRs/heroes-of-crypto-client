@@ -447,6 +447,7 @@ const abilityTileSize = (metrics: ISidebarMetrics): number =>
 // constrained to this size by the four-slot calculation; this cap only prevents a wider browser-window
 // sidebar from inflating effects up to the original ability-tile size.
 const EFFECT_TO_ABILITY_RATIO = 0.71;
+const EFFECT_TILE_SCALE = 0.94;
 const EFFECT_TILE_BORDER_PX = 2;
 
 // Buffs and debuffs use four fixed slots across the expanded sidebar. Their wells keep a fixed layout
@@ -456,7 +457,7 @@ const effectTileSize = (metrics: ISidebarMetrics): number => {
     const innerInset = Math.max(6, Math.round(metrics.padPx * 0.32) + 4);
     const fourAcrossSize = Math.floor((metrics.contentWidth - innerInset - tileGap * 3) / 4);
     const proportionalSize = Math.round(baseAbilityTileSize(metrics) * EFFECT_TO_ABILITY_RATIO);
-    return Math.max(24, Math.min(fourAcrossSize, proportionalSize));
+    return Math.max(24, Math.round(Math.min(fourAcrossSize, proportionalSize) * EFFECT_TILE_SCALE));
 };
 
 const AbilityCell: React.FC<{

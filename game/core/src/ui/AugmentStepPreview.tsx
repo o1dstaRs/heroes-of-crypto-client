@@ -28,6 +28,7 @@ import {
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
     DraftBottomControls,
+    CreatureDetailPanel,
     DraftTitle,
     MyDraftBar,
     OpponentDraftBar,
@@ -37,6 +38,7 @@ import {
     draftShellSx,
     useDraftScale,
 } from "./PickAndBan";
+import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import { MapBadge } from "./PickAndBan/MapReveal";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 
@@ -84,6 +86,7 @@ export const AugmentStepPreview: React.FC = () => {
 
     const draftScale = useDraftScale();
     const [ready, setReady] = useState(false);
+    const [inspectedCreatureId, setInspectedCreatureId] = useState(0);
     const [pointsRemaining, setPointsRemaining] = useState(budgetPoints);
     // SideToggleContainer re-runs its report effect whenever this identity changes, so it has to be stable.
     const onReadyChange = useCallback(
@@ -103,6 +106,8 @@ export const AugmentStepPreview: React.FC = () => {
             <CssVarsProvider>
                 <CssBaseline />
                 <Box sx={draftShellSx}>
+                    <PickLanternFire slot={0} />
+                    <PickLanternFire slot={1} />
                     <Box sx={draftBoardSx(draftScale)}>
                         <Box
                             sx={{
@@ -117,7 +122,11 @@ export const AugmentStepPreview: React.FC = () => {
                                 overflow: "hidden",
                             }}
                         >
-                            <DraftTitle>Choose your augments</DraftTitle>
+                            {inspectedCreatureId ? (
+                                <CreatureDetailPanel creatureId={inspectedCreatureId} />
+                            ) : (
+                                <DraftTitle>Choose your augments</DraftTitle>
+                            )}
                         </Box>
                         <Stack
                             direction="row"
@@ -139,6 +148,8 @@ export const AugmentStepPreview: React.FC = () => {
                                 artifactTier1={1}
                                 artifactTier2={1}
                                 gameId="augment-step-preview"
+                                onInspect={setInspectedCreatureId}
+                                onInspectEnd={() => setInspectedCreatureId(0)}
                             />
                             <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
                                 <MapBadge mapType={mapType} />
@@ -148,6 +159,8 @@ export const AugmentStepPreview: React.FC = () => {
                                 opponentLabel="Opponent"
                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
                                 gameId="augment-step-preview"
+                                onInspect={setInspectedCreatureId}
+                                onInspectEnd={() => setInspectedCreatureId(0)}
                             />
                         </Stack>
                         <Box

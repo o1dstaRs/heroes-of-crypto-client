@@ -1036,21 +1036,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
 
                         {/* Casualty rosters remain pinned to the bottom. */}
                         <Box sx={{ flexShrink: 0 }}>
-                            {/* "1px", not 1: MUI reads a unitless height <= 1 as a fraction, so
-                                `height: 1` is 100%. Harmless while the parent was auto-height, but the
-                                parent has a definite height now and the rule would blow it up to fill. */}
-                            <Box
-                                sx={{
-                                    position: "relative",
-                                    height: "1.8px",
-                                    my: 2,
-                                    background:
-                                        "linear-gradient(90deg, transparent, rgba(53,47,42,.6) 6%, rgba(73,59,47,.65) 50%, rgba(53,47,42,.6) 94%, transparent)",
-                                    boxShadow: "0 2px 8px rgba(0,0,0,.34), 0 -1px 0 rgba(0,0,0,.94)",
-                                }}
-                            />
-
-                            <Stack direction="row" spacing={3}>
+                            <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
                                 <CasualtyColumn
                                     team={TeamVals.LOWER as TeamType}
                                     deaths={stats.lowerDeaths}

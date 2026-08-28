@@ -71,6 +71,7 @@ import {
     DRAFT_HEADER_HEIGHT,
     DRAFT_ZONE_GAP,
     DraftBottomControls,
+    CreatureDetailPanel,
     draftBoardSx,
     draftShellSx,
     DraftTitle,
@@ -80,15 +81,18 @@ import {
     PickCommitButton,
     useDraftScale,
 } from "./PickAndBan";
+import { PickLanternFire } from "./PickAndBan/PickLanternFire";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
-import { RankedFinishedActions } from "./RankedFinishedActions";
+import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 import { ButtonProvider } from "./context/ButtonContext";
+import { exitFightButtonSx } from "./exitFightButtonSx";
+import { useFullscreenActive } from "./useFullscreenActive";
 import { ViewerTeamContext } from "./context/ViewerTeamContext";
 import {
     hocColors,
@@ -262,9 +266,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState(replayOnly ? "Loading replay" : "Connecting");
     const [error, setError] = useState("");
-    // Top-left "Play another" post-match action state (see RankedFinishedActions).
-    const [playAnotherBusy, setPlayAnotherBusy] = useState(false);
-    const [playAnotherError, setPlayAnotherError] = useState("");
     // The game no longer exists on the server (cleaned up on restart, or a DB lookup failed → the API
     // returns "Game not found"). We render a plain "not available" screen instead of the stale board.
     const [gameUnavailable, setGameUnavailable] = useState(false);
@@ -805,27 +806,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
         }
         throw lastError instanceof Error ? lastError : new Error("Unable to start an AI match");
     }, [navigate]);
-    // Top-left "Play another": start a fresh ranked game. A vs-AI match starts another default-AI game;
-    // a human match has no instant rematch, so route to the game-type selection (/play) where
-    // Find Opponent / Play vs AI live.
-    const handlePlayAnother = useCallback(async () => {
-        if (playAnotherBusy) {
-            return;
-        }
-        setPlayAnotherError("");
-        if (!isVsAiMatch) {
-            navigate("/play");
-            return;
-        }
-        setPlayAnotherBusy(true);
-        try {
-            await handlePlayAgainVsAi();
-        } catch (err) {
-            // On success handlePlayAgainVsAi navigates away; only a failure lands here.
-            setPlayAnotherBusy(false);
-            setPlayAnotherError(err instanceof Error ? err.message : "Unable to start another match");
-        }
-    }, [handlePlayAgainVsAi, isVsAiMatch, navigate, playAnotherBusy]);
     const selectedUnit = useMemo(
         () => snapshot?.units.find((unit) => unit.id === selectedUnitId),
         [selectedUnitId, snapshot],
@@ -837,6 +817,14 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
     const gameStarted =
         !!snapshot &&
         (snapshot.fightStarted || snapshot.phase === PlayPhase.PLAY || snapshot.phase === PlayPhase.FINISHED);
+
+    // Placement and combat share the compact top-right system-controls medallion. Publishing the whole
+    // ranked-board lifetime (rather than only the first combat turn) removes the three loose bottom-right
+    // social buttons during placement too.
+    useEffect(() => {
+        setBattleSystemControlsActive(true);
+        return () => setBattleSystemControlsActive(false);
+    }, []);
 
     // "Iron and Silk" runs from the match being found until the first turn. The route hands the flag over
     // once the board is up; from here it is simply "we have a board and the fight has not started", which is
@@ -1649,6 +1637,7 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
             currentUnit={currentUnit}
             embedded
             error={error}
+            gameId={gameId}
             gameStarted={gameStarted}
             ready={ready}
             selectedUnit={selectedUnit}
@@ -1734,21 +1723,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                             onBackToLobby={handleBackToLobby}
                         />
                     )}
-                    {/* Persistent top-left post-match actions for the participant: quick access after the
-                        results overlay is dismissed. Not shown to observers/replay (ExitReplayBadge covers those). */}
-                    {pixiReady &&
-                        gameStarted &&
-                        !isObserver &&
-                        !replayPlaybackActive &&
-                        (snapshot.phase === PlayPhase.FINISHED || snapshot.fightFinished) && (
-                            <RankedFinishedActions
-                                left={aiBadgeLeft(windowSize)}
-                                playAnotherBusy={playAnotherBusy}
-                                error={playAnotherError}
-                                onPlayAnother={handlePlayAnother}
-                                onHome={() => navigate("/play")}
-                            />
-                        )}
                 </CssVarsProvider>
                 <Main entry={RANKED_SCENE_ENTRY} />
                 <Popover />
@@ -1763,6 +1737,7 @@ interface RankedOverlayProps {
     currentUnit?: PlayUnitState;
     embedded?: boolean;
     error: string;
+    gameId: string;
     gameStarted: boolean;
     ready: boolean;
     selectedUnit?: PlayUnitState;
@@ -2568,7 +2543,7 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
 // action unmistakable against the dark sidebar material.
 const rankedReadyPlacementButtonSx = {
     ...hocSidebarImageButtonSx("neutral"),
-    width: "94%",
+    width: "100%",
     minWidth: 0,
     height: "39.48px",
     minHeight: "39.48px",
@@ -2584,8 +2559,8 @@ const rankedReadyPlacementButtonSx = {
     gap: 0,
     backgroundImage: `linear-gradient(rgba(24,92,39,.46),rgba(24,92,39,.46)), url(${images.ui_start_button_plate_trimmed})`,
     backgroundBlendMode: "color, normal",
-    boxShadow: "0 0 0 1px rgba(70,209,96,.48), 0 0 13px rgba(70,209,96,.42), 0 0 26px rgba(70,209,96,.16)",
-    filter: "brightness(.96) saturate(.94) drop-shadow(0 0 5px rgba(70,209,96,.3))",
+    boxShadow: "inset 0 0 0 1px rgba(0,0,0,.52), 0 3px 8px rgba(0,0,0,.42)",
+    filter: "brightness(.96) saturate(.94)",
     transition: "filter 140ms ease, transform 80ms ease, box-shadow 160ms ease",
     "&:hover:not(:disabled)": {
         backgroundColor: "transparent",
@@ -2599,7 +2574,7 @@ const rankedReadyPlacementButtonSx = {
         opacity: 0.68,
         color: "rgba(232,211,173,.72)",
         filter: "grayscale(.3) brightness(.82)",
-        boxShadow: "0 0 0 1px rgba(70,209,96,.32), 0 0 12px rgba(70,209,96,.28)",
+        boxShadow: "inset 0 0 0 1px rgba(0,0,0,.48), 0 2px 6px rgba(0,0,0,.38)",
     },
     "@keyframes hocRankedPlacementTimerBlink": {
         "0%, 100%": { opacity: 1 },
@@ -2683,6 +2658,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     currentUnit,
     embedded = false,
     error,
+    gameId,
     gameStarted,
     ready,
     selectedUnit,
@@ -2693,8 +2669,10 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
     userTeam,
     isObserver,
 }) => {
+    const isFullscreen = useFullscreenActive();
     const navigate = useNavigate();
     const [confirmExitOpen, setConfirmExitOpen] = useState(false);
+    const [augmentInspectedCreatureId, setAugmentInspectedCreatureId] = useState(0);
     // The doctrine sets the upgrade-point budget (5/6/7 via getUpgradePoints).
     const userDoctrineId = ((userTeam === TeamVals.LOWER ? snapshot?.lowerDoctrine : snapshot?.upperDoctrine) ||
         Doctrine.Doctrine.NO_DOCTRINE) as Doctrine.Doctrine;
@@ -2738,6 +2716,31 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
         allSynergiesSelected: false,
     });
     const setupComplete = augmentReady.pointsRemaining <= 0 && augmentReady.allSynergiesSelected;
+    const augmentInspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelAugmentInspectEnd = useCallback(() => {
+        if (augmentInspectTimer.current) {
+            clearTimeout(augmentInspectTimer.current);
+            augmentInspectTimer.current = null;
+        }
+    }, []);
+    const beginAugmentInspect = useCallback(
+        (creatureId: number) => {
+            cancelAugmentInspectEnd();
+            setAugmentInspectedCreatureId(creatureId);
+        },
+        [cancelAugmentInspectEnd],
+    );
+    const endAugmentInspect = useCallback(() => {
+        cancelAugmentInspectEnd();
+        augmentInspectTimer.current = setTimeout(() => setAugmentInspectedCreatureId(0), 90);
+    }, [cancelAugmentInspectEnd]);
+    useEffect(() => cancelAugmentInspectEnd, [cancelAugmentInspectEnd]);
+    useEffect(() => {
+        if (!augmentOverlayOpen) {
+            cancelAugmentInspectEnd();
+            setAugmentInspectedCreatureId(0);
+        }
+    }, [augmentOverlayOpen, cancelAugmentInspectEnd]);
 
     const confirmExitModal = (
         <Modal open={confirmExitOpen} onClose={() => !busy && setConfirmExitOpen(false)}>
@@ -2790,7 +2793,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     color="danger"
                     disabled={busy}
                     onClick={() => setConfirmExitOpen(true)}
-                    sx={{ width: "100%" }}
+                    sx={exitFightButtonSx(isFullscreen)}
                 >
                     EXIT FIGHT
                 </Button>
@@ -2910,9 +2913,11 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                 variant="plain"
                                 sx={{ ...draftShellSx, height: "100%", border: "none" }}
                             >
+                                <PickLanternFire slot={0} />
+                                <PickLanternFire slot={1} />
                                 {/* The same fixed 1340x800 board every draft phase uses, so this step is
                                     pixel-identical to the ones before it and only scales with the window. */}
-                                <Box sx={draftBoardSx(draftScale)}>
+                                <Box sx={draftBoardSx(draftScale)} onMouseLeave={endAugmentInspect}>
                                     {/* Show the shared placement countdown INSIDE the pop-up — the header chip is
                                     hidden behind this modal while the player picks augments/synergies. */}
                                     <Box
@@ -2927,8 +2932,14 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                             justifyContent: "center",
                                             overflow: "hidden",
                                         }}
+                                        onMouseEnter={cancelAugmentInspectEnd}
+                                        onMouseLeave={endAugmentInspect}
                                     >
-                                        <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                                        {augmentInspectedCreatureId ? (
+                                            <CreatureDetailPanel creatureId={augmentInspectedCreatureId} />
+                                        ) : (
+                                            <DraftTitle>{t("Choose your augments")}</DraftTitle>
+                                        )}
                                     </Box>
                                     {/* Setup always recaps the player's draft. Opponent visibility follows the
                                     snapshot's explicit policy: normal rail by default, privacy card when set. */}
@@ -2965,6 +2976,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                     ? snapshot.lowerArtifactTier2
                                                     : snapshot.upperArtifactTier2) ?? 0
                                             }
+                                            onInspect={beginAugmentInspect}
+                                            onInspectEnd={endAugmentInspect}
+                                            gameId={gameId}
                                         />
                                         {/* Same centred map sign the pick phases show between the armies. */}
                                         <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center" }}>
@@ -2982,6 +2996,9 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                     .map((unit) => unit.creatureId)}
                                                 opponentLabel={t("Opponent")}
                                                 watchedSlots={[0, 1, 2, 3, 4, 5]}
+                                                onInspect={beginAugmentInspect}
+                                                onInspectEnd={endAugmentInspect}
+                                                gameId={gameId}
                                             />
                                         )}
                                     </Stack>
