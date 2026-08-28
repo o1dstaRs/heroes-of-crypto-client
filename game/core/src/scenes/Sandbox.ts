@@ -915,6 +915,7 @@ export class Sandbox extends PixiScene {
             getGridSettings: () => this.sc_sceneSettings.getGridSettings(),
             texAny: (n) => this.texAny(n),
             attachToWorldRoot: (o, z) => this.attachToWorldRoot(o, z ?? 0),
+            attachToUnitDepthRoot: (o, z) => this.attachToUnitDepthRoot(o, z ?? 0),
         });
 
         // The grid type is already decided by now (the scene may open ON the mountain board without anyone
@@ -2304,6 +2305,16 @@ export class Sandbox extends PixiScene {
             worldRoot.addChild(obj);
         }
         if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
+        obj.zIndex = zIndex;
+    }
+    private attachToUnitDepthRoot(obj: Graphics | Sprite | Container | undefined, zIndex: number): void {
+        if (!obj) return;
+        const depthRoot = this.drawer.getUnitsContainer();
+        if (obj.parent !== depthRoot) {
+            obj.removeFromParent();
+            depthRoot.addChild(obj);
+        }
+        if (!depthRoot.sortableChildren) depthRoot.sortableChildren = true;
         obj.zIndex = zIndex;
     }
     private createUnitForTeam(teamType: TeamType, amount?: number): RenderableUnit | undefined {

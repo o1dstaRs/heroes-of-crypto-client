@@ -51,6 +51,8 @@ export interface IDungeonVisualsContext {
     getGridSettings(): GridSettings;
     texAny(name: string): Texture | undefined;
     attachToWorldRoot(obj: Container, zIndex?: number): void;
+    /** Shared depth-sorted parent used by live creatures and tall battlefield obstacles. */
+    attachToUnitDepthRoot?(obj: Container, zIndex?: number): void;
 }
 
 /** A single-cell mountain: where it stands and which of the pool's variants it is drawn with. */
@@ -81,6 +83,16 @@ export const cemeteryObstacleSpriteScale = (
     x: (projectedWidth * rowScale * CEMETERY_OBSTACLE_WIDTH_SCALE) / textureWidth,
     y: -(drawnHeight / textureHeight),
 });
+
+/** Match creature depth sorting: a lower screen-space base renders in front. */
+export const cemeteryObstacleDepthFromBaseY = (baseY: number): number => 4000 - baseY;
+
+/** Barrels share the creature parent so their silhouettes and HP art interleave correctly with units. */
+export const attachCemeteryObstacleToDepthRoot = (
+    context: Pick<IDungeonVisualsContext, "attachToWorldRoot" | "attachToUnitDepthRoot">,
+    object: Container,
+    depth: number,
+): void => (context.attachToUnitDepthRoot ?? context.attachToWorldRoot)(object, depth);
 
 /** Editor-authored frame geometry before the per-cell base lift is added by the renderer. */
 export const cemeteryObstacleFrameGeometry = (
@@ -536,12 +548,15 @@ export class DungeonVisuals {
      * height and base-centre tuning from the local obstacle editor.
      */
     private static readonly MOUNTAIN_TILES_KEY = "cemetery_obstacles_9x_256";
+    /** Fight-only atlas with a separately fitted HP insert baked into each of the nine authored barrels. */
+    private static readonly MOUNTAIN_TILES_HP_KEY = "cemetery_obstacles_9x_256_hp";
     /** One cell wide; taller than it is wide, and the surplus is the part that overhangs (see below). */
     private static readonly MOUNTAIN_TILE_W = 256;
     private static readonly MOUNTAIN_TILE_H = 461;
     private static readonly MOUNTAIN_TILE_COLS = 3;
     private static readonly MOUNTAIN_TILE_COUNT = 9;
     private mountainTileTextures?: Texture[];
+    private mountainHitPointTileTextures?: Texture[];
     /**
      * How tall the rock is drawn, in cells — and it must match the atlas tile's own aspect (256x461), which is
      * where the overhang is baked. Width stays exactly one cell: this is a stretch upward, not a uniform
@@ -1108,10 +1123,13 @@ export class DungeonVisuals {
                 .stroke({ color: 0x2b0d02, alpha: 0.95, width: 1 });
         }
     }
-    /** Slice the mountain atlas once; undefined until the texture has loaded. */
-    private mountainTiles(): Texture[] | undefined {
-        if (!this.mountainTileTextures) {
-            const atlas = this.context.texAny(DungeonVisuals.MOUNTAIN_TILES_KEY);
+    /** Slice the normal or fight atlas once; undefined until that texture has loaded. */
+    private mountainTiles(withIntegratedHitPoints = false): Texture[] | undefined {
+        const cached = withIntegratedHitPoints ? this.mountainHitPointTileTextures : this.mountainTileTextures;
+        if (!cached) {
+            const atlas = this.context.texAny(
+                withIntegratedHitPoints ? DungeonVisuals.MOUNTAIN_TILES_HP_KEY : DungeonVisuals.MOUNTAIN_TILES_KEY,
+            );
             if (!atlas) {
                 return undefined;
             }
@@ -1133,9 +1151,13 @@ export class DungeonVisuals {
                     }),
                 );
             }
-            this.mountainTileTextures = frames;
+            if (withIntegratedHitPoints) {
+                this.mountainHitPointTileTextures = frames;
+            } else {
+                this.mountainTileTextures = frames;
+            }
         }
-        return this.mountainTileTextures;
+        return withIntegratedHitPoints ? this.mountainHitPointTileTextures : this.mountainTileTextures;
     }
     /**
      * Install the scattered-mountain layout to draw. Pass an empty array to go back to the classic pair.
@@ -1223,9 +1245,11 @@ export class DungeonVisuals {
         this.scatteredMountainHitBars = [];
         this.scatteredMountainShadows = [];
         const tiles = this.mountainTiles();
-        if (!tiles?.length || !this.scatteredMountains.length) {
+        const fightTiles = this.mountainTiles(true);
+        if (!tiles?.length || !fightTiles?.length || !this.scatteredMountains.length) {
             return;
         }
+        const fightStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
         const gs = this.context.getGridSettings();
         if (!this.tombstoneRedFilter) {
             this.tombstoneRedFilter = new ColorMatrixFilter({ resolution: "inherit", antialias: "inherit" });
@@ -1264,7 +1288,7 @@ export class DungeonVisuals {
             const drawnHeight = geometry.frameHeight;
             const riseUp = geometry.rise + metrics.height * DungeonVisuals.MOUNTAIN_VERTICAL_OFFSET_CELLS;
 
-            const sprite = new Sprite(tex);
+            const sprite = new Sprite(fightStarted ? fightTiles[tileIndex] : tex);
             sprite.anchor.set(0.5);
             // Do not snap a scaled high-resolution texture to whole screen pixels: the world root already
             // provides a stable transform, while per-sprite snapping makes the detail visibly shimmer.
@@ -1284,12 +1308,8 @@ export class DungeonVisuals {
             );
             sprite.scale.set(spriteScale.x, spriteScale.y);
             if (this.cemeteryEdgeDarkenFilter) sprite.filters = [this.cemeteryEdgeDarkenFilter];
-            // Depth order: a stone standing lower on the board is NEARER, so its overhanging top must cover
-            // the base of the one behind it. Cell y counts upward on screen, so a smaller y sorts in front.
-            // The offset stays inside one unit, which keeps every stone below whatever already sits at 51+.
-            const depth = (GridConstants.GRID_SIZE - 1 - mountain.y) / GridConstants.GRID_SIZE;
-
             const baseY = sprite.y - drawnHeight * 0.5;
+            const depth = cemeteryObstacleDepthFromBaseY(baseY);
 
             const shadow = new Sprite(tex);
             // Anchor the baked bottom edge at the barrel base. Positive local Y scale combined with the
@@ -1306,10 +1326,10 @@ export class DungeonVisuals {
                 cemeteryObstacleShadowScaleY(metrics.height) * shadowStyle.lengthMultiplier,
             );
             shadow.filters = [this.cemeteryShadowBlurFilter];
-            this.context.attachToWorldRoot(shadow, 50 + depth - 0.002);
+            attachCemeteryObstacleToDepthRoot(this.context, shadow, depth - 0.002);
             this.scatteredMountainShadows.push(shadow);
 
-            this.context.attachToWorldRoot(sprite, 50 + depth);
+            attachCemeteryObstacleToDepthRoot(this.context, sprite, depth);
             this.scatteredMountainSprites.push(sprite);
 
             // Creatures turn into a translucent red authored silhouette when they are valid targets.
@@ -1321,9 +1341,9 @@ export class DungeonVisuals {
             dangerOverlay.position.copyFrom(sprite.position);
             dangerOverlay.scale.copyFrom(sprite.scale);
             dangerOverlay.filters = [this.tombstoneRedFilter];
-            dangerOverlay.alpha = 0.34;
+            dangerOverlay.alpha = 0.15;
             dangerOverlay.visible = false;
-            this.context.attachToWorldRoot(dangerOverlay, 50 + depth + 0.001);
+            attachCemeteryObstacleToDepthRoot(this.context, dangerOverlay, depth + 0.001);
             this.scatteredMountainDangerOverlays.push(dangerOverlay);
 
             // Offset copies of the texture's own alpha silhouette leave only a thin rim visible behind
@@ -1344,8 +1364,8 @@ export class DungeonVisuals {
             // selection line. The original opaque sprite is rendered immediately above both layers and
             // hides their interiors, leaving only the texture's real alpha contour visible.
             for (const { offset, alpha } of [
-                { offset: Math.max(1.5, localCellSize * 0.024), alpha: 0.09 },
-                { offset: Math.max(0.35, localCellSize * 0.004), alpha: 0.52 },
+                { offset: Math.max(1.5, localCellSize * 0.024), alpha: 0.035 },
+                { offset: Math.max(0.35, localCellSize * 0.004), alpha: 0.28 },
             ]) {
                 for (const [dx, dy] of directions) {
                     const edge = new Sprite(tex);
@@ -1359,34 +1379,8 @@ export class DungeonVisuals {
                 }
             }
             outline.visible = false;
-            this.context.attachToWorldRoot(outline, 50 + depth - 0.001);
+            attachCemeteryObstacleToDepthRoot(this.context, outline, depth - 0.001);
             this.scatteredMountainOutlines.push(outline);
-
-            // A single compact pip under the base communicates the whole durability model: one remaining
-            // segment means one hit to destroy. Position it from the barrel's ACTUAL lifted base; the old
-            // tombstone formula positioned it from the cell centre and hid it inside these taller sprites.
-            const hitBar = new Graphics();
-            const hitBarLayout = getScatteredMountainHitBarLayout(localCellSize);
-            const barW = hitBarLayout.width;
-            const barH = hitBarLayout.height;
-            const barX = metrics.center.x - barW * 0.5;
-            const barY = baseY - hitBarLayout.centerOffset - barH * 0.5;
-            const frame = hitBarLayout.framePadding;
-            const radius = Math.max(1, barH * 0.18);
-            hitBar
-                .roundRect(barX - frame, barY - frame, barW + frame * 2, barH + frame * 2, radius + frame)
-                .fill({ color: 0x0b0c0e, alpha: 0.94 })
-                .stroke({ width: 1, color: 0x777b80, alpha: 0.82 });
-            hitBar
-                .roundRect(barX, barY, barW, barH, radius)
-                .fill({ color: 0x75150f, alpha: 1 })
-                .stroke({ width: 1, color: 0x3b0b08, alpha: 0.96 });
-            hitBar
-                .roundRect(barX + frame, barY + frame, barW - frame * 2, Math.max(1, barH * 0.18), radius)
-                .fill({ color: 0xb54434, alpha: 0.42 });
-            hitBar.visible = FightStateManager.getInstance().getFightProperties().hasFightStarted();
-            this.context.attachToWorldRoot(hitBar, 52 + depth);
-            this.scatteredMountainHitBars.push(hitBar);
         }
         this.syncScatteredMountainVisibility();
     }
@@ -1399,15 +1393,24 @@ export class DungeonVisuals {
             mountain.y < size - this.narrowingLayers
         );
     }
+    private syncScatteredMountainTextures(fightStarted: boolean): void {
+        const tiles = this.mountainTiles(fightStarted);
+        if (!tiles?.length) return;
+        this.scatteredMountains.forEach((mountain, index) => {
+            const sprite = this.scatteredMountainSprites[index];
+            if (!sprite) return;
+            const tileIndex = ((mountain.variant % tiles.length) + tiles.length) % tiles.length;
+            const target = tiles[tileIndex];
+            if (sprite.texture !== target) sprite.texture = target;
+        });
+    }
     private syncScatteredMountainVisibility(): void {
         const fightStarted = FightStateManager.getInstance().getFightProperties().hasFightStarted();
+        this.syncScatteredMountainTextures(fightStarted);
         this.scatteredMountains.forEach((mountain, index) => {
             const visible = this.isScatteredMountainActive(mountain);
             if (this.scatteredMountainSprites[index]) this.scatteredMountainSprites[index].visible = visible;
             if (this.scatteredMountainShadows[index]) this.scatteredMountainShadows[index].visible = visible;
-            if (this.scatteredMountainHitBars[index]) {
-                this.scatteredMountainHitBars[index].visible = visible && fightStarted;
-            }
             if (!visible && this.scatteredMountainOutlines[index]) {
                 this.scatteredMountainOutlines[index].visible = false;
             }
@@ -1431,11 +1434,7 @@ export class DungeonVisuals {
             sprite.tint = 0xffffff;
             sprite.filters = null;
         });
-        const scatteredBarsVisible = FightStateManager.getInstance().getFightProperties().hasFightStarted();
-        this.scatteredMountainHitBars.forEach((hitBar, index) => {
-            const mountain = this.scatteredMountains[index];
-            hitBar.visible = scatteredBarsVisible && !!mountain && this.isScatteredMountainActive(mountain);
-        });
+        this.syncScatteredMountainTextures(FightStateManager.getInstance().getFightProperties().hasFightStarted());
         const gridType = FightStateManager.getInstance().getFightProperties().getGridType();
         const lavaTuning =
             gridType === GridVals.LAVA_CENTER && !this.centerDried ? resolveLavaAnimationTuning() : undefined;
@@ -2704,6 +2703,7 @@ export class DungeonVisuals {
             for (const texture of frames) texture.destroy(false);
         }
         for (const texture of this.mountainTileTextures ?? []) texture.destroy(false);
+        for (const texture of this.mountainHitPointTileTextures ?? []) texture.destroy(false);
         for (const texture of this.mountainQuarterTextures?.quarters ?? []) texture.destroy(false);
         this.lightFilter?.destroy();
         this.tombstoneRedFilter?.destroy();
@@ -2743,6 +2743,7 @@ export class DungeonVisuals {
         this.lavaFireColorFilter = undefined;
         this.lavaFire2ColorFilter = undefined;
         this.mountainTileTextures = undefined;
+        this.mountainHitPointTileTextures = undefined;
         this.mountainQuarterTextures = undefined;
         this.narrowingLayers = 0;
     }
