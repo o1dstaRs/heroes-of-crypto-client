@@ -1,7 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
-import { GridConstants, GridMath, GridSettings, PlacementPositionType } from "@heroesofcrypto/common";
+import { GridConstants, GridMath, GridSettings, PlacementPositionType, TeamVals } from "@heroesofcrypto/common";
 import { projectedCellPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
+import { setViewerTeamForColors } from "../scenes/teamColors";
 import {
     ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
     movementFillAlphaForPhase,
@@ -59,6 +60,8 @@ const settings = () =>
         GridConstants.MOVEMENT_DELTA,
         GridConstants.UNIT_SIZE_DELTA,
     );
+
+afterEach(() => setViewerTeamForColors(undefined));
 
 describe("placement tile highlight", () => {
     test("keeps separately redrawn green carpet textures for every upgraded width", () => {
@@ -228,6 +231,13 @@ describe("placement tile highlight", () => {
                 movementFillAlphaForPhase(brightPhase) * RED_PLACEMENT_WASH_TOP_OPACITY_MULTIPLIER,
             ),
         ).toBeCloseTo(movementFillAlphaForPhase(brightPhase));
+    });
+
+    test("renders an upper-seat ranked participant's own placement field green", () => {
+        setViewerTeamForColors(TeamVals.UPPER);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_LEFT)).toBe(false);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_RIGHT)).toBe(false);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_LEFT)).toBe(true);
     });
     test("slices every green cell from its exact region of one continuous carpet image", () => {
         const cells = [

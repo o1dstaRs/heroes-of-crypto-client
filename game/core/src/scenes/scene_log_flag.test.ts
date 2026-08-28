@@ -1,11 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 import { TeamVals } from "@heroesofcrypto/common";
 
 import { indexUnitTeam, resolveLineTeamFlag, type TeamOrAmbiguous } from "./scene_log_flag";
+import { setViewerTeamForColors } from "./teamColors";
 
 const GREEN = TeamVals.LOWER;
 const RED = TeamVals.UPPER;
+
+afterEach(() => setViewerTeamForColors(undefined));
 
 const indexed = (...entries: [string, number][]): Map<string, TeamOrAmbiguous> => {
     const m = new Map<string, TeamOrAmbiguous>();
@@ -26,6 +29,15 @@ describe("indexUnitTeam", () => {
         expect(m.get("Berserker")).toBe("ambiguous");
         indexUnitTeam(m, "Berserker", GREEN); // seeing it again on one team must NOT un-ambiguate
         expect(m.get("Berserker")).toBe("ambiguous");
+    });
+});
+
+describe("viewer-relative scene log flags", () => {
+    test("flags an upper-seat participant green and the opponent red", () => {
+        setViewerTeamForColors(TeamVals.UPPER);
+        const m = indexed(["Ally", TeamVals.UPPER], ["Enemy", TeamVals.LOWER]);
+        expect(resolveLineTeamFlag("Ally moved", m)).toBe("🟢");
+        expect(resolveLineTeamFlag("Enemy moved", m)).toBe("🔴");
     });
 });
 

@@ -7,25 +7,26 @@
  * -----------------------------------------------------------------------------
  */
 
-import { TeamType, TeamVals } from "@heroesofcrypto/common";
+import { type TeamType, TeamVals } from "@heroesofcrypto/common";
 
-/**
- * Board colours are TEAM-FIXED, never viewer-relative: team LOWER is ALWAYS green and is always drawn at the
- * BOTTOM of the board; team UPPER is ALWAYS red and always at the TOP — on every screen, for both players and
- * every observer. The engine calls the sides LOWER and UPPER and a match can be seated from either side; the
- * player who spawns in the UPPER seat plays the RED army at the top and is NOT recoloured green (owner
- * 2026-08-08). This deliberately reverted the old "whoever is playing is green" perspective flip, which drew
- * the same match in opposite colours on the two screens.
- *
- * Colour is one question; OWNERSHIP is a different one. Whose turn it is, which units the viewer may drive,
- * and which placement zone is the viewer's own are answered by the scene's viewerTeam
- * (RankedPlayScene.getViewerTeam) — NEVER by these colour helpers. Do not reintroduce a viewer argument here.
- */
+/** Ranked participants always read their own army as green and their opponent as red. Spectators and sandbox
+ * scenes keep the canonical LOWER-green / UPPER-red palette because they have no player seat. Ownership,
+ * actions and coordinates still use the authoritative team; this module changes presentation only. */
 export const TEAM_COLOR_GREEN = 0x00d200;
 export const TEAM_COLOR_RED = 0xff0000;
 
-/** The colour a team is ALWAYS drawn in: LOWER green, UPPER red, from every seat. */
-export const teamColor = (team: TeamType): number => (team === TeamVals.LOWER ? TEAM_COLOR_GREEN : TEAM_COLOR_RED);
+let viewerTeam: TeamType | undefined;
 
-/** True for the GREEN side (team LOWER). A purely visual/colour question — NOT "is this unit mine". */
-export const isGreenTeam = (team: TeamType): boolean => team === TeamVals.LOWER;
+export const setViewerTeamForColors = (team: TeamType | undefined): void => {
+    viewerTeam = team === undefined || team === TeamVals.NO_TEAM ? undefined : team;
+};
+
+export const getViewerTeamForColors = (): TeamType | undefined => viewerTeam;
+
+export const isFriendlyTeam = (team: TeamType): boolean =>
+    viewerTeam === undefined ? team === TeamVals.LOWER : team === viewerTeam;
+
+export const teamColor = (team: TeamType): number => (isFriendlyTeam(team) ? TEAM_COLOR_GREEN : TEAM_COLOR_RED);
+
+/** Kept for callers that phrase the presentation question in terms of the visible green side. */
+export const isGreenTeam = isFriendlyTeam;

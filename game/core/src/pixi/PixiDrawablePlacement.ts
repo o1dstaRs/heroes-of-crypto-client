@@ -6,6 +6,8 @@ import {
     PlacementPositionType,
     PlacementType,
     IPlacement,
+    TeamVals,
+    type TeamType,
     type HoCMath,
 } from "@heroesofcrypto/common";
 
@@ -18,6 +20,7 @@ import {
     tunedCellFillPolygon,
 } from "../scenes/movementAreaVisual";
 import { images } from "../generated/image_imports";
+import { isFriendlyTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
     draw(gfx: Graphics, frameContainer: Container): void;
@@ -102,10 +105,8 @@ export function setSpawnFlowPhase(phase: number, currentEnemyMovementPhase = pha
     enemyMovementPhase = currentEnemyMovementPhase;
 }
 
-// Placement zones are coloured by TEAM, not by viewer: LOWER's rectangle (left) is green, UPPER's rectangle
-// (right) is red, on both screens. Keep the fill and accent hues in lockstep with the two army rails shown
-// during the draft: deep green cloth + mint trim for LOWER, dark burgundy cloth + rose trim for UPPER.
-// An UPPER player's own zone therefore reads red — see scenes/teamColors.ts.
+// Ranked participants see their own deployment rectangle in green and their opponent's in red. Sandbox and
+// observer scenes have no viewer team and retain the canonical LOWER-green / UPPER-red presentation.
 const SPAWN_COLOR_GREEN = 0x051f0e;
 const SPAWN_BOUNDARY_COLOR_GREEN = 0x78dc96;
 /** Dark emerald sampled from the approved green deployment-field reference. */
@@ -933,8 +934,13 @@ function drawPlacementGoldBorder(
     return visual;
 }
 
+const placementTeam = (position: PlacementPositionType): TeamType =>
+    position === PlacementPositionType.LOWER_RIGHT || position === PlacementPositionType.LOWER_LEFT
+        ? TeamVals.LOWER
+        : TeamVals.UPPER;
+
 export const placementUsesEnemyMovementWash = (position: PlacementPositionType): boolean =>
-    position !== PlacementPositionType.LOWER_RIGHT && position !== PlacementPositionType.LOWER_LEFT;
+    !isFriendlyTeam(placementTeam(position));
 
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly visualGridSettings: GridSettings;

@@ -186,6 +186,7 @@ import {
     rangeTrajectoryFootprintExit,
 } from "./rangeTargetEdges";
 import { pierceSweepPreviewOptions } from "./pierceSweepPreview";
+import { isFriendlyTeam, setViewerTeamForColors } from "./teamColors";
 
 /**
  * Client-side aim projection for an offensive spell: what ONE target actually takes.
@@ -952,6 +953,9 @@ export class Sandbox extends PixiScene {
             GridConstants.UNIT_SIZE_DELTA,
         );
         super(new SceneSettings(gs, false));
+        // Sandbox/observer scenes have no participant perspective. Ranked restores its authoritative viewer
+        // team as soon as the first snapshot is applied.
+        setViewerTeamForColors(undefined);
         this.pathHelper = new PathHelper(this.sc_sceneSettings.getGridSettings());
         this.initialize(context);
         this.sc_gridTypeUpdateNeeded = true;
@@ -8490,7 +8494,8 @@ export class Sandbox extends PixiScene {
             return;
         }
         this.sandboxTurnLogHeaderUnitId = unitId;
-        const flag = unit.getTeam() === TeamVals.LOWER ? "🟢" : unit.getTeam() === TeamVals.UPPER ? "🔴" : "";
+        const team = unit.getTeam();
+        const flag = team === TeamVals.LOWER || team === TeamVals.UPPER ? (isFriendlyTeam(team) ? "🟢" : "🔴") : "";
         const lap = FightStateManager.getInstance().getFightProperties().getCurrentLap();
         this.sc_sceneLog.updateLog(formatTurnLogHeader(flag, unit.getName(), lap));
     }

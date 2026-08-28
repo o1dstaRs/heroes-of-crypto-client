@@ -2554,9 +2554,9 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
             <RankedRosterDivider />
             <RankedRosterRow
                 title="Your army"
-                accent="#dcb158"
-                borderColor="rgba(255,255,255,0.12)"
-                bgcolor="#171a23"
+                accent="#8ce99a"
+                borderColor="rgba(55,178,88,0.52)"
+                bgcolor="#132018"
                 creatureIds={myIds}
             />
         </Stack>
@@ -3066,7 +3066,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                                                     }}
                                                 >
                                                     <SideToggleContainer
-                                                        side={userTeam === TeamVals.LOWER ? "green" : "red"}
+                                                        side="green"
                                                         teamType={userTeam}
                                                         showArtifactPicker={false}
                                                         budgetPoints={augmentBudget}
