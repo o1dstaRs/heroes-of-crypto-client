@@ -2,9 +2,14 @@ import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore }
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
+import { images as rawImages } from "../../generated/image_imports";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
 import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
+
+const images = rawImages as Record<string, string>;
+const musicMutedControlImage = images.ui_control_music_muted_forged_bronze_v1;
+const musicOnControlImage = images.ui_control_music_on_forged_bronze_v1;
 
 /**
  * The menu theme ("The Last Stand") and the volume control that governs it.
@@ -103,9 +108,32 @@ export const ThemeMusic: React.FC = () => {
     const [muted, setMuted] = useState(initial.current.muted);
     const [prefight, setPrefight] = useState(false);
     const [needsUnlock, setNeedsUnlock] = useState(true);
+    const volumeCollapseTimerRef = useRef<number | null>(null);
     // Rendered into the sidebar's footer when there is one, beside the fullscreen toggle; otherwise it
     // floats in the bottom-right corner as before.
     const dockSlot = useSyncExternalStore(subscribeVolumeSlot, getVolumeSlot, getVolumeSlotServerSnapshot);
+
+    const cancelVolumeCollapse = useCallback(() => {
+        if (volumeCollapseTimerRef.current !== null) {
+            window.clearTimeout(volumeCollapseTimerRef.current);
+            volumeCollapseTimerRef.current = null;
+        }
+    }, []);
+
+    const showVolumeControl = useCallback(() => {
+        cancelVolumeCollapse();
+        setVolumeExpanded(true);
+    }, [cancelVolumeCollapse]);
+
+    const scheduleVolumeCollapse = useCallback(() => {
+        cancelVolumeCollapse();
+        volumeCollapseTimerRef.current = window.setTimeout(() => {
+            setVolumeExpanded(false);
+            volumeCollapseTimerRef.current = null;
+        }, 260);
+    }, [cancelVolumeCollapse]);
+
+    useEffect(() => cancelVolumeCollapse, [cancelVolumeCollapse]);
 
     useEffect(() => subscribePrefightMusic(setPrefight), []);
 
@@ -266,9 +294,8 @@ export const ThemeMusic: React.FC = () => {
 
     const silent = muted || volume === 0;
 
-    // Docked, the control is nothing but the speaker and whatever slider it opens: no disc, no rim, no
-    // backdrop, matching the fullscreen toggle it sits opposite. The pill only exists in the floating
-    // fallback, where the control has bare screen under it and needs something to read against.
+    // The forged medallion stays the same size in both placements. Docking only changes who owns the
+    // positioning, while the floating fallback keeps its fixed bottom-corner anchor.
     const containerStyle: React.CSSProperties = dockSlot
         ? {
               position: "relative",
@@ -289,16 +316,16 @@ export const ThemeMusic: React.FC = () => {
 
     const control = (
         <div
-            onMouseEnter={() => setVolumeExpanded(true)}
-            onMouseLeave={() => setVolumeExpanded(false)}
-            onFocus={() => setVolumeExpanded(true)}
+            onMouseEnter={showVolumeControl}
+            onMouseLeave={scheduleVolumeCollapse}
+            onFocus={showVolumeControl}
+            onBlur={scheduleVolumeCollapse}
             style={containerStyle}
         >
             <button
                 type="button"
                 aria-pressed={silent}
                 aria-label="Toggle music"
-                title="Music volume"
                 onClick={() => {
                     const nextMuted = !muted;
                     setMuted(nextMuted);
@@ -326,92 +353,82 @@ export const ThemeMusic: React.FC = () => {
                     height: 32,
                     flex: "0 0 auto",
                     padding: 0,
-                    // Docked it is just the glyph, like the fullscreen toggle beside it. The disc is for
-                    // the floating fallback only, where there is bare screen behind the icon.
+                    // Artwork supplies both the circular frame and its pictogram; the button retains the
+                    // interaction and the slider remains a separate layer above it.
                     borderRadius: 0,
                     border: "none",
-                    background: "transparent",
+                    backgroundColor: "transparent",
+                    backgroundImage: `url(${silent ? musicMutedControlImage : musicOnControlImage})`,
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: "contain",
                     color: "inherit",
                     cursor: "pointer",
+                    transition: "filter 140ms ease, transform 140ms ease",
                 }}
-            >
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                    <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
-                    {silent ? (
-                        <path
-                            d="M16 9.5l5 5m0-5l-5 5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                        />
-                    ) : (
-                        <path
-                            d="M16.5 8.5a4.5 4.5 0 0 1 0 7M19 6a8 8 0 0 1 0 12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                        />
-                    )}
-                </svg>
-            </button>
+            />
             <div
                 style={{
                     position: "absolute",
                     left: "50%",
-                    bottom: "calc(100% + 0.35rem)",
+                    bottom: "100%",
                     width: 32,
-                    height: "5.5rem",
+                    height: 94,
                     transform: "translateX(-50%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     opacity: volumeExpanded ? 1 : 0,
                     pointerEvents: volumeExpanded ? "auto" : "none",
                     transition: "opacity 140ms ease",
                 }}
+                onMouseEnter={showVolumeControl}
+                onMouseLeave={scheduleVolumeCollapse}
             >
-                <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={Math.round(volume * 100)}
-                    aria-label="Music volume"
-                    aria-orientation="vertical"
-                    onChange={(event) => {
-                        const next = clamp01(Number(event.target.value) / 100);
-                        setVolume(next);
-                        if (next > 0) {
-                            setMuted(false);
-                        }
-                        const audio = audioRef.current;
-                        const player = playerRef.current;
-                        const nextTarget = singing ? next : 0;
-                        player?.setTargetVolume(nextTarget);
-                        if (audio) {
-                            // Dragging is continuous, so track it directly rather than fading to each step.
-                            stopFade();
-                            if (nextTarget === 0) {
-                                audio.volume = 0;
-                                audio.pause();
-                            } else if (player && (audio.paused || !player.hasStarted())) {
-                                void player.start(nextTarget, true);
-                            } else {
-                                audio.volume = nextTarget;
+                <div
+                    className="hoc-volume-slider-shell"
+                    style={
+                        {
+                            // The visible fill ends at the centre of the 12px thumb while respecting the
+                            // range input's six-pixel end stops. Keep the thumb itself exactly the same size.
+                            "--hoc-volume-level": `${Math.round(4 + volume * 78)}px`,
+                        } as React.CSSProperties
+                    }
+                >
+                    <input
+                        type="range"
+                        className="hoc-volume-slider"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={Math.round(volume * 100)}
+                        aria-label="Music volume"
+                        aria-orientation="vertical"
+                        onChange={(event) => {
+                            const next = clamp01(Number(event.target.value) / 100);
+                            setVolume(next);
+                            if (next > 0) {
+                                setMuted(false);
                             }
-                        }
-                    }}
-                    style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        width: "5.5rem",
-                        margin: 0,
-                        transform: "translate(-50%, -50%) rotate(-90deg)",
-                        transformOrigin: "center",
-                        accentColor: "#ffd88a",
-                        cursor: "pointer",
-                    }}
-                />
+                            const audio = audioRef.current;
+                            const player = playerRef.current;
+                            const nextTarget = singing ? next : 0;
+                            player?.setTargetVolume(nextTarget);
+                            if (audio) {
+                                // Dragging is continuous, so track it directly rather than fading to each step.
+                                stopFade();
+                                if (nextTarget === 0) {
+                                    audio.volume = 0;
+                                    audio.pause();
+                                } else if (player && (audio.paused || !player.hasStarted())) {
+                                    void player.start(nextTarget, true);
+                                } else {
+                                    audio.volume = nextTarget;
+                                }
+                            }
+                        }}
+                    />
+                </div>
             </div>
         </div>
     );

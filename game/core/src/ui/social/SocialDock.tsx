@@ -1,6 +1,3 @@
-import CasinoRoundedIcon from "@mui/icons-material/CasinoRounded";
-import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
-import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import {
     Alert,
     Box,
@@ -19,6 +16,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 
+import { images } from "../../generated/image_imports";
 import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
 import { setVolumeSlot } from "../audio/volumeSlot";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
@@ -29,6 +27,11 @@ import { DockPanelShell } from "./DockPanelShell";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
 import { useSocial } from "./SocialProvider";
+import {
+    getBattleSystemControlsActive,
+    getBattleSystemControlsServerSnapshot,
+    subscribeBattleSystemControls,
+} from "./systemControlsMode";
 import {
     blockPlayer,
     fetchFriends,
@@ -65,61 +68,60 @@ import {
  * popups, while leaving conversations available on demand.
  */
 
-const dockButtonTones = {
-    predictions: {
-        color: "#d3ad67",
-        background: "rgba(42, 31, 16, 0.94)",
-        backgroundHover: "rgba(54, 40, 20, 0.98)",
-        border: "rgba(211, 173, 103, 0.34)",
-        glow: "rgba(211, 173, 103, 0.1)",
-    },
-    friends: {
-        color: "#71aaa6",
-        background: "rgba(16, 38, 37, 0.94)",
-        backgroundHover: "rgba(21, 49, 47, 0.98)",
-        border: "rgba(113, 170, 166, 0.32)",
-        glow: "rgba(113, 170, 166, 0.09)",
-    },
-    notifications: {
-        color: "#c98272",
-        background: "rgba(47, 27, 23, 0.94)",
-        backgroundHover: "rgba(59, 34, 29, 0.98)",
-        border: "rgba(201, 130, 114, 0.32)",
-        glow: "rgba(201, 130, 114, 0.09)",
-    },
+const dockButtonImages = {
+    systemMenu: images.ui_social_system_menu_redrawn_complete_frame_v3,
+    predictions: images.ui_social_predictions_redrawn_complete_frame_v2,
+    friends: images.ui_social_friends_redrawn_complete_frame_v2,
+    notifications: images.ui_social_notifications_redrawn_complete_frame_v2,
 } as const;
 
-const dockButtonSx = (
-    tone: (typeof dockButtonTones)[keyof typeof dockButtonTones],
-    active: boolean,
-    compact: boolean,
-) => ({
-    width: compact ? 38 : 46,
-    height: compact ? 38 : 46,
-    minWidth: compact ? 38 : 46,
-    minHeight: compact ? 38 : 46,
+const dockButtonSx = (image: string, active: boolean) => ({
+    width: 32,
+    height: 32,
+    minWidth: 32,
+    minHeight: 32,
+    p: 0,
     borderRadius: "50%",
-    color: tone.color,
-    bgcolor: tone.background,
-    border: `1px solid ${tone.border}`,
-    boxShadow: active
-        ? `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px ${tone.glow}, 0 6px 16px rgba(0,0,0,0.48)`
-        : "inset 0 1px 0 rgba(255,255,255,0.05), 0 5px 14px rgba(0,0,0,0.42)",
-    transition: "transform 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
-    "& svg": {
-        fontSize: compact ? 20 : 24,
-        filter: `drop-shadow(0 0 3px ${tone.glow})`,
-    },
+    bgcolor: "transparent",
+    border: 0,
+    boxShadow: "none",
+    backgroundImage: `url(${image})`,
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundSize: "contain",
+    filter: active
+        ? "brightness(1.12) drop-shadow(0 0 6px rgba(211, 173, 103, 0.38))"
+        : "drop-shadow(0 5px 7px rgba(0, 0, 0, 0.42))",
+    transition: "transform 140ms ease, filter 140ms ease",
     "&:hover": {
-        color: tone.color,
-        bgcolor: tone.backgroundHover,
-        borderColor: tone.border,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px ${tone.glow}, 0 6px 18px rgba(0,0,0,0.5)`,
+        bgcolor: "transparent",
+        filter: "brightness(1.12) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5))",
+        transform: "scale(1.04)",
     },
     "&:active": {
-        transform: "translateY(1px)",
+        transform: "translateY(1px) scale(1.02)",
     },
 });
+
+/** A separate, zero-animation label layer that never inherits the fan button's opening transition. */
+const instantDockLabelSx = {
+    position: "fixed",
+    zIndex: 1600,
+    px: 1,
+    py: 0.45,
+    color: "#f4f4f4",
+    bgcolor: "#292929",
+    border: "1px solid #616161",
+    borderRadius: "2px",
+    boxShadow: "0 3px 8px rgba(0, 0, 0, 0.45)",
+    fontFamily: "Arial, sans-serif",
+    fontSize: 14,
+    fontWeight: 500,
+    lineHeight: 1.2,
+    whiteSpace: "nowrap",
+    pointerEvents: "none",
+    transition: "none",
+} as const;
 
 const notificationText = (notification: SocialNotification): string => {
     switch (notification.type) {
@@ -796,12 +798,45 @@ export const SocialDock: React.FC = () => {
     const [friendsOpen, setFriendsOpen] = useState(false);
     const [conversationFriend, setConversationFriend] = useState<FriendEntry | null>(null);
     const [predictionsOpen, setPredictionsOpen] = useState(false);
+    const [systemMenuOpen, setSystemMenuOpen] = useState(false);
+    const [systemMenuLabel, setSystemMenuLabel] = useState<{ text: string; top: number; right: number } | null>(null);
+    const systemMenuMode = React.useSyncExternalStore(
+        subscribeBattleSystemControls,
+        getBattleSystemControlsActive,
+        getBattleSystemControlsServerSnapshot,
+    );
     const fightDockSlot = React.useSyncExternalStore(
         subscribeSocialDockSlot,
         getSocialDockSlot,
         getSocialDockSlotServerSnapshot,
     );
     const floatingVolumeSlotRef = useRef<HTMLDivElement | null>(null);
+    const systemMenuCloseTimerRef = useRef<number | null>(null);
+
+    const cancelSystemMenuClose = useCallback(() => {
+        if (systemMenuCloseTimerRef.current !== null) {
+            window.clearTimeout(systemMenuCloseTimerRef.current);
+            systemMenuCloseTimerRef.current = null;
+        }
+    }, []);
+
+    const showSystemMenu = useCallback(() => {
+        cancelSystemMenuClose();
+        setSystemMenuOpen(true);
+    }, [cancelSystemMenuClose]);
+
+    const scheduleSystemMenuClose = useCallback(() => {
+        cancelSystemMenuClose();
+        systemMenuCloseTimerRef.current = window.setTimeout(() => {
+            setSystemMenuOpen(false);
+            setSystemMenuLabel(null);
+            systemMenuCloseTimerRef.current = null;
+        }, 240);
+    }, [cancelSystemMenuClose]);
+
+    useEffect(() => cancelSystemMenuClose, [cancelSystemMenuClose]);
+
+    const inGame = location.pathname.startsWith("/game/");
 
     /** Keep music beside the three social controls both while floating and in the fight sidebar. */
     const active = authenticated && user?.is_active !== false;
@@ -814,9 +849,8 @@ export const SocialDock: React.FC = () => {
         }
         setVolumeSlot(floatingVolumeSlotRef.current);
         return () => setVolumeSlot(null);
-    }, [fightDockSlot, active]);
+    }, [fightDockSlot, active, systemMenuMode]);
 
-    const inGame = location.pathname.startsWith("/game/");
     if (!active) {
         return null;
     }
@@ -833,6 +867,7 @@ export const SocialDock: React.FC = () => {
     const dockControls = (
         <Stack
             direction="row"
+            alignItems="center"
             spacing={inGame ? 0.6 : 1}
             // DockPanelShell's click-outside dismissal skips anything inside this row: these buttons
             // toggle their own panel, and letting the outside-click fire as well would close it on the
@@ -851,49 +886,44 @@ export const SocialDock: React.FC = () => {
                 "&:hover": { opacity: 1 },
             }}
         >
-            {/* ThemeMusic portals the speaker in here. First in the row on purpose:
-                the control expands a volume slider to its right, so anchoring it at the left edge grows
-                the right-anchored row leftward into empty screen instead of shoving the buttons. */}
-            <Box
-                ref={floatingVolumeSlotRef}
-                data-volume-control="social-dock"
-                data-volume-size={inGame ? "compact" : "default"}
-                sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}
-            />
             <IconButton
                 aria-label="Bets and predictions"
                 aria-pressed={predictionsOpen}
                 title="Bets and predictions"
-                sx={dockButtonSx(dockButtonTones.predictions, predictionsOpen, inGame)}
+                sx={dockButtonSx(dockButtonImages.predictions, predictionsOpen)}
                 onClick={() => setPredictionsOpen((wasOpen) => !wasOpen)}
-            >
-                <CasinoRoundedIcon aria-hidden="true" />
-            </IconButton>
+            />
             <IconButton
                 aria-label="Friends"
                 aria-pressed={friendsOpen}
                 title="Friends"
-                sx={dockButtonSx(dockButtonTones.friends, friendsOpen, inGame)}
+                sx={dockButtonSx(dockButtonImages.friends, friendsOpen)}
                 onClick={() => {
                     social.requestNotificationPermission();
                     setFriendsOpen((wasOpen) => !wasOpen);
                 }}
+            />
+            <Box
+                sx={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    flex: "0 0 32px",
+                }}
             >
-                <GroupsRoundedIcon aria-hidden="true" />
-            </IconButton>
-            <Box sx={{ position: "relative" }}>
                 <IconButton
                     aria-label="Notifications"
                     aria-pressed={trayOpen}
                     title="Notifications"
-                    sx={dockButtonSx(dockButtonTones.notifications, trayOpen, inGame)}
+                    sx={dockButtonSx(dockButtonImages.notifications, trayOpen)}
                     onClick={() => {
                         social.requestNotificationPermission();
                         setTrayOpen((wasOpen) => !wasOpen);
                     }}
-                >
-                    <NotificationsRoundedIcon aria-hidden="true" />
-                </IconButton>
+                />
                 {social.unseenCount > 0 ? (
                     <Box
                         sx={{
@@ -920,12 +950,302 @@ export const SocialDock: React.FC = () => {
                     </Box>
                 ) : null}
             </Box>
+            {/* Keep sound at the screen edge. The right-anchored row then grows leftward, so the three
+                social controls cannot be squeezed underneath the volume control on narrower servers. */}
+            <Box
+                ref={floatingVolumeSlotRef}
+                data-volume-control="social-dock"
+                data-volume-size={inGame ? "compact" : "default"}
+                sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}
+            />
         </Stack>
+    );
+
+    const systemMenuItems = [
+        {
+            key: "predictions",
+            label: "Bets and predictions",
+            image: dockButtonImages.predictions,
+            active: predictionsOpen,
+            x: -56,
+            y: 4,
+            delay: 0,
+            onClick: () => setPredictionsOpen((wasOpen) => !wasOpen),
+        },
+        {
+            key: "friends",
+            label: "Friends",
+            image: dockButtonImages.friends,
+            active: friendsOpen,
+            x: -48,
+            y: 46,
+            delay: 35,
+            onClick: () => {
+                social.requestNotificationPermission();
+                setFriendsOpen((wasOpen) => !wasOpen);
+            },
+        },
+        {
+            key: "notifications",
+            label: "Notifications",
+            image: dockButtonImages.notifications,
+            active: trayOpen,
+            x: -8,
+            y: 62,
+            delay: 70,
+            onClick: () => {
+                social.requestNotificationPermission();
+                setTrayOpen((wasOpen) => !wasOpen);
+            },
+        },
+    ] as const;
+
+    const systemDockControls = (
+        <>
+            <Box
+                ref={floatingVolumeSlotRef}
+                data-volume-control="social-dock"
+                data-volume-size="compact"
+                sx={{
+                    position: "fixed",
+                    right: 10,
+                    bottom: 12,
+                    zIndex: 1400,
+                    display: "flex",
+                    alignItems: "center",
+                }}
+            />
+            <Box
+                data-social-dock-button="true"
+                onMouseEnter={showSystemMenu}
+                onMouseLeave={scheduleSystemMenuClose}
+                onFocus={showSystemMenu}
+                onBlur={scheduleSystemMenuClose}
+                sx={{
+                    position: "fixed",
+                    // Anchor the image box directly to the viewport. The asset already contains about
+                    // four rendered pixels of transparent breathing room, which becomes the requested
+                    // small visual gap without adding a second CSS offset on scaled game layouts.
+                    top: 0,
+                    right: 0,
+                    width: 116,
+                    height: 116,
+                    zIndex: 1500,
+                    pointerEvents: "none",
+                }}
+            >
+                {systemMenuItems.map((item) => (
+                    <Box
+                        key={item.key}
+                        onPointerEnter={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            setSystemMenuLabel({
+                                text: item.label,
+                                top: bounds.top + bounds.height / 2,
+                                right: window.innerWidth - bounds.left + 6,
+                            });
+                        }}
+                        onPointerLeave={() => setSystemMenuLabel(null)}
+                        onFocus={(event) => {
+                            const bounds = event.currentTarget.getBoundingClientRect();
+                            setSystemMenuLabel({
+                                text: item.label,
+                                top: bounds.top + bounds.height / 2,
+                                right: window.innerWidth - bounds.left + 6,
+                            });
+                        }}
+                        onBlur={() => setSystemMenuLabel(null)}
+                        sx={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                            width: 34,
+                            height: 34,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: systemMenuOpen ? "auto" : "none",
+                            // The hit target is placed at its final location immediately. Only the artwork
+                            // inside it travels out from the master button, so a first hover never waits for
+                            // the fan animation to move the interactive area underneath the cursor.
+                            transform: `translate(${item.x}px, ${item.y}px)`,
+                            transformOrigin: "center",
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                position: "relative",
+                                width: 34,
+                                height: 34,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                opacity: systemMenuOpen ? 1 : 0,
+                                transform: systemMenuOpen
+                                    ? "translate(0, 0) scale(1)"
+                                    : `translate(${-item.x}px, ${-item.y}px) scale(0.68)`,
+                                transformOrigin: "center",
+                                transition: `transform 210ms cubic-bezier(0.2, 0.85, 0.24, 1.15) ${
+                                    systemMenuOpen ? item.delay : 0
+                                }ms, opacity 120ms ease ${systemMenuOpen ? item.delay : 0}ms`,
+                            }}
+                        >
+                            <IconButton
+                                aria-label={item.label}
+                                aria-pressed={item.active}
+                                sx={dockButtonSx(item.image, item.active)}
+                                onClick={item.onClick}
+                            />
+                            {item.key === "notifications" && social.unseenCount > 0 ? (
+                                <Box
+                                    sx={{
+                                        position: "absolute",
+                                        top: -4,
+                                        right: -4,
+                                        minWidth: 18,
+                                        height: 18,
+                                        px: 0.45,
+                                        borderRadius: 9,
+                                        bgcolor: hocColors.danger,
+                                        color: "#fff",
+                                        border: "2px solid #160b07",
+                                        boxShadow: "0 3px 9px rgba(0,0,0,0.55)",
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        pointerEvents: "none",
+                                    }}
+                                >
+                                    {social.unseenCount > 99 ? "99+" : social.unseenCount}
+                                </Box>
+                            ) : null}
+                        </Box>
+                    </Box>
+                ))}
+
+                <Box
+                    onPointerEnter={(event) => {
+                        const bounds = event.currentTarget.getBoundingClientRect();
+                        setSystemMenuLabel({
+                            text: "System controls",
+                            top: bounds.top + bounds.height / 2,
+                            right: window.innerWidth - bounds.left + 6,
+                        });
+                    }}
+                    onPointerLeave={() => setSystemMenuLabel(null)}
+                    onFocus={(event) => {
+                        const bounds = event.currentTarget.getBoundingClientRect();
+                        setSystemMenuLabel({
+                            text: "System controls",
+                            top: bounds.top + bounds.height / 2,
+                            right: window.innerWidth - bounds.left + 6,
+                        });
+                    }}
+                    onBlur={() => setSystemMenuLabel(null)}
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        width: 54,
+                        height: 54,
+                        pointerEvents: "auto",
+                        overflow: "visible",
+                    }}
+                >
+                    <IconButton
+                        aria-label="System controls"
+                        aria-expanded={systemMenuOpen}
+                        onClick={() => {
+                            cancelSystemMenuClose();
+                            setSystemMenuOpen((wasOpen) => !wasOpen);
+                        }}
+                        sx={{
+                            // The artwork has transparent breathing room and the control box is slightly
+                            // larger than the visible 48px medallion. Joy can then never crop the forged
+                            // outer ring or its antialiasing at the lower/right cardinal points.
+                            width: 54,
+                            height: 54,
+                            minWidth: 54,
+                            minHeight: 54,
+                            p: 0,
+                            borderRadius: "50%",
+                            overflow: "visible",
+                            bgcolor: "transparent",
+                            border: 0,
+                            boxShadow: "none",
+                            backgroundImage: `url(${dockButtonImages.systemMenu})`,
+                            backgroundPosition: "center",
+                            backgroundRepeat: "no-repeat",
+                            backgroundSize: "contain",
+                            filter: systemMenuOpen
+                                ? "brightness(1.16) saturate(1.06) drop-shadow(0 0 8px rgba(226, 178, 86, 0.68))"
+                                : predictionsOpen || friendsOpen || trayOpen
+                                  ? "brightness(1.1) drop-shadow(0 0 8px rgba(211, 173, 103, 0.34))"
+                                  : "drop-shadow(0 6px 9px rgba(0, 0, 0, 0.55))",
+                            transform: systemMenuOpen ? "scale(1.045)" : "scale(1)",
+                            transition: "transform 160ms ease, filter 160ms ease",
+                            "&:hover": {
+                                bgcolor: "transparent",
+                                transform: "scale(1.045)",
+                                // Identical to the open-state highlight. Moving from the master button to
+                                // a child can no longer cause a dim flash between :hover and menu state.
+                                filter: "brightness(1.16) saturate(1.06) drop-shadow(0 0 8px rgba(226, 178, 86, 0.68))",
+                            },
+                            "&:active": { transform: "translateY(1px) scale(1.025)" },
+                        }}
+                    />
+                    {!systemMenuOpen && social.unseenCount > 0 ? (
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                top: -2,
+                                right: -2,
+                                minWidth: 19,
+                                height: 19,
+                                px: 0.45,
+                                borderRadius: 10,
+                                bgcolor: hocColors.danger,
+                                color: "#fff",
+                                border: "2px solid #160b07",
+                                boxShadow: "0 3px 10px rgba(0,0,0,0.58)",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                pointerEvents: "none",
+                            }}
+                        >
+                            {social.unseenCount > 99 ? "99+" : social.unseenCount}
+                        </Box>
+                    ) : null}
+                </Box>
+                {systemMenuLabel ? (
+                    <Box
+                        aria-hidden="true"
+                        sx={{
+                            ...instantDockLabelSx,
+                            top: systemMenuLabel.top,
+                            right: systemMenuLabel.right,
+                            transform: "translateY(-50%)",
+                        }}
+                    >
+                        {systemMenuLabel.text}
+                    </Box>
+                ) : null}
+            </Box>
+        </>
     );
 
     return (
         <>
-            {fightDockSlot ? createPortal(dockControls, fightDockSlot) : dockControls}
+            {systemMenuMode
+                ? createPortal(systemDockControls, document.body)
+                : fightDockSlot
+                  ? createPortal(dockControls, fightDockSlot)
+                  : dockControls}
 
             <PredictionsPanel open={predictionsOpen} onClose={() => setPredictionsOpen(false)} />
             <NotificationsTray open={trayOpen} onClose={() => setTrayOpen(false)} onMessage={openConversation} />

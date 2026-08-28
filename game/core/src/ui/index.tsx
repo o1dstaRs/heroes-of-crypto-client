@@ -59,6 +59,7 @@ import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
+import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
@@ -182,6 +183,12 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const [isLoading, setIsLoading] = useState(manager.isLoading);
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
+
+    // The offline sandbox owns the compact top-right system-controls medallion on every route shape.
+    useEffect(() => {
+        setBattleSystemControlsActive(true);
+        return () => setBattleSystemControlsActive(false);
+    }, []);
 
     const closeSandbox = useCallback(() => {
         if (window.history.length > 1) {

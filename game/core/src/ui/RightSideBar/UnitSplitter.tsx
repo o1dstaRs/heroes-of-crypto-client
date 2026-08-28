@@ -6,7 +6,12 @@ import Typography from "@mui/joy/Typography";
 import Slider from "@mui/joy/Slider";
 import Button from "@mui/joy/Button";
 import Tooltip from "@mui/joy/Tooltip";
-import { hocDisplayFontFamily, hocSidebarImageButtonSx, hocSplitterSliderSx } from "../hocTheme";
+import {
+    hocDisplayFontFamily,
+    hocSidebarCloneSplitButtonSx,
+    hocSidebarImageButtonSx,
+    hocSplitterSliderSx,
+} from "../hocTheme";
 
 interface IUnitSplitterProps {
     totalUnits: number;
@@ -124,7 +129,7 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                         variant="plain"
                         size="sm"
                         onClick={handleAcceptSplit}
-                        sx={{ ...hocSidebarImageButtonSx("neutral"), flex: 1, minWidth: 0 }}
+                        sx={{ ...hocSidebarCloneSplitButtonSx, flex: 1, minWidth: 0 }}
                     >
                         Split
                     </Button>

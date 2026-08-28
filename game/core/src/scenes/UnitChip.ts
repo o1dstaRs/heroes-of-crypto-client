@@ -1,5 +1,5 @@
 // game/core/src/scenes/UnitChip.ts
-import { Container, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
+import { Container, FillGradient, Graphics, Sprite, Text, TextStyle, Texture, Ticker, Rectangle } from "pixi.js";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../generated/image_imports";
 import { CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA } from "../ui/creaturePortraitBackground";
@@ -177,12 +177,31 @@ export type UnitChipOptions = {
         mirrorX?: boolean;
     };
     getAmount?: AmountProvider;
+    typeIcons?: {
+        attack: Texture;
+        movement: Texture;
+        movementScale?: number;
+    };
     banned?: boolean;
 };
 
 // The roster's neutral team colour — the same grey RenderableUnit falls back to for a unit that has no side
 // yet, so an unplaced stack and a placed one differ only in colour, not in kind.
 const ROSTER_FLAG_COLOR = 0xd0d0d0;
+const CAN_RENDER_ROSTER_TYPE_GRADIENT =
+    typeof document !== "undefined" && document.createElement("canvas").getContext("2d") !== null;
+const ROSTER_TYPE_BACKGROUND_GRADIENT = CAN_RENDER_ROSTER_TYPE_GRADIENT
+    ? new FillGradient({
+          start: { x: 0, y: 0 },
+          end: { x: 0, y: 1 },
+          textureSpace: "local",
+          colorStops: [
+              { offset: 0, color: "rgba(8,7,6,0)" },
+              { offset: 0.34, color: "rgba(8,7,6,.78)" },
+              { offset: 1, color: "rgba(8,7,6,.96)" },
+          ],
+      })
+    : undefined;
 
 export class UnitChip extends Container {
     public readonly nameKey: string;
@@ -194,6 +213,11 @@ export class UnitChip extends Container {
     private portraitBackgroundShade?: Graphics;
     private portraitMask?: Graphics;
     private portraitFrame: Graphics;
+    private typeOverlay: Container;
+    private typeOverlayBackground: Graphics;
+    private attackTypeIcon?: Sprite;
+    private movementTypeIcon?: Sprite;
+    private movementTypeIconScale = 1;
     private portraitFraming?: PortraitFraming;
     private portraitBackgroundOpacity = 1;
     private portraitBackgroundShadeAlpha = CREATURE_PORTRAIT_BACKGROUND_SHADE_ALPHA;
@@ -273,6 +297,21 @@ export class UnitChip extends Container {
         // artwork so the complete rounded stroke stays crisp at every responsive size.
         this.portraitFrame = new Graphics();
 
+        // Attack + movement use the exact silver pictograms and bottom fade from the draft cards.
+        this.typeOverlay = new Container();
+        this.typeOverlay.eventMode = "none";
+        this.typeOverlayBackground = new Graphics();
+        this.typeOverlay.addChild(this.typeOverlayBackground);
+        if (opts.typeIcons) {
+            this.attackTypeIcon = new Sprite(opts.typeIcons.attack);
+            this.movementTypeIcon = new Sprite(opts.typeIcons.movement);
+            this.movementTypeIconScale = opts.typeIcons.movementScale ?? 1;
+            this.attackTypeIcon.anchor.set(0.5);
+            this.movementTypeIcon.anchor.set(0.5);
+            this.typeOverlay.addChild(this.attackTypeIcon, this.movementTypeIcon);
+        }
+        this.typeOverlay.visible = false;
+
         this.badgeCont = new Container();
         // Drawn as the SAME banner a placed stack wears, only colourless: a creature picked from the roster
         // is already "a stack of N", it just has no team yet. A plain white disc made the roster read as a
@@ -287,7 +326,13 @@ export class UnitChip extends Container {
         this.badgeCont.addChild(this.badgeFlag, this.badgeText);
         this.badgeCont.visible = false;
 
-        this.content.addChild(this.aroundGlow, this.portraitContainer, this.portraitFrame, this.badgeCont);
+        this.content.addChild(
+            this.aroundGlow,
+            this.portraitContainer,
+            this.portraitFrame,
+            this.typeOverlay,
+            this.badgeCont,
+        );
         this.addChild(this.content);
 
         // Pointer interactions
@@ -329,6 +374,7 @@ export class UnitChip extends Container {
         this.drawBadgeFlag(cardWidth, fs);
 
         this.drawGlows(cardWidth, cardHeight);
+        this.layoutTypeOverlay(cardWidth, cardHeight);
 
         // Re-apply states with split hover/selection logic
         this.applyHoverVisuals(); // sets scale/offset + tween based on hover only
@@ -483,6 +529,30 @@ export class UnitChip extends Container {
         this.sprite.scale.x = Math.abs(this.sprite.scale.x) * (this.mirrorPortraitX ? -1 : 1);
         this.sprite.position.set(this.mirrorPortraitX ? -framedX : framedX, (cardHeight * framing.offsetY) / 100);
     }
+    private layoutTypeOverlay(cardWidth: number, cardHeight: number): void {
+        if (!this.attackTypeIcon || !this.movementTypeIcon) return;
+
+        const iconSize = Math.max(16, Math.min(30, cardWidth * 0.21)) * 0.85;
+        const iconY = cardHeight * 0.5 - iconSize * 0.62;
+        const iconOffsetX = iconSize * 0.7;
+        const tallestIconHeight = iconSize * Math.max(1, this.movementTypeIconScale);
+        // Lift the hover fade by another 2% of the portrait height so the two type pictograms
+        // remain readable against bright artwork without changing their position or scale.
+        const backgroundTop = iconY - tallestIconHeight * 0.54 - cardHeight * 0.02;
+        const backgroundHeight = cardHeight * 0.5 - backgroundTop;
+
+        this.typeOverlayBackground
+            .clear()
+            .rect(-cardWidth * 0.5, backgroundTop, cardWidth, backgroundHeight)
+            .fill(ROSTER_TYPE_BACKGROUND_GRADIENT ?? { color: 0x080706, alpha: 0.88 });
+
+        this.attackTypeIcon.position.set(-iconOffsetX, iconY);
+        this.attackTypeIcon.width = iconSize;
+        this.attackTypeIcon.height = iconSize;
+        this.movementTypeIcon.position.set(iconOffsetX, iconY);
+        this.movementTypeIcon.width = iconSize * this.movementTypeIconScale;
+        this.movementTypeIcon.height = iconSize * this.movementTypeIconScale;
+    }
     public override destroy(options?: Parameters<Container["destroy"]>[0]): void {
         this.stopAtlasAnimation();
         if (this.tweenStepFn && this.ticker) {
@@ -590,6 +660,7 @@ export class UnitChip extends Container {
         const anyActive = this.hovered || this.selected;
 
         this.aroundGlow.visible = anyActive;
+        this.typeOverlay.visible = this.hovered && !!this.attackTypeIcon && !!this.movementTypeIcon;
 
         const amount = this.amountProvider?.(this.nameKey) ?? 0;
         if (this.badgeText.text !== String(amount)) {

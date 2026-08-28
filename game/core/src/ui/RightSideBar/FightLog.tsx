@@ -506,10 +506,9 @@ export const FightLog = ({ text }: { text: string }) => {
                                         sx={{
                                             position: "relative",
                                             // Turn rows sit indented under their header, hanging off a faint
-                                            // rail; the pre-turn block (no header) keeps the flush layout.
+                                            // sequence of nodes; the pre-turn block (no header) keeps the flush layout.
                                             pl: group.headerEntry ? "23px" : "10px",
                                             ml: group.headerEntry ? "14px" : 0,
-                                            borderLeft: group.headerEntry ? "1px solid rgba(148, 98, 37, .72)" : "none",
                                             pr: "10px",
                                             py: "3px",
                                             fontSize: "10.5px",
@@ -523,15 +522,14 @@ export const FightLog = ({ text }: { text: string }) => {
                                                       "&::before": {
                                                           content: '""',
                                                           position: "absolute",
-                                                          left: "-4px",
+                                                          left: "-3px",
                                                           top: "50%",
-                                                          width: "7px",
-                                                          height: "7px",
+                                                          width: "5px",
+                                                          height: "5px",
                                                           borderRadius: "50%",
-                                                          border: "1px solid rgba(205,151,67,.78)",
-                                                          background:
-                                                              "radial-gradient(circle, #d6a44b 0 24%, #3c270f 28% 58%, #0c0905 62%)",
-                                                          boxShadow: "0 0 0 1px rgba(0,0,0,.72)",
+                                                          border: "1px solid rgba(205,151,67,.92)",
+                                                          background: "#d6a44b",
+                                                          boxShadow: "none",
                                                           transform: "translateY(-50%)",
                                                       },
                                                   }

@@ -9,7 +9,7 @@ import { TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { t, useTranslation } from "../../i18n/i18n";
-import { hocDisplayFontFamily, hocSidebarImageButtonSx } from "../hocTheme";
+import { hocDisplayFontFamily, hocSidebarCloneSplitButtonSx, hocSidebarImageButtonSx } from "../hocTheme";
 
 const DEFAULT_NUMBER_OF_UNITS_TO_ACCEPT = 1;
 
@@ -385,6 +385,18 @@ const UnitInputAndActions = ({
                         transform: "translateX(clamp(0px, calc((100vw - 1422px) * 0.04), 24px))",
                     }}
                 >
+                    <Tooltip title={t("Clone (C)")} placement="top" sx={shortcutTooltipSx}>
+                        <Button
+                            variant="plain"
+                            size="sm"
+                            onClick={() => {
+                                manager.Clone();
+                            }}
+                            sx={{ ...hocSidebarCloneSplitButtonSx, flex: 1, minWidth: 0 }}
+                        >
+                            {t("Clone")}
+                        </Button>
+                    </Tooltip>
                     <Tooltip title={t("Accept (A)")} placement="top" sx={shortcutTooltipSx}>
                         <Button
                             variant="plain"
@@ -395,18 +407,6 @@ const UnitInputAndActions = ({
                             sx={{ ...hocSidebarImageButtonSx("primary"), flex: 1, minWidth: 0 }}
                         >
                             {t("Accept")}
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title={t("Clone (C)")} placement="top" sx={shortcutTooltipSx}>
-                        <Button
-                            variant="plain"
-                            size="sm"
-                            onClick={() => {
-                                manager.Clone();
-                            }}
-                            sx={{ ...hocSidebarImageButtonSx("neutral"), flex: 1, minWidth: 0 }}
-                        >
-                            {t("Clone")}
                         </Button>
                     </Tooltip>
                 </Stack>

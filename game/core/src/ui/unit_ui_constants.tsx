@@ -6,79 +6,82 @@ import { images } from "../generated/image_imports";
 const extendedCreatureVals = CreatureVals as typeof CreatureVals & {
     readonly ARACHNA_QUEEN?: number;
     readonly ARACHNA_SPIDER?: number;
+    readonly ASH_MOTH?: number;
     readonly MAGIC_DRAGON?: number;
+    readonly WANDERING_MAGE?: number;
 };
 const ARACHNA_QUEEN_CREATURE_ID = extendedCreatureVals.ARACHNA_QUEEN ?? 44;
 const ARACHNA_SPIDER_CREATURE_ID = extendedCreatureVals.ARACHNA_SPIDER ?? 45;
 const MAGIC_DRAGON_CREATURE_ID = extendedCreatureVals.MAGIC_DRAGON ?? 57;
+/** Protocol id 49 kept its value while the generated enum name changed between common revisions. */
+export const WANDERING_MAGE_CREATURE_ID = extendedCreatureVals.WANDERING_MAGE ?? extendedCreatureVals.ASH_MOTH ?? 49;
+
+const runtimeImages = images as Readonly<Record<string, string | undefined>>;
+const pickSandboxPortrait = (slug: string): string => {
+    const portrait = runtimeImages[`${slug}_pick_sandbox_x2`];
+    if (!portrait) throw new Error(`Missing pick/sandbox portrait for ${slug}`);
+    return portrait;
+};
 
 export const UNIT_ID_TO_IMAGE: Record<number, string> = {
     [CreatureVals.NO_CREATURE]: images.unknown_creature_512,
-    // The legacy 512px Orc portrait is a circular medallion rather than a clean creature cutout.
-    // Use the transparent model source so framing remains consistent with the rest of the roster.
-    [CreatureVals.ORC]: images.orc_model_full,
-    [CreatureVals.SCAVENGER]: images.thief_model_full,
-    [CreatureVals.TROGLODYTE]: images.troglodyte_512,
-    [CreatureVals.TROLL]: images.pick_l2_legacy_troll_512,
-    [CreatureVals.MEDUSA]: images.pick_l2_legacy_medusa_512,
-    [CreatureVals.BEHOLDER]: images.pick_l2_legacy_beholder_512,
-    [CreatureVals.GOBLIN_KNIGHT]: images.goblin_knight_512,
-    [CreatureVals.EFREET]: images.efreet_512,
-    [CreatureVals.BLACK_DRAGON]: images.black_dragon_512,
-    [CreatureVals.HYDRA]: images.hydra_512,
-    [CreatureVals.ABOMINATION]: images.abomination_512,
-    [CreatureVals.CENTAUR]: images.centaur_512,
-    [CreatureVals.BERSERKER]: images.berserker_512,
-    [CreatureVals.WOLF_RIDER]: images.wolf_rider_512,
-    [CreatureVals.MERMAID]: images.mermaid_512,
-    [CreatureVals.DRYAD]: images.dryad_512,
-    [CreatureVals.BLACKSMITH]: images.blacksmith_512,
-    [CreatureVals.ZENA]: images.zena_512,
-    [CreatureVals.TRENT]: images.pick_l2_legacy_trent_512,
-    [CreatureVals.WYVERN]: images.pick_l2_legacy_wyvern_512,
-    [CreatureVals.HARPY]: images.pick_l2_legacy_harpy_512,
-    [CreatureVals.NOMAD]: images.pick_l2_legacy_nomad_512,
-    [CreatureVals.HYENA]: images.pick_l2_legacy_hyena_512,
-    [CreatureVals.CYCLOPS]: images.cyclops_512,
-    [CreatureVals.OGRE_MAGE]: images.ogre_mage_512,
-    [CreatureVals.THUNDERBIRD]: images.thunderbird_512_v2,
-    [CreatureVals.BEHEMOTH]: images.behemoth_512,
-    [CreatureVals.FRENZIED_BOAR]: images.frenzied_boar_512,
-    // wolf_512 is cropped through the muzzle at its right canvas edge. That hard source edge became
-    // visible when the portrait was shifted left in the framing editor.
-    [CreatureVals.WOLF]: images.wolf_portrait_full,
-    [CreatureVals.FAIRY]: images.fairy_512,
-    [CreatureVals.LEPRECHAUN]: images.leprechaun_512,
-    [CreatureVals.ELF]: images.pick_l2_legacy_elf_512,
-    [CreatureVals.WHITE_TIGER]:
-        (images as Partial<Record<string, string>>).pick_l2_legacy_white_tiger_512 ?? images.white_tiger_512,
-    [CreatureVals.SATYR]: images.pick_l2_legacy_satyr_512,
-    [CreatureVals.MANTIS]: images.mantis_512,
-    [CreatureVals.UNICORN]: images.unicorn_512,
-    [CreatureVals.GARGANTUAN]: images.gargantuan_512,
-    [CreatureVals.PEGASUS]: images.pegasus_512,
-    [ARACHNA_QUEEN_CREATURE_ID]: images.arachna_queen_512,
-    [ARACHNA_SPIDER_CREATURE_ID]: images.arachna_spider_512,
-    [CreatureVals.PEASANT]: images.peasant_512,
-    [CreatureVals.SQUIRE]: images.squire_512,
-    [CreatureVals.ARBALESTER]: images.arbalester_512,
-    // Keep pick portraits independent from battlefield sprites. The L2 battle-art pass intentionally
-    // replaced the live *_512 files, while these reviewed snapshots preserve the approved roster cards.
-    [CreatureVals.VALKYRIE]: images.pick_l2_legacy_valkyrie_512,
-    [CreatureVals.PIKEMAN]: images.pick_l2_legacy_pikeman_512,
-    [CreatureVals.HEALER]: images.pick_l2_legacy_healer_512,
-    [CreatureVals.GRIFFIN]: images.griffin_512,
-    [CreatureVals.CRUSADER]: images.crusader_512,
-    [CreatureVals.TSAR_CANNON]: images.tsar_cannon_512,
-    [CreatureVals.ANGEL]: images.angel_512,
-    [CreatureVals.CHAMPION]: images.champion_512,
-    [CreatureVals.WANDERING_MAGE]: images.wandering_mage_512,
-    [CreatureVals.MONK]: images.monk_512,
-    [CreatureVals.MANTICORE]:
-        (images as Partial<Record<string, string>>).pick_l2_legacy_manticore_512 ?? images.manticore_512,
-    [CreatureVals.BATTLE_MAGE]: images.pick_l2_legacy_battle_mage_512,
-    [CreatureVals.NIGHTMARE]: images.nightmare_512,
-    [MAGIC_DRAGON_CREATURE_ID]: images.magic_dragon_512,
+    [CreatureVals.ORC]: pickSandboxPortrait("orc"),
+    [CreatureVals.SCAVENGER]: pickSandboxPortrait("scavenger"),
+    [CreatureVals.TROGLODYTE]: pickSandboxPortrait("troglodyte"),
+    [CreatureVals.TROLL]: pickSandboxPortrait("troll"),
+    [CreatureVals.MEDUSA]: pickSandboxPortrait("medusa"),
+    [CreatureVals.BEHOLDER]: pickSandboxPortrait("beholder"),
+    [CreatureVals.GOBLIN_KNIGHT]: pickSandboxPortrait("goblin_knight"),
+    [CreatureVals.EFREET]: pickSandboxPortrait("efreet"),
+    [CreatureVals.BLACK_DRAGON]: pickSandboxPortrait("black_dragon"),
+    [CreatureVals.HYDRA]: pickSandboxPortrait("hydra"),
+    [CreatureVals.ABOMINATION]: pickSandboxPortrait("abomination"),
+    [CreatureVals.CENTAUR]: pickSandboxPortrait("centaur"),
+    [CreatureVals.BERSERKER]: pickSandboxPortrait("berserker"),
+    [CreatureVals.WOLF_RIDER]: pickSandboxPortrait("wolf_rider"),
+    [CreatureVals.MERMAID]: pickSandboxPortrait("mermaid"),
+    [CreatureVals.DRYAD]: pickSandboxPortrait("dryad"),
+    [CreatureVals.BLACKSMITH]: pickSandboxPortrait("blacksmith"),
+    [CreatureVals.ZENA]: pickSandboxPortrait("zena"),
+    [CreatureVals.TRENT]: pickSandboxPortrait("trent"),
+    [CreatureVals.WYVERN]: pickSandboxPortrait("wyvern"),
+    [CreatureVals.HARPY]: pickSandboxPortrait("harpy"),
+    [CreatureVals.NOMAD]: pickSandboxPortrait("nomad"),
+    [CreatureVals.HYENA]: pickSandboxPortrait("hyena"),
+    [CreatureVals.CYCLOPS]: pickSandboxPortrait("cyclops"),
+    [CreatureVals.OGRE_MAGE]: pickSandboxPortrait("ogre_mage"),
+    [CreatureVals.THUNDERBIRD]: pickSandboxPortrait("thunderbird"),
+    [CreatureVals.BEHEMOTH]: pickSandboxPortrait("behemoth"),
+    [CreatureVals.FRENZIED_BOAR]: pickSandboxPortrait("frenzied_boar"),
+    [CreatureVals.WOLF]: pickSandboxPortrait("wolf"),
+    [CreatureVals.FAIRY]: pickSandboxPortrait("fairy"),
+    [CreatureVals.LEPRECHAUN]: pickSandboxPortrait("leprechaun"),
+    [CreatureVals.ELF]: pickSandboxPortrait("elf"),
+    [CreatureVals.WHITE_TIGER]: pickSandboxPortrait("white_tiger"),
+    [CreatureVals.SATYR]: pickSandboxPortrait("satyr"),
+    [CreatureVals.MANTIS]: pickSandboxPortrait("mantis"),
+    [CreatureVals.UNICORN]: pickSandboxPortrait("unicorn"),
+    [CreatureVals.GARGANTUAN]: pickSandboxPortrait("gargantuan"),
+    [CreatureVals.PEGASUS]: pickSandboxPortrait("pegasus"),
+    [ARACHNA_QUEEN_CREATURE_ID]: pickSandboxPortrait("arachna_queen"),
+    [ARACHNA_SPIDER_CREATURE_ID]: pickSandboxPortrait("arachna_spider"),
+    [CreatureVals.PEASANT]: pickSandboxPortrait("peasant"),
+    [CreatureVals.SQUIRE]: pickSandboxPortrait("squire"),
+    [CreatureVals.ARBALESTER]: pickSandboxPortrait("arbalester"),
+    [CreatureVals.VALKYRIE]: pickSandboxPortrait("valkyrie"),
+    [CreatureVals.PIKEMAN]: pickSandboxPortrait("pikeman"),
+    [CreatureVals.HEALER]: pickSandboxPortrait("healer"),
+    [CreatureVals.GRIFFIN]: pickSandboxPortrait("griffin"),
+    [CreatureVals.CRUSADER]: pickSandboxPortrait("crusader"),
+    [CreatureVals.TSAR_CANNON]: pickSandboxPortrait("tsar_cannon"),
+    [CreatureVals.ANGEL]: pickSandboxPortrait("angel"),
+    [CreatureVals.CHAMPION]: pickSandboxPortrait("champion"),
+    [WANDERING_MAGE_CREATURE_ID]: pickSandboxPortrait("wandering_mage"),
+    [CreatureVals.MONK]: pickSandboxPortrait("monk"),
+    [CreatureVals.MANTICORE]: pickSandboxPortrait("manticore"),
+    [CreatureVals.BATTLE_MAGE]: pickSandboxPortrait("battle_mage"),
+    [CreatureVals.NIGHTMARE]: pickSandboxPortrait("nightmare"),
+    [MAGIC_DRAGON_CREATURE_ID]: pickSandboxPortrait("magic_dragon"),
 };
 
 export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
@@ -134,7 +137,7 @@ export const UNIT_ID_TO_NAME: Readonly<Record<number, string>> = {
     [CreatureVals.TSAR_CANNON]: "Tsar Cannon",
     [CreatureVals.ANGEL]: "Angel",
     [CreatureVals.CHAMPION]: "Champion",
-    [CreatureVals.WANDERING_MAGE]: "Wandering Mage",
+    [WANDERING_MAGE_CREATURE_ID]: "Wandering Mage",
     [CreatureVals.MONK]: "Monk",
     [CreatureVals.MANTICORE]: "Manticore",
     [CreatureVals.BATTLE_MAGE]: "Battle Mage",
@@ -147,21 +150,5 @@ export const UNIT_NAME_TO_ID: Readonly<Record<string, number>> = Object.freeze(
     Object.fromEntries(Object.entries(UNIT_ID_TO_NAME).map(([creatureId, name]) => [name, Number(creatureId)])),
 );
 
-const generatedImageMap = images as Readonly<Record<string, string | undefined>>;
-
-/**
- * Uncropped artwork for portrait framing. Most sources are promoted from the reviewed full-body feed;
- * the three authored exceptions already had a production-ready full-height model under another key.
- */
-export const fullBodyCreatureImage = (creatureId: number): string | undefined => {
-    if (creatureId === CreatureVals.ORC) return images.orc_model_full;
-    if (creatureId === CreatureVals.SCAVENGER) return images.thief_model_full;
-    if (creatureId === CreatureVals.WANDERING_MAGE) return images.wandering_mage_portrait_full;
-    if (creatureId === CreatureVals.EFREET)
-        return (images as Partial<Record<string, string>>).efreet_portrait_full_v7 ?? images.efreet_portrait_full_v5;
-    if (creatureId === CreatureVals.MANTIS)
-        return (images as Partial<Record<string, string>>).mantis_portrait_full_v3 ?? images.mantis_portrait_full_v2;
-    if (creatureId === CreatureVals.THUNDERBIRD) return images.thunderbird_portrait_full_v2;
-    const slug = UNIT_ID_TO_NAME[creatureId]?.toLowerCase().replaceAll(" ", "_");
-    return slug ? generatedImageMap[`${slug}_portrait_full`] : undefined;
-};
+/** Pick cards and the sandbox roster intentionally share the approved test-server portrait set. */
+export const fullBodyCreatureImage = (creatureId: number): string | undefined => UNIT_ID_TO_IMAGE[creatureId];

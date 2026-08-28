@@ -2208,7 +2208,9 @@ export class DungeonVisuals {
      * two side by side (see Sandbox.setLegacyBoardBackground). Drop the pair and inline the winner once the
      * comparison is settled.
      */
-    private static readonly BG_KEY_CURRENT = "background_stone_tiles_sinister_16x16";
+    // Use the same restored 16x16 field painting as the local sandbox. This is visual-only:
+    // grid geometry, placement rules and combat coordinates remain unchanged.
+    private static readonly BG_KEY_CURRENT = "background_stone_tiles_sinister_16x16_original_restored";
     private static readonly BG_KEY_LEGACY = "background_new";
     /** The animated pool is 4x4; its warm spill reaches one more cell on every side, making a 6x6 area. */
     private static readonly LAVA_LIGHT_AREA_CELLS = 6;

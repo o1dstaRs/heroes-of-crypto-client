@@ -18,6 +18,7 @@ import { UnitChip } from "./UnitChip";
 
 import { images } from "../imageAssets";
 import { resolveCreaturePortraitVisual } from "../ui/creaturePortraitVisual";
+import { creatureTypePresentation } from "../ui/creatureTypePresentation";
 import { UNIT_ID_TO_NAME, UNIT_NAME_TO_ID } from "../ui/unit_ui_constants";
 
 import {
@@ -58,6 +59,15 @@ export const EXPANDED_ROSTER_REFERENCE_COLUMNS = 8;
 
 /** The Pixi preload map is keyed by asset name while the shared portrait recipe exposes final URLs. */
 const IMAGE_URL_TO_KEY = new Map<string, string>(Object.entries(images).map(([key, url]) => [url, key]));
+const ROSTER_ATTACK_TYPE_ICON_KEY = {
+    MELEE: "pick_attack_melee_silver",
+    RANGE: "pick_attack_ranged_silver",
+    MAGIC: "pick_attack_magic_silver",
+} as const;
+const ROSTER_MOVEMENT_TYPE_ICON_KEY = {
+    WALK: "pick_movement_walk_silver",
+    FLY: "pick_movement_fly_silver",
+} as const;
 
 /** Draft cards use this exact portrait ratio (190 × 256). The sandbox roster keeps it too. */
 export const PICK_CARD_ASPECT = 190 / 256;
@@ -688,6 +698,13 @@ export class UnitsOverlay {
                         ? IMAGE_URL_TO_KEY.get(portraitVisual.background)
                         : undefined;
                     const backgroundTexture = backgroundTextureKey ? this.getTex(backgroundTextureKey) : undefined;
+                    const typePresentation = creatureTypePresentation(unitName);
+                    const attackTypeIcon = typePresentation
+                        ? this.getTex(ROSTER_ATTACK_TYPE_ICON_KEY[typePresentation.attack])
+                        : undefined;
+                    const movementTypeIcon = typePresentation
+                        ? this.getTex(ROSTER_MOVEMENT_TYPE_ICON_KEY[typePresentation.movement])
+                        : undefined;
 
                     // Fall back only for an unknown/unregistered creature. The normal sandbox roster uses
                     // the exact source, faction background and crop already approved for the pick cards.
@@ -712,6 +729,14 @@ export class UnitsOverlay {
                         texture: portraitTexture ?? fallbackTexture ?? Texture.EMPTY,
                         portrait,
                         getAmount: () => (this.getAmount ? this.getAmount(unitName) : unitProperties.amount_alive),
+                        typeIcons:
+                            attackTypeIcon && movementTypeIcon
+                                ? {
+                                      attack: attackTypeIcon,
+                                      movement: movementTypeIcon,
+                                      movementScale: typePresentation?.movement === "FLY" ? 220 / 170 : 1,
+                                  }
+                                : undefined,
                     });
                     chip.setTicker(this.app.ticker);
                     bucketCont.addChild(chip);

@@ -34,6 +34,20 @@ describe("sandbox right-sidebar contract", () => {
         expect(splitter).toContain("isEditableShortcutTarget");
     });
 
+    test("Clone precedes Accept and shares its plate treatment with Split", () => {
+        const actions = read("UnitInputAndActions.tsx");
+        const splitter = read("UnitSplitter.tsx");
+        expect(actions.indexOf('title={t("Clone (C)")}')).toBeLessThan(actions.indexOf('title={t("Accept (A)")}'));
+        expect(actions).toContain("hocSidebarCloneSplitButtonSx");
+        expect(splitter).toContain("hocSidebarCloneSplitButtonSx");
+    });
+
+    test("the split slider suppresses the default focus halo around its thumb", () => {
+        const theme = read("..", "hocTheme.ts");
+        expect(theme).toContain("& .MuiSlider-thumb.Mui-focusVisible");
+        expect(theme).toContain('outline: "none !important"');
+    });
+
     test("the app entry installs URL footprint overrides before anything builds a unit", () => {
         const entry = read("..", "index.tsx");
         expect(entry).toContain("installFootprintOverridesFromSearch(window.location.search)");

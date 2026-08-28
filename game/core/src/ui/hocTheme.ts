@@ -308,6 +308,9 @@ export const hocSidebarImageButtonSx = (variant: "primary" | "neutral" | "danger
     "&.Mui-disabled": { opacity: 0.42, color: "rgba(232,211,173,.65)", filter: "grayscale(.65) brightness(.68)" },
 });
 
+/** One shared plate treatment for the secondary Clone and Split placement actions. */
+export const hocSidebarCloneSplitButtonSx = hocSidebarImageButtonSx("neutral");
+
 /** Shared copper-and-ember split slider used by sandbox and ranked placement. */
 export const hocSplitterSliderSx = {
     color: "#693012",
@@ -329,6 +332,12 @@ export const hocSplitterSliderSx = {
         "&::before": {
             display: "none",
         },
+    },
+    "& .MuiSlider-thumb.Mui-focusVisible, & .MuiSlider-thumb:focus, & .MuiSlider-thumb:focus-visible": {
+        outline: "none !important",
+        outlineWidth: "0 !important",
+        outlineColor: "transparent !important",
+        boxShadow: "none !important",
     },
     "& .MuiSlider-rail": {
         height: 6.5,

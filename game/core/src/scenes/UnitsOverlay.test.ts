@@ -66,6 +66,46 @@ describe("UnitsOverlay chip visibility", () => {
         expect(PICK_CARD_ASPECT).toBeCloseTo(190 / 256);
     });
 
+    test("shows draft attack and movement pictograms only on the hovered sandbox roster card", () => {
+        const requestedTextures = new Set<string>();
+        const app = {
+            renderer: { height: 900, width: 1600 },
+            stage: new Container(),
+            ticker: { add: () => undefined, remove: () => undefined },
+        } as unknown as ConstructorParameters<typeof UnitsOverlay>[0];
+        const overlay = new UnitsOverlay(app, (key) => {
+            requestedTextures.add(key);
+            return Texture.EMPTY;
+        });
+        overlay.build();
+        const internals = overlay as unknown as OverlayInternals;
+        const peasant = internals.allChips.find((chip) => chip.nameKey === "Peasant")!;
+        const chipParts = peasant as unknown as {
+            typeOverlay: Container;
+            attackTypeIcon?: Sprite;
+            movementTypeIcon?: Sprite;
+        };
+
+        expect(requestedTextures).toContain("pick_attack_melee_silver");
+        expect(requestedTextures).toContain("pick_attack_ranged_silver");
+        expect(requestedTextures).toContain("pick_attack_magic_silver");
+        expect(requestedTextures).toContain("pick_movement_walk_silver");
+        expect(requestedTextures).toContain("pick_movement_fly_silver");
+        expect(chipParts.attackTypeIcon).toBeInstanceOf(Sprite);
+        expect(chipParts.movementTypeIcon).toBeInstanceOf(Sprite);
+        expect(chipParts.typeOverlay.children).toHaveLength(3);
+        expect(chipParts.attackTypeIcon?.filters).toBeFalsy();
+        expect(chipParts.movementTypeIcon?.filters).toBeFalsy();
+        expect(chipParts.typeOverlay.visible).toBe(false);
+
+        peasant.setHovered(true);
+        expect(chipParts.typeOverlay.visible).toBe(true);
+        peasant.setHovered(false);
+        expect(chipParts.typeOverlay.visible).toBe(false);
+
+        overlay.destroy();
+    });
+
     test("fits the roster into the clipped wall band above the battlefield", () => {
         const layout = unitsOverlayTopBandLayout(1600, 900);
         expect(layout.y).toBeGreaterThan(0);
@@ -143,9 +183,8 @@ describe("UnitsOverlay chip visibility", () => {
         const might = portraitParts(internals.allChips.find((chip) => chip.nameKey === "Centaur")!);
 
         expect(nature.sprite.scale.x).toBeLessThan(0);
-        // Wolf's approved crop has a non-zero X offset. A crop-first mirror reverses that offset along
-        // with the image so the visible card fragment is preserved rather than exposing another body area.
-        expect(nature.sprite.x).toBeGreaterThan(0);
+        // The prepared pick/sandbox WebP owns its crop, so mirroring must not introduce another offset.
+        expect(nature.sprite.x).toBe(0);
         expect(nature.portraitBackground?.scale.x).toBeGreaterThan(0);
         expect(life.sprite.scale.x).toBeGreaterThan(0);
         expect(life.portraitBackground?.scale.x).toBeGreaterThan(0);

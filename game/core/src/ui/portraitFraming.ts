@@ -91,14 +91,11 @@ export const PORTRAIT_FRAMING_CHECKPOINT_X: Readonly<Partial<Record<number, Port
 });
 
 /** Production baseline used by every portrait consumer. */
-export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {
-    ...PORTRAIT_FRAMING_CHECKPOINT_X,
-};
+export const PICK_PORTRAIT_FRAMING: Partial<Record<number, PortraitFraming>> = {};
 
-// Preserve the JSON tuned in the dev editor. The temporary OSG-2308 namespace hid the existing v3
-// settings from the app; keep it only as a fallback so no newer local edits are lost.
-export const PORTRAIT_FRAMING_STORAGE_KEY = "hoc-dev-portrait-framing-v3";
-const LEGACY_PORTRAIT_FRAMING_STORAGE_KEYS: readonly string[] = ["hoc-dev-portrait-framing-osg-2308-v1"];
+// The test-server pick/sandbox files own their crop. Keep their editor state separate from the legacy
+// 512/full-body sources so stale localhost transforms cannot be applied to the prepared WebP canvases.
+export const PORTRAIT_FRAMING_STORAGE_KEY = "hoc-dev-pick-sandbox-portrait-framing-v1";
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
@@ -132,11 +129,7 @@ let cachedStoredFraming: Record<number, PortraitFraming> = {};
 export const readStoredPortraitFraming = (): Record<number, PortraitFraming> => {
     if (typeof window === "undefined") return {};
 
-    let raw = window.localStorage.getItem(PORTRAIT_FRAMING_STORAGE_KEY);
-    if (!raw) {
-        raw = LEGACY_PORTRAIT_FRAMING_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(Boolean) ?? null;
-        if (raw) window.localStorage.setItem(PORTRAIT_FRAMING_STORAGE_KEY, raw);
-    }
+    const raw = window.localStorage.getItem(PORTRAIT_FRAMING_STORAGE_KEY);
     if (raw === cachedStorageValue) return cachedStoredFraming;
 
     cachedStorageValue = raw;

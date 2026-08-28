@@ -76,16 +76,6 @@ const clamp = (value: number, min: number, max: number): number => Math.max(min,
 /** Preserve gameplay precision to hundredths without adding meaningless trailing zeroes. */
 export const formatSidebarStat = (value: number): string => Number(value.toFixed(2)).toString();
 
-/** Keep stat adjustments separate from the effective value, with an explicit sign for increases. */
-export const formatSidebarModifier = (delta: number): string =>
-    delta ? `${delta > 0 ? "+" : ""}${formatSidebarStat(delta)}` : "";
-
-/** Attack can carry both an additive adjustment and a multiplier; neither should disappear into the total. */
-export const formatSidebarAttackModifier = (attackMod: number, attackMultiplier: number): string =>
-    [formatSidebarModifier(attackMod), attackMultiplier !== 1 ? `x${formatSidebarStat(attackMultiplier)}` : ""]
-        .filter(Boolean)
-        .join(" ");
-
 /**
  * The left frame rail is narrow, while the board-facing side has no matching inner ornament. Keep only
  * enough room to clear that rail: the card deliberately grows leftwards and keeps its right edge fixed.

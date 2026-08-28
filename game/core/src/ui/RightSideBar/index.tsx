@@ -21,12 +21,14 @@ import { useAuthContext } from "../auth/context/auth_context";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { battleSidebarWidth } from "../../pixi/boardFit";
 import { images } from "../../generated/image_imports";
-import { hocColors, hocDisplayFontFamily, hocSidebarImageButtonSx, hocSidebarSectionSx } from "../hocTheme";
+import { hocColors, hocDisplayFontFamily, hocSidebarSectionSx } from "../hocTheme";
 import FightControlToggler from "./FightControlToggler";
 import { FullscreenToggle } from "./FullscreenToggle";
 import { WalletLinker } from "../WalletLinker";
 import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
+import { exitFightButtonSx } from "../exitFightButtonSx";
+import { useFullscreenActive } from "../useFullscreenActive";
 
 // Floor for the fight log. Below this the bar as a whole scrolls rather than squeezing the log to nothing.
 const LOG_MIN_HEIGHT_PX = 168;
@@ -65,6 +67,7 @@ export default function RightSideBar({
 }) {
     const navigate = useNavigate();
     const { authenticated } = useAuthContext();
+    const isFullscreen = useFullscreenActive();
     const [unitDamageStatistics, setUnitDamageStatistics] = useState([] as IDamageStatistic[]);
 
     // See the note at the log itself: its height is measured on the first layout and then held, so nothing
@@ -514,7 +517,6 @@ export default function RightSideBar({
                             </Box>
                         </Box>
                     )}
-                    {rankedPanel && gameStarted && <Box sx={{ mt: 1 }}>{rankedPanel}</Box>}
                     {/* Combat's former divider is now the log's own lower frame: removing the extra item
                         lets the flexible log grow exactly into its old position. Setup keeps its separator. */}
                     {!rankedPanel && !gameStarted && <Divider />}
@@ -541,6 +543,8 @@ export default function RightSideBar({
                         <FullscreenToggle />
                         {rankedFooter ? (
                             rankedFooter
+                        ) : rankedPanel && gameStarted ? (
+                            rankedPanel
                         ) : !rankedPanel && gameStarted ? (
                             <Button
                                 variant="soft"
@@ -555,17 +559,7 @@ export default function RightSideBar({
                                         manager.StartOver();
                                     }
                                 }}
-                                sx={{
-                                    ...hocSidebarImageButtonSx("danger"),
-                                    justifySelf: "center",
-                                    width: "min(100%, 209px)",
-                                    height: "35.2px",
-                                    minHeight: "35.2px",
-                                    px: 1,
-                                    backgroundSize: "100% 100%",
-                                    fontSize: "0.924rem",
-                                    fontWeight: 880,
-                                }}
+                                sx={exitFightButtonSx(isFullscreen)}
                             >
                                 EXIT FIGHT
                             </Button>
