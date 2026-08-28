@@ -4742,7 +4742,22 @@ export class RenderableUnit extends Unit {
     } | null {
         const s = this.sprite;
         if (!s || !s.texture) return null;
-        const pos = this.getPosition();
+        // Every death effect (shatter, ice break, cleave, dissolve) tiles this texture across a
+        // |scaleX| x |scaleY| frame rectangle CENTRED on the point returned here, in the world root's
+        // space — which the units container shares, being an untransformed child of it. So the point
+        // owed is the sprite's rendered CENTRE.
+        //
+        // The unit's logical position is NOT that point, and handing it over dropped the body by 0.6
+        // to 2.1 cells depending on where it stood: the drawn sprite sits at its projected battlefield
+        // ground reference (plus authored/editor offsets), and its position is its ANCHOR, which for a
+        // full-body model is the foot line (~0.95 of the frame) rather than the middle of the art.
+        // Reading the live sprite covers both, and every later placement refinement, for free — the
+        // effect already took its SCALE from here for exactly that reason.
+        const frame = s.texture.frame;
+        const offsetX = (0.5 - s.anchor.x) * frame.width * s.scale.x;
+        const offsetY = (0.5 - s.anchor.y) * frame.height * s.scale.y;
+        const cos = Math.cos(s.rotation);
+        const sin = Math.sin(s.rotation);
         const freezeBounds = this.freezeCrust?.getLocalBounds();
         const frozenShellHalf =
             freezeBounds && freezeBounds.width > 1 && freezeBounds.height > 1
@@ -4750,8 +4765,8 @@ export class RenderableUnit extends Unit {
                 : undefined;
         return {
             texture: s.texture,
-            x: pos.x,
-            y: pos.y,
+            x: s.x + offsetX * cos - offsetY * sin,
+            y: s.y + offsetX * sin + offsetY * cos,
             scaleX: s.scale.x,
             scaleY: s.scale.y,
             frozenShellHalf,
