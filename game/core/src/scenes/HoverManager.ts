@@ -1,4 +1,4 @@
-import { Assets, Sprite, Graphics, Texture, Text } from "pixi.js";
+import { Assets, Sprite, Graphics, Matrix, Texture, Text, ColorMatrixFilter } from "pixi.js";
 import {
     FightStateManager,
     IPlacement,
@@ -21,13 +21,261 @@ import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
 import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
-import type { BattlefieldUnitPreview } from "./RenderableUnit";
-import { placementFacingDirectionForTeam, previewPlacementFacing } from "./RenderableUnit";
+import { placementFacingDirectionForTeam, previewPlacementFacing, type BattlefieldUnitPreview } from "./RenderableUnit";
+import { rangeTargetEdgeMarkerAngle } from "./rangeTargetEdges";
+import { getShotTrajectoryStyle } from "./shotTrajectoryStyle";
+import { tunedCellFillPolygon } from "./movementAreaVisual";
+import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
+
+export interface RangeTargetEdgeVisual {
+    from: HoCMath.XY;
+    to: HoCMath.XY;
+    markerCenter: HoCMath.XY;
+    cell: HoCMath.XY;
+    side: GridMath.RangeAttackCellSide;
+    notchTip: HoCMath.XY;
+    shootable: boolean;
+    rangeDivisor: number;
+    aimPosition: HoCMath.XY;
+    markerScale: number;
+}
 
 const MELEE_SWORD_ANGLE_STEP = Math.PI / 4;
-// Dedicated top layer for pointer-like attack markers. They must remain above units, badges, projected
-// damage and spell overlays regardless of which battlefield object the pointer is currently crossing.
-const ATTACK_CURSOR_MARKER_Z = 1_000_000;
+/** Ranged aim paints the approved moving gold-casing trajectory from shooter to selected target edge. */
+export const RANGED_ATTACK_TRAJECTORY_VISIBLE = true;
+export const BASE_SHOT_CASING_SPACING = 38;
+export const SHOT_CASING_SPACING_SCALE = 1.3;
+export const SHOT_CASING_SPACING = BASE_SHOT_CASING_SPACING * SHOT_CASING_SPACING_SCALE;
+/** Reduce only the casing artwork dimensions by seven percent; trajectory spacing stays unchanged. */
+export const SHOT_CASING_SIZE_SCALE = 0.93;
+/** Keeping scale fixed prevents the terminal arrow jumping while the optimal edge is recomputed. */
+export const RANGE_TARGET_EDGE_SELECTED_SCALE = 1;
+/** The furthest painted row is ten percent smaller; the nearest row keeps the approved current size. */
+export const RANGE_TARGET_EDGE_TOP_ROW_SCALE = 0.9;
+export const rangeTargetEdgeMarkerRowScale = (markerCellY: number, gridSize: number): number => {
+    const topRow = Math.max(1, gridSize - 1);
+    const rowProgress = Math.max(0, Math.min(1, markerCellY / topRow));
+    return 1 + (RANGE_TARGET_EDGE_TOP_ROW_SCALE - 1) * rowProgress;
+};
+/** Shorten only the arrow artwork's long axis; its readable authored thickness stays unchanged. */
+export const RANGE_TARGET_EDGE_LENGTH_SCALE = 0.8 * 0.85;
+/** Move every target-edge arrow 50% of a cell inward, along the direction its point faces. */
+export const RANGE_TARGET_EDGE_INWARD_OFFSET_FRACTION = 0.5;
+
+export const rangeTargetEdgeMarkerPosition = (
+    cellCenter: HoCMath.XY,
+    cellSize: number,
+    side: GridMath.RangeAttackCellSide,
+): HoCMath.XY => {
+    const offset = cellSize * RANGE_TARGET_EDGE_INWARD_OFFSET_FRACTION;
+    switch (side) {
+        case GridMath.RangeAttackCellSide.LEFT:
+            return { x: cellCenter.x + offset, y: cellCenter.y };
+        case GridMath.RangeAttackCellSide.RIGHT:
+            return { x: cellCenter.x - offset, y: cellCenter.y };
+        case GridMath.RangeAttackCellSide.DOWN:
+            return { x: cellCenter.x, y: cellCenter.y + offset };
+        case GridMath.RangeAttackCellSide.UP:
+        default:
+            return { x: cellCenter.x, y: cellCenter.y - offset };
+    }
+};
+
+/** Authored long-axis size shared by rendering and the trajectory-to-marker join. */
+export const rangeTargetEdgeMarkerDisplayLength = (cellSize: number): number =>
+    Math.min(56, Math.max(42, cellSize * 0.52)) * 1.35;
+
+/** V7 keeps the original 128-unit arrow in place and adds 57.5 units only behind its fixed head. */
+const RANGE_TARGET_EDGE_ART_BASE_WIDTH = 128;
+const RANGE_TARGET_EDGE_ART_WIDTH = 185.5;
+const RANGE_TARGET_EDGE_ART_HEIGHT = 47;
+const RANGE_TARGET_EDGE_ART_ANCHOR_X = 121.5;
+const RANGE_TARGET_EDGE_NECK_X = 139.5;
+
+const rangeTargetEdgeWideArtX = (originalX: number): number => {
+    if (originalX <= 45) return originalX;
+    if (originalX >= 68) return originalX + (RANGE_TARGET_EDGE_ART_WIDTH - RANGE_TARGET_EDGE_ART_BASE_WIDTH);
+    const shaftProgress = (originalX - 45) / (68 - 45);
+    return 45 + shaftProgress * (68 - 45 + RANGE_TARGET_EDGE_ART_WIDTH - RANGE_TARGET_EDGE_ART_BASE_WIDTH);
+};
+
+type RangeTargetEdgeArtPoint = readonly [x: number, y: number];
+
+/** Coarse outer alpha contour of the approved cutout; transparent corners remain non-blocking. */
+const RANGE_TARGET_EDGE_BASE_ART_POLYGONS: readonly (readonly RangeTargetEdgeArtPoint[])[] = [
+    [
+        [2, 3],
+        [25, 3],
+        [32, 12],
+        [42, 12],
+        [45, 15],
+        [68, 15],
+        [70, 12],
+        [77, 12],
+        [80, 15],
+        [81, 2],
+        [84, 2],
+        [126, 23],
+        [84, 44],
+        [81, 44],
+        [80, 30],
+        [77, 32],
+        [70, 32],
+        [68, 30],
+        [45, 30],
+        [42, 32],
+        [32, 32],
+        [25, 41],
+        [2, 41],
+        [7, 23],
+    ],
+];
+const RANGE_TARGET_EDGE_ART_POLYGONS: readonly (readonly RangeTargetEdgeArtPoint[])[] =
+    RANGE_TARGET_EDGE_BASE_ART_POLYGONS.map((polygon) =>
+        polygon.map(([x, y]) => [rangeTargetEdgeWideArtX(x), y] as const),
+    );
+
+const firstSegmentPolygonIntersection = (
+    from: HoCMath.XY,
+    to: HoCMath.XY,
+    polygon: readonly HoCMath.XY[],
+): { point: HoCMath.XY; fraction: number } | undefined => {
+    const ray = { x: to.x - from.x, y: to.y - from.y };
+    const cross = (a: HoCMath.XY, b: HoCMath.XY): number => a.x * b.y - a.y * b.x;
+    let first: { point: HoCMath.XY; fraction: number } | undefined;
+
+    for (let index = 0; index < polygon.length; index += 1) {
+        const edgeFrom = polygon[index];
+        const edgeTo = polygon[(index + 1) % polygon.length];
+        const edge = { x: edgeTo.x - edgeFrom.x, y: edgeTo.y - edgeFrom.y };
+        const denominator = cross(ray, edge);
+        if (Math.abs(denominator) <= Number.EPSILON) continue;
+        const offset = { x: edgeFrom.x - from.x, y: edgeFrom.y - from.y };
+        const fraction = cross(offset, edge) / denominator;
+        const edgeFraction = cross(offset, ray) / denominator;
+        if (fraction < 0 || fraction > 1 || edgeFraction < 0 || edgeFraction > 1) continue;
+        if (first && first.fraction <= fraction) continue;
+        first = {
+            point: { x: from.x + ray.x * fraction, y: from.y + ray.y * fraction },
+            fraction,
+        };
+    }
+    return first;
+};
+
+const rangeTargetEdgeArtToWorld = (
+    artPoint: RangeTargetEdgeArtPoint,
+    edgeCenter: HoCMath.XY,
+    side: GridMath.RangeAttackCellSide,
+    cellSize: number,
+    cameraScale: HoCMath.XY,
+    trajectoryFrom?: HoCMath.XY,
+    markerScale = 1,
+): HoCMath.XY => {
+    // `edgeCenter` is already shifted inward in logical board space and then projected onto the painted
+    // grid. Applying the inward offset here in projected X/Y would pull top/bottom arrows off the centreline
+    // of perspective cells.
+    const position = edgeCenter;
+    const angle = trajectoryFrom
+        ? Math.atan2(edgeCenter.y - trajectoryFrom.y, edgeCenter.x - trajectoryFrom.x)
+        : rangeTargetEdgeMarkerAngle(side);
+    const zoomX = Math.abs(cameraScale.x) || 1;
+    const zoomY = Math.abs(cameraScale.y) || zoomX;
+    const screenAngle = Math.atan2(-Math.sin(angle) * zoomY, Math.cos(angle) * zoomX);
+    const cos = Math.cos(screenAngle);
+    const sin = Math.sin(screenAngle);
+    // Match the existing marker's screen size: its authored world scale was multiplied by camera X.
+    // The generalized transform below then cancels only the camera's non-uniform distortion.
+    const artScale = (rangeTargetEdgeMarkerDisplayLength(cellSize) * zoomX) / RANGE_TARGET_EDGE_ART_BASE_WIDTH;
+    const localX =
+        (artPoint[0] - RANGE_TARGET_EDGE_ART_ANCHOR_X) * artScale * RANGE_TARGET_EDGE_LENGTH_SCALE * markerScale;
+    const localY = (artPoint[1] - RANGE_TARGET_EDGE_ART_HEIGHT / 2) * artScale * markerScale;
+    return {
+        x: position.x + (localX * cos - localY * sin) / zoomX,
+        y: position.y + (-localX * sin - localY * cos) / zoomY,
+    };
+};
+
+/** The blue-marked point where the broad arrowhead joins its shaft. */
+export const rangeTargetEdgeMarkerNeckPoint = (
+    edgeCenter: HoCMath.XY,
+    side: GridMath.RangeAttackCellSide,
+    cellSize: number,
+    cameraScale: HoCMath.XY,
+): HoCMath.XY =>
+    rangeTargetEdgeArtToWorld(
+        [RANGE_TARGET_EDGE_NECK_X, RANGE_TARGET_EDGE_ART_HEIGHT / 2],
+        edgeCenter,
+        side,
+        cellSize,
+        cameraScale,
+    );
+
+/**
+ * Aim for the arrowhead/shaft join, but stop at the first opaque part of the marker encountered earlier.
+ * This keeps a diagonal casing rail from painting across the head, shaft or fletching on its way there.
+ */
+export const rangeTargetEdgeTrajectoryEndpoint = (
+    trajectoryFrom: HoCMath.XY,
+    edgeCenter: HoCMath.XY,
+    side: GridMath.RangeAttackCellSide,
+    cellSize: number,
+    cameraScale: HoCMath.XY,
+    markerScale = 1,
+): HoCMath.XY => {
+    const neckPoint = rangeTargetEdgeArtToWorld(
+        [RANGE_TARGET_EDGE_NECK_X, RANGE_TARGET_EDGE_ART_HEIGHT / 2],
+        edgeCenter,
+        side,
+        cellSize,
+        cameraScale,
+        trajectoryFrom,
+        markerScale,
+    );
+    let firstContact: { point: HoCMath.XY; fraction: number } | undefined;
+    for (const artPolygon of RANGE_TARGET_EDGE_ART_POLYGONS) {
+        const worldPolygon = artPolygon.map((point) =>
+            rangeTargetEdgeArtToWorld(point, edgeCenter, side, cellSize, cameraScale, trajectoryFrom, markerScale),
+        );
+        const contact = firstSegmentPolygonIntersection(trajectoryFrom, neckPoint, worldPolygon);
+        if (!contact || (firstContact && firstContact.fraction <= contact.fraction)) continue;
+        firstContact = contact;
+    }
+    return firstContact?.point ?? neckPoint;
+};
+
+export interface CameraCompensatedSpriteTransform {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    tx: number;
+    ty: number;
+}
+
+/**
+ * Local sprite matrix whose final on-screen transform is an undistorted rotation + uniform scale.
+ * This cancels the battlefield camera's deliberately different X/Y zoom without changing world position.
+ */
+export const cameraCompensatedSpriteTransform = (
+    worldPosition: HoCMath.XY,
+    screenAngle: number,
+    screenScale: number,
+    cameraScale: HoCMath.XY,
+): CameraCompensatedSpriteTransform => {
+    const zoomX = Math.abs(cameraScale.x) || 1;
+    const zoomY = Math.abs(cameraScale.y) || zoomX;
+    const cos = Math.cos(screenAngle);
+    const sin = Math.sin(screenAngle);
+    return {
+        a: (screenScale * cos) / zoomX,
+        b: (-screenScale * sin) / zoomY,
+        c: (-screenScale * sin) / zoomX,
+        d: (-screenScale * cos) / zoomY,
+        tx: worldPosition.x,
+        ty: worldPosition.y,
+    };
+};
 // The visible blade-to-pommel diagonal inside the 20x24 cursor artwork.
 const MELEE_SWORD_ART_LENGTH = 29;
 // The source is 20x24, so its painted blade is not geometrically aligned to a perfect 45-degree
@@ -35,17 +283,57 @@ const MELEE_SWORD_ART_LENGTH = 29;
 // horizontal/vertical marker visibly lean by several degrees.
 const MELEE_SWORD_NATIVE_WORLD_ANGLE = Math.atan2(23, -18);
 
-// cursor_ranged.webp is a 22x24 arrow drawn along the up-left diagonal. Measured off the actual
-// artwork — opaque tip at (1, 0), tail at (21, 20) — so the axis lands on exactly 135 degrees once
-// the world's Y flip is accounted for, and its drawn length is 28.3px rather than the 22 or 24 a
-// glance at the canvas would suggest.
-const RANGED_ARROW_ART_LENGTH = 28.3;
-const RANGED_ARROW_NATIVE_WORLD_ANGLE = Math.atan2(20, -20);
-const RANGED_ARROW_TIP_ANCHOR_X = 1 / 22;
-const RANGED_ARROW_TIP_ANCHOR_Y = 0;
-// Roughly the span the old triangular head occupied, so replacing it does not change how far down
-// the flight line the marker reaches.
-const RANGED_ARROW_DISPLAY_LENGTH = 36;
+// Keep the whole prediction group (damage, losses and skull) at one fixed visual size for every creature.
+// The target point is the top of the creature's stack flag, so the group is shifted upward far enough for
+// its bottom edge to clear the flag instead of covering either the banner or the creature artwork.
+const DAMAGE_PREDICTION_SCALE = 1.3;
+const DAMAGE_PREDICTION_FONT_SIZE = 24;
+const DAMAGE_PREDICTION_STROKE_WIDTH = 4;
+const DAMAGE_PREDICTION_ROW_SPACING = 28;
+const DAMAGE_PREDICTION_GROUND_GAP = 6;
+const DAMAGE_PREDICTION_KILL_ICON_SCALE = 1.3;
+const DAMAGE_PREDICTION_RANGE_ICON_SCALE = 1.45;
+// Damage forecasts are pointer UI, not world scenery. Parenting the whole block to the camera's final
+// sibling makes the foreground guarantee structural: no depth-sorted barrel, unit or target silhouette can
+// cover the numbers or either icon.
+const DAMAGE_PREDICTION_OVERLAY_Z_INDEX = 100;
+
+export const damagePredictionVerticalScaleCompensation = (cameraScale: HoCMath.XY): number => {
+    const zoomX = Math.abs(cameraScale.x) || 1;
+    const zoomY = Math.abs(cameraScale.y) || zoomX;
+    return zoomX / zoomY;
+};
+
+export const damagePredictionLayout = (
+    _isLargeTarget: boolean,
+    hasKills: boolean,
+    verticalScaleCompensation = 1,
+): { scale: number; verticalScale: number; centerOffsetY: number } => {
+    const scale = DAMAGE_PREDICTION_SCALE;
+    const verticalScale = scale * verticalScaleCompensation;
+    const rowHeight = (DAMAGE_PREDICTION_FONT_SIZE + DAMAGE_PREDICTION_STROKE_WIDTH) * verticalScale;
+    const blockHeight = rowHeight + (hasKills ? DAMAGE_PREDICTION_ROW_SPACING * verticalScale : 0);
+    return {
+        scale,
+        verticalScale,
+        // Battlefield coordinates are Y-up, therefore a positive offset places the label above the flag.
+        centerOffsetY: blockHeight / 2 + DAMAGE_PREDICTION_GROUND_GAP,
+    };
+};
+
+export interface DamagePredictionAnchorState {
+    targetKey: string;
+    position: HoCMath.XY;
+}
+
+/** Keep a prediction motionless while the pointer remains on the same target. */
+export const pinnedDamagePredictionAnchor = (
+    current: DamagePredictionAnchorState | undefined,
+    targetKey: string,
+    position: HoCMath.XY,
+): DamagePredictionAnchorState =>
+    current?.targetKey === targetKey ? current : { targetKey, position: { x: position.x, y: position.y } };
+
 const THIEF_PREVIEW_VISIBLE_HEIGHT_RATIO = 186 / 192;
 
 const usesTallThiefPreview = (props: UnitProperties): boolean =>
@@ -144,11 +432,13 @@ export interface ISandboxHoverContext {
     // Callbacks
     texAny(name: string): Texture | undefined;
     attachToWorldRoot(obj: Sprite | Graphics | Text, zIndex: number): void;
+    attachToCursorOverlay(obj: Sprite | Text, zIndex?: number): void;
     getPlacement(teamType: TeamType, placementIndex: number): IPlacement | undefined;
     // Wait, IPlacement IS imported in Sandbox.ts from common.
 
     // State access
     getMouseWorld(): HoCMath.XY;
+    getCameraScale(): HoCMath.XY;
     getCurrentActiveUnit(): Unit | undefined;
     getCurrentActivePathHashes(): Set<number> | undefined;
     getCurrentActiveKnownPaths(): Map<number, IWeightedRoute[]> | undefined;
@@ -177,6 +467,7 @@ export class HoverManager {
     private hoverSilhouette?: Sprite;
     private hoverSilhouetteOutline?: Sprite;
     private hoverSilhouetteKey?: string;
+    private phantomGrayscaleFilter?: ColorMatrixFilter;
     // Dedicated sprites for the opponent's relayed move aim. Kept separate from the local
     // hover silhouette so the two never clobber each other's visibility/position.
     private opponentIntentSilhouette?: Sprite;
@@ -198,18 +489,18 @@ export class HoverManager {
     private auraGraphics: Graphics;
     private aoeGraphics: Graphics;
     private hoverAttackSwordTexture?: Texture;
-    private hoverRangedArrowTexture?: Texture;
-    private hoverRangedArrowHead?: Sprite;
+    private hoverRangeTargetEdgeTexture?: Texture;
+    private hoverShotHammeredBronzeCasingTexture?: Texture;
     public constructor(context: ISandboxHoverContext) {
         this.context = context;
         this.auraGraphics = new Graphics();
         this.aoeGraphics = new Graphics();
         // Pixi v8's Texture.from(string) only resolves textures already present in its cache. The cursor
-        // artwork comes from the Dropbox-backed generated image set; load it explicitly so the melee
+        // artwork comes from the generated local image set; load it explicitly so the melee
         // geometry never starts with Texture.EMPTY.
         //
-        // Both loads are best-effort. They are cursor DECORATION — the sword and the arrowhead drawn at the
-        // end of a hover line — and every geometry decision in this class works without them. Pixi's asset
+        // Both loads are best-effort. They are cursor decoration — the sword and the terminal target arrow
+        // — and every geometry decision in this class works without them. Pixi's asset
         // pipeline reaches for `document` while resolving a URL, so it throws outright wherever there is no
         // DOM, and an unguarded load took the whole HoverManager down with it rather than costing a cursor
         // ornament.
@@ -217,10 +508,13 @@ export class HoverManager {
             // Keep the tiny pixel-art sword crisp when it is enlarged to span a grid-cell segment.
             this.hoverAttackSwordTexture = texture;
         });
-        // Same treatment for the ranged marker: the flight line ends in this arrow instead of a
-        // drawn triangle, so the shot reads as an actual arrow in flight rather than a pointer.
-        this.loadCursorTexture(images.cursor_ranged, (texture) => {
-            this.hoverRangedArrowTexture = texture;
+        this.loadCursorTexture(images.range_target_arrow_v7_gold_wide_crisp, (texture) => {
+            // The high-resolution source carries its final gold/bronze palette; never recolor it at runtime.
+            texture.source.scaleMode = "linear";
+            this.hoverRangeTargetEdgeTexture = texture;
+        });
+        this.loadCursorTexture(images.shot_trajectory_hammered_bronze_casing_sprite_v4, (texture) => {
+            this.hoverShotHammeredBronzeCasingTexture = texture;
         });
     }
     /** Best-effort cursor art: never let a decoration failure break hover construction. */
@@ -305,6 +599,31 @@ export class HoverManager {
         outline.position.set(preview.x, preview.y);
         sprite.rotation = preview.rotation;
         outline.rotation = preview.rotation;
+    }
+    /** Render a preview as the untouched source cutout with grayscale as its only visual change. */
+    private applyPhantomAppearance(sprite: Sprite, legacyBacking: Sprite): void {
+        if (!this.phantomGrayscaleFilter) {
+            this.phantomGrayscaleFilter = new ColorMatrixFilter();
+            this.phantomGrayscaleFilter.desaturate();
+        }
+        sprite.filters = [this.phantomGrayscaleFilter];
+        sprite.tint = 0xffffff;
+        sprite.alpha = 1;
+        sprite.visible = true;
+
+        // Older previews used a second enlarged white sprite as an outline/backing. Besides changing the
+        // creature's contour, that layer exposed rectangular matte pixels in otherwise transparent art.
+        legacyBacking.visible = false;
+        legacyBacking.filters = null;
+    }
+    /** Placement carries the real creature onto the board: full colour, full opacity, no phantom layers. */
+    private applyPlacementAppearance(sprite: Sprite, legacyBacking: Sprite): void {
+        sprite.filters = null;
+        sprite.tint = 0xffffff;
+        sprite.alpha = 1;
+        sprite.visible = true;
+        legacyBacking.visible = false;
+        legacyBacking.filters = null;
     }
     private ensureAuraGraphics(): Graphics | undefined {
         if (this.isGraphicsUsable(this.auraGraphics)) {
@@ -477,7 +796,6 @@ export class HoverManager {
     private drawFootprintCells(gfx: Graphics, cells: HoCMath.XY[], invalid: boolean): void {
         const gs = this.context.sceneSettings.getGridSettings();
         const size = gs.getCellSize();
-        const half = size / 2;
         const inset = Math.max(2, size * 0.055);
         const pulse = (Math.sin(this.hoverGlowPhase * 1.2) + 1) / 2;
         const strokeColor = invalid ? 0xff5555 : 0xffe2a0;
@@ -485,21 +803,21 @@ export class HoverManager {
         const fillAlpha = invalid ? 0.25 : 0.16 + pulse * 0.06;
         const strokeAlpha = invalid ? 1 : 0.82 + pulse * 0.18;
 
-        for (const c of cells) {
-            const pos = GridMath.getPositionForCell(c, gs.getMinX(), gs.getStep(), gs.getHalfStep());
-            const left = pos.x - half;
-            const right = pos.x + half;
-            const bottom = pos.y - half;
-            const top = pos.y + half;
-
-            gfx.poly(projectedRectPoints(left + inset, bottom + inset, right - inset, top - inset, gs))
-                .fill({ color: fillColor, alpha: fillAlpha })
-                .stroke({ width: Math.max(2, size * 0.035), color: strokeColor, alpha: strokeAlpha });
-        }
+        // Multi-cell creatures need one readable footprint, not a separate framed tile under every body
+        // section. Picking only the four outer corners removes the internal 2x1 / 2x2 seams while retaining
+        // the same visual inset as the established 1x1 support-cell treatment.
+        const polygon =
+            cells.length === 1 ? tunedCellFillPolygon(cells[0], gs, inset / size) : placementZonePolygon(cells, gs);
+        gfx.poly(polygon)
+            .fill({ color: fillColor, alpha: fillAlpha })
+            .stroke({ width: Math.max(2, size * 0.035), color: strokeColor, alpha: strokeAlpha });
     }
     public drawHoverPlacementCell(gfx: Graphics): void {
         const cells = this.hoverSelectedCells;
         if (!cells || cells.length === 0) return;
+        // The phantom shows the artwork, while these cells show the exact board footprint that will be
+        // occupied after the click. Keep them visible for valid placement too — especially for 2x1 and 2x2
+        // creatures whose support cells cannot be inferred reliably from the tall rendered silhouette.
         this.drawFootprintCells(gfx, cells, this.hoverSelectedCellsSwitchToRed);
     }
     public drawHoverBattlefieldFootprint(gfx: Graphics): void {
@@ -701,6 +1019,8 @@ export class HoverManager {
         this.clearAOEArea();
     }
     public hoverAttackArrow?: Graphics;
+    private hoverRangeTargetEdgeSprites: Sprite[] = [];
+    private hoverShotCasingSprites: Sprite[] = [];
     private animatedRangeArrow?: {
         from: HoCMath.XY;
         to: HoCMath.XY;
@@ -729,7 +1049,6 @@ export class HoverManager {
         if (this.hoverTargetSilhouette) {
             this.hoverTargetSilhouette.visible = false;
         }
-        if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
         if (this.hoverAttackArrow) {
             this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
@@ -752,7 +1071,6 @@ export class HoverManager {
         if (this.hoverTargetSilhouette) {
             this.hoverTargetSilhouette.visible = false;
         }
-        if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
         if (this.hoverAttackArrow) {
             this.safeClearGraphics(this.hoverAttackArrow);
             this.hoverAttackArrow.visible = false;
@@ -763,18 +1081,34 @@ export class HoverManager {
     private hoverDamageText?: Text;
     private hoverKillText?: Text;
     private hoverDamageIcon?: Sprite;
+    private hoverRangeModifierIcon?: Sprite;
+    private hoverDamageAnchor?: DamagePredictionAnchorState;
+    private attachDamagePredictionObject(obj: Sprite | Text): void {
+        this.context.attachToCursorOverlay(obj, DAMAGE_PREDICTION_OVERLAY_Z_INDEX);
+    }
     public drawDamagePrediction(
         damageStr: string,
         killStr: string | undefined, // undefined if 0 kills
         position: HoCMath.XY,
         isLargeTarget: boolean,
-        iconPath?: string,
+        killIconPath?: string,
+        rangeModifierIconPath?: string,
+        targetKey?: string,
     ): void {
-        const scale = isLargeTarget ? 2 : 1;
+        if (targetKey) {
+            this.hoverDamageAnchor = pinnedDamagePredictionAnchor(this.hoverDamageAnchor, targetKey, position);
+            position = this.hoverDamageAnchor.position;
+        }
         const hasKills = !!killStr;
-        const hasIcon = !!iconPath && hasKills; // Only show icon if there's a kill string? Or always if passed?
-        // User request: "possible units killed... on top of"
-        // Usually icon goes with kills.
+        const verticalScaleCompensation = damagePredictionVerticalScaleCompensation(this.context.getCameraScale());
+        const { scale, verticalScale, centerOffsetY } = damagePredictionLayout(
+            isLargeTarget,
+            hasKills,
+            verticalScaleCompensation,
+        );
+        const centerY = position.y + centerOffsetY;
+        const hasKillIcon = !!killIconPath && hasKills;
+        const hasRangeModifierIcon = !!rangeModifierIconPath;
 
         // 1. Setup Damage Text (Top Row)
         if (!this.hoverDamageText) {
@@ -782,21 +1116,56 @@ export class HoverManager {
                 text: damageStr,
                 style: {
                     fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                    fontSize: 24,
-                    fill: 0xffffff,
-                    stroke: { color: 0x000000, width: 4, join: "round" },
+                    fontSize: DAMAGE_PREDICTION_FONT_SIZE,
+                    fill: 0xff3333,
+                    stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
                     align: "center",
                     fontWeight: "bold",
                 },
             });
-            this.context.attachToWorldRoot(this.hoverDamageText, 2201);
         } else {
             this.hoverDamageText.text = damageStr;
         }
 
         // 3. Visibility & Scaling
-        this.hoverDamageText.visible = true;
-        this.hoverDamageText.scale.set(scale, -scale);
+        const damageText = this.hoverDamageText!;
+        // Reassert the foreground parent on every draw. This also repairs an existing object after HMR or
+        // a camera/container rebuild instead of trusting the parent it received when first constructed.
+        this.attachDamagePredictionObject(damageText);
+        damageText.visible = true;
+        // The battlefield camera deliberately has different X/Y zoom. Counter-scale Y so glyphs and
+        // square icons remain undistorted on screen while their world-space anchor still follows the unit.
+        damageText.scale.set(scale, -verticalScale);
+
+        const positionDamageRow = (rowY: number): void => {
+            if (hasRangeModifierIcon) {
+                const texture = this.context.texAny(rangeModifierIconPath!) || Texture.from(rangeModifierIconPath!);
+                if (!this.hoverRangeModifierIcon) {
+                    this.hoverRangeModifierIcon = new Sprite(texture);
+                } else {
+                    this.hoverRangeModifierIcon.texture = texture;
+                }
+                this.attachDamagePredictionObject(this.hoverRangeModifierIcon);
+
+                const iconWidth = DAMAGE_PREDICTION_FONT_SIZE * scale * DAMAGE_PREDICTION_RANGE_ICON_SCALE;
+                const iconHeight = DAMAGE_PREDICTION_FONT_SIZE * verticalScale * DAMAGE_PREDICTION_RANGE_ICON_SCALE;
+                const padding = 4 * scale;
+                const startX = position.x - (iconWidth + padding + damageText.width) / 2;
+                this.hoverRangeModifierIcon.visible = true;
+                this.hoverRangeModifierIcon.anchor.set(0, 0.5);
+                this.hoverRangeModifierIcon.width = iconWidth;
+                this.hoverRangeModifierIcon.height = iconHeight;
+                this.hoverRangeModifierIcon.scale.y = -Math.abs(this.hoverRangeModifierIcon.scale.y);
+                this.hoverRangeModifierIcon.position.set(startX, rowY);
+                damageText.anchor.set(0, 0.5);
+                damageText.position.set(startX + iconWidth + padding, rowY);
+                return;
+            }
+
+            if (this.hoverRangeModifierIcon) this.hoverRangeModifierIcon.visible = false;
+            damageText.anchor.set(0.5, 0.5);
+            damageText.position.set(position.x, rowY);
+        };
 
         if (hasKills) {
             if (this.hoverKillText) {
@@ -806,78 +1175,79 @@ export class HoverManager {
                     text: killStr || "0",
                     style: {
                         fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                        fontSize: 24,
-                        fill: 0xff3333,
-                        stroke: { color: 0x000000, width: 4, join: "round" },
+                        fontSize: DAMAGE_PREDICTION_FONT_SIZE,
+                        fill: 0xffffff,
+                        stroke: { color: 0x000000, width: DAMAGE_PREDICTION_STROKE_WIDTH, join: "round" },
                         align: "center",
                         fontWeight: "bold",
                     },
                 });
-                this.context.attachToWorldRoot(this.hoverKillText, 2201);
             }
+            this.attachDamagePredictionObject(this.hoverKillText);
             this.hoverKillText.visible = true;
-            this.hoverKillText.scale.set(scale, -scale);
+            this.hoverKillText.scale.set(scale, -verticalScale);
 
             // Icon Init
-            if (hasIcon) {
+            if (hasKillIcon) {
                 if (!this.hoverDamageIcon) {
-                    this.hoverDamageIcon = new Sprite(this.context.texAny(iconPath!) || Texture.from(iconPath!)); // Use context if possible or raw path
-                    // Actually logic was just Texture.from
-                    this.hoverDamageIcon = new Sprite(Texture.from(iconPath!));
+                    this.hoverDamageIcon = new Sprite(
+                        this.context.texAny(killIconPath!) || Texture.from(killIconPath!),
+                    );
                     this.hoverDamageIcon.anchor.set(0.5);
-                    this.context.attachToWorldRoot(this.hoverDamageIcon, 2201);
                 } else {
-                    this.hoverDamageIcon.texture = Texture.from(iconPath!);
+                    this.hoverDamageIcon.texture = this.context.texAny(killIconPath!) || Texture.from(killIconPath!);
                 }
+                this.attachDamagePredictionObject(this.hoverDamageIcon);
                 this.hoverDamageIcon.visible = true;
             } else if (this.hoverDamageIcon) {
                 this.hoverDamageIcon.visible = false;
             }
 
             // Layout: Stacked Centered
-            const spacing = 28 * scale;
+            const spacing = DAMAGE_PREDICTION_ROW_SPACING * verticalScale;
 
-            this.hoverDamageText.anchor.set(0.5, 0.5);
-            this.hoverDamageText.position.set(position.x, position.y + spacing / 2);
+            positionDamageRow(centerY + spacing / 2);
 
             // Icon placement
-            if (hasIcon && this.hoverDamageIcon) {
+            if (hasKillIcon && this.hoverDamageIcon) {
                 this.hoverDamageIcon.visible = true;
-                this.hoverDamageIcon.scale.set(scale, -scale);
-                const iconSize = 24 * scale;
-                this.hoverDamageIcon.width = iconSize;
-                this.hoverDamageIcon.height = iconSize;
+                const iconWidth = DAMAGE_PREDICTION_FONT_SIZE * scale * DAMAGE_PREDICTION_KILL_ICON_SCALE;
+                const iconHeight = DAMAGE_PREDICTION_FONT_SIZE * verticalScale * DAMAGE_PREDICTION_KILL_ICON_SCALE;
+                this.hoverDamageIcon.width = iconWidth;
+                this.hoverDamageIcon.height = iconHeight;
+                this.hoverDamageIcon.scale.y = -Math.abs(this.hoverDamageIcon.scale.y);
 
                 // Align icon to left of Kill Text
                 const padding = 5 * scale;
-                const totalW = iconSize + padding + this.hoverKillText.width;
+                const totalW = iconWidth + padding + this.hoverKillText.width;
                 const startX = position.x - totalW / 2;
 
                 this.hoverDamageIcon.anchor.set(0, 0.5);
-                this.hoverDamageIcon.position.set(startX, position.y - spacing / 2);
+                this.hoverDamageIcon.position.set(startX, centerY - spacing / 2);
 
                 this.hoverKillText.anchor.set(0, 0.5);
-                this.hoverKillText.position.set(startX + iconSize + padding, position.y - spacing / 2);
+                this.hoverKillText.position.set(startX + iconWidth + padding, centerY - spacing / 2);
             } else {
                 this.hoverKillText.anchor.set(0.5, 0.5);
-                this.hoverKillText.position.set(position.x, position.y - spacing / 2);
+                this.hoverKillText.position.set(position.x, centerY - spacing / 2);
             }
         } else {
-            // Text only (Centered) - Match ORIGINAL EXACTLY
+            // A damage-only prediction is one centered row below the creature.
             if (this.hoverDamageIcon) this.hoverDamageIcon.visible = false;
             if (this.hoverKillText) this.hoverKillText.visible = false;
 
-            this.hoverDamageText.anchor.set(0.5, 0.5);
-            this.hoverDamageText.position.set(position.x, position.y);
+            positionDamageRow(centerY);
         }
     }
-    public clearAttackVisuals(): void {
+    public clearAttackVisuals(preserveDamagePredictionAnchor = false): void {
         if (this.hoverAttackArrow) {
             this.hoverAttackArrow.clear();
         }
         this.animatedRangeArrow = undefined;
         if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
         this.clearObstacleHighlight();
+        for (const sprite of this.hoverRangeTargetEdgeSprites) sprite.visible = false;
+        for (const sprite of this.hoverShotCasingSprites) sprite.visible = false;
 
         // 1. Restore stack visibility for ALL highlighted units
         for (const unit of this.highlightedUnits) {
@@ -914,8 +1284,66 @@ export class HoverManager {
         if (this.hoverDamageIcon) {
             this.hoverDamageIcon.visible = false;
         }
+        if (this.hoverRangeModifierIcon) {
+            this.hoverRangeModifierIcon.visible = false;
+        }
+        if (!preserveDamagePredictionAnchor) this.hoverDamageAnchor = undefined;
         this.clearSpellPreview();
         this.hoverAttackTargetUnit = undefined;
+    }
+    /** Paint the one optimal arrow as the terminal continuation of the casing trajectory. */
+    public drawRangeTargetEdge(edge: RangeTargetEdgeVisual, trajectoryFrom: HoCMath.XY): void {
+        const texture =
+            this.hoverRangeTargetEdgeTexture ?? this.context.texAny("range_target_arrow_v7_gold_wide_crisp");
+        for (const sprite of this.hoverRangeTargetEdgeSprites) sprite.visible = false;
+        if (!texture) return;
+
+        // Keep the approved head size and inward/outward contact point. The rear extension grows away from
+        // the creature, and the whole marker follows the exact casing rail instead of a cardinal direction.
+        const gridSettings = this.context.sceneSettings.getGridSettings();
+        const displayLength = rangeTargetEdgeMarkerDisplayLength(gridSettings.getCellSize());
+        const cameraScale = this.context.getCameraScale();
+        const zoomX = Math.abs(cameraScale.x) || 1;
+        const zoomY = Math.abs(cameraScale.y) || zoomX;
+        const worldAngle = Math.atan2(edge.markerCenter.y - trajectoryFrom.y, edge.markerCenter.x - trajectoryFrom.x);
+        const screenAngle = Math.atan2(-Math.sin(worldAngle) * zoomY, Math.cos(worldAngle) * zoomX);
+        const markerScreenScale = (displayLength * zoomX * RANGE_TARGET_EDGE_SELECTED_SCALE * edge.markerScale) / 512;
+
+        let marker = this.hoverRangeTargetEdgeSprites[0];
+        if (!marker || marker.destroyed) {
+            marker = new Sprite(texture);
+            // The head occupies exactly the old V6 coordinates. Moving the anchor right by the new rear
+            // extension pins that head in place while every added pixel grows away from the target creature.
+            marker.anchor.set(486 / 742, 0.5);
+            marker.eventMode = "none";
+            // Attaching sets zIndex on a sortable world container. Doing it on every pointer move
+            // dirtied Pixi's full child order and made ranged hover appear to freeze; attach once.
+            this.context.attachToWorldRoot(marker, 5601);
+            this.hoverRangeTargetEdgeSprites[0] = marker;
+        } else if (marker.texture !== texture) {
+            marker.texture = texture;
+        }
+        const transform = cameraCompensatedSpriteTransform(
+            edge.markerCenter,
+            screenAngle,
+            markerScreenScale,
+            cameraScale,
+        );
+        marker.setFromMatrix(
+            new Matrix(
+                transform.a * RANGE_TARGET_EDGE_LENGTH_SCALE,
+                transform.b * RANGE_TARGET_EDGE_LENGTH_SCALE,
+                transform.c,
+                transform.d,
+                transform.tx,
+                transform.ty,
+            ),
+        );
+        marker.visible = true;
+        marker.roundPixels = false;
+        marker.tint = 0xffffff;
+        marker.alpha = 1;
+        marker.filters = null;
     }
     private hoverTargetSilhouettes: Sprite[] = [];
     private silhouettePool: Sprite[] = [];
@@ -1014,10 +1442,10 @@ export class HoverManager {
                 },
             });
             label.anchor.set(0.5, 0.5);
-            // Above the translucent 3x3 AOE fill (drawAOEArea attaches at z 4500) so the numbers sit on top of
-            // it rather than under its red wash — and above units/silhouettes/arrow like the single-target text.
-            this.context.attachToWorldRoot(label, 4600);
         }
+        // The same structural foreground guarantee as the single-target forecast: the label is a camera
+        // sibling after the full battlefield, not another participant in world depth sorting.
+        this.attachDamagePredictionObject(label);
         label.visible = true;
         // The world root is Y-inverted (see drawDamagePrediction / the silhouettes) — a negative Y scale
         // keeps the number upright instead of mirrored.
@@ -1041,12 +1469,23 @@ export class HoverManager {
         rememberAnimation = true,
         meleeFacingAngle?: number,
     ): void {
+        for (const sprite of this.hoverShotCasingSprites) sprite.visible = false;
+        // The feature flag remains explicit so dev builds can isolate target-edge marker behavior without
+        // deleting the authoritative trajectory implementation.
+        if (marker === "arrow" && !RANGED_ATTACK_TRAJECTORY_VISIBLE) {
+            this.animatedRangeArrow = undefined;
+            if (this.hoverAttackArrow) {
+                this.hoverAttackArrow.clear();
+                this.hoverAttackArrow.visible = false;
+            }
+            if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
+            return;
+        }
         // If attacking from same position (Stand Ground), don't draw arrow
         const dist = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
         if (dist < 10) {
             if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
             if (this.hoverAttackSword) this.hoverAttackSword.visible = false;
-            if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
             return;
         }
 
@@ -1054,16 +1493,16 @@ export class HoverManager {
         if (marker === "melee") {
             this.animatedRangeArrow = undefined;
             if (this.hoverAttackArrow) this.hoverAttackArrow.visible = false;
-            if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
             if (!this.hoverAttackSwordTexture) return;
             if (!this.hoverAttackSword || this.hoverAttackSword.destroyed) {
                 this.hoverAttackSword = new Sprite(this.hoverAttackSwordTexture);
                 this.hoverAttackSword.anchor.set(0.5);
-                // The marker crosses the unit portrait by design. Keep it above units and their hover
-                // silhouettes; at the old arrow layer the compact sprite disappeared underneath them.
-                this.context.attachToWorldRoot(this.hoverAttackSword, ATTACK_CURSOR_MARKER_Z);
             }
             const sword = this.hoverAttackSword;
+            // Reassert the foreground parent on every draw. HMR and scene/container rebuilds can leave an
+            // already-created sword attached to an obsolete world layer; that made only some attack angles
+            // appear behind the target. The cursor overlay is a camera sibling rendered after the full world.
+            this.context.attachToCursorOverlay(sword);
             sword.visible = true;
             // Melee landings occupy the eight cells around a target. Snap to those eight 45-degree
             // facings so the marker never wobbles with tiny pointer movements inside the same cell.
@@ -1114,8 +1553,8 @@ export class HoverManager {
 
         if (arrowLen <= 0) return;
 
-        // Animated broken trajectory: compact ivory strokes flow toward the target over a warm glow.
-        // The gaps leave the board readable even for a shot crossing most of the map.
+        // Four selectable straight-line treatments share the exact authoritative ray and arrow endpoint.
+        // Only the ornament changes, so no preview can imply a curved path around an obstacle.
         const dashLength = 18;
         const dashGap = 11;
         const dashCycle = dashLength + dashGap;
@@ -1130,20 +1569,162 @@ export class HoverManager {
                     .stroke({ width, color, alpha, cap: "round" });
             }
         };
-        drawDashes(0, arrowLen, 16, 0xff4028, 0.28);
-        drawDashes(0, arrowLen, 7, 0xffa13d, 0.58);
-        drawDashes(0, arrowLen, 2.5, 0xfff4dc, 0.98);
-
-        // A bright travelling bead makes the direction unmistakably animated even on dark or busy tiles.
-        const flightPulse = (this.hoverGlowPhase * 92) % Math.max(arrowLen, 1);
-        const pulseX = from.x + Math.cos(angle) * flightPulse;
-        const pulseY = from.y + Math.sin(angle) * flightPulse;
-        g.circle(pulseX, pulseY, 11).fill({ color: 0xff542e, alpha: 0.2 });
-        g.circle(pulseX, pulseY, 5).fill({ color: 0xffbc58, alpha: 0.62 });
-        g.circle(pulseX, pulseY, 2).fill({ color: 0xffffee, alpha: 1 });
-
+        const nx = -Math.sin(angle);
+        const ny = Math.cos(angle);
         const endX = from.x + Math.cos(angle) * arrowLen;
         const endY = from.y + Math.sin(angle) * arrowLen;
+        const trajectoryStyle = getShotTrajectoryStyle();
+        switch (trajectoryStyle) {
+            case "solid-gold":
+                g.moveTo(from.x, from.y).lineTo(endX, endY).stroke({
+                    width: 13,
+                    color: 0xff5428,
+                    alpha: 0.2,
+                    cap: "round",
+                });
+                g.moveTo(from.x, from.y).lineTo(endX, endY).stroke({
+                    width: 4,
+                    color: 0xffd27a,
+                    alpha: 0.92,
+                    cap: "round",
+                });
+                break;
+            case "twin-tracer":
+                for (const offset of [-5, 5]) {
+                    g.moveTo(from.x + nx * offset, from.y + ny * offset)
+                        .lineTo(endX + nx * offset, endY + ny * offset)
+                        .stroke({ width: 3, color: 0xffb24d, alpha: 0.78, cap: "round" });
+                }
+                drawDashes(0, arrowLen, 1.5, 0xffffe9, 0.9);
+                break;
+            case "gold-casings": {
+                const ux = Math.cos(angle);
+                const uy = Math.sin(angle);
+                const casingLength = 22 * 1.25 * 1.15 * SHOT_CASING_SIZE_SCALE;
+                const casingSpacing = SHOT_CASING_SPACING;
+                const casingPhase = (this.hoverGlowPhase * 36) % casingSpacing;
+                const texture =
+                    this.hoverShotHammeredBronzeCasingTexture ??
+                    this.context.texAny("shot_trajectory_hammered_bronze_casing_sprite_v4");
+                if (!texture) break;
+                const cameraScale = this.context.getCameraScale();
+                const zoomX = Math.abs(cameraScale.x) || 1;
+                const zoomY = Math.abs(cameraScale.y) || zoomX;
+                const screenAngle = Math.atan2(-uy * zoomY, ux * zoomX);
+                const casingScreenScale = (casingLength * zoomX) / Math.max(1, texture.width);
+                let casingIndex = 0;
+                for (let d = casingPhase - casingSpacing; d < arrowLen + casingSpacing; d += casingSpacing) {
+                    if (d < casingLength * 0.5 || d > arrowLen - casingLength * 0.5) continue;
+                    let casing = this.hoverShotCasingSprites[casingIndex];
+                    if (!casing || casing.destroyed) {
+                        casing = new Sprite(texture);
+                        casing.anchor.set(0.5);
+                        casing.eventMode = "none";
+                        this.context.attachToWorldRoot(casing, 2201);
+                        this.hoverShotCasingSprites[casingIndex] = casing;
+                    } else if (casing.texture !== texture) {
+                        casing.texture = texture;
+                    }
+                    casing.visible = true;
+                    const position = { x: from.x + ux * d, y: from.y + uy * d };
+                    const transform = cameraCompensatedSpriteTransform(
+                        position,
+                        screenAngle,
+                        casingScreenScale,
+                        cameraScale,
+                    );
+                    casing.setFromMatrix(
+                        new Matrix(transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty),
+                    );
+                    casing.roundPixels = true;
+                    casing.tint = 0xffffff;
+                    casing.alpha = 1;
+                    casingIndex += 1;
+                }
+                break;
+            }
+            case "marching-chevrons":
+            case "double-chevron-pulses":
+            case "forged-double-chevrons":
+            case "ember-double-chevrons": {
+                const isDouble = trajectoryStyle !== "marching-chevrons";
+                const isForged = trajectoryStyle === "forged-double-chevrons";
+                const isEmber = trajectoryStyle === "ember-double-chevrons";
+                // Keep a persistent aiming rail beneath the moving ornaments. The forged treatment used
+                // to contain only widely spaced chevrons, so at some animation phases the whole trajectory
+                // appeared to vanish even though the target-edge arrows remained visible.
+                if (isForged) {
+                    drawDashes(0, arrowLen, 3.2, 0xe2ad58, 0.82);
+                    drawDashes(0, arrowLen, 1.15, 0xffffd8, 0.92);
+                } else {
+                    g.moveTo(from.x, from.y)
+                        .lineTo(endX, endY)
+                        .stroke({
+                            width: isEmber ? 7 : 2,
+                            color: isEmber ? 0xff4d22 : 0xffb45b,
+                            alpha: isEmber ? 0.25 : 0.4,
+                            cap: "round",
+                        });
+                }
+                const spacing = isForged ? 50 : isDouble ? 43 : 28;
+                const chevronPhase = (this.hoverGlowPhase * 50) % spacing;
+                const drawChevron = (d: number, scale = 1) => {
+                    const depth = 9 * scale;
+                    const halfWidth = 5 * scale;
+                    const tipX = from.x + Math.cos(angle) * (d + depth);
+                    const tipY = from.y + Math.sin(angle) * (d + depth);
+                    const backX = from.x + Math.cos(angle) * d;
+                    const backY = from.y + Math.sin(angle) * d;
+                    if (isEmber) {
+                        g.circle(tipX, tipY, 10 * scale).fill({ color: 0xff3219, alpha: 0.2 });
+                    }
+                    if (isForged || isEmber) {
+                        g.moveTo(backX + nx * halfWidth, backY + ny * halfWidth)
+                            .lineTo(tipX, tipY)
+                            .lineTo(backX - nx * halfWidth, backY - ny * halfWidth)
+                            .stroke({
+                                width: isForged ? 6.5 : 7,
+                                color: isForged ? 0x2a180f : 0x5b1d12,
+                                alpha: 0.9,
+                                cap: "round",
+                                join: "round",
+                            });
+                    }
+                    g.moveTo(backX + nx * halfWidth, backY + ny * halfWidth)
+                        .lineTo(tipX, tipY)
+                        .lineTo(backX - nx * halfWidth, backY - ny * halfWidth)
+                        .stroke({
+                            width: isEmber ? 3.5 : isForged ? 2.8 : 2.4,
+                            color: isEmber ? 0xffa53e : isForged ? 0xe2ad58 : 0xffffdf,
+                            alpha: 0.95,
+                            cap: "round",
+                            join: "round",
+                        });
+                };
+                for (let d = chevronPhase; d < arrowLen - 12; d += spacing) {
+                    drawChevron(d);
+                    if (isDouble && d + 16 < arrowLen - 12) drawChevron(d + 13, 0.86);
+                }
+                break;
+            }
+            case "ember-dashes":
+            default:
+                drawDashes(0, arrowLen, 16, 0xff4028, 0.28);
+                drawDashes(0, arrowLen, 7, 0xffa13d, 0.58);
+                drawDashes(0, arrowLen, 2.5, 0xfff4dc, 0.98);
+                break;
+        }
+
+        // The forged version stays 1:1 with its approved preview: only paired chevrons and their rivets.
+        // Other treatments retain the travelling bead that was part of their original animation.
+        if (trajectoryStyle !== "forged-double-chevrons" && trajectoryStyle !== "gold-casings") {
+            const flightPulse = (this.hoverGlowPhase * 92) % Math.max(arrowLen, 1);
+            const pulseX = from.x + Math.cos(angle) * flightPulse;
+            const pulseY = from.y + Math.sin(angle) * flightPulse;
+            g.circle(pulseX, pulseY, 11).fill({ color: 0xff542e, alpha: 0.2 });
+            g.circle(pulseX, pulseY, 5).fill({ color: 0xffbc58, alpha: 0.62 });
+            g.circle(pulseX, pulseY, 2).fill({ color: 0xffffee, alpha: 1 });
+        }
 
         // SMOKED SEGMENT: from where the ray enters smoke to the tip, overdrawn thick and red so the
         // halved stretch of the flight is unmistakable against the plain white core above. Clamped to the
@@ -1169,38 +1750,6 @@ export class HoverManager {
             g.moveTo(sx - nx * 11, sy - ny * 11)
                 .lineTo(sx + nx * 11, sy + ny * 11)
                 .stroke({ width: 4, color: 0xff8a8a, alpha: 0.95 });
-        }
-
-        // The head is the cursor_ranged arrow itself, rotated onto the flight line so it reads as a
-        // continuation of it. Keep its geometry fixed: pulsing the scale moved the painted tip even when
-        // the intended endpoint stayed still.
-        const headPulse = (Math.sin(this.hoverGlowPhase * 6) + 1) / 2;
-        const headLen = RANGED_ARROW_DISPLAY_LENGTH;
-        // A soft ember behind the sprite. Without it the arrow loses its silhouette on lit tiles —
-        // the old head kept its own glow polygon for the same reason.
-        g.circle(endX - Math.cos(angle) * headLen * 0.35, endY - Math.sin(angle) * headLen * 0.35, 13).fill({
-            color: 0xff3b24,
-            alpha: 0.2 + headPulse * 0.12,
-        });
-
-        if (this.hoverRangedArrowTexture) {
-            if (!this.hoverRangedArrowHead || this.hoverRangedArrowHead.destroyed) {
-                this.hoverRangedArrowHead = new Sprite(this.hoverRangedArrowTexture);
-                // The painted tip is at (1, 0) in the 22x24 source. Anchor that exact pixel to the target
-                // edge instead of estimating it by backing a canvas-centred sprite up half its length.
-                this.hoverRangedArrowHead.anchor.set(RANGED_ARROW_TIP_ANCHOR_X, RANGED_ARROW_TIP_ANCHOR_Y);
-                // Same layer as the melee sword: the marker is meant to cross the target portrait,
-                // and at the arrow graphics' own depth it slid underneath units and silhouettes.
-                this.context.attachToWorldRoot(this.hoverRangedArrowHead, ATTACK_CURSOR_MARKER_Z);
-            }
-            const head = this.hoverRangedArrowHead;
-            head.visible = true;
-            const headScale = headLen / RANGED_ARROW_ART_LENGTH;
-            // Negative Y keeps the artwork upright inside the inverted world, exactly as the sword does.
-            head.scale.set(headScale, -headScale);
-            head.rotation = angle - RANGED_ARROW_NATIVE_WORLD_ANGLE;
-            head.roundPixels = true;
-            head.position.set(endX, endY);
         }
 
         // Optional faint dashed continuation PAST the arrow tip. Used when a ranged shot is stopped by a
@@ -1461,7 +2010,6 @@ export class HoverManager {
         }
         if (this.hoverAttackArrow && !this.hoverAttackFromCell) {
             this.hoverAttackArrow.visible = false;
-            if (this.hoverRangedArrowHead) this.hoverRangedArrowHead.visible = false;
         }
         if (this.hoverAttackSword && !this.hoverAttackFromCell) {
             this.hoverAttackSword.visible = false;
@@ -1474,8 +2022,10 @@ export class HoverManager {
                 footprintWidthOf(selected),
                 footprintHeightOf(selected),
             );
-            // We force red tint for attack
-            this.ensureHoverSilhouetteParams(selected, boundsCenter, true);
+            // The landing footprint is the useful attack-position information. A full creature ghost
+            // obscures those cells and nearby units, so attack hover intentionally keeps only the cells.
+            if (this.hoverSilhouette) this.hoverSilhouette.visible = false;
+            if (this.hoverSilhouetteOutline) this.hoverSilhouetteOutline.visible = false;
             return;
         }
 
@@ -1516,7 +2066,7 @@ export class HoverManager {
     private ensureHoverSilhouetteParams(
         selected: UnitProperties,
         boundsCenter: HoCMath.XY,
-        isAttack: boolean,
+        _isAttack: boolean,
         previewUnit?: Unit,
         exactPlacementCopy = false,
     ): void {
@@ -1577,36 +2127,23 @@ export class HoverManager {
             sprite.rotation = 0;
             outline.rotation = 0;
         }
-        outline.visible = true;
-        // With identical placement scales the white backing sits inside the live-sized silhouette rather
-        // than enlarging it. Let a little more of it show through the black layer so the copy remains
-        // readable after it leaves the source, while the live unit fully occludes it at the start point.
-        outline.alpha = exactPlacementCopy ? 0.72 : 0.9;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = exactPlacementCopy ? 0.58 : 0.8;
-
-        if (isAttack) {
-            // User requested standard silhouette for attacker, so no red tint here.
-            sprite.tint = 0x000000;
-            outline.tint = 0xffffff;
+        if (exactPlacementCopy) {
+            this.applyPlacementAppearance(sprite, outline);
         } else {
-            sprite.tint = 0x000000;
-            outline.tint = 0xffffff;
+            this.applyPhantomAppearance(sprite, outline);
         }
     }
     /**
      * Show silhouette for a unit at a specific position - used for AI moves/attacks
-     * Uses the same styling as normal hover silhouettes (black sprite + white outline)
+     * Uses the exact original cutout with only a black-and-white filter.
      */
     public showSilhouetteForUnit(unitProps: UnitProperties, position: HoCMath.XY): void {
         this.ensureHoverSilhouetteParams(unitProps, position, false);
     }
     /**
      * Render a ghost of the opponent's active unit at the cell they are currently aiming
-     * at during their turn in ranked play. Uses its own sprites (and a slightly more
-     * transparent look) so it reads as a live "intent" preview without disturbing the
-     * local player's own hover silhouette.
+     * at during their turn in ranked play. Uses its own sprite so the live "intent" preview
+     * does not disturb the local player's hover silhouette; both use the same exact B&W treatment.
      */
     public showOpponentIntentSilhouette(props: UnitProperties, position: HoCMath.XY): void {
         const livePreview = this.getLiveUnitPreview(props, position);
@@ -1659,12 +2196,7 @@ export class HoverManager {
             sprite.rotation = 0;
             outline.rotation = 0;
         }
-        outline.visible = true;
-        outline.alpha = 0.7;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 0.55;
-        sprite.tint = 0x000000;
+        this.applyPhantomAppearance(sprite, outline);
     }
     public clearOpponentIntentSilhouette(): void {
         if (this.opponentIntentSilhouette) {
@@ -1720,12 +2252,7 @@ export class HoverManager {
         sprite.y = y;
         outline.x = center.x;
         outline.y = y;
-        outline.visible = true;
-        outline.alpha = 0.35;
-        outline.tint = 0xffffff;
-        sprite.visible = true;
-        sprite.alpha = 1.0;
-        sprite.tint = 0xffffff;
+        this.applyPhantomAppearance(sprite, outline);
     }
     public updateActiveMoveSilhouetteForCell(cell: HoCMath.XY): void {
         if (this.silhouetteLocked) return;
@@ -1902,7 +2429,8 @@ export class HoverManager {
         // Selecting a unit for placement (sandbox UnitsOverlay / ranked bench) used to project its
         // aura square + range circle at the candidate drop cell via a mock unit. Range visuals are
         // now reserved for units actually PLACED on the board (hovered/selected board units); the
-        // cursor-following placement preview shows only the silhouette + placement square.
+        // cursor-following valid placement preview shows only the B&W creature; invalid placement keeps
+        // the red footprint as its error feedback.
 
         // --- 3. Validation & Interaction Highlight ---
 
@@ -2021,9 +2549,8 @@ export class HoverManager {
                     logicalCenter,
                     false,
                     this.context.getPlacementPreviewUnit(),
-                    // Placement is a literal copy of the live creature. Growing the white backing sprite
-                    // made the combined preview look larger than the unit and exposed it while both were
-                    // at the same cell. Keep both layers at the exact live scale.
+                    // Placement is a literal copy of the live creature. The legacy backing is hidden, but
+                    // keeping its dormant transform exact also prevents a one-frame HMR flash at old scale.
                     true,
                 );
             }

@@ -188,6 +188,55 @@ export interface BattlefieldCreatureShadowProjection {
     alpha: number;
 }
 
+export interface RangedProjectileOriginBounds {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+}
+
+interface RangedProjectileOriginProfile {
+    /** Fraction of full visible width from body centre toward the target (0.5 reaches the front edge). */
+    forward: number;
+    /** Fraction of visible height measured downward from the top of the cutout. */
+    height: number;
+}
+
+/** Authored weapon/hand attachment zones for the native ranged units. */
+const RANGED_PROJECTILE_ORIGIN_BY_UNIT: Readonly<Record<string, RangedProjectileOriginProfile>> = {
+    arbalester: { forward: 0.46, height: 0.4 },
+    monk: { forward: 0.28, height: 0.4 },
+    "tsar cannon": { forward: 0.45, height: 0.5 },
+    dryad: { forward: 0.3, height: 0.42 },
+    elf: { forward: 0.43, height: 0.39 },
+    gargantuan: { forward: 0.3, height: 0.43 },
+    orc: { forward: 0.34, height: 0.4 },
+    medusa: { forward: 0.31, height: 0.4 },
+    beholder: { forward: 0.08, height: 0.38 },
+    centaur: { forward: 0.42, height: 0.38 },
+    cyclops: { forward: 0.31, height: 0.41 },
+    zena: { forward: 0.31, height: 0.4 },
+};
+const DEFAULT_RANGED_PROJECTILE_ORIGIN: RangedProjectileOriginProfile = { forward: 0.32, height: 0.41 };
+
+export function rangedProjectileOriginFromBounds(
+    unitName: string,
+    bounds: RangedProjectileOriginBounds,
+    target: HoCMath.XY,
+    fallbackFacing: -1 | 1 = 1,
+): HoCMath.XY {
+    const width = Math.max(0, bounds.right - bounds.left);
+    const height = Math.max(0, bounds.bottom - bounds.top);
+    const centerX = (bounds.left + bounds.right) * 0.5;
+    const profile = RANGED_PROJECTILE_ORIGIN_BY_UNIT[unitName.trim().toLowerCase()] ?? DEFAULT_RANGED_PROJECTILE_ORIGIN;
+    const horizontalDelta = target.x - centerX;
+    const direction = Math.abs(horizontalDelta) > 0.001 ? (horizontalDelta < 0 ? -1 : 1) : fallbackFacing;
+    return {
+        x: centerX + direction * width * profile.forward,
+        y: bounds.top + height * profile.height,
+    };
+}
+
 /**
  * Which board row a figure stands on, normalized to 0 at the nearest row and 1 at the furthest legal one.
  *
@@ -1153,6 +1202,15 @@ export const activeFlagScaleForTime = (timeSeconds: number): number => 1 + activ
 export const activeFlagGlowAlphaForTime = (timeSeconds: number): number => 0.32 + activeFlagPulse(timeSeconds) * 0.58;
 export const activeTurnPointerGap = (flagHeight: number, flagWidth: number): number =>
     Math.max(2, flagHeight * 0.13) + flagWidth * (0.06 / 0.42);
+
+/** Stable screen-space top of the amount flag, excluding the active pointer's animated pulse. */
+export const stableDamagePredictionBadgeScreenTop = (
+    spriteScreenTop: number,
+    margin: number,
+    flagHeight: number,
+    parentScaleY: number,
+    badgeEmphasisScale: number,
+): number => spriteScreenTop - margin - flagHeight * parentScaleY * badgeEmphasisScale;
 /**
  * The top edge sways slightly less than the bottom, so the cloth's height breathes instead of the whole
  * banner sliding up and down as a rigid block.
@@ -3679,6 +3737,77 @@ export class RenderableUnit extends Unit {
         // transient recoil remain visually attached to the creature.
         if (this.sprite) return { x: this.sprite.x, y: this.sprite.y };
         return this.getBattlefieldGroundReference(this.getPosition(), gs);
+    }
+    /** Current world-space weapon/hand attachment used to launch ranged projectiles. */
+    public getRangedProjectileOrigin(target: HoCMath.XY, gs: GridSettings): HoCMath.XY {
+        const sprite = this.sprite;
+        const parent = sprite?.parent;
+        if (!sprite || !parent || !sprite.visible) return this.getVisualCenter(gs);
+
+        const bounds = sprite.getBounds();
+        if (bounds.width <= 1 || bounds.height <= 1) return this.getVisualCenter(gs);
+        const globalCorners = [
+            new Point(bounds.x, bounds.y),
+            new Point(bounds.x + bounds.width, bounds.y),
+            new Point(bounds.x, bounds.y + bounds.height),
+            new Point(bounds.x + bounds.width, bounds.y + bounds.height),
+        ];
+        const localCorners = globalCorners.map((point) => parent.toLocal(point));
+        return rangedProjectileOriginFromBounds(
+            this.getName(),
+            {
+                left: Math.min(...localCorners.map((point) => point.x)),
+                top: Math.min(...localCorners.map((point) => point.y)),
+                right: Math.max(...localCorners.map((point) => point.x)),
+                bottom: Math.max(...localCorners.map((point) => point.y)),
+            },
+            target,
+            this.facingDirection,
+        );
+    }
+    /** World-space anchor immediately above the creature's visible stack flag. */
+    public getDamagePredictionAnchor(gs: GridSettings): HoCMath.XY {
+        const badge = this.badgeContainer;
+        const worldRoot = badge?.parent;
+        const geometry = this.badgeDrawState?.geometry;
+        const sprite = this.sprite;
+        if (badge?.visible && worldRoot && geometry && sprite) {
+            const spriteBounds = sprite.getBounds();
+            if (spriteBounds.width > 0 && spriteBounds.height > 0) {
+                const parentScale = inheritedAbsoluteScale(worldRoot);
+                const margin = Math.max(2, Math.floor(this.badgeDrawState!.iconSide * 0.04));
+                const anchor = worldRoot.toLocal({
+                    x: spriteBounds.x + spriteBounds.width * 0.5,
+                    y: stableDamagePredictionBadgeScreenTop(
+                        spriteBounds.y,
+                        margin,
+                        geometry.flagHeight,
+                        parentScale.y,
+                        this.badgeEmphasisScale,
+                    ),
+                });
+
+                if (this.shouldShowRespondTag()) {
+                    anchor.y +=
+                        Math.max(0, (geometry.headerWidth - geometry.flagHeight) * 0.5) * this.badgeEmphasisScale;
+                }
+                const framing = resolveStoredBattlefieldCreatureFraming(this.getUnitProperties().name);
+                anchor.x += (framing.flagOffsetXCells ?? 0) * gs.getCellSize();
+                anchor.y -= (framing.flagOffsetYCells ?? 0) * gs.getCellSize();
+                return anchor;
+            }
+        }
+
+        const spriteParent = sprite?.parent;
+        if (sprite && spriteParent) {
+            const bounds = sprite.getBounds();
+            if (bounds.width > 0 && bounds.height > 0) {
+                return spriteParent.toLocal({ x: bounds.x + bounds.width * 0.5, y: bounds.y });
+            }
+        }
+
+        const center = this.getVisualCenter(gs);
+        return { x: center.x, y: center.y + gs.getCellSize() };
     }
     private oneShotAnim?: OneShotAnimState;
     public hasAnimationState(stateName: string): boolean {

@@ -1416,17 +1416,35 @@ export class RankedPlayScene extends Sandbox {
                 this.applyAuthoritativeSecondaryVfx(event.attackerId, event.damage);
                 if (this.applyAuthoritativeSplashVfx(event.attackerId, event.damage)) continue;
                 if (!event.damage?.render) continue;
-                const target = this.unitsHolder.getAllUnits().get(event.targetId) as RenderableUnit | undefined;
+                const damagedUnitId = event.damage.unitId ?? event.targetId;
+                const target = this.unitsHolder.getAllUnits().get(damagedUnitId) as RenderableUnit | undefined;
                 const gs = this.sc_sceneSettings.getGridSettings();
                 const logicalFallback = event.damage?.unitPosition ?? { x: 0, y: 0 };
                 const pos = target?.getVisualCenter(gs) ?? projectBattlefieldPoint(logicalFallback, gs);
-                const dir = this.getAttackDirection(event.attackerId, event.targetId);
+                const flagAnchor = target?.getDamagePredictionAnchor(gs);
+                const dir = this.getAttackDirection(event.attackerId, damagedUnitId);
                 if (event.damage.hits?.length) {
                     for (const hit of event.damage.hits) {
-                        this.combatVisuals?.showFloatingDamage(pos, hit.amount, dir, hit.unitsDied);
+                        this.combatVisuals?.showFloatingDamage(
+                            pos,
+                            hit.amount,
+                            dir,
+                            hit.unitsDied,
+                            undefined,
+                            undefined,
+                            flagAnchor,
+                        );
                     }
                 } else if (event.damage.amount > 0) {
-                    this.combatVisuals?.showFloatingDamage(pos, event.damage.amount, dir);
+                    this.combatVisuals?.showFloatingDamage(
+                        pos,
+                        event.damage.amount,
+                        dir,
+                        undefined,
+                        undefined,
+                        undefined,
+                        flagAnchor,
+                    );
                 }
             } else if (event.type === "area_attacked") {
                 this.noteDeathBlowsFromAttackEvent(event);
@@ -1438,12 +1456,32 @@ export class RankedPlayScene extends Sandbox {
                     event.damage?.unitPosition ?? event.targetPosition ?? { x: 0, y: 0 },
                     gs,
                 );
+                const target = event.damage.unitId
+                    ? (this.unitsHolder.getAllUnits().get(event.damage.unitId) as RenderableUnit | undefined)
+                    : undefined;
+                const flagAnchor = target?.getDamagePredictionAnchor(gs);
                 if (event.damage.hits?.length) {
                     for (const hit of event.damage.hits) {
-                        this.combatVisuals?.showFloatingDamage(centerPos, hit.amount, undefined, hit.unitsDied);
+                        this.combatVisuals?.showFloatingDamage(
+                            centerPos,
+                            hit.amount,
+                            undefined,
+                            hit.unitsDied,
+                            undefined,
+                            undefined,
+                            flagAnchor,
+                        );
                     }
                 } else if (event.damage.amount > 0) {
-                    this.combatVisuals?.showFloatingDamage(centerPos, event.damage.amount);
+                    this.combatVisuals?.showFloatingDamage(
+                        centerPos,
+                        event.damage.amount,
+                        undefined,
+                        undefined,
+                        undefined,
+                        undefined,
+                        flagAnchor,
+                    );
                 }
             } else if (event.type === "armageddon_applied") {
                 const u = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
@@ -1453,6 +1491,9 @@ export class RankedPlayScene extends Sandbox {
                         event.damage,
                         undefined,
                         event.unitsDied,
+                        undefined,
+                        undefined,
+                        u.getDamagePredictionAnchor(this.sc_sceneSettings.getGridSettings()),
                     );
                 this.triggerScreenShake(12 + event.wave * 3, 0.5);
             } else if (event.type === "unit_destroyed" || event.type === "unit_deleted") {
@@ -1508,7 +1549,15 @@ export class RankedPlayScene extends Sandbox {
                 this.combatVisuals?.showMissLabel(pos, dir);
                 continue;
             }
-            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied);
+            this.combatVisuals?.showFloatingDamage(
+                pos,
+                entry.amount,
+                dir,
+                entry.unitsDied,
+                undefined,
+                undefined,
+                unit?.getDamagePredictionAnchor(gs),
+            );
         }
         return true;
     }
@@ -1565,7 +1614,15 @@ export class RankedPlayScene extends Sandbox {
             // through the SAME table the sandbox uses. Ranked drew every secondary hit in the default red, so
             // a Thunderbird's bounces were indistinguishable from ordinary damage.
             const { fill, stroke } = this.getSecondaryDamageStyle(entry.source);
-            this.combatVisuals?.showFloatingDamage(pos, entry.amount, dir, entry.unitsDied, fill, stroke);
+            this.combatVisuals?.showFloatingDamage(
+                pos,
+                entry.amount,
+                dir,
+                entry.unitsDied,
+                fill,
+                stroke,
+                unit?.getDamagePredictionAnchor(gs),
+            );
         }
     }
     protected override getUpNextUnitIds(): string[] | undefined {
@@ -3362,7 +3419,15 @@ export class RankedPlayScene extends Sandbox {
                 const unit = this.unitsHolder.getAllUnits().get(event.unitId) as RenderableUnit | undefined;
                 const pos = unit?.getVisualCenter(gs);
                 if (pos && (event.damage > 0 || event.unitsDied > 0)) {
-                    this.combatVisuals?.showFloatingDamage(pos, event.damage, undefined, event.unitsDied);
+                    this.combatVisuals?.showFloatingDamage(
+                        pos,
+                        event.damage,
+                        undefined,
+                        event.unitsDied,
+                        undefined,
+                        undefined,
+                        unit?.getDamagePredictionAnchor(gs),
+                    );
                 }
                 if (!shakenWaves.has(event.wave)) {
                     shakenWaves.add(event.wave);

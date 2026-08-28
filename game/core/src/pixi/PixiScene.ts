@@ -147,9 +147,7 @@ export abstract class PixiScene {
     public readonly sc_maxProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_totalProfile = { step: 0, collide: 0, solve: 0 }; // parity with old UI
     public readonly sc_sceneSettings: SceneSettings;
-    // `distance` is the full-damage half-extent: one number for a square body, a per-axis pair for a
-    // rectangular one (GridMath.getFullDamageHalfExtents).
-    public sc_currentActiveShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY };
+    public sc_currentActiveShotRange?: { xy: HoCMath.XY; distance: number; verticalDistance?: number };
     public sc_currentActiveAuraRanges: IAuraOnMap[] = [];
     public sc_unitInfoLines: Array<[string, string]> = [];
     public sc_attackDamageSpreadStr = "";

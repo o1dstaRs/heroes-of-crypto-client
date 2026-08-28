@@ -166,10 +166,10 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
 
         // Five cells are measured centre-to-centre. The visible boundary needs another half cell to reach
         // the far seam of the fifth cell; using 5 * STEP stopped through the middle of that outer row.
-        // The extent is carried per axis — equal on both for a square body, which every shipped one is.
+        // Equal square extents use the compact scalar representation consumed by the live overlay.
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: { x: 5.5 * GridConstants.STEP, y: 5.5 * GridConstants.STEP },
+            distance: 5.5 * GridConstants.STEP,
         });
     });
 
@@ -184,7 +184,7 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
 
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: { x: 6 * GridConstants.STEP, y: 6 * GridConstants.STEP },
+            distance: 6 * GridConstants.STEP,
         });
     });
 
@@ -204,7 +204,8 @@ describe("refreshing after an augment, artifact or synergy pick", () => {
 
         expect(scene.sc_currentActiveShotRange).toEqual({
             xy: { x: 100, y: 100 },
-            distance: { x: 6 * GridConstants.STEP, y: 5.5 * GridConstants.STEP },
+            distance: 6 * GridConstants.STEP,
+            verticalDistance: 5.5 * GridConstants.STEP,
         });
     });
 

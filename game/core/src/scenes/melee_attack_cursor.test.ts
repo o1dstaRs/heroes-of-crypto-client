@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { AttackVals } from "@heroesofcrypto/common";
 
-import { resolveMeleeAttackFromPointer, resolveMeleeCursorDirection } from "./Sandbox";
+import {
+    rangedDamageModifierIcon,
+    rangedDamagePredictionText,
+    resolveMeleeAttackFromPointer,
+    resolveMeleeCursorDirection,
+} from "./Sandbox";
 import {
     meleeSwordDisplayLength,
     meleeSwordFacingAngle,
@@ -23,10 +30,64 @@ const params = (overrides: Partial<Parameters<typeof resolveMeleeAttackFromPoint
     isEngineMeleeTarget: true,
     isRangeAttackPreferred: () => false,
     resolveAttackFrom: () => attackFrom,
+    isAttackFromAdjacent: () => true,
     ...overrides,
 });
 
 describe("pointer-driven unit melee targeting", () => {
+    test("renders the sword in a camera sibling after the entire battlefield", () => {
+        const hoverManagerSource = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
+        const pixiAppSource = readFileSync(join(import.meta.dir, "../pixi/PixiApp.ts"), "utf8");
+
+        expect(hoverManagerSource).toContain("this.context.attachToCursorOverlay(sword)");
+        expect(pixiAppSource).toContain("this.camera.addChild(this.worldRoot, this.cursorOverlayRoot)");
+    });
+
+    test("renders every damage prediction above barrels, units and target silhouettes", () => {
+        const hoverManagerSource = readFileSync(join(import.meta.dir, "HoverManager.ts"), "utf8");
+        const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+
+        expect(hoverManagerSource).toContain(
+            "this.context.attachToCursorOverlay(obj, DAMAGE_PREDICTION_OVERLAY_Z_INDEX)",
+        );
+        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(damageText)");
+        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(this.hoverRangeModifierIcon)");
+        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(this.hoverKillText)");
+        expect(hoverManagerSource).toContain("this.attachDamagePredictionObject(this.hoverDamageIcon)");
+        expect(sandboxSource).toContain("cursorOverlayRoot.sortableChildren = true");
+    });
+
+    test("uses the live range context when choosing the damage-preview attack origin", () => {
+        const sandboxSource = readFileSync(join(import.meta.dir, "Sandbox.ts"), "utf8");
+
+        // `isMelee` was removed when hover projection was unified. Leaving this stale reference made
+        // every valid target hover throw after its highlight, before either damage or the attack marker
+        // could be drawn.
+        expect(sandboxSource).toContain("if (!isRangeAttackContext) {");
+        expect(sandboxSource).not.toMatch(/\bif \(isMelee\) \{/);
+    });
+
+    test("shows the broken-arrow badge for every penalized ranged band", () => {
+        const full = rangedDamageModifierIcon(true, AttackVals.RANGE, 1);
+        const broken = rangedDamageModifierIcon(true, AttackVals.RANGE, 2);
+
+        expect(full).toBeDefined();
+        expect(broken).toBeDefined();
+        expect(full).not.toBe(broken);
+        expect(rangedDamageModifierIcon(true, AttackVals.RANGE, 4)).toBe(broken);
+        expect(rangedDamageModifierIcon(true, AttackVals.RANGE, 8)).toBe(broken);
+        expect(rangedDamageModifierIcon(true, AttackVals.MELEE, 4)).toBeUndefined();
+        expect(rangedDamageModifierIcon(false, AttackVals.RANGE, 4)).toBeUndefined();
+    });
+
+    test("hides redundant 1/1 but keeps every penalized ranged fraction", () => {
+        expect(rangedDamagePredictionText(true, 1, "126 - 314")).toBe("126 - 314");
+        expect(rangedDamagePredictionText(true, 2, "126 - 314")).toBe("1/2  126 - 314");
+        expect(rangedDamagePredictionText(true, 4, "126 - 314")).toBe("1/4  126 - 314");
+        expect(rangedDamagePredictionText(true, 8, "126 - 314")).toBe("1/8  126 - 314");
+        expect(rangedDamagePredictionText(false, 1, "126 - 314")).toBe("126 - 314");
+    });
+
     test("faces the sword blade from the landing side toward the target", () => {
         expect(resolveMeleeCursorDirection(3, 4)).toBe("right");
         expect(resolveMeleeCursorDirection(5, 4)).toBe("left");
@@ -91,6 +152,21 @@ describe("pointer-driven unit melee targeting", () => {
 
     test("returns the pointer-selected landing for a legal melee target", () => {
         expect(resolveMeleeAttackFromPointer(params())).toEqual(attackFrom);
+    });
+
+    test("rejects a landing separated from the target by an intervening cell", () => {
+        let adjacencyChecks = 0;
+        expect(
+            resolveMeleeAttackFromPointer(
+                params({
+                    isAttackFromAdjacent: () => {
+                        adjacencyChecks += 1;
+                        return false;
+                    },
+                }),
+            ),
+        ).toBeUndefined();
+        expect(adjacencyChecks).toBe(1);
     });
 
     test.each([

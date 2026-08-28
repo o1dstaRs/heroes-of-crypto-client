@@ -1,4 +1,4 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Matrix, Sprite, Texture } from "pixi.js";
 import { FightProperties, FightStateManager, GridSettings, HoCMath, TeamType } from "@heroesofcrypto/common";
 
 /**
@@ -21,7 +21,7 @@ import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
-import { drawMovementArea, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
+import { drawMovementArea, drawMovementAreaCalibration, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
 export { movementFillAlphaForPhase } from "./movementAreaVisual";
 
 /**
@@ -30,7 +30,13 @@ export { movementFillAlphaForPhase } from "./movementAreaVisual";
  */
 export const ENEMY_TURN_HIGHLIGHT_COLOR = 0xff3636;
 const ALLY_MOVEMENT_INSPECTION_COLOR = 0xc08a45;
-const SHOT_RANGE_COLOR = 0xe7bc6a;
+/** Neutral cold-steel treatment selected for the active/shift-selected shooting range. */
+export const SHOT_RANGE_COLOR = 0xaeb9bd;
+export const ALLY_HOVERED_SHOT_RANGE_COLOR = 0x35df72;
+export const ENEMY_HOVERED_SHOT_RANGE_COLOR = 0xff3b3b;
+
+export const hoveredShotRangeColor = (isEnemy: boolean): number =>
+    isEnemy ? ENEMY_HOVERED_SHOT_RANGE_COLOR : ALLY_HOVERED_SHOT_RANGE_COLOR;
 
 const movementCellKey = (cell: HoCMath.XY): number => (cell.x << 8) | cell.y;
 
@@ -43,6 +49,97 @@ export const movementCellsOutsideUnitFootprint = (
     const occupiedKeys = new Set(occupied.map(movementCellKey));
     return reachable.filter((cell) => !occupiedKeys.has(movementCellKey(cell)));
 };
+
+export interface ShotRangeBounds {
+    left: number;
+    bottom: number;
+    width: number;
+    height: number;
+}
+
+/**
+ * A ranged creature may occupy a rectangular footprint (Centaur is 2x1), so the visible full-damage
+ * boundary needs independent horizontal and vertical half-extents. Square units omit verticalDistance
+ * to keep the long-standing overlay shape backwards-compatible.
+ */
+export interface ShotRangeOverlay {
+    xy: HoCMath.XY;
+    distance: number;
+    verticalDistance?: number;
+    /** Hover-only relationship cue. Active and shift-selected ranges keep the neutral cold-steel default. */
+    color?: number;
+}
+
+export const SHOT_RANGE_LINE_WIDTH_CELLS = 0.011;
+/** The authored bitmap occupies almost the full square; keep the visible ornament compact at the frame corners. */
+export const SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS = 0.37536 * 1.15;
+/** Centre lines of the authored vertical/horizontal rails (normalised texture coordinates). */
+export const SHOT_RANGE_CORNER_SPRITE_ANCHOR = { x: 0.137, y: 0.891 } as const;
+/** Each shared source needs its downsampling setup once, before its next GPU upload. */
+const stableShotRangeCornerSources = new WeakSet<object>();
+
+export interface ShotRangeCornerSpritePlacement {
+    xy: HoCMath.XY;
+    horizontal: HoCMath.XY;
+    vertical: HoCMath.XY;
+}
+
+/**
+ * The source bitmap is authored as the bottom-left corner: its arms run up/right and its layered arrow
+ * points into the advertised full-damage area. The direction vectors let the art follow the projected
+ * battlefield seams instead of assuming that every visible corner remains a perfect 90-degree angle.
+ */
+export function shotRangeCornerSpritePlacements(bounds: ShotRangeBounds): ShotRangeCornerSpritePlacement[] {
+    const right = bounds.left + bounds.width;
+    const top = bounds.bottom + bounds.height;
+    return [
+        { xy: { x: bounds.left, y: bounds.bottom }, horizontal: { x: 1, y: 0 }, vertical: { x: 0, y: 1 } },
+        { xy: { x: right, y: bounds.bottom }, horizontal: { x: -1, y: 0 }, vertical: { x: 0, y: 1 } },
+        { xy: { x: right, y: top }, horizontal: { x: -1, y: 0 }, vertical: { x: 0, y: -1 } },
+        { xy: { x: bounds.left, y: top }, horizontal: { x: 1, y: 0 }, vertical: { x: 0, y: -1 } },
+    ];
+}
+
+/**
+ * Maps the two authored corner rails directly onto the two locally projected perimeter directions.
+ * The resulting affine transform also handles the non-right angles on the slanted battlefield sides.
+ */
+export function shotRangeCornerSpriteMatrix(
+    placement: ShotRangeCornerSpritePlacement,
+    spriteScale: number,
+    cellSize: number,
+    gs: GridSettings,
+): Matrix {
+    const projectedDirection = (direction: HoCMath.XY): HoCMath.XY => {
+        const points = projectedPolyline(
+            [
+                placement.xy,
+                {
+                    x: placement.xy.x + direction.x * cellSize,
+                    y: placement.xy.y + direction.y * cellSize,
+                },
+            ],
+            gs,
+        );
+        const x = points[points.length - 2] - points[0];
+        const y = points[points.length - 1] - points[1];
+        const length = Math.max(1e-6, Math.hypot(x, y));
+        return { x: x / length, y: y / length };
+    };
+    const horizontal = projectedDirection(placement.horizontal);
+    const vertical = projectedDirection(placement.vertical);
+    const [x, y] = projectedPolyline([placement.xy], gs);
+
+    // The authored vertical rail extends toward negative texture Y, hence the negated second basis column.
+    return new Matrix(
+        horizontal.x * spriteScale,
+        horizontal.y * spriteScale,
+        -vertical.x * spriteScale,
+        -vertical.y * spriteScale,
+        x,
+        y,
+    );
+}
 
 /**
  * The owner's body, in cells, for overlays that grow out of it. Both sides are needed because an aura
@@ -72,11 +169,9 @@ export interface ILingeringTrack {
 
 export interface IGameplayDrawContext {
     fightProps: FightProperties;
-    // `distance` is the full-damage half-extent: one number for a square body, a per-axis pair for a
-    // rectangular one (see GridMath.getFullDamageHalfExtents).
-    currentActiveShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY };
-    shiftSelectedShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY }; // [NEW] Shift-click range
-    hoveredShotRange?: { xy: HoCMath.XY; distance: number | HoCMath.XY };
+    currentActiveShotRange?: ShotRangeOverlay;
+    shiftSelectedShotRange?: ShotRangeOverlay; // [NEW] Shift-click range
+    hoveredShotRange?: ShotRangeOverlay;
     isActiveUnitMoving: boolean;
     gridSettings: GridSettings;
     hoverGlowPhase: number;
@@ -113,6 +208,13 @@ export interface IGameplayDrawContext {
      * tall terrain (tombstones, mountains) occlude the cell sheet while shot lines remain above terrain.
      */
     movementGraphics?: Graphics;
+    /** Bitmap ornaments live beside Graphics because Pixi v8 deprecates DisplayObject children on Graphics. */
+    shotRangeCornerContainer?: Container;
+    /** Legacy neutral-steel corner used only for neutral/shift-selected frames. */
+    shotRangeCornerTexture?: Texture;
+    /** High-resolution relationship-coloured corners; these are already authored in their final hue. */
+    shotRangeCornerFriendlyTexture?: Texture;
+    shotRangeCornerEnemyTexture?: Texture;
 }
 
 export interface IPlacementDrawContext {
@@ -149,12 +251,28 @@ export class SandboxDrawer {
             sidebarUnitRanges,
             hoveredAuraRanges,
             hoveredUnitMoveRange,
+            shotRangeCornerContainer,
+            shotRangeCornerTexture,
+            shotRangeCornerFriendlyTexture,
+            shotRangeCornerEnemyTexture,
         } = ctx;
         const fightStarted = fightProps.hasFightStarted();
         const movementGraphics = ctx.movementGraphics ?? g;
         // The unit whose turn is active always receives a neutral white movement preview. Team colours are
         // reserved for placement zones and hovered-unit inspection, so overlapping aura/team overlays stay legible.
         const movementColor = 0xffffff;
+        const cornerTextureForColor = (color: number): Texture | undefined =>
+            color === ALLY_HOVERED_SHOT_RANGE_COLOR
+                ? (shotRangeCornerFriendlyTexture ?? shotRangeCornerTexture)
+                : color === ENEMY_HOVERED_SHOT_RANGE_COLOR
+                  ? (shotRangeCornerEnemyTexture ?? shotRangeCornerTexture)
+                  : shotRangeCornerTexture;
+        const sameShotRangeOverlay = (a: ShotRangeOverlay, b: ShotRangeOverlay): boolean =>
+            a.xy.x === b.xy.x &&
+            a.xy.y === b.xy.y &&
+            a.distance === b.distance &&
+            (a.verticalDistance ?? a.distance) === (b.verticalDistance ?? b.distance) &&
+            (a.color ?? SHOT_RANGE_COLOR) === (b.color ?? SHOT_RANGE_COLOR);
 
         // The board no longer gets a red frame on the enemy's turn — the turn card already says "Enemy
         // turn" in red, and the frame fought with the board art. The red movement highlight above still
@@ -166,13 +284,9 @@ export class SandboxDrawer {
             drawMovementArea(movementGraphics, ctx.hoveredMoveRange, gs, movementColor, hoverGlowPhase);
         }
 
-        // 0. Hovered Unit Range (New Feature - Unified Visuals)
-        if (hoveredShotRange && (!fightStarted || !isActiveUnitMoving)) {
-            const { xy, distance } = hoveredShotRange;
-            // Use Yellow (same as Active) for consistent "Expected Range" visualization
-            // even in placement mode.
-            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
-        }
+        // The editor paints the two complete rows even without a selected unit, making the precise projected
+        // fill bounds visible while their top edges are dragged by hand.
+        drawMovementAreaCalibration(movementGraphics, gs);
 
         // 0.5 Sidebar Unit Range (New Feature)
         if (sidebarUnitRanges) {
@@ -210,14 +324,58 @@ export class SandboxDrawer {
 
         // 1. Shift Selected Shot Range (Same style as Active)
         if (shiftSelectedShotRange) {
-            const { xy, distance } = shiftSelectedShotRange;
-            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
+            const { xy, distance, verticalDistance = distance } = shiftSelectedShotRange;
+            SandboxDrawer.drawShotRangeSquare(
+                g,
+                xy,
+                distance,
+                verticalDistance,
+                gs,
+                hoverGlowPhase,
+                SHOT_RANGE_COLOR,
+                fightStarted,
+                shotRangeCornerContainer,
+                cornerTextureForColor(SHOT_RANGE_COLOR),
+            );
         }
 
         // 2. Shot range ring (Active Unit)
         if (currentActiveShotRange && !isActiveUnitMoving) {
-            const { xy, distance } = currentActiveShotRange;
-            SandboxDrawer.drawShotRangeSquare(g, xy, distance, gs, hoverGlowPhase, SHOT_RANGE_COLOR, fightStarted);
+            const { xy, distance, verticalDistance = distance, color = SHOT_RANGE_COLOR } = currentActiveShotRange;
+            SandboxDrawer.drawShotRangeSquare(
+                g,
+                xy,
+                distance,
+                verticalDistance,
+                gs,
+                hoverGlowPhase,
+                color,
+                fightStarted,
+                shotRangeCornerContainer,
+                cornerTextureForColor(color),
+            );
+        }
+
+        // Hover inspection is the player's immediate focus. Paint it after the active unit's neutral range
+        // so an enemy with identical bounds remains visibly red instead of being covered by the grey frame.
+        if (
+            hoveredShotRange &&
+            (!fightStarted || !isActiveUnitMoving) &&
+            (!currentActiveShotRange || !sameShotRangeOverlay(hoveredShotRange, currentActiveShotRange))
+        ) {
+            const { xy, distance, verticalDistance = distance, color = SHOT_RANGE_COLOR } = hoveredShotRange;
+            SandboxDrawer.drawShotRangeSquare(
+                g,
+                xy,
+                distance,
+                verticalDistance,
+                gs,
+                hoverGlowPhase,
+                color,
+                fightStarted,
+                shotRangeCornerContainer,
+                cornerTextureForColor(color),
+            );
         }
 
         const hasHoveredMovement = !!hoveredUnitMoveRange?.length && !sc_isAnimating;
@@ -375,17 +533,14 @@ export class SandboxDrawer {
     }
     private static clampSquareToBoard(
         xy: HoCMath.XY,
-        // Per axis, because a body that is not square does not cover a square: a 2x1 shooter reaches half a
-        // cell further on x than on y. A plain number keeps the old behaviour for every square body.
-        halfExtent: number | HoCMath.XY,
+        horizontalHalfExtent: number,
+        verticalHalfExtent: number,
         gs: GridSettings,
-    ): { left: number; bottom: number; width: number; height: number } | undefined {
-        const halfX = typeof halfExtent === "number" ? halfExtent : halfExtent.x;
-        const halfY = typeof halfExtent === "number" ? halfExtent : halfExtent.y;
-        const left = Math.max(xy.x - halfX, gs.getMinX());
-        const right = Math.min(xy.x + halfX, gs.getMaxX());
-        const bottom = Math.max(xy.y - halfY, gs.getMinY());
-        const top = Math.min(xy.y + halfY, gs.getMaxY());
+    ): ShotRangeBounds | undefined {
+        const left = Math.max(xy.x - horizontalHalfExtent, gs.getMinX());
+        const right = Math.min(xy.x + horizontalHalfExtent, gs.getMaxX());
+        const bottom = Math.max(xy.y - verticalHalfExtent, gs.getMinY());
+        const top = Math.min(xy.y + verticalHalfExtent, gs.getMaxY());
         const width = right - left;
         const height = top - bottom;
         return width > 0 && height > 0 ? { left, bottom, width, height } : undefined;
@@ -393,51 +548,61 @@ export class SandboxDrawer {
     private static drawShotRangeSquare(
         g: Graphics,
         xy: HoCMath.XY,
-        halfExtent: number | HoCMath.XY,
+        horizontalHalfExtent: number,
+        verticalHalfExtent: number,
         gs: GridSettings,
-        pulsePhase: number,
+        _pulsePhase: number,
         color: number,
-        fightStarted: boolean,
+        _fightStarted: boolean,
+        cornerContainer?: Container,
+        cornerTexture?: Texture,
     ): void {
-        const bounds = SandboxDrawer.clampSquareToBoard(xy, halfExtent, gs);
+        const bounds = SandboxDrawer.clampSquareToBoard(xy, horizontalHalfExtent, verticalHalfExtent, gs);
         if (!bounds) return;
         const { left, bottom, width, height } = bounds;
-        const pulse = (Math.sin(pulsePhase) + 1) / 2;
         const cellSize = gs.getCellSize();
-
-        // The floor artwork has a hand-traced 16x16 grid, so an axis-aligned Graphics.rect cuts
-        // across its perspective seams. Project every side (including intermediate seam vertices)
-        // through the same mapping used by movement cells and ranged trajectories.
-        g.poly(projectedRectPoints(left, bottom, left + width, bottom + height, gs)).stroke({
-            width: Math.max(1, cellSize * 0.012),
-            color,
-            alpha: (fightStarted ? 0.28 : 0.2) + pulse * 0.04,
-        });
-
-        const bracket = Math.min(cellSize * (0.22 + 0.04 * pulse), Math.min(width, height) * 0.18);
-        const right = left + width;
-        const top = bottom + height;
-        const corners: [number, number, number, number][] = [
-            [left, bottom, 1, 1],
-            [right, bottom, -1, 1],
-            [left, top, 1, -1],
-            [right, top, -1, -1],
-        ];
-        for (const [cornerX, cornerY, towardX, towardY] of corners) {
-            g.poly(
-                projectedPolyline(
-                    [
-                        { x: cornerX + towardX * bracket, y: cornerY },
-                        { x: cornerX, y: cornerY },
-                        { x: cornerX, y: cornerY + towardY * bracket },
-                    ],
-                    gs,
-                ),
-            ).stroke({
-                width: Math.max(1.25, cellSize * 0.014),
+        const lineWidth = Math.max(1.15, cellSize * SHOT_RANGE_LINE_WIDTH_CELLS);
+        const lineAlpha = 0.83;
+        const cornerAlpha = 0.85;
+        const strokePath = (points: number[], close?: boolean): void => {
+            // A single opaque rail keeps all four sides pixel-identical. The former dark bed + bright
+            // highlight blended differently over light and dark floor tiles and read as dashes/tone shifts.
+            g.poly(points, close).stroke({
+                width: lineWidth,
                 color,
-                alpha: 0.4 + 0.12 * pulse,
+                alpha: lineAlpha,
+                cap: "square",
+                join: "miter",
             });
+        };
+
+        // One unbroken perimeter follows the hand-painted perspective seams exactly.
+        strokePath(projectedRectPoints(left, bottom, left + width, bottom + height, gs));
+
+        if (cornerContainer && cornerTexture && cornerTexture !== Texture.EMPTY) {
+            const source = cornerTexture.source;
+            if (!stableShotRangeCornerSources.has(source)) {
+                // The 512 px hammered-metal art is rendered at roughly 20-30 px. Mipmaps keep its tiny
+                // highlights from alternating between bright and dark samples while the camera moves.
+                source.scaleMode = "linear";
+                source.autoGenerateMipmaps = true;
+                source.unload();
+                stableShotRangeCornerSources.add(source);
+            }
+            const spriteSize = cellSize * SHOT_RANGE_CORNER_SPRITE_SIZE_CELLS;
+            const textureWidth = Math.max(1, cornerTexture.width);
+            const scale = spriteSize / textureWidth;
+            for (const placement of shotRangeCornerSpritePlacements(bounds)) {
+                const corner = new Sprite(cornerTexture);
+                corner.anchor.set(SHOT_RANGE_CORNER_SPRITE_ANCHOR.x, SHOT_RANGE_CORNER_SPRITE_ANCHOR.y);
+                corner.setFromMatrix(shotRangeCornerSpriteMatrix(placement, scale, cellSize, gs));
+                corner.alpha = cornerAlpha;
+                corner.eventMode = "none";
+                // The projected corners are rotated/sheared. Pixel snapping makes their vertices jump by a
+                // whole screen pixel during small camera movements, which reads as a metallic shimmer.
+                corner.roundPixels = false;
+                cornerContainer.addChild(corner);
+            }
         }
     }
     private static drawProjectedRing(

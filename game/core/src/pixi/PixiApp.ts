@@ -13,6 +13,7 @@ export class PixiApp {
     private ticker!: Ticker;
     private camera!: Container; // pans/zooms
     private worldRoot!: Container; // Y-up (scaleY = -1)
+    private cursorOverlayRoot!: Container; // Y-up, always rendered after the battlefield
     private backgroundContainer!: Container;
     private terrainContainer!: Container;
     private unitsContainer!: Container;
@@ -51,6 +52,8 @@ export class PixiApp {
         this.camera = new Container(); // we pan/zoom this one
         this.worldRoot = new Container(); // we flip Y here ONCE to get y-up
         this.worldRoot.scale.set(1, -1); // flip once so world coords are y-up
+        this.cursorOverlayRoot = new Container();
+        this.cursorOverlayRoot.scale.set(1, -1);
 
         // Layers go under worldRoot (so they inherit y-up + camera transforms)
         this.backgroundContainer = new Container();
@@ -69,7 +72,10 @@ export class PixiApp {
 
         // Stage wiring
         this.stage = this.app.stage;
-        this.camera.addChild(this.worldRoot);
+        // Keep pointer-like battlefield markers in a sibling rendered after the entire world. A very
+        // large zIndex inside worldRoot is still part of the world's depth sort and can be obscured by
+        // later composite layers; sibling order makes the foreground guarantee structural.
+        this.camera.addChild(this.worldRoot, this.cursorOverlayRoot);
         this.stage.addChild(this.camera, this.uiContainer);
 
         this.ticker = this.app.ticker;
@@ -101,6 +107,9 @@ export class PixiApp {
     }
     public getWorldRoot(): Container {
         return this.worldRoot;
+    }
+    public getCursorOverlayRoot(): Container {
+        return this.cursorOverlayRoot;
     }
     public getBackgroundContainer(): Container {
         return this.backgroundContainer;

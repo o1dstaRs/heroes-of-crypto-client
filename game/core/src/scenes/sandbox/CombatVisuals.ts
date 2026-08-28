@@ -371,6 +371,12 @@ const FT_FADE_IN = 0.1; // seconds to fade in
 const FT_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
 const FT_STACK_DIST = 64; // px: numbers closer than this are stacked, not overlapped
 const FT_STACK_STEP = 46; // px: vertical gap per stacked number
+// Lowest screen-space edge of the authored floating-damage rows at their final 1x scale. Keep these
+// explicit instead of calling getLocalBounds() on every hit: measuring Pixi text there would recreate the
+// exact first-impact canvas/font work that prewarm() exists to remove.
+const FT_DAMAGE_ONLY_BOTTOM = 36;
+const FT_DAMAGE_WITH_KILLS_BOTTOM = 80;
+const FT_FLAG_GAP = 6;
 
 // Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
 // (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
@@ -829,11 +835,20 @@ export class CombatVisuals {
         container.addChild(healText);
         this.enqueueFloatingContainer(container, pos);
     }
-    private enqueueFloatingContainer(container: Container, pos: HoCMath.XY, direction?: HoCMath.XY): void {
+    private enqueueFloatingContainer(
+        container: Container,
+        pos: HoCMath.XY,
+        direction?: HoCMath.XY,
+        flagTopAnchor?: HoCMath.XY,
+        screenBottomExtent = 0,
+    ): void {
         // Anti-overlap: if numbers are already floating near this spot, stack this one
         // above them instead of drawing on top.
-        const baseX = pos.x;
-        const baseY = pos.y + 20;
+        const baseX = flagTopAnchor?.x ?? pos.x;
+        // The container is counter-flipped below to keep its contents upright in the Y-up world; local +Y
+        // therefore points down on screen. Raising its origin by the authored bottom extent pins the whole
+        // result above the banner without a per-hit text measurement.
+        const baseY = flagTopAnchor ? flagTopAnchor.y + screenBottomExtent + FT_FLAG_GAP : pos.y + 20;
         let stack = 0;
         for (const other of this.floatingTexts) {
             const dx = other.container.x - baseX;
@@ -995,7 +1010,7 @@ export class CombatVisuals {
         container.addChild(label, amountText);
 
         if (unitsDied && unitsDied > 0) {
-            const skullTex = Texture.from(images.skull);
+            const skullTex = Texture.from(images.combat_kills_skull_icon_v1);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
@@ -3823,6 +3838,7 @@ export class CombatVisuals {
         unitsDied?: number,
         fill = "#ff3333",
         stroke = "#4a0000",
+        flagTopAnchor?: HoCMath.XY,
     ): void {
         const container = new Container();
 
@@ -3835,7 +3851,9 @@ export class CombatVisuals {
 
         // 2. Skull + Count if units died
         if (unitsDied && unitsDied > 0) {
-            const skullTex = Texture.from(images.skull);
+            // Use the same authored kill icon as the hover forecast. The old 64px pixel skull made the
+            // actual result look like a different statistic even though both rows mean units lost.
+            const skullTex = Texture.from(images.combat_kills_skull_icon_v1);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
             skullSprite.width = 40;
@@ -3851,7 +3869,13 @@ export class CombatVisuals {
 
             container.addChild(skullSprite, countText);
         }
-        this.enqueueFloatingContainer(container, pos, direction);
+        this.enqueueFloatingContainer(
+            container,
+            pos,
+            direction,
+            flagTopAnchor,
+            unitsDied && unitsDied > 0 ? FT_DAMAGE_WITH_KILLS_BOTTOM : FT_DAMAGE_ONLY_BOTTOM,
+        );
     }
     /**
      * Floating "+N" over a healed unit, plus a soft restorative burst so a heal reads at a glance as the
@@ -4141,7 +4165,15 @@ export class CombatVisuals {
                 const center =
                     u instanceof RenderableUnit ? u.getVisualCenter(gs) : projectBattlefieldPoint(u.getPosition(), gs);
                 // console.log(`[DEBUG] showDamageVisualsFromDiff: Showing damage for ${id}, diff=${diff}`);
-                this.showFloatingDamage(center, diff, direction, unitsDied);
+                this.showFloatingDamage(
+                    center,
+                    diff,
+                    direction,
+                    unitsDied,
+                    undefined,
+                    undefined,
+                    u instanceof RenderableUnit ? u.getDamagePredictionAnchor(gs) : undefined,
+                );
 
                 // UI Update logic
                 const sc_selectedUnitProperties = this.context.getSelectedUnitProperties();
