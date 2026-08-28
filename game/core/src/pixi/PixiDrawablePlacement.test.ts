@@ -1,8 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
-import { GridConstants, GridMath, GridSettings, PlacementPositionType, TeamVals } from "@heroesofcrypto/common";
+import { GridConstants, GridMath, GridSettings, PlacementPositionType } from "@heroesofcrypto/common";
 import { projectedCellPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
-import { setViewerTeamForColors } from "../scenes/teamColors";
 import {
     ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
     movementFillAlphaForPhase,
@@ -60,8 +59,6 @@ const settings = () =>
         GridConstants.MOVEMENT_DELTA,
         GridConstants.UNIT_SIZE_DELTA,
     );
-
-afterEach(() => setViewerTeamForColors(undefined));
 
 describe("placement tile highlight", () => {
     test("keeps separately redrawn green carpet textures for every upgraded width", () => {
@@ -233,11 +230,13 @@ describe("placement tile highlight", () => {
         ).toBeCloseTo(movementFillAlphaForPhase(brightPhase));
     });
 
-    test("renders an upper-seat ranked participant's own placement field green", () => {
-        setViewerTeamForColors(TeamVals.UPPER);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_LEFT)).toBe(false);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_RIGHT)).toBe(false);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_LEFT)).toBe(true);
+    test("washes the UPPER field red and the LOWER field green, from every seat", () => {
+        // Placement zones are coloured by TEAM, not by viewer: an UPPER player's own zone reads RED. The
+        // viewer-relative flip briefly reversed this (b0aed99c) and was reverted — see scenes/teamColors.ts.
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_LEFT)).toBe(true);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_RIGHT)).toBe(true);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_LEFT)).toBe(false);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_RIGHT)).toBe(false);
     });
     test("slices every green cell from its exact region of one continuous carpet image", () => {
         const cells = [

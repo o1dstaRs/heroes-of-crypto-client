@@ -20,7 +20,7 @@ import {
     tunedCellFillPolygon,
 } from "../scenes/movementAreaVisual";
 import { images } from "../generated/image_imports";
-import { isFriendlyTeam } from "../scenes/teamColors";
+import { isGreenTeam } from "../scenes/teamColors";
 
 export interface IDrawablePlacement extends IPlacement {
     draw(gfx: Graphics, frameContainer: Container): void;
@@ -105,8 +105,8 @@ export function setSpawnFlowPhase(phase: number, currentEnemyMovementPhase = pha
     enemyMovementPhase = currentEnemyMovementPhase;
 }
 
-// Ranked participants see their own deployment rectangle in green and their opponent's in red. Sandbox and
-// observer scenes have no viewer team and retain the canonical LOWER-green / UPPER-red presentation.
+// Placement zones are coloured by TEAM, not by viewer: LOWER's rectangle is green, UPPER's is red, on every
+// screen. An UPPER player's own zone therefore reads red — see scenes/teamColors.ts for why that is the rule.
 const SPAWN_COLOR_GREEN = 0x051f0e;
 const SPAWN_BOUNDARY_COLOR_GREEN = 0x78dc96;
 /** Dark emerald sampled from the approved green deployment-field reference. */
@@ -940,7 +940,7 @@ const placementTeam = (position: PlacementPositionType): TeamType =>
         : TeamVals.UPPER;
 
 export const placementUsesEnemyMovementWash = (position: PlacementPositionType): boolean =>
-    !isFriendlyTeam(placementTeam(position));
+    !isGreenTeam(placementTeam(position));
 
 export class DrawableSquarePlacement extends SquarePlacement implements IDrawablePlacement {
     private readonly visualGridSettings: GridSettings;

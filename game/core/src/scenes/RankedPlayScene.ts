@@ -63,7 +63,7 @@ import { TextureType, unitToTextureName } from "../pixi/PixiUnitsFactory";
 import { reconcileRankedTransientTerrain } from "./rankedTransientTerrain";
 import { syncPlacementSynergyUnitCounts } from "../ui/rankedSynergySync";
 import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
-import { isFriendlyTeam, setViewerTeamForColors } from "./teamColors";
+import { isGreenTeam } from "./teamColors";
 
 export const isRankedAuthoritativeRecordAlreadyApplied = (
     lastAppliedSequence: number,
@@ -1744,10 +1744,10 @@ export class RankedPlayScene extends Sandbox {
             // reachability consumes the new multiplier even when no unit/board field changed.
             this.refreshUnits();
         }
-        // Keep server ownership/team identity untouched, but render a participant's own army green and the
-        // opponent red. Observers have no viewer team and therefore retain canonical LOWER/UPPER colours.
+        // viewerTeam answers OWNERSHIP only — whose turn it is, which units this seat may drive, which
+        // placement zone is its own. It must never reach the colour helpers: board colours are team-fixed
+        // (LOWER green / UPPER red) on every screen, so both players see the same match the same way.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
-        setViewerTeamForColors(this.viewerTeam);
         this.setLocalModelTeamOverride(
             snapshot.localModelTeam === undefined ? undefined : (snapshot.localModelTeam as TeamType),
         );
@@ -3092,7 +3092,7 @@ export class RankedPlayScene extends Sandbox {
     protected override resolveSceneLogTeamFlag(): string {
         return "";
     }
-    /** Green/red marker for the acting unit from this participant's perspective. */
+    /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red), the same on every screen. */
     private logTeamFlag(unitId: string): string {
         // Prefer the team captured from authoritative snapshots; fall back to the live units holder so
         // units that never appear in a snapshot (a local-model opponent's units, units summoned
@@ -3102,11 +3102,7 @@ export class RankedPlayScene extends Sandbox {
     }
     /** Green/red marker straight from a team value (for team-scoped lines with no acting unit). */
     private teamFlag(team: number | undefined): string {
-        return team === TeamVals.LOWER || team === TeamVals.UPPER
-            ? isFriendlyTeam(team as TeamType)
-                ? "🟢"
-                : "🔴"
-            : "";
+        return team === TeamVals.LOWER || team === TeamVals.UPPER ? (isGreenTeam(team as TeamType) ? "🟢" : "🔴") : "";
     }
     private parseJournalEvents(entry: AuthoritativeJournalEntry): GameEvent[] {
         if (!entry.eventsJson.trim()) {

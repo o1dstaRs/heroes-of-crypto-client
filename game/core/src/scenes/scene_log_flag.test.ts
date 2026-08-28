@@ -1,14 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { TeamVals } from "@heroesofcrypto/common";
 
 import { indexUnitTeam, resolveLineTeamFlag, type TeamOrAmbiguous } from "./scene_log_flag";
-import { setViewerTeamForColors } from "./teamColors";
 
 const GREEN = TeamVals.LOWER;
 const RED = TeamVals.UPPER;
-
-afterEach(() => setViewerTeamForColors(undefined));
 
 const indexed = (...entries: [string, number][]): Map<string, TeamOrAmbiguous> => {
     const m = new Map<string, TeamOrAmbiguous>();
@@ -32,12 +29,12 @@ describe("indexUnitTeam", () => {
     });
 });
 
-describe("viewer-relative scene log flags", () => {
-    test("flags an upper-seat participant green and the opponent red", () => {
-        setViewerTeamForColors(TeamVals.UPPER);
+describe("scene log flags follow the team, not the viewer", () => {
+    test("LOWER is always green and UPPER always red, whichever seat is reading", () => {
+        // The viewer-relative flip made this pair swap per seat; team-fixed means one answer for everyone.
         const m = indexed(["Ally", TeamVals.UPPER], ["Enemy", TeamVals.LOWER]);
-        expect(resolveLineTeamFlag("Ally moved", m)).toBe("🟢");
-        expect(resolveLineTeamFlag("Enemy moved", m)).toBe("🔴");
+        expect(resolveLineTeamFlag("Ally moved", m)).toBe("🔴");
+        expect(resolveLineTeamFlag("Enemy moved", m)).toBe("🟢");
     });
 });
 

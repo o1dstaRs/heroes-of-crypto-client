@@ -10,7 +10,7 @@
  */
 
 import { TeamVals } from "@heroesofcrypto/common";
-import { isFriendlyTeam } from "./teamColors";
+import { isGreenTeam } from "./teamColors";
 
 export type TeamOrAmbiguous = number | "ambiguous";
 
@@ -79,7 +79,7 @@ export function resolveLineTeamFlag(
     }
 
     if (team === TeamVals.LOWER || team === TeamVals.UPPER) {
-        return isFriendlyTeam(team) ? "🟢" : "🔴";
+        return isGreenTeam(team) ? "🟢" : "🔴";
     }
     return "";
 }
