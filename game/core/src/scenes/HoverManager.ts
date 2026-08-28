@@ -20,6 +20,7 @@ import { PlacementManager } from "./PlacementManager";
 import { TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { HOC_NUMERIC_ARIAL_FONT_FAMILY } from "../fontFamilies";
 import { images } from "../generated/image_imports";
+import { placementFootprintCandidates } from "./placementFootprintCandidates";
 import { projectBattlefieldPoint, projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import { placementFacingDirectionForTeam, previewPlacementFacing, type BattlefieldUnitPreview } from "./RenderableUnit";
 import { rangeTargetEdgeMarkerAngle } from "./rangeTargetEdges";
@@ -2389,24 +2390,16 @@ export class HoverManager {
             const blocked = new Set(occupiedKeys);
             const width = footprintWidthOf(selected);
             const height = footprintHeightOf(selected);
-            // Every W x H block that covers the cursor cell, in the same order the move-candidate finder
-            // uses: cursor cell as the block's minimum corner first, then the block sliding down and left
-            // over it. Off-board anchors are dropped before any cell is hashed, since an out-of-grid cell
-            // packs into (x << 4) | y as a key that collides with a real one.
-            const footprints: HoCMath.XY[][] = [];
-            for (let cursorDx = 0; cursorDx < width; cursorDx++) {
-                for (let cursorDy = 0; cursorDy < height; cursorDy++) {
-                    const anchor = { x: cell.x - cursorDx + width - 1, y: cell.y - cursorDy + height - 1 };
-                    if (!GridMath.isFootprintWithinGrid(gs, anchor, width, height)) continue;
-                    const footprint: HoCMath.XY[] = [];
-                    for (let dx = 0; dx < width; dx++) {
-                        for (let dy = 0; dy < height; dy++) {
-                            footprint.push({ x: anchor.x - width + 1 + dx, y: anchor.y - height + 1 + dy });
-                        }
-                    }
-                    footprints.push(footprint);
-                }
-            }
+            // Every W x H block covering the cursor, best first — and crucially, a unit being REPOSITIONED
+            // prefers the block it already stands on, so picking it up does not slide the proposed drop a
+            // cell away while the mouse is still. See placementFootprintCandidates.
+            const footprints = placementFootprintCandidates(
+                cell,
+                width,
+                height,
+                (anchor) => GridMath.isFootprintWithinGrid(gs, anchor, width, height),
+                ownCells,
+            );
             candidateCells =
                 footprints.find((footprint) =>
                     footprint.every(
