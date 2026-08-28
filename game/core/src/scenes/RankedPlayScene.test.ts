@@ -18,6 +18,7 @@ import {
     SCATTERED_MOUNTAIN_BAND_ROWS,
     SCATTERED_MOUNTAIN_MAX_COUNT,
     SCATTERED_MOUNTAIN_MIN_COUNT,
+    SCATTERED_MOUNTAIN_VARIANTS,
     scatteredMountainCountForSeed,
     type GameEvent,
 } from "@heroesofcrypto/common";
@@ -1884,6 +1885,59 @@ describe("cemetery barrel count", () => {
         expect(SCATTERED_MOUNTAIN_MAX_COUNT).toBeLessThanOrEqual(
             GridConstants.GRID_SIZE * SCATTERED_MOUNTAIN_BAND_ROWS,
         );
+    });
+});
+
+/**
+ * The server owns the board, so its stone list is installed verbatim — not used as a filter over what we
+ * happened to derive.
+ *
+ * This was harmless while the barrel count was a compile-time 9 in every bundle: two sides could not
+ * disagree about how many stones exist. The count is ROLLED per game now (9-12), and client and server pin
+ * common independently and deploy separately, so a bundle from before the roll derives 9 against a server
+ * board of 10-12 — and ~75% of game ids roll above 9. Every stone the old code failed to derive became an
+ * invisible wall: the server refuses moves through it from its own matrix, while the client offers them and
+ * draws no sprite. That is precisely the "invisible walls for everyone" failure the scattered-ranked work
+ * was written to kill, so it must not be reachable by version skew either.
+ */
+describe("planScatteredMountainSync follows the server, not our own roll", () => {
+    const packed = (cell: { x: number; y: number }) => cell.x * GridConstants.GRID_SIZE + cell.y;
+
+    test("installs stones the local derivation never produced", () => {
+        const gameId = "skew-guard-game";
+        const derived = scatteredMountainsForSeed(gameId);
+        const derivedKeys = new Set(derived.map((rock) => packed(rock.cell)));
+        // Two cells in the neutral band that this seed did NOT roll — what a newer server would hold.
+        const extra: number[] = [];
+        for (let x = 6; x <= 9 && extra.length < 2; x++) {
+            for (let y = 0; y < GridConstants.GRID_SIZE && extra.length < 2; y++) {
+                const key = x * GridConstants.GRID_SIZE + y;
+                if (!derivedKeys.has(key)) extra.push(key);
+            }
+        }
+        expect(extra).toHaveLength(2);
+
+        const serverStanding = [...derived.map((rock) => packed(rock.cell)), ...extra];
+        const plan = planScatteredMountainSync(gameId, serverStanding, serverStanding.length);
+        expect(plan).toBeDefined();
+        const installed = new Set(plan!.standing.map((stone) => packed(stone)));
+        for (const key of serverStanding) {
+            expect(installed.has(key)).toBe(true);
+        }
+        // An undrawn stone still gets stable art rather than a missing sprite.
+        for (const stone of plan!.standing) {
+            expect(stone.variant).toBeGreaterThanOrEqual(0);
+            expect(stone.variant).toBeLessThan(SCATTERED_MOUNTAIN_VARIANTS);
+        }
+    });
+
+    test("a stone the server dropped is still reported destroyed so its collapse plays", () => {
+        const gameId = "skew-guard-destroyed";
+        const derived = scatteredMountainsForSeed(gameId);
+        const survivors = derived.slice(1).map((rock) => packed(rock.cell));
+        const plan = planScatteredMountainSync(gameId, survivors, survivors.length);
+        expect(plan!.destroyed).toContainEqual({ x: derived[0].cell.x, y: derived[0].cell.y });
+        expect(plan!.standing).toHaveLength(survivors.length);
     });
 });
 

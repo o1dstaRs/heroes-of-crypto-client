@@ -13,6 +13,7 @@ import {
     GridConstants,
     GridMath,
     GridVals,
+    SCATTERED_MOUNTAIN_VARIANTS,
     scatteredMountainsForSeed,
     synergyVariantsForSeed,
     HoCConfig,
@@ -414,12 +415,35 @@ export const planScatteredMountainSync = (
         return undefined;
     }
     const standingKeys = new Set(scatteredStandingCells ?? []);
+    const derived = scatteredMountainsForSeed(gameId);
+    const variantByKey = new Map<number, number>();
+    for (const rock of derived) {
+        variantByKey.set(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y, rock.variant);
+    }
+
+    // Walk the SERVER's stones, not our own derivation. The board is the server's: it computes knownPaths
+    // and legality from its own matrix, so a stone it holds that we never derived is an invisible wall —
+    // we would offer moves through it and draw a clear lane the server refuses. Iterating our own layout
+    // and using the server's list as a mere filter silently dropped exactly those stones.
+    //
+    // That was harmless while the barrel count was a compile-time 9 in every bundle: the two sides could
+    // not disagree about how many stones exist. The count is now ROLLED per game (9-12), and client and
+    // server pin common independently and deploy separately, so a bundle from before the roll derives 9
+    // against a server board of 10-12 — and ~75% of game ids roll above 9. Deriving art locally is still
+    // right (it never affects legality); deriving OCCUPANCY locally is not.
     const standing: { x: number; y: number; variant: number }[] = [];
+    for (const key of standingKeys) {
+        const x = Math.floor(key / GridConstants.GRID_SIZE);
+        const y = key % GridConstants.GRID_SIZE;
+        // A stone outside our derivation still has to be drawn. Key its art off the cell so both seats
+        // and every reload agree on it, rather than leaving the sprite missing.
+        standing.push({ x, y, variant: variantByKey.get(key) ?? key % SCATTERED_MOUNTAIN_VARIANTS });
+    }
+    // Destroyed = stones we know about that the server no longer lists, which is what drives the collapse
+    // VFX. A stone we never derived cannot have a local collapse to play.
     const destroyed: HoCMath.XY[] = [];
-    for (const rock of scatteredMountainsForSeed(gameId)) {
-        if (standingKeys.has(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y)) {
-            standing.push({ x: rock.cell.x, y: rock.cell.y, variant: rock.variant });
-        } else {
+    for (const rock of derived) {
+        if (!standingKeys.has(rock.cell.x * GridConstants.GRID_SIZE + rock.cell.y)) {
             destroyed.push({ x: rock.cell.x, y: rock.cell.y });
         }
     }
