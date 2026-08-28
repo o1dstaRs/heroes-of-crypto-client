@@ -15,7 +15,6 @@ describe("battlefield shadow tuning", () => {
             "Troglodyte",
             "Centaur",
             "Berserker",
-            "Wolf Rider",
             "Wolf",
             "Fairy",
             "Leprechaun",
@@ -40,12 +39,38 @@ describe("battlefield shadow tuning", () => {
         }
     });
 
+    test("keeps the approved Wolf Rider profile from the editor screenshot", () => {
+        expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE["Wolf Rider"]).toEqual({
+            bottom: {
+                lengthScale: 0.6102,
+                widthScale: 1.07,
+                alpha: 0.45,
+                offsetXCells: 0.01,
+                offsetYCells: 0.08,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            top: {
+                lengthScale: 0.678,
+                widthScale: 1.07,
+                alpha: 0.45,
+                offsetXCells: 0.01,
+                offsetYCells: 0.08,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            bottomAlphaOverride: 0.45,
+            contactAlpha: 0.15,
+            contactShadowVisible: true,
+        });
+    });
+
     test("keeps the approved Black Dragon override and its automatic lower-row reduction", () => {
         expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE["Black Dragon"]).toEqual({
             bottom: {
-                lengthScale: 0.7123,
-                widthScale: 0.858907,
-                alpha: 0.332143,
+                lengthScale: 0.7542,
+                widthScale: 0.947,
+                alpha: 0.45,
                 offsetXCells: 0.035,
                 offsetYCells: 0.594,
                 rotationDegrees: -14,
@@ -68,9 +93,9 @@ describe("battlefield shadow tuning", () => {
     test("keeps the approved Frenzied Boar override and its automatic lower-row reduction", () => {
         expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE["Frenzied Boar"]).toEqual({
             bottom: {
-                lengthScale: 0.7123,
-                widthScale: 0.860721,
-                alpha: 0.332143,
+                lengthScale: 0.7542,
+                widthScale: 0.949,
+                alpha: 0.45,
                 offsetXCells: 0.043,
                 offsetYCells: 0.731,
                 rotationDegrees: -14,
@@ -90,12 +115,37 @@ describe("battlefield shadow tuning", () => {
         });
     });
 
+    test("keeps the approved Cyclops shadow connected to its wide stance", () => {
+        expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE.Cyclops).toEqual({
+            bottom: {
+                lengthScale: 0.648,
+                widthScale: 0.938,
+                alpha: 0.45,
+                offsetXCells: 0.095,
+                offsetYCells: 0.413,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            top: {
+                lengthScale: 0.72,
+                widthScale: 0.938,
+                alpha: 0.45,
+                offsetXCells: 0.095,
+                offsetYCells: 0.413,
+                rotationDegrees: -14,
+                segmentLengthMultipliers: [1, 1, 1, 1],
+            },
+            contactAlpha: 0.15,
+            contactShadowVisible: true,
+        });
+    });
+
     test("keeps the recovered Arachna Queen profile under the spider figure", () => {
         const expected = {
             bottom: {
-                lengthScale: 0.69275,
-                widthScale: 0.926023,
-                alpha: 0.332143,
+                lengthScale: 0.7335,
+                widthScale: 1.021,
+                alpha: 0.45,
                 offsetXCells: 0.183,
                 offsetYCells: 1.606,
                 rotationDegrees: -14,
@@ -124,7 +174,7 @@ describe("battlefield shadow tuning", () => {
             Behemoth: [0.097, 1.251, 1.042, 0.994],
             Gargantuan: [0.038, 0.478, 0.776, 0.939],
             Abomination: [-0.008, 0.608, 0.825, 0.915],
-            "Magic Dragon": [0.12, 0.42, 0.868, 0.94],
+            "Magic Dragon": [0.08, 0.531, 0.868, 0.91],
         } as const;
 
         for (const [name, [offsetXCells, offsetYCells, lengthScale, widthScale]] of Object.entries(expectedTopRows)) {
@@ -149,16 +199,16 @@ describe("battlefield shadow tuning", () => {
         expect(normalizeBattlefieldShadowTuning({ top: { offsetYCells: -3 } }).top.offsetYCells).toBe(-2);
     });
 
-    test("derives the lower row automatically from the authored upper row", () => {
+    test("shortens only the far edge by 10% at the lowest row", () => {
         const tuning = normalizeBattlefieldShadowTuning({
             top: BATTLEFIELD_SHADOW_TUNING_BY_CREATURE.Orc.top,
             contactAlpha: 0.15,
         });
 
         expect(tuning.bottom).toEqual({
-            lengthScale: 0.5763,
-            widthScale: 0.80086,
-            alpha: 0.332143,
+            lengthScale: 0.6102,
+            widthScale: 0.883,
+            alpha: 0.45,
             offsetXCells: 0.036,
             offsetYCells: 0.272,
             rotationDegrees: -14,
@@ -166,28 +216,23 @@ describe("battlefield shadow tuning", () => {
         });
     });
 
-    test("preserves the owner's explicit Magic Dragon lower and upper rows", () => {
-        expect(BATTLEFIELD_SHADOW_TUNING_BY_CREATURE["Magic Dragon"]).toEqual({
-            bottom: {
-                lengthScale: 0.7378,
-                widthScale: 0.852558,
-                alpha: 0.45,
-                offsetXCells: 0.12,
-                offsetYCells: 0.42,
-                rotationDegrees: -14,
-                segmentLengthMultipliers: [1, 1, 1, 1],
-            },
-            top: {
-                lengthScale: 0.868,
-                widthScale: 0.94,
-                alpha: 0.45,
-                offsetXCells: 0.12,
-                offsetYCells: 0.42,
-                rotationDegrees: -14,
-                segmentLengthMultipliers: [1, 1, 1, 1],
-            },
-            contactAlpha: 0.15,
-            contactShadowVisible: true,
+    test("stores four independently stretched frame quarters and carries them to lower rows", () => {
+        const tuning = normalizeBattlefieldShadowTuning({
+            top: { segmentLengthMultipliers: [0.1, 1.25, 2, 4] },
         });
+
+        expect(tuning.top.segmentLengthMultipliers).toEqual([0.25, 1.25, 2, 3]);
+        expect(tuning.bottom.segmentLengthMultipliers).toEqual([0.25, 1.25, 2, 3]);
+    });
+
+    test("keeps an explicit lower-row alpha when an approved creature needs one", () => {
+        const tuning = normalizeBattlefieldShadowTuning({
+            top: { alpha: 0.45 },
+            bottomAlphaOverride: 0.45,
+        });
+
+        expect(tuning.top.alpha).toBe(0.45);
+        expect(tuning.bottom.alpha).toBe(0.45);
+        expect(tuning.bottomAlphaOverride).toBe(0.45);
     });
 });

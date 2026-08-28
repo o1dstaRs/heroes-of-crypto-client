@@ -12,6 +12,8 @@ export interface BattlefieldShadowRowTuning {
 export interface BattlefieldShadowTuning {
     bottom: BattlefieldShadowRowTuning;
     top: BattlefieldShadowRowTuning;
+    /** Keeps an explicitly approved lower-row opacity instead of deriving it from the upper row. */
+    bottomAlphaOverride?: number;
     contactAlpha: number;
     contactShadowVisible: boolean;
 }
@@ -33,16 +35,14 @@ export interface BattlefieldShadowVisualBounds {
 export const BATTLEFIELD_SHADOW_TUNING_STORAGE_KEY = "hoc-dev-battlefield-shadow-tuning-v7";
 export const BATTLEFIELD_SHADOW_SEGMENT_COUNT = 4;
 const DEFAULT_SEGMENT_LENGTH_MULTIPLIERS = Object.freeze([1, 1, 1, 1]);
-const AUTOMATIC_BOTTOM_LENGTH_RATIO = 0.85;
-const AUTOMATIC_BOTTOM_WIDTH_RATIO = 0.78 / 0.86;
-const AUTOMATIC_BOTTOM_ALPHA_RATIO = 0.31 / 0.42;
+const AUTOMATIC_BOTTOM_LENGTH_RATIO = 0.9;
 const roundTuningValue = (value: number): number => Math.round(value * 1_000_000) / 1_000_000;
 
 export const DEFAULT_BATTLEFIELD_SHADOW_TUNING: BattlefieldShadowTuning = Object.freeze({
     bottom: Object.freeze({
-        lengthScale: 0.5763,
-        widthScale: 0.80086,
-        alpha: 0.332143,
+        lengthScale: 0.6102,
+        widthScale: 0.883,
+        alpha: 0.45,
         offsetXCells: 0.036,
         offsetYCells: 0.272,
         rotationDegrees: -14,
@@ -89,8 +89,6 @@ const normalizeRow = (
 const automaticBottomRow = (top: BattlefieldShadowRowTuning): BattlefieldShadowRowTuning => ({
     ...top,
     lengthScale: roundTuningValue(top.lengthScale * AUTOMATIC_BOTTOM_LENGTH_RATIO),
-    widthScale: roundTuningValue(top.widthScale * AUTOMATIC_BOTTOM_WIDTH_RATIO),
-    alpha: roundTuningValue(top.alpha * AUTOMATIC_BOTTOM_ALPHA_RATIO),
     segmentLengthMultipliers: [...top.segmentLengthMultipliers],
 });
 
@@ -101,9 +99,15 @@ export const normalizeBattlefieldShadowTuning = (
     },
 ): BattlefieldShadowTuning => {
     const top = normalizeRow(value?.top, DEFAULT_BATTLEFIELD_SHADOW_TUNING.top);
+    const requestedBottomAlphaOverride = value?.bottomAlphaOverride;
+    const bottomAlphaOverride =
+        requestedBottomAlphaOverride === undefined ? undefined : clamp(requestedBottomAlphaOverride, top.alpha, 0, 1);
+    const bottom = automaticBottomRow(top);
+    if (bottomAlphaOverride !== undefined) bottom.alpha = bottomAlphaOverride;
     return {
-        bottom: value?.bottom ? normalizeRow(value.bottom, automaticBottomRow(top)) : automaticBottomRow(top),
+        bottom,
         top,
+        ...(bottomAlphaOverride === undefined ? {} : { bottomAlphaOverride }),
         contactAlpha: clamp(value?.contactAlpha, DEFAULT_BATTLEFIELD_SHADOW_TUNING.contactAlpha, 0, 1),
         contactShadowVisible:
             typeof value?.contactShadowVisible === "boolean"
@@ -152,6 +156,20 @@ const FRENZIED_BOAR_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
         alpha: 0.45,
         offsetXCells: 0.043,
         offsetYCells: 0.731,
+        rotationDegrees: -14,
+        segmentLengthMultipliers: [1, 1, 1, 1],
+    },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const CYCLOPS_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    top: {
+        lengthScale: 0.72,
+        widthScale: 0.938,
+        alpha: 0.45,
+        offsetXCells: 0.095,
+        offsetYCells: 0.413,
         rotationDegrees: -14,
         segmentLengthMultipliers: [1, 1, 1, 1],
     },
@@ -247,21 +265,27 @@ const ABOMINATION_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
 });
 
 const MAGIC_DRAGON_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
-    bottom: {
-        lengthScale: 0.7378,
-        widthScale: 0.852558,
+    top: {
+        lengthScale: 0.868,
+        widthScale: 0.91,
         alpha: 0.45,
-        offsetXCells: 0.12,
-        offsetYCells: 0.42,
+        offsetXCells: 0.08,
+        offsetYCells: 0.531,
         rotationDegrees: -14,
         segmentLengthMultipliers: [1, 1, 1, 1],
     },
+    contactAlpha: 0.15,
+    contactShadowVisible: true,
+});
+
+const WOLF_RIDER_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
+    bottomAlphaOverride: 0.45,
     top: {
-        lengthScale: 0.868,
-        widthScale: 0.94,
+        lengthScale: 0.678,
+        widthScale: 1.07,
         alpha: 0.45,
-        offsetXCells: 0.12,
-        offsetYCells: 0.42,
+        offsetXCells: 0.01,
+        offsetYCells: 0.08,
         rotationDegrees: -14,
         segmentLengthMultipliers: [1, 1, 1, 1],
     },
@@ -272,8 +296,10 @@ const MAGIC_DRAGON_SHADOW_TUNING = normalizeBattlefieldShadowTuning({
 export const BATTLEFIELD_SHADOW_TUNING_BY_CREATURE: Readonly<Record<string, BattlefieldShadowTuning>> = Object.freeze(
     Object.fromEntries([
         ...LEVEL_ONE_CREATURE_NAMES.map((name) => [name, DEFAULT_BATTLEFIELD_SHADOW_TUNING] as const),
+        ["Wolf Rider", WOLF_RIDER_SHADOW_TUNING],
         ["Black Dragon", BLACK_DRAGON_SHADOW_TUNING],
         ["Frenzied Boar", FRENZIED_BOAR_SHADOW_TUNING],
+        ["Cyclops", CYCLOPS_SHADOW_TUNING],
         ["Arachna Queen", ARACHNA_SHADOW_TUNING],
         ["Mantis", MANTIS_SHADOW_TUNING],
         ["Hydra", HYDRA_SHADOW_TUNING],

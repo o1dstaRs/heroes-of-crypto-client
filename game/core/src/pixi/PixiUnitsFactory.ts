@@ -141,19 +141,68 @@ export enum TextureType {
     LARGE = 1,
 }
 
-const LEVEL_THREE_STATIC_BATTLEFIELD_TEXTURES: Readonly<Record<string, string>> = {
-    griffin: "griffin_battlefield_side_right_v2",
-    crusader: "crusader_battlefield_side_right_v2",
-    monk: "monk_battlefield_side_right_v2",
-    mantis: "mantis_battlefield_side_right_v3",
-    unicorn: "unicorn_battlefield_side_right_v2",
-    pegasus: "pegasus_battlefield_side_right_v2",
-    goblin_knight: "goblin_knight_battlefield_side_right_v2",
-    efreet: "efreet_battlefield_side_right_v7",
-    nightmare: "nightmare_battlefield_side_right_v2",
-    cyclops: "cyclops_battlefield_side_right_v2",
-    ogre_mage: "ogre_mage_battlefield_side_right_v2",
-    zena: "zena_battlefield_side_right_v3",
+const FINAL_STATIC_BATTLEFIELD_TEXTURES: Readonly<Record<string, string>> = {
+    // Life
+    blacksmith: "blacksmith_battlefield_side_right_final_v1",
+    squire: "squire_battlefield_side_right_final_v1",
+    peasant: "peasant_battlefield_side_right_final_v1",
+    arbalester: "arbalester_battlefield_side_right_final_v1",
+    pikeman: "pikeman_battlefield_side_right_final_v1",
+    valkyrie: "valkyrie_battlefield_side_right_final_v1",
+    healer: "healer_battlefield_side_right_final_v1",
+    battle_mage: "battle_mage_battlefield_side_right_final_v1",
+    crusader: "crusader_battlefield_side_right_final_v1",
+    griffin: "griffin_battlefield_side_right_final_v1",
+    monk: "monk_battlefield_side_right_final_v1",
+    tsar_cannon: "tsar_cannon_battlefield_side_right_final_v1",
+    angel: "angel_battlefield_side_right_final_v1",
+    champion: "champion_battlefield_side_right_final_v1",
+    // Nature
+    fairy: "fairy_battlefield_side_right_final_v1",
+    dryad: "dryad_battlefield_side_right_final_v1",
+    wolf: "wolf_battlefield_side_right_final_v1",
+    leprechaun: "leprechaun_battlefield_side_right_final_v1",
+    white_tiger: "white_tiger_battlefield_side_right_final_v1",
+    elf: "elf_battlefield_side_right_final_v1",
+    satyr: "satyr_battlefield_side_right_final_v1",
+    trent: "trent_battlefield_side_right_final_v1",
+    unicorn: "unicorn_battlefield_side_right_final_v1",
+    mantis: "mantis_battlefield_side_right_final_v1",
+    pegasus: "pegasus_battlefield_side_right_final_v1",
+    magic_dragon: "magic_dragon_battlefield_side_right_final_v1",
+    gargantuan: "gargantuan_battlefield_side_right_final_v1",
+    arachna_queen: "arachna_queen_battlefield_side_right_final_v1",
+    arachna_spider: "arachna_spider_battlefield_side_right_final_v1",
+    // Chaos
+    scavenger: "scavenger_battlefield_side_right_final_v1",
+    orc: "orc_battlefield_side_right_final_v1",
+    troglodyte: "troglodyte_battlefield_side_right_final_v1",
+    medusa: "medusa_battlefield_side_right_final_v1",
+    troll: "troll_battlefield_side_right_final_v1",
+    beholder: "beholder_battlefield_side_right_final_v1",
+    efreet: "efreet_battlefield_side_right_final_v1",
+    goblin_knight: "goblin_knight_battlefield_side_right_final_v1",
+    black_dragon: "black_dragon_battlefield_side_right_final_v1",
+    hydra: "hydra_battlefield_side_right_final_v1",
+    abomination: "abomination_battlefield_side_right_final_v1",
+    wandering_mage: "wandering_mage_battlefield_side_right_final_v1",
+    manticore: "manticore_battlefield_side_right_final_v1",
+    nightmare: "nightmare_battlefield_side_right_final_v1",
+    // Might
+    mermaid: "mermaid_battlefield_side_right_final_v1",
+    berserker: "berserker_battlefield_side_right_final_v1",
+    centaur: "centaur_battlefield_side_right_final_v1",
+    wolf_rider: "wolf_rider_battlefield_side_right_final_v1",
+    nomad: "nomad_battlefield_side_right_final_v1",
+    harpy: "harpy_battlefield_side_right_final_v1",
+    hyena: "hyena_battlefield_side_right_final_v1",
+    wyvern: "wyvern_battlefield_side_right_final_v1",
+    ogre_mage: "ogre_mage_battlefield_side_right_final_v1",
+    cyclops: "cyclops_battlefield_side_right_final_v1",
+    zena: "zena_battlefield_side_right_final_v1",
+    thunderbird: "thunderbird_battlefield_side_right_final_v1",
+    behemoth: "behemoth_battlefield_side_right_final_v1",
+    frenzied_boar: "frenzied_boar_battlefield_side_right_final_v1",
 };
 
 /**
@@ -186,24 +235,17 @@ const rectangularBattlefieldTextureName = (
 };
 
 /**
- * Approved full-body level-three field sprite; cards continue to use the existing 512 artwork.
- *
- * These are authored as a single side-facing figure, so a genuinely SQUARE multi-cell body needs its own
- * 2x2 art instead. A rectangle has no art of its own, which leaves this figure as its nearest match.
+ * Approved final full-body field sprite. Every file keeps the shared 768px canvas and its creature's
+ * authored zone, so the logical footprint selects placement only and never swaps or deforms the artwork.
+ * Cards and sidebars continue to use their existing portrait textures.
  */
 export const staticBattlefieldTextureNameForUnit = (
     unitName: string,
-    footprintWidth = 1,
-    footprintHeight = footprintWidth,
+    _footprintWidth = 1,
+    _footprintHeight = _footprintWidth,
 ): string | undefined => {
     const base = unitName.toLowerCase().replace(/ /g, "_");
-    const finalTexture = `${base}_final`;
-    if (finalTexture in images) return finalTexture;
-    if (base === "thunderbird" && spansTwoCells(footprintWidth, footprintHeight)) {
-        return "thunderbird_battlefield_side_right_v2";
-    }
-    if (footprintWidth === footprintHeight && footprintWidth !== 1) return undefined;
-    return LEVEL_THREE_STATIC_BATTLEFIELD_TEXTURES[base];
+    return FINAL_STATIC_BATTLEFIELD_TEXTURES[base];
 };
 
 export const unitToTextureName = (

@@ -12,7 +12,7 @@ export interface LeftSidebarPortraitTuning {
 }
 
 export const DEFAULT_LEFT_SIDEBAR_PORTRAIT_TUNING: Readonly<LeftSidebarPortraitTuning> = Object.freeze({
-    artScale: 1,
+    artScale: 0.93,
     artOffsetX: 0,
     artOffsetY: 0,
     containerWidth: 99,
@@ -98,9 +98,7 @@ export const LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X: Readonly<Partial<Record<number,
     });
 
 /** Active production set: the user-approved left-screen portrait recovery point X. */
-export const LEFT_SIDEBAR_PORTRAIT_TUNING: Readonly<Partial<Record<number, LeftSidebarPortraitTuning>>> = Object.freeze(
-    {},
-);
+export const LEFT_SIDEBAR_PORTRAIT_TUNING = LEFT_SIDEBAR_PORTRAIT_CHECKPOINT_X;
 
 // Preserve the JSON tuned in the left-sidebar dev editor. The temporary OSG-2308 namespace hid those
 // settings from localhost; keep it only as a fallback so edits made under either key remain recoverable.

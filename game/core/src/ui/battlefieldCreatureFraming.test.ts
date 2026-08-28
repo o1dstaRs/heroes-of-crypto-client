@@ -26,11 +26,22 @@ afterEach(() => {
 
 describe("battlefield creature framing drafts", () => {
     test("uses a fresh draft namespace for the approved battlefield baseline", () => {
-        expect(BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY).toBe("hoc-dev-battlefield-creature-framing-v12");
+        expect(BATTLEFIELD_CREATURE_FRAMING_STORAGE_KEY).toBe("hoc-dev-battlefield-creature-framing-v13");
     });
 
     test("contains the approved model adjustments", () => {
-        expect(BATTLEFIELD_CREATURE_FRAMING).toMatchObject({
+        const approvedModels = Object.fromEntries(
+            Object.entries(BATTLEFIELD_CREATURE_FRAMING).map(([name, framing]) => [
+                name,
+                {
+                    scaleX: framing.scaleX,
+                    scaleY: framing.scaleY,
+                    offsetXCells: framing.offsetXCells,
+                    offsetYCells: framing.offsetYCells,
+                },
+            ]),
+        );
+        expect(approvedModels).toMatchObject({
             Dryad: { scaleX: 1.27, scaleY: 1.37, offsetXCells: 0.18, offsetYCells: 0 },
             Leprechaun: { scaleX: 1.3, scaleY: 1.3, offsetXCells: 0, offsetYCells: 0.04 },
             "Wandering Mage": { scaleX: 1.21, scaleY: 1.21, offsetXCells: 0.03, offsetYCells: 0 },
@@ -49,46 +60,46 @@ describe("battlefield creature framing drafts", () => {
             Crusader: { scaleX: 1.46, scaleY: 1.46, offsetXCells: 0.15, offsetYCells: 0 },
             Nightmare: { scaleX: 1.5, scaleY: 1.5, offsetXCells: 0, offsetYCells: 0 },
             Cyclops: { scaleX: 1.34, scaleY: 1.5, offsetXCells: 0, offsetYCells: 0 },
-            "Arachna Queen": { scaleX: 1.8, scaleY: 1.85, offsetXCells: 0.01, offsetYCells: 0.19 },
+            "Arachna Queen": { scaleX: 1.8, scaleY: 1.85, offsetXCells: 0.01, offsetYCells: 0.195 },
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING.Squire).toEqual({
+        expect(approvedModels.Squire).toEqual({
             scaleX: 1.43,
             scaleY: 1.43,
             offsetXCells: 0.04,
             offsetYCells: 0,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING.Fairy).toEqual({
+        expect(approvedModels.Fairy).toEqual({
             scaleX: 1.3,
             scaleY: 1.3,
             offsetXCells: -0.06,
             offsetYCells: 0,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING["White Tiger"]).toEqual({
+        expect(approvedModels["White Tiger"]).toEqual({
             scaleX: 1.15,
             scaleY: 1.71,
             offsetXCells: 0.02,
             offsetYCells: 0,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING.Wyvern).toEqual({
+        expect(approvedModels.Wyvern).toEqual({
             scaleX: 1.4,
             scaleY: 1.74,
             offsetXCells: 0.05,
             offsetYCells: 0,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING.Griffin).toEqual({
+        expect(approvedModels.Griffin).toEqual({
             scaleX: 1.5,
             scaleY: 1.5,
             offsetXCells: -0.1,
             offsetYCells: 0,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING).toMatchObject({
+        expect(approvedModels).toMatchObject({
             Manticore: { scaleX: 1.31, scaleY: 1.36, offsetXCells: -0.04, offsetYCells: 0 },
             Nomad: { scaleX: 1.45, scaleY: 1.43, offsetXCells: 0.07, offsetYCells: 0 },
             Hyena: { scaleX: 0.99, scaleY: 1.4, offsetXCells: 0.11, offsetYCells: 0 },
             Mantis: { scaleX: 1.59, scaleY: 1.5, offsetXCells: 0.12, offsetYCells: 0.005 },
             Pegasus: { scaleX: 1.48, scaleY: 1.48, offsetXCells: -0.04, offsetYCells: 0 },
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING).toMatchObject({
+        expect(approvedModels).toMatchObject({
             Valkyrie: { scaleX: 1.4, scaleY: 1.4, offsetXCells: 0.01, offsetYCells: 0 },
             Pikeman: { scaleX: 1.44, scaleY: 1.44, offsetXCells: 0.13, offsetYCells: 0 },
             Healer: { scaleX: 1.27, scaleY: 1.27, offsetXCells: 0.09, offsetYCells: 0 },
@@ -105,47 +116,47 @@ describe("battlefield creature framing drafts", () => {
             Hyena: { scaleX: 0.99, scaleY: 1.4, offsetXCells: 0.11, offsetYCells: 0 },
             Wyvern: { scaleX: 1.4, scaleY: 1.74, offsetXCells: 0.05, offsetYCells: 0 },
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING.Efreet).toEqual({
+        expect(approvedModels.Efreet).toEqual({
             scaleX: 1.28,
             scaleY: 1.47,
             offsetXCells: -0.01,
             offsetYCells: 0.14,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING).toMatchObject({
+        expect(approvedModels).toMatchObject({
             Griffin: { scaleX: 1.5, scaleY: 1.5, offsetXCells: -0.1, offsetYCells: 0 },
             Crusader: { scaleX: 1.46, scaleY: 1.46, offsetXCells: 0.15, offsetYCells: 0 },
             Mantis: { scaleX: 1.59, scaleY: 1.5, offsetXCells: 0.12, offsetYCells: 0.005 },
             Monk: { scaleX: 1.3, scaleY: 1.3, offsetXCells: 0.04, offsetYCells: 0 },
             Unicorn: { scaleX: 1.41, scaleY: 1.41, offsetXCells: 0.21, offsetYCells: 0 },
             Pegasus: { scaleX: 1.48, scaleY: 1.48, offsetXCells: -0.04, offsetYCells: 0 },
-            "Goblin Knight": { scaleX: 1.44, scaleY: 1.44, offsetXCells: -0.16, offsetYCells: 0 },
+            "Goblin Knight": { scaleX: 1.44, scaleY: 1.44, offsetXCells: -0.149, offsetYCells: 0 },
             Efreet: { scaleX: 1.28, scaleY: 1.47, offsetXCells: -0.01, offsetYCells: 0.14 },
             Nightmare: { scaleX: 1.5, scaleY: 1.5, offsetXCells: 0, offsetYCells: 0 },
             Cyclops: { scaleX: 1.34, scaleY: 1.5, offsetXCells: 0, offsetYCells: 0 },
             "Ogre Mage": { scaleX: 1.52, scaleY: 1.52, offsetXCells: -0.09, offsetYCells: 0 },
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING.Gargantuan).toEqual({
+        expect(approvedModels.Gargantuan).toEqual({
             scaleX: 1.6,
             scaleY: 1.6,
             offsetXCells: -0.05,
             offsetYCells: -0.17,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING["Black Dragon"]).toEqual({
+        expect(approvedModels["Black Dragon"]).toEqual({
             scaleX: 1.55,
             scaleY: 1.55,
             offsetXCells: -0.24,
             offsetYCells: 0.08,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING["Frenzied Boar"]).toEqual({
+        expect(approvedModels["Frenzied Boar"]).toEqual({
             scaleX: 1.41,
             scaleY: 1.46,
             offsetXCells: 0.02,
             offsetYCells: -0.09,
         });
-        expect(BATTLEFIELD_CREATURE_FRAMING).toMatchObject({
+        expect(approvedModels).toMatchObject({
             Champion: { scaleX: 1.51, scaleY: 1.51, offsetXCells: 0.13, offsetYCells: -0.355 },
             "Tsar Cannon": { scaleX: 1.42, scaleY: 1.42, offsetXCells: 0.29, offsetYCells: -0.13 },
-            "Arachna Queen": { scaleX: 1.8, scaleY: 1.85, offsetXCells: 0.01, offsetYCells: 0.19 },
+            "Arachna Queen": { scaleX: 1.8, scaleY: 1.85, offsetXCells: 0.01, offsetYCells: 0.195 },
             "Black Dragon": { scaleX: 1.55, scaleY: 1.55, offsetXCells: -0.24, offsetYCells: 0.08 },
             Abomination: { scaleX: 1.4, scaleY: 1.4, offsetXCells: 0.05, offsetYCells: -0.19 },
             Behemoth: { scaleX: 1.26, scaleY: 1.31, offsetXCells: 0.02, offsetYCells: 0.05 },

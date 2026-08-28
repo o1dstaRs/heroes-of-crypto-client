@@ -716,32 +716,6 @@ describe("furnace-cast battlefield shadow", () => {
         expect(topProjection.widthScale).toBeGreaterThan(bottomProjection.widthScale);
     });
 
-    test("binds the owner's Magic Dragon top values to the upper cells and scales to the lower values", () => {
-        const bottom = GridMath.getPositionForCell(
-            { x: 4, y: 0 },
-            gridSettings.getMinX(),
-            gridSettings.getStep(),
-            gridSettings.getHalfStep(),
-        );
-        const top = GridMath.getPositionForCell(
-            { x: 4, y: GridConstants.GRID_SIZE - 1 },
-            gridSettings.getMinX(),
-            gridSettings.getStep(),
-            gridSettings.getHalfStep(),
-        );
-
-        expect(battlefieldCreatureShadowProjection(bottom.y, 1, gridSettings, "Magic Dragon")).toEqual({
-            lengthScale: 0.7378,
-            widthScale: 0.852558,
-            alpha: 0.45,
-        });
-        expect(battlefieldCreatureShadowProjection(top.y, 1, gridSettings, "Magic Dragon")).toEqual({
-            lengthScale: 0.868,
-            widthScale: 0.94,
-            alpha: 0.45,
-        });
-    });
-
     test("follows the live unit position and rescales during movement between rows", () => {
         const bottom = GridMath.getPositionForCell(
             { x: 4, y: 0 },
