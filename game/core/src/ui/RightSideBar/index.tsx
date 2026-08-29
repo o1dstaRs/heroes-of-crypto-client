@@ -1,5 +1,5 @@
 import { IDamageStatistic } from "@heroesofcrypto/common";
-import { setVolumeSlot } from "../audio/volumeSlot";
+import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 import { FightLog, FIGHT_LOG_SURFACE_BACKGROUND } from "./FightLog";
 import DraggableToolbar, { toolbarColumnHeightPx } from "../DraggableToolbar";
 import {
@@ -76,10 +76,7 @@ export default function RightSideBar({
     // The music control lives at the app root so the theme survives changing screens; this footer only
     // publishes WHERE it should appear, and ThemeMusic portals it in. See ui/audio/volumeSlot.
     const volumeSlotRef = useRef<HTMLDivElement>(null);
-    useLayoutEffect(() => {
-        setVolumeSlot(volumeSlotRef.current);
-        return () => setVolumeSlot(null);
-    }, []);
+    useLayoutEffect(() => registerVolumeSlot(volumeSlotRef.current, VOLUME_SLOT_PRIORITY.sidebarFooter), []);
 
     const logBoxRef = useRef<HTMLDivElement>(null);
     const [frozenLogHeight, setFrozenLogHeight] = useState<number | null>(null);

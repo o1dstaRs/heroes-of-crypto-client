@@ -18,7 +18,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import { images } from "../../generated/image_imports";
 import { ARENA_CHAT_OPEN_KEY } from "../ArenaChatPanel";
-import { setVolumeSlot } from "../audio/volumeSlot";
+import { registerVolumeSlot, VOLUME_SLOT_PRIORITY } from "../audio/volumeSlot";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { useRankedSeason } from "../useRankedSeason";
 import { ConversationPanel } from "./ConversationPanel";
@@ -844,8 +844,7 @@ export const SocialDock: React.FC = () => {
         if (!active) {
             return undefined;
         }
-        setVolumeSlot(floatingVolumeSlotRef.current);
-        return () => setVolumeSlot(null);
+        return registerVolumeSlot(floatingVolumeSlotRef.current, VOLUME_SLOT_PRIORITY.socialDock);
     }, [fightDockSlot, active, systemMenuMode]);
 
     if (!active) {
