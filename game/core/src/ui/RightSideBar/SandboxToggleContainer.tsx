@@ -761,10 +761,10 @@ const SandboxToggleContainer = ({
                                                 zIndex: 10,
                                                 pointerEvents: "none",
                                                 borderRadius: "inherit",
-                                                border: selected
-                                                    ? `2px solid ${hocColors.orange}`
-                                                    : "2px solid transparent",
-                                                boxShadow: selected ? "inset 0 0 5px rgba(255, 194, 92, 0.28)" : "none",
+                                                border: selected ? "2px solid #dcb158" : "2px solid transparent",
+                                                boxShadow: selected
+                                                    ? "inset 0 0 3px rgba(255, 235, 173, 0.7), 0 0 6px rgba(220, 177, 88, 0.7)"
+                                                    : "none",
                                             },
                                             // Hover deliberately paints NO frame. The frame means "this
                                             // augment's panel is the open one", and lighting one under the
