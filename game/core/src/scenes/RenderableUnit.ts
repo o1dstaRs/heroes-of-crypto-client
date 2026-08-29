@@ -5861,8 +5861,8 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Arcane Ward Aura (Squire) — same stack-scaled + luck magic-defence projection as Warding Mane.
-        const arcaneWardAuraAbility = this.getAbility("Arcane Ward Aura");
+        // Arcane Ward Blessing (Squire) — same stack-scaled + luck magic-defence projection as Warding Mane.
+        const arcaneWardAuraAbility = this.getAbility("Arcane Ward Blessing");
         if (arcaneWardAuraAbility) {
             const auraEffect = this.effectFactory.makeAuraEffect("Arcane Ward");
             if (auraEffect) {
