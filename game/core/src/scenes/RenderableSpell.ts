@@ -8,7 +8,6 @@ import { Container, Graphics, Sprite as PixiSprite, Text, TextStyle, Texture } f
 import {
     AllAbilities,
     calculateSpellDamage,
-    getSpellMoraleMultiplier,
     isOffensiveSpellMultiplier,
     fireforgedSwordPower,
     FireWallHelper,
@@ -285,7 +284,6 @@ export class PixiRenderableSpell extends Spell {
      * @param casterMagicDamageBonusPercentage the caster's total magic-damage bonus (Empower augment/spell
      *        plus Sylvan Focus). Every damage figure printed below is raised by it through the same helpers
      *        the engine uses, so the card cannot promise a different number from the cast.
-     * @param casterAttackMultiplier the caster's current-lap Morale/Dismorale multiplier.
      */
     public getHoverInfo(
         ownerStackPower: number,
@@ -293,7 +291,6 @@ export class PixiRenderableSpell extends Spell {
         casterCumulativeMaxHp: number,
         casterLuck?: number,
         casterMagicDamageBonusPercentage = 0,
-        casterAttackMultiplier = 1,
     ): string[] {
         const lines = [this.getName(), `Scrolls: ${this.amountRemaining}`];
         if (this.amountRemaining <= 0) {
@@ -368,20 +365,16 @@ export class PixiRenderableSpell extends Spell {
         // — every existing flat spell hid the gap by hardcoding the figure in its text instead of using a
         // placeholder, so Empower was the first to expose it.
         let replaceBy = this.getPower() ? this.getPower().toString() : "";
-        const moraleMultiplier = getSpellMoraleMultiplier(this.getName(), casterAttackMultiplier);
         if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT) {
             replaceBy = casterAmountAlive.toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_AMOUNT_POWER) {
-            const basePower = casterAmountAlive * this.getPower();
-            replaceBy = (
-                moraleMultiplier === 1 ? Math.ceil(basePower) : Math.floor(basePower * moraleMultiplier)
-            ).toString();
+            replaceBy = Math.ceil(casterAmountAlive * this.getPower()).toString();
         } else if (this.getMultiplierType() === SpellMultiplierType.UNIT_CUMULATIVE_MAX_HP) {
             // Resurrection is the only spell on this multiplier, and its budget is the caster's cumulative
             // max hp scaled by RESURRECTION_POWER_FACTOR — the same figure the cast spends. Printing the
             // bare cumulative hp understated the card by a third once that factor landed. Holy Cross scales
             // it further at cast time; that is artifact-dependent and deliberately not promised here.
-            replaceBy = Math.floor(casterCumulativeMaxHp * RESURRECTION_POWER_FACTOR * moraleMultiplier).toString();
+            replaceBy = Math.floor(casterCumulativeMaxHp * RESURRECTION_POWER_FACTOR).toString();
         } else if (isOffensiveSpellMultiplier(this.getMultiplierType())) {
             // Offensive spells: the card shows the FINISHED damage, not the formula, and it comes from the
             // engine's own helper so the page can never promise a number the cast will not deal. Which shape
@@ -394,7 +387,6 @@ export class PixiRenderableSpell extends Spell {
                 casterAmountAlive,
                 ownerStackPower,
                 casterMagicDamageBonusPercentage,
-                moraleMultiplier,
             ).toString();
         }
         const desc = this.getDesc().map((descStr) => descStr.replace(/\{\}/g, replaceBy));

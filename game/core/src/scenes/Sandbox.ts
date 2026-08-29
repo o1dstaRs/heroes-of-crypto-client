@@ -7193,7 +7193,6 @@ export class Sandbox extends PixiScene {
                       caster.getCumulativeMaxHp(),
                       caster.getLuck(),
                       caster.getMagicDamageBonusPercentage(),
-                      caster.getAttackMultiplier(),
                   )
                 : [];
         const key = lines.join("\n");
