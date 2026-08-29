@@ -79,7 +79,8 @@ export const leagueEmblemGlow = (league: number): string => {
 export interface LeagueEmblemProps {
     label: string;
     league: number;
-    size?: number;
+    /** A plain px size, or the breakpoint map the avatar slots on the profile surfaces use. */
+    size?: number | Record<string, number>;
     wealth?: number;
 }
 
@@ -95,7 +96,7 @@ export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({ label, league, size 
             display: "block",
             width: size,
             height: size,
-            flex: `0 0 ${size}px`,
+            flexShrink: 0,
             objectFit: "contain",
             filter: `drop-shadow(0 8px 13px rgba(0,0,0,0.58)) drop-shadow(0 0 9px ${leagueEmblemGlow(league)})`,
             userSelect: "none",

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchRankedStanding, type RankedStanding } from "../../api/social_client";
+import { buildMockRankedStanding, isMockPortalEnabled } from "./mockPortal";
 
 /**
  * The signed-in player's ranked standing (calibration progress, or league once placed).
@@ -15,6 +16,14 @@ export const useRankedStanding = (reloadKey: unknown = 0): RankedStanding | null
 
     useEffect(() => {
         let cancelled = false;
+        // Dev preview: short-circuit alongside the portal payload's own mock, so ?mockPortal=1 shows
+        // the profile card with its crest and rank line rather than the signed-out fallback.
+        if (isMockPortalEnabled()) {
+            setStanding(buildMockRankedStanding());
+            return () => {
+                cancelled = true;
+            };
+        }
         void fetchRankedStanding()
             .then((next) => {
                 if (!cancelled) {

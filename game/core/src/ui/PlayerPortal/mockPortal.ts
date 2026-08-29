@@ -1,5 +1,6 @@
 import { Artifact, Doctrine, PortalMatchKind, type ResponsePlayerPortalObject } from "@heroesofcrypto/common";
 
+import type { RankedStanding } from "../../api/social_client";
 import { UNIT_ID_TO_NAME } from "../unit_ui_constants";
 import type { PortalMatchData, PortalMatchSetupData, PortalUnitPerformanceData } from "./matchHistoryModel";
 
@@ -255,3 +256,29 @@ export const buildMockPortal = (): ResponsePlayerPortalObject => {
             .map(([creatureId, t]) => ({ creature_id: creatureId, games: t.games, wins: t.wins })),
     };
 };
+
+/**
+ * A placed standing for the same preview. The ladder rides its own endpoint (see useRankedStanding),
+ * so it needs its own fake or the previewed profile card renders with no crest and no rank line.
+ * Flip `state` to "calibration" to preview the pips instead.
+ */
+export const buildMockRankedStanding = (): RankedStanding => ({
+    state: "placed",
+    mmr: 977,
+    peakMmr: 1024,
+    league: 1,
+    leagueName: "Aspirant",
+    wealth: 3,
+    wealthName: "Whale",
+    standingTitle: "Aspirant Whale",
+    leaderboardRank: 12,
+    calibration: { required: 5, gamesPlayed: 5, remaining: 0, wins: 3, draws: 0, losses: 2 },
+    previous: null,
+    wins: 6,
+    losses: 4,
+    draws: 0,
+    totalGames: 10,
+    winStreak: 2,
+    lossStreak: 0,
+    gold: 147,
+});

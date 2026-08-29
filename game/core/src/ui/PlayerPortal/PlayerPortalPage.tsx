@@ -14,7 +14,8 @@ import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
 import { CreatureIcon, creatureName, timeAgo, winRateColor, winRatePct } from "./portalFormat";
-import { CalibrationProgress } from "./CalibrationProgress";
+import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
+import { LeagueEmblem } from "./LeagueEmblem";
 import { usePlayerPortal } from "./usePlayerPortal";
 import { useRankedStanding } from "./useRankedStanding";
 
@@ -579,18 +580,26 @@ export const PlayerPortalPage: React.FC = () => {
                         sx={{ minWidth: 0 }}
                     >
                         <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0 }}>
-                            <Box
-                                component="img"
-                                src={logoUrl}
-                                alt="Heroes of Crypto"
-                                sx={{
-                                    width: { xs: 46, sm: 56 },
-                                    height: { xs: 46, sm: 56 },
-                                    flexShrink: 0,
-                                    objectFit: "contain",
-                                    filter: "drop-shadow(0 0 10px #ff8f0055)",
-                                }}
-                            />
+                            {/* The commander's own crest IS the avatar here. It used to sit in a second
+                                card directly underneath, which left this one a generic logo and a mostly
+                                empty bar. The logo stays as the fallback while the standing call is in
+                                flight, or if it failed — that call never blocks this page. */}
+                            {standing ? (
+                                <LeagueEmblem {...standingEmblem(standing)} size={{ xs: 54, sm: 66 }} />
+                            ) : (
+                                <Box
+                                    component="img"
+                                    src={logoUrl}
+                                    alt="Heroes of Crypto"
+                                    sx={{
+                                        width: { xs: 46, sm: 56 },
+                                        height: { xs: 46, sm: 56 },
+                                        flexShrink: 0,
+                                        objectFit: "contain",
+                                        filter: "drop-shadow(0 0 10px #ff8f0055)",
+                                    }}
+                                />
+                            )}
                             <Box sx={{ minWidth: 0 }}>
                                 <Typography
                                     level="body-xs"
@@ -630,6 +639,10 @@ export const PlayerPortalPage: React.FC = () => {
                                         </Sheet>
                                     ) : null}
                                 </Stack>
+                                {/* Ladder standing under the name: while calibrating, "3 / 5 placement
+                                    matches" is the headline number — the lifetime totals further down
+                                    are not the ranked story yet. */}
+                                {standing && <CalibrationProgress standing={standing} />}
                                 {data?.last_login ? (
                                     <Typography level="body-sm" textColor={hocColors.muted} sx={{ mt: 0.3 }}>
                                         {tf("last seen {when}", { when: timeAgo(data.last_login) })}
@@ -700,13 +713,6 @@ export const PlayerPortalPage: React.FC = () => {
 
                 {!loading && !error && data && (
                     <Stack spacing={2}>
-                        {/* Ladder standing first: while calibrating, "3 / 5 placement matches" is the
-                            headline number — the lifetime totals below it are not the ranked story yet. */}
-                        {standing && (
-                            <Sheet variant="outlined" sx={{ p: { xs: 1.75, sm: 2.25 }, ...hocPanelSx }}>
-                                <CalibrationProgress standing={standing} />
-                            </Sheet>
-                        )}
                         {/* Overview */}
                         <Box
                             sx={{

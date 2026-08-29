@@ -13,7 +13,8 @@ import { useAuthContext } from "../auth/context/auth_context";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocSoftButtonSx } from "../hocTheme";
 import { useRankedSeason } from "../useRankedSeason";
-import { CalibrationProgress } from "./CalibrationProgress";
+import { CalibrationProgress, standingEmblem } from "./CalibrationProgress";
+import { LeagueEmblem } from "./LeagueEmblem";
 import { LivePredictionMarkets } from "./LivePredictionMarkets";
 import {
     formatSignedMatchValue,
@@ -337,23 +338,31 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                     }}
                 >
                     <Stack direction="row" spacing={predictionsVisible ? 1 : 1.25} alignItems="center">
-                        <Avatar
-                            variant="soft"
-                            sx={{
-                                width: predictionsVisible ? 46 : 54,
-                                height: predictionsVisible ? 46 : 54,
-                                flexShrink: 0,
-                                color: hocColors.gold,
-                                bgcolor: "rgba(0,0,0,0.36)",
-                                border: `1px solid ${hocColors.orangeBorder}`,
-                                boxShadow: predictionsVisible
-                                    ? "0 0 0 3px rgba(255,143,0,0.055)"
-                                    : "0 0 0 5px rgba(255,143,0,0.07)",
-                                fontWeight: 850,
-                            }}
-                        >
-                            {playerInitials(displayName)}
-                        </Avatar>
+                        {/* The commander's crest IS the avatar. It used to sit in a strip of its own
+                            below this row, which stacked a league portrait under an initials circle and
+                            said "player" twice. Initials stand in only while the standing call is in
+                            flight, or if it failed — it never blocks matchmaking. */}
+                        {standing ? (
+                            <LeagueEmblem {...standingEmblem(standing)} size={predictionsVisible ? 46 : 54} />
+                        ) : (
+                            <Avatar
+                                variant="soft"
+                                sx={{
+                                    width: predictionsVisible ? 46 : 54,
+                                    height: predictionsVisible ? 46 : 54,
+                                    flexShrink: 0,
+                                    color: hocColors.gold,
+                                    bgcolor: "rgba(0,0,0,0.36)",
+                                    border: `1px solid ${hocColors.orangeBorder}`,
+                                    boxShadow: predictionsVisible
+                                        ? "0 0 0 3px rgba(255,143,0,0.055)"
+                                        : "0 0 0 5px rgba(255,143,0,0.07)",
+                                    fontWeight: 850,
+                                }}
+                            >
+                                {playerInitials(displayName)}
+                            </Avatar>
+                        )}
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
                                 <Typography level="title-lg" noWrap sx={{ minWidth: 0, color: hocColors.parchment }}>
@@ -376,6 +385,9 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                                     </Stack>
                                 )}
                             </Stack>
+                            {/* Placement progress reads right under the name: while calibrating it is the
+                                single most actionable thing on this panel ("two more and you are placed"). */}
+                            {standing && <CalibrationProgress standing={standing} dense />}
                             <SidebarRecentForm matches={recentFormMatches} />
                         </Box>
                         <Tooltip
@@ -401,14 +413,6 @@ export const PlayerPortalSidebar: React.FC<PlayerPortalSidebarProps> = ({ naviga
                         </Tooltip>
                     </Stack>
                 </Box>
-
-                {/* Placement progress sits directly under the identity block: while calibrating it is the
-                single most actionable thing on this panel ("two more and you are placed"). */}
-                {standing && (
-                    <Box sx={{ px: { xs: 2.25, sm: 2.75 }, pt: 1.5 }}>
-                        <CalibrationProgress standing={standing} dense />
-                    </Box>
-                )}
 
                 <Stack
                     spacing={predictionsVisible ? 1.15 : 2}
