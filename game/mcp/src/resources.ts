@@ -53,7 +53,7 @@ Core loop:
 
 Draft rules:
 - Each team drafts six creature stacks: two level 1, two level 2, one level 3, and one level 4.
-- The first action is LOWER choosing an initial pair containing one level 1 and one level 2 creature.
+- The first action is LEFT choosing an initial pair containing one level 1 and one level 2 creature.
 - The opposing team receives an automatic initial pair, then gets an extended pick and extended ban.
 - After that, teams alternate pick and ban actions until the required level counts are complete.
 - A pick can only choose an available creature at a still-needed level for that team.
@@ -84,7 +84,7 @@ Goal:
 Draft goals:
 - Build a complete army with the required level mix: two level 1, two level 2, one level 3, and one level 4 creature per team.
 - The initial pair supplies one level 1 and one level 2 unit. In server-style drafts, one team picks a pair and the other receives an automatic pair.
-- In the headless MCP draft, LOWER chooses the initial pair; UPPER receives the automatic pair, then takes an extended pick and extended ban; later actions alternate pick/ban by active team until each army is complete.
+- In the headless MCP draft, LEFT chooses the initial pair; RIGHT receives the automatic pair, then takes an extended pick and extended ban; later actions alternate pick/ban by active team until each army is complete.
 - Required level, available creatures, bans, and already-picked creatures are enforced by the legal draft action list.
 - Prefer an army with complementary jobs: frontline durability, ranged pressure, magic support, speed/tempo, and at least one high-impact threat.
 - In this version, ranged pressure is a core draft axis: try to out-pick the opponent in ranged units, not merely match them.

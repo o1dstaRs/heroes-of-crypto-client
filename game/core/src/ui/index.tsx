@@ -321,7 +321,7 @@ const BundlePickPreview: React.FC = () => {
                     <CssBaseline />
                 </CssVarsProvider>
                 <StainedGlassWindow
-                    userTeam={TeamVals.LOWER as TeamType}
+                    userTeam={TeamVals.LEFT as TeamType}
                     gameId="bundle-pick-preview"
                     opponentLabel="Opponent"
                     showOpponentRosterDuringAugmentHandoff={false}
@@ -348,7 +348,7 @@ const LevelOnePickPreview: React.FC = () => (
                 <CssBaseline />
             </CssVarsProvider>
             <StainedGlassWindow
-                userTeam={TeamVals.LOWER as TeamType}
+                userTeam={TeamVals.LEFT as TeamType}
                 gameId="level-one-pick-preview"
                 opponentLabel="Opponent"
                 showOpponentRosterDuringAugmentHandoff={false}
@@ -373,8 +373,8 @@ const LevelOnePickPreview: React.FC = () => (
  * UI, not to evaluate draft quality. For that, use the e2e stack with a real bot seat.
  */
 const localDraftRng: PickRandomInt = (maxExclusive) => Math.floor(Math.random() * maxExclusive);
-const LOCAL_DRAFT_TEAM = TeamVals.LOWER;
-const LOCAL_DRAFT_OPPONENT = TeamVals.UPPER;
+const LOCAL_DRAFT_TEAM = TeamVals.LEFT;
+const LOCAL_DRAFT_OPPONENT = TeamVals.RIGHT;
 // The six draft slots, level-ordered, exactly as the opponent rail lays them out.
 const LOCAL_DRAFT_SLOT_LEVELS = [1, 1, 2, 2, 3, 4] as const;
 
@@ -470,8 +470,8 @@ const LocalPlayableDraft: React.FC = () => {
                 reason: (transition as { reason?: string }).reason,
                 phaseBefore: current.phaseSequence,
                 phaseAfter: settled.phaseSequence,
-                lowerCreatures: settled.lower.creatures,
-                upperCreatures: settled.upper.creatures,
+                lowerCreatures: settled.left.creatures,
+                upperCreatures: settled.right.creatures,
                 state: settled,
             };
             return settled;
@@ -495,9 +495,9 @@ const LocalPlayableDraft: React.FC = () => {
     // Has the player already moved in this phase? Only meaningful for the three simultaneous phases —
     // the creature picks belong to one side at a time, so being an actor there IS your turn.
     const alreadyActed =
-        (view.phase === PickPhaseVals.DOCTRINE && state.lower.doctrine !== Doctrine.Doctrine.NO_DOCTRINE) ||
-        (view.phase === PickPhaseVals.INITIAL_PICK && state.lower.selectedBundleIndex !== undefined) ||
-        (view.phase === PickPhaseVals.ARTIFACT_2 && state.lower.tier2Artifact !== undefined);
+        (view.phase === PickPhaseVals.DOCTRINE && state.left.doctrine !== Doctrine.Doctrine.NO_DOCTRINE) ||
+        (view.phase === PickPhaseVals.INITIAL_PICK && state.left.selectedBundleIndex !== undefined) ||
+        (view.phase === PickPhaseVals.ARTIFACT_2 && state.left.tier2Artifact !== undefined);
 
     // The opponent rail wants a SLOT-ALIGNED array, not a flat list: each known creature has to land in the
     // level-ordered slot it actually occupies, or a revealed level-2 shows up under a level-1 heading.
@@ -514,7 +514,7 @@ const LocalPlayableDraft: React.FC = () => {
     }, [view.knownOpponentCreatures]);
 
     const watchedSlots = useMemo(() => {
-        const mode = Doctrine.DOCTRINES[state.lower.doctrine]?.revealMode;
+        const mode = Doctrine.DOCTRINES[state.left.doctrine]?.revealMode;
         if (mode === "all") {
             return LOCAL_DRAFT_SLOT_LEVELS.map((_, i) => i);
         }
@@ -522,7 +522,7 @@ const LocalPlayableDraft: React.FC = () => {
             return [0, 2, 4];
         }
         return [];
-    }, [state.lower.doctrine]);
+    }, [state.left.doctrine]);
 
     const pickBanValue: PickBanContextType = useMemo(
         () => ({
@@ -541,15 +541,15 @@ const LocalPlayableDraft: React.FC = () => {
             revealsRemaining: 0,
             initialBundles: view.bundles.map((bundle) => [...bundle] as [number, number, number]),
             tier2Offers: view.tier2Offers,
-            doctrine: state.lower.doctrine,
-            upgradePoints: Doctrine.DOCTRINES[state.lower.doctrine]?.upgradePoints ?? 0,
+            doctrine: state.left.doctrine,
+            upgradePoints: Doctrine.DOCTRINES[state.left.doctrine]?.upgradePoints ?? 0,
             artifactTier1: view.artifacts.find(([tier]) => tier === 1)?.[1] ?? 0,
             artifactTier2: view.artifacts.find(([tier]) => tier === 2)?.[1] ?? 0,
             requiredLevel: view.requiredCreatureLevel,
             mapType: GridVals.NORMAL,
             autoPickedSignal: 0,
         }),
-        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.lower.doctrine],
+        [view, opponentPicked, watchedSlots, alreadyActed, resolving, state.left.doctrine],
     );
 
     // Only the four submit calls are replaced; StainedGlassWindow reads nothing else off the auth context.
@@ -613,7 +613,7 @@ const LocalPlayableDraft: React.FC = () => {
                             <div style={{ color: "rgba(239,228,204,0.9)" }}>
                                 Артефакты: {view.artifacts.map(([tier, id]) => `T${tier}:${id}`).join(", ") || "—"}
                                 {" · "}
-                                очки прокачки: {Doctrine.DOCTRINES[state.lower.doctrine]?.upgradePoints ?? 0}
+                                очки прокачки: {Doctrine.DOCTRINES[state.left.doctrine]?.upgradePoints ?? 0}
                             </div>
                             <button
                                 type="button"
@@ -1023,7 +1023,7 @@ const RankedReplayRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }
     const { gameId } = useParams<{ gameId: string }>();
     const requestedTeam = Number(new URL(window.location.href).searchParams.get("team"));
     const userTeam =
-        requestedTeam === TeamVals.LOWER || requestedTeam === TeamVals.UPPER
+        requestedTeam === TeamVals.LEFT || requestedTeam === TeamVals.RIGHT
             ? (requestedTeam as TeamType)
             : (TeamVals.NO_TEAM as TeamType);
 

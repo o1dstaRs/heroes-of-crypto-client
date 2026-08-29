@@ -5,7 +5,7 @@ import * as teamColors from "./teamColors";
 import { isGreenTeam, teamColor, TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "./teamColors";
 
 /**
- * Board colours are TEAM-FIXED and must stay that way: LOWER is always green, UPPER always red, on every
+ * Board colours are TEAM-FIXED and must stay that way: LEFT is always green, RIGHT always red, on every
  * screen — for both participants and every observer.
  *
  * This is a guard, not a description. The viewer-relative "whoever is playing is green" flip has now been
@@ -18,18 +18,18 @@ import { isGreenTeam, teamColor, TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "./team
  * If a future change makes these helpers depend on who is looking, it fails here first.
  */
 describe("team colours are fixed to the team, never to the viewer", () => {
-    test("LOWER is green and UPPER is red", () => {
-        expect(teamColor(TeamVals.LOWER)).toBe(TEAM_COLOR_GREEN);
-        expect(teamColor(TeamVals.UPPER)).toBe(TEAM_COLOR_RED);
-        expect(isGreenTeam(TeamVals.LOWER)).toBe(true);
-        expect(isGreenTeam(TeamVals.UPPER)).toBe(false);
+    test("LEFT is green and RIGHT is red", () => {
+        expect(teamColor(TeamVals.LEFT)).toBe(TEAM_COLOR_GREEN);
+        expect(teamColor(TeamVals.RIGHT)).toBe(TEAM_COLOR_RED);
+        expect(isGreenTeam(TeamVals.LEFT)).toBe(true);
+        expect(isGreenTeam(TeamVals.RIGHT)).toBe(false);
     });
 
     test("the answer depends on nothing but the team argument", () => {
         // Called repeatedly and interleaved: a module that had learned a viewer would drift between calls.
         for (let i = 0; i < 50; i++) {
-            expect(teamColor(TeamVals.UPPER)).toBe(TEAM_COLOR_RED);
-            expect(teamColor(TeamVals.LOWER)).toBe(TEAM_COLOR_GREEN);
+            expect(teamColor(TeamVals.RIGHT)).toBe(TEAM_COLOR_RED);
+            expect(teamColor(TeamVals.LEFT)).toBe(TEAM_COLOR_GREEN);
         }
     });
 

@@ -64,10 +64,10 @@ const actorName = (actor: HarnessActorConfig): string =>
 const summaryForReplay = (replay: HarnessReplay) => ({
     matchId: replay.matchId,
     scenario: replay.scenario,
-    lower: actorName(replay.actors.lower),
-    upper: actorName(replay.actors.upper),
-    lowerStyle: replay.actors.lower.style,
-    upperStyle: replay.actors.upper.style,
+    left: actorName(replay.actors.left),
+    right: actorName(replay.actors.right),
+    leftStyle: replay.actors.left.style,
+    rightStyle: replay.actors.right.style,
     durationMs: replay.durationMs,
     metrics: replay.metrics,
 });
@@ -80,17 +80,17 @@ for (const scenario of scenarios) {
         const pairings =
             players.length === 1
                 ? [[players[0], players[0]]]
-                : players.flatMap((lower) => players.filter((upper) => upper !== lower).map((upper) => [lower, upper]));
+                : players.flatMap((left) => players.filter((right) => right !== left).map((right) => [left, right]));
 
-        for (const [lowerSpec, upperSpec] of pairings) {
+        for (const [leftSpec, rightSpec] of pairings) {
             for (let i = 0; i < iterations; i++) {
-                const lower = parseActor(lowerSpec, "LOWER", defaults);
-                const upper = parseActor(upperSpec, "UPPER", defaults);
+                const left = parseActor(leftSpec, "LEFT", defaults);
+                const right = parseActor(rightSpec, "RIGHT", defaults);
                 const replay = await runHarnessMatch({
-                    matchId: `mcp-rr-${scenario}-${style}-${lowerSpec.replaceAll(":", "_")}-vs-${upperSpec.replaceAll(":", "_")}-${i + 1}-${Date.now()}`,
+                    matchId: `mcp-rr-${scenario}-${style}-${leftSpec.replaceAll(":", "_")}-vs-${rightSpec.replaceAll(":", "_")}-${i + 1}-${Date.now()}`,
                     scenario,
-                    lower,
-                    upper,
+                    left,
+                    right,
                     maxActions,
                     includeMechanicsContext,
                 });

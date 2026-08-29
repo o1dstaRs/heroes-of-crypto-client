@@ -28,14 +28,14 @@ const MB = 36;
  */
 export const boardSharePct = (sample: IFightStatsSample): number => {
     // Prefer health; fall back to surviving head-count for series recorded before HP was tracked.
-    const lower = sample.lowerHpPct ?? 100 - sample.lowerKilledPct;
-    const upper = sample.upperHpPct ?? 100 - sample.upperKilledPct;
-    const total = lower + upper;
+    const left = sample.leftHpPct ?? 100 - sample.leftKilledPct;
+    const right = sample.rightHpPct ?? 100 - sample.rightKilledPct;
+    const total = left + right;
     // Both sides wiped in the same instant: nobody holds the board, so the line stays where it started.
     if (total <= 0) {
         return 50;
     }
-    return Math.min(100, Math.max(0, (lower / total) * 100));
+    return Math.min(100, Math.max(0, (left / total) * 100));
 };
 
 export const BoardShareChart: React.FC<{

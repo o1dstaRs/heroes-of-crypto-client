@@ -8,11 +8,11 @@ import { applyPreviewPlayAction, getPreviewPlaySnapshot, startPreviewPlaySession
 describe("battlefield framing comparison layout", () => {
     test("aligns every level-four creature footprint to the bottom row", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [...getCreaturesByLevel(4)],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [...getCreaturesByLevel(4)],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
         });
         const units = getPreviewPlaySnapshot()?.units ?? [];
 
@@ -24,11 +24,11 @@ describe("battlefield framing comparison layout", () => {
 
     test("keeps integer, unique cells after a creature is temporarily hidden", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [...getCreaturesByLevel(1)].slice(1),
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [...getCreaturesByLevel(1)].slice(1),
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
         });
         const units = getPreviewPlaySnapshot()?.units ?? [];
 
@@ -38,11 +38,11 @@ describe("battlefield framing comparison layout", () => {
 
     test("centres every two-cell level-one creature on its horizontal footprint", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [...getCreaturesByLevel(1)],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [...getCreaturesByLevel(1)],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
         });
         const units = getPreviewPlaySnapshot()?.units ?? [];
 
@@ -60,11 +60,11 @@ describe("battlefield framing comparison layout", () => {
 
     test("centres Nomad on its fixed two-cell horizontal footprint", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [...getCreaturesByLevel(2)],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [...getCreaturesByLevel(2)],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
         });
         const nomad = getPreviewPlaySnapshot()?.units.find((candidate) => candidate.name === "Nomad");
 
@@ -79,11 +79,11 @@ describe("battlefield framing comparison layout", () => {
 
     test("lays an all-level comparison roster out on four visible rows", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [1, 2, 3, 4, 5, 6, 7, 8],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [1, 2, 3, 4, 5, 6, 7, 8],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
             comparisonRowSizes: [2, 2, 2, 2],
         });
         const units = getPreviewPlaySnapshot()?.units ?? [];
@@ -96,11 +96,11 @@ describe("battlefield framing comparison layout", () => {
 
     test("packs six shadow-editor creatures across the top with one empty cell between footprints", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [...getCreaturesByLevel(1)].slice(0, 6),
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [...getCreaturesByLevel(1)].slice(0, 6),
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
             comparisonRowSizes: [6],
             comparisonRowGroundYs: [15],
             comparisonHorizontalGapCells: 1,
@@ -121,11 +121,11 @@ describe("battlefield framing comparison layout", () => {
 
     test("preserves six independent shadow-editor slots when some are empty", () => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [1, 0, 2, 0, 3, 0],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [1, 0, 2, 0, 3, 0],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
             comparisonRowSizes: [6],
             comparisonRowGroundYs: [15],
             comparisonFixedSlotCount: 6,
@@ -134,18 +134,18 @@ describe("battlefield framing comparison layout", () => {
 
         expect(units).toHaveLength(3);
         for (const unit of units) {
-            const slotIndex = Number(unit.id.match(/preview-lower-(\d+)-/)?.[1]);
+            const slotIndex = Number(unit.id.match(/preview-left-(\d+)-/)?.[1]);
             const footprintWidth = new Set(unit.cells.map((cell) => cell.x)).size;
             const expectedAnchorX = Math.round((slotIndex * 15) / 5);
             expect(unit.baseCell.x).toBe(Math.max(footprintWidth - 1, expectedAnchorX));
         }
 
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [0, 0, 0, 0, 0, 0],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [0, 0, 0, 0, 0, 0],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
             comparisonRowSizes: [6],
             comparisonRowGroundYs: [15],
             comparisonFixedSlotCount: 6,
@@ -160,11 +160,11 @@ describe("preview placement round trip", () => {
         // action carries the cell LIST and the base cell is re-derived from it. Deriving the wrong corner
         // rebuilds the body in the wrong direction on the next hydrate, which is invisible for a square.
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: [...getCreaturesByLevel(1)],
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: [...getCreaturesByLevel(1)],
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
         });
         const wolf = getPreviewPlaySnapshot()?.units.find((unit) => unit.name === "Wolf");
         expect(wolf).toBeDefined();

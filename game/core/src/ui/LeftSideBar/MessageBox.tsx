@@ -184,7 +184,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     const aiToggleSize = Math.max(30, Math.round(42 * metrics.startButtonScale));
     // Set only in ranked play (the viewer has a fixed side); undefined in sandbox/observer.
     const viewerTeam = useViewerTeam();
-    // Sandbox-only "AI side" toggles: hand green (LOWER) / red (UPPER) entirely to the AI. Such a team
+    // Sandbox-only "AI side" toggles: hand green (LEFT) / red (RIGHT) entirely to the AI. Such a team
     // auto-plays every turn and the human can't act for it. Lets you play vs the AI, or clash two AIs.
     const isSandbox = viewerTeam === undefined;
     const [greenAi, setGreenAi] = useState(false);
@@ -203,11 +203,11 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     }, []);
     useEffect(() => {
         // Reflect any state the scene already holds (e.g. set, then panel re-rendered).
-        setGreenAi(manager.IsTeamAiControlled(TeamVals.LOWER));
-        setRedAi(manager.IsTeamAiControlled(TeamVals.UPPER));
+        setGreenAi(manager.IsTeamAiControlled(TeamVals.LEFT));
+        setRedAi(manager.IsTeamAiControlled(TeamVals.RIGHT));
     }, [manager]);
     const toggleTeamAi = (team: TeamType, checked: boolean) => {
-        if (team === TeamVals.LOWER) {
+        if (team === TeamVals.LEFT) {
             setGreenAi(checked);
         } else {
             setRedAi(checked);
@@ -549,14 +549,14 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                                     color: "success" as const,
                                     label: "Green AI",
                                     checked: greenAi,
-                                    team: TeamVals.LOWER,
+                                    team: TeamVals.LEFT,
                                 },
                                 {
                                     key: "red" as const,
                                     color: "danger" as const,
                                     label: "Red AI",
                                     checked: redAi,
-                                    team: TeamVals.UPPER,
+                                    team: TeamVals.RIGHT,
                                 },
                             ].map(({ key, color, label, checked, team }) => (
                                 <Tooltip key={key} title={label} placement="top" variant="solid" sx={commonTooltipSx}>
@@ -679,13 +679,9 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     // BOTH are (two AIs clashing): in neither case is there a "you", so the heading goes back to naming
     // the team outright. Read off the manager rather than the checkbox state above, because the toolbar's
     // own AI button flips it without this panel hearing about it.
-    const aiTeams = [TeamVals.LOWER, TeamVals.UPPER].filter((team) => manager.IsTeamAiControlled(team));
+    const aiTeams = [TeamVals.LEFT, TeamVals.RIGHT].filter((team) => manager.IsTeamAiControlled(team));
     const sandboxHumanTeam =
-        isSandbox && aiTeams.length === 1
-            ? aiTeams[0] === TeamVals.LOWER
-                ? TeamVals.UPPER
-                : TeamVals.LOWER
-            : undefined;
+        isSandbox && aiTeams.length === 1 ? (aiTeams[0] === TeamVals.LEFT ? TeamVals.RIGHT : TeamVals.LEFT) : undefined;
     const perspectiveTeam = viewerTeam ?? sandboxHumanTeam;
 
     const turnTeam = visibleState.teamTypeTurn;
@@ -728,7 +724,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
             // to itself. The header row keeps its height either way: the hazard icon beside it sits in a
             // fixed slot.
             messageBoxTitle = visibleState.teamTypeTurn === perspectiveTeam ? "Your turn" : "";
-        } else if (visibleState.teamTypeTurn === TeamVals.LOWER) {
+        } else if (visibleState.teamTypeTurn === TeamVals.LEFT) {
             messageBoxTitle = "Green team's turn";
         } else {
             messageBoxTitle = "Red team's turn";
@@ -805,7 +801,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                         background: stonePlateSx.background,
                     },
                     // The More Time bitmap is intentionally paint-scaled without taking up layout space.
-                    // Continue the card surface behind its enlarged lower half and a little beyond it,
+                    // Continue the card surface behind its enlarged left half and a little beyond it,
                     // while leaving both this card's footprint and Up Next at their existing coordinates.
                     "&::after": {
                         content: '""',

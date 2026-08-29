@@ -467,11 +467,11 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
             footprintOverrideHolder.__hocFootprintOverrides = footprintOverrideSource;
         }
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: visibleCreatureIds,
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: visibleCreatureIds,
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
             comparisonRowSizes: comparisonRowSizesKey
                 ? comparisonRowSizesKey.split(",").map((size) => Number(size))
                 : undefined,
@@ -608,7 +608,7 @@ export const BattlefieldCreatureFramingEditor: React.FC<{ windowSize: IWindowSiz
                 <>
                     <RankedGameView
                         gameId={PREVIEW_PLACEMENT_GAME_ID}
-                        userTeam={TeamVals.LOWER}
+                        userTeam={TeamVals.LEFT}
                         windowSize={windowSize}
                     />
                     <CreatureSelectionOverlays

@@ -362,13 +362,13 @@ export class HeadlessMatch {
             state: this.toPublicState([]),
         };
     }
-    private seedArmies(upperCell: { x: number; y: number }): void {
+    private seedArmies(rightCell: { x: number; y: number }): void {
         placeMcpUnit(
             this.grid,
             this.unitsHolder,
             createMcpUnit({
                 name: "Lower Knight",
-                team: TeamVals.LOWER,
+                team: TeamVals.LEFT,
                 speed: 9,
                 attack: 100,
                 damageMin: 100,
@@ -383,7 +383,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Upper Guard",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 speed: 4,
                 attack: 1,
                 damageMin: 1,
@@ -391,7 +391,7 @@ export class HeadlessMatch {
                 maxHp: 10,
                 stackPower: 10,
             }),
-            upperCell,
+            rightCell,
         );
     }
     private seedPriorityTargets(): void {
@@ -400,7 +400,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Lower Knight",
-                team: TeamVals.LOWER,
+                team: TeamVals.LEFT,
                 speed: 9,
                 attack: 60,
                 damageMin: 45,
@@ -415,7 +415,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Upper Peasant",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 speed: 1,
                 attack: 1,
                 damageMin: 1,
@@ -430,7 +430,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Upper Arbalester",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 attackType: AttackVals.RANGE,
                 rangeShots: 10,
                 shotDistance: 5,
@@ -450,7 +450,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Lower Hexer",
-                team: TeamVals.LOWER,
+                team: TeamVals.LEFT,
                 attackType: AttackVals.MAGIC,
                 spells: ["Death:Sadness"],
                 speed: 8,
@@ -463,7 +463,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Upper Marksman",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 attackType: AttackVals.RANGE,
                 rangeShots: 8,
                 speed: 3,
@@ -478,7 +478,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Lower Caller",
-                team: TeamVals.LOWER,
+                team: TeamVals.LEFT,
                 attackType: AttackVals.MAGIC,
                 spells: ["Nature:Summon Wolves"],
                 amountAlive: 3,
@@ -492,7 +492,7 @@ export class HeadlessMatch {
             this.unitsHolder,
             createMcpUnit({
                 name: "Upper Guard",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 speed: 3,
                 stackPower: 10,
             }),
@@ -500,8 +500,8 @@ export class HeadlessMatch {
         );
     }
     private seedDraftArmies(lowerCreatures: number[], upperCreatures: number[]): void {
-        this.placeDraftArmy(TeamVals.LOWER, lowerCreatures);
-        this.placeDraftArmy(TeamVals.UPPER, upperCreatures);
+        this.placeDraftArmy(TeamVals.LEFT, lowerCreatures);
+        this.placeDraftArmy(TeamVals.RIGHT, upperCreatures);
     }
     private placeDraftArmy(team: TeamType, creatureIds: number[]): void {
         for (const creatureId of creatureIds) {
@@ -523,7 +523,7 @@ export class HeadlessMatch {
         }
     }
     private findDraftPlacementCell(unit: Unit, team: TeamType): { x: number; y: number } {
-        const rowOrder = team === TeamVals.LOWER ? [1, 2, 3, 4, 5] : [13, 12, 11, 10, 9];
+        const rowOrder = team === TeamVals.LEFT ? [1, 2, 3, 4, 5] : [13, 12, 11, 10, 9];
         const columnOrder = [2, 4, 6, 8, 10, 12, 1, 3, 5, 7, 9, 11, 13];
 
         for (const y of rowOrder) {

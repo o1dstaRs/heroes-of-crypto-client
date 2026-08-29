@@ -295,7 +295,7 @@ export const parseRankedPlaySseFrame = (frame: string): PlayEvent | null => {
     return decodeSsePlayEvent(data.join("\n"));
 };
 
-const isTeam = (team: unknown): team is TeamType => team === TeamVals.LOWER || team === TeamVals.UPPER;
+const isTeam = (team: unknown): team is TeamType => team === TeamVals.LEFT || team === TeamVals.RIGHT;
 
 const winnerTeamFromJournal = (snapshot: PlaySnapshot): TeamType | undefined => {
     for (const entry of [...snapshot.journalTail].sort((a, b) => b.sequence - a.sequence)) {
@@ -325,18 +325,18 @@ const winnerTeamFromUnits = (snapshot: PlaySnapshot): TeamType | undefined => {
         return undefined;
     }
 
-    const lowerAlive = snapshot.units
-        .filter((unit) => unit.team === TeamVals.LOWER)
+    const leftAlive = snapshot.units
+        .filter((unit) => unit.team === TeamVals.LEFT)
         .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.amountAlive)), 0);
-    const upperAlive = snapshot.units
-        .filter((unit) => unit.team === TeamVals.UPPER)
+    const rightAlive = snapshot.units
+        .filter((unit) => unit.team === TeamVals.RIGHT)
         .reduce((sum, unit) => sum + Math.max(0, Math.floor(unit.amountAlive)), 0);
 
-    if (lowerAlive > 0 && upperAlive <= 0) {
-        return TeamVals.LOWER as TeamType;
+    if (leftAlive > 0 && rightAlive <= 0) {
+        return TeamVals.LEFT as TeamType;
     }
-    if (upperAlive > 0 && lowerAlive <= 0) {
-        return TeamVals.UPPER as TeamType;
+    if (rightAlive > 0 && leftAlive <= 0) {
+        return TeamVals.RIGHT as TeamType;
     }
     return undefined;
 };
@@ -377,14 +377,14 @@ export const toAuthoritativeGameSnapshot = (
     stepsMoraleMultiplier: snapshot.stepsMoraleMultiplier,
     units: snapshot.units,
     upNext: snapshot.upNext,
-    lowerStartUnits: snapshot.lowerStartUnits,
-    upperStartUnits: snapshot.upperStartUnits,
-    lowerStartHealth: snapshot.lowerStartHealth,
-    upperStartHealth: snapshot.upperStartHealth,
-    lowerStartRosterCreatureIds: snapshot.lowerStartRosterCreatureIds,
-    lowerStartRosterAmounts: snapshot.lowerStartRosterAmounts,
-    upperStartRosterCreatureIds: snapshot.upperStartRosterCreatureIds,
-    upperStartRosterAmounts: snapshot.upperStartRosterAmounts,
+    leftStartUnits: snapshot.leftStartUnits,
+    rightStartUnits: snapshot.rightStartUnits,
+    leftStartHealth: snapshot.leftStartHealth,
+    rightStartHealth: snapshot.rightStartHealth,
+    leftStartRosterCreatureIds: snapshot.leftStartRosterCreatureIds,
+    leftStartRosterAmounts: snapshot.leftStartRosterAmounts,
+    rightStartRosterCreatureIds: snapshot.rightStartRosterCreatureIds,
+    rightStartRosterAmounts: snapshot.rightStartRosterAmounts,
     journalTail: snapshot.journalTail,
     damageStats: snapshot.damageStats.map((stat): IDamageStatistic => ({
         unitName: stat.unitName,

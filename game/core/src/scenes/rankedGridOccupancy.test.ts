@@ -35,7 +35,7 @@ const unitState = (
         footprint_width: footprint?.width,
         footprint_height: footprint?.height,
     } as unknown as UnitProperties,
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
     dead,
     cells,
 });
@@ -67,7 +67,7 @@ describe("reconcileRankedGridOccupancy", () => {
     test("snaps stale unit geometry before an AI decision when occupancy is already authoritative", () => {
         const grid = new Grid(gridSettings, 1);
         const authoritative = [{ x: 8, y: 10 }];
-        grid.occupyCells(authoritative, "scavenger", TeamVals.LOWER, 1, false, false);
+        grid.occupyCells(authoritative, "scavenger", TeamVals.LEFT, 1, false, false);
         const positions: { x: number; y: number }[] = [];
         let visualsSynced = 0;
         let matricesRefreshed = 0;
@@ -108,7 +108,7 @@ describe("reconcileRankedGridOccupancy", () => {
     test("re-registers a unit whose grid cells diverged from the authoritative snapshot", () => {
         const grid = new Grid(gridSettings, 1);
         // The grid still thinks the fairy stands at (6,9); the server says (6,11).
-        grid.occupyCells([{ x: 6, y: 9 }], "fairy", TeamVals.LOWER, 1, false, false);
+        grid.occupyCells([{ x: 6, y: 9 }], "fairy", TeamVals.LEFT, 1, false, false);
 
         const fixed = reconcileRankedGridOccupancy(grid, [unitState("fairy", [{ x: 6, y: 11 }])]);
 
@@ -121,9 +121,9 @@ describe("reconcileRankedGridOccupancy", () => {
 
     test("clears a stale double-registration (old cells lingering next to the new ones)", () => {
         const grid = new Grid(gridSettings, 1);
-        grid.occupyCells([{ x: 3, y: 3 }], "wolf", TeamVals.LOWER, 1, false, false);
+        grid.occupyCells([{ x: 3, y: 3 }], "wolf", TeamVals.LEFT, 1, false, false);
         // Simulate a half-applied move: the new cell got occupied without cleaning the old one.
-        grid.occupyCells([{ x: 4, y: 3 }], "wolf", TeamVals.LOWER, 1, false, false);
+        grid.occupyCells([{ x: 4, y: 3 }], "wolf", TeamVals.LEFT, 1, false, false);
 
         const fixed = reconcileRankedGridOccupancy(grid, [unitState("wolf", [{ x: 4, y: 3 }])]);
 
@@ -142,7 +142,7 @@ describe("reconcileRankedGridOccupancy", () => {
                 { x: 14, y: 11 },
             ],
             "angel",
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             1,
             false,
             false,
@@ -175,7 +175,7 @@ describe("reconcileRankedGridOccupancy", () => {
                 { x: 8, y: 4 },
             ],
             "wide",
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             1,
             false,
             false,
@@ -213,7 +213,7 @@ describe("reconcileRankedGridOccupancy", () => {
 
     test("leaves in-sync, dead and cell-less units untouched", () => {
         const grid = new Grid(gridSettings, 1);
-        grid.occupyCells([{ x: 2, y: 2 }], "orc", TeamVals.LOWER, 1, false, false);
+        grid.occupyCells([{ x: 2, y: 2 }], "orc", TeamVals.LEFT, 1, false, false);
 
         const fixed = reconcileRankedGridOccupancy(grid, [
             unitState("orc", [{ x: 2, y: 2 }]),

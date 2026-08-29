@@ -32,7 +32,7 @@ const cellKey = (cell: { x: number; y: number }): string => `${cell.x}:${cell.y}
 
 /**
  * The depth-3 default deployment zone, the one every army is auto-placed into before it is
- * rearranged. SIDE-oriented (the ranked board): LOWER deploys the LEFT columns x 1-3, UPPER the
+ * rearranged. SIDE-oriented (the ranked board): LEFT deploys the LEFT columns x 1-3, RIGHT the
  * RIGHT columns x 12-14, both spanning rows y 1-14 — exactly the server's SideRectanglePlacement.
  * The old top/bottom rows sent every auto-generated PLACE_UNIT outside the server's zone, so the
  * whole army fell through to server scatter.
@@ -40,7 +40,7 @@ const cellKey = (cell: { x: number; y: number }): string => `${cell.x}:${cell.y}
 export const DEFAULT_PLACEMENT_MIN_Y = 1;
 export const DEFAULT_PLACEMENT_MAX_Y = 14;
 export const defaultPlacementCols = (team: TeamType): { minX: number; maxX: number } =>
-    team === TeamVals.UPPER ? { minX: 12, maxX: 14 } : { minX: 1, maxX: 3 };
+    team === TeamVals.RIGHT ? { minX: 12, maxX: 14 } : { minX: 1, maxX: 3 };
 
 export const isDefaultPlacementCell = (cell: { x: number; y: number }, team: TeamType): boolean => {
     const cols = defaultPlacementCols(team);
@@ -54,7 +54,7 @@ export const isDefaultPlacementCell = (cell: { x: number; y: number }, team: Tea
  * SIDE-oriented zones. The tuned ladders this screen has always used transpose with the board:
  * the dense/strided centre-out ladder now walks the LATERAL axis (y), shifted by (height - 1)
  * into max-corner terms; the depth preference (ranged hides at the back of the zone, melee leads
- * at the front) walks x — back is x=1 for LOWER and x=14 for UPPER. Both filters drop anchors
+ * at the front) walks x — back is x=1 for LEFT and x=14 for RIGHT. Both filters drop anchors
  * whose body would spill out of the zone, which the caller's cell guard would only reject later.
  */
 export const fallbackPlacementAnchors = (
@@ -67,8 +67,8 @@ export const fallbackPlacementAnchors = (
     const ys = (height > 1 ? [7, 5, 9, 3, 11, 1, 13] : [7, 8, 6, 9, 5, 10, 4, 11, 3, 12, 2, 13, 1, 14])
         .map((y) => y + height - 1)
         .filter((y) => y - height + 1 >= DEFAULT_PLACEMENT_MIN_Y && y <= DEFAULT_PLACEMENT_MAX_Y);
-    const xs = (team === TeamVals.UPPER ? (ranged ? [14, 13, 12] : [12, 13, 14]) : ranged ? [1, 2, 3] : [3, 2, 1])
-        .map((x) => (team === TeamVals.LOWER ? x + width - 1 : x))
+    const xs = (team === TeamVals.RIGHT ? (ranged ? [14, 13, 12] : [12, 13, 14]) : ranged ? [1, 2, 3] : [3, 2, 1])
+        .map((x) => (team === TeamVals.LEFT ? x + width - 1 : x))
         .filter((x) => x - width + 1 >= cols.minX && x <= cols.maxX);
 
     return xs.flatMap((x) => ys.map((y) => ({ x, y })));
@@ -167,9 +167,9 @@ export const createInitialPlayerPlacementActions = (snapshot: PlaySnapshot, team
         const cols = defaultPlacementCols(team);
         const anchor = {
             // Lower's front column is 3 and the footprint hangs leftward from the anchor, so the
-            // anchor IS column 3; upper's front column is 12 and its body extends rightward, so the
+            // anchor IS column 3; right's front column is 12 and its body extends rightward, so the
             // anchor is (12 + width - 1).
-            x: team === TeamVals.UPPER ? cols.minX + width - 1 : cols.maxX,
+            x: team === TeamVals.RIGHT ? cols.minX + width - 1 : cols.maxX,
             y: y + height - 1,
         };
         const cells = cellsForSnapshotUnitAt(unit, anchor);

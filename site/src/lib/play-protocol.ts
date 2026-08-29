@@ -150,8 +150,8 @@ export interface PlayActionResponse {
 }
 
 export interface DevCreatePlayGameRequest {
-    lowerPlayerId?: string;
-    upperPlayerId?: string;
+    leftPlayerId?: string;
+    rightPlayerId?: string;
     lowerCreatureIds?: number[];
     upperCreatureIds?: number[];
     unitAmount?: number;
@@ -345,8 +345,8 @@ const decodeCell = (bytes: Uint8Array): PlayCell => {
 
 export const encodeDevCreatePlayGameRequest = (request: DevCreatePlayGameRequest): Uint8Array => {
     const writer = new ProtoWriter();
-    writer.string(1, request.lowerPlayerId);
-    writer.string(2, request.upperPlayerId);
+    writer.string(1, request.leftPlayerId);
+    writer.string(2, request.rightPlayerId);
     for (const creatureId of request.lowerCreatureIds ?? []) {
         writer.int32(3, creatureId);
     }

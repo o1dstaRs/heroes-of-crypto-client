@@ -13,7 +13,7 @@ export interface ISpriteHitCandidate<T> {
     unit: T;
     unitId: string;
     /** Draw depth; higher is drawn in front. Board units use `4000 - position.y`, so a creature standing
-     *  LOWER on screen has the higher depth. */
+     *  LEFT on screen has the higher depth. */
     depth: number;
 }
 

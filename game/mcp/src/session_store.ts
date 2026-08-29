@@ -51,8 +51,8 @@ export class HeadlessMatchStore {
         if (result.completed) {
             const match = HeadlessMatch.createFromDraft({
                 matchId: draft.getId(),
-                lowerCreatures: draft.getPickedCreatures("LOWER"),
-                upperCreatures: draft.getPickedCreatures("UPPER"),
+                lowerCreatures: draft.getPickedCreatures("LEFT"),
+                upperCreatures: draft.getPickedCreatures("RIGHT"),
             });
             this.activeMatch = match;
             result.completedMatch = match.getState();

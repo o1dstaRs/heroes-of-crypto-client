@@ -23,7 +23,7 @@ if (!inputPath) {
 
 const replay = (await Bun.file(inputPath).json()) as HarnessReplay;
 
-const actorLabel = (team: "lower" | "upper"): string => {
+const actorLabel = (team: "left" | "right"): string => {
     const actor = replay.actors[team];
     const controller = actor.controller === "model" ? `model:${actor.modelName ?? "local-model"}` : "builtin";
     return `${team.toUpperCase()} ${controller} ${actor.style}`;
@@ -49,7 +49,7 @@ const markdown = `# Heroes MCP Harness Replay
 
 - Match: \`${replay.matchId}\`
 - Scenario: \`${replay.scenario}\`
-- Actors: ${actorLabel("lower")} vs ${actorLabel("upper")}
+- Actors: ${actorLabel("left")} vs ${actorLabel("right")}
 - Started: ${replay.startedAt}
 - Duration: ${replay.durationMs} ms
 - Winner: ${replay.metrics.winner ?? "none"}

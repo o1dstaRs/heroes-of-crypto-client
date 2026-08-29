@@ -250,7 +250,7 @@ export const shouldSuppressInspectedUnitRangesForSpell = (spell: Spell): boolean
  * every hydrate retains the exact setup that drives placement, stats, artifact buffs, and synergies.
  */
 export const captureFightSetupForHydration = (fightProps: FightProperties) =>
-    [TeamVals.LOWER, TeamVals.UPPER].map((team) => ({
+    [TeamVals.LEFT, TeamVals.RIGHT].map((team) => ({
         team,
         doctrine: fightProps.getDoctrine(team),
         placement: fightProps.getAugmentPlacementLevel(team),
@@ -771,7 +771,7 @@ export class Sandbox extends PixiScene {
     private gridMatrixNoUnits: number[][];
     private cellToUnitPreRound?: Map<string, Unit>;
     protected readonly unitsHolder: UnitsHolder;
-    // Persistent creature-name → team map for scene-log team flags (🟢 LOWER / 🔴 UPPER). Accumulated
+    // Persistent creature-name → team map for scene-log team flags (🟢 LEFT / 🔴 RIGHT). Accumulated
     // across the fight so a just-died unit's final line ("X died") still resolves after it's removed
     // from the board. A creature type fielded by BOTH teams is "ambiguous" → no flag (the line's name
     // alone can't say which side it's about).
@@ -888,7 +888,7 @@ export class Sandbox extends PixiScene {
     private currentActivePath?: HoCMath.XY[];
     private currentActiveKnownPaths?: Map<number, IWeightedRoute[]>;
     private spawnPulseDirection = 1;
-    // Teams fully handed to the AI via the sandbox "AI side" checkboxes (green = LOWER, red = UPPER).
+    // Teams fully handed to the AI via the sandbox "AI side" checkboxes (green = LEFT, red = RIGHT).
     // Such a team auto-plays every turn and the human can't act for it (board + toolbar locked on its
     // turn). Lets you place units and play vs the AI, or check both to watch two AIs clash.
     private readonly aiControlledTeams = new Set<TeamType>();
@@ -976,8 +976,8 @@ export class Sandbox extends PixiScene {
         this.sc_gridTypeUpdateNeeded = true;
         this.abilityFactory = new AbilityFactory(new EffectFactory());
         const fp = FightStateManager.getInstance().getFightProperties();
-        fp.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
-        fp.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fp.setDefaultPlacementPerTeam(TeamVals.LEFT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fp.setDefaultPlacementPerTeam(TeamVals.RIGHT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         this.grid = new Grid(
             this.sc_sceneSettings.getGridSettings(),
             FightStateManager.getInstance().getFightProperties().getGridType(),
@@ -1118,7 +1118,7 @@ export class Sandbox extends PixiScene {
             new DamageStatisticHolder(),
         );
         this.moveHandler = new MoveHandler(this.sc_sceneSettings.getGridSettings(), this.grid, this.unitsHolder);
-        // Prefix each scene-log line with its side's colour (🟢 LOWER / 🔴 UPPER), like the ranked log.
+        // Prefix each scene-log line with its side's colour (🟢 LEFT / 🔴 RIGHT), like the ranked log.
         // The engine writes plain text lines; the resolver tags them by the unit they're about. Ranked
         // overrides resolveSceneLogTeamFlag() to "" since it rebuilds + prefixes its own log by unit id.
         this.sc_sceneLog.setTeamFlagResolver((line) => this.resolveSceneLogTeamFlag(line));
@@ -1342,8 +1342,8 @@ export class Sandbox extends PixiScene {
                 return {
                     fightStarted: fp.hasFightStarted(),
                     fightFinished: fp.hasFightFinished(),
-                    lowerAlive: fp.getTeamUnitsAlive(TeamVals.LOWER),
-                    upperAlive: fp.getTeamUnitsAlive(TeamVals.UPPER),
+                    leftAlive: fp.getTeamUnitsAlive(TeamVals.LEFT),
+                    rightAlive: fp.getTeamUnitsAlive(TeamVals.RIGHT),
                     activeUnit: u ? `${u.getName()}:${u.getTeam()}` : null,
                     controlledTeam: this.getToggleAiControlledTeam() ?? null,
                     isAIActive: this.aiController.isAIActive,
@@ -1456,7 +1456,7 @@ export class Sandbox extends PixiScene {
             // (or a human in the console) confirm a picked Placement level actually reached
             // FightProperties and what rows the rebuilt zone covers, independent of the React sidebar.
             (w as { __hocPlacementState?: (team?: number) => Record<string, unknown> }).__hocPlacementState = (
-                team = TeamVals.LOWER,
+                team = TeamVals.LEFT,
             ) => {
                 const fp = FightStateManager.getInstance().getFightProperties();
                 const zone = this.getPlacement(team as TeamType, 0);
@@ -1474,7 +1474,7 @@ export class Sandbox extends PixiScene {
             // bypassing React — separates "engine/zone path broken" from "UI holds a stale scene".
             (w as { __hocPropagatePlacement?: (level?: number, team?: number) => boolean }).__hocPropagatePlacement = (
                 level = 1,
-                team = TeamVals.LOWER,
+                team = TeamVals.LEFT,
             ) => this.propagateAugmentation(team as TeamType, { type: "Placement", value: level });
             // Visual smoke/tuning hook for the mountain-collapse VFX: crashes one/both mountains apart
             // on demand (BLOCK_CENTER map only) without grinding their hit points down in a real fight.
@@ -1496,8 +1496,8 @@ export class Sandbox extends PixiScene {
                 hasFinished: this.sc_visibleState?.hasFinished,
                 teamWin: this.sc_visibleState?.teamWin,
                 statsWinner: this.sc_visibleState?.fightStats?.winner,
-                lowerStartTotal: this.sc_visibleState?.fightStats?.lowerStartTotal,
-                upperStartTotal: this.sc_visibleState?.fightStats?.upperStartTotal,
+                leftStartTotal: this.sc_visibleState?.fightStats?.leftStartTotal,
+                rightStartTotal: this.sc_visibleState?.fightStats?.rightStartTotal,
             });
         }
     }
@@ -2126,8 +2126,8 @@ export class Sandbox extends PixiScene {
         unit.setBattlefieldVisualProjection(true);
         unit.setVisualRevealed(true);
         unit.setVisualScaleMultiplier(this.getRevealedOpponentUnitScale(total));
-        // Baseline teams deploy on opposite horizontal sides: red/UPPER faces left toward green,
-        // green/LOWER faces right toward red. Force this even for models without a walk atlas.
+        // Baseline teams deploy on opposite horizontal sides: red/RIGHT faces left toward green,
+        // green/LEFT faces right toward red. Force this even for models without a walk atlas.
         unit.setBoardFacing(placementFacingDirectionForTeam(unit.getTeam()));
         unit.setPosition(position.x, position.y);
         unit.ensureVisual(worldRoot, gs);
@@ -2606,8 +2606,8 @@ export class Sandbox extends PixiScene {
 
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
-        fightProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fightProps.setDefaultPlacementPerTeam(TeamVals.LEFT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fightProps.setDefaultPlacementPerTeam(TeamVals.RIGHT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
         // Restore BEFORE rebuildFromFightProps so every setup-derived placement/stat/buff is available while
         // units are reconstructed. Doctrine goes first inside the helper because augment restores budget-check it.
         restoreFightSetupAfterHydrationReset(fightProps, priorSetup);
@@ -2834,12 +2834,12 @@ export class Sandbox extends PixiScene {
         mutableFightProps.fightStarted = snapshot.fightStarted;
         mutableFightProps.fightFinished = snapshot.fightFinished;
         fightProps.setTeamUnitsAlive(
-            TeamVals.LOWER,
-            snapshot.units.filter((unit) => unit.team === TeamVals.LOWER && !unit.dead).length,
+            TeamVals.LEFT,
+            snapshot.units.filter((unit) => unit.team === TeamVals.LEFT && !unit.dead).length,
         );
         fightProps.setTeamUnitsAlive(
-            TeamVals.UPPER,
-            snapshot.units.filter((unit) => unit.team === TeamVals.UPPER && !unit.dead).length,
+            TeamVals.RIGHT,
+            snapshot.units.filter((unit) => unit.team === TeamVals.RIGHT && !unit.dead).length,
         );
         // Rebuild the "already used a hourglass this lap" set from the authoritative per-unit flag. The ranked
         // client never runs flipLap()/enqueueHourglass(), so without this alreadyHourglass stays empty forever
@@ -2860,8 +2860,8 @@ export class Sandbox extends PixiScene {
             this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
         }
         if (!snapshot.fightStarted) {
-            this.refreshSynergyNumbers(TeamVals.LOWER);
-            this.refreshSynergyNumbers(TeamVals.UPPER);
+            this.refreshSynergyNumbers(TeamVals.LEFT);
+            this.refreshSynergyNumbers(TeamVals.RIGHT);
         }
         this.refreshUnits();
         this.refreshVisibleStateIfNeeded(true);
@@ -5141,7 +5141,7 @@ export class Sandbox extends PixiScene {
         }
         const fightProps = FightStateManager.getInstance().getFightProperties();
         const teamConfigs: Partial<Record<TeamType, ITeamConfigSnapshot>> = {};
-        for (const team of [TeamVals.LOWER, TeamVals.UPPER] as TeamType[]) {
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT] as TeamType[]) {
             teamConfigs[team] = {
                 placement: fightProps.getAugmentPlacementLevel(team),
                 armor: fightProps.getAugmentArmor(team),
@@ -5183,13 +5183,13 @@ export class Sandbox extends PixiScene {
             // reset() also wipes the per-team placement config; re-apply it (mirrors the scene
             // constructor) so getAugmentPlacement / rebuildFromFightProps don't throw.
             const freshProps = FightStateManager.getInstance().getFightProperties();
-            freshProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
-            freshProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+            freshProps.setDefaultPlacementPerTeam(TeamVals.LEFT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+            freshProps.setDefaultPlacementPerTeam(TeamVals.RIGHT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
 
             // Restore each team's pre-fight picks: the reset wiped them, and replaying the SAME fight is
             // the whole promise of the button — the sidebar still shows these picks, so the engine must
             // hold them too (refreshUnits below re-derives the augment/artifact buffs from here).
-            for (const team of [TeamVals.LOWER, TeamVals.UPPER] as TeamType[]) {
+            for (const team of [TeamVals.LEFT, TeamVals.RIGHT] as TeamType[]) {
                 const config = snapshot.teamConfigs?.[team];
                 if (!config) continue;
                 freshProps.setAugmentPerTeam(team, { type: "Placement", value: config.placement });
@@ -5279,8 +5279,8 @@ export class Sandbox extends PixiScene {
             this.gridMatrix = this.grid.getMatrix();
             this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
             this.unitsHolder.refreshStackPowerForAllUnits();
-            this.refreshSynergyNumbers(TeamVals.LOWER);
-            this.refreshSynergyNumbers(TeamVals.UPPER);
+            this.refreshSynergyNumbers(TeamVals.LEFT);
+            this.refreshSynergyNumbers(TeamVals.RIGHT);
             this.refreshUnits();
 
             // 6. Start the fight again (re-snapshots, re-applies supply, calls startFight()).
@@ -5667,11 +5667,11 @@ export class Sandbox extends PixiScene {
     protected destroyNonPlacedUnits(verifyWithinGridPosition = true): void {
         const fightProps = FightStateManager.getInstance().getFightProperties();
         if (fightProps.hasFightStarted()) return;
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-        const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-        const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-        if (!lowerLeftPlacement && !upperRightPlacement && !lowerRightPlacement && !upperLeftPlacement) {
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        const leftTopPlacement = this.getPlacement(TeamVals.LEFT, 1);
+        const rightBottomPlacement = this.getPlacement(TeamVals.RIGHT, 1);
+        if (!leftBottomPlacement && !rightTopPlacement && !leftTopPlacement && !rightBottomPlacement) {
             return;
         }
         // Snapshot units BEFORE we start deleting them from UnitsHolder
@@ -5680,10 +5680,10 @@ export class Sandbox extends PixiScene {
             const unitId = unit.getId();
             const shouldDelete = this.unitsHolder.deleteUnitIfNotAllowed(
                 unitId,
-                lowerLeftPlacement,
-                upperRightPlacement,
-                lowerRightPlacement,
-                upperLeftPlacement,
+                leftBottomPlacement,
+                rightTopPlacement,
+                leftTopPlacement,
+                rightBottomPlacement,
                 verifyWithinGridPosition,
             );
             if (!shouldDelete) continue;
@@ -5703,25 +5703,25 @@ export class Sandbox extends PixiScene {
         if (augmentType.type === "Placement") {
             this.placementManager.rebuildFromFightProps();
             this.destroyNonPlacedUnits(false);
-            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-            if (lowerLeftPlacement && upperRightPlacement) {
+            const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+            const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+            if (leftBottomPlacement && rightTopPlacement) {
                 const targetTeamSize = fp.getNumberOfUnitsAvailableForPlacement(teamType);
                 const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
                     teamType,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    this.getPlacement(TeamVals.LOWER, 1),
-                    this.getPlacement(TeamVals.UPPER, 1),
+                    leftBottomPlacement,
+                    rightTopPlacement,
+                    this.getPlacement(TeamVals.LEFT, 1),
+                    this.getPlacement(TeamVals.RIGHT, 1),
                 ).length;
                 if (alliesPlacedCount > targetTeamSize) {
                     const unitsToCleanup = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
                         targetTeamSize,
                         teamType,
-                        lowerLeftPlacement,
-                        upperRightPlacement,
-                        this.getPlacement(TeamVals.LOWER, 1),
-                        this.getPlacement(TeamVals.UPPER, 1),
+                        leftBottomPlacement,
+                        rightTopPlacement,
+                        this.getPlacement(TeamVals.LEFT, 1),
+                        this.getPlacement(TeamVals.RIGHT, 1),
                     );
                     if (unitsToCleanup.length) {
                         this.destroySpecificUnits(unitsToCleanup as RenderableUnit[]);
@@ -5771,28 +5771,28 @@ export class Sandbox extends PixiScene {
 
             // some synergies may affect the board state
             if (hasUpdated && isNatureSynergy) {
-                const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-                const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-                if (lowerLeftPlacement && upperRightPlacement) {
+                const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+                const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+                if (leftBottomPlacement && rightTopPlacement) {
                     const targetTeamSize = FightStateManager.getInstance()
                         .getFightProperties()
                         .getNumberOfUnitsAvailableForPlacement(teamType);
                     if (
                         this.unitsHolder.getAllAlliesPlaced(
                             teamType,
-                            lowerLeftPlacement,
-                            upperRightPlacement,
-                            this.getPlacement(TeamVals.LOWER, 1),
-                            this.getPlacement(TeamVals.UPPER, 1),
+                            leftBottomPlacement,
+                            rightTopPlacement,
+                            this.getPlacement(TeamVals.LEFT, 1),
+                            this.getPlacement(TeamVals.RIGHT, 1),
                         ).length > targetTeamSize
                     ) {
                         const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
                             targetTeamSize,
                             teamType,
-                            lowerLeftPlacement,
-                            upperRightPlacement,
-                            this.getPlacement(TeamVals.LOWER, 1),
-                            this.getPlacement(TeamVals.UPPER, 1),
+                            leftBottomPlacement,
+                            rightTopPlacement,
+                            this.getPlacement(TeamVals.LEFT, 1),
+                            this.getPlacement(TeamVals.RIGHT, 1),
                         );
                         if (unitsToCleanupFromTheBoard.length) {
                             this.destroySpecificUnits(unitsToCleanupFromTheBoard as RenderableUnit[]);
@@ -5825,17 +5825,17 @@ export class Sandbox extends PixiScene {
     }
     // AI action logic has been moved to AIController
     protected refreshSynergyNumbers(teamType: TeamType): void {
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-        if (!lowerLeftPlacement || !upperRightPlacement) {
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        if (!leftBottomPlacement || !rightTopPlacement) {
             return;
         }
         const teamUnits = this.unitsHolder.getAllAlliesPlaced(
             teamType,
-            lowerLeftPlacement,
-            upperRightPlacement,
-            this.getPlacement(TeamVals.LOWER, 1),
-            this.getPlacement(TeamVals.UPPER, 1),
+            leftBottomPlacement,
+            rightTopPlacement,
+            this.getPlacement(TeamVals.LEFT, 1),
+            this.getPlacement(TeamVals.RIGHT, 1),
         );
         let uniqueNamesLife: string[] = [];
         let uniqueNamesChaos: string[] = [];
@@ -5934,28 +5934,28 @@ export class Sandbox extends PixiScene {
         // Nature's board-units synergy resizes the placement cap; shrink an over-filled board like
         // propagateSynergy does when a choice moves the cap down.
         if (factionName === "Nature") {
-            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-            if (lowerLeftPlacement && upperRightPlacement) {
+            const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+            const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+            if (leftBottomPlacement && rightTopPlacement) {
                 const targetTeamSize = FightStateManager.getInstance()
                     .getFightProperties()
                     .getNumberOfUnitsAvailableForPlacement(teamType);
                 if (
                     this.unitsHolder.getAllAlliesPlaced(
                         teamType,
-                        lowerLeftPlacement,
-                        upperRightPlacement,
-                        this.getPlacement(TeamVals.LOWER, 1),
-                        this.getPlacement(TeamVals.UPPER, 1),
+                        leftBottomPlacement,
+                        rightTopPlacement,
+                        this.getPlacement(TeamVals.LEFT, 1),
+                        this.getPlacement(TeamVals.RIGHT, 1),
                     ).length > targetTeamSize
                 ) {
                     const unitsToCleanupFromTheBoard = this.unitsHolder.toCleanupRandomUnitsTillTeamSize(
                         targetTeamSize,
                         teamType,
-                        lowerLeftPlacement,
-                        upperRightPlacement,
-                        this.getPlacement(TeamVals.LOWER, 1),
-                        this.getPlacement(TeamVals.UPPER, 1),
+                        leftBottomPlacement,
+                        rightTopPlacement,
+                        this.getPlacement(TeamVals.LEFT, 1),
+                        this.getPlacement(TeamVals.RIGHT, 1),
                     );
                     if (unitsToCleanupFromTheBoard.length) {
                         this.destroySpecificUnits(unitsToCleanupFromTheBoard as RenderableUnit[]);
@@ -5985,16 +5985,16 @@ export class Sandbox extends PixiScene {
             if (currentTeamCount >= limit) {
                 return cloned;
             }
-            const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-            if (!lowerLeftPlacement || !upperRightPlacement) {
+            const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+            const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+            if (!leftBottomPlacement || !rightTopPlacement) {
                 return cloned;
             }
             let placement: IPlacement;
-            if (selectedUnit.getTeam() === TeamVals.LOWER) {
-                placement = lowerLeftPlacement;
+            if (selectedUnit.getTeam() === TeamVals.LEFT) {
+                placement = leftBottomPlacement;
             } else {
-                placement = upperRightPlacement;
+                placement = rightTopPlacement;
             }
             // possibleCellPositions hands back ANCHOR cells — ones that leave room for the whole body
             // inside the zone — and it needs both sides to inset the two axes independently.
@@ -6558,17 +6558,17 @@ export class Sandbox extends PixiScene {
             return;
         }
         // 4. Check Team Cap (only for new units)
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-        const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-        const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
-        if (!this.draggingUnitId && lowerLeftPlacement && upperRightPlacement) {
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        const leftTopPlacement = this.getPlacement(TeamVals.LEFT, 1);
+        const rightBottomPlacement = this.getPlacement(TeamVals.RIGHT, 1);
+        if (!this.draggingUnitId && leftBottomPlacement && rightTopPlacement) {
             const alliesPlacedCount = this.unitsHolder.getAllAlliesPlaced(
                 teamType,
-                lowerLeftPlacement,
-                upperRightPlacement,
-                lowerRightPlacement,
-                upperLeftPlacement,
+                leftBottomPlacement,
+                rightTopPlacement,
+                leftTopPlacement,
+                rightBottomPlacement,
             ).length;
             const maxUnitsForTeam = fightProps.getNumberOfUnitsAvailableForPlacement(teamType);
             if (alliesPlacedCount >= maxUnitsForTeam) {
@@ -7956,7 +7956,7 @@ export class Sandbox extends PixiScene {
         );
     }
     /**
-     * Team marker (🟢 LOWER / 🔴 UPPER) for a scene-log line, matched by the unit name the line leads
+     * Team marker (🟢 LEFT / 🔴 RIGHT) for a scene-log line, matched by the unit name the line leads
      * with (the engine writes "<UnitName> …"). Mirrors the ranked log's per-line colour flag, but
      * resolves by name here since the sandbox log is the engine's plain text rather than a rebuild
      * from events. Returns "" for lines that aren't about a unit (e.g. "Fight finished!", "Map
@@ -8598,7 +8598,7 @@ export class Sandbox extends PixiScene {
         }
         this.sandboxTurnLogHeaderUnitId = unitId;
         const team = unit.getTeam();
-        const flag = team === TeamVals.LOWER || team === TeamVals.UPPER ? (isGreenTeam(team) ? "🟢" : "🔴") : "";
+        const flag = team === TeamVals.LEFT || team === TeamVals.RIGHT ? (isGreenTeam(team) ? "🟢" : "🔴") : "";
         const lap = FightStateManager.getInstance().getFightProperties().getCurrentLap();
         this.sc_sceneLog.updateLog(formatTurnLogHeader(flag, unit.getName(), lap));
     }
@@ -9130,7 +9130,7 @@ export class Sandbox extends PixiScene {
                 minD = Math.floor(minD * aoeMul);
                 maxD = Math.floor(maxD * aoeMul);
                 // Double Shot re-runs the whole area wave on the same units at the same divisor, so the total
-                // is ~2x (an UPPER bound: the second wave can miss or hit a unit the first already killed).
+                // is ~2x (a RIGHT bound: the second wave can miss or hit a unit the first already killed).
                 // Matches the single-target hover, which shows 2x for Double Shot.
                 if (doubleShot) {
                     minD *= 2;
@@ -9590,7 +9590,7 @@ export class Sandbox extends PixiScene {
         );
     }
     private shotRangeColorForHoveredUnit(unit: Unit): number {
-        const friendlyTeam = this.getViewerTeam() ?? this.currentActiveUnit?.getTeam() ?? TeamVals.LOWER;
+        const friendlyTeam = this.getViewerTeam() ?? this.currentActiveUnit?.getTeam() ?? TeamVals.LEFT;
         return hoveredShotRangeColor(unit.getTeam() !== friendlyTeam);
     }
     /**
@@ -13436,9 +13436,9 @@ export class Sandbox extends PixiScene {
         }
     }
     public override startScene() {
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-        if (!lowerLeftPlacement || !upperRightPlacement) {
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        if (!leftBottomPlacement || !rightTopPlacement) {
             return false;
         }
 
@@ -13448,18 +13448,18 @@ export class Sandbox extends PixiScene {
 
         if (
             this.unitsHolder.getAllAlliesPlaced(
-                TeamVals.LOWER,
-                lowerLeftPlacement,
-                upperRightPlacement,
-                this.getPlacement(TeamVals.LOWER, 1),
-                this.getPlacement(TeamVals.UPPER, 1),
+                TeamVals.LEFT,
+                leftBottomPlacement,
+                rightTopPlacement,
+                this.getPlacement(TeamVals.LEFT, 1),
+                this.getPlacement(TeamVals.RIGHT, 1),
             ).length &&
             this.unitsHolder.getAllAlliesPlaced(
-                TeamVals.UPPER,
-                lowerLeftPlacement,
-                upperRightPlacement,
-                this.getPlacement(TeamVals.LOWER, 1),
-                this.getPlacement(TeamVals.UPPER, 1),
+                TeamVals.RIGHT,
+                leftBottomPlacement,
+                rightTopPlacement,
+                this.getPlacement(TeamVals.LEFT, 1),
+                this.getPlacement(TeamVals.RIGHT, 1),
             ).length
         ) {
             this.sc_buttonGroupUpdated = true;
@@ -13549,8 +13549,8 @@ export class Sandbox extends PixiScene {
     private recoverEmptyStartedFightState(): void {
         FightStateManager.getInstance().reset();
         const fightProps = FightStateManager.getInstance().getFightProperties();
-        fightProps.setDefaultPlacementPerTeam(TeamVals.LOWER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
-        fightProps.setDefaultPlacementPerTeam(TeamVals.UPPER, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fightProps.setDefaultPlacementPerTeam(TeamVals.LEFT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
+        fightProps.setDefaultPlacementPerTeam(TeamVals.RIGHT, Augment.DefaultPlacementLevel1.THREE_BY_THREE);
 
         this.currentActiveUnit = undefined;
         this.currentActiveSpell = undefined;
@@ -13818,8 +13818,8 @@ export class Sandbox extends PixiScene {
             const rUnit = unit as RenderableUnit;
             rUnit.setHoverTurnAura(!fightProps.hasFightStarted() && this.hoverManager.hoveredUnitId === rUnit.getId());
             if (!fightProps.hasFightStarted()) {
-                // Placement is a face-off: red/UPPER models are mirrored toward the left, while
-                // green/LOWER models keep facing right. Re-assert every frame so dragging or hydration
+                // Placement is a face-off: red/RIGHT models are mirrored toward the left, while
+                // green/LEFT models keep facing right. Re-assert every frame so dragging or hydration
                 // cannot leave a unit with stale combat-facing from a previous scene state.
                 rUnit.setBoardFacing(placementFacingDirectionForTeam(rUnit.getTeam()));
             }
@@ -14568,9 +14568,9 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-        if (!lowerLeftPlacement || !upperRightPlacement) {
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        if (!leftBottomPlacement || !rightTopPlacement) {
             return false;
         }
 
@@ -14579,15 +14579,15 @@ export class Sandbox extends PixiScene {
             return true;
         }
 
-        const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-        const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
+        const leftTopPlacement = this.getPlacement(TeamVals.LEFT, 1);
+        const rightBottomPlacement = this.getPlacement(TeamVals.RIGHT, 1);
         const alliesPlacedCount = this.unitsHolder
             .getAllAlliesPlaced(
                 action.team,
-                lowerLeftPlacement,
-                upperRightPlacement,
-                lowerRightPlacement,
-                upperLeftPlacement,
+                leftBottomPlacement,
+                rightTopPlacement,
+                leftTopPlacement,
+                rightBottomPlacement,
             )
             .filter((ally) => ally.getId() !== unit.getId()).length;
         return (
@@ -15543,39 +15543,39 @@ export class Sandbox extends PixiScene {
         return undefined;
     }
     private checkStartCondition(): void {
-        let lowerAllowed = false;
-        let upperAllowed = false;
-        const lowerLeftPlacement = this.getPlacement(TeamVals.LOWER, 0);
-        const upperRightPlacement = this.getPlacement(TeamVals.UPPER, 0);
-        if (!this.sc_renderSpellBookOverlay && lowerLeftPlacement && upperRightPlacement) {
-            const lowerRightPlacement = this.getPlacement(TeamVals.LOWER, 1);
-            const upperLeftPlacement = this.getPlacement(TeamVals.UPPER, 1);
+        let leftAllowed = false;
+        let rightAllowed = false;
+        const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
+        const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
+        if (!this.sc_renderSpellBookOverlay && leftBottomPlacement && rightTopPlacement) {
+            const leftTopPlacement = this.getPlacement(TeamVals.LEFT, 1);
+            const rightBottomPlacement = this.getPlacement(TeamVals.RIGHT, 1);
             const isRealPlacedUnit = (unit: Unit) => !this.revealedOpponentUnitIds.has(unit.getId());
 
             // Use the exact footprint/cell validation used by startScene(). The former UI-only check
             // tested the rendered ground point, which can sit outside the placement rectangle after
             // perspective/framing changes even while every occupied cell is valid. That left START
             // disabled for a board the fight engine itself considered startable.
-            lowerAllowed = this.unitsHolder
+            leftAllowed = this.unitsHolder
                 .getAllAlliesPlaced(
-                    TeamVals.LOWER,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
+                    TeamVals.LEFT,
+                    leftBottomPlacement,
+                    rightTopPlacement,
+                    leftTopPlacement,
+                    rightBottomPlacement,
                 )
                 .some(isRealPlacedUnit);
-            upperAllowed = this.unitsHolder
+            rightAllowed = this.unitsHolder
                 .getAllAlliesPlaced(
-                    TeamVals.UPPER,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
+                    TeamVals.RIGHT,
+                    leftBottomPlacement,
+                    rightTopPlacement,
+                    leftTopPlacement,
+                    rightBottomPlacement,
                 )
                 .some(isRealPlacedUnit);
         }
-        if (lowerAllowed && upperAllowed) {
+        if (leftAllowed && rightAllowed) {
             if (this.sc_visibleState) {
                 if (!this.sc_visibleState.canBeStarted) {
                     this.sc_visibleState.canBeStarted = true;
@@ -15793,7 +15793,7 @@ export class Sandbox extends PixiScene {
         this.sc_sceneLog.updateLog(
             teamWin === TeamVals.NO_TEAM
                 ? "Fight finished! Draw!"
-                : `Fight finished! ${teamWin === TeamVals.LOWER ? "Green" : "Red"} team wins!`,
+                : `Fight finished! ${teamWin === TeamVals.LEFT ? "Green" : "Red"} team wins!`,
         );
         this.refreshVisibleStateIfNeeded();
         if (this.sc_visibleState) {
@@ -15810,7 +15810,7 @@ export class Sandbox extends PixiScene {
             // here the report has 0 start totals — and the results overlay hides itself on a 0 start
             // total. Don't overwrite an already-populated report (e.g. the ranked one) with an empty
             // one; the ranked path fills it in via applyRankedFightStats.
-            if (report.lowerStartTotal > 0 && report.upperStartTotal > 0) {
+            if (report.leftStartTotal > 0 && report.rightStartTotal > 0) {
                 this.sc_visibleState.fightStats = report;
             }
             this.sc_visibleStateUpdateNeeded = true;

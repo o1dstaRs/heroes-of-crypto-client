@@ -22,7 +22,7 @@ const STUB_GRID_SETTINGS = new GridSettings(4, 400, 0, 400, 0, 0, 0);
 
 const createUnit = (
     id = "ai-unit-1",
-    team = TeamVals.LOWER,
+    team = TeamVals.LEFT,
     // Every shipped creature is 1x1 or 2x2, but the geometry the controller hands the engine has to hold
     // for any WxH body, so the stub carries a real footprint instead of a "small or large" boolean.
     footprint: { width: number; height: number } = { width: 1, height: 1 },
@@ -57,7 +57,7 @@ const createUnit = (
         setOnHourglass: () => undefined,
     }) as unknown as RenderableUnit;
 
-const createMindlessUnit = (id = "mindless-unit-1", team = TeamVals.LOWER, aiDrivenActive = true): RenderableUnit =>
+const createMindlessUnit = (id = "mindless-unit-1", team = TeamVals.LEFT, aiDrivenActive = true): RenderableUnit =>
     ({
         ...createUnit(id, team),
         getName: () => "Berserker",
@@ -111,14 +111,14 @@ describe("AIController", () => {
     });
 
     it("uses the resolved ranked model team instead of the raw URL team", () => {
-        const unit = createUnit("human-unit-1", TeamVals.LOWER);
+        const unit = createUnit("human-unit-1", TeamVals.LEFT);
         const context = {
             getCurrentActiveUnit: () => unit,
         } as unknown as IAIContext;
         const controller = new AIController(context);
         (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
             enabled: true,
-            modelTeam: TeamVals.UPPER,
+            modelTeam: TeamVals.RIGHT,
             apiBase: "/hoc-local-model",
             modelName: "auto",
             authorization: "Bearer model-token",
@@ -127,19 +127,19 @@ describe("AIController", () => {
         };
 
         expect(controller.shouldControlCurrentUnit()).toBe(false);
-        controller.setLocalModelTeamOverride(TeamVals.LOWER);
+        controller.setLocalModelTeamOverride(TeamVals.LEFT);
         expect(controller.shouldControlCurrentUnit()).toBe(true);
     });
 
     it("can explicitly disable local model control for ranked viewer safety", () => {
-        const unit = createUnit("human-unit-1", TeamVals.UPPER);
+        const unit = createUnit("human-unit-1", TeamVals.RIGHT);
         const context = {
             getCurrentActiveUnit: () => unit,
         } as unknown as IAIContext;
         const controller = new AIController(context);
         (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
             enabled: true,
-            modelTeam: TeamVals.UPPER,
+            modelTeam: TeamVals.RIGHT,
             apiBase: "/hoc-local-model",
             modelName: "auto",
             authorization: "Bearer model-token",
@@ -354,7 +354,7 @@ describe("AIController", () => {
         // (AttackHandler: getFootprintCellsForAnchor(attackFrom) vs the target's cells) accepts a strike on
         // (0,2) from there. Asking the same question about the anchor alone answers "not adjacent" and
         // silently demotes a legal strike to a bare move — the "AI walks up and never swings" failure.
-        const unit = createUnit("wide-unit", TeamVals.LOWER, { width: 2, height: 1 });
+        const unit = createUnit("wide-unit", TeamVals.LEFT, { width: 2, height: 1 });
         const target = {
             getId: () => "target-1",
             getTeam: () => 2,
@@ -502,7 +502,7 @@ describe("AIController", () => {
             const controller = new AIController(context);
             (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
                 enabled: true,
-                modelTeam: TeamVals.LOWER,
+                modelTeam: TeamVals.LEFT,
                 apiBase: "/hoc-local-model",
                 modelName: "auto",
                 authorization: "Bearer model-token",
@@ -586,12 +586,12 @@ describe("AIController", () => {
         });
 
         it("returns an inactive AI-Driven carrier to the normal local-model path", async () => {
-            const unit = createMindlessUnit("broken-berserker", TeamVals.LOWER, false);
+            const unit = createMindlessUnit("broken-berserker", TeamVals.LEFT, false);
             const context = baseContext({ getCurrentActiveUnit: () => unit });
             const controller = new AIController(context);
             (controller as unknown as { localModelOpponent: LocalModelOpponentConfig }).localModelOpponent = {
                 enabled: true,
-                modelTeam: TeamVals.LOWER,
+                modelTeam: TeamVals.LEFT,
                 apiBase: "/hoc-local-model",
                 modelName: "auto",
                 authorization: "Bearer model-token",
@@ -771,7 +771,7 @@ describe("AIController", () => {
             const attackFrom = { x: 3, y: 4 };
             const target = {
                 getId: () => "target-1",
-                getTeam: () => TeamVals.UPPER,
+                getTeam: () => TeamVals.RIGHT,
                 getCells: () => [{ x: 3, y: 5 }],
                 hasBuffActive: () => false,
             };
@@ -820,7 +820,7 @@ describe("AIController", () => {
         const attackFrom = { x: 3, y: 4 };
         const buildMoveMeleeTarget = () => ({
             getId: () => "target-1",
-            getTeam: () => TeamVals.UPPER,
+            getTeam: () => TeamVals.RIGHT,
             getCells: () => [{ x: 3, y: 5 }],
             hasBuffActive: () => false,
         });
@@ -1169,7 +1169,7 @@ describe("AIController", () => {
             const aimCell = { x: 5, y: 6 };
             const target = {
                 getId: () => "target-1",
-                getTeam: () => TeamVals.UPPER,
+                getTeam: () => TeamVals.RIGHT,
                 getCells: () => [aimCell],
                 hasBuffActive: () => false,
             };

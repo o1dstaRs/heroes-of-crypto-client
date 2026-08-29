@@ -142,7 +142,7 @@ const SidebarPreview: React.FC<{ creature: EditorCreature }> = ({ creature }) =>
     const unitProperties = useMemo(
         () =>
             HoCConfig.getCreatureConfig(
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 creature.faction,
                 creature.name,
                 `${creature.name.toLowerCase().replaceAll(" ", "_")}_512`,

@@ -28,8 +28,8 @@ export interface HarnessActorConfig {
 export interface HarnessRunOptions {
     matchId?: string;
     scenario: HarnessScenario;
-    lower: HarnessActorConfig;
-    upper: HarnessActorConfig;
+    left: HarnessActorConfig;
+    right: HarnessActorConfig;
     maxActions: number;
     includeMechanicsContext: boolean;
 }
@@ -80,8 +80,8 @@ export interface HarnessReplay {
     finishedAt: string;
     durationMs: number;
     actors: {
-        lower: HarnessActorConfig;
-        upper: HarnessActorConfig;
+        left: HarnessActorConfig;
+        right: HarnessActorConfig;
     };
     metrics: HarnessMetrics;
     decisions: HarnessDecisionRecord[];

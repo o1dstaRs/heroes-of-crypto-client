@@ -16,7 +16,7 @@ export type { IPickPhaseEventData };
  * button must remain actionable; a choice means it should wait for the opponent.
  */
 export const canViewerActOnPickFrame = (event: IPickPhaseEventData, userTeam: TeamType): boolean => {
-    if (userTeam !== TeamVals.LOWER && userTeam !== TeamVals.UPPER) {
+    if (userTeam !== TeamVals.LEFT && userTeam !== TeamVals.RIGHT) {
         return false;
     }
     if (event.pp === PickPhaseVals.ARTIFACT_2) {

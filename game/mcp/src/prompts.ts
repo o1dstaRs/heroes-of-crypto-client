@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const createPlayTurnPromptText = (input: {
     matchId: string;
-    team?: "LOWER" | "UPPER";
+    team?: "LEFT" | "RIGHT";
     reason: string;
     style: string;
 }): string => {
@@ -32,7 +32,7 @@ Prefer actions that produce damage, deny enemy tempo, or improve a clear future 
 
 export const createDraftArmyPromptText = (input: {
     matchId: string;
-    team?: "LOWER" | "UPPER";
+    team?: "LEFT" | "RIGHT";
     reason: string;
     style: string;
 }): string => {
@@ -66,7 +66,7 @@ export const registerGamePrompts = (server: McpServer): void => {
             description: "Guide a model through choosing or playing legal Heroes of Crypto pick/ban actions.",
             argsSchema: {
                 matchId: z.string(),
-                team: z.enum(["LOWER", "UPPER"]).optional(),
+                team: z.enum(["LEFT", "RIGHT"]).optional(),
                 reason: z
                     .enum([
                         "sandbox_toggle",
@@ -101,7 +101,7 @@ export const registerGamePrompts = (server: McpServer): void => {
             description: "Guide a model through choosing or playing a legal Heroes of Crypto AI turn.",
             argsSchema: {
                 matchId: z.string(),
-                team: z.enum(["LOWER", "UPPER"]).optional(),
+                team: z.enum(["LEFT", "RIGHT"]).optional(),
                 reason: z
                     .enum([
                         "sandbox_toggle",

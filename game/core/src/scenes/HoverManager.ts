@@ -2108,7 +2108,7 @@ export class HoverManager {
             this.applyLiveUnitPreview(sprite, outline, livePreview, outlineGrowth);
             // The live branch inherits the SOURCE sprite's facing, which is right during the fight (facing
             // there follows movement) but only accidentally right before it. Placement has one rule and the
-            // board asserts it on every unit every frame: red/UPPER faces left, green/LOWER faces right. The
+            // board asserts it on every unit every frame: red/RIGHT faces left, green/LEFT faces right. The
             // preview of a placement must obey the rule it is previewing, whichever source it was cloned
             // from — otherwise the ghost points one way and the unit turns the other the moment it lands.
             this.applyPlacementFacing(sprite, outline, selected, boundsCenter);
@@ -2334,10 +2334,10 @@ export class HoverManager {
         const cellHash = (cell.x << 4) | cell.y;
 
         let teamFromPlacement: TeamType | undefined;
-        if (this.context.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.LOWER)?.has(cellHash)) {
-            teamFromPlacement = TeamVals.LOWER;
-        } else if (this.context.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.UPPER)?.has(cellHash)) {
-            teamFromPlacement = TeamVals.UPPER;
+        if (this.context.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.LEFT)?.has(cellHash)) {
+            teamFromPlacement = TeamVals.LEFT;
+        } else if (this.context.placementManager.getAllowedPlacementCellHashesForTeam(TeamVals.RIGHT)?.has(cellHash)) {
+            teamFromPlacement = TeamVals.RIGHT;
         }
 
         const draggingUnitTeam = this.context.getDraggingUnitTeam();
@@ -2369,7 +2369,7 @@ export class HoverManager {
             // If undefined (void), use dragging team's side or generic?
             // Existing logic used "allowedForThatSide" inside "Wrong Team" block, and "allowedForTeam" later.
             // We'll try to find best fit.
-            const targetTeamForPath = teamFromPlacement ?? draggingUnitTeam ?? TeamVals.LOWER;
+            const targetTeamForPath = teamFromPlacement ?? draggingUnitTeam ?? TeamVals.LEFT;
             const allowedForPath =
                 this.context.placementManager.getAllowedPlacementCellHashesForTeam(targetTeamForPath);
 
@@ -2496,17 +2496,17 @@ export class HoverManager {
             // Only check count if spawning new, not moving existing
             // ... existing max unit check ...
             // Simplified: logic was checking "alliesPlacedCount >= maxUnitsForTeam"
-            const lowerLeftPlacement = this.context.getPlacement(TeamVals.LOWER, 0);
-            const upperRightPlacement = this.context.getPlacement(TeamVals.UPPER, 0);
-            const lowerRightPlacement = this.context.getPlacement(TeamVals.LOWER, 1);
-            const upperLeftPlacement = this.context.getPlacement(TeamVals.UPPER, 1);
-            if (lowerLeftPlacement && upperRightPlacement) {
+            const leftBottomPlacement = this.context.getPlacement(TeamVals.LEFT, 0);
+            const rightTopPlacement = this.context.getPlacement(TeamVals.RIGHT, 0);
+            const leftTopPlacement = this.context.getPlacement(TeamVals.LEFT, 1);
+            const rightBottomPlacement = this.context.getPlacement(TeamVals.RIGHT, 1);
+            if (leftBottomPlacement && rightTopPlacement) {
                 const alliesPlacedCount = this.context.unitsHolder.getAllAlliesPlaced(
                     teamFromPlacement,
-                    lowerLeftPlacement,
-                    upperRightPlacement,
-                    lowerRightPlacement,
-                    upperLeftPlacement,
+                    leftBottomPlacement,
+                    rightTopPlacement,
+                    leftTopPlacement,
+                    rightBottomPlacement,
                 ).length;
                 const maxUnitsForTeam = fightProps.getNumberOfUnitsAvailableForPlacement(teamFromPlacement);
                 if (alliesPlacedCount >= maxUnitsForTeam) {

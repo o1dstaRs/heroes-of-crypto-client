@@ -43,8 +43,8 @@ import {
 /** The one game id this fake session answers for. Anything else goes to the real API untouched. */
 export const PREVIEW_PLACEMENT_GAME_ID = "preview-placement";
 
-export const PREVIEW_LOWER_PLAYER_ID = "preview-player-lower";
-export const PREVIEW_UPPER_PLAYER_ID = "preview-player-upper";
+export const PREVIEW_LEFT_PLAYER_ID = "preview-player-lower";
+export const PREVIEW_RIGHT_PLAYER_ID = "preview-player-upper";
 
 export const isPreviewPlayGame = (gameId: string): boolean => gameId === PREVIEW_PLACEMENT_GAME_ID;
 
@@ -56,16 +56,16 @@ const FALLBACK_AMOUNT = 10;
 // Two full drafted armies in the [L1, L1, L2, L2, L3, L4] shape a finished draft produces. The lower
 // side matches the army the augment preview shows, so walking /preview/augments -> /preview/placement
 // reads as one match.
-const LOWER_ARMY = [12, 33, 24, 51, 17, 40];
-const UPPER_ARMY = [1, 21, 4, 34, 27, 42];
+const LEFT_ARMY = [12, 33, 24, 51, 17, 40];
+const RIGHT_ARMY = [1, 21, 4, 34, 27, 42];
 
 const PLACEMENT_SECONDS = 120;
 
 /** Long-bodied comparison art spans two cells even while the stable engine catalog remains one-cell. */
 const HORIZONTAL_COMPARISON_FOOTPRINTS = new Set(["Wolf", "Centaur", "Wolf Rider", "Nomad"]);
 
-/** The lower team's committed augment build: 2 + 2 + 1 + 1 = the Scout doctrine's whole 6-point budget. */
-const LOWER_AUGMENTS = { placement: 2, armor: 2, might: 1, empower: 0, sniper: 0, movement: 1 } as const;
+/** The left team's committed augment build: 2 + 2 + 1 + 1 = the Scout doctrine's whole 6-point budget. */
+const LEFT_AUGMENTS = { placement: 2, armor: 2, might: 1, empower: 0, sniper: 0, movement: 1 } as const;
 
 export interface PreviewPlacementOptions {
     /** Which seat the viewer holds. The other side is the opponent, redacted exactly as the server does. */
@@ -73,10 +73,10 @@ export interface PreviewPlacementOptions {
     /** GridVals.* — the map the board is drawn on. */
     gridType: number;
     /** Optional dev-fixture rosters; the regular placement preview keeps its canonical six stacks. */
-    lowerArmy?: readonly number[];
-    upperArmy?: readonly number[];
-    /** Dev comparison views can align a large lower roster along the board's bottom edge. */
-    spreadLowerArmyAcrossBoard?: boolean;
+    leftArmy?: readonly number[];
+    rightArmy?: readonly number[];
+    /** Dev comparison views can align a large left roster along the board's bottom edge. */
+    spreadLeftArmyAcrossBoard?: boolean;
     /** Consecutive group sizes for horizontal rows (the framing editor uses one row per level). */
     comparisonRowSizes?: readonly number[];
     /** Optional exact ground row for each comparison row; shadow tuning pins its selected unit at the top. */
@@ -115,7 +115,7 @@ const buildUnit = (creatureId: number, team: TeamType, index: number): PreviewUn
 
     const properties = HoCConfig.getCreatureConfig(team, factionName, name, textureName, amount);
     return {
-        id: `preview-${team === TeamVals.LOWER ? "lower" : "upper"}-${index}-${creatureId}`,
+        id: `preview-${team === TeamVals.LEFT ? "left" : "right"}-${index}-${creatureId}`,
         team,
         name,
         creatureId,
@@ -176,10 +176,10 @@ const footprintOf = (base: PlayCell, width: number, height: number): PlayCell[] 
  * preview opens the same way every time and the army reads as a formation rather than a pile.
  */
 const deployTeam = (units: PreviewUnitState[], team: TeamType, zoneDepth: number): void => {
-    const isLower = team === TeamVals.LOWER;
+    const isLeft = team === TeamVals.LEFT;
     const placement = new RectanglePlacement(
         GRID,
-        isLower ? PlacementPositionType.LOWER_LEFT : PlacementPositionType.UPPER_RIGHT,
+        isLeft ? PlacementPositionType.LEFT_BOTTOM : PlacementPositionType.RIGHT_TOP,
         zoneDepth,
         true, // every surface plays the side-oriented board now (left/right x-bands)
     );
@@ -198,7 +198,7 @@ const deployTeam = (units: PreviewUnitState[], team: TeamType, zoneDepth: number
             )
             .filter(Boolean)
             // Front rank first (toward the middle of the board), then top to bottom.
-            .sort((a, b) => (isLower ? b.x - a.x : a.x - b.x) || a.y - b.y);
+            .sort((a, b) => (isLeft ? b.x - a.x : a.x - b.x) || a.y - b.y);
         for (const base of candidates) {
             const cells = footprintOf(base, unit.footprintWidth, unit.footprintHeight);
             if (cells.some((cell) => blocked.has(cellKey(cell)))) {
@@ -323,34 +323,34 @@ const deployComparisonTeam = (
 
 const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
     const now = Date.now();
-    const lowerArmy = options.lowerArmy ?? LOWER_ARMY;
-    const upperArmy = options.upperArmy ?? UPPER_ARMY;
+    const leftArmy = options.leftArmy ?? LEFT_ARMY;
+    const rightArmy = options.rightArmy ?? RIGHT_ARMY;
     const units = [
-        ...lowerArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.LOWER, index)),
-        ...upperArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.UPPER, index)),
+        ...leftArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.LEFT, index)),
+        ...rightArmy.map((creatureId, index) => buildUnit(creatureId, TeamVals.RIGHT, index)),
     ].filter((unit): unit is PreviewUnitState => !!unit);
 
-    const viewerIsLower = options.userTeam === TeamVals.LOWER;
+    const viewerIsLeft = options.userTeam === TeamVals.LEFT;
     // Deployed into the DEFAULT (height 3) zone for both sides, deliberately — not into the taller zone
     // the viewer's Placement augment buys. The client derives the legal zone itself from FightProperties,
     // and the depth-3 rectangle is a subset of every deeper one, so this layout is legal whatever the
     // client decides the zone is. Deploying into the augmented zone instead put the army one column outside
     // the drawn zone whenever the client had not yet folded the augment in.
-    const lowerUnits = units.filter((unit) => unit.team === TeamVals.LOWER);
-    if (options.spreadLowerArmyAcrossBoard) {
+    const leftUnits = units.filter((unit) => unit.team === TeamVals.LEFT);
+    if (options.spreadLeftArmyAcrossBoard) {
         deployComparisonTeam(
-            lowerUnits,
+            leftUnits,
             options.comparisonRowSizes,
             options.comparisonRowGroundYs,
             options.comparisonHorizontalGapCells,
             options.comparisonFixedSlotCount,
         );
     } else {
-        deployTeam(lowerUnits, TeamVals.LOWER, PLACEMENT_ZONE_DEPTH[0]);
+        deployTeam(leftUnits, TeamVals.LEFT, PLACEMENT_ZONE_DEPTH[0]);
     }
     deployTeam(
-        units.filter((unit) => unit.team === TeamVals.UPPER),
-        TeamVals.UPPER,
+        units.filter((unit) => unit.team === TeamVals.RIGHT),
+        TeamVals.RIGHT,
         PLACEMENT_ZONE_DEPTH[0],
     );
     return {
@@ -375,15 +375,15 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         units,
         players: [
             {
-                playerId: PREVIEW_LOWER_PLAYER_ID,
-                team: TeamVals.LOWER,
+                playerId: PREVIEW_LEFT_PLAYER_ID,
+                team: TeamVals.LEFT,
                 connected: true,
                 aiControlled: false,
                 lastSeenMs: now,
             },
             {
-                playerId: PREVIEW_UPPER_PLAYER_ID,
-                team: TeamVals.UPPER,
+                playerId: PREVIEW_RIGHT_PLAYER_ID,
+                team: TeamVals.RIGHT,
                 connected: true,
                 aiControlled: false,
                 lastSeenMs: now,
@@ -391,8 +391,8 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         ],
         readyPlayerIds: [],
         journalTail: [],
-        maxLowerUnits: lowerArmy.length,
-        maxUpperUnits: upperArmy.length,
+        maxLeftUnits: leftArmy.length,
+        maxRightUnits: rightArmy.length,
         narrowingLayers: 0,
         centerDried: false,
         upNext: [],
@@ -400,24 +400,24 @@ const buildSnapshot = (options: PreviewPlacementOptions): PlaySnapshot => {
         // The doctrine sets the augment budget the sidebar recaps. The opponent's doctrine, artifacts and
         // augments stay 0 before the fight starts — that redaction is the server's, and copying it keeps
         // the preview from showing information the real screen hides.
-        lowerDoctrine: viewerIsLower ? Doctrine.Doctrine.THREE_REVEALS : 0,
-        upperDoctrine: viewerIsLower ? 0 : Doctrine.Doctrine.THREE_REVEALS,
-        lowerArtifactTier1: viewerIsLower ? 1 : 0,
-        lowerArtifactTier2: viewerIsLower ? 1 : 0,
-        upperArtifactTier1: viewerIsLower ? 0 : 1,
-        upperArtifactTier2: viewerIsLower ? 0 : 1,
-        lowerAugmentPlacement: viewerIsLower ? LOWER_AUGMENTS.placement : 0,
-        lowerAugmentArmor: viewerIsLower ? LOWER_AUGMENTS.armor : 0,
-        lowerAugmentMight: viewerIsLower ? LOWER_AUGMENTS.might : 0,
-        lowerAugmentEmpower: viewerIsLower ? LOWER_AUGMENTS.empower : 0,
-        lowerAugmentSniper: viewerIsLower ? LOWER_AUGMENTS.sniper : 0,
-        lowerAugmentMovement: viewerIsLower ? LOWER_AUGMENTS.movement : 0,
-        upperAugmentPlacement: viewerIsLower ? 0 : LOWER_AUGMENTS.placement,
-        upperAugmentArmor: viewerIsLower ? 0 : LOWER_AUGMENTS.armor,
-        upperAugmentMight: viewerIsLower ? 0 : LOWER_AUGMENTS.might,
-        upperAugmentEmpower: viewerIsLower ? 0 : LOWER_AUGMENTS.empower,
-        upperAugmentSniper: viewerIsLower ? 0 : LOWER_AUGMENTS.sniper,
-        upperAugmentMovement: viewerIsLower ? 0 : LOWER_AUGMENTS.movement,
+        leftDoctrine: viewerIsLeft ? Doctrine.Doctrine.THREE_REVEALS : 0,
+        rightDoctrine: viewerIsLeft ? 0 : Doctrine.Doctrine.THREE_REVEALS,
+        leftArtifactTier1: viewerIsLeft ? 1 : 0,
+        leftArtifactTier2: viewerIsLeft ? 1 : 0,
+        rightArtifactTier1: viewerIsLeft ? 0 : 1,
+        rightArtifactTier2: viewerIsLeft ? 0 : 1,
+        leftAugmentPlacement: viewerIsLeft ? LEFT_AUGMENTS.placement : 0,
+        leftAugmentArmor: viewerIsLeft ? LEFT_AUGMENTS.armor : 0,
+        leftAugmentMight: viewerIsLeft ? LEFT_AUGMENTS.might : 0,
+        leftAugmentEmpower: viewerIsLeft ? LEFT_AUGMENTS.empower : 0,
+        leftAugmentSniper: viewerIsLeft ? LEFT_AUGMENTS.sniper : 0,
+        leftAugmentMovement: viewerIsLeft ? LEFT_AUGMENTS.movement : 0,
+        rightAugmentPlacement: viewerIsLeft ? 0 : LEFT_AUGMENTS.placement,
+        rightAugmentArmor: viewerIsLeft ? 0 : LEFT_AUGMENTS.armor,
+        rightAugmentMight: viewerIsLeft ? 0 : LEFT_AUGMENTS.might,
+        rightAugmentEmpower: viewerIsLeft ? 0 : LEFT_AUGMENTS.empower,
+        rightAugmentSniper: viewerIsLeft ? 0 : LEFT_AUGMENTS.sniper,
+        rightAugmentMovement: viewerIsLeft ? 0 : LEFT_AUGMENTS.movement,
     } as PlaySnapshot;
 };
 

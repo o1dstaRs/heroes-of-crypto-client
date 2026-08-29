@@ -365,19 +365,19 @@ describe("play protobuf decoder", () => {
 
         const decoded = decodePlaySnapshot(snapshot);
 
-        expect(decoded.lowerStartUnits).toBe(7);
-        expect(decoded.upperStartUnits).toBe(6);
-        expect(decoded.lowerStartHealth).toBe(420);
-        expect(decoded.upperStartHealth).toBe(360);
+        expect(decoded.leftStartUnits).toBe(7);
+        expect(decoded.rightStartUnits).toBe(6);
+        expect(decoded.leftStartHealth).toBe(420);
+        expect(decoded.rightStartHealth).toBe(360);
     });
 
     test("defaults the fight-start army totals to 0 when absent (older server)", () => {
         const decoded = decodePlaySnapshot(new Uint8Array([...stringField(1, "game-1")]));
 
-        expect(decoded.lowerStartUnits).toBe(0);
-        expect(decoded.upperStartUnits).toBe(0);
-        expect(decoded.lowerStartHealth).toBe(0);
-        expect(decoded.upperStartHealth).toBe(0);
+        expect(decoded.leftStartUnits).toBe(0);
+        expect(decoded.rightStartUnits).toBe(0);
+        expect(decoded.leftStartHealth).toBe(0);
+        expect(decoded.rightStartHealth).toBe(0);
     });
 
     test("decodes split placement fields; SETUP stage (0, omitted on the wire) decodes to 0", () => {

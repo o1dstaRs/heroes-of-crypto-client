@@ -11,7 +11,7 @@ describe("vs AI client", () => {
             confirmed: true,
             init_time: 1234,
             abandoned: false,
-            team: TeamVals.LOWER,
+            team: TeamVals.LEFT,
         }).serializeBinary();
         let requestedUrl = "";
         let requestedBody: null | undefined;
@@ -33,7 +33,7 @@ describe("vs AI client", () => {
         expect(game).toMatchObject({
             id: "00000000-0000-4000-8000-000000000001",
             confirmed: true,
-            team: TeamVals.LOWER,
+            team: TeamVals.LEFT,
         });
     });
 
@@ -43,7 +43,7 @@ describe("vs AI client", () => {
             confirmed: true,
             init_time: 1234,
             abandoned: false,
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
         }).serializeBinary();
         let requestedUrl = "";
         const post: VsAiPost = async (url) => {

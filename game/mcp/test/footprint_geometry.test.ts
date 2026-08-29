@@ -30,7 +30,7 @@ describe("draft placement with rectangular footprints", () => {
     test("placeDraftUnit expands the MAX-corner anchor and centres the unit on the whole body", () => {
         const name = creatureNameFromId(3);
         (globalThis as { __hocFootprintOverrides?: string }).__hocFootprintOverrides = `${name}=2x1`;
-        const unit = createUnitFromCreatureId(3, TeamVals.LOWER, gridSettings);
+        const unit = createUnitFromCreatureId(3, TeamVals.LEFT, gridSettings);
         expect(unit.getFootprintWidth()).toBe(2);
         expect(unit.getFootprintHeight()).toBe(1);
 
@@ -48,7 +48,7 @@ describe("draft placement with rectangular footprints", () => {
     test("an anchor whose body would hang off the board is refused loudly", () => {
         const name = creatureNameFromId(3);
         (globalThis as { __hocFootprintOverrides?: string }).__hocFootprintOverrides = `${name}=1x3`;
-        const unit = createUnitFromCreatureId(3, TeamVals.LOWER, gridSettings);
+        const unit = createUnitFromCreatureId(3, TeamVals.LEFT, gridSettings);
         expect(unit.getFootprintHeight()).toBe(3);
         // y = 1 leaves the bottom cell at y = -1: off the board, not silently clipped.
         expect(() => placeDraftUnit(gridSettings, unit, { x: 5, y: 1 })).toThrow();

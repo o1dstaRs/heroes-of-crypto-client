@@ -55,14 +55,14 @@ const renderableUnit = (factionName: string, creatureName: string): RenderableUn
     const effectFactory = new EffectFactory();
     const base = Unit.createUnit(
         HoCConfig.getCreatureConfig(
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             factionName,
             creatureName,
             `${creatureName.toLowerCase().replace(/ /g, "_")}_512`,
             1,
         ),
         gridSettings,
-        TeamVals.LOWER,
+        TeamVals.LEFT,
         UnitVals.CREATURE,
         new AbilityFactory(effectFactory),
         effectFactory,

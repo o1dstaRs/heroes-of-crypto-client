@@ -205,8 +205,8 @@ export interface PlaySnapshot {
     players: PlayPlayerState[];
     readyPlayerIds: string[];
     journalTail: PlayJournalEntry[];
-    maxLowerUnits: number;
-    maxUpperUnits: number;
+    maxLeftUnits: number;
+    maxRightUnits: number;
     narrowingLayers: number;
     centerDried: boolean;
     /** Remaining hits of the two BLOCK_CENTER mountains (true counts, decoded from the 1-based wire
@@ -228,52 +228,52 @@ export interface PlaySnapshot {
     /** Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
      * overlay can render casualty stats for a team that's later fully wiped. 0 before fight start;
      * absent from older servers (the decoder still defaults them to 0). */
-    lowerStartUnits?: number;
-    upperStartUnits?: number;
-    lowerStartHealth?: number;
-    upperStartHealth?: number;
+    leftStartUnits?: number;
+    rightStartUnits?: number;
+    leftStartHealth?: number;
+    rightStartHealth?: number;
     /** Army-wide artifacts picked per team (Tier1Artifact/Tier2Artifact enum ids; 0 = none), so the
      * placement UI can render each side's picked artifacts. Absent from older servers (decoder defaults
      * to 0). */
-    lowerArtifactTier1?: number;
-    lowerArtifactTier2?: number;
-    upperArtifactTier1?: number;
-    upperArtifactTier2?: number;
+    leftArtifactTier1?: number;
+    leftArtifactTier2?: number;
+    rightArtifactTier1?: number;
+    rightArtifactTier2?: number;
     /** Each team's doctrine (Doctrine enum id; 0 = none) — the placement sidebar derives the upgrade-point budget.
      * The opponent's is hidden (0) until the fight starts. Absent from older servers (decoder defaults 0). */
-    lowerDoctrine?: number;
-    upperDoctrine?: number;
+    leftDoctrine?: number;
+    rightDoctrine?: number;
     /** Placement-time army augments picked per team (augment level enum ids; 0 = none). Opponent values are
      * hidden (0) during placement, revealed at fight start (same as artifacts). */
-    lowerAugmentPlacement?: number;
-    lowerAugmentArmor?: number;
-    lowerAugmentMight?: number;
-    lowerAugmentSniper?: number;
-    lowerAugmentMovement?: number;
-    upperAugmentPlacement?: number;
-    upperAugmentArmor?: number;
-    upperAugmentMight?: number;
-    upperAugmentSniper?: number;
-    upperAugmentMovement?: number;
+    leftAugmentPlacement?: number;
+    leftAugmentArmor?: number;
+    leftAugmentMight?: number;
+    leftAugmentSniper?: number;
+    leftAugmentMovement?: number;
+    rightAugmentPlacement?: number;
+    rightAugmentArmor?: number;
+    rightAugmentMight?: number;
+    rightAugmentSniper?: number;
+    rightAugmentMovement?: number;
     /** Empower (magic damage) rides on its own tail fields (53/54) rather than beside the other augments:
      * the numbers above are the wire format, and renumbering them would desync an in-flight client. */
-    lowerAugmentEmpower?: number;
-    upperAugmentEmpower?: number;
+    leftAugmentEmpower?: number;
+    rightAugmentEmpower?: number;
     /** Each team's selected synergies (keys like "Might:2:1"). Only populated once the fight has started
      * (empty during placement, for both teams) — the ranked HUD shows them top-left. Absent from older
      * servers (decoder defaults to []). */
-    lowerSynergies?: string[];
-    upperSynergies?: string[];
+    leftSynergies?: string[];
+    rightSynergies?: string[];
     /** Each team's starting army broken down per creature type, captured once at fight start and never
      * pruned afterward — unlike `units`, which only ever lists CURRENTLY-existing stacks (a fully-wiped
      * stack is removed server-side and never reappears in a later snapshot). Parallel arrays:
      * creatureIds[i] fielded in amounts[i]. Lets a cold-loaded/reloaded finished game render a correct
      * per-creature casualty breakdown even for a team that lost an entire creature type. Empty before
      * the fight starts; absent from older servers (decoder defaults to []). */
-    lowerStartRosterCreatureIds?: number[];
-    lowerStartRosterAmounts?: number[];
-    upperStartRosterCreatureIds?: number[];
-    upperStartRosterAmounts?: number[];
+    leftStartRosterCreatureIds?: number[];
+    leftStartRosterAmounts?: number[];
+    rightStartRosterCreatureIds?: number[];
+    rightStartRosterAmounts?: number[];
 }
 
 export interface PlayAction {
@@ -334,8 +334,8 @@ export interface PlayActionResponse {
 }
 
 export interface DevCreatePlayGameRequest {
-    lowerPlayerId?: string;
-    upperPlayerId?: string;
+    leftPlayerId?: string;
+    rightPlayerId?: string;
     lowerCreatureIds?: number[];
     upperCreatureIds?: number[];
     unitAmount?: number;
@@ -539,8 +539,8 @@ const decodeCell = (bytes: Uint8Array): PlayCell => {
 
 export const encodeDevCreatePlayGameRequest = (request: DevCreatePlayGameRequest): Uint8Array => {
     const writer = new ProtoWriter();
-    writer.string(1, request.lowerPlayerId);
-    writer.string(2, request.upperPlayerId);
+    writer.string(1, request.leftPlayerId);
+    writer.string(2, request.rightPlayerId);
     for (const creatureId of request.lowerCreatureIds ?? []) {
         writer.int32(3, creatureId);
     }
@@ -726,41 +726,41 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         players: [],
         readyPlayerIds: [],
         journalTail: [],
-        maxLowerUnits: 0,
-        maxUpperUnits: 0,
+        maxLeftUnits: 0,
+        maxRightUnits: 0,
         narrowingLayers: 0,
         centerDried: false,
         stepsMoraleMultiplier: 0,
         upNext: [],
         damageStats: [],
-        lowerStartUnits: 0,
-        upperStartUnits: 0,
-        lowerStartHealth: 0,
-        upperStartHealth: 0,
-        lowerArtifactTier1: 0,
-        lowerArtifactTier2: 0,
-        upperArtifactTier1: 0,
-        upperArtifactTier2: 0,
-        lowerDoctrine: 0,
-        upperDoctrine: 0,
-        lowerAugmentPlacement: 0,
-        lowerAugmentArmor: 0,
-        lowerAugmentMight: 0,
-        lowerAugmentSniper: 0,
-        lowerAugmentMovement: 0,
-        upperAugmentPlacement: 0,
-        upperAugmentArmor: 0,
-        upperAugmentMight: 0,
-        upperAugmentSniper: 0,
-        upperAugmentMovement: 0,
-        lowerAugmentEmpower: 0,
-        upperAugmentEmpower: 0,
-        lowerSynergies: [],
-        upperSynergies: [],
-        lowerStartRosterCreatureIds: [],
-        lowerStartRosterAmounts: [],
-        upperStartRosterCreatureIds: [],
-        upperStartRosterAmounts: [],
+        leftStartUnits: 0,
+        rightStartUnits: 0,
+        leftStartHealth: 0,
+        rightStartHealth: 0,
+        leftArtifactTier1: 0,
+        leftArtifactTier2: 0,
+        rightArtifactTier1: 0,
+        rightArtifactTier2: 0,
+        leftDoctrine: 0,
+        rightDoctrine: 0,
+        leftAugmentPlacement: 0,
+        leftAugmentArmor: 0,
+        leftAugmentMight: 0,
+        leftAugmentSniper: 0,
+        leftAugmentMovement: 0,
+        rightAugmentPlacement: 0,
+        rightAugmentArmor: 0,
+        rightAugmentMight: 0,
+        rightAugmentSniper: 0,
+        rightAugmentMovement: 0,
+        leftAugmentEmpower: 0,
+        rightAugmentEmpower: 0,
+        leftSynergies: [],
+        rightSynergies: [],
+        leftStartRosterCreatureIds: [],
+        leftStartRosterAmounts: [],
+        rightStartRosterCreatureIds: [],
+        rightStartRosterAmounts: [],
     };
     while (!reader.done()) {
         const { field, wireType } = reader.tag();
@@ -795,9 +795,9 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         } else if (field === 15) {
             snapshot.journalTail.push(decodeJournalEntry(reader.bytesValue()));
         } else if (field === 16) {
-            snapshot.maxLowerUnits = reader.varintNumber();
+            snapshot.maxLeftUnits = reader.varintNumber();
         } else if (field === 17) {
-            snapshot.maxUpperUnits = reader.varintNumber();
+            snapshot.maxRightUnits = reader.varintNumber();
         } else if (field === 18) {
             snapshot.narrowingLayers = reader.varintNumber();
         } else if (field === 19) {
@@ -811,58 +811,58 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         } else if (field === 23) {
             snapshot.currentTurnEndMs = reader.varintNumber();
         } else if (field === 24) {
-            snapshot.lowerStartUnits = reader.varintNumber();
+            snapshot.leftStartUnits = reader.varintNumber();
         } else if (field === 25) {
-            snapshot.upperStartUnits = reader.varintNumber();
+            snapshot.rightStartUnits = reader.varintNumber();
         } else if (field === 26) {
-            snapshot.lowerStartHealth = reader.varintNumber();
+            snapshot.leftStartHealth = reader.varintNumber();
         } else if (field === 27) {
-            snapshot.upperStartHealth = reader.varintNumber();
+            snapshot.rightStartHealth = reader.varintNumber();
         } else if (field === 28) {
-            snapshot.lowerArtifactTier1 = reader.varintNumber();
+            snapshot.leftArtifactTier1 = reader.varintNumber();
         } else if (field === 29) {
-            snapshot.lowerArtifactTier2 = reader.varintNumber();
+            snapshot.leftArtifactTier2 = reader.varintNumber();
         } else if (field === 30) {
-            snapshot.upperArtifactTier1 = reader.varintNumber();
+            snapshot.rightArtifactTier1 = reader.varintNumber();
         } else if (field === 31) {
-            snapshot.upperArtifactTier2 = reader.varintNumber();
+            snapshot.rightArtifactTier2 = reader.varintNumber();
         } else if (field === 32) {
-            snapshot.lowerDoctrine = reader.varintNumber();
+            snapshot.leftDoctrine = reader.varintNumber();
         } else if (field === 33) {
-            snapshot.upperDoctrine = reader.varintNumber();
+            snapshot.rightDoctrine = reader.varintNumber();
         } else if (field === 34) {
-            snapshot.lowerAugmentPlacement = reader.varintNumber();
+            snapshot.leftAugmentPlacement = reader.varintNumber();
         } else if (field === 35) {
-            snapshot.lowerAugmentArmor = reader.varintNumber();
+            snapshot.leftAugmentArmor = reader.varintNumber();
         } else if (field === 36) {
-            snapshot.lowerAugmentMight = reader.varintNumber();
+            snapshot.leftAugmentMight = reader.varintNumber();
         } else if (field === 37) {
-            snapshot.lowerAugmentSniper = reader.varintNumber();
+            snapshot.leftAugmentSniper = reader.varintNumber();
         } else if (field === 38) {
-            snapshot.lowerAugmentMovement = reader.varintNumber();
+            snapshot.leftAugmentMovement = reader.varintNumber();
         } else if (field === 39) {
-            snapshot.upperAugmentPlacement = reader.varintNumber();
+            snapshot.rightAugmentPlacement = reader.varintNumber();
         } else if (field === 40) {
-            snapshot.upperAugmentArmor = reader.varintNumber();
+            snapshot.rightAugmentArmor = reader.varintNumber();
         } else if (field === 41) {
-            snapshot.upperAugmentMight = reader.varintNumber();
+            snapshot.rightAugmentMight = reader.varintNumber();
         } else if (field === 42) {
-            snapshot.upperAugmentSniper = reader.varintNumber();
+            snapshot.rightAugmentSniper = reader.varintNumber();
         } else if (field === 43) {
-            snapshot.upperAugmentMovement = reader.varintNumber();
+            snapshot.rightAugmentMovement = reader.varintNumber();
         } else if (field === 44) {
             // repeated string: each occurrence is one synergy key ("Faction:synergy:level").
-            (snapshot.lowerSynergies ??= []).push(reader.string());
+            (snapshot.leftSynergies ??= []).push(reader.string());
         } else if (field === 45) {
-            (snapshot.upperSynergies ??= []).push(reader.string());
+            (snapshot.rightSynergies ??= []).push(reader.string());
         } else if (field === 46) {
-            (snapshot.lowerStartRosterCreatureIds ??= []).push(reader.varintNumber());
+            (snapshot.leftStartRosterCreatureIds ??= []).push(reader.varintNumber());
         } else if (field === 47) {
-            (snapshot.lowerStartRosterAmounts ??= []).push(reader.varintNumber());
+            (snapshot.leftStartRosterAmounts ??= []).push(reader.varintNumber());
         } else if (field === 48) {
-            (snapshot.upperStartRosterCreatureIds ??= []).push(reader.varintNumber());
+            (snapshot.rightStartRosterCreatureIds ??= []).push(reader.varintNumber());
         } else if (field === 49) {
-            (snapshot.upperStartRosterAmounts ??= []).push(reader.varintNumber());
+            (snapshot.rightStartRosterAmounts ??= []).push(reader.varintNumber());
         } else if (field === 50) {
             snapshot.placementStage = reader.varintNumber();
         } else if (field === 51) {
@@ -870,9 +870,9 @@ export const decodePlaySnapshot = (bytes: Uint8Array): PlaySnapshot => {
         } else if (field === 52) {
             snapshot.stepsMoraleMultiplier = reader.float64();
         } else if (field === 53) {
-            snapshot.lowerAugmentEmpower = reader.varintNumber();
+            snapshot.leftAugmentEmpower = reader.varintNumber();
         } else if (field === 54) {
-            snapshot.upperAugmentEmpower = reader.varintNumber();
+            snapshot.rightAugmentEmpower = reader.varintNumber();
         } else if (field === 55) {
             snapshot.hideOpponentRosterDuringSetup = reader.bool();
         } else if (field === 56) {

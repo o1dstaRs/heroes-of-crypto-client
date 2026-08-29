@@ -61,10 +61,10 @@ try {
     const store = new HeadlessMatchStore();
     const match = store.createQuickstart(`probe-${Date.now()}`);
     const state = match.getState();
-    const legalActions = match.listLegalActions("LOWER");
+    const legalActions = match.listLegalActions("LEFT");
     const prompt = buildModelChoicePrompt({
         phase: "fight",
-        team: "LOWER",
+        team: "LEFT",
         style: "balanced",
         state,
         legalActions,

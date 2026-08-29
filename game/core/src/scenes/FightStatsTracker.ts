@@ -32,8 +32,8 @@ export interface IRosterTexture {
  * so damage is never silently dropped.
  */
 export const buildFightDamageEntries = (
-    lowerRoster: ReadonlyMap<string, IRosterTexture>,
-    upperRoster: ReadonlyMap<string, IRosterTexture>,
+    leftRoster: ReadonlyMap<string, IRosterTexture>,
+    rightRoster: ReadonlyMap<string, IRosterTexture>,
     damageStats: readonly IDamageStatistic[],
 ): IFightDamageEntry[] => {
     const byKey = new Map<string, IFightDamageEntry>();
@@ -44,8 +44,8 @@ export const buildFightDamageEntries = (
             byKey.set(key(name, team), { name, smallTextureName: entry.smallTextureName, damage: 0, team });
         }
     };
-    seed(lowerRoster, TeamVals.LOWER as TeamType);
-    seed(upperRoster, TeamVals.UPPER as TeamType);
+    seed(leftRoster, TeamVals.LEFT as TeamType);
+    seed(rightRoster, TeamVals.RIGHT as TeamType);
 
     for (const stat of damageStats) {
         const k = key(stat.unitName, stat.team);
@@ -92,30 +92,30 @@ interface IRosterEntry {
  */
 export class FightStatsTracker {
     private started = false;
-    private lowerStartTotal = 0;
-    private upperStartTotal = 0;
-    private lowerStartHp = 0;
-    private upperStartHp = 0;
-    private lastLowerKilled = 0;
-    private lastUpperKilled = 0;
-    private lastLowerHp = 0;
-    private lastUpperHp = 0;
+    private leftStartTotal = 0;
+    private rightStartTotal = 0;
+    private leftStartHp = 0;
+    private rightStartHp = 0;
+    private lastLeftKilled = 0;
+    private lastRightKilled = 0;
+    private lastLeftHp = 0;
+    private lastRightHp = 0;
     private series: IFightStatsSample[] = [];
-    private readonly lowerRoster = new Map<string, IRosterEntry>();
-    private readonly upperRoster = new Map<string, IRosterEntry>();
+    private readonly leftRoster = new Map<string, IRosterEntry>();
+    private readonly rightRoster = new Map<string, IRosterEntry>();
     public reset(): void {
         this.started = false;
-        this.lowerStartTotal = 0;
-        this.upperStartTotal = 0;
-        this.lowerStartHp = 0;
-        this.upperStartHp = 0;
-        this.lastLowerKilled = 0;
-        this.lastUpperKilled = 0;
-        this.lastLowerHp = 0;
-        this.lastUpperHp = 0;
+        this.leftStartTotal = 0;
+        this.rightStartTotal = 0;
+        this.leftStartHp = 0;
+        this.rightStartHp = 0;
+        this.lastLeftKilled = 0;
+        this.lastRightKilled = 0;
+        this.lastLeftHp = 0;
+        this.lastRightHp = 0;
         this.series = [];
-        this.lowerRoster.clear();
-        this.upperRoster.clear();
+        this.leftRoster.clear();
+        this.rightRoster.clear();
     }
     /** Snapshot the starting roster. Call once, right after the fight starts. */
     public start(units: Iterable<IStatUnit>): void {
@@ -125,15 +125,15 @@ export class FightStatsTracker {
             const amount = unit.getAmountAlive();
             if (amount <= 0) continue;
             const roster =
-                team === TeamVals.LOWER ? this.lowerRoster : team === TeamVals.UPPER ? this.upperRoster : undefined;
+                team === TeamVals.LEFT ? this.leftRoster : team === TeamVals.RIGHT ? this.rightRoster : undefined;
             if (!roster) continue;
 
-            if (team === TeamVals.LOWER) {
-                this.lowerStartTotal += amount;
-                this.lowerStartHp += unit.getCumulativeHp();
+            if (team === TeamVals.LEFT) {
+                this.leftStartTotal += amount;
+                this.leftStartHp += unit.getCumulativeHp();
             } else {
-                this.upperStartTotal += amount;
-                this.upperStartHp += unit.getCumulativeHp();
+                this.rightStartTotal += amount;
+                this.rightStartHp += unit.getCumulativeHp();
             }
 
             const name = unit.getName();
@@ -145,19 +145,19 @@ export class FightStatsTracker {
             }
         }
         this.started = true;
-        this.lastLowerHp = this.lowerStartHp;
-        this.lastUpperHp = this.upperStartHp;
+        this.lastLeftHp = this.leftStartHp;
+        this.lastRightHp = this.rightStartHp;
         // Both sides open at full strength, which is what puts the board-share line on the 50/50 midline
         // for the first sample of every fight regardless of how the two armies were built.
         this.series = [
             {
                 lap: 1,
-                lowerKilled: 0,
-                upperKilled: 0,
-                lowerKilledPct: 0,
-                upperKilledPct: 0,
-                lowerHpPct: 100,
-                upperHpPct: 100,
+                leftKilled: 0,
+                rightKilled: 0,
+                leftKilledPct: 0,
+                rightKilledPct: 0,
+                leftHpPct: 100,
+                rightHpPct: 100,
             },
         ];
     }
@@ -169,48 +169,48 @@ export class FightStatsTracker {
     public sample(units: Iterable<IStatUnit>, lap: number): boolean {
         if (!this.started) return false;
 
-        let lowerAlive = 0;
-        let upperAlive = 0;
-        let lowerHp = 0;
-        let upperHp = 0;
+        let leftAlive = 0;
+        let rightAlive = 0;
+        let leftHp = 0;
+        let rightHp = 0;
         for (const unit of units) {
             const team = unit.getTeam();
-            if (team === TeamVals.LOWER) {
-                lowerAlive += unit.getAmountAlive();
-                lowerHp += unit.getCumulativeHp();
-            } else if (team === TeamVals.UPPER) {
-                upperAlive += unit.getAmountAlive();
-                upperHp += unit.getCumulativeHp();
+            if (team === TeamVals.LEFT) {
+                leftAlive += unit.getAmountAlive();
+                leftHp += unit.getCumulativeHp();
+            } else if (team === TeamVals.RIGHT) {
+                rightAlive += unit.getAmountAlive();
+                rightHp += unit.getCumulativeHp();
             }
         }
 
-        const lowerKilled = Math.max(0, this.lowerStartTotal - lowerAlive);
-        const upperKilled = Math.max(0, this.upperStartTotal - upperAlive);
+        const leftKilled = Math.max(0, this.leftStartTotal - leftAlive);
+        const rightKilled = Math.max(0, this.rightStartTotal - rightAlive);
         // Dedupe on HP as well as on deaths. Damage that wounds a stack without finishing a creature still
         // moves the board share, and a deaths-only gate drew those laps as a flat line.
         if (
-            lowerKilled === this.lastLowerKilled &&
-            upperKilled === this.lastUpperKilled &&
-            lowerHp === this.lastLowerHp &&
-            upperHp === this.lastUpperHp
+            leftKilled === this.lastLeftKilled &&
+            rightKilled === this.lastRightKilled &&
+            leftHp === this.lastLeftHp &&
+            rightHp === this.lastRightHp
         ) {
             return false;
         }
 
-        this.lastLowerKilled = lowerKilled;
-        this.lastUpperKilled = upperKilled;
-        this.lastLowerHp = lowerHp;
-        this.lastUpperHp = upperHp;
+        this.lastLeftKilled = leftKilled;
+        this.lastRightKilled = rightKilled;
+        this.lastLeftHp = leftHp;
+        this.lastRightHp = rightHp;
         this.series.push({
             lap,
-            lowerKilled,
-            upperKilled,
-            lowerKilledPct: FightStatsTracker.pct(lowerKilled, this.lowerStartTotal),
-            upperKilledPct: FightStatsTracker.pct(upperKilled, this.upperStartTotal),
+            leftKilled,
+            rightKilled,
+            leftKilledPct: FightStatsTracker.pct(leftKilled, this.leftStartTotal),
+            rightKilledPct: FightStatsTracker.pct(rightKilled, this.rightStartTotal),
             // REMAINING share of each side's own starting health. Normalising per side is what keeps the
             // opening sample at 50/50 even when the two armies never had equal health to begin with.
-            lowerHpPct: FightStatsTracker.pct(lowerHp, this.lowerStartHp),
-            upperHpPct: FightStatsTracker.pct(upperHp, this.upperStartHp),
+            leftHpPct: FightStatsTracker.pct(leftHp, this.leftStartHp),
+            rightHpPct: FightStatsTracker.pct(rightHp, this.rightStartHp),
         });
         return true;
     }
@@ -225,12 +225,12 @@ export class FightStatsTracker {
         // Capture the final state in the time series.
         this.sample(unitArray, lap);
 
-        const aliveByNameLower = new Map<string, number>();
-        const aliveByNameUpper = new Map<string, number>();
+        const aliveByNameLeft = new Map<string, number>();
+        const aliveByNameRight = new Map<string, number>();
         for (const unit of unitArray) {
             const team = unit.getTeam();
             const target =
-                team === TeamVals.LOWER ? aliveByNameLower : team === TeamVals.UPPER ? aliveByNameUpper : undefined;
+                team === TeamVals.LEFT ? aliveByNameLeft : team === TeamVals.RIGHT ? aliveByNameRight : undefined;
             if (!target) continue;
             const name = unit.getName();
             target.set(name, (target.get(name) ?? 0) + unit.getAmountAlive());
@@ -239,13 +239,13 @@ export class FightStatsTracker {
         return {
             winner,
             series: this.series.slice(),
-            lowerDeaths: FightStatsTracker.buildDeaths(this.lowerRoster, aliveByNameLower, TeamVals.LOWER),
-            upperDeaths: FightStatsTracker.buildDeaths(this.upperRoster, aliveByNameUpper, TeamVals.UPPER),
-            damageByUnit: buildFightDamageEntries(this.lowerRoster, this.upperRoster, damageStats),
-            lowerStartTotal: this.lowerStartTotal,
-            upperStartTotal: this.upperStartTotal,
-            lowerKilledTotal: this.lastLowerKilled,
-            upperKilledTotal: this.lastUpperKilled,
+            leftDeaths: FightStatsTracker.buildDeaths(this.leftRoster, aliveByNameLeft, TeamVals.LEFT),
+            rightDeaths: FightStatsTracker.buildDeaths(this.rightRoster, aliveByNameRight, TeamVals.RIGHT),
+            damageByUnit: buildFightDamageEntries(this.leftRoster, this.rightRoster, damageStats),
+            leftStartTotal: this.leftStartTotal,
+            rightStartTotal: this.rightStartTotal,
+            leftKilledTotal: this.lastLeftKilled,
+            rightKilledTotal: this.lastRightKilled,
             totalLaps: lap,
         };
     }

@@ -199,7 +199,7 @@ export const DamageBreakdown: React.FC<{ entries: IFightDamageEntry[] }> = ({ en
     const max = entries.reduce((acc, e) => Math.max(acc, e.damage), 0);
     // Keep one army per column, matching the green-left / red-right comparison used throughout
     // the results plaque. Each army remains ordered by damage dealt.
-    const columns = [TeamVals.LOWER, TeamVals.UPPER]
+    const columns = [TeamVals.LEFT, TeamVals.RIGHT]
         .map((team) => entries.filter((entry) => entry.team === team).sort((a, b) => b.damage - a.damage))
         .filter((column) => column.length > 0);
     // Past this the columns scroll instead of growing. The block sits between the chart and the roster in a

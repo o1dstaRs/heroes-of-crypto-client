@@ -65,7 +65,7 @@ const selectableSides = (attackerCell: { x: number; y: number }) => {
             targetPosition,
             true,
             true,
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             false,
         ),
     );
@@ -197,7 +197,7 @@ describe("ranged target edge selection", () => {
     });
 
     test("keeps the current edge inside a tiny seam dead band instead of alternating every frame", () => {
-        const upperLeft = {
+        const rightBottom = {
             id: "upper-left",
             shootable: true,
             cell: { x: 8, y: 8 },
@@ -205,7 +205,7 @@ describe("ranged target edge selection", () => {
             from: { x: 0, y: 0 },
             to: { x: 50, y: 0 },
         };
-        const upperRight = {
+        const rightTop = {
             id: "upper-right",
             shootable: true,
             cell: { x: 9, y: 8 },
@@ -214,8 +214,12 @@ describe("ranged target edge selection", () => {
             to: { x: 100, y: 0 },
         };
 
-        expect(activeRangeTargetEdge([upperLeft, upperRight], { x: 50.2, y: 0 }, 12, upperLeft)?.id).toBe("upper-left");
-        expect(activeRangeTargetEdge([upperLeft, upperRight], { x: 75, y: 0 }, 12, upperLeft)?.id).toBe("upper-right");
+        expect(activeRangeTargetEdge([rightBottom, rightTop], { x: 50.2, y: 0 }, 12, rightBottom)?.id).toBe(
+            "upper-left",
+        );
+        expect(activeRangeTargetEdge([rightBottom, rightTop], { x: 75, y: 0 }, 12, rightBottom)?.id).toBe(
+            "upper-right",
+        );
     });
 
     test("chooses retained damage before distance, then the nearest edge to the shooter", () => {

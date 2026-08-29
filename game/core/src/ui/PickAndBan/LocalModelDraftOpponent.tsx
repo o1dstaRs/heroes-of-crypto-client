@@ -115,7 +115,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => window.set
 const normalizeVisibleCreature = (creatureId: number): number | undefined =>
     creatureId && creatureId !== CreatureVals.NO_CREATURE ? creatureId : undefined;
 
-const teamName = (team: TeamType): string => (team === TeamVals.LOWER ? "LOWER/GREEN" : "UPPER/RED");
+const teamName = (team: TeamType): string => (team === TeamVals.LEFT ? "LEFT/GREEN" : "RIGHT/RED");
 
 const phaseName = (phase: number): string => {
     switch (phase) {

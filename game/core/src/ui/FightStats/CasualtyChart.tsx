@@ -16,8 +16,8 @@ export const PARCHMENT = "#efe4cc";
 export const WOOD_DARK = "#1c0d03";
 
 export const imgSrc = (name: string): string | undefined => (images as Record<string, string>)[name];
-export const teamColor = (team: TeamType): string => (team === TeamVals.LOWER ? GREEN : RED);
-export const teamName = (team: TeamType): string => t(team === TeamVals.LOWER ? "Green" : "Red");
+export const teamColor = (team: TeamType): string => (team === TeamVals.LEFT ? GREEN : RED);
+export const teamName = (team: TeamType): string => t(team === TeamVals.LEFT ? "Green" : "Red");
 
 const DEFAULT_CHART_W = 600;
 const DEFAULT_CHART_H = 264;
@@ -72,9 +72,9 @@ export const CasualtyChart: React.FC<{
 
     const useDamage = metric === "damage";
     const accGreen = (s: IFightStatsSample): number =>
-        useDamage ? (s.lowerDamagePct ?? s.lowerKilledPct) : s.lowerKilledPct;
+        useDamage ? (s.leftDamagePct ?? s.leftKilledPct) : s.leftKilledPct;
     const accRed = (s: IFightStatsSample): number =>
-        useDamage ? (s.upperDamagePct ?? s.upperKilledPct) : s.upperKilledPct;
+        useDamage ? (s.rightDamagePct ?? s.rightKilledPct) : s.rightKilledPct;
 
     // Lap boundary ticks
     const lapTicks: { x: number; lap: number }[] = [];
@@ -188,13 +188,13 @@ export const CasualtyChart: React.FC<{
 
 /** Compact two-team "% of army lost" readout with mini bars. */
 export const CasualtyPercents: React.FC<{
-    lowerKilledPct: number;
-    upperKilledPct: number;
-}> = ({ lowerKilledPct, upperKilledPct }) => {
+    leftKilledPct: number;
+    rightKilledPct: number;
+}> = ({ leftKilledPct, rightKilledPct }) => {
     useTranslation();
     const rows: { team: TeamType; pct: number }[] = [
-        { team: TeamVals.LOWER as TeamType, pct: lowerKilledPct },
-        { team: TeamVals.UPPER as TeamType, pct: upperKilledPct },
+        { team: TeamVals.LEFT as TeamType, pct: leftKilledPct },
+        { team: TeamVals.RIGHT as TeamType, pct: rightKilledPct },
     ];
     return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, width: "100%" }}>

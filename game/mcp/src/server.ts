@@ -62,7 +62,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "List legal pick/ban actions for the active drafting team.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
         },
         async ({ matchId, team }) =>
             jsonResponse(store.getDraftOrThrow(matchId).listLegalActions(team as TeamName | undefined)),
@@ -73,7 +73,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "List legal pick/ban actions ranked by the built-in draft scorer.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
             style: z.enum(["balanced", "aggressive", "defensive"]).default("balanced"),
         },
         async ({ matchId, style, team }) =>
@@ -90,7 +90,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "Choose an AI pick/ban action for the current draft step.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
             reason: z
                 .enum([
                     "sandbox_toggle",
@@ -118,7 +118,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "Submit a legal pick/ban action by action id. When the draft completes, the response includes the created match.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]),
+            team: z.enum(["LEFT", "RIGHT"]),
             actionId: z.string(),
         },
         async ({ actionId, matchId, team }) =>
@@ -136,7 +136,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "Choose and submit pick/ban actions until the requested bot team is no longer active, the draft completes, or the action cap is hit.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
             reason: z
                 .enum([
                     "sandbox_toggle",
@@ -203,7 +203,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "List legal actions for the active unit.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
         },
         async ({ matchId, team }) => jsonResponse(store.getOrThrow(matchId).listLegalActions(team as TeamName)),
     );
@@ -213,7 +213,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "List legal actions ranked by the built-in tactical scorer.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
             style: z.enum(["balanced", "aggressive", "defensive"]).default("balanced"),
         },
         async ({ matchId, style, team }) =>
@@ -230,7 +230,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "Choose an AI action for the current turn.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
             reason: z
                 .enum([
                     "sandbox_toggle",
@@ -258,7 +258,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "Submit a legal action by action id, or a raw GameAction JSON object.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]),
+            team: z.enum(["LEFT", "RIGHT"]),
             actionId: z.string().optional(),
             actionJson: z.string().optional(),
         },
@@ -277,7 +277,7 @@ export function createHeroesMcpServer(store = new HeadlessMatchStore()): McpServ
         "Choose and submit actions until the bot-controlled active team finishes its turn or the fight ends. Suppresses repeated attack-type setup switches for one active unit.",
         {
             matchId: z.string(),
-            team: z.enum(["LOWER", "UPPER"]).optional(),
+            team: z.enum(["LEFT", "RIGHT"]).optional(),
             reason: z
                 .enum([
                     "sandbox_toggle",

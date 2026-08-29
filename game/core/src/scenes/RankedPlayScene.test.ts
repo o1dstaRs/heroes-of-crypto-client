@@ -55,7 +55,7 @@ import { shouldDisplayAppliedBuff } from "../pixi/PixiScene";
 
 const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUnitState => ({
     id: "unit",
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
     name: "Peasant",
     creatureId: CreatureVals.PEASANT,
     amountAlive: 10,
@@ -79,7 +79,7 @@ const unitState = (overrides: Partial<AuthoritativeUnitState>): AuthoritativeUni
 
 const placementSnapshot = (units: AuthoritativeUnitState[]): AuthoritativeGameSnapshot => ({
     gameId: "game-1",
-    viewerTeam: TeamVals.LOWER,
+    viewerTeam: TeamVals.LEFT,
     phase: 1,
     gridType: 1,
     currentLap: 0,
@@ -249,17 +249,17 @@ describe("ranked placement scene state", () => {
         const preFinalStats = {
             winner: TeamVals.NO_TEAM,
             series: [],
-            lowerDeaths: [],
-            upperDeaths: [],
-            lowerStartTotal: 10,
-            upperStartTotal: 12,
-            lowerKilledTotal: 0,
-            upperKilledTotal: 0,
+            leftDeaths: [],
+            rightDeaths: [],
+            leftStartTotal: 10,
+            rightStartTotal: 12,
+            leftKilledTotal: 0,
+            rightKilledTotal: 0,
             totalLaps: 1,
         };
         const visibleStateAfterFinishEvent = {
             hasFinished: true,
-            teamWin: TeamVals.UPPER,
+            teamWin: TeamVals.RIGHT,
             fightStats: preFinalStats,
         };
 
@@ -269,20 +269,20 @@ describe("ranked placement scene state", () => {
         expect(
             shouldPublishRankedFinish(terminalSnapshot, {
                 ...visibleStateAfterFinishEvent,
-                fightStats: { ...preFinalStats, winner: TeamVals.UPPER },
+                fightStats: { ...preFinalStats, winner: TeamVals.RIGHT },
             }),
         ).toBe(false);
         expect(
             shouldPublishRankedFinish(terminalSnapshot, {
                 ...visibleStateAfterFinishEvent,
-                fightStats: { ...preFinalStats, winner: TeamVals.LOWER },
+                fightStats: { ...preFinalStats, winner: TeamVals.LEFT },
             }),
         ).toBe(true);
     });
 
     test("carries server-computed morale and initiative onto reconstructed units", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
-            placementSnapshot([unitState({ id: "own", team: TeamVals.LOWER, morale: 9, initiative: 7 })]),
+            placementSnapshot([unitState({ id: "own", team: TeamVals.LEFT, morale: 9, initiative: 7 })]),
         );
         const own = state.units.find((unit) => unit.properties.id === "own");
         // The server (common engine) computes these and ships them in the snapshot; the client must
@@ -294,8 +294,8 @@ describe("ranked placement scene state", () => {
     test("carries the server hasHourglassed flag onto reconstructed units (drives ranked canHourglass sync)", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
-                unitState({ id: "waited", team: TeamVals.LOWER, hasHourglassed: true }),
-                unitState({ id: "fresh", team: TeamVals.LOWER, hasHourglassed: false }),
+                unitState({ id: "waited", team: TeamVals.LEFT, hasHourglassed: true }),
+                unitState({ id: "fresh", team: TeamVals.LEFT, hasHourglassed: false }),
             ]),
         );
         // Sandbox.applyAuthoritativeSnapshot folds this per-unit flag into fightProperties.alreadyHourglass so
@@ -309,7 +309,7 @@ describe("ranked placement scene state", () => {
             placementSnapshot([
                 unitState({
                     id: "victim",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     debuffs: ["Deep Wounds"],
                     debuffLaps: [3],
                     debuffDescriptions: ["Next attack with Deep Wounds ability will deal 12% more damage."],
@@ -457,7 +457,7 @@ describe("ranked placement scene state", () => {
                     id: "tiger",
                     name: "White Tiger",
                     creatureId: CreatureVals.WHITE_TIGER,
-                    team: TeamVals.LOWER,
+                    team: TeamVals.LEFT,
                     placed: true,
                     baseCell: tigerCell,
                     cells: [tigerCell],
@@ -469,7 +469,7 @@ describe("ranked placement scene state", () => {
                 }),
                 unitState({
                     id: "enemy",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     placed: true,
                     baseCell: enemyCell,
                     cells: [enemyCell],
@@ -556,7 +556,7 @@ describe("ranked placement scene state", () => {
                 placementSnapshot([
                     unitState({
                         id: "archer",
-                        team: TeamVals.LOWER,
+                        team: TeamVals.LEFT,
                         name: "Orc",
                         creatureId: CreatureVals.ORC,
                         rangeShots,
@@ -580,7 +580,7 @@ describe("ranked placement scene state", () => {
                 placementSnapshot([
                     unitState({
                         id: "ranked-orc",
-                        team: TeamVals.LOWER,
+                        team: TeamVals.LEFT,
                         name: "Orc",
                         creatureId: CreatureVals.ORC,
                         rangeShots,
@@ -592,7 +592,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 snapshotProperties(7),
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -617,10 +617,10 @@ describe("ranked placement scene state", () => {
     test("keeps revealed opponent units visible while hiding unknown opponent placeholders", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
-                unitState({ id: "own", team: TeamVals.LOWER, name: "Peasant", creatureId: CreatureVals.PEASANT }),
+                unitState({ id: "own", team: TeamVals.LEFT, name: "Peasant", creatureId: CreatureVals.PEASANT }),
                 unitState({
                     id: "known-op",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     name: "Orc",
                     creatureId: CreatureVals.ORC,
                     placed: true,
@@ -629,7 +629,7 @@ describe("ranked placement scene state", () => {
                 }),
                 unitState({
                     id: "hidden-op",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     name: "Unknown",
                     creatureId: CreatureVals.NO_CREATURE,
                     amountAlive: 0,
@@ -642,7 +642,7 @@ describe("ranked placement scene state", () => {
 
         expect(state.units.map((unit) => unit.properties.id).sort()).toEqual(["known-op", "own"]);
         expect(state.units.find((unit) => unit.properties.id === "known-op")).toMatchObject({
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             placed: false,
             cells: [],
         });
@@ -650,10 +650,10 @@ describe("ranked placement scene state", () => {
 
     test("applies explicit Setup roster privacy while preserving the public default and Board reveal", () => {
         const units = [
-            unitState({ id: "own", team: TeamVals.LOWER, name: "Peasant", creatureId: CreatureVals.PEASANT }),
+            unitState({ id: "own", team: TeamVals.LEFT, name: "Peasant", creatureId: CreatureVals.PEASANT }),
             unitState({
                 id: "known-op",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 name: "Orc",
                 creatureId: CreatureVals.ORC,
                 placed: true,
@@ -700,7 +700,7 @@ describe("ranked placement scene state", () => {
         expect(publicSetup.units.map((unit) => unit.properties.id).sort()).toEqual(["known-op", "own"]);
         expect(board.units.map((unit) => unit.properties.id).sort()).toEqual(["known-op", "own"]);
         expect(board.units.find((unit) => unit.properties.id === "known-op")).toMatchObject({
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             placed: false,
             cells: [],
             properties: { amount_alive: 1 },
@@ -715,7 +715,7 @@ describe("ranked placement scene state", () => {
             placementSnapshot([
                 unitState({
                     id: "angel",
-                    team: TeamVals.LOWER,
+                    team: TeamVals.LEFT,
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
                     abilities: ["Arrows Wingshield Blessing", "Angelic Host Blessing"], // Resurrection already spent
@@ -732,7 +732,7 @@ describe("ranked placement scene state", () => {
     test("keeps all base abilities when the snapshot omits the live ability list (older server)", () => {
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
-                unitState({ id: "angel", team: TeamVals.LOWER, name: "Angel", creatureId: CreatureVals.ANGEL }),
+                unitState({ id: "angel", team: TeamVals.LEFT, name: "Angel", creatureId: CreatureVals.ANGEL }),
             ]),
         );
 
@@ -844,7 +844,7 @@ describe("ranked placement scene state", () => {
                 }),
                 unitState({
                     id: "aura-victim",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
                     abilities: ["Resurrection"],
@@ -874,7 +874,7 @@ describe("ranked placement scene state", () => {
                 unitState({ id: "spell-thief", abilities: ["Resurrection"] }),
                 unitState({
                     id: "spell-victim",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
                     abilities: ["Arrows Wingshield Blessing"],
@@ -904,7 +904,7 @@ describe("ranked placement scene state", () => {
                 }),
                 unitState({
                     id: "spellbook-victim",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     name: "Healer",
                     creatureId: CreatureVals.HEALER,
                     abilities: [],
@@ -976,7 +976,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 initialProperties,
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1020,7 +1020,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 snapshotProperties(3.7),
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1067,7 +1067,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 snapshotProperties(7),
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1108,7 +1108,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 snapshotProperties(),
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1158,7 +1158,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 snapshotProperties(),
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1205,7 +1205,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 snapshotProperties(0.92, 0),
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1256,7 +1256,7 @@ describe("ranked placement scene state", () => {
             Unit.createUnit(
                 initialProperties,
                 new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -1298,7 +1298,7 @@ describe("ranked placement scene state", () => {
         const rebuilt = Unit.createUnit(
             properties,
             new GridSettings(16, 1600, 0, 1600, 0, 0, 0),
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             UnitVals.CREATURE,
             new AbilityFactory(effectFactory),
             effectFactory,
@@ -1318,10 +1318,10 @@ describe("ranked placement scene state", () => {
         // animation every tick, which was the "opponent army getting killed on the edge every second" bug.
         const state = authoritativeSnapshotToSandboxSceneState(
             placementSnapshot([
-                unitState({ id: "own", team: TeamVals.LOWER, name: "Peasant", creatureId: CreatureVals.PEASANT }),
+                unitState({ id: "own", team: TeamVals.LEFT, name: "Peasant", creatureId: CreatureVals.PEASANT }),
                 unitState({
                     id: "op",
-                    team: TeamVals.UPPER,
+                    team: TeamVals.RIGHT,
                     name: "Orc",
                     creatureId: CreatureVals.ORC,
                     placed: true,
@@ -1344,7 +1344,7 @@ describe("ranked placement scene state", () => {
                 ...placementSnapshot([
                     unitState({
                         id: "known-op",
-                        team: TeamVals.UPPER,
+                        team: TeamVals.RIGHT,
                         name: "Orc",
                         creatureId: CreatureVals.ORC,
                         placed: true,
@@ -1361,7 +1361,7 @@ describe("ranked placement scene state", () => {
 
         expect(state.units).toHaveLength(1);
         expect(state.units[0]).toMatchObject({
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             placed: true,
             cells: [{ x: 9, y: 13 }],
             baseCell: { x: 9, y: 13 },
@@ -1408,7 +1408,7 @@ describe("revealed opponent roster row", () => {
     /** Cell sets, not cell lists: every one of these layouts is consumed as an unordered footprint. */
     const cellSet = (cells: { x: number; y: number }[]): string[] => cells.map((cell) => `${cell.x}:${cell.y}`).sort();
 
-    test("centres revealed opponents on the front cells of the upper placement zone", () => {
+    test("centres revealed opponents on the front cells of the right placement zone", () => {
         const footprints = centeredPlacementLineCells([SMALL, SMALL, SMALL, SMALL, SMALL, LARGE], 1, 14, 12, true);
         const occupiedXs = footprints.flat().map((cell) => cell.x);
 
@@ -1458,7 +1458,7 @@ describe("revealed opponent roster row", () => {
         );
     });
 
-    test("mirrors a large creature away from the battlefield for the lower zone", () => {
+    test("mirrors a large creature away from the battlefield for the left zone", () => {
         expect(cellSet(centeredPlacementLineCells([LARGE], 1, 14, 3, false)[0])).toEqual(
             cellSet([
                 { x: 7, y: 2 },
@@ -1539,14 +1539,14 @@ describe("revealed opponent roster row", () => {
     });
 
     test("stands the row on the zone's outermost cell row (inside the placement area)", () => {
-        // UPPER opponent: zone boundary at y=1920 -> half a step inside, the center of cell row 14.
+        // RIGHT opponent: zone boundary at y=1920 -> half a step inside, the center of cell row 14.
         expect(revealedOpponentRowY(2048, 1920, STEP, true)).toBe(1856);
-        // LOWER opponent mirrors it.
+        // LEFT opponent mirrors it.
         expect(revealedOpponentRowY(0, 128, STEP, false)).toBe(192);
     });
 
     test("sits on the opponent's half once their zone cells are converted to world coordinates", () => {
-        // The UPPER rectangle zone occupies cell rows 12-14, so its outermost row is y = 14. Placement
+        // The RIGHT rectangle zone occupies cell rows 12-14, so its outermost row is y = 14. Placement
         // geometry hands back CELL INDICES; feeding those straight in (the old bug) put the whole row at
         // y ≈ 14 — the far side of the board, in a pile.
         const outermostCenterY = GridMath.getPositionForCell({ x: 1, y: 14 }, MIN_X, STEP, STEP / 2).y;

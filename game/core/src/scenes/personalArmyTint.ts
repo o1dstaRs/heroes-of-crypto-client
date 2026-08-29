@@ -42,8 +42,19 @@ interface IPersonalArmyTintState {
 
 let state: IPersonalArmyTintState | undefined;
 
-/** Same guard the authored banners use: a headless/test renderer has no gradient support. */
-const CAN_RENDER_PERSONAL_FLAG_GRADIENT = typeof FillGradient === "function";
+/**
+ * Whether a FillGradient can actually be built here.
+ *
+ * Pixi rasterises a gradient through a real 2D canvas, so BUILDING one under a headless test throws
+ * `document is not defined` from inside Pixi. The check has to be the canvas, not `typeof FillGradient`:
+ * the class is importable in any environment, so that test passes headless and the crash lands anyway.
+ *
+ * Exported because the authored green/red banners need exactly the same answer. This used to be two
+ * expressions in two files that only claimed to agree; they drifted the moment GREEN became a pickable
+ * preset, because that made this path reachable for every plain green unit rather than only a tinted one.
+ */
+export const CAN_RENDER_FLAG_GRADIENT =
+    typeof document !== "undefined" && document.createElement("canvas").getContext("2d") !== null;
 
 export const setPersonalArmyTint = (viewerTeam: TeamType | undefined, live: boolean): void => {
     state = { viewerTeam, presetId: readPlayerArmyColorId(), live };
@@ -93,7 +104,7 @@ export const personalArmyPresetFor = (team: TeamType): IArmyColorPreset | undefi
 const gradientCache = new Map<string, FillGradient>();
 
 export const personalArmyFlagGradient = (color: number): FillGradient | undefined => {
-    if (!CAN_RENDER_PERSONAL_FLAG_GRADIENT) {
+    if (!CAN_RENDER_FLAG_GRADIENT) {
         return undefined;
     }
     // Keyed by the resolved COLOUR rather than the team: by the time the banner is drawn the caller has

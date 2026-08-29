@@ -10,7 +10,7 @@ const envelope = {
     gameId: "game-1",
     playerId: "player-1",
     expectedSequence: 12,
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
 };
 
 describe("createPlayActionFromGameAction", () => {
@@ -208,7 +208,7 @@ describe("createPlayActionFromGameAction", () => {
         const placement: GameAction = {
             type: "place_unit",
             unitId: "u1",
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             unitName: "Peasant",
             cells: [{ x: 10, y: 11 }],
         };
@@ -216,7 +216,7 @@ describe("createPlayActionFromGameAction", () => {
         expect(createPlayActionFromGameAction(placement, envelope)).toMatchObject({
             type: PlayActionType.PLACE_UNIT,
             unitId: "u1",
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             unitName: "Peasant",
             cells: [{ x: 10, y: 11 }],
         });
@@ -261,22 +261,22 @@ describe("createPlayActionFromGameAction", () => {
 
     it("maps request_additional_time carrying the requesting team", () => {
         expect(
-            createPlayActionFromGameAction({ type: "request_additional_time", team: TeamVals.UPPER }, envelope),
+            createPlayActionFromGameAction({ type: "request_additional_time", team: TeamVals.RIGHT }, envelope),
         ).toMatchObject({
             type: PlayActionType.REQUEST_ADDITIONAL_TIME,
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
         });
     });
 
     it("maps an augment carrying category (attackType) + level (amount) + team", () => {
         expect(
             createPlayActionFromGameAction(
-                { type: "augment", team: TeamVals.UPPER, augmentKind: "Might", augmentValue: 17 },
+                { type: "augment", team: TeamVals.RIGHT, augmentKind: "Might", augmentValue: 17 },
                 envelope,
             ),
         ).toMatchObject({
             type: PlayActionType.AUGMENT,
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             attackType: 3, // Might
             amount: 17,
         });
@@ -326,14 +326,14 @@ describe("createGameActionFromPlayAction", () => {
             createGameActionFromPlayAction({
                 type: PlayActionType.PLACE_UNIT,
                 unitId: "u1",
-                team: TeamVals.UPPER,
+                team: TeamVals.RIGHT,
                 unitName: "Peasant",
                 cells: [{ x: 10, y: 11 }],
             }),
         ).toEqual({
             type: "place_unit",
             unitId: "u1",
-            team: TeamVals.UPPER,
+            team: TeamVals.RIGHT,
             unitName: "Peasant",
             cells: [{ x: 10, y: 11 }],
         });
@@ -364,17 +364,17 @@ describe("createGameActionFromPlayAction", () => {
         ).toEqual({ type: "split_unit", unitId: "u3", amount: 4, cells: [{ x: 5, y: 6 }] });
 
         expect(
-            createGameActionFromPlayAction({ type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: TeamVals.LOWER }),
-        ).toEqual({ type: "request_additional_time", team: TeamVals.LOWER });
+            createGameActionFromPlayAction({ type: PlayActionType.REQUEST_ADDITIONAL_TIME, team: TeamVals.LEFT }),
+        ).toEqual({ type: "request_additional_time", team: TeamVals.LEFT });
 
         expect(
             createGameActionFromPlayAction({
                 type: PlayActionType.AUGMENT,
-                team: TeamVals.LOWER,
+                team: TeamVals.LEFT,
                 attackType: 4, // Sniper
                 amount: 40,
             }),
-        ).toEqual({ type: "augment", team: TeamVals.LOWER, augmentKind: "Sniper", augmentValue: 40 });
+        ).toEqual({ type: "augment", team: TeamVals.LEFT, augmentKind: "Sniper", augmentValue: 40 });
     });
 
     it("skips protocol entries that do not describe one concrete common action", () => {

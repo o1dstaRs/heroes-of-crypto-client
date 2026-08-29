@@ -225,9 +225,9 @@ describe("placement tile highlight", () => {
         const dimPhase = -Math.PI / (2 * 0.65);
         const brightPhase = Math.PI / (2 * 0.65);
 
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_LEFT)).toBe(true);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_RIGHT)).toBe(true);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_LEFT)).toBe(false);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.RIGHT_BOTTOM)).toBe(true);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.RIGHT_TOP)).toBe(true);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.LEFT_BOTTOM)).toBe(false);
         expect(ENEMY_MOVEMENT_HIGHLIGHT_COLOR).toBe(0xff3b3b);
         expect(movementFillAlphaForPhase(dimPhase)).toBeCloseTo(0.065);
         expect(movementFillAlphaForPhase(brightPhase)).toBeCloseTo(0.08);
@@ -241,13 +241,13 @@ describe("placement tile highlight", () => {
         ).toBeCloseTo(movementFillAlphaForPhase(brightPhase));
     });
 
-    test("washes the UPPER field red and the LOWER field green, from every seat", () => {
-        // Placement zones are coloured by TEAM, not by viewer: an UPPER player's own zone reads RED. The
+    test("washes the RIGHT field red and the LEFT field green, from every seat", () => {
+        // Placement zones are coloured by TEAM, not by viewer: a RIGHT player's own zone reads RED. The
         // viewer-relative flip briefly reversed this (b0aed99c) and was reverted — see scenes/teamColors.ts.
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_LEFT)).toBe(true);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.UPPER_RIGHT)).toBe(true);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_LEFT)).toBe(false);
-        expect(placementUsesEnemyMovementWash(PlacementPositionType.LOWER_RIGHT)).toBe(false);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.RIGHT_BOTTOM)).toBe(true);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.RIGHT_TOP)).toBe(true);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.LEFT_BOTTOM)).toBe(false);
+        expect(placementUsesEnemyMovementWash(PlacementPositionType.LEFT_TOP)).toBe(false);
     });
     test("slices every green cell from its exact region of one continuous carpet image", () => {
         const cells = [
@@ -272,8 +272,8 @@ describe("placement tile highlight", () => {
     });
     test("uses upgrade-dependent left and right deployment columns", () => {
         const gs = settings();
-        const left = new DrawableRectanglePlacement(gs, PlacementPositionType.LOWER_LEFT, 3);
-        const right = new DrawableRectanglePlacement(gs, PlacementPositionType.UPPER_RIGHT, 5);
+        const left = new DrawableRectanglePlacement(gs, PlacementPositionType.LEFT_BOTTOM, 3);
+        const right = new DrawableRectanglePlacement(gs, PlacementPositionType.RIGHT_TOP, 5);
 
         expect(left.possibleCellPositions()).toHaveLength(3 * (GridConstants.GRID_SIZE - 2));
         expect(left.possibleCellPositions().every(({ x, y }) => x >= 1 && x <= 3 && y >= 1 && y <= 14)).toBe(true);
@@ -283,7 +283,7 @@ describe("placement tile highlight", () => {
 
     test("validates world-space cell centers through the shared placement contract", () => {
         const gs = settings();
-        const left = new DrawableRectanglePlacement(gs, PlacementPositionType.LOWER_LEFT, 3);
+        const left = new DrawableRectanglePlacement(gs, PlacementPositionType.LEFT_BOTTOM, 3);
         const positionFor = (cell: { x: number; y: number }) =>
             GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
 
@@ -457,49 +457,49 @@ describe("personal army tint on the placement wash", () => {
     });
 
     test("both zones keep their authored wash when no colour is chosen", () => {
-        setPersonalArmyTint(TeamVals.LOWER, true);
+        setPersonalArmyTint(TeamVals.LEFT, true);
 
-        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.LEFT_TOP, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
             GREEN_PLACEMENT_HIGHLIGHT_COLOR,
         );
-        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.RIGHT_BOTTOM, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
             ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
         );
     });
 
     test("the player's own zone takes their colour and the opponent's turns red", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.LOWER, true);
+        setPersonalArmyTint(TeamVals.LEFT, true);
 
-        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.LEFT_TOP, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
             AMETHYST.gradient[1],
         );
-        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.RIGHT_BOTTOM, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
             OPPONENT_ARMY_COLOR.color,
         );
     });
 
-    test("a green pick from the UPPER seat does not leave two green zones facing each other", () => {
+    test("a green pick from the RIGHT seat does not leave two green zones facing each other", () => {
         const green = ARMY_COLOR_PRESETS.find((preset) => preset.id === "green")!;
         writePlayerArmyColorId(green.id);
-        setPersonalArmyTint(TeamVals.UPPER, true);
+        setPersonalArmyTint(TeamVals.RIGHT, true);
 
-        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.RIGHT_BOTTOM, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
             green.color,
         );
-        // The LOWER zone opposite is the opponent's, so it is washed in the enemy's deep red instead of its
+        // The LEFT zone opposite is the opponent's, so it is washed in the enemy's deep red instead of its
         // own dark emerald — this is the case the whole opponent repaint exists for.
-        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.LEFT_TOP, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
             OPPONENT_ARMY_COLOR.gradient[1],
         );
     });
 
     test("each side gets the tone its opacity was tuned for", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.UPPER, true);
+        setPersonalArmyTint(TeamVals.RIGHT, true);
 
         // The red wash is bright and drawn plainly; the green one is near-black with its opacity scaled up.
-        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.RIGHT_BOTTOM, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
             AMETHYST.color,
         );
         expect(AMETHYST.gradient[1]).not.toBe(AMETHYST.color);
@@ -507,12 +507,12 @@ describe("personal army tint on the placement wash", () => {
 
     test("a replay is washed in the true side colours", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.LOWER, false);
+        setPersonalArmyTint(TeamVals.LEFT, false);
 
-        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.LEFT_TOP, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
             GREEN_PLACEMENT_HIGHLIGHT_COLOR,
         );
-        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+        expect(placementWashColor(PlacementPositionType.RIGHT_BOTTOM, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
             ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
         );
     });

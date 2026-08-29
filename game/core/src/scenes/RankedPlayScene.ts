@@ -203,8 +203,8 @@ export const revealedOpponentRowY = (
     _edgeY: number,
     zoneOuterEdgeY: number,
     step: number,
-    isUpperEdge: boolean,
-): number => zoneOuterEdgeY + (isUpperEdge ? -step * 0.5 : step * 0.5);
+    isRightEdge: boolean,
+): number => zoneOuterEdgeY + (isRightEdge ? -step * 0.5 : step * 0.5);
 
 /**
  * Sprite scale for the roster row. 0.85 keeps a large (2x2) silhouette inside the one-cell strip; past
@@ -233,7 +233,7 @@ export const centeredPlacementLineCells = (
     minCellX: number,
     maxCellX: number,
     frontRowY: number,
-    isUpper: boolean,
+    isRight: boolean,
 ): HoCMath.XY[][] => {
     const availableWidth = Math.max(0, maxCellX - minCellX + 1);
     const occupiedWidth = footprints.reduce((sum, footprint) => sum + footprint.width, 0);
@@ -243,10 +243,10 @@ export const centeredPlacementLineCells = (
     let x = minCellX + Math.max(0, Math.floor((availableWidth - lineWidth) / 2));
 
     return footprints.map(({ width, height }) => {
-        // The body always grows away from the battlefield: upward from the front row for the upper team,
-        // downward for the lower one. Since the footprint hangs DOWN-left of its anchor, growing upward
+        // The body always grows away from the battlefield: upward from the front row for the right team,
+        // downward for the left one. Since the footprint hangs DOWN-left of its anchor, growing upward
         // means lifting the anchor by (height - 1) and growing downward means leaving it on the front row.
-        const y = isUpper ? frontRowY + height - 1 : frontRowY;
+        const y = isRight ? frontRowY + height - 1 : frontRowY;
         const cells = GridMath.getFootprintCellsForAnchor({ x: x + width - 1, y }, width, height);
         x += width + gap;
         return cells;
@@ -1327,8 +1327,8 @@ export const shouldPublishRankedFinish = (
     const finishAlreadyPublished =
         !!visibleState?.hasFinished &&
         !!stats &&
-        (stats.lowerStartTotal > 0 || stats.upperStartTotal > 0) &&
-        (statsWinner === TeamVals.LOWER || statsWinner === TeamVals.UPPER) &&
+        (stats.leftStartTotal > 0 || stats.rightStartTotal > 0) &&
+        (statsWinner === TeamVals.LEFT || statsWinner === TeamVals.RIGHT) &&
         statsWinner === visibleState.teamWin;
     return !finishAlreadyPublished;
 };
@@ -1347,8 +1347,8 @@ export class RankedPlayScene extends Sandbox {
     private readonly lastPlacementStateByUnitId = new Map<string, string>();
     private readonly playedAuthoritativeActionSequences = new Set<number>();
     private authoritativePlaybackGameId = "";
-    private readonly rankedStatsLowerRoster = new Map<string, RankedFightRosterEntry>();
-    private readonly rankedStatsUpperRoster = new Map<string, RankedFightRosterEntry>();
+    private readonly rankedStatsLeftRoster = new Map<string, RankedFightRosterEntry>();
+    private readonly rankedStatsRightRoster = new Map<string, RankedFightRosterEntry>();
     // Unit ids already folded into the casualty roster, so each stack is counted exactly once as the
     // roster is accumulated across snapshots (see mergeRankedRoster).
     private readonly rankedStatsCountedUnitIds = new Set<string>();
@@ -1375,14 +1375,14 @@ export class RankedPlayScene extends Sandbox {
     private awaitingTurnHandoff = false;
     private rankedStatsGameId = "";
     private rankedStatsStarted = false;
-    private rankedStatsLowerStartTotal = 0;
-    private rankedStatsUpperStartTotal = 0;
-    private rankedStatsLowerStartHealthTotal = 0;
-    private rankedStatsUpperStartHealthTotal = 0;
-    private rankedStatsLastLowerKilled = 0;
-    private rankedStatsLastUpperKilled = 0;
-    private rankedStatsLastLowerDamage = 0;
-    private rankedStatsLastUpperDamage = 0;
+    private rankedStatsLeftStartTotal = 0;
+    private rankedStatsRightStartTotal = 0;
+    private rankedStatsLeftStartHealthTotal = 0;
+    private rankedStatsRightStartHealthTotal = 0;
+    private rankedStatsLastLeftKilled = 0;
+    private rankedStatsLastRightKilled = 0;
+    private rankedStatsLastLeftDamage = 0;
+    private rankedStatsLastRightDamage = 0;
     private rankedStatsSeries: IFightStatsSample[] = [];
     private rankedSceneLogGameId = "";
     private rankedSceneLogSequence = -1;
@@ -1750,7 +1750,7 @@ export class RankedPlayScene extends Sandbox {
         }
         // viewerTeam answers OWNERSHIP only — whose turn it is, which units this seat may drive, which
         // placement zone is its own. It must never reach the colour helpers: board colours are team-fixed
-        // (LOWER green / UPPER red) on every screen, so both players see the same match the same way.
+        // (LEFT green / RIGHT red) on every screen, so both players see the same match the same way.
         this.viewerTeam = snapshot.viewerTeam === undefined ? undefined : (snapshot.viewerTeam as TeamType);
         // A player may tint their OWN army (settings menu). Armed only here, for a live authoritative
         // fight this client is playing: replays and the sandbox clear it, so a recorded match is always
@@ -2343,7 +2343,7 @@ export class RankedPlayScene extends Sandbox {
             return positions;
         }
 
-        const opponentTeam = this.viewerTeam === TeamVals.LOWER ? TeamVals.UPPER : TeamVals.LOWER;
+        const opponentTeam = this.viewerTeam === TeamVals.LEFT ? TeamVals.RIGHT : TeamVals.LEFT;
         const revealedUnits = units
             .filter((unit) => unit.team === opponentTeam && !unit.dead && (!unit.placed || !unit.cells.length))
             .sort((a, b) => a.properties.id.localeCompare(b.properties.id));
@@ -2367,7 +2367,7 @@ export class RankedPlayScene extends Sandbox {
                 zoneCells.push(...placement.possibleCellPositions(true));
             }
         }
-        const isOpponentUpper = opponentTeam === TeamVals.UPPER;
+        const isOpponentRight = opponentTeam === TeamVals.RIGHT;
         if (!zoneCells.length) {
             return positions;
         }
@@ -2381,8 +2381,8 @@ export class RankedPlayScene extends Sandbox {
         let footprints: HoCMath.XY[][];
         if (uniqueYs.size >= uniqueXs.size) {
             const frontColumnX = zoneCells.reduce(
-                (front, cell) => (isOpponentUpper ? Math.min(front, cell.x) : Math.max(front, cell.x)),
-                isOpponentUpper ? Infinity : -Infinity,
+                (front, cell) => (isOpponentRight ? Math.min(front, cell.x) : Math.max(front, cell.x)),
+                isOpponentRight ? Infinity : -Infinity,
             );
             const frontColumnYs = zoneCells.filter((cell) => cell.x === frontColumnX).map((cell) => cell.y);
             if (!frontColumnYs.length) {
@@ -2393,12 +2393,12 @@ export class RankedPlayScene extends Sandbox {
                 Math.min(...frontColumnYs),
                 Math.max(...frontColumnYs),
                 frontColumnX,
-                isOpponentUpper,
+                isOpponentRight,
             );
         } else {
             const frontRowY = zoneCells.reduce(
-                (front, cell) => (isOpponentUpper ? Math.min(front, cell.y) : Math.max(front, cell.y)),
-                isOpponentUpper ? Infinity : -Infinity,
+                (front, cell) => (isOpponentRight ? Math.min(front, cell.y) : Math.max(front, cell.y)),
+                isOpponentRight ? Infinity : -Infinity,
             );
             const frontRowXs = zoneCells.filter((cell) => cell.y === frontRowY).map((cell) => cell.x);
             if (!frontRowXs.length) {
@@ -2409,7 +2409,7 @@ export class RankedPlayScene extends Sandbox {
                 Math.min(...frontRowXs),
                 Math.max(...frontRowXs),
                 frontRowY,
-                isOpponentUpper,
+                isOpponentRight,
             );
         }
         const allowed = new Set(zoneCells.map((cell) => `${cell.x}:${cell.y}`));
@@ -3102,7 +3102,7 @@ export class RankedPlayScene extends Sandbox {
     protected override resolveSceneLogTeamFlag(): string {
         return "";
     }
-    /** Green/red marker for the acting unit's team (LOWER = green, UPPER = red), the same on every screen. */
+    /** Green/red marker for the acting unit's team (LEFT = green, RIGHT = red), the same on every screen. */
     private logTeamFlag(unitId: string): string {
         // Prefer the team captured from authoritative snapshots; fall back to the live units holder so
         // units that never appear in a snapshot (a local-model opponent's units, units summoned
@@ -3112,7 +3112,7 @@ export class RankedPlayScene extends Sandbox {
     }
     /** Green/red marker straight from a team value (for team-scoped lines with no acting unit). */
     private teamFlag(team: number | undefined): string {
-        return team === TeamVals.LOWER || team === TeamVals.UPPER ? (isGreenTeam(team as TeamType) ? "🟢" : "🔴") : "";
+        return team === TeamVals.LEFT || team === TeamVals.RIGHT ? (isGreenTeam(team as TeamType) ? "🟢" : "🔴") : "";
     }
     private parseJournalEvents(entry: AuthoritativeJournalEntry): GameEvent[] {
         if (!entry.eventsJson.trim()) {
@@ -3277,7 +3277,7 @@ export class RankedPlayScene extends Sandbox {
             case "fight_finished":
                 return event.winningTeam === TeamVals.NO_TEAM
                     ? "Fight finished! Draw!"
-                    : `Fight finished! ${event.winningTeam === TeamVals.LOWER ? "Green" : "Red"} team wins!`;
+                    : `Fight finished! ${event.winningTeam === TeamVals.LEFT ? "Green" : "Red"} team wins!`;
             case "turn_completed":
             case "next_unit_selected":
                 return undefined;
@@ -3572,7 +3572,7 @@ export class RankedPlayScene extends Sandbox {
         }
         if (winner === TeamVals.NO_TEAM && finishedByEngine) {
             const priorWinner = this.sc_visibleState.teamWin;
-            if (priorWinner === TeamVals.LOWER || priorWinner === TeamVals.UPPER) {
+            if (priorWinner === TeamVals.LEFT || priorWinner === TeamVals.RIGHT) {
                 winner = priorWinner;
             }
         }
@@ -3581,7 +3581,7 @@ export class RankedPlayScene extends Sandbox {
         // Mid-fight (no winner yet) we wait until the roster is captured before publishing stats. But
         // once the fight is OVER we must always publish the finished state — gating it on the start
         // totals could silently swallow the fight-results overlay if the roster snapshot was imperfect.
-        if (!fightOver && (fightStats.lowerStartTotal <= 0 || fightStats.upperStartTotal <= 0)) {
+        if (!fightOver && (fightStats.leftStartTotal <= 0 || fightStats.rightStartTotal <= 0)) {
             return;
         }
 
@@ -3601,7 +3601,7 @@ export class RankedPlayScene extends Sandbox {
         }
 
         const finishedWinner = snapshot.winnerTeam as TeamType | undefined;
-        if (finishedWinner === TeamVals.LOWER || finishedWinner === TeamVals.UPPER) {
+        if (finishedWinner === TeamVals.LEFT || finishedWinner === TeamVals.RIGHT) {
             return finishedWinner;
         }
 
@@ -3611,30 +3611,30 @@ export class RankedPlayScene extends Sandbox {
     // holds even when the server only emits the fight_finished event without flagging the snapshot
     // (older servers): otherwise the results overlay never appears in ranked.
     private winnerByAliveTotals(units: SandboxSceneUnitState[]): TeamType {
-        const lowerAlive = this.aliveTotal(units, TeamVals.LOWER as TeamType);
-        const upperAlive = this.aliveTotal(units, TeamVals.UPPER as TeamType);
-        if (lowerAlive > 0 && upperAlive <= 0) {
-            return TeamVals.LOWER as TeamType;
+        const leftAlive = this.aliveTotal(units, TeamVals.LEFT as TeamType);
+        const rightAlive = this.aliveTotal(units, TeamVals.RIGHT as TeamType);
+        if (leftAlive > 0 && rightAlive <= 0) {
+            return TeamVals.LEFT as TeamType;
         }
-        if (upperAlive > 0 && lowerAlive <= 0) {
-            return TeamVals.UPPER as TeamType;
+        if (rightAlive > 0 && leftAlive <= 0) {
+            return TeamVals.RIGHT as TeamType;
         }
         return TeamVals.NO_TEAM;
     }
     private resetRankedFightStats(): void {
         this.rankedStatsGameId = "";
         this.rankedStatsStarted = false;
-        this.rankedStatsLowerStartTotal = 0;
-        this.rankedStatsUpperStartTotal = 0;
-        this.rankedStatsLowerStartHealthTotal = 0;
-        this.rankedStatsUpperStartHealthTotal = 0;
-        this.rankedStatsLastLowerKilled = 0;
-        this.rankedStatsLastUpperKilled = 0;
-        this.rankedStatsLastLowerDamage = 0;
-        this.rankedStatsLastUpperDamage = 0;
+        this.rankedStatsLeftStartTotal = 0;
+        this.rankedStatsRightStartTotal = 0;
+        this.rankedStatsLeftStartHealthTotal = 0;
+        this.rankedStatsRightStartHealthTotal = 0;
+        this.rankedStatsLastLeftKilled = 0;
+        this.rankedStatsLastRightKilled = 0;
+        this.rankedStatsLastLeftDamage = 0;
+        this.rankedStatsLastRightDamage = 0;
         this.rankedStatsSeries = [];
-        this.rankedStatsLowerRoster.clear();
-        this.rankedStatsUpperRoster.clear();
+        this.rankedStatsLeftRoster.clear();
+        this.rankedStatsRightRoster.clear();
         this.rankedStatsCountedUnitIds.clear();
     }
     private clearFinishedVisibleState(): void {
@@ -3652,29 +3652,29 @@ export class RankedPlayScene extends Sandbox {
      * locally-captured totals.
      */
     private applyServerStartTotals(snapshot: AuthoritativeGameSnapshot): void {
-        if (snapshot.lowerStartUnits && snapshot.lowerStartUnits > 0) {
-            this.rankedStatsLowerStartTotal = snapshot.lowerStartUnits;
+        if (snapshot.leftStartUnits && snapshot.leftStartUnits > 0) {
+            this.rankedStatsLeftStartTotal = snapshot.leftStartUnits;
         }
-        if (snapshot.upperStartUnits && snapshot.upperStartUnits > 0) {
-            this.rankedStatsUpperStartTotal = snapshot.upperStartUnits;
+        if (snapshot.rightStartUnits && snapshot.rightStartUnits > 0) {
+            this.rankedStatsRightStartTotal = snapshot.rightStartUnits;
         }
-        if (snapshot.lowerStartHealth && snapshot.lowerStartHealth > 0) {
-            this.rankedStatsLowerStartHealthTotal = snapshot.lowerStartHealth;
+        if (snapshot.leftStartHealth && snapshot.leftStartHealth > 0) {
+            this.rankedStatsLeftStartHealthTotal = snapshot.leftStartHealth;
         }
-        if (snapshot.upperStartHealth && snapshot.upperStartHealth > 0) {
-            this.rankedStatsUpperStartHealthTotal = snapshot.upperStartHealth;
+        if (snapshot.rightStartHealth && snapshot.rightStartHealth > 0) {
+            this.rankedStatsRightStartHealthTotal = snapshot.rightStartHealth;
         }
         this.applyServerStartRoster(
-            TeamVals.LOWER as TeamType,
-            snapshot.lowerStartRosterCreatureIds,
-            snapshot.lowerStartRosterAmounts,
-            this.rankedStatsLowerRoster,
+            TeamVals.LEFT as TeamType,
+            snapshot.leftStartRosterCreatureIds,
+            snapshot.leftStartRosterAmounts,
+            this.rankedStatsLeftRoster,
         );
         this.applyServerStartRoster(
-            TeamVals.UPPER as TeamType,
-            snapshot.upperStartRosterCreatureIds,
-            snapshot.upperStartRosterAmounts,
-            this.rankedStatsUpperRoster,
+            TeamVals.RIGHT as TeamType,
+            snapshot.rightStartRosterCreatureIds,
+            snapshot.rightStartRosterAmounts,
+            this.rankedStatsRightRoster,
         );
     }
     /**
@@ -3717,28 +3717,28 @@ export class RankedPlayScene extends Sandbox {
             return;
         }
 
-        this.rankedStatsLowerRoster.clear();
-        this.rankedStatsUpperRoster.clear();
+        this.rankedStatsLeftRoster.clear();
+        this.rankedStatsRightRoster.clear();
         this.rankedStatsCountedUnitIds.clear();
-        this.rankedStatsLowerStartTotal = 0;
-        this.rankedStatsUpperStartTotal = 0;
-        this.rankedStatsLowerStartHealthTotal = 0;
-        this.rankedStatsUpperStartHealthTotal = 0;
-        this.rankedStatsLastLowerKilled = 0;
-        this.rankedStatsLastUpperKilled = 0;
-        this.rankedStatsLastLowerDamage = 0;
-        this.rankedStatsLastUpperDamage = 0;
+        this.rankedStatsLeftStartTotal = 0;
+        this.rankedStatsRightStartTotal = 0;
+        this.rankedStatsLeftStartHealthTotal = 0;
+        this.rankedStatsRightStartHealthTotal = 0;
+        this.rankedStatsLastLeftKilled = 0;
+        this.rankedStatsLastRightKilled = 0;
+        this.rankedStatsLastLeftDamage = 0;
+        this.rankedStatsLastRightDamage = 0;
         this.rankedStatsSeries = [
             {
                 lap: 1,
-                lowerKilled: 0,
-                upperKilled: 0,
-                lowerKilledPct: 0,
-                upperKilledPct: 0,
-                lowerDamage: 0,
-                upperDamage: 0,
-                lowerDamagePct: 0,
-                upperDamagePct: 0,
+                leftKilled: 0,
+                rightKilled: 0,
+                leftKilledPct: 0,
+                rightKilledPct: 0,
+                leftDamage: 0,
+                rightDamage: 0,
+                leftDamagePct: 0,
+                rightDamagePct: 0,
             },
         ];
 
@@ -3762,21 +3762,21 @@ export class RankedPlayScene extends Sandbox {
                 continue;
             }
             const roster =
-                unit.team === TeamVals.LOWER
-                    ? this.rankedStatsLowerRoster
-                    : unit.team === TeamVals.UPPER
-                      ? this.rankedStatsUpperRoster
+                unit.team === TeamVals.LEFT
+                    ? this.rankedStatsLeftRoster
+                    : unit.team === TeamVals.RIGHT
+                      ? this.rankedStatsRightRoster
                       : undefined;
             if (!roster) {
                 continue;
             }
             this.rankedStatsCountedUnitIds.add(id);
-            if (unit.team === TeamVals.LOWER) {
-                this.rankedStatsLowerStartTotal += start;
-                this.rankedStatsLowerStartHealthTotal += rankedUnitStartHealth(unit);
+            if (unit.team === TeamVals.LEFT) {
+                this.rankedStatsLeftStartTotal += start;
+                this.rankedStatsLeftStartHealthTotal += rankedUnitStartHealth(unit);
             } else {
-                this.rankedStatsUpperStartTotal += start;
-                this.rankedStatsUpperStartHealthTotal += rankedUnitStartHealth(unit);
+                this.rankedStatsRightStartTotal += start;
+                this.rankedStatsRightStartHealthTotal += rankedUnitStartHealth(unit);
             }
             const current = roster.get(unit.properties.name);
             if (current) {
@@ -3794,45 +3794,45 @@ export class RankedPlayScene extends Sandbox {
             return false;
         }
 
-        const lowerKilled = Math.max(
+        const leftKilled = Math.max(
             0,
-            this.rankedStatsLowerStartTotal - this.aliveTotal(units, TeamVals.LOWER as TeamType),
+            this.rankedStatsLeftStartTotal - this.aliveTotal(units, TeamVals.LEFT as TeamType),
         );
-        const upperKilled = Math.max(
+        const rightKilled = Math.max(
             0,
-            this.rankedStatsUpperStartTotal - this.aliveTotal(units, TeamVals.UPPER as TeamType),
+            this.rankedStatsRightStartTotal - this.aliveTotal(units, TeamVals.RIGHT as TeamType),
         );
-        const lowerDamage = Math.max(
+        const leftDamage = Math.max(
             0,
-            this.rankedStatsLowerStartHealthTotal - this.aliveHealthTotal(units, TeamVals.LOWER as TeamType),
+            this.rankedStatsLeftStartHealthTotal - this.aliveHealthTotal(units, TeamVals.LEFT as TeamType),
         );
-        const upperDamage = Math.max(
+        const rightDamage = Math.max(
             0,
-            this.rankedStatsUpperStartHealthTotal - this.aliveHealthTotal(units, TeamVals.UPPER as TeamType),
+            this.rankedStatsRightStartHealthTotal - this.aliveHealthTotal(units, TeamVals.RIGHT as TeamType),
         );
         if (
-            lowerKilled === this.rankedStatsLastLowerKilled &&
-            upperKilled === this.rankedStatsLastUpperKilled &&
-            lowerDamage === this.rankedStatsLastLowerDamage &&
-            upperDamage === this.rankedStatsLastUpperDamage
+            leftKilled === this.rankedStatsLastLeftKilled &&
+            rightKilled === this.rankedStatsLastRightKilled &&
+            leftDamage === this.rankedStatsLastLeftDamage &&
+            rightDamage === this.rankedStatsLastRightDamage
         ) {
             return false;
         }
 
-        this.rankedStatsLastLowerKilled = lowerKilled;
-        this.rankedStatsLastUpperKilled = upperKilled;
-        this.rankedStatsLastLowerDamage = lowerDamage;
-        this.rankedStatsLastUpperDamage = upperDamage;
+        this.rankedStatsLastLeftKilled = leftKilled;
+        this.rankedStatsLastRightKilled = rightKilled;
+        this.rankedStatsLastLeftDamage = leftDamage;
+        this.rankedStatsLastRightDamage = rightDamage;
         this.rankedStatsSeries.push({
             lap,
-            lowerKilled,
-            upperKilled,
-            lowerKilledPct: this.percent(lowerKilled, this.rankedStatsLowerStartTotal),
-            upperKilledPct: this.percent(upperKilled, this.rankedStatsUpperStartTotal),
-            lowerDamage,
-            upperDamage,
-            lowerDamagePct: this.percent(lowerDamage, this.rankedStatsLowerStartHealthTotal),
-            upperDamagePct: this.percent(upperDamage, this.rankedStatsUpperStartHealthTotal),
+            leftKilled,
+            rightKilled,
+            leftKilledPct: this.percent(leftKilled, this.rankedStatsLeftStartTotal),
+            rightKilledPct: this.percent(rightKilled, this.rankedStatsRightStartTotal),
+            leftDamage,
+            rightDamage,
+            leftDamagePct: this.percent(leftDamage, this.rankedStatsLeftStartHealthTotal),
+            rightDamagePct: this.percent(rightDamage, this.rankedStatsRightStartHealthTotal),
         });
         return true;
     }
@@ -3845,21 +3845,17 @@ export class RankedPlayScene extends Sandbox {
         return {
             winner,
             series: this.rankedStatsSeries.slice(),
-            lowerDeaths: this.buildRankedDeathEntries(this.rankedStatsLowerRoster, units, TeamVals.LOWER as TeamType),
-            upperDeaths: this.buildRankedDeathEntries(this.rankedStatsUpperRoster, units, TeamVals.UPPER as TeamType),
-            damageByUnit: buildFightDamageEntries(
-                this.rankedStatsLowerRoster,
-                this.rankedStatsUpperRoster,
-                damageStats,
-            ),
-            lowerStartTotal: this.rankedStatsLowerStartTotal,
-            upperStartTotal: this.rankedStatsUpperStartTotal,
-            lowerKilledTotal: this.rankedStatsLastLowerKilled,
-            upperKilledTotal: this.rankedStatsLastUpperKilled,
-            lowerHealthTotal: this.rankedStatsLowerStartHealthTotal,
-            upperHealthTotal: this.rankedStatsUpperStartHealthTotal,
-            lowerDamageTotal: this.rankedStatsLastLowerDamage,
-            upperDamageTotal: this.rankedStatsLastUpperDamage,
+            leftDeaths: this.buildRankedDeathEntries(this.rankedStatsLeftRoster, units, TeamVals.LEFT as TeamType),
+            rightDeaths: this.buildRankedDeathEntries(this.rankedStatsRightRoster, units, TeamVals.RIGHT as TeamType),
+            damageByUnit: buildFightDamageEntries(this.rankedStatsLeftRoster, this.rankedStatsRightRoster, damageStats),
+            leftStartTotal: this.rankedStatsLeftStartTotal,
+            rightStartTotal: this.rankedStatsRightStartTotal,
+            leftKilledTotal: this.rankedStatsLastLeftKilled,
+            rightKilledTotal: this.rankedStatsLastRightKilled,
+            leftHealthTotal: this.rankedStatsLeftStartHealthTotal,
+            rightHealthTotal: this.rankedStatsRightStartHealthTotal,
+            leftDamageTotal: this.rankedStatsLastLeftDamage,
+            rightDamageTotal: this.rankedStatsLastRightDamage,
             totalLaps: lap,
         };
     }

@@ -23,14 +23,14 @@ const gridSettings = new GridSettings(
 );
 
 const occupiedUnits: readonly [id: string, team: number, cells: readonly [number, number][]][] = [
-    ["wolf", TeamVals.LOWER, [[10, 5]]],
-    ["berserker", TeamVals.LOWER, [[10, 7]]],
-    ["trent", TeamVals.LOWER, [[11, 3]]],
-    ["tiger", TeamVals.LOWER, [[8, 5]]],
-    ["crusader", TeamVals.LOWER, [[10, 6]]],
+    ["wolf", TeamVals.LEFT, [[10, 5]]],
+    ["berserker", TeamVals.LEFT, [[10, 7]]],
+    ["trent", TeamVals.LEFT, [[11, 3]]],
+    ["tiger", TeamVals.LEFT, [[8, 5]]],
+    ["crusader", TeamVals.LEFT, [[10, 6]]],
     [
         "dragon",
-        TeamVals.LOWER,
+        TeamVals.LEFT,
         [
             [8, 13],
             [9, 13],
@@ -38,14 +38,14 @@ const occupiedUnits: readonly [id: string, team: number, cells: readonly [number
             [9, 12],
         ],
     ],
-    ["scavenger", TeamVals.UPPER, [[15, 14]]],
-    ["blacksmith", TeamVals.UPPER, [[10, 14]]],
-    ["pikeman", TeamVals.UPPER, [[14, 14]]],
-    ["beholder", TeamVals.UPPER, [[15, 15]]],
-    ["zena", TeamVals.UPPER, [[14, 15]]],
+    ["scavenger", TeamVals.RIGHT, [[15, 14]]],
+    ["blacksmith", TeamVals.RIGHT, [[10, 14]]],
+    ["pikeman", TeamVals.RIGHT, [[14, 14]]],
+    ["beholder", TeamVals.RIGHT, [[15, 15]]],
+    ["zena", TeamVals.RIGHT, [[14, 15]]],
     [
         "angel",
-        TeamVals.UPPER,
+        TeamVals.RIGHT,
         [
             [6, 15],
             [7, 15],
@@ -53,11 +53,11 @@ const occupiedUnits: readonly [id: string, team: number, cells: readonly [number
             [7, 14],
         ],
     ],
-    ["split-scavenger-1", TeamVals.UPPER, [[14, 12]]],
-    ["split-scavenger-2", TeamVals.UPPER, [[12, 13]]],
+    ["split-scavenger-1", TeamVals.RIGHT, [[14, 12]]],
+    ["split-scavenger-2", TeamVals.RIGHT, [[12, 13]]],
 ];
 
-const journalEntry = (sequence: number, events: unknown, team: number = TeamVals.LOWER): RankedTerrainJournalEntry => ({
+const journalEntry = (sequence: number, events: unknown, team: number = TeamVals.LEFT): RankedTerrainJournalEntry => ({
     sequence,
     team,
     eventsJson: JSON.stringify(events),
@@ -65,7 +65,7 @@ const journalEntry = (sequence: number, events: unknown, team: number = TeamVals
 
 const vinePlacementEntry = (): RankedTerrainJournalEntry => ({
     sequence: 68,
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
     eventsJson: JSON.stringify([
         {
             type: "vine_placed",
@@ -109,7 +109,7 @@ const scavengerCanReachAttackCell = (fightProperties: FightProperties): boolean 
         { x: 15, y: 14 },
         grid.getMatrix(),
         6,
-        grid.getAggrMatrixByTeam(TeamVals.LOWER),
+        grid.getAggrMatrixByTeam(TeamVals.LEFT),
         false,
         true,
         false,
@@ -138,10 +138,10 @@ describe("reconcileRankedTransientTerrain", () => {
         const fightProperties = new FightProperties();
         reconcileRankedTransientTerrain(fightProperties, [
             vinePlacementEntry(),
-            { sequence: 69, team: TeamVals.LOWER, eventsJson: "not-json" },
+            { sequence: 69, team: TeamVals.LEFT, eventsJson: "not-json" },
             {
                 sequence: 70,
-                team: TeamVals.LOWER,
+                team: TeamVals.LEFT,
                 eventsJson: JSON.stringify([{ type: "vine_expired", cells: [{ x: 10, y: 12 }] }]),
             },
         ]);
@@ -178,14 +178,14 @@ describe("reconcileRankedTransientTerrain", () => {
     test("a newer Vine Throw refreshes lifetime and ownership after an earlier expiry", () => {
         const fightProperties = new FightProperties();
         reconcileRankedTransientTerrain(fightProperties, [
-            journalEntry(12, [{ type: "vine_placed", cells: [{ x: 6, y: 7 }], lapsRemaining: 5 }], TeamVals.UPPER),
+            journalEntry(12, [{ type: "vine_placed", cells: [{ x: 6, y: 7 }], lapsRemaining: 5 }], TeamVals.RIGHT),
             journalEntry(11, [{ type: "vine_expired", cells: [{ x: 6, y: 7 }] }]),
             journalEntry(10, [{ type: "vine_placed", cells: [{ x: 6, y: 7 }], lapsRemaining: 1 }]),
         ]);
 
-        expect(fightProperties.getVines().toJSON()).toEqual([{ x: 6, y: 7, l: 5, t: TeamVals.UPPER }]);
-        expect(fightProperties.getVines().snares({ x: 6, y: 7 }, TeamVals.LOWER)).toBe(true);
-        expect(fightProperties.getVines().snares({ x: 6, y: 7 }, TeamVals.UPPER)).toBe(false);
+        expect(fightProperties.getVines().toJSON()).toEqual([{ x: 6, y: 7, l: 5, t: TeamVals.RIGHT }]);
+        expect(fightProperties.getVines().snares({ x: 6, y: 7 }, TeamVals.LEFT)).toBe(true);
+        expect(fightProperties.getVines().snares({ x: 6, y: 7 }, TeamVals.RIGHT)).toBe(false);
     });
 
     test("expires only the named vine cells", () => {
@@ -259,15 +259,15 @@ describe("reconcileRankedTransientTerrain", () => {
         reconcileRankedTransientTerrain(fightProperties, [placement]);
 
         expect(fightProperties.getVines().toJSON()).toEqual([
-            { x: 9, y: 10, l: 2, t: TeamVals.LOWER },
-            { x: 10, y: 11, l: 2, t: TeamVals.LOWER },
+            { x: 9, y: 10, l: 2, t: TeamVals.LEFT },
+            { x: 10, y: 11, l: 2, t: TeamVals.LEFT },
         ]);
         expect(fightProperties.getFireWalls().size()).toBe(1);
     });
 
     test("keeps locally replayed terrain when an older snapshot has no journal tail", () => {
         const fightProperties = new FightProperties();
-        fightProperties.getVines().add({ x: 12, y: 13 }, 2, TeamVals.UPPER);
+        fightProperties.getVines().add({ x: 12, y: 13 }, 2, TeamVals.RIGHT);
         fightProperties.getFireWalls().add({ x: 13, y: 14 }, 2);
 
         reconcileRankedTransientTerrain(fightProperties, undefined);
@@ -292,7 +292,7 @@ describe("reconcileRankedTransientTerrain", () => {
                     lapsRemaining: 2,
                 },
             ]),
-            { sequence: 7, team: TeamVals.LOWER, eventsJson: "[" },
+            { sequence: 7, team: TeamVals.LEFT, eventsJson: "[" },
         ]);
 
         expect(fightProperties.getVines().size()).toBe(0);

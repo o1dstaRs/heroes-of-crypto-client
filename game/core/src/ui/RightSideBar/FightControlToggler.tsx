@@ -334,9 +334,9 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                     >
                         <List>
                             <Box sx={expandedTeamSynergyRowSx}>
-                                <SynergySlots teamType={TeamVals.UPPER} size="clamp(22px, 1.75vw, 34px)" />
+                                <SynergySlots teamType={TeamVals.RIGHT} size="clamp(22px, 1.75vw, 34px)" />
                             </Box>
-                            <SandboxToggleContainer side="red" teamType={TeamVals.UPPER} />
+                            <SandboxToggleContainer side="red" teamType={TeamVals.RIGHT} />
                         </List>
                     </Toggler>
                 </Box>
@@ -390,9 +390,9 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                     >
                         <List>
                             <Box sx={expandedTeamSynergyRowSx}>
-                                <SynergySlots teamType={TeamVals.LOWER} size="clamp(22px, 1.75vw, 34px)" />
+                                <SynergySlots teamType={TeamVals.LEFT} size="clamp(22px, 1.75vw, 34px)" />
                             </Box>
-                            <SandboxToggleContainer side="green" teamType={TeamVals.LOWER} />
+                            <SandboxToggleContainer side="green" teamType={TeamVals.LEFT} />
                         </List>
                     </Toggler>
                 </Box>

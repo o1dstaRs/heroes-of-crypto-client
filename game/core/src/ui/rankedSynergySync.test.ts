@@ -6,14 +6,14 @@ import { syncPlacementSynergyUnitCounts, syncRankedSnapshotSynergies } from "./r
 const placementSnapshot = (gameId: string) => ({
     gameId,
     fightStarted: false,
-    lowerSynergies: [],
-    upperSynergies: [],
+    leftSynergies: [],
+    rightSynergies: [],
 });
 
-const createStore = (lower: string[], upper: string[]) => {
+const createStore = (left: string[], right: string[]) => {
     const values = new Map<TeamType, string[]>([
-        [TeamVals.LOWER, [...lower]],
-        [TeamVals.UPPER, [...upper]],
+        [TeamVals.LEFT, [...left]],
+        [TeamVals.RIGHT, [...right]],
     ]);
     const calls: Array<{ team: TeamType; synergies: string[] }> = [];
     return {
@@ -33,8 +33,8 @@ describe("ranked synergy snapshot sync", () => {
         const currentGameId = syncRankedSnapshotSynergies(store, placementSnapshot("game-b"), "game-a");
 
         expect(currentGameId).toBe("game-b");
-        expect(store.values.get(TeamVals.LOWER)).toEqual([]);
-        expect(store.values.get(TeamVals.UPPER)).toEqual([]);
+        expect(store.values.get(TeamVals.LEFT)).toEqual([]);
+        expect(store.values.get(TeamVals.RIGHT)).toEqual([]);
         expect(store.calls).toHaveLength(2);
     });
 
@@ -44,7 +44,7 @@ describe("ranked synergy snapshot sync", () => {
         const currentGameId = syncRankedSnapshotSynergies(store, placementSnapshot("game-b"), "game-b");
 
         expect(currentGameId).toBe("game-b");
-        expect(store.values.get(TeamVals.LOWER)).toEqual(["Life:2:1"]);
+        expect(store.values.get(TeamVals.LEFT)).toEqual(["Life:2:1"]);
         expect(store.calls).toHaveLength(0);
     });
 
@@ -56,15 +56,15 @@ describe("ranked synergy snapshot sync", () => {
             {
                 gameId: "game-b",
                 fightStarted: true,
-                lowerSynergies: ["Might:1:3"],
-                upperSynergies: ["Chaos:2:2"],
+                leftSynergies: ["Might:1:3"],
+                rightSynergies: ["Chaos:2:2"],
             },
             "game-b",
         );
 
         expect(currentGameId).toBe("game-b");
-        expect(store.values.get(TeamVals.LOWER)).toEqual(["Might:1:3"]);
-        expect(store.values.get(TeamVals.UPPER)).toEqual(["Chaos:2:2"]);
+        expect(store.values.get(TeamVals.LEFT)).toEqual(["Might:1:3"]);
+        expect(store.values.get(TeamVals.RIGHT)).toEqual(["Chaos:2:2"]);
         expect(store.calls).toHaveLength(2);
     });
 });
@@ -95,20 +95,20 @@ describe("placement synergy unit counts", () => {
         syncPlacementSynergyUnitCounts(
             store,
             [
-                unit(TeamVals.LOWER, FactionVals.NATURE),
-                unit(TeamVals.LOWER, FactionVals.NATURE),
-                unit(TeamVals.LOWER, FactionVals.NATURE),
-                unit(TeamVals.LOWER, FactionVals.LIFE),
-                unit(TeamVals.UPPER, FactionVals.CHAOS),
-                unit(TeamVals.UPPER, FactionVals.CHAOS),
+                unit(TeamVals.LEFT, FactionVals.NATURE),
+                unit(TeamVals.LEFT, FactionVals.NATURE),
+                unit(TeamVals.LEFT, FactionVals.NATURE),
+                unit(TeamVals.LEFT, FactionVals.LIFE),
+                unit(TeamVals.RIGHT, FactionVals.CHAOS),
+                unit(TeamVals.RIGHT, FactionVals.CHAOS),
                 unit(TeamVals.NO_TEAM as TeamType, FactionVals.MIGHT),
             ],
             false,
         );
-        const lower = store.calls.find((call) => call.team === TeamVals.LOWER);
-        const upper = store.calls.find((call) => call.team === TeamVals.UPPER);
-        expect(lower).toMatchObject({ nature: 3, life: 1, chaos: 0, might: 0 });
-        expect(upper).toMatchObject({ chaos: 2, nature: 0 });
+        const left = store.calls.find((call) => call.team === TeamVals.LEFT);
+        const right = store.calls.find((call) => call.team === TeamVals.RIGHT);
+        expect(left).toMatchObject({ nature: 3, life: 1, chaos: 0, might: 0 });
+        expect(right).toMatchObject({ chaos: 2, nature: 0 });
         expect(store.calls).toHaveLength(2);
     });
 
@@ -119,20 +119,20 @@ describe("placement synergy unit counts", () => {
         syncPlacementSynergyUnitCounts(
             store,
             [
-                unit(TeamVals.LOWER, FactionVals.NATURE, "Fairy Dragon"),
-                unit(TeamVals.LOWER, FactionVals.NATURE, "Fairy Dragon"),
-                unit(TeamVals.LOWER, FactionVals.NATURE, "Fairy Dragon"),
-                unit(TeamVals.LOWER, FactionVals.NATURE, "Elf"),
+                unit(TeamVals.LEFT, FactionVals.NATURE, "Fairy Dragon"),
+                unit(TeamVals.LEFT, FactionVals.NATURE, "Fairy Dragon"),
+                unit(TeamVals.LEFT, FactionVals.NATURE, "Fairy Dragon"),
+                unit(TeamVals.LEFT, FactionVals.NATURE, "Elf"),
             ],
             false,
         );
-        const lower = store.calls.find((call) => call.team === TeamVals.LOWER);
-        expect(lower).toMatchObject({ nature: 2 });
+        const left = store.calls.find((call) => call.team === TeamVals.LEFT);
+        expect(left).toMatchObject({ nature: 2 });
     });
 
     test("never recounts once the fight is live — authoritative lists own the fight", () => {
         const store = createCountsStore();
-        syncPlacementSynergyUnitCounts(store, [unit(TeamVals.LOWER, FactionVals.NATURE)], true);
+        syncPlacementSynergyUnitCounts(store, [unit(TeamVals.LEFT, FactionVals.NATURE)], true);
         expect(store.calls).toHaveLength(0);
     });
 });

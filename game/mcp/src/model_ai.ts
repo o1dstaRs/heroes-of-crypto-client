@@ -17,11 +17,11 @@ const isPremiumRangedDraftAction = (action: DraftAction): boolean =>
 const isDraftPickAction = (action: DraftAction): boolean =>
     action.kind === "pick_unit" || action.kind === "pick_initial_pair";
 
-const isDraftCreatureRanged = (creature: AIDraftRequest["state"]["lower"]["picked"][number]): boolean =>
+const isDraftCreatureRanged = (creature: AIDraftRequest["state"]["left"]["picked"][number]): boolean =>
     creature.attackRange > 1 || creature.attackType === "range" || creature.rangeShots > 0;
 
 const ownRangedCount = (request: Pick<AIDraftRequest, "state" | "team">): number => {
-    const picked = request.team === "LOWER" ? request.state.lower.picked : request.state.upper.picked;
+    const picked = request.team === "LEFT" ? request.state.left.picked : request.state.right.picked;
     return picked.filter(isDraftCreatureRanged).length;
 };
 

@@ -691,24 +691,24 @@ const currentStep = (phase: number, level: number): number => {
 // Who acts on each step, straight from the server's PickPhaseActors: the bundle, the tier-2 artifact and
 // the augments are simultaneous; every creature level alternates, and the side that opens each level flips
 // (L1 and L3 open on the lower/green side, L2 and L4 on the upper/red one).
-type DraftStepOrder = "both" | "lowerFirst" | "upperFirst" | "automatic";
+type DraftStepOrder = "both" | "leftFirst" | "rightFirst" | "automatic";
 
 const STEP_ORDER: DraftStepOrder[] = [
     "both", // Bundle
-    "lowerFirst", // Lvl 1
-    "upperFirst", // Lvl 2
+    "leftFirst", // Lvl 1
+    "rightFirst", // Lvl 2
     "automatic", // Map reveal
-    "lowerFirst", // Lvl 3
+    "leftFirst", // Lvl 3
     "both", // Artifact 2
-    "upperFirst", // Lvl 4
+    "rightFirst", // Lvl 4
     "both", // Augments
     "both", // Place
 ];
 
 const STEP_ORDER_HINT: Record<DraftStepOrder, string> = {
     both: "Both players choose at the same time",
-    lowerFirst: "Green (lower) picks first, then red (upper)",
-    upperFirst: "Red (upper) picks first, then green (lower)",
+    leftFirst: "Green (lower) picks first, then red (upper)",
+    rightFirst: "Red (upper) picks first, then green (lower)",
     automatic: "Revealed automatically before Level 3",
 };
 
@@ -734,14 +734,14 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
             const youFirst =
                 userTeam === undefined || order === "both" || order === "automatic"
                     ? undefined
-                    : (order === "lowerFirst") === (userTeam === TeamVals.LOWER);
+                    : (order === "leftFirst") === (userTeam === TeamVals.LEFT);
             const marker = order === "automatic" ? "✦" : order === "both" ? "⇄" : undefined;
             // Alternating creature-pick steps no longer need a separate You/Opp row. The label itself
             // carries that information: your own army colour when you pick first, red when the opponent
             // does — the same pair the rails below and the board itself use.
             const labelColor = done
                 ? "#c0b7a6"
-                : order === "lowerFirst" || order === "upperFirst"
+                : order === "leftFirst" || order === "rightFirst"
                   ? youFirst === undefined
                       ? "#d8ccb4"
                       : youFirst

@@ -23,8 +23,8 @@ type TeamAmountFlagProps = {
 export const getTeamFlagBackground = (teamType: TeamType): string => {
     const personal = personalArmyCssColor(teamType);
     if (personal) return personal;
-    if (teamType === TeamVals.LOWER) return "#00d200";
-    if (teamType === TeamVals.UPPER) return "#ff0000";
+    if (teamType === TeamVals.LEFT) return "#00d200";
+    if (teamType === TeamVals.RIGHT) return "#ff0000";
     return "#8b94a6";
 };
 

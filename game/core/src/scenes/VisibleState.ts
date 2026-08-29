@@ -60,23 +60,23 @@ export interface IVisibleOverallImpact {
 /** One data point in the "casualties over time" series. */
 export interface IFightStatsSample {
     lap: number;
-    lowerKilled: number;
-    upperKilled: number;
+    leftKilled: number;
+    rightKilled: number;
     /** Percentage of that team's starting army killed so far (0..100). */
-    lowerKilledPct: number;
-    upperKilledPct: number;
+    leftKilledPct: number;
+    rightKilledPct: number;
     /**
      * Percentage of that team's own starting HEALTH still standing (0..100), so both sides open at 100
      * however their armies were built. Feeds the board-share line in the end-of-fight overlay. Optional:
      * series recorded before this existed (older replays, fixtures) simply have no HP view.
      */
-    lowerHpPct?: number;
-    upperHpPct?: number;
+    leftHpPct?: number;
+    rightHpPct?: number;
     /** Optional HP-based damage series for live ranked overlays. */
-    lowerDamage?: number;
-    upperDamage?: number;
-    lowerDamagePct?: number;
-    upperDamagePct?: number;
+    leftDamage?: number;
+    rightDamage?: number;
+    leftDamagePct?: number;
+    rightDamagePct?: number;
 }
 
 /** A single unit type's casualties for one team. */
@@ -104,19 +104,19 @@ export interface IFightDamageEntry {
 export interface IFightStatsReport {
     winner: TeamType;
     series: IFightStatsSample[];
-    lowerDeaths: IFightDeathEntry[];
-    upperDeaths: IFightDeathEntry[];
+    leftDeaths: IFightDeathEntry[];
+    rightDeaths: IFightDeathEntry[];
     /** Per-creature damage breakdown, sorted by damage descending. */
     damageByUnit?: IFightDamageEntry[];
-    lowerStartTotal: number;
-    upperStartTotal: number;
-    lowerKilledTotal: number;
-    upperKilledTotal: number;
+    leftStartTotal: number;
+    rightStartTotal: number;
+    leftKilledTotal: number;
+    rightKilledTotal: number;
     /** Optional HP-based damage totals for live ranked overlays. */
-    lowerHealthTotal?: number;
-    upperHealthTotal?: number;
-    lowerDamageTotal?: number;
-    upperDamageTotal?: number;
+    leftHealthTotal?: number;
+    rightHealthTotal?: number;
+    leftDamageTotal?: number;
+    rightDamageTotal?: number;
     totalLaps: number;
 }
 
@@ -137,7 +137,7 @@ export interface IVisibleState {
     aiToggleOn?: boolean;
     /** Whether a fight replay is currently playing back (drives the bottom-left "Exit Replay" button). */
     replayPlaybackActive?: boolean;
-    /** Set when the fight ends: which team won (LOWER = green, UPPER = red). */
+    /** Set when the fight ends: which team won (LEFT = green, RIGHT = red). */
     teamWin?: TeamType;
     /** Set when the fight ends: casualty stats for the Fight Finished overlay. */
     fightStats?: IFightStatsReport;

@@ -175,10 +175,10 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
     useMemo(
         () =>
             startPreviewPlaySession({
-                userTeam: TeamVals.LOWER,
+                userTeam: TeamVals.LEFT,
                 gridType: GridVals.LAVA_CENTER,
-                lowerArmy: [],
-                upperArmy: [],
+                leftArmy: [],
+                rightArmy: [],
             }),
         [],
     );
@@ -277,7 +277,7 @@ export const LavaAnimationTuningEditor: React.FC<{ windowSize: IWindowSize }> = 
 
     return (
         <Box sx={{ position: "fixed", inset: 0, overflow: "hidden", bgcolor: "#000" }}>
-            <RankedGameView gameId={PREVIEW_PLACEMENT_GAME_ID} userTeam={TeamVals.LOWER} windowSize={windowSize} />
+            <RankedGameView gameId={PREVIEW_PLACEMENT_GAME_ID} userTeam={TeamVals.LEFT} windowSize={windowSize} />
 
             {collapsed ? (
                 <Button

@@ -31,36 +31,34 @@ const RESULTS_PREVIEW_STATE: IVisibleState = {
     canRequestAdditionalTime: false,
     upNext: [],
     lapsNarrowed: 0,
-    teamWin: TeamVals.UPPER,
+    teamWin: TeamVals.RIGHT,
     fightStats: {
-        winner: TeamVals.UPPER,
+        winner: TeamVals.RIGHT,
         series: [
-            { lap: 1, lowerKilled: 0, upperKilled: 0, lowerKilledPct: 0, upperKilledPct: 0 },
-            { lap: 2, lowerKilled: 74, upperKilled: 80, lowerKilledPct: 37, upperKilledPct: 40 },
-            { lap: 3, lowerKilled: 128, upperKilled: 126, lowerKilledPct: 64, upperKilledPct: 63 },
-            { lap: 4, lowerKilled: 160, upperKilled: 152, lowerKilledPct: 80, upperKilledPct: 76 },
-            { lap: 5, lowerKilled: 171, upperKilled: 200, lowerKilledPct: 86, upperKilledPct: 100 },
+            { lap: 1, leftKilled: 0, rightKilled: 0, leftKilledPct: 0, rightKilledPct: 0 },
+            { lap: 2, leftKilled: 74, rightKilled: 80, leftKilledPct: 37, rightKilledPct: 40 },
+            { lap: 3, leftKilled: 128, rightKilled: 126, leftKilledPct: 64, rightKilledPct: 63 },
+            { lap: 4, leftKilled: 160, rightKilled: 152, leftKilledPct: 80, rightKilledPct: 76 },
+            { lap: 5, leftKilled: 171, rightKilled: 200, leftKilledPct: 86, rightKilledPct: 100 },
         ],
-        lowerDeaths: [
-            { name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: TeamVals.LOWER },
-        ],
-        upperDeaths: [
-            { name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: TeamVals.UPPER },
+        leftDeaths: [{ name: "Peasant", smallTextureName: "peasant_512", died: 200, start: 200, team: TeamVals.LEFT }],
+        rightDeaths: [
+            { name: "Peasant", smallTextureName: "peasant_512", died: 171, start: 200, team: TeamVals.RIGHT },
         ],
         damageByUnit: [
-            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: TeamVals.UPPER },
-            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: TeamVals.UPPER },
-            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: TeamVals.UPPER },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: TeamVals.UPPER },
-            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: TeamVals.LOWER },
-            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: TeamVals.LOWER },
-            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: TeamVals.LOWER },
-            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: TeamVals.LOWER },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1600, team: TeamVals.RIGHT },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1315, team: TeamVals.RIGHT },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 1080, team: TeamVals.RIGHT },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 760, team: TeamVals.RIGHT },
+            { name: "Peasant", smallTextureName: "peasant_512", damage: 1370, team: TeamVals.LEFT },
+            { name: "Squire", smallTextureName: "squire_512", damage: 1160, team: TeamVals.LEFT },
+            { name: "Arbalester", smallTextureName: "arbalester_512", damage: 920, team: TeamVals.LEFT },
+            { name: "Blacksmith", smallTextureName: "blacksmith_512", damage: 610, team: TeamVals.LEFT },
         ],
-        lowerStartTotal: 200,
-        upperStartTotal: 200,
-        lowerKilledTotal: 200,
-        upperKilledTotal: 171,
+        leftStartTotal: 200,
+        rightStartTotal: 200,
+        leftKilledTotal: 200,
+        rightKilledTotal: 171,
         totalLaps: 5,
     },
 };
@@ -675,15 +673,11 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
     const showSandboxActions = mode === "sandbox" && (previewMode || canSandboxReplay);
     const showRematchAction = showSandboxActions && !replayResult;
     const finalSample = stats.series.at(-1);
-    const lowerFellPct = fellPercentage(
-        stats.lowerKilledTotal,
-        stats.lowerStartTotal,
-        finalSample?.lowerKilledPct ?? 0,
-    );
-    const upperFellPct = fellPercentage(
-        stats.upperKilledTotal,
-        stats.upperStartTotal,
-        finalSample?.upperKilledPct ?? 0,
+    const leftFellPct = fellPercentage(stats.leftKilledTotal, stats.leftStartTotal, finalSample?.leftKilledPct ?? 0);
+    const rightFellPct = fellPercentage(
+        stats.rightKilledTotal,
+        stats.rightStartTotal,
+        finalSample?.rightKilledPct ?? 0,
     );
     const topDamage = Math.max(0, ...(stats.damageByUnit ?? []).map((entry) => entry.damage));
     const resultsBackground = previewBackground ?? imgSrc("fight_results_moonlit_castle_background");
@@ -966,16 +960,16 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         icon={<HourglassTopRoundedIcon sx={{ color: "#b69254", fontSize: 29 }} />}
                     />
                     <SummaryStatCard
-                        label={`${teamName(TeamVals.LOWER as TeamType).toUpperCase()} LOSSES`}
-                        value={`${lowerFellPct}% FELL`}
-                        valueColor={teamColor(TeamVals.LOWER as TeamType)}
-                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.LOWER as TeamType), fontSize: 30 }} />}
+                        label={`${teamName(TeamVals.LEFT as TeamType).toUpperCase()} LOSSES`}
+                        value={`${leftFellPct}% FELL`}
+                        valueColor={teamColor(TeamVals.LEFT as TeamType)}
+                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.LEFT as TeamType), fontSize: 30 }} />}
                     />
                     <SummaryStatCard
-                        label={`${teamName(TeamVals.UPPER as TeamType).toUpperCase()} LOSSES`}
-                        value={`${upperFellPct}% FELL`}
-                        valueColor={teamColor(TeamVals.UPPER as TeamType)}
-                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.UPPER as TeamType), fontSize: 30 }} />}
+                        label={`${teamName(TeamVals.RIGHT as TeamType).toUpperCase()} LOSSES`}
+                        value={`${rightFellPct}% FELL`}
+                        valueColor={teamColor(TeamVals.RIGHT as TeamType)}
+                        icon={<ShieldRoundedIcon sx={{ color: teamColor(TeamVals.RIGHT as TeamType), fontSize: 30 }} />}
                     />
                     <SummaryStatCard
                         label="TOP DAMAGE"
@@ -1038,18 +1032,18 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                         <Box sx={{ flexShrink: 0 }}>
                             <Stack direction="row" spacing={3} sx={{ px: 1, pt: 2 }}>
                                 <CasualtyColumn
-                                    team={TeamVals.LOWER as TeamType}
-                                    deaths={stats.lowerDeaths}
-                                    killedTotal={stats.lowerKilledTotal}
-                                    startTotal={stats.lowerStartTotal}
-                                    fallbackPct={stats.series.at(-1)?.lowerKilledPct ?? 0}
+                                    team={TeamVals.LEFT as TeamType}
+                                    deaths={stats.leftDeaths}
+                                    killedTotal={stats.leftKilledTotal}
+                                    startTotal={stats.leftStartTotal}
+                                    fallbackPct={stats.series.at(-1)?.leftKilledPct ?? 0}
                                 />
                                 <CasualtyColumn
-                                    team={TeamVals.UPPER as TeamType}
-                                    deaths={stats.upperDeaths}
-                                    killedTotal={stats.upperKilledTotal}
-                                    startTotal={stats.upperStartTotal}
-                                    fallbackPct={stats.series.at(-1)?.upperKilledPct ?? 0}
+                                    team={TeamVals.RIGHT as TeamType}
+                                    deaths={stats.rightDeaths}
+                                    killedTotal={stats.rightKilledTotal}
+                                    startTotal={stats.rightStartTotal}
+                                    fallbackPct={stats.series.at(-1)?.rightKilledPct ?? 0}
                                 />
                             </Stack>
                         </Box>

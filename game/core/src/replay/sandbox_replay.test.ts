@@ -36,7 +36,7 @@ const createInitialState = (): SandboxSceneState => ({
 
 const completedResult: IGameActionResult = {
     completed: true,
-    events: [{ type: "fight_started", lowerUnitsAlive: 1, upperUnitsAlive: 1 }],
+    events: [{ type: "fight_started", leftUnitsAlive: 1, rightUnitsAlive: 1 }],
 };
 
 describe("SandboxReplayRecorder", () => {

@@ -130,8 +130,8 @@ const draftMechanicsNotes = (): string[] => {
     const synergies = getSynergyReference();
     return [
         "Draft goal: build six creature stacks per team: two level 1, two level 2, one level 3, and one level 4.",
-        "The first action is LOWER choosing an initial pair with one level 1 and one level 2 creature.",
-        "The opposing team receives an automatic initial pair, then UPPER gets an extended pick and extended ban.",
+        "The first action is LEFT choosing an initial pair with one level 1 and one level 2 creature.",
+        "The opposing team receives an automatic initial pair, then RIGHT gets an extended pick and extended ban.",
         "After that, teams alternate pick and ban actions until each army is complete.",
         "The legal choices below already enforce required level, unavailable creatures, pair indexes, and safe ban legality.",
         "Prefer complementary roles: frontline durability, ranged pressure, caster/support, speed/tempo, and a high-impact threat.",
@@ -150,8 +150,8 @@ const draftLines = (state: PublicDraftState): string[] => [
     `Phase ${state.draftPhase}; active teams ${state.activeTeams.join(",") || "none"}; required level ${
         state.requiredLevel ?? "any"
     }.`,
-    `LOWER picked: ${state.lower.picked.map((creature) => creature.name).join(", ") || "none"}.`,
-    `UPPER picked: ${state.upper.picked.map((creature) => creature.name).join(", ") || "none"}.`,
+    `LEFT picked: ${state.left.picked.map((creature) => creature.name).join(", ") || "none"}.`,
+    `RIGHT picked: ${state.right.picked.map((creature) => creature.name).join(", ") || "none"}.`,
     `Banned: ${state.banned.map((creature) => creature.name).join(", ") || "none"}.`,
     state.initialCreaturePairs.length
         ? `Initial pairs: ${state.initialCreaturePairs

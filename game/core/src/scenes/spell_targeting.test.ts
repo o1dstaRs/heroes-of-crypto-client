@@ -59,9 +59,9 @@ describe("client targeted-spell reachability", () => {
      * than grey the target out. Terrain is the only thing that still refuses the cast.
      */
     describe("Fire Strike interception", () => {
-        const LOWER_TEAM = 2;
-        const UPPER_TEAM = 1;
-        const teams = new Map<string, { getTeam: () => number }>([["blocking-unit", { getTeam: () => UPPER_TEAM }]]);
+        const LEFT_TEAM = 2;
+        const RIGHT_TEAM = 1;
+        const teams = new Map<string, { getTeam: () => number }>([["blocking-unit", { getTeam: () => RIGHT_TEAM }]]);
 
         test("is castable through a body, and reports that body as the impact", () => {
             expect(isTargetedSpellReachable("Fire Strike", sightGrid(true), FROM, TO)).toBe(true);
@@ -86,8 +86,8 @@ describe("client targeted-spell reachability", () => {
 
         test("arcs over a FRIENDLY body, so the aimed target is the one that burns", () => {
             const friendly = alliesAreTransparent(
-                new Map([["blocking-unit", { getTeam: () => LOWER_TEAM }]]),
-                LOWER_TEAM,
+                new Map([["blocking-unit", { getTeam: () => LEFT_TEAM }]]),
+                LEFT_TEAM,
             );
             const impact = thrownSpellImpact("Fire Strike", sightGrid(true), FROM, TO, friendly);
             expect(impact.interceptedBy).toBeUndefined();
@@ -97,7 +97,7 @@ describe("client targeted-spell reachability", () => {
         // The AI gate is the strict one: an intercepted throw does not REACH the unit being scored, so it
         // must not be proposed against it — the interceptor is enumerated as its own target instead.
         test("does not count as reaching a target it would be intercepted before", () => {
-            const enemyScreen = alliesAreTransparent(teams, LOWER_TEAM);
+            const enemyScreen = alliesAreTransparent(teams, LEFT_TEAM);
             expect(thrownSpellReachesTarget("Fire Strike", sightGrid(true), FROM, TO, enemyScreen)).toBe(false);
             expect(thrownSpellReachesTarget("Fire Strike", sightGrid(false), FROM, TO, enemyScreen)).toBe(true);
         });

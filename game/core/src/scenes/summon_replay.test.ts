@@ -10,7 +10,7 @@ type SummonEvent = Extract<GameEvent, { type: "unit_summoned" }>;
 
 const unitState = (id: string, dead = false): SandboxSceneUnitState => ({
     properties: { id } as UnitProperties,
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
     placed: true,
     dead,
     cells: [{ x: 3, y: 4 }],
@@ -21,7 +21,7 @@ const summonEvent = (unitId = "server-wolf", merged = false): SummonEvent => ({
     type: "unit_summoned",
     casterId: "satyr",
     unitId,
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
     unitName: "Wolf",
     amount: 3,
     position: { x: 30, y: 40 },

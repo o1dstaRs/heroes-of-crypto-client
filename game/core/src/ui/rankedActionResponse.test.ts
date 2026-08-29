@@ -34,8 +34,8 @@ const snapshot = (overrides: Partial<PlaySnapshot>): PlaySnapshot => ({
     players: [],
     readyPlayerIds: [],
     journalTail: [],
-    maxLowerUnits: 0,
-    maxUpperUnits: 0,
+    maxLeftUnits: 0,
+    maxRightUnits: 0,
     narrowingLayers: 0,
     centerDried: false,
     upNext: [],
@@ -116,7 +116,7 @@ describe("ranked action response snapshots", () => {
     test("uses model player id to resolve the actual server-side model team", () => {
         const config: LocalModelOpponentConfig = {
             enabled: true,
-            modelTeam: TeamVals.UPPER,
+            modelTeam: TeamVals.RIGHT,
             apiBase: "/hoc-local-model",
             modelName: "auto",
             authorization: "Bearer model-token",
@@ -131,14 +131,14 @@ describe("ranked action response snapshots", () => {
                     players: [
                         {
                             playerId: "human-player",
-                            team: TeamVals.UPPER,
+                            team: TeamVals.RIGHT,
                             connected: true,
                             aiControlled: false,
                             lastSeenMs: 0,
                         },
                         {
                             playerId: "model-player",
-                            team: TeamVals.LOWER,
+                            team: TeamVals.LEFT,
                             connected: false,
                             aiControlled: false,
                             lastSeenMs: 0,
@@ -146,13 +146,13 @@ describe("ranked action response snapshots", () => {
                     ],
                 }),
             ).modelTeam,
-        ).toBe(TeamVals.LOWER);
+        ).toBe(TeamVals.LEFT);
     });
 
     test("disables local model control if the resolved model player is the viewer team", () => {
         const config: LocalModelOpponentConfig = {
             enabled: true,
-            modelTeam: TeamVals.UPPER,
+            modelTeam: TeamVals.RIGHT,
             apiBase: "/hoc-local-model",
             modelName: "auto",
             authorization: "Bearer model-token",
@@ -166,25 +166,25 @@ describe("ranked action response snapshots", () => {
                 players: [
                     {
                         playerId: "human-player",
-                        team: TeamVals.LOWER,
+                        team: TeamVals.LEFT,
                         connected: true,
                         aiControlled: false,
                         lastSeenMs: 0,
                     },
                     {
                         playerId: "model-player",
-                        team: TeamVals.UPPER,
+                        team: TeamVals.RIGHT,
                         connected: false,
                         aiControlled: false,
                         lastSeenMs: 0,
                     },
                 ],
             }),
-            TeamVals.LOWER,
+            TeamVals.LEFT,
         );
 
         expect(resolved.enabled).toBe(false);
-        expect(resolved.modelTeam).toBe(TeamVals.LOWER);
+        expect(resolved.modelTeam).toBe(TeamVals.LEFT);
     });
 });
 

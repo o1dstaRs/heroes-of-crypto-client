@@ -40,7 +40,7 @@ const props = (team: number): UnitProperties =>
 /**
  * A unit whose live sprite faces SCREEN-RIGHT (positive scaleX), whatever team it belongs to. This is the
  * shape of the real bug: the live-preview branch clones the source sprite's transform, so a source that
- * happens to face right hands the silhouette a right-facing ghost for a red/UPPER unit that will turn left
+ * happens to face right hands the silhouette a right-facing ghost for a red/RIGHT unit that will turn left
  * the instant it is dropped.
  */
 const rightFacingSource = (team: number) => ({
@@ -87,7 +87,7 @@ afterEach(() => {
 
 describe("placement silhouette facing", () => {
     /**
-     * Placement is a face-off — red/UPPER looks left toward green, green/LOWER looks right — and the board
+     * Placement is a face-off — red/RIGHT looks left toward green, green/LEFT looks right — and the board
      * re-asserts exactly that on every placed unit every frame. The preview of a placement has to obey the
      * same rule, or the ghost points one way and the unit turns the other the moment it lands (live report).
      *
@@ -96,8 +96,8 @@ describe("placement silhouette facing", () => {
      * the team facing, this one silently inherited whatever the source held.
      */
     for (const [team, label, expected] of [
-        [TeamVals.UPPER, "UPPER deploys on the right and looks left", -1],
-        [TeamVals.LOWER, "LOWER deploys on the left and looks right", 1],
+        [TeamVals.RIGHT, "RIGHT deploys on the right and looks left", -1],
+        [TeamVals.LEFT, "LEFT deploys on the left and looks right", 1],
     ] as const) {
         test(`${label}, even when the live source sprite faces the other way`, () => {
             const hover = new HoverManager(makeContext(rightFacingSource(team)));
@@ -118,7 +118,7 @@ describe("placement silhouette facing", () => {
      */
     test("leaves a combat preview alone: the source's own facing survives once the fight has started", () => {
         FightStateManager.getInstance().getFightProperties().startFight();
-        const hover = new HoverManager(makeContext(rightFacingSource(TeamVals.UPPER)));
+        const hover = new HoverManager(makeContext(rightFacingSource(TeamVals.RIGHT)));
         hover.hoverSelectedCells = [{ x: 5, y: 5 }];
 
         hover.updateHoverSilhouette({ x: 0, y: 0 });

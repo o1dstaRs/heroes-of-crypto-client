@@ -54,11 +54,11 @@ const response = {
     stats: {
         totalLaps: 7,
         gridType: 4,
-        lowerDamage: 940,
-        upperDamage: 710,
+        leftDamage: 940,
+        rightDamage: 710,
         lowerCreatureIds: [4, 5, 0, -1],
         upperCreatureIds: [8, 9],
-        lowerPerformers: [
+        leftPerformers: [
             { creatureId: 5, damageDealt: 100 },
             { creatureId: 4, damageDealt: 500 },
             { creatureId: 6, damageDealt: 450 },
@@ -66,9 +66,9 @@ const response = {
             { creatureId: 8, damageDealt: 200 },
             { creatureId: 9, damageDealt: 50 },
         ],
-        upperPerformers: [{ creatureId: 8, damageDealt: 320 }],
-        lowerSetup: { artifactTier1: 1, artifactTier2: 2, doctrine: 3, synergies: ["Life:1:2"] },
-        upperSetup: { artifactTier1: 3, artifactTier2: 4, doctrine: 1, synergies: ["Chaos:2:1"] },
+        rightPerformers: [{ creatureId: 8, damageDealt: 320 }],
+        leftSetup: { artifactTier1: 1, artifactTier2: 2, doctrine: 3, synergies: ["Life:1:2"] },
+        rightSetup: { artifactTier1: 3, artifactTier2: 4, doctrine: 1, synergies: ["Chaos:2:1"] },
         setupRecorded: true,
         replayAvailable: true,
     },
@@ -84,7 +84,7 @@ describe("public ranked match normalization", () => {
         expect(match?.upperCreatureIds).toEqual([3, 4]);
         expect(match?.stats?.lowerCreatureIds).toEqual([4, 5]);
         expect(match?.stats?.upperCreatureIds).toEqual([8, 9]);
-        expect(match?.stats?.lowerPerformers).toEqual([
+        expect(match?.stats?.leftPerformers).toEqual([
             { creatureId: 4, damageDealt: 500 },
             { creatureId: 6, damageDealt: 450 },
             { creatureId: 7, damageDealt: 300 },
@@ -92,7 +92,7 @@ describe("public ranked match normalization", () => {
             { creatureId: 5, damageDealt: 100 },
             { creatureId: 9, damageDealt: 50 },
         ]);
-        expect(match?.stats?.lowerSetup.augmentArmor).toBe(0);
+        expect(match?.stats?.leftSetup.augmentArmor).toBe(0);
         expect(match?.season).toEqual({
             sequence: 3,
             name: "Ashfall",

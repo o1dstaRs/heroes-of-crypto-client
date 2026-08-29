@@ -36,14 +36,14 @@ export interface RankedMatchTeamSetup {
 export interface PublicRankedMatchStats {
     totalLaps: number;
     gridType: number;
-    lowerDamage: number;
-    upperDamage: number;
+    leftDamage: number;
+    rightDamage: number;
     lowerCreatureIds: number[];
     upperCreatureIds: number[];
-    lowerPerformers: RankedMatchUnitPerformance[];
-    upperPerformers: RankedMatchUnitPerformance[];
-    lowerSetup: RankedMatchTeamSetup;
-    upperSetup: RankedMatchTeamSetup;
+    leftPerformers: RankedMatchUnitPerformance[];
+    rightPerformers: RankedMatchUnitPerformance[];
+    leftSetup: RankedMatchTeamSetup;
+    rightSetup: RankedMatchTeamSetup;
     setupRecorded: boolean;
     replayAvailable: boolean;
 }
@@ -164,14 +164,14 @@ const normalizeStats = (value: unknown): PublicRankedMatchStats | null => {
     return {
         totalLaps: nonNegativeInteger(row.totalLaps),
         gridType: nonNegativeInteger(row.gridType),
-        lowerDamage: nonNegativeInteger(row.lowerDamage),
-        upperDamage: nonNegativeInteger(row.upperDamage),
+        leftDamage: nonNegativeInteger(row.leftDamage),
+        rightDamage: nonNegativeInteger(row.rightDamage),
         lowerCreatureIds: normalizeCreatureIds(row.lowerCreatureIds),
         upperCreatureIds: normalizeCreatureIds(row.upperCreatureIds),
-        lowerPerformers: performances(row.lowerPerformers),
-        upperPerformers: performances(row.upperPerformers),
-        lowerSetup: normalizeSetup(row.lowerSetup),
-        upperSetup: normalizeSetup(row.upperSetup),
+        leftPerformers: performances(row.leftPerformers),
+        rightPerformers: performances(row.rightPerformers),
+        leftSetup: normalizeSetup(row.leftSetup),
+        rightSetup: normalizeSetup(row.rightSetup),
         setupRecorded: row.setupRecorded === true,
         replayAvailable: row.replayAvailable === true,
     };

@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 
 export interface IPickPhaseEventData {
     // Authoritative position in the server's pick-phase order. New servers send this even when two
-    // adjacent steps share the same PickPhaseVals value and actor (for example UPPER's L1 -> L2 picks).
+    // adjacent steps share the same PickPhaseVals value and actor (for example RIGHT's L1 -> L2 picks).
     // Optional so a newer client can still draft against a server that predates the field.
     ps?: number;
     // offered bundles for THIS player during INITIAL_PICK: each [l1Creature, l2Creature, tier1ArtifactId]

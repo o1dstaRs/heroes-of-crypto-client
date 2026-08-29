@@ -105,7 +105,7 @@ type SidebarSelectionState = {
 const emptyUnit = {} as UnitProperties;
 const emptyImpact = {} as IVisibleOverallImpact;
 
-// Floor for the unit card. Below this the portrait may rise over the upper sidebar content instead of
+// Floor for the unit card. Below this the portrait may rise over the right sidebar content instead of
 // collapsing into an unreadable strip.
 const MIN_CARD_HEIGHT = 140;
 
@@ -257,7 +257,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                     // Cancel the last fractional layout gap above the name flow. The extra 2px deliberately
                     // overdraws past y=0, preventing a hairline seam at non-integer responsive scales.
                     "--sidebar-card-frame-top-gap": `${unitDetailsShellPadding + 2}px`,
-                    // The selected art rises out of the content inset into the unused upper sidebar area.
+                    // The selected art rises out of the content inset into the unused right sidebar area.
                     "--sidebar-card-top-extension": `${Math.max(
                         8,
                         Math.round(sidebarFrameTopInsetPx(windowSize.height) * 1.45),

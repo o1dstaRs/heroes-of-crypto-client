@@ -74,11 +74,11 @@ class SideRectanglePlacement implements IPlacement {
         const edgeInset = this.size >= 6 ? 0 : 1;
         const smallestVerticalInset = this.size === 3 ? 1 : 0;
         const isLeft =
-            this.placementPositionType === PlacementPositionType.LOWER_LEFT ||
-            this.placementPositionType === PlacementPositionType.LOWER_RIGHT;
+            this.placementPositionType === PlacementPositionType.LEFT_BOTTOM ||
+            this.placementPositionType === PlacementPositionType.LEFT_TOP;
         const isRight =
-            this.placementPositionType === PlacementPositionType.UPPER_LEFT ||
-            this.placementPositionType === PlacementPositionType.UPPER_RIGHT;
+            this.placementPositionType === PlacementPositionType.RIGHT_BOTTOM ||
+            this.placementPositionType === PlacementPositionType.RIGHT_TOP;
         if (!isLeft && !isRight) {
             throw new Error("Invalid placement position type.");
         }
@@ -106,8 +106,8 @@ export function setSpawnFlowPhase(phase: number, currentEnemyMovementPhase = pha
     enemyMovementPhase = currentEnemyMovementPhase;
 }
 
-// Placement zones are coloured by TEAM, not by viewer: LOWER's rectangle is green, UPPER's is red, on every
-// screen. An UPPER player's own zone therefore reads red — see scenes/teamColors.ts for why that is the rule.
+// Placement zones are coloured by TEAM, not by viewer: LEFT's rectangle is green, RIGHT's is red, on every
+// screen. A RIGHT player's own zone therefore reads red — see scenes/teamColors.ts for why that is the rule.
 const SPAWN_COLOR_GREEN = 0x051f0e;
 const SPAWN_BOUNDARY_COLOR_GREEN = 0x78dc96;
 /** Dark emerald sampled from the approved green deployment-field reference. */
@@ -936,9 +936,9 @@ function drawPlacementGoldBorder(
 }
 
 const placementTeam = (position: PlacementPositionType): TeamType =>
-    position === PlacementPositionType.LOWER_RIGHT || position === PlacementPositionType.LOWER_LEFT
-        ? TeamVals.LOWER
-        : TeamVals.UPPER;
+    position === PlacementPositionType.LEFT_TOP || position === PlacementPositionType.LEFT_BOTTOM
+        ? TeamVals.LEFT
+        : TeamVals.RIGHT;
 
 export const placementUsesEnemyMovementWash = (position: PlacementPositionType): boolean =>
     !isGreenTeam(placementTeam(position));
@@ -949,7 +949,7 @@ export const placementUsesEnemyMovementWash = (position: PlacementPositionType):
  * swapped; each side keeps its own wash geometry and its opacity, so the board reads as it did before.
  *
  * Repainting the opponent's zone is not decoration here, it is what keeps the screen legible: a player who
- * picks green and is seated UPPER would otherwise face a green zone across a green one.
+ * picks green and is seated RIGHT would otherwise face a green zone across a green one.
  *
  * The two authored washes are at opposite ends of the tonal range, and each side's opacity is tuned for its
  * own: the red one is bright and drawn plainly, the green one is nearly black and has its opacity scaled up

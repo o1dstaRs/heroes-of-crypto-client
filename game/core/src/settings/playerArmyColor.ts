@@ -17,7 +17,7 @@ import { TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "../scenes/teamColors";
  * A player's PERSONAL army colour: a local, cosmetic override for the two armies' flags and lights.
  *
  * This is not the viewer-relative palette that was tried and reverted twice. Team IDENTITY is untouched:
- * LOWER is still the green side and UPPER still the red one, in every log line, on the results card and in
+ * LEFT is still the green side and RIGHT still the red one, in every log line, on the results card and in
  * match history. Only the paint on the board (and the stack flags/pips that mirror it) changes, only on the
  * CLICKING PLAYER's own machine — nothing here is sent anywhere, and the opponent's screen is unaffected.
  *
@@ -57,8 +57,8 @@ export const ARMY_COLOR_PRESETS: readonly IArmyColorPreset[] = [
     { id: "teal", label: "Teal", color: 0x2ec4a6, gradient: [0x176b5b, 0x0d3e34, 0x176b5b] },
     { id: "slate", label: "Slate", color: 0x8fa3bf, gradient: [0x4c5a6e, 0x2c3541, 0x4c5a6e] },
     { id: "bone", label: "Bone", color: 0xe8e0c8, gradient: [0x7d7663, 0x49453a, 0x7d7663] },
-    // The team's own green, cloth stops included: an UPPER player who wants to fight in green gets exactly
-    // the banner the LOWER side has always flown, not an approximation of it.
+    // The team's own green, cloth stops included: a RIGHT player who wants to fight in green gets exactly
+    // the banner the LEFT side has always flown, not an approximation of it.
     { id: "green", label: "Green", color: TEAM_COLOR_GREEN, gradient: [0x176238, 0x0b3d20, 0x176238] },
 ];
 
@@ -66,10 +66,10 @@ export const ARMY_COLOR_PRESETS: readonly IArmyColorPreset[] = [
  * What the OPPONENT is drawn in once this player has chosen a colour — never selectable, never stored.
  *
  * The team's own red for the flat fill, so the enemy army's flags and lights are painted in exactly the
- * shade the UPPER side has always worn; the banner cloth itself falls through to the authored red gradient,
+ * shade the RIGHT side has always worn; the banner cloth itself falls through to the authored red gradient,
  * which this colour still selects. The stops here therefore serve only the placement wash, where a preset's
  * middle stop fills the DEEP slot — mirrored off the green zone's 0x102b1b, which is the only wash the
- * opponent can land in (the deep slot is always the LOWER zone).
+ * opponent can land in (the deep slot is always the LEFT zone).
  */
 export const OPPONENT_ARMY_COLOR: IArmyColorPreset = {
     id: "opponent",

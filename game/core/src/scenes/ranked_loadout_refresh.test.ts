@@ -33,7 +33,7 @@ const makeRankedScene = () => {
     const calls: string[] = [];
     const scene = {
         sc_gameActionTransport: (action: { type: string }) => sent.push(action),
-        viewerTeam: TeamVals.LOWER as number,
+        viewerTeam: TeamVals.LEFT as number,
         placementManager: { rebuildFromFightProps: () => calls.push("rebuildFromFightProps") },
         refreshAfterLoadoutChange: () => calls.push("refreshAfterLoadoutChange"),
         refreshUnits: () => calls.push("refreshUnits"),
@@ -46,7 +46,7 @@ describe("ranked augment pick", () => {
         FightStateManager.getInstance().reset();
         const { scene, sent, calls } = makeRankedScene();
 
-        const applied = propagateAugmentation(scene, TeamVals.LOWER, {
+        const applied = propagateAugmentation(scene, TeamVals.LEFT, {
             type: "Movement",
             value: Augment.MovementAugment.LEVEL_1,
         });
@@ -62,7 +62,7 @@ describe("ranked augment pick", () => {
         FightStateManager.getInstance().reset();
         const { scene, sent, calls } = makeRankedScene();
 
-        const applied = propagateAugmentation(scene, TeamVals.UPPER, {
+        const applied = propagateAugmentation(scene, TeamVals.RIGHT, {
             type: "Movement",
             value: Augment.MovementAugment.LEVEL_1,
         });
@@ -78,7 +78,7 @@ describe("ranked synergy pick", () => {
         FightStateManager.getInstance().reset();
         const { scene, sent, calls } = makeRankedScene();
 
-        expect(propagateSynergy(scene, TeamVals.UPPER)).toBe(false);
+        expect(propagateSynergy(scene, TeamVals.RIGHT)).toBe(false);
         expect(calls).toEqual([]);
         expect(sent).toEqual([]);
     });

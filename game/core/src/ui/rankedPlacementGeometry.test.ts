@@ -13,14 +13,14 @@ import {
 /**
  * The auto-placement geometry for the SIDE-oriented ranked board, with rectangular footprints in the mix.
  * Everything here validates PLACE_UNIT payloads the way the server will: whole bodies inside the team's
- * side zone (LOWER x 1-3, UPPER x 12-14, y 1-14), no overlaps, nothing already placed disturbed.
+ * side zone (LEFT x 1-3, RIGHT x 12-14, y 1-14), no overlaps, nothing already placed disturbed.
  */
 
 let unitSeq = 0;
 const makeUnit = (overrides: Partial<PlayUnitState>): PlayUnitState =>
     ({
         id: overrides.id ?? `u${++unitSeq}`,
-        team: TeamVals.LOWER,
+        team: TeamVals.LEFT,
         name: "Stub",
         attackType: AttackVals.MELEE,
         size: 1,
@@ -39,7 +39,7 @@ const bodyOf = (action: { cells?: { x: number; y: number }[] }): { x: number; y:
 
 describe("side-zone model placement with rectangular footprints", () => {
     test("a mixed roster lands whole-bodied, overlap-free, ranged at the back — both teams", () => {
-        for (const team of [TeamVals.LOWER, TeamVals.UPPER]) {
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
             const units = [
                 makeUnit({ id: "giant", team, size: 2, footprintWidth: 2, footprintHeight: 2 }),
                 makeUnit({ id: "tower", team, size: 2, footprintWidth: 1, footprintHeight: 2 }),
@@ -66,7 +66,7 @@ describe("side-zone model placement with rectangular footprints", () => {
             expect(byId.get("tower")).toHaveLength(2);
             expect(byId.get("wagon")).toHaveLength(2);
             // Ranged hides on the back column of the SIDE zone (x, not y).
-            const backX = team === TeamVals.UPPER ? 14 : 1;
+            const backX = team === TeamVals.RIGHT ? 14 : 1;
             for (const cell of byId.get("archer")!) {
                 expect(cell.x).toBe(backX);
             }
@@ -92,7 +92,7 @@ describe("side-zone model placement with rectangular footprints", () => {
             makeUnit({ id: "giant", size: 2, footprintWidth: 2, footprintHeight: 2 }),
             blocker,
         ];
-        const actions = createModelPlacementActions(makeSnapshot(units), TeamVals.LOWER);
+        const actions = createModelPlacementActions(makeSnapshot(units), TeamVals.LEFT);
         expect(actions.map((action) => action.unitId)).toEqual(["giant", "sword"]);
         const blocked = new Set(blocker.cells.map((cell) => `${cell.x}:${cell.y}`));
         for (const action of actions) {
@@ -105,7 +105,7 @@ describe("side-zone model placement with rectangular footprints", () => {
     test("fallback anchors never let a body spill past the zone edge", () => {
         // A 3-wide melee body on the depth-3 zone has exactly one legal column per team; every
         // candidate the ladder still offers keeps the whole body in-zone at any candidate y.
-        for (const team of [TeamVals.LOWER, TeamVals.UPPER]) {
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
             for (const [width, height] of [
                 [3, 1],
                 [2, 1],
@@ -133,7 +133,7 @@ describe("side-zone model placement with rectangular footprints", () => {
 
 describe("initial line placement on the side zones", () => {
     test("a fresh army forms one vertical, centred, overlap-free line with its front edge on the centre column", () => {
-        for (const team of [TeamVals.LOWER, TeamVals.UPPER]) {
+        for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
             const units = [
                 makeUnit({ id: "giant", team, size: 2, footprintWidth: 2, footprintHeight: 2 }),
                 makeUnit({ id: "tower", team, size: 2, footprintWidth: 1, footprintHeight: 2 }),
@@ -142,14 +142,14 @@ describe("initial line placement on the side zones", () => {
             ];
             const actions = createInitialPlayerPlacementActions(makeSnapshot(units), team);
             expect(actions).toHaveLength(4);
-            const frontX = team === TeamVals.UPPER ? 12 : 3;
+            const frontX = team === TeamVals.RIGHT ? 12 : 3;
             const seen = new Set<string>();
             const rows: number[] = [];
             for (const action of actions) {
                 const cells = bodyOf(action);
                 // Front edge on the column nearest the battlefield centre, whatever the body's width.
                 const nearest =
-                    team === TeamVals.UPPER
+                    team === TeamVals.RIGHT
                         ? Math.min(...cells.map((cell) => cell.x))
                         : Math.max(...cells.map((cell) => cell.x));
                 expect(nearest).toBe(frontX);
@@ -174,12 +174,12 @@ describe("initial line placement on the side zones", () => {
             cells: [{ x: 3, y: 7 }],
         });
         const units = [placedUnit, makeUnit({ id: "sword" })];
-        const actions = createInitialPlayerPlacementActions(makeSnapshot(units), TeamVals.LOWER);
+        const actions = createInitialPlayerPlacementActions(makeSnapshot(units), TeamVals.LEFT);
         // Only the unplaced stack moves, and not onto the placed one.
         expect(actions.map((action) => action.unitId)).toEqual(["sword"]);
         for (const cell of bodyOf(actions[0])) {
             expect(`${cell.x}:${cell.y}`).not.toBe("3:7");
-            expect(isDefaultPlacementCell(cell, TeamVals.LOWER)).toBe(true);
+            expect(isDefaultPlacementCell(cell, TeamVals.LEFT)).toBe(true);
         }
     });
 });

@@ -4,8 +4,8 @@ import { TeamVals } from "@heroesofcrypto/common";
 
 import { indexUnitTeam, resolveLineTeamFlag, type TeamOrAmbiguous } from "./scene_log_flag";
 
-const GREEN = TeamVals.LOWER;
-const RED = TeamVals.UPPER;
+const GREEN = TeamVals.LEFT;
+const RED = TeamVals.RIGHT;
 
 const indexed = (...entries: [string, number][]): Map<string, TeamOrAmbiguous> => {
     const m = new Map<string, TeamOrAmbiguous>();
@@ -30,16 +30,16 @@ describe("indexUnitTeam", () => {
 });
 
 describe("scene log flags follow the team, not the viewer", () => {
-    test("LOWER is always green and UPPER always red, whichever seat is reading", () => {
+    test("LEFT is always green and RIGHT always red, whichever seat is reading", () => {
         // The viewer-relative flip made this pair swap per seat; team-fixed means one answer for everyone.
-        const m = indexed(["Ally", TeamVals.UPPER], ["Enemy", TeamVals.LOWER]);
+        const m = indexed(["Ally", TeamVals.RIGHT], ["Enemy", TeamVals.LEFT]);
         expect(resolveLineTeamFlag("Ally moved", m)).toBe("🔴");
         expect(resolveLineTeamFlag("Enemy moved", m)).toBe("🟢");
     });
 });
 
 describe("resolveLineTeamFlag", () => {
-    test("flags a line by the unit it leads with (LOWER=green, UPPER=red)", () => {
+    test("flags a line by the unit it leads with (LEFT=green, RIGHT=red)", () => {
         const m = indexed(["Berserker", GREEN], ["Troglodyte", RED]);
         expect(resolveLineTeamFlag("Berserker moved to(2, 7)", m)).toBe("🟢");
         expect(resolveLineTeamFlag("Troglodyte moved to(3, 9)", m)).toBe("🔴");

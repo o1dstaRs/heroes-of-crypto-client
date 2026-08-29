@@ -37,8 +37,8 @@ const defaults = { modelApiBase, modelName, style, timeoutMs };
 const replay = await runHarnessMatch({
     matchId: stringArg(args, "match-id", `mcp-harness-${Date.now()}`),
     scenario: parseScenario(stringArg(args, "scenario", "draft")),
-    lower: parseActor(stringArg(args, "lower", "builtin"), "LOWER", defaults),
-    upper: parseActor(stringArg(args, "upper", "model"), "UPPER", defaults),
+    left: parseActor(stringArg(args, "lower", "builtin"), "LEFT", defaults),
+    right: parseActor(stringArg(args, "upper", "model"), "RIGHT", defaults),
     maxActions: numberArg(args, "max-actions", 500),
     includeMechanicsContext: boolArg(args, "mechanics", true),
 });

@@ -34,7 +34,7 @@ import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
-import { personalArmyFlagGradient, personalArmyPresetFor } from "./personalArmyTint";
+import { CAN_RENDER_FLAG_GRADIENT, personalArmyFlagGradient, personalArmyPresetFor } from "./personalArmyTint";
 import { TEAM_COLOR_GREEN, TEAM_COLOR_RED, teamColor as resolveTeamColor } from "./teamColors";
 import { HOC_NUMERIC_FONT_FAMILY } from "../fontFamilies";
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
@@ -85,8 +85,6 @@ const battlefieldShadowSegmentTextures = (texture: Texture): readonly Texture[] 
     return segments;
 };
 
-const CAN_RENDER_FLAG_GRADIENT =
-    typeof document !== "undefined" && document.createElement("canvas").getContext("2d") !== null;
 const GREEN_ARMY_FLAG_GRADIENT = CAN_RENDER_FLAG_GRADIENT
     ? new FillGradient({
           end: { x: 1, y: 0 },
@@ -155,7 +153,7 @@ export const BATTLEFIELD_FOUR_CELL_Y_OFFSET_RATIO = 0.7;
 /**
  * How far below the footprint's centre the projected foot line sits, in cells.
  *
- * The feet stand just above the footprint's LOWER SEAM, and that seam is `footprintHeight / 2` below the
+ * The feet stand just above the footprint's LEFT SEAM, and that seam is `footprintHeight / 2` below the
  * centre — the only term a rectangle changes. The inset above the seam stays exactly as authored: a
  * quarter of a cell for a one-cell-tall body and three tenths for the taller multi-row art, which
  * reproduces both approved ratios (1 -> 0.25, 2 -> 0.7) unchanged.
@@ -254,7 +252,7 @@ const battlefieldCreatureRowProgress = (logicalY: number, footprintHeight: numbe
 
 /**
  * The two rows nearest the wall furnaces soften their dark rim. A body two cells tall also softens one
- * anchor row earlier because its upper half already occupies that furnace-adjacent two-row band — which
+ * anchor row earlier because its right half already occupies that furnace-adjacent two-row band — which
  * is why the threshold is expressed as "one row above the top of the body" rather than as a size test.
  */
 export function battlefieldCreatureContourOpacity(logicalY: number, footprintHeight: number, gs: GridSettings): number {
@@ -525,7 +523,7 @@ export function nativeBoardFacingMultiplier(_unitName: string): -1 | 1 {
 
 /** During placement both armies face the battlefield centre: green from the left, red from the right. */
 export function placementFacingDirectionForTeam(team: TeamType): -1 | 1 {
-    return team === TeamVals.UPPER ? -1 : 1;
+    return team === TeamVals.RIGHT ? -1 : 1;
 }
 
 /**
@@ -536,7 +534,7 @@ export function placementFacingDirectionForTeam(team: TeamType): -1 | 1 {
  * is the battlefield centre line.
  */
 export function previewPlacementFacing(team: TeamType, worldX: number): -1 | 1 {
-    if (team === TeamVals.UPPER || team === TeamVals.LOWER) {
+    if (team === TeamVals.RIGHT || team === TeamVals.LEFT) {
         return placementFacingDirectionForTeam(team);
     }
     return worldX > 0 ? -1 : 1;
@@ -898,15 +896,15 @@ function atlasImageKeyFromUnitAndState(
     footprintHeight: number,
 ): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
-    const stateLower = state.toLowerCase();
+    const stateLeft = state.toLowerCase();
     // same `_atlas_quarter` suffix you already use on UnitChip
     const key = (
         footprintWidth > 1 || footprintHeight > 1
-            ? `${base}_${stateLower}_atlas_half`
-            : `${base}_${stateLower}_atlas_quarter`
+            ? `${base}_${stateLeft}_atlas_half`
+            : `${base}_${stateLeft}_atlas_quarter`
     ) as ImageKey;
     if (key in images) return key;
-    const quarterKey = `${base}_${stateLower}_atlas_quarter` as ImageKey;
+    const quarterKey = `${base}_${stateLeft}_atlas_quarter` as ImageKey;
     if (quarterKey in images) return quarterKey;
     if (process.env.NODE_ENV === "development") {
         console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${key}`);
@@ -1565,8 +1563,8 @@ export class RenderableUnit extends Unit {
         ru.isShowingScavengerFlourishFrame = false;
         ru.selectionAnimFrameIndex = -1;
         ru.walkAnim = undefined;
-        // Fresh units face the ENEMY, not a fixed screen direction: green/LOWER deploys on the left
-        // and faces right, red/UPPER deploys on the right and faces left. Movement during the fight
+        // Fresh units face the ENEMY, not a fixed screen direction: green/LEFT deploys on the left
+        // and faces right, red/RIGHT deploys on the right and faces left. Movement during the fight
         // re-aims facing from the walk direction as before.
         ru.facingDirection = placementFacingDirectionForTeam(ru.getTeam());
         ru.stackForcedHidden = false;
@@ -2398,8 +2396,8 @@ export class RenderableUnit extends Unit {
         }
 
         // The foot line hangs below the footprint's centre by half the body's height, less the authored
-        // inset above its lower seam — so a two-cell-tall body plants its feet in its LOWER cell instead
-        // of floating in the upper one, while a 2x1 stands exactly where a 1x1 does.
+        // inset above its lower seam — so a two-cell-tall body plants its feet in its LEFT cell instead
+        // of floating in the right one, while a 2x1 stands exactly where a 1x1 does.
         const battlefieldYOffsetRatio = battlefieldFootLineOffsetCells(footprintHeight);
         // A one-cell-tall creature always uses the same projected foot line. Historical per-creature Y
         // nudges made feet float on several different baselines; keep those profiles only for taller art.

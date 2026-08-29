@@ -123,8 +123,8 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
 
 function atlasImageKeyFromUnitAndState(unitName: string, state: string): ImageKey | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
-    const stateLower = state.toLowerCase();
-    const key = `${base}_${stateLower}_atlas` as ImageKey;
+    const stateLeft = state.toLowerCase();
+    const key = `${base}_${stateLeft}_atlas` as ImageKey;
     if (key in images) return key;
     return null;
 }
@@ -388,13 +388,13 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     // while every other surface follows the player's choice, for their own army and the repainted enemy
     // alike. The neutral case keeps its own paler value: this list draws unowned rows differently from the
     // flags on purpose.
-    const isLower = teamType === TeamVals.LOWER;
+    const isLeft = teamType === TeamVals.LEFT;
     const personalColor = personalArmyCssColor(teamType);
     const activeColor =
         personalColor ??
-        (isLower
+        (isLeft
             ? "rgba(0, 210, 0, 1)"
-            : teamType === TeamVals.UPPER
+            : teamType === TeamVals.RIGHT
               ? "rgba(255, 0, 0, 1)"
               : "rgba(255, 255, 255, 0.85)");
     const emptyColor = "rgba(34, 34, 34, 0.7)";

@@ -164,14 +164,14 @@ describe("preview placement facing", () => {
         expect(previewPlacementFacing(TeamVals.NO_TEAM, 512)).toBe(-1);
         expect(previewPlacementFacing(TeamVals.NO_TEAM, -512)).toBe(1);
         expect(previewPlacementFacing(TeamVals.NO_TEAM, 0)).toBe(1);
-        expect(previewPlacementFacing(TeamVals.UPPER, -512)).toBe(-1);
-        expect(previewPlacementFacing(TeamVals.LOWER, 512)).toBe(1);
+        expect(previewPlacementFacing(TeamVals.RIGHT, -512)).toBe(-1);
+        expect(previewPlacementFacing(TeamVals.LEFT, 512)).toBe(1);
     });
 });
 
 describe("battlefield movement preview", () => {
     assetTest("matches the exact rendered ground point after moving to the destination cell", () => {
-        const unit = createRenderableUnit(TeamVals.UPPER, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         const origin = { x: 384, y: 640 };
         const destination = { x: 896, y: 1024 };
         unit.setPosition(origin.x, origin.y);
@@ -273,7 +273,7 @@ describe("attack animation vertical bands", () => {
 
 describe("full-body model ground line", () => {
     test("adds the unified contour and one compact furnace-cast silhouette", () => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Squire", "squire_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Squire", "squire_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setBattlefieldVisualProjection(true);
         unit.ensureVisual(new Container(), gridSettings);
@@ -308,7 +308,7 @@ describe("full-body model ground line", () => {
     });
 
     test("keeps the complete projected silhouette and contact patch for the tuned level-one group", () => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setBattlefieldVisualProjection(true);
         unit.ensureVisual(new Container(), gridSettings);
@@ -341,7 +341,7 @@ describe("full-body model ground line", () => {
             ["Life", "Valkyrie", "valkyrie_512"],
         ] as const) {
             expect(shouldFillBattlefieldAlphaHoles(name)).toBe(true);
-            const unit = createRenderableUnit(TeamVals.LOWER, faction, name, textureName, () => Texture.WHITE);
+            const unit = createRenderableUnit(TeamVals.LEFT, faction, name, textureName, () => Texture.WHITE);
             unit.setPosition(0, 1024);
             unit.setBattlefieldVisualProjection(true);
             unit.ensureVisual(new Container(), gridSettings);
@@ -391,35 +391,35 @@ describe("full-body model ground line", () => {
     });
 
     test("replaces rather than stacks contour filters when a creature crosses into the furnace rows", () => {
-        const lower = GridMath.getPositionForCell(
+        const left = GridMath.getPositionForCell(
             { x: 4, y: 13 },
             gridSettings.getMinX(),
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
-        const upper = GridMath.getPositionForCell(
+        const right = GridMath.getPositionForCell(
             { x: 4, y: 14 },
             gridSettings.getMinX(),
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
-        const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Squire", "squire_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Squire", "squire_512", () => Texture.WHITE);
         const world = new Container();
         const sprite = () => (unit as unknown as { sprite?: { filters: unknown[] | null } }).sprite;
 
         unit.setBattlefieldVisualProjection(true);
-        unit.setPosition(lower.x, lower.y);
+        unit.setPosition(left.x, left.y);
         unit.ensureVisual(world, gridSettings);
         const regularContour = sprite()?.filters?.[0];
         expect(sprite()?.filters).toHaveLength(1);
 
-        unit.setPosition(upper.x, upper.y);
+        unit.setPosition(right.x, right.y);
         unit.ensureVisual(world, gridSettings);
         const softenedContour = sprite()?.filters?.[0];
         expect(sprite()?.filters).toHaveLength(1);
         expect(softenedContour).not.toBe(regularContour);
 
-        unit.setPosition(lower.x, lower.y);
+        unit.setPosition(left.x, left.y);
         unit.ensureVisual(world, gridSettings);
         expect(sprite()?.filters).toHaveLength(1);
         expect(sprite()?.filters?.[0]).toBe(regularContour);
@@ -439,7 +439,7 @@ describe("full-body model ground line", () => {
         ] as const;
 
         for (const [faction, name, texture, size, offsetRatio] of cases) {
-            const unit = createRenderableUnit(TeamVals.LOWER, faction, name, texture, () => Texture.WHITE);
+            const unit = createRenderableUnit(TeamVals.LEFT, faction, name, texture, () => Texture.WHITE);
             const expected = projectBattlefieldPoint(
                 { x: position.x, y: position.y - gridSettings.getCellSize() * offsetRatio },
                 gridSettings,
@@ -483,7 +483,7 @@ describe("full-body model ground line", () => {
             ["Life", "Squire", "squire_512"],
             ["Chaos", "Orc", "orc_512"],
         ] as const) {
-            const unit = createRenderableUnit(TeamVals.UPPER, faction, name, texture, () => Texture.WHITE);
+            const unit = createRenderableUnit(TeamVals.RIGHT, faction, name, texture, () => Texture.WHITE);
             unit.setPosition(position.x, position.y);
             unit.setBattlefieldVisualProjection(true);
             unit.ensureVisual(new Container(), gridSettings);
@@ -502,7 +502,7 @@ describe("full-body model ground line", () => {
         expect(battlefieldCreatureScaleMultiplier("Gargantuan", 2)).toBe(1.2);
         expect(battlefieldCreatureScaleMultiplier("Squire", 1)).toBe(1);
 
-        const unit = createRenderableUnit(TeamVals.UPPER, "Chaos", "Black Dragon", "black_dragon_512");
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Chaos", "Black Dragon", "black_dragon_512");
         expect(unit.getSize()).toBe(2);
     });
 
@@ -547,7 +547,7 @@ describe("full-body model ground line", () => {
         const expectedY = tallBoardModelFootLineY(1024, gridSettings.getCellSize());
 
         for (const [name, texture, actionStates] of cases) {
-            const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", name, texture, () => Texture.WHITE);
+            const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", name, texture, () => Texture.WHITE);
             const world = new Container();
             const internals = unit as unknown as GroundedInternals;
             unit.setPosition(0, 1024);
@@ -578,7 +578,7 @@ describe("full-body model ground line", () => {
         ] as const;
 
         for (const [faction, name, insetRatio] of cases) {
-            const unit = createRenderableUnit(TeamVals.LOWER, faction, name, `${name}_512`, () => Texture.WHITE);
+            const unit = createRenderableUnit(TeamVals.LEFT, faction, name, `${name}_512`, () => Texture.WHITE);
             unit.setPosition(0, positionY);
             unit.ensureVisual(new Container(), gridSettings);
             const internals = unit as unknown as PositionedInternals;
@@ -671,7 +671,7 @@ describe("battlefield row perspective scale", () => {
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
-        const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
         const world = new Container();
         unit.setPosition(bottom.x, bottom.y);
         unit.setBattlefieldVisualProjection(true);
@@ -739,7 +739,7 @@ describe("furnace-cast battlefield shadow", () => {
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
-        const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
         const world = new Container();
         const internals = unit as unknown as {
             sprite?: { x: number; y: number };
@@ -771,7 +771,7 @@ describe("furnace-cast battlefield shadow", () => {
             gridSettings.getCellSize() * peasantShadow.top.offsetYCells * BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
             8,
         );
-        // The intact upper shadow is the approved maximum; the lower one is exactly 10% shorter in
+        // The intact upper shadow is the approved maximum; the left one is exactly 10% shorter in
         // screen space even though the creature itself follows the opposite perspective scale.
         expect((internals.silhouetteShadow?.scale.y ?? 0) / bottomLengthScale).toBeCloseTo(1 / 0.9, 8);
         expect(internals.silhouetteShadow?.alpha ?? 0).toBe(bottomAlpha);
@@ -784,7 +784,7 @@ describe("furnace-cast battlefield shadow", () => {
             gridSettings.getStep(),
             gridSettings.getHalfStep(),
         );
-        const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
         const world = new Container();
         const internals = unit as unknown as {
             sprite?: { x: number; scale: { x: number } };
@@ -810,26 +810,26 @@ describe("furnace-cast battlefield shadow", () => {
     });
 });
 
-test("uses Scavenger's matching upper and lower attack atlases", () => {
+test("uses Scavenger's matching right and left attack atlases", () => {
     expect(resolveAnimationAtlasState("Scavenger", "attack_up")).toBe("attack_up");
     expect(resolveAnimationAtlasState("Scavenger", "attack_down")).toBe("attack_down");
 });
 
 test("faces green right and mirrors red left during placement", () => {
-    const unit = createRenderableUnit(TeamVals.UPPER, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.RIGHT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
     const internals = unit as unknown as { sprite?: { scale: { x: number } }; facingDirection: -1 | 1 };
     const world = new Container();
     unit.setPosition(0, 1024);
 
-    expect(placementFacingDirectionForTeam(TeamVals.UPPER)).toBe(-1);
-    expect(placementFacingDirectionForTeam(TeamVals.LOWER)).toBe(1);
+    expect(placementFacingDirectionForTeam(TeamVals.RIGHT)).toBe(-1);
+    expect(placementFacingDirectionForTeam(TeamVals.LEFT)).toBe(1);
 
-    unit.setBoardFacing(placementFacingDirectionForTeam(TeamVals.UPPER));
+    unit.setBoardFacing(placementFacingDirectionForTeam(TeamVals.RIGHT));
     unit.ensureVisual(world, gridSettings);
     expect(internals.facingDirection).toBe(-1);
     expect(internals.sprite?.scale.x).toBeLessThan(0);
 
-    unit.setBoardFacing(placementFacingDirectionForTeam(TeamVals.LOWER));
+    unit.setBoardFacing(placementFacingDirectionForTeam(TeamVals.LEFT));
     unit.ensureVisual(world, gridSettings);
     expect(internals.facingDirection).toBe(1);
     expect(internals.sprite?.scale.x).toBeGreaterThan(0);
@@ -842,7 +842,7 @@ test("mirrors the authored horizontal placement correction together with the cre
         gridSettings.getStep(),
         gridSettings.getHalfStep(),
     );
-    const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
     const world = new Container();
     const sprite = () => (unit as unknown as { sprite?: { x: number } }).sprite;
     const ground = projectBattlefieldPoint(
@@ -868,7 +868,7 @@ test("mirrors the authored horizontal placement correction together with the cre
 });
 
 assetTest("mirrors Centaur to the requested opposite orientation and keeps turn poses outside the gait loop", () => {
-    const unit = createRenderableUnit(TeamVals.LOWER, "Might", "Centaur", "centaur_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Centaur", "centaur_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { scale: { x: number; y: number } };
         walkAnim?: {
@@ -903,7 +903,7 @@ assetTest("mirrors Centaur to the requested opposite orientation and keeps turn 
 });
 
 assetTest("plays Dryad's reversed run between one-shot turn poses", () => {
-    const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Dryad", "dryad_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
         walkAnim?: {
@@ -938,7 +938,7 @@ assetTest("plays Dryad's reversed run between one-shot turn poses", () => {
 
 // The authored gait metadata is committed with the client, so these timings also exercise the CI stubs.
 assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
-    const unit = createRenderableUnit(TeamVals.LOWER, "Might", "Wolf Rider", "wolf_rider_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Might", "Wolf Rider", "wolf_rider_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
         walkAnim?: {
@@ -973,7 +973,7 @@ assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
 });
 
 assetTest("plays Leprechaun's run between one-shot start and finish frames", () => {
-    const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Leprechaun", "leprechaun_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Leprechaun", "leprechaun_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
         walkAnim?: {
@@ -1008,7 +1008,7 @@ assetTest("plays Leprechaun's run between one-shot start and finish frames", () 
 });
 
 assetTest("speeds Fairy take-off and landing by 30% while flight remains 20% faster", () => {
-    const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Fairy", "fairy_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Fairy", "fairy_512", () => Texture.WHITE);
     const internals = unit as unknown as {
         sprite?: { texture: Texture };
         walkAnim?: {
@@ -1120,7 +1120,7 @@ describe("Wandering Mage board animation states", () => {
 
     const createWanderingMage = (): RenderableUnit => {
         const unit = createRenderableUnit(
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             "Chaos",
             "Wandering Mage",
             "wandering_mage_512",
@@ -1252,7 +1252,7 @@ describe("Orc authored animation states", () => {
     };
 
     const createOrc = (): RenderableUnit => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Orc", "orc_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         return unit;
@@ -1442,7 +1442,7 @@ describe("Troll full-body battlefield figure", () => {
     };
 
     const createTroll = (worldRoot = new Container()): RenderableUnit => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Troll", "troll_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Troll", "troll_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(worldRoot, gridSettings);
         return unit;
@@ -1540,13 +1540,7 @@ describe("refreshed full-body placement scale", () => {
     ] as const) {
         const placementTest = creature === "Efreet" ? test : assetTest;
         placementTest(`keeps ${creature}'s authored proportions and size when it lands`, () => {
-            const unit = createRenderableUnit(
-                TeamVals.LOWER,
-                faction,
-                creature,
-                `${creature}_512`,
-                () => Texture.WHITE,
-            );
+            const unit = createRenderableUnit(TeamVals.LEFT, faction, creature, `${creature}_512`, () => Texture.WHITE);
             unit.setPosition(0, 1024);
             unit.ensureVisual(new Container(), gridSettings);
             const internals = unit as unknown as SpawnInternals;
@@ -1574,7 +1568,7 @@ describe("refreshed authored action playback", () => {
     };
 
     const createTroglodyte = (): RenderableUnit => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         return unit;
@@ -1632,7 +1626,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
     };
 
     assetTest("keeps Wolf at its authored proportions inside its two-cell footprint", () => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Wolf", "wolf_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         const internals = unit as unknown as IdleInternals;
@@ -1706,15 +1700,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
     });
 
     assetTest("slows refreshed idle loops by 23 percent and assigns stable per-unit phases", () => {
-        const first = createRenderableUnit(
-            TeamVals.LOWER,
-            "Chaos",
-            "Troglodyte",
-            "troglodyte_512",
-            () => Texture.WHITE,
-        );
+        const first = createRenderableUnit(TeamVals.LEFT, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
         const second = createRenderableUnit(
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             "Chaos",
             "Troglodyte",
             "troglodyte_512",
@@ -1740,7 +1728,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
 
     assetTest("temporarily freezes every creature sprite-sheet animation on its first authored frame", () => {
         CREATURE_SPRITE_ANIMATION_SETTINGS.enabled = false;
-        const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Troglodyte", "troglodyte_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         const internals = unit as unknown as IdleInternals;
@@ -1766,7 +1754,7 @@ describe("refreshed idle cadence and quadruped scale", () => {
         expect(creatureWalkAnimationEnabledForUnit("Peasant")).toBe(true);
         expect(creatureWalkAnimationEnabledForUnit("Troglodyte")).toBe(false);
 
-        const unit = createRenderableUnit(TeamVals.LOWER, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Life", "Peasant", "peasant_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         const idleFrameWidth = (unit as unknown as { selectionAnimFrames?: Texture[] }).selectionAnimFrames?.[0].frame
@@ -1833,7 +1821,7 @@ describe("Scavenger thief visual replacement", () => {
     };
 
     const createScavenger = (): RenderableUnit => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Chaos", "Scavenger", "scavenger_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Chaos", "Scavenger", "scavenger_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.ensureVisual(new Container(), gridSettings);
         return unit;
@@ -1969,7 +1957,7 @@ describe("Scavenger thief visual replacement", () => {
 });
 
 test("initializes the active-turn aura color when promoting a base unit", () => {
-    const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+    const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
     const worldRoot = new Container();
     unit.setPosition(0, 1024);
     unit.setActiveTurn(true);
@@ -1982,8 +1970,8 @@ test("initializes the active-turn aura color when promoting a base unit", () => 
 
 describe("RenderableUnit runtime spell synchronization", () => {
     test("removes and grants getSpells entries when a castable ability is stolen", () => {
-        const queen = createRenderableUnit(TeamVals.LOWER, "Nature", "Arachna Queen", "arachna_queen_512");
-        const angel = createRenderableUnit(TeamVals.UPPER, "Life", "Angel", "angel_512");
+        const queen = createRenderableUnit(TeamVals.LEFT, "Nature", "Arachna Queen", "arachna_queen_512");
+        const angel = createRenderableUnit(TeamVals.RIGHT, "Life", "Angel", "angel_512");
         HoCLib.setDeterministicRandomSource(() => 0);
 
         expect(spellAmounts(angel)).toEqual({ Resurrection: 1 });
@@ -1996,8 +1984,8 @@ describe("RenderableUnit runtime spell synchronization", () => {
     });
 
     test("transfers exact remaining spellbook charges into the thief's getSpells entries", () => {
-        const queen = createRenderableUnit(TeamVals.LOWER, "Nature", "Arachna Queen", "arachna_queen_512");
-        const satyr = createRenderableUnit(TeamVals.UPPER, "Nature", "Satyr", "satyr_512");
+        const queen = createRenderableUnit(TeamVals.LEFT, "Nature", "Arachna Queen", "arachna_queen_512");
+        const satyr = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
         satyr.useSpell("Courage");
         satyr.useSpell("Summon Wolves");
         HoCLib.setDeterministicRandomSource(() => 0);
@@ -2012,13 +2000,13 @@ describe("RenderableUnit runtime spell synchronization", () => {
 
     test("builds spellbook rendering when an initially spell-less unit gains a runtime spell", () => {
         const queen = createRenderableUnit(
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             "Nature",
             "Arachna Queen",
             "arachna_queen_512",
             () => Texture.WHITE,
         );
-        const angel = createRenderableUnit(TeamVals.UPPER, "Life", "Angel", "angel_512");
+        const angel = createRenderableUnit(TeamVals.RIGHT, "Life", "Angel", "angel_512");
         const spellBookLayer = new Container();
         const digits = new Map([[1, Texture.WHITE]]);
         HoCLib.setDeterministicRandomSource(() => 0);
@@ -2045,12 +2033,12 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         luck: number,
     ): string => {
         const effectFactory = new EffectFactory();
-        const properties = HoCConfig.getCreatureConfig(TeamVals.LOWER, "Nature", creatureName, textureName, 1);
+        const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Nature", creatureName, textureName, 1);
         properties.luck = luck;
         const base = Unit.createUnit(
             properties,
             gridSettings,
-            TeamVals.LOWER,
+            TeamVals.LEFT,
             UnitVals.CREATURE,
             new AbilityFactory(effectFactory),
             effectFactory,
@@ -2084,9 +2072,9 @@ describe("RenderableUnit runtime aura and reflection descriptions", () => {
         for (let stackPower = 1; stackPower <= 5; stackPower += 1) {
             const effectFactory = new EffectFactory();
             const base = Unit.createUnit(
-                HoCConfig.getCreatureConfig(TeamVals.LOWER, "Might", "Zena", "zena_512", 1),
+                HoCConfig.getCreatureConfig(TeamVals.LEFT, "Might", "Zena", "zena_512", 1),
                 gridSettings,
-                TeamVals.LOWER,
+                TeamVals.LEFT,
                 UnitVals.CREATURE,
                 new AbilityFactory(effectFactory),
                 effectFactory,
@@ -2118,7 +2106,7 @@ describe("RenderableUnit revealed roster card", () => {
     const pos = { x: 0, y: 1900 };
 
     const revealedUnit = (): { unit: RenderableUnit; worldRoot: Container } => {
-        const unit = createRenderableUnit(TeamVals.UPPER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setVisualRevealed(true);
         unit.setVisualScaleMultiplier(0.85);
         unit.setPosition(pos.x, pos.y);
@@ -2199,7 +2187,7 @@ describe("RenderableUnit revealed roster card", () => {
     });
 
     test("a normal board unit never builds one", () => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(pos.x, pos.y);
         const worldRoot = new Container();
         unit.ensureVisual(worldRoot, gridSettings);
@@ -2221,7 +2209,7 @@ describe("RenderableUnit steady-state overlays", () => {
     };
 
     test("keeps the compact amount ribbon hidden with the unit and leaves the old power rail disabled", () => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setStackPower(3);
         unit.setVisualVisible(false);
@@ -2245,7 +2233,7 @@ describe("RenderableUnit steady-state overlays", () => {
     });
 
     test("previews stack power without changing the unit's mechanical value", () => {
-        const unit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         unit.setPosition(0, 1024);
         unit.setStackPower(5);
         const worldRoot = new Container();
@@ -2264,7 +2252,7 @@ describe("RenderableUnit steady-state overlays", () => {
     });
 
     test("shows Whirlpool from both the Sandbox debuff object and Ranked's authoritative display status", () => {
-        const sandboxUnit = createRenderableUnit(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const sandboxUnit = createRenderableUnit(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         sandboxUnit.setPosition(0, 1024);
         sandboxUnit.applyDebuff(
             new Spell({ spellProperties: HoCConfig.getSpellConfig("Nature", "Whirlpool"), amount: 1 }),
@@ -2278,7 +2266,7 @@ describe("RenderableUnit steady-state overlays", () => {
 
         // Ranked deliberately has no AppliedSpell object: its server snapshot fills only the parallel
         // display arrays. The shared status predicate must still create the exact same board VFX.
-        const rankedUnit = createRenderableUnit(TeamVals.UPPER, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
+        const rankedUnit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", () => Texture.WHITE);
         rankedUnit.setPosition(0, 1024);
         const rankedProperties = rankedUnit.getUnitProperties();
         rankedProperties.applied_debuffs.push("Whirlpool");
@@ -2326,7 +2314,7 @@ describe("RenderableUnit applied buff/debuff display de-duplication", () => {
     });
 
     test("leaves a single Visible on a unit that carries it twice (the ranked double-render)", () => {
-        const tiger = createRenderableUnit(TeamVals.UPPER, "Nature", "White Tiger", "white_tiger_512");
+        const tiger = createRenderableUnit(TeamVals.RIGHT, "Nature", "White Tiger", "white_tiger_512");
         const visible = new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Visible"), amount: 1 });
         // Ranked shape: the snapshot seeds one display entry, common's guarded re-apply appends another.
         tiger.applyDebuff(visible);
@@ -2344,7 +2332,7 @@ describe("RenderableUnit applied buff/debuff display de-duplication", () => {
     });
 
     test("collapses a duplicated buff the same way", () => {
-        const tiger = createRenderableUnit(TeamVals.UPPER, "Nature", "White Tiger", "white_tiger_512");
+        const tiger = createRenderableUnit(TeamVals.RIGHT, "Nature", "White Tiger", "white_tiger_512");
         const hidden = new Spell({ spellProperties: HoCConfig.getSpellConfig("System", "Hidden"), amount: 1 });
         tiger.applyBuff(hidden);
         tiger.applyBuff(hidden);
@@ -2365,9 +2353,9 @@ describe("RenderableUnit dodge animation", () => {
     function createVisualUnit(): { unit: RenderableUnit; worldRoot: Container } {
         const effectFactory = new EffectFactory();
         const base = Unit.createUnit(
-            HoCConfig.getCreatureConfig(TeamVals.UPPER, "Nature", "Satyr", "satyr_512", 1),
+            HoCConfig.getCreatureConfig(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512", 1),
             gridSettings,
-            TeamVals.UPPER,
+            TeamVals.RIGHT,
             UnitVals.CREATURE,
             new AbilityFactory(effectFactory),
             effectFactory,
@@ -2381,7 +2369,7 @@ describe("RenderableUnit dodge animation", () => {
     }
 
     test("is a safe no-op before any sprite exists", () => {
-        const unit = createRenderableUnit(TeamVals.UPPER, "Nature", "Satyr", "satyr_512");
+        const unit = createRenderableUnit(TeamVals.RIGHT, "Nature", "Satyr", "satyr_512");
         unit.playDodgeAnimation(40, -20);
         expect(unit.isDodging()).toBe(false);
     });
@@ -2458,7 +2446,7 @@ describe("rectangular footprints", () => {
         texture: string,
         position: { x: number; y: number },
     ): RenderableUnit => {
-        const unit = createRenderableUnit(TeamVals.LOWER, faction, name, texture, () => Texture.WHITE);
+        const unit = createRenderableUnit(TeamVals.LEFT, faction, name, texture, () => Texture.WHITE);
         unit.setPosition(position.x, position.y);
         unit.setBattlefieldVisualProjection(true);
         unit.ensureVisual(new Container(), gridSettings);
@@ -2467,7 +2455,7 @@ describe("rectangular footprints", () => {
 
     test("carries the declared shape onto the unit itself", () => {
         const wide = withFootprintOverride("White Tiger=2x1", () =>
-            createRenderableUnit(TeamVals.LOWER, "Nature", "White Tiger", "white_tiger_512"),
+            createRenderableUnit(TeamVals.LEFT, "Nature", "White Tiger", "white_tiger_512"),
         );
         expect(wide.getFootprintWidth()).toBe(2);
         expect(wide.getFootprintHeight()).toBe(1);

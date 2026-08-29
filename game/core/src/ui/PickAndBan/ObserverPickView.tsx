@@ -269,8 +269,8 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
         return Math.max(0, Math.floor((snapshot.phaseEndsAt - (now + driftRef.current)) / 1000));
     }, [snapshot, now]);
 
-    const lower = snapshot?.teams?.find((team) => team.team === "lower");
-    const upper = snapshot?.teams?.find((team) => team.team === "upper");
+    const left = snapshot?.teams?.find((team) => team.team === "lower");
+    const right = snapshot?.teams?.find((team) => team.team === "upper");
     const bans = snapshot?.bans ?? [];
 
     return (
@@ -321,11 +321,11 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({ gameId, onP
                 </Stack>
 
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} alignItems="stretch">
-                    <TeamColumn team={lower} fallbackLabel="Lower team" />
+                    <TeamColumn team={left} fallbackLabel="Left team" />
                     <Stack alignItems="center" justifyContent="center">
                         <Typography sx={{ color: "#dcb158", fontSize: 22, fontWeight: 700 }}>VS</Typography>
                     </Stack>
-                    <TeamColumn team={upper} fallbackLabel="Upper team" />
+                    <TeamColumn team={right} fallbackLabel="Right team" />
                 </Stack>
 
                 {bans.length > 0 && (

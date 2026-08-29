@@ -92,7 +92,7 @@ export const sidebarFrameTopInsetPx = (viewportHeight: number): number =>
 /** Bottom is the same slim mirrored rail as the top; it no longer reserves room for a decorative plinth. */
 export const sidebarFrameBottomInsetPx = sidebarFrameTopInsetPx;
 
-/** The clean right-hand rail has no large caps or bottom plinth, so its content may sit closer to the edge. */
+/** The clea right-hand rail has no large caps or bottom plinth, so its content may sit closer to the edge. */
 export const sidebarPlainFrameSideInsetPx = (barSize: number): number => clamp(Math.round(barSize * 0.045), 10, 20);
 
 export const sidebarPlainFrameVerticalInsetPx = (viewportHeight: number): number =>

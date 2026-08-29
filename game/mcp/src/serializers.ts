@@ -21,16 +21,16 @@ const enumLabel = (enumLike: EnumLike, value: number): string => {
 };
 
 export const teamToName = (team: TeamType): TeamName => {
-    if (team === TeamVals.LOWER) {
-        return "LOWER";
+    if (team === TeamVals.LEFT) {
+        return "LEFT";
     }
-    if (team === TeamVals.UPPER) {
-        return "UPPER";
+    if (team === TeamVals.RIGHT) {
+        return "RIGHT";
     }
     throw new Error(`Unsupported team ${team}`);
 };
 
-export const teamFromName = (team: TeamName): TeamType => (team === "LOWER" ? TeamVals.LOWER : TeamVals.UPPER);
+export const teamFromName = (team: TeamName): TeamType => (team === "LEFT" ? TeamVals.LEFT : TeamVals.RIGHT);
 
 export const gridTypeName = (gridType: GridType): string => enumLabel(GridVals, gridType);
 

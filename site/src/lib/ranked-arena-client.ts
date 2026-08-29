@@ -722,7 +722,7 @@ const renderPredictionPanel = (
         return null;
     }
     const isBettingOpen = marketState === "open";
-    const [lower, upper] = game.players;
+    const [left, right] = game.players;
     const panel = el("div", "ranked-arena__market");
     panel.dataset.marketState = marketState;
 
@@ -741,13 +741,13 @@ const renderPredictionPanel = (
     );
     append(header, el("span", "ranked-arena__market-title", copy.marketTitle), totalPool);
 
-    const lowerShare = impliedShare(lower.predictionPool, upper.predictionPool);
+    const leftShare = impliedShare(left.predictionPool, right.predictionPool);
     const bar = el("div", "ranked-arena__market-bar");
-    const lowerFill = el("span", "ranked-arena__market-fill ranked-arena__market-fill--lower");
-    lowerFill.style.width = `${Math.round(lowerShare * 100)}%`;
-    const upperFill = el("span", "ranked-arena__market-fill ranked-arena__market-fill--upper");
-    upperFill.style.width = `${Math.round((1 - lowerShare) * 100)}%`;
-    append(bar, lowerFill, upperFill);
+    const leftFill = el("span", "ranked-arena__market-fill ranked-arena__market-fill--lower");
+    leftFill.style.width = `${Math.round(leftShare * 100)}%`;
+    const rightFill = el("span", "ranked-arena__market-fill ranked-arena__market-fill--upper");
+    rightFill.style.width = `${Math.round((1 - leftShare) * 100)}%`;
+    append(bar, leftFill, rightFill);
 
     const legend = el("div", "ranked-arena__market-legend");
     const legendSide = (player: LiveGame["players"][number], share: number, side: "lower" | "upper"): HTMLElement => {
@@ -761,7 +761,7 @@ const renderPredictionPanel = (
         append(item, el("strong", "", player.username), amount);
         return item;
     };
-    append(legend, legendSide(lower, lowerShare, "lower"), legendSide(upper, 1 - lowerShare, "upper"));
+    append(legend, legendSide(left, leftShare, "lower"), legendSide(right, 1 - leftShare, "upper"));
     append(panel, header, bar, legend);
 
     // ---- the viewer's own position, or the way in ----

@@ -432,11 +432,11 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
 
     useEffect(() => {
         startPreviewPlaySession({
-            userTeam: TeamVals.LOWER,
+            userTeam: TeamVals.LEFT,
             gridType: GridVals.NORMAL,
-            lowerArmy: slotCreatureIds,
-            upperArmy: [],
-            spreadLowerArmyAcrossBoard: true,
+            leftArmy: slotCreatureIds,
+            rightArmy: [],
+            spreadLeftArmyAcrossBoard: true,
             comparisonRowSizes: [SHADOW_EDITOR_SLOT_COUNT],
             comparisonRowGroundYs: [15],
             comparisonHorizontalGapCells: 1,
@@ -517,7 +517,7 @@ export const BattlefieldShadowEditor: React.FC<{ windowSize: IWindowSize }> = ({
                     pointerEvents: "none",
                 }}
             >
-                <RankedGameView gameId={PREVIEW_PLACEMENT_GAME_ID} userTeam={TeamVals.LOWER} windowSize={windowSize} />
+                <RankedGameView gameId={PREVIEW_PLACEMENT_GAME_ID} userTeam={TeamVals.LEFT} windowSize={windowSize} />
             </Box>
             <Box
                 title="Перетащить карту; колесо — изменить масштаб"

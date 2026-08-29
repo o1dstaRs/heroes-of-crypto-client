@@ -109,10 +109,10 @@ export const AmbientFireTuningEditor: React.FC<{
     useMemo(
         () =>
             startPreviewPlaySession({
-                userTeam: TeamVals.LOWER,
+                userTeam: TeamVals.LEFT,
                 gridType: GridVals.NORMAL,
-                lowerArmy: [],
-                upperArmy: [],
+                leftArmy: [],
+                rightArmy: [],
             }),
         [],
     );
@@ -170,7 +170,7 @@ export const AmbientFireTuningEditor: React.FC<{
 
     return (
         <Box sx={{ position: "fixed", inset: 0, overflow: "hidden", bgcolor: "#000" }}>
-            <RankedGameView gameId={PREVIEW_PLACEMENT_GAME_ID} userTeam={TeamVals.LOWER} windowSize={windowSize} />
+            <RankedGameView gameId={PREVIEW_PLACEMENT_GAME_ID} userTeam={TeamVals.LEFT} windowSize={windowSize} />
 
             {collapsed ? (
                 <Button

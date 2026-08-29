@@ -80,14 +80,14 @@ describe("social messaging client", () => {
 
 describe("prediction history", () => {
     test("keeps only markets that do not involve the viewer", () => {
-        const market = (gameId: string, lower: string, upper: string): PredictionMarket => ({
+        const market = (gameId: string, left: string, right: string): PredictionMarket => ({
             gameId,
             pickEndTime: 1_800_000_000_000,
             totalPool: 0,
             totalBets: 0,
             seats: [
-                { playerId: `${gameId}-lower`, username: lower, pool: 0, bets: 0 },
-                { playerId: `${gameId}-upper`, username: upper, pool: 0, bets: 0 },
+                { playerId: `${gameId}-lower`, username: left, pool: 0, bets: 0 },
+                { playerId: `${gameId}-upper`, username: right, pool: 0, bets: 0 },
             ],
         });
         const markets = [

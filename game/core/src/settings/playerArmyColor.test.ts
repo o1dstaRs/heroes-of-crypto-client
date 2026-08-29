@@ -8,10 +8,10 @@ import {
     resolvePlayerArmyColor,
 } from "./playerArmyColor";
 
-const LOWER = TeamVals.LOWER;
-const UPPER = TeamVals.UPPER;
+const LEFT = TeamVals.LEFT;
+const RIGHT = TeamVals.RIGHT;
 const ctx = (over: Partial<Parameters<typeof resolvePlayerArmyColor>[0]> = {}) =>
-    resolvePlayerArmyColor({ team: LOWER, viewerTeam: LOWER, presetId: "azure", live: true, ...over });
+    resolvePlayerArmyColor({ team: LEFT, viewerTeam: LEFT, presetId: "azure", live: true, ...over });
 
 /**
  * A personal army colour is a LOCAL cosmetic repaint of the two armies. It must never become the
@@ -26,8 +26,8 @@ describe("personal army colour", () => {
     test("paints the opponent red, whichever side they are seated on", () => {
         // Red is what keeps the board readable once the player's own colour is arbitrary — including green,
         // which would otherwise be able to sit opposite the green team.
-        expect(ctx({ team: UPPER })).toBe(OPPONENT_ARMY_COLOR);
-        expect(ctx({ team: LOWER, viewerTeam: UPPER })).toBe(OPPONENT_ARMY_COLOR);
+        expect(ctx({ team: RIGHT })).toBe(OPPONENT_ARMY_COLOR);
+        expect(ctx({ team: LEFT, viewerTeam: RIGHT })).toBe(OPPONENT_ARMY_COLOR);
     });
 
     test("the opponent's red is the team's own red, and is not itself selectable", () => {
@@ -38,13 +38,13 @@ describe("personal army colour", () => {
 
     test("is off in a replay, which must show the match as it was", () => {
         expect(ctx({ live: false })).toBeUndefined();
-        expect(ctx({ live: false, team: UPPER })).toBeUndefined();
+        expect(ctx({ live: false, team: RIGHT })).toBeUndefined();
     });
 
     test("is off for an observer, who has no own army", () => {
         expect(ctx({ viewerTeam: undefined })).toBeUndefined();
         expect(ctx({ viewerTeam: TeamVals.NO_TEAM })).toBeUndefined();
-        expect(ctx({ viewerTeam: undefined, team: UPPER })).toBeUndefined();
+        expect(ctx({ viewerTeam: undefined, team: RIGHT })).toBeUndefined();
     });
 
     test("neutral bodies belong to neither army", () => {
@@ -54,7 +54,7 @@ describe("personal army colour", () => {
     test("the team default and an unknown id leave BOTH sides on their team colours", () => {
         for (const presetId of [TEAM_DEFAULT_ARMY_COLOR_ID, undefined, "chartreuse"]) {
             expect(ctx({ presetId })).toBeUndefined();
-            expect(ctx({ presetId, team: UPPER })).toBeUndefined();
+            expect(ctx({ presetId, team: RIGHT })).toBeUndefined();
         }
     });
 

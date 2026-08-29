@@ -81,14 +81,14 @@ function normalizeUnitNameForAtlas(name?: string | null): AnimationUnitName | nu
 
 function atlasImageKeyFromUnitAndState(unitName: string, state: string): { key: ImageKey; divider: number } | null {
     const base = unitName.toLowerCase().replace(/\s+/g, "_");
-    const stateLower = state.toLowerCase();
+    const stateLeft = state.toLowerCase();
 
     // Full-resolution atlas first: the chips sit at ~90css px (180 device px on retina) and scale up
     // further on hover, where the quarter frames read visibly mushy. The full atlas only decodes when a
     // chip is actually hovered, and only for that unit, so the cost stays proportional to curiosity.
-    const fullKey = `${base}_${stateLower}_atlas` as ImageKey;
+    const fullKey = `${base}_${stateLeft}_atlas` as ImageKey;
     if (fullKey in images) return { key: fullKey, divider: 1 };
-    const quarterKey = `${base}_${stateLower}_atlas_quarter` as ImageKey;
+    const quarterKey = `${base}_${stateLeft}_atlas_quarter` as ImageKey;
     if (quarterKey in images) return { key: quarterKey, divider: 4 };
     if (process.env.NODE_ENV === "development") {
         console.warn(`[atlas] Missing atlas image for unit "${unitName}", state "${state}". Expected key: ${fullKey}`);

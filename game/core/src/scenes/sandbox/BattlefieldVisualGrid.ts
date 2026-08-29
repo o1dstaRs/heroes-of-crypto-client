@@ -157,14 +157,14 @@ export function projectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings): Ho
     const rowCoordinate = (1 - (height > 0 ? (point.y - gs.getMinY()) / height : 0)) * rowCount;
     const column = gridSegment(columnCoordinate, columnCount);
     const row = gridSegment(rowCoordinate, rowCount);
-    const upper = BATTLEFIELD_GRID_ROWS[row.index];
-    const lower = BATTLEFIELD_GRID_ROWS[row.index + 1];
-    const upperX = upper.x[column.index] + (upper.x[column.index + 1] - upper.x[column.index]) * column.fraction;
-    const lowerX = lower.x[column.index] + (lower.x[column.index + 1] - lower.x[column.index]) * column.fraction;
+    const right = BATTLEFIELD_GRID_ROWS[row.index];
+    const left = BATTLEFIELD_GRID_ROWS[row.index + 1];
+    const rightX = right.x[column.index] + (right.x[column.index + 1] - right.x[column.index]) * column.fraction;
+    const leftX = left.x[column.index] + (left.x[column.index + 1] - left.x[column.index]) * column.fraction;
     return artworkPointToWorld(
         {
-            x: upperX + (lowerX - upperX) * row.fraction,
-            y: upper.y + (lower.y - upper.y) * row.fraction,
+            x: rightX + (leftX - rightX) * row.fraction,
+            y: right.y + (left.y - right.y) * row.fraction,
         },
         gs,
     );
@@ -240,10 +240,10 @@ export function unprojectBattlefieldPoint(point: HoCMath.XY, gs: GridSettings): 
         }),
     );
     if (row < 0) row = rowCount - 1;
-    const upper = BATTLEFIELD_GRID_ROWS[row];
-    const lower = BATTLEFIELD_GRID_ROWS[row + 1];
-    const rowFraction = (artworkPoint.y - upper.y) / Math.max(1e-9, lower.y - upper.y);
-    const xBoundaries = upper.x.map((upperX, index) => upperX + (lower.x[index] - upperX) * rowFraction);
+    const right = BATTLEFIELD_GRID_ROWS[row];
+    const left = BATTLEFIELD_GRID_ROWS[row + 1];
+    const rowFraction = (artworkPoint.y - right.y) / Math.max(1e-9, left.y - right.y);
+    const xBoundaries = right.x.map((rightX, index) => rightX + (left.x[index] - rightX) * rowFraction);
     if (artworkPoint.x < xBoundaries[0] || artworkPoint.x > xBoundaries[columnCount]) return undefined;
 
     let column = xBoundaries.findIndex(

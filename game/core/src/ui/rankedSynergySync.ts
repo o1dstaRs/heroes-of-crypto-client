@@ -16,7 +16,7 @@ interface FactionCountableUnit {
     getName(): string;
 }
 
-type RankedSynergySnapshot = Pick<PlaySnapshot, "gameId" | "fightStarted" | "lowerSynergies" | "upperSynergies">;
+type RankedSynergySnapshot = Pick<PlaySnapshot, "gameId" | "fightStarted" | "leftSynergies" | "rightSynergies">;
 
 /**
  * Keeps the process-global fight model scoped to one ranked game. Placement snapshots intentionally hide
@@ -32,8 +32,8 @@ export const syncRankedSnapshotSynergies = (
         return snapshot.gameId;
     }
 
-    store.setSynergiesPerTeam(TeamVals.LOWER, snapshot.fightStarted ? (snapshot.lowerSynergies ?? []) : []);
-    store.setSynergiesPerTeam(TeamVals.UPPER, snapshot.fightStarted ? (snapshot.upperSynergies ?? []) : []);
+    store.setSynergiesPerTeam(TeamVals.LEFT, snapshot.fightStarted ? (snapshot.leftSynergies ?? []) : []);
+    store.setSynergiesPerTeam(TeamVals.RIGHT, snapshot.fightStarted ? (snapshot.rightSynergies ?? []) : []);
     return snapshot.gameId;
 };
 
@@ -59,8 +59,8 @@ export const syncPlacementSynergyUnitCounts = (
     // stacks (each sharing the creature's name) must not inflate its faction's synergy level. It is a property
     // of the fielded army, fixed before placement — so dedupe by creature name here to match the server.
     const seen = new Map<TeamType, { life: Set<string>; chaos: Set<string>; might: Set<string>; nature: Set<string> }>([
-        [TeamVals.LOWER as TeamType, { life: new Set(), chaos: new Set(), might: new Set(), nature: new Set() }],
-        [TeamVals.UPPER as TeamType, { life: new Set(), chaos: new Set(), might: new Set(), nature: new Set() }],
+        [TeamVals.LEFT as TeamType, { life: new Set(), chaos: new Set(), might: new Set(), nature: new Set() }],
+        [TeamVals.RIGHT as TeamType, { life: new Set(), chaos: new Set(), might: new Set(), nature: new Set() }],
     ]);
     for (const unit of units) {
         const teamSeen = seen.get(unit.getTeam());

@@ -155,17 +155,17 @@ export interface AuthoritativeGameSnapshot {
     journalTail?: AuthoritativeJournalEntry[];
     // Each team's army totals captured at fight start (units + cumulative HP), so the fight-results
     // overlay renders casualty stats even for a team later fully wiped (whose units are then gone).
-    lowerStartUnits?: number;
-    upperStartUnits?: number;
-    lowerStartHealth?: number;
-    upperStartHealth?: number;
+    leftStartUnits?: number;
+    rightStartUnits?: number;
+    leftStartHealth?: number;
+    rightStartHealth?: number;
     // Same fight-start capture, broken down per creature type (parallel arrays: creatureIds[i] fielded
     // in amounts[i]) — lets the fight-results overlay render a correct per-creature casualty breakdown
     // even for a team that lost an entire creature type (whose stacks are then gone from `units` too).
-    lowerStartRosterCreatureIds?: number[];
-    lowerStartRosterAmounts?: number[];
-    upperStartRosterCreatureIds?: number[];
-    upperStartRosterAmounts?: number[];
+    leftStartRosterCreatureIds?: number[];
+    leftStartRosterAmounts?: number[];
+    rightStartRosterCreatureIds?: number[];
+    rightStartRosterAmounts?: number[];
 }
 
 export type SceneGameActionTransportResult =

@@ -31,49 +31,49 @@ afterEach(() => {
 
 describe("the chrome's team colour follows the player's own choice", () => {
     test("without a choice both sides keep their team colours", () => {
-        setPersonalArmyTint(TeamVals.LOWER, true);
+        setPersonalArmyTint(TeamVals.LEFT, true);
 
-        expect(getTeamFlagBackground(TeamVals.LOWER)).toBe(GREEN);
-        expect(getTeamFlagBackground(TeamVals.UPPER)).toBe(RED);
+        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(GREEN);
+        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(RED);
     });
 
     test("the player's own side takes the chosen colour, the opponent turns red", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.LOWER, true);
+        setPersonalArmyTint(TeamVals.LEFT, true);
 
-        expect(getTeamFlagBackground(TeamVals.LOWER)).toBe(`#${AMETHYST.color.toString(16)}`);
-        expect(getTeamFlagBackground(TeamVals.UPPER)).toBe(RED);
+        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(`#${AMETHYST.color.toString(16)}`);
+        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(RED);
     });
 
     test("it follows the viewer's side, not a fixed one — the GREEN side can be the enemy", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.UPPER, true);
+        setPersonalArmyTint(TeamVals.RIGHT, true);
 
-        expect(getTeamFlagBackground(TeamVals.UPPER)).toBe(`#${AMETHYST.color.toString(16)}`);
-        // The queue has to stay readable: whoever is opposite this player reads red, LOWER included.
-        expect(getTeamFlagBackground(TeamVals.LOWER)).toBe(RED);
+        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(`#${AMETHYST.color.toString(16)}`);
+        // The queue has to stay readable: whoever is opposite this player reads red, LEFT included.
+        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(RED);
     });
 
-    test("an UPPER seat can fly green, and then faces a red LOWER army", () => {
+    test("a RIGHT seat can fly green, and then faces a red LEFT army", () => {
         const green = ARMY_COLOR_PRESETS.find((preset) => preset.id === "green")!;
         writePlayerArmyColorId(green.id);
-        setPersonalArmyTint(TeamVals.UPPER, true);
+        setPersonalArmyTint(TeamVals.RIGHT, true);
 
-        expect(getTeamFlagBackground(TeamVals.UPPER)).toBe(GREEN);
-        expect(getTeamFlagBackground(TeamVals.LOWER)).toBe(RED);
+        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(GREEN);
+        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(RED);
     });
 
     test("a replay shows the true team colours on both sides", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.LOWER, false);
+        setPersonalArmyTint(TeamVals.LEFT, false);
 
-        expect(getTeamFlagBackground(TeamVals.LOWER)).toBe(GREEN);
-        expect(getTeamFlagBackground(TeamVals.UPPER)).toBe(RED);
+        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(GREEN);
+        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(RED);
     });
 
     test("neutral rows keep the unowned colour", () => {
         writePlayerArmyColorId(AMETHYST.id);
-        setPersonalArmyTint(TeamVals.LOWER, true);
+        setPersonalArmyTint(TeamVals.LEFT, true);
 
         expect(getTeamFlagBackground(TeamVals.NO_TEAM)).toBe("#8b94a6");
     });

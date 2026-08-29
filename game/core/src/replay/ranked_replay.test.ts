@@ -23,10 +23,10 @@ const createEntry = (sequence: number): PlayJournalEntry => ({
     sequence,
     actionId: `action-${sequence}`,
     playerId: "player-1",
-    team: TeamVals.LOWER,
+    team: TeamVals.LEFT,
     actionType: PlayActionType.WAIT_TURN,
     actionJson: JSON.stringify({ type: "wait_turn", unitId: "u1" }),
-    eventsJson: JSON.stringify([{ type: "unit_waited", unitId: "u1", team: TeamVals.LOWER }]),
+    eventsJson: JSON.stringify([{ type: "unit_waited", unitId: "u1", team: TeamVals.LEFT }]),
     acceptedAtMs: 1000 + sequence,
 });
 
@@ -68,8 +68,8 @@ const createReadyStartEntry = (sequence: number): PlayJournalEntry => ({
         type: PlayActionType.READY_PLACEMENT,
     }),
     eventsJson: JSON.stringify([
-        { type: "fight_started", lowerUnitsAlive: 1, upperUnitsAlive: 1 },
-        { type: "next_unit_selected", unitId: "attacker-1", team: TeamVals.LOWER },
+        { type: "fight_started", leftUnitsAlive: 1, rightUnitsAlive: 1 },
+        { type: "next_unit_selected", unitId: "attacker-1", team: TeamVals.LEFT },
     ]),
 });
 
@@ -94,7 +94,7 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     fightStarted: true,
     fightFinished: false,
     currentUnitId: "u1",
-    currentTurnTeam: TeamVals.LOWER,
+    currentTurnTeam: TeamVals.LEFT,
     latestSequence,
     serverTimeMs: 2000,
     placementDeadlineMs: 0,
@@ -108,8 +108,8 @@ const createSnapshot = (journalTail: PlayJournalEntry[], latestSequence: number)
     readyPlayerIds: [],
     journalTail,
     upNext: [],
-    maxLowerUnits: 0,
-    maxUpperUnits: 0,
+    maxLeftUnits: 0,
+    maxRightUnits: 0,
     narrowingLayers: 0,
     centerDried: false,
     damageStats: [],
@@ -121,7 +121,7 @@ describe("ranked replay helpers", () => {
 
         expect(record?.sequence).toBe(1);
         expect(record?.action).toEqual({ type: "wait_turn", unitId: "u1" });
-        expect(record?.events).toEqual([{ type: "unit_waited", unitId: "u1", team: TeamVals.LOWER }]);
+        expect(record?.events).toEqual([{ type: "unit_waited", unitId: "u1", team: TeamVals.LEFT }]);
     });
 
     it("parses protocol-shaped journal action data into common replay action data", () => {
@@ -152,8 +152,8 @@ describe("ranked replay helpers", () => {
     it("keeps a START_FIGHT journal row when its events actually start combat", () => {
         const record = parseRankedReplayAction(
             createStartFightEntry(2, [
-                { type: "fight_started", lowerUnitsAlive: 1, upperUnitsAlive: 1 },
-                { type: "next_unit_selected", unitId: "attacker-1", team: TeamVals.LOWER },
+                { type: "fight_started", leftUnitsAlive: 1, rightUnitsAlive: 1 },
+                { type: "next_unit_selected", unitId: "attacker-1", team: TeamVals.LEFT },
             ]),
         );
 

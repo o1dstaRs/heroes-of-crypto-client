@@ -23,7 +23,7 @@ import { RankedGameView } from "./RankedGameView";
 
 export const PlacementStepPreview: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
     const params = new URLSearchParams(window.location.search);
-    const userTeam = (params.get("team")?.toLowerCase() === "upper" ? TeamVals.UPPER : TeamVals.LOWER) as TeamType;
+    const userTeam = (params.get("team")?.toLowerCase() === "upper" ? TeamVals.RIGHT : TeamVals.LEFT) as TeamType;
     const gridType = PREVIEW_PLACEMENT_MAPS[params.get("map")?.toLowerCase() ?? ""] ?? GridVals.NORMAL;
 
     // Seeded during render, before RankedGameView's first snapshot fetch runs — an effect would land after

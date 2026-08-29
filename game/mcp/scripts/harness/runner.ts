@@ -16,11 +16,11 @@ import type {
 } from "./types";
 
 const teamNameFromValue = (team: number): TeamName | undefined => {
-    if (team === TeamVals.LOWER) {
-        return "LOWER";
+    if (team === TeamVals.LEFT) {
+        return "LEFT";
     }
-    if (team === TeamVals.UPPER) {
-        return "UPPER";
+    if (team === TeamVals.RIGHT) {
+        return "RIGHT";
     }
     return undefined;
 };
@@ -39,8 +39,8 @@ const initialMetrics = (): HarnessMetrics => ({
     fightFinished: false,
 });
 
-const actorForTeam = (team: TeamName, lower: HarnessActorConfig, upper: HarnessActorConfig): HarnessActorConfig =>
-    team === "LOWER" ? lower : upper;
+const actorForTeam = (team: TeamName, left: HarnessActorConfig, right: HarnessActorConfig): HarnessActorConfig =>
+    team === "LEFT" ? left : right;
 
 const createScenario = (store: HeadlessMatchStore, scenario: HarnessScenario, matchId: string): void => {
     if (scenario === "quickstart") {
@@ -249,7 +249,7 @@ export const runHarnessMatch = async (options: HarnessRunOptions): Promise<Harne
             if (!team) {
                 throw new Error("Draft has no active team");
             }
-            const actor = actorForTeam(team, options.lower, options.upper);
+            const actor = actorForTeam(team, options.left, options.right);
             const legalActions = draft.listLegalActions(team);
             const choice = await chooseHarnessAction({
                 store,
@@ -297,7 +297,7 @@ export const runHarnessMatch = async (options: HarnessRunOptions): Promise<Harne
         if (!team) {
             throw new Error("Fight has no active team");
         }
-        const actor = actorForTeam(team, options.lower, options.upper);
+        const actor = actorForTeam(team, options.left, options.right);
         const legalActions = match.listLegalActions(team);
         const choice = await chooseHarnessAction({
             store,
@@ -350,8 +350,8 @@ export const runHarnessMatch = async (options: HarnessRunOptions): Promise<Harne
         finishedAt: new Date(finishedAtMs).toISOString(),
         durationMs: finishedAtMs - startedAtMs,
         actors: {
-            lower: options.lower,
-            upper: options.upper,
+            left: options.left,
+            right: options.right,
         },
         metrics,
         decisions,

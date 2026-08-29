@@ -45,9 +45,9 @@ const overrides = (value?: string): void => {
 const createUnit = (factionName: string, creatureName: string, textureName: string): Unit => {
     const effectFactory = new EffectFactory();
     return Unit.createUnit(
-        HoCConfig.getCreatureConfig(TeamVals.LOWER, factionName, creatureName, textureName, 1),
+        HoCConfig.getCreatureConfig(TeamVals.LEFT, factionName, creatureName, textureName, 1),
         gridSettings,
-        TeamVals.LOWER,
+        TeamVals.LEFT,
         UnitVals.CREATURE,
         new AbilityFactory(effectFactory),
         effectFactory,
@@ -95,7 +95,7 @@ describe("rectangular footprints on the sandbox interaction surface", () => {
     });
 
     test("footprint sides fall back to `size` for properties that predate footprints", () => {
-        const properties = HoCConfig.getCreatureConfig(TeamVals.LOWER, "Nature", "Satyr", "satyr_512", 1);
+        const properties = HoCConfig.getCreatureConfig(TeamVals.LEFT, "Nature", "Satyr", "satyr_512", 1);
         expect(footprintWidthOf(properties)).toBe(1);
         expect(footprintHeightOf(properties)).toBe(1);
 

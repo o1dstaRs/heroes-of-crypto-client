@@ -1,6 +1,6 @@
 /*
  * -----------------------------------------------------------------------------
- * Pure helpers for the sandbox scene log's per-line team colour flag (🟢 LOWER / 🔴 UPPER). The sandbox
+ * Pure helpers for the sandbox scene log's per-line team colour flag (🟢 LEFT / 🔴 RIGHT). The sandbox
  * log is the engine's plain text ("<UnitName> …"), so we resolve a line's side by the unit name it
  * leads with. A creature type fielded by BOTH teams is "ambiguous" by name alone — but the unit whose
  * turn it is, is a known instance, so its real team is used for lines that lead with its name (which is
@@ -78,13 +78,13 @@ export function resolveLineTeamFlag(
         }
     }
 
-    if (team === TeamVals.LOWER || team === TeamVals.UPPER) {
+    if (team === TeamVals.LEFT || team === TeamVals.RIGHT) {
         return isGreenTeam(team) ? "🟢" : "🔴";
     }
     return "";
 }
 
-/** The other side. Two-team game: LOWER <-> UPPER. */
+/** The other side. Two-team game: LEFT <-> RIGHT. */
 function oppositeTeam(team: number): number {
-    return team === TeamVals.LOWER ? TeamVals.UPPER : TeamVals.LOWER;
+    return team === TeamVals.LEFT ? TeamVals.RIGHT : TeamVals.LEFT;
 }

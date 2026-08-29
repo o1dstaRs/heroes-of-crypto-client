@@ -540,8 +540,8 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     " — phase {current}/{total}": " — фаза {current}/{total}",
     "Creature picks follow scouting reveals; selected artifacts are public as soon as they are locked in.":
         "Выборы существ видны по правилам разведки; выбранные артефакты открываются сразу после подтверждения.",
-    "Lower team": "Нижняя команда",
-    "Upper team": "Верхняя команда",
+    "Left team": "Нижняя команда",
+    "Right team": "Верхняя команда",
     VS: "ПРОТИВ",
     "Banned creatures": "Забаненные существа",
     banned: "забанено",

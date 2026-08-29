@@ -149,8 +149,8 @@ const normalizeBoolean = (value: string | null | undefined): boolean =>
 
 const teamFromString = (value: string | null | undefined, fallback: TeamType): TeamType => {
     const normalized = value?.toUpperCase();
-    if (normalized === "LOWER" || normalized === "GREEN") return TeamVals.LOWER;
-    if (normalized === "UPPER" || normalized === "RED") return TeamVals.UPPER;
+    if (normalized === "LEFT" || normalized === "GREEN") return TeamVals.LEFT;
+    if (normalized === "RIGHT" || normalized === "RED") return TeamVals.RIGHT;
     return fallback;
 };
 
@@ -167,7 +167,7 @@ export const isLocalModelAction = (action: GameAction): boolean =>
     (action as LocalModelMarkedAction)[LOCAL_MODEL_ACTION_FLAG] === true;
 
 export const getLocalModelTeamName = (team: TeamType): string =>
-    team === TeamVals.LOWER ? "LOWER" : team === TeamVals.UPPER ? "UPPER" : "NONE";
+    team === TeamVals.LEFT ? "LEFT" : team === TeamVals.RIGHT ? "RIGHT" : "NONE";
 
 export const describeLocalModelActiveUnit = (unit: Unit): LocalModelFightLogEntry["activeUnit"] => ({
     id: unit.getId(),
@@ -262,7 +262,7 @@ export const getLocalModelOpponentConfig = (): LocalModelOpponentConfig => {
 
     return {
         enabled,
-        modelTeam: teamFromString(params.get("modelTeam") ?? env.VITE_HOC_MODEL_TEAM, TeamVals.UPPER),
+        modelTeam: teamFromString(params.get("modelTeam") ?? env.VITE_HOC_MODEL_TEAM, TeamVals.RIGHT),
         apiBase: (params.get("modelApiBase") ?? env.VITE_HOC_MODEL_API_BASE ?? "/hoc-local-model").replace(/\/+$/, ""),
         modelName: params.get("modelName") ?? env.VITE_HOC_MODEL_NAME ?? "auto",
         authorization:

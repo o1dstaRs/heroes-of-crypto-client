@@ -46,22 +46,22 @@ type DraftStep = {
 };
 
 const DRAFT_STEPS: DraftStep[] = [
-    { phase: "initial_pick", team: "LOWER" },
-    { phase: "extended_pick", team: "UPPER" },
-    { phase: "extended_ban", team: "UPPER" },
-    { phase: "pick", team: "LOWER" },
-    { phase: "ban", team: "LOWER" },
-    { phase: "pick", team: "UPPER" },
-    { phase: "ban", team: "UPPER" },
-    { phase: "pick", team: "LOWER" },
-    { phase: "ban", team: "LOWER" },
-    { phase: "pick", team: "UPPER" },
-    { phase: "ban", team: "UPPER" },
-    { phase: "pick", team: "LOWER" },
-    { phase: "ban", team: "LOWER" },
-    { phase: "pick", team: "UPPER" },
-    { phase: "ban", team: "UPPER" },
-    { phase: "pick", team: "LOWER" },
+    { phase: "initial_pick", team: "LEFT" },
+    { phase: "extended_pick", team: "RIGHT" },
+    { phase: "extended_ban", team: "RIGHT" },
+    { phase: "pick", team: "LEFT" },
+    { phase: "ban", team: "LEFT" },
+    { phase: "pick", team: "RIGHT" },
+    { phase: "ban", team: "RIGHT" },
+    { phase: "pick", team: "LEFT" },
+    { phase: "ban", team: "LEFT" },
+    { phase: "pick", team: "RIGHT" },
+    { phase: "ban", team: "RIGHT" },
+    { phase: "pick", team: "LEFT" },
+    { phase: "ban", team: "LEFT" },
+    { phase: "pick", team: "RIGHT" },
+    { phase: "ban", team: "RIGHT" },
+    { phase: "pick", team: "LEFT" },
 ];
 
 const DEFAULT_INITIAL_PAIRS: Array<[number, number]> = [
@@ -202,12 +202,12 @@ export class HeadlessDraft {
     private readonly matchId: string;
     private readonly initialPairs: Array<[number, number]>;
     private readonly pickedByTeam: Record<TeamName, number[]> = {
-        LOWER: [],
-        UPPER: [],
+        LEFT: [],
+        RIGHT: [],
     };
     private readonly revealsRemainingByTeam: Record<TeamName, number> = {
-        LOWER: 1,
-        UPPER: 1,
+        LEFT: 1,
+        RIGHT: 1,
     };
     private banned: number[] = [];
     private stepIndex = 0;
@@ -394,7 +394,7 @@ export class HeadlessDraft {
             });
     }
     private assignAutomaticInitialPair(team: TeamName): void {
-        const opponent = team === "LOWER" ? "UPPER" : "LOWER";
+        const opponent = team === "LEFT" ? "RIGHT" : "LEFT";
         const existing = this.pickedByTeam[opponent];
         if (existing.length) {
             return;
@@ -434,7 +434,7 @@ export class HeadlessDraft {
             .filter((creatureId) => this.canBanCreature(creatureId))
             .map((creatureId) => {
                 const creature = createDraftCreatureState(creatureId);
-                const opponent = step.team === "LOWER" ? "UPPER" : "LOWER";
+                const opponent = step.team === "LEFT" ? "RIGHT" : "LEFT";
                 const opponentFactions = new Set(
                     this.pickedByTeam[opponent].map((pickedId) => createDraftCreatureState(pickedId).faction),
                 );
@@ -484,7 +484,7 @@ export class HeadlessDraft {
         }
 
         const level = getLevelOf(creatureId);
-        const allKnownPicked = [...this.pickedByTeam.LOWER, ...this.pickedByTeam.UPPER];
+        const allKnownPicked = [...this.pickedByTeam.LEFT, ...this.pickedByTeam.RIGHT];
         const stillNeededAtLevel = this.remainingNeededAtLevel(level);
         const availableAfterBan = allCreatureIds.filter(
             (id) => getLevelOf(id) === level && !this.isCreatureUnavailable(id) && id !== creatureId,
@@ -496,7 +496,7 @@ export class HeadlessDraft {
         );
     }
     private remainingNeededAtLevel(level: number): number {
-        return (["LOWER", "UPPER"] as TeamName[]).reduce((sum, team) => {
+        return (["LEFT", "RIGHT"] as TeamName[]).reduce((sum, team) => {
             const pickedAtLevel = this.pickedByTeam[team].filter(
                 (creatureId) => getLevelOf(creatureId as CreatureId) === level,
             ).length;
@@ -506,8 +506,8 @@ export class HeadlessDraft {
     private isCreatureUnavailable(creatureId: number): boolean {
         return (
             this.banned.includes(creatureId) ||
-            this.pickedByTeam.LOWER.includes(creatureId) ||
-            this.pickedByTeam.UPPER.includes(creatureId)
+            this.pickedByTeam.LEFT.includes(creatureId) ||
+            this.pickedByTeam.RIGHT.includes(creatureId)
         );
     }
     private toPublicState(): PublicDraftState {
@@ -523,15 +523,15 @@ export class HeadlessDraft {
                 createDraftCreatureState(pair[1]),
             ]),
             banned: this.banned.map(createDraftCreatureState),
-            lower: {
-                team: "LOWER",
-                picked: this.pickedByTeam.LOWER.map(createDraftCreatureState),
-                revealsRemaining: this.revealsRemainingByTeam.LOWER,
+            left: {
+                team: "LEFT",
+                picked: this.pickedByTeam.LEFT.map(createDraftCreatureState),
+                revealsRemaining: this.revealsRemainingByTeam.LEFT,
             },
-            upper: {
-                team: "UPPER",
-                picked: this.pickedByTeam.UPPER.map(createDraftCreatureState),
-                revealsRemaining: this.revealsRemainingByTeam.UPPER,
+            right: {
+                team: "RIGHT",
+                picked: this.pickedByTeam.RIGHT.map(createDraftCreatureState),
+                revealsRemaining: this.revealsRemainingByTeam.RIGHT,
             },
             completedMatchId: step ? undefined : this.matchId,
         };

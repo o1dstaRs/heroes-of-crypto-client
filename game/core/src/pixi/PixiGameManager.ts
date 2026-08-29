@@ -682,7 +682,7 @@ export class PixiGameManager {
         this.onHasStarted.emit(this.started);
         this.fitViewToWindow(); // keep neutral after start too
     }
-    /** Sandbox: hand a whole team to the AI (green = LOWER, red = UPPER). */
+    /** Sandbox: hand a whole team to the AI (green = LEFT, red = RIGHT). */
     public SetTeamAiControlled(team: TeamType, enabled: boolean): void {
         this.m_scene?.setTeamAiControlled(team, enabled);
     }

@@ -73,7 +73,7 @@ describe("MCP server tools", () => {
             }>(client, "create_match", { matchId: "mcp-tool-test" });
             expect(created.state.matchId).toBe("mcp-tool-test");
             expect(created.state.phase).toBe("fight");
-            expect(created.state.activeTeam).toBe("LOWER");
+            expect(created.state.activeTeam).toBe("LEFT");
             expect(created.legalActions.some((action) => action.kind === "melee_attack")).toBe(true);
 
             const decision = await callJsonTool<{ actionId: string; action: { type: string } }>(
@@ -81,7 +81,7 @@ describe("MCP server tools", () => {
                 "choose_action",
                 {
                     matchId: "mcp-tool-test",
-                    team: "LOWER",
+                    team: "LEFT",
                     reason: "server_bot",
                     style: "aggressive",
                 },
@@ -93,12 +93,12 @@ describe("MCP server tools", () => {
                 state: { phase: string; winner?: string };
             }>(client, "submit_action", {
                 matchId: "mcp-tool-test",
-                team: "LOWER",
+                team: "LEFT",
                 actionId: decision.actionId,
             });
             expect(submitted.completed).toBe(true);
             expect(submitted.state.phase).toBe("finished");
-            expect(submitted.state.winner).toBe("LOWER");
+            expect(submitted.state.winner).toBe("LEFT");
         } finally {
             await client.close();
             await server.close();
@@ -117,7 +117,7 @@ describe("MCP server tools", () => {
                 name: "play-turn",
                 arguments: {
                     matchId: "prompt-test",
-                    team: "LOWER",
+                    team: "LEFT",
                     reason: "sandbox_toggle",
                     style: "aggressive",
                 },
@@ -125,7 +125,7 @@ describe("MCP server tools", () => {
             const text = prompt.messages[0]?.content.type === "text" ? prompt.messages[0].content.text : "";
 
             expect(text).toContain("match prompt-test");
-            expect(text).toContain("controlling team LOWER");
+            expect(text).toContain("controlling team LEFT");
             expect(text).toContain("list_legal_actions");
             expect(text).toContain("Do not invent");
         } finally {
@@ -149,7 +149,7 @@ describe("MCP server tools", () => {
 
             expect(created.state.matchId).toBe("mcp-draft-test");
             expect(created.state.draftPhase).toBe("initial_pick");
-            expect(created.state.activeTeams).toEqual(["LOWER"]);
+            expect(created.state.activeTeams).toEqual(["LEFT"]);
             expect(created.legalActions.some((action) => action.kind === "pick_initial_pair")).toBe(true);
 
             const played = await callJsonTool<{
@@ -157,8 +157,8 @@ describe("MCP server tools", () => {
                 stoppedReason: string;
                 state: {
                     phase: string;
-                    lower: { picked: DraftCreature[] };
-                    upper: { picked: DraftCreature[] };
+                    left: { picked: DraftCreature[] };
+                    right: { picked: DraftCreature[] };
                 };
                 completedMatch?: { phase: string; activeTeam?: string; units: unknown[] };
             }>(client, "play_ai_draft", {
@@ -171,8 +171,8 @@ describe("MCP server tools", () => {
             expect(played.completed).toBe(true);
             expect(played.stoppedReason).toBe("draft_complete");
             expect(played.state.phase).toBe("complete");
-            expect(rangedDraftCount(played.state.lower.picked)).toBeLessThanOrEqual(3);
-            expect(rangedDraftCount(played.state.upper.picked)).toBeLessThanOrEqual(3);
+            expect(rangedDraftCount(played.state.left.picked)).toBeLessThanOrEqual(3);
+            expect(rangedDraftCount(played.state.right.picked)).toBeLessThanOrEqual(3);
             expect(played.completedMatch?.phase).toBe("fight");
             expect(played.completedMatch?.units).toHaveLength(12);
 
@@ -199,7 +199,7 @@ describe("MCP server tools", () => {
                 name: "draft-army",
                 arguments: {
                     matchId: "prompt-draft-test",
-                    team: "UPPER",
+                    team: "RIGHT",
                     reason: "pc_opponent",
                     style: "defensive",
                 },
@@ -207,7 +207,7 @@ describe("MCP server tools", () => {
             const text = prompt.messages[0]?.content.type === "text" ? prompt.messages[0].content.text : "";
 
             expect(text).toContain("match prompt-draft-test");
-            expect(text).toContain("drafting for team UPPER");
+            expect(text).toContain("drafting for team RIGHT");
             expect(text).toContain("list_draft_actions");
             expect(text).toContain("Do not invent");
         } finally {
@@ -275,7 +275,7 @@ describe("MCP server tools", () => {
                 state: { phase: string; winner?: string };
             }>(client, "play_ai_turn", {
                 matchId: "mcp-full-turn-test",
-                team: "LOWER",
+                team: "LEFT",
                 reason: "server_bot",
                 style: "aggressive",
             });
@@ -284,7 +284,7 @@ describe("MCP server tools", () => {
             expect(played.stoppedReason).toBe("fight_finished");
             expect(played.decisions.map((decision) => decision.action.type)).toEqual(["move_unit", "melee_attack"]);
             expect(played.state.phase).toBe("finished");
-            expect(played.state.winner).toBe("LOWER");
+            expect(played.state.winner).toBe("LEFT");
         } finally {
             await client.close();
             await server.close();
@@ -309,7 +309,7 @@ describe("MCP server tools", () => {
                 "list_legal_actions",
                 {
                     matchId: "mcp-priority-test",
-                    team: "LOWER",
+                    team: "LEFT",
                 },
             );
             expect(
@@ -323,7 +323,7 @@ describe("MCP server tools", () => {
                 "choose_action",
                 {
                     matchId: "mcp-priority-test",
-                    team: "LOWER",
+                    team: "LEFT",
                     reason: "server_bot",
                     style: "aggressive",
                 },
@@ -363,7 +363,7 @@ describe("MCP server tools", () => {
                 "choose_action",
                 {
                     matchId: "mcp-spell-test",
-                    team: "LOWER",
+                    team: "LEFT",
                     reason: "server_bot",
                     style: "aggressive",
                 },
@@ -381,7 +381,7 @@ describe("MCP server tools", () => {
                 }>
             >(client, "evaluate_actions", {
                 matchId: "mcp-spell-test",
-                team: "LOWER",
+                team: "LEFT",
                 style: "aggressive",
             });
 

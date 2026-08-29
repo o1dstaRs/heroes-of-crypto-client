@@ -53,15 +53,15 @@ const MATCH_KIND_STYLES: Record<MatchKindTone, { background: string; border: str
     },
 };
 
-// Which side the player fought as, coloured to match the board: team LOWER is green (always the bottom),
-// team UPPER is red (always the top). Team-fixed, never viewer-relative — see scenes/teamColors.ts.
+// Which side the player fought as, coloured to match the board: team LEFT is green (always the bottom),
+// team RIGHT is red (always the top). Team-fixed, never viewer-relative — see scenes/teamColors.ts.
 const SIDE_PRESENTATION: Record<"green" | "red", { label: string; color: string }> = {
     green: { label: "Green", color: "#46d160" },
     red: { label: "Red", color: "#ff5a5a" },
 };
 const matchSide = (team: number | undefined): "green" | "red" | undefined => {
-    if (team === TeamVals.LOWER) return "green";
-    if (team === TeamVals.UPPER) return "red";
+    if (team === TeamVals.LEFT) return "green";
+    if (team === TeamVals.RIGHT) return "red";
     return undefined;
 };
 

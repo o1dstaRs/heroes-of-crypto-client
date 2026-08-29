@@ -17,8 +17,8 @@ const maxActions = maxActionsArg ? Number(maxActionsArg.split("=")[1]) : Number(
 const modelApiBase = normalizeOpenAiBaseUrl(process.env.HOC_MODEL_API_BASE || "http://127.0.0.1:9091/");
 const modelName = process.env.HOC_MODEL_NAME || "auto";
 const style = (process.env.HOC_AI_STYLE || "balanced") as "balanced" | "aggressive" | "defensive";
-const humanTeam = (process.env.HOC_HUMAN_TEAM || "LOWER") as TeamName;
-const modelTeam = humanTeam === "LOWER" ? "UPPER" : "LOWER";
+const humanTeam = (process.env.HOC_HUMAN_TEAM || "LEFT") as TeamName;
+const modelTeam = humanTeam === "LEFT" ? "RIGHT" : "LEFT";
 const requestTimeoutMs = Number(process.env.HOC_MODEL_TIMEOUT_MS ?? 20000);
 
 const rl = createInterface({ input, output });
@@ -29,7 +29,7 @@ const usage = (): void => {
 Environment:
   HOC_MODEL_API_BASE     OpenAI-compatible API base or server root. Default: http://127.0.0.1:9091/
   HOC_MODEL_NAME         Model name sent to /chat/completions. Default: auto
-  HOC_HUMAN_TEAM         LOWER or UPPER. Default: LOWER
+  HOC_HUMAN_TEAM         LEFT or RIGHT. Default: LEFT
   HOC_AI_STYLE           balanced, aggressive, defensive. Default: balanced
   HOC_MODEL_DISABLED     1 to skip model HTTP calls and use the built-in scorer
 `);
@@ -130,7 +130,7 @@ const chooseFromPrompt = async (legalActions: AnyAction[]): Promise<string> => {
 const printDraftState = (state: PublicDraftState): void => {
     console.log(
         `\nDraft ${state.matchId}: ${state.draftPhase} active=${state.activeTeams.join(",") || "none"} ` +
-            `lower=${state.lower.picked.length} upper=${state.upper.picked.length} bans=${state.banned.length}`,
+            `lower=${state.left.picked.length} upper=${state.right.picked.length} bans=${state.banned.length}`,
     );
 };
 

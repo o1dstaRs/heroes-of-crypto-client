@@ -1,6 +1,6 @@
 import type { GameAction, GameActionRejectionReason, GameEvent } from "@heroesofcrypto/common";
 
-export type TeamName = "LOWER" | "UPPER";
+export type TeamName = "LEFT" | "RIGHT";
 export type AIReason =
     "sandbox_toggle" | "pc_opponent" | "opponent_timeout" | "opponent_disconnected" | "server_bot" | "benchmark";
 export type AIStyle = "balanced" | "aggressive" | "defensive";
@@ -46,8 +46,8 @@ export interface PublicDraftState {
     requiredLevel?: number;
     initialCreaturePairs: Array<[DraftCreatureState, DraftCreatureState]>;
     banned: DraftCreatureState[];
-    lower: DraftTeamState;
-    upper: DraftTeamState;
+    left: DraftTeamState;
+    right: DraftTeamState;
     completedMatchId?: string;
 }
 
