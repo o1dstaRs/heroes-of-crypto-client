@@ -62,6 +62,13 @@ export const hocSoftButtonSx = {
     "&:hover": {
         bgcolor: "rgba(255, 143, 0, 0.24)",
     },
+    // Without this Joy paints a disabled soft button in its own pale grey, which on this dark panel is
+    // BRIGHTER than the enabled ones — the one control you cannot press ends up drawing the eye first.
+    "&.Mui-disabled": {
+        color: "rgba(239, 228, 204, 0.38)",
+        bgcolor: "rgba(255, 143, 0, 0.06)",
+        borderColor: "rgba(255, 143, 0, 0.18)",
+    },
 };
 
 /**

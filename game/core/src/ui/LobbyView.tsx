@@ -12,7 +12,9 @@ import {
     startLobby,
 } from "../api/lobby_client";
 import { useAuthContext } from "./auth/context/auth_context";
-import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { ArenaNavBar } from "./ArenaNavBar";
+import { ARENA_COLUMN_WIDTH, arenaCardSx, arenaScreenSx, arenaTitleSx, arenaWashSx } from "./arenaBackdrop";
+import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
 
 const PlayerCard: React.FC<{ player?: LobbyPlayerObject; placeholder: string; isYou: boolean }> = ({
@@ -205,37 +207,29 @@ export const LobbyView: React.FC = () => {
 
     if (!lobby) {
         return (
-            <Box
-                sx={{
-                    minHeight: "100vh",
-                    bgcolor: hocColors.black,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                }}
-            >
-                {error ? <Alert color="danger">{error}</Alert> : <CircularProgress />}
+            <Box sx={arenaScreenSx}>
+                <Box aria-hidden="true" sx={arenaWashSx} />
+                <ArenaNavBar current="lobbies" />
+                <Stack alignItems="center" sx={{ position: "relative", zIndex: 1, py: 8 }}>
+                    {error ? <Alert sx={hocDangerAlertSx}>{error}</Alert> : <CircularProgress />}
+                </Stack>
             </Box>
         );
     }
 
     if (status === LobbyStatus.LOBBY_CLOSED) {
         return (
-            <Box
-                sx={{
-                    minHeight: "100vh",
-                    bgcolor: hocColors.black,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                }}
-            >
-                <Sheet sx={{ ...hocPanelSx, p: 4, textAlign: "center" }}>
-                    <Typography sx={{ color: hocColors.parchment, mb: 2 }}>This lobby has been closed.</Typography>
-                    <Button sx={hocPrimaryButtonSx} onClick={() => navigate("/lobbies")}>
-                        Back to lobbies
-                    </Button>
-                </Sheet>
+            <Box sx={arenaScreenSx}>
+                <Box aria-hidden="true" sx={arenaWashSx} />
+                <ArenaNavBar current="lobbies" />
+                <Stack alignItems="center" sx={{ position: "relative", zIndex: 1, py: 8 }}>
+                    <Sheet sx={{ ...arenaCardSx, p: 4, textAlign: "center" }}>
+                        <Typography sx={{ color: hocColors.parchment, mb: 2 }}>This lobby has been closed.</Typography>
+                        <Button sx={hocPrimaryButtonSx} onClick={() => navigate("/lobbies")}>
+                            Back to lobbies
+                        </Button>
+                    </Sheet>
+                </Stack>
             </Box>
         );
     }
@@ -243,18 +237,34 @@ export const LobbyView: React.FC = () => {
     const needsPin = !isMember && status === LobbyStatus.LOBBY_OPEN && lobby.is_private;
 
     return (
-        <Box sx={{ minHeight: "100vh", bgcolor: hocColors.black, p: 3, display: "flex", justifyContent: "center" }}>
-            <Stack spacing={2} sx={{ width: "100%", maxWidth: 720, position: "relative" }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography level="h2" sx={{ color: hocColors.parchment }}>
+        <Box sx={arenaScreenSx}>
+            <Box aria-hidden="true" sx={arenaWashSx} />
+            <ArenaNavBar current="lobbies" />
+            <Stack
+                spacing={2}
+                sx={{
+                    position: "relative",
+                    zIndex: 1,
+                    width: ARENA_COLUMN_WIDTH,
+                    maxWidth: 720,
+                    mx: "auto",
+                    py: { xs: 2, md: 3 },
+                }}
+            >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                    <Typography level="h2" noWrap sx={{ ...arenaTitleSx, minWidth: 0 }}>
                         {lobby.name || "Lobby"} {lobby.is_private ? "🔒" : ""}
                     </Typography>
-                    <Button variant="plain" sx={hocSoftButtonSx} onClick={() => void handleLeave()}>
+                    <Button
+                        variant="plain"
+                        sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
+                        onClick={() => void handleLeave()}
+                    >
                         Leave
                     </Button>
                 </Stack>
 
-                {error ? <Alert color="danger">{error}</Alert> : null}
+                {error ? <Alert sx={hocDangerAlertSx}>{error}</Alert> : null}
 
                 {shareLink ? (
                     <Sheet sx={{ ...hocPanelSx, p: 2 }}>

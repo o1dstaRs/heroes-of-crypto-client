@@ -23,6 +23,7 @@ import {
 } from "../api/lobby_client";
 import { socialErrorMessage } from "../api/social_client";
 import { t, tf, useTranslation } from "../i18n/i18n";
+import { arenaBadgeSx } from "./arenaBackdrop";
 import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
 import { LobbyNavIcon } from "./svg/navigation";
@@ -90,11 +91,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     // The purse, so the button can refuse before the server has to. Null while it loads (or if the
     // call fails), which simply means no client-side guard — the server still rejects with its price.
     const purse = useRankedStanding()?.gold;
-    const [lobbies, setLobbies] = useState<LobbyObject[]>([
-        { id: "a", name: "Duel me, cowards", status: 0, host: { username: "EmberWolf", league: "Silver" } },
-        { id: "b", name: "", status: 0, host: { username: "StoneFist", league: "Gold" } },
-        { id: "c", name: "Casual, no sweat", status: 1, host: { username: "PaleRider", league: "Bronze" } },
-    ] as unknown as LobbyObject[]);
+    const [lobbies, setLobbies] = useState<LobbyObject[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [quote, setQuote] = useState<LobbyPriceBreakdown | undefined>(undefined);
@@ -318,19 +315,45 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                                         {lobby.name || `${lobby.host?.username ?? t("Player")}'s lobby`}
                                     </Typography>
                                     <Typography level="body-xs" noWrap sx={{ color: hocColors.muted }}>
-                                        {`${lobby.host?.username ?? t("Player")} · ${
-                                            lobby.host?.league ?? "Unranked"
-                                        } · ${lobbyStatusLabel(lobby.status)}`}
+                                        {dense
+                                            ? `${lobby.host?.username ?? t("Player")} · ${
+                                                  lobby.host?.league ?? "Unranked"
+                                              } · ${lobbyStatusLabel(lobby.status)}`
+                                            : `${lobby.host?.username ?? t("Player")} · ${
+                                                  lobby.host?.league ?? "Unranked"
+                                              }`}
                                     </Typography>
                                 </Box>
-                                <Button
-                                    size="sm"
-                                    sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
-                                    disabled={lobby.status !== LobbyStatus.LOBBY_OPEN}
-                                    onClick={() => navigate(`/lobby/${lobby.id}`)}
-                                >
-                                    {t("Join")}
-                                </Button>
+                                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexShrink: 0 }}>
+                                    {dense ? null : (
+                                        <Typography
+                                            level="body-xs"
+                                            sx={{
+                                                ...arenaBadgeSx,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                minHeight: 30,
+                                                fontWeight: 800,
+                                                letterSpacing: "0.08em",
+                                                textTransform: "uppercase",
+                                                color:
+                                                    lobby.status === LobbyStatus.LOBBY_OPEN
+                                                        ? hocColors.green
+                                                        : hocColors.muted,
+                                            }}
+                                        >
+                                            {lobbyStatusLabel(lobby.status)}
+                                        </Typography>
+                                    )}
+                                    <Button
+                                        size="sm"
+                                        sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
+                                        disabled={lobby.status !== LobbyStatus.LOBBY_OPEN}
+                                        onClick={() => navigate(`/lobby/${lobby.id}`)}
+                                    >
+                                        {t("Join")}
+                                    </Button>
+                                </Stack>
                             </Stack>
                         </Sheet>
                     ))}
