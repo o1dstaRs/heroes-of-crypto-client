@@ -56,6 +56,42 @@ bun run lint:fix           # auto-fix eslint + prettier + scss + package order
 
 ## Before you push
 
+### Sync with the remote first — always
+
+Before you push, before you open **or update** a PR, and before **any** deploy, bring the branch you are
+standing on up to date with its remote:
+
+```bash
+git fetch <remote>                       # remote is `origin` here; check `git remote -v`, it is not always the same
+git pull --rebase <remote> <branch>      # the branch you are ON, not always main
+```
+
+Peers push to these branches continuously, so "it was current when I started" is never true by the time you
+finish. Skipping this produces a non-fast-forward rejection at best, and at worst a deploy built from code
+that is already behind what the PR claims.
+
+**Resolve conflicts per HUNK, not per file.** `git checkout --theirs <file>` replaces the *entire* file and
+silently discards your unrelated edits elsewhere in it. Prefer `git merge -X theirs` (or `-X ours`), which
+only decides the *conflicting* hunks and keeps both sides' untouched work, or edit the conflict markers by
+hand. After resolving, verify both sides survived — grep for a symbol you added and one the other side
+added — rather than assuming the merge kept them.
+
+**Re-check the submodule pin after every rebase or merge.** A submodule pointer does not report a conflict:
+git silently resolves `game/heroes-of-crypto-common` to one side, and because it is configured
+`ignore = all` a drifted pin never shows up in `git status`. A pin one commit behind compiles and passes
+type-check while the client asks the engine for something it does not have.
+
+```bash
+git ls-tree HEAD game/heroes-of-crypto-common          # recorded pin
+git -C game/heroes-of-crypto-common rev-parse HEAD     # what is actually checked out
+```
+
+If they differ, re-record deliberately with `git add game/heroes-of-crypto-common`. When the pin moves, the
+**server's** `package.json` pin and its `bun.lock` must move with it in the same commit — a pin bumped
+without the lockfile fails the deploy's `bun install --frozen-lockfile` on the box and rolls back.
+
+Then re-run the gate below: a clean merge is not a passing build.
+
 CI runs **`bun run lint`** check-only (eslint + stylelint + sort-package-json + prettier), so unformatted
 or lint-dirty code fails the build even though it runs fine locally. Run the full gate first:
 
