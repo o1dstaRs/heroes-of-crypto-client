@@ -20,7 +20,7 @@ const rankedApp = links.rankedApp;
     <div class="page-shell profile-shell">
         <header class="profile-head">
             <span class="profile-head-emblem" aria-hidden="true">
-                <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="64" height="64" />
+                <img src="/assets/images/home/logo/hocai_logo_96.png" alt="" width="64" height="64" data-profile-head-emblem />
             </span>
             <div class="profile-head-copy">
                 <p class="eyebrow" data-profile-eyebrow>{copy.title}</p>
@@ -28,6 +28,7 @@ const rankedApp = links.rankedApp;
                     <h1 class="profile-name" data-profile-name>{copy.title}</h1>
                     <span class="profile-gold" data-profile-gold hidden></span>
                 </div>
+                <p class="profile-standing-line" data-profile-standing-line hidden></p>
                 <p class="profile-sub" data-profile-subtitle>{copy.subtitle}</p>
                 <div class="profile-meta" data-profile-meta hidden>
                     <span class="profile-presence" data-profile-presence hidden></span>
@@ -238,6 +239,10 @@ const rankedApp = links.rankedApp;
     const errorBodyEl = $("error-body");
     const publicStandingEl = $("public-standing");
     const standingEl = $("standing");
+    // The generic mark the header wears until a public profile hands it a real league crest.
+    const HEAD_EMBLEM_FALLBACK = "/assets/images/home/logo/hocai_logo_96.png";
+    const headEmblemEl = $<HTMLImageElement>("head-emblem");
+    const standingLineEl = $("standing-line");
     const summaryNoticeEl = $("summary-notice");
     const matchesEl = $("matches");
     const matchesMoreEl = $<HTMLButtonElement>("matches-more");
@@ -1110,6 +1115,9 @@ const rankedApp = links.rankedApp;
         if (errorBodyEl) errorBodyEl.textContent = copy.errorBody;
         if (publicStandingEl) publicStandingEl.hidden = true;
         if (summaryNoticeEl) summaryNoticeEl.hidden = true;
+        // The crest and the standing line belong to a public profile; this view has no standing to show.
+        if (headEmblemEl) headEmblemEl.src = HEAD_EMBLEM_FALLBACK;
+        if (standingLineEl) standingLineEl.hidden = true;
         for (const section of selfSections) section.hidden = false;
     }
 
@@ -1206,24 +1214,27 @@ const rankedApp = links.rankedApp;
             const previous = profile.previous
                 ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
                 : copy.publicUnranked;
-            const seasonLine = profile.season
-                ? `<small class="ranked-standing__season">${escapeHtml(`${profile.season.name} · ${currentCurrency.name}`)}</small>`
-                : "";
             const emblemLabel = placed
                 ? standingLabel(profile.league, profile.wealth)
                 : publicStateLabel(profile.state);
+            // Crest and headline are hoisted into the page header, so the commander reads as one
+            // identity block instead of a card that repeats the name three rows below itself. What
+            // stays here is only what the header cannot carry: the record around the standing.
+            const standingHeadline = placed
+                ? standingLabel(profile.league, profile.wealth)
+                : `${publicStateLabel(profile.state)} ${progress}`;
+            if (headEmblemEl) {
+                headEmblemEl.src = leagueEmblemPath(placed ? profile.league : 0, placed ? profile.wealth : 0);
+                headEmblemEl.alt = emblemLabel;
+            }
+            if (standingLineEl) {
+                const rating = placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden;
+                const season = profile.season ? ` · ${profile.season.name} · ${currentCurrency.name}` : "";
+                standingLineEl.textContent = `${standingHeadline} · ${rating}${season}`;
+                standingLineEl.hidden = false;
+            }
             standingEl.innerHTML = `
-                <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
-                    <img class="ranked-standing__emblem" src="${leagueEmblemPath(placed ? profile.league : 0, placed ? profile.wealth : 0)}" alt="${escapeHtml(emblemLabel)}" width="128" height="128" />
-                    <div class="ranked-standing__copy">
-                        <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
-                        <strong>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
-                        <small>${escapeHtml(placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden)}</small>
-                        ${seasonLine}
-                    </div>
-                </div>
                 <dl class="ranked-standing__facts">
-                    <div><dt>${escapeHtml(copy.publicLeague)}</dt><dd>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</dd></div>
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
                     <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : copy.publicBanNotPicked)}</dd></div>
@@ -1845,6 +1856,16 @@ const rankedApp = links.rankedApp;
         white-space: nowrap;
     }
 
+    /* The standing the header crest stands for: gold against the parchment nickname above it. */
+    .profile-standing-line {
+        margin: 0 0 8px;
+        color: var(--gold, #f2c75d);
+        font-size: clamp(0.98rem, 1.5vw, 1.16rem);
+        font-weight: 600;
+        letter-spacing: 0.045em;
+        line-height: 1.15;
+    }
+
     .profile-sub {
         max-width: 620px;
         margin-bottom: 0;
@@ -2292,13 +2313,6 @@ const rankedApp = links.rankedApp;
         text-align: right;
     }
 
-    .ranked-standing__season {
-        display: block;
-        margin-top: 4px;
-        color: rgba(251, 244, 232, 0.55);
-        letter-spacing: 0.04em;
-    }
-
     @media (max-width: 720px) {
         .season-row {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2502,65 +2516,7 @@ const rankedApp = links.rankedApp;
 
     .ranked-standing {
         display: grid;
-        grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.55fr);
         gap: 14px;
-    }
-
-    .ranked-standing :global(.ranked-standing__banner) {
-        position: relative;
-        display: grid;
-        grid-template-columns: 118px minmax(0, 1fr);
-        gap: 14px;
-        align-items: center;
-        align-content: center;
-        min-height: 150px;
-        padding: 18px 20px;
-        overflow: hidden;
-        border: 1px solid rgba(255, 143, 0, 0.3);
-        border-radius: 12px;
-        background:
-            radial-gradient(circle at 88% 12%, rgba(255, 143, 0, 0.2), transparent 40%),
-            linear-gradient(145deg, rgba(70, 41, 17, 0.72), rgba(15, 10, 7, 0.94));
-        box-shadow: inset 0 0 28px rgba(255, 143, 0, 0.05);
-    }
-
-    .ranked-standing :global(.ranked-standing__emblem) {
-        display: block;
-        width: 118px;
-        height: 118px;
-        object-fit: contain;
-        filter: drop-shadow(0 9px 12px rgba(0, 0, 0, 0.58)) drop-shadow(0 0 10px rgba(220, 177, 88, 0.24));
-    }
-
-    .ranked-standing :global(.ranked-standing__copy) {
-        display: grid;
-        min-width: 0;
-    }
-
-    .ranked-standing :global(.ranked-standing__state) {
-        width: fit-content;
-        margin-bottom: 12px;
-        padding: 4px 9px;
-        border: 1px solid rgba(242, 199, 93, 0.38);
-        border-radius: 8px;
-        background: rgba(76, 45, 22, 0.6);
-        color: var(--gold, #dcb158);
-        font-size: 0.7rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-    }
-
-    .ranked-standing :global(.ranked-standing__banner strong) {
-        color: #fff5df;
-        font-size: clamp(1.35rem, 2vw, 1.85rem);
-        line-height: 1.05;
-    }
-
-    .ranked-standing :global(.ranked-standing__banner small) {
-        margin-top: 7px;
-        color: rgba(251, 244, 232, 0.62);
-        font-size: 0.84rem;
     }
 
     .ranked-standing :global(.ranked-standing__facts) {
@@ -3082,17 +3038,6 @@ const rankedApp = links.rankedApp;
 
         .ranked-standing :global(.ranked-standing__facts) {
             grid-template-columns: 1fr;
-        }
-
-        .ranked-standing :global(.ranked-standing__banner) {
-            grid-template-columns: 88px minmax(0, 1fr);
-            gap: 10px;
-            padding: 14px;
-        }
-
-        .ranked-standing :global(.ranked-standing__emblem) {
-            width: 88px;
-            height: 88px;
         }
 
         .ranked-standing :global(.ranked-standing__previous) {
