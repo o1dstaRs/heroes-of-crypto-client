@@ -5,6 +5,7 @@ import { getFactionOf, getLevelOf, ToFactionName, type CreatureId } from "@heroe
 
 import { fetchRankedBan, setRankedBan } from "../api/social_client";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
+import { CREATURE_PORTRAIT_ASPECT } from "./creaturePortraitVisual";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
 
@@ -14,6 +15,20 @@ import { UNIT_ID_TO_NAME } from "./unit_ui_constants";
  * banned; only one side set = banned; different picks = a deterministic 50/50 — at most ONE extra
  * banned creature per game on top of the automatic bans.
  */
+
+/**
+ * Portrait sizes for the two ban surfaces.
+ *
+ * Both used to be SQUARES (26x26 and 52x52), and a square is the one shape a creature portrait cannot
+ * be: every per-creature crop, scale and offset in the framing editor was reviewed against the approved
+ * 190x256 pick-card frame, with scales up to ~3x and downward offsets up to +100%. Forcing that into a
+ * square keeps the offsets but changes the visible window, so heads ride up out of the crop — the
+ * off-centre portraits on the ban row. Deriving the height from the shared aspect is what UpNext,
+ * UpNextOverlay and UnitStatsListItem already do; this was the odd surface out.
+ */
+const BAN_CHIP_PORTRAIT_WIDTH = 26;
+const BAN_GRID_PORTRAIT_WIDTH = 52;
+const banPortraitHeight = (width: number): number => Math.round(width / CREATURE_PORTRAIT_ASPECT);
 
 const ALL_CREATURES = Object.entries(UNIT_ID_TO_NAME)
     .map(([id, name]) => ({ id: Number(id), name, faction: ToFactionName[getFactionOf(Number(id) as CreatureId)] }))
@@ -113,7 +128,14 @@ export const RankedBanPicker: React.FC = () => {
                         <CreaturePortraitImage
                             creatureId={creatureId}
                             alt=""
-                            sx={{ width: 26, height: 26, borderRadius: 4 }}
+                            sx={{
+                                width: BAN_CHIP_PORTRAIT_WIDTH,
+                                height: banPortraitHeight(BAN_CHIP_PORTRAIT_WIDTH),
+                                borderRadius: 4,
+                                // The chip is a flex row; without this the name beside it can squeeze the
+                                // portrait narrower than its box and skew the crop again.
+                                flexShrink: 0,
+                            }}
                         />
                         <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
                             {creatureName}
@@ -215,7 +237,11 @@ export const RankedBanPicker: React.FC = () => {
                                         <CreaturePortraitImage
                                             creatureId={creature.id}
                                             alt=""
-                                            sx={{ width: 52, height: 52, borderRadius: 6 }}
+                                            sx={{
+                                                width: BAN_GRID_PORTRAIT_WIDTH,
+                                                height: banPortraitHeight(BAN_GRID_PORTRAIT_WIDTH),
+                                                borderRadius: 6,
+                                            }}
                                         />
                                         <Typography
                                             level="body-xs"
