@@ -427,17 +427,27 @@ const rankedApp = links.rankedApp;
         return `${Math.round(hours)}h`;
     }
 
-    // One "icon · name · win-rate bar · games" row, used for both creatures and factions.
+    const gamesLabelFor = (games: number): string => `${games} ${escapeHtml(copy.gamesLabel)}`;
+
+    // The creature list and the combo cards below are the ranked arena profile's two treatments, ported so
+    // a player reads the same thing on the site and in the game. See CompactStatRow and StrategyStatCard in
+    // game/core/src/ui/PlayerPortal/PlayerPortalPage.tsx; the tokens here are taken from those.
+
+    // "icon · name · games · win-rate bar · %" — a flat hairline-separated row rather than a boxed card,
+    // so a long list reads as one scannable column. The bar takes the leftover width instead of sitting at a
+    // fixed 160px, which is what stops a gap opening between the name and the figures on a wide screen.
     function barRow(image: string, name: string, wins: number, games: number): string {
         const pct = winRatePct(wins, games);
         const color = winRateColor(pct);
         return `
             <div class="bar-row">
-                <img class="bar-icon" src="${image}" alt="" width="34" height="34" loading="lazy" ${imgFallback} />
+                <img class="bar-icon" src="${image}" alt="" width="36" height="36" loading="lazy" ${imgFallback} />
                 <span class="bar-name">${escapeHtml(name)}</span>
-                <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:${color}"></span></span>
-                <span class="bar-pct" style="color:${color}">${pct}%</span>
-                <span class="bar-games">${games} ${escapeHtml(copy.gamesLabel)}</span>
+                <span class="bar-metrics">
+                    <span class="bar-games">${gamesLabelFor(games)}</span>
+                    <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:${color}"></span></span>
+                    <span class="bar-pct" style="color:${color}">${pct}%</span>
+                </span>
             </div>`;
     }
 
@@ -446,24 +456,41 @@ const rankedApp = links.rankedApp;
         return barRow(c.image, c.name, wins, games);
     }
 
+    /** "Orc + Nomad + Hyena" — the arena's lineup label: unique creatures, in the order they were picked. */
+    function comboLabel(creatureIds: number[]): string {
+        return [...new Set(creatureIds)].map((id) => creatureById(id).name).join(" + ");
+    }
+
+    // A card, not a bar row: the portraits overlap into one line-up, the lineup is named, and the win rate is
+    // carried by the card's own border and wash instead of a track. Thresholds match the arena's
+    // StrategyStatCard — strong at 55%+, weak at 45%-.
     function comboRow(creatureIds: number[], wins: number, games: number): string {
         const pct = winRatePct(wins, games);
         const color = winRateColor(pct);
-        const icons = creatureIds
-            .map((id) => {
+        const unique = [...new Set(creatureIds)];
+        const icons = unique
+            .map((id, index) => {
                 const c = creatureById(id);
-                return `<img class="combo-icon" src="${c.image}" alt="${escapeHtml(c.name)}" title="${escapeHtml(
+                // Every portrait after the first slides under the one before it, so a trio reads as a single
+                // line-up. The overlap stays small because a covered portrait is reduced to its left-hand
+                // strip and a creature is framed centrally.
+                const covered = index === 0 ? "" : " combo-icon--covered";
+                return `<img class="combo-icon${covered}" src="${c.image}" alt="${escapeHtml(c.name)}" title="${escapeHtml(
                     c.name,
-                )}" width="30" height="30" loading="lazy" ${imgFallback} />`;
+                )}" width="54" height="54" loading="lazy" ${imgFallback} />`;
             })
             .join("");
+        const tone = pct >= 55 ? " combo-row--strong" : pct <= 45 ? " combo-row--weak" : "";
+        const label = comboLabel(creatureIds);
         return `
-            <div class="combo-row">
+            <article class="combo-row${tone}" aria-label="${escapeHtml(label)}: ${gamesLabelFor(games)}, ${pct}%">
                 <span class="combo-icons">${icons}</span>
-                <span class="combo-games">${games} ${escapeHtml(copy.gamesLabel)}</span>
-                <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:${color}"></span></span>
-                <span class="bar-pct" style="color:${color}">${pct}%</span>
-            </div>`;
+                <span class="combo-text">
+                    <span class="combo-name" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+                    <span class="combo-games">${gamesLabelFor(games)}</span>
+                </span>
+                <span class="combo-pct" style="color:${color}">${pct}%</span>
+            </article>`;
     }
 
     type MatchMode = "calibration" | "lobby" | "ranked" | "unknown";
@@ -2631,11 +2658,25 @@ const rankedApp = links.rankedApp;
         grid-column: 1 / -1;
     }
 
-    .bar-list,
-    .combo-list,
     .match-list {
         display: grid;
         gap: 8px;
+    }
+
+    /* In the arena these two lists live inside a half- and a third-width panel, so a row is about 440-700px
+       and the name sits close to its figures. This section is full width, so they flow into as many columns
+       as fit at that same row width — matching the arena's density instead of stretching one row across the
+       page, which would leave the creature bar a ribbon and strand each combo's win rate far from its name. */
+    .bar-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+        gap: 0 26px;
+    }
+
+    .combo-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+        gap: 8px 14px;
     }
 
     .matches-more {
@@ -2673,21 +2714,29 @@ const rankedApp = links.rankedApp;
         display: none;
     }
 
+    /* Creatures: the ranked arena profile's CompactStatRow. Flat rows split by a hairline rather than a
+       boxed card each, so fourteen of them read as one column instead of fourteen separate objects. */
     .profile-page :global(.bar-row) {
         display: grid;
-        grid-template-columns: 34px minmax(0, 1fr) minmax(80px, 160px) 42px auto;
+        grid-template-columns: 36px max-content minmax(0, 1fr);
         gap: 10px;
         align-items: center;
-        padding: 8px 12px;
-        border: 1px solid rgba(112, 75, 42, 0.42);
-        border-radius: 2px;
-        background: linear-gradient(90deg, rgba(42, 25, 13, 0.8), rgba(9, 6, 4, 0.88));
+        min-height: 44px;
+        padding: 4px 5px;
+        border: 0;
+        border-bottom: 1px solid rgba(239, 228, 204, 0.055);
+        border-radius: 0;
+        background: transparent;
+        transition: background-color 120ms ease;
+    }
+
+    .profile-page :global(.bar-row:hover) {
+        background: rgba(220, 177, 88, 0.045);
     }
 
     .profile-page :global(.bar-icon),
-    .profile-page :global(.combo-icon),
     .profile-page :global(.match-icon) {
-        border-radius: 2px;
+        border-radius: 7px;
         background: rgba(0, 0, 0, 0.35);
         border: 1px solid rgba(220, 177, 88, 0.32);
         object-fit: cover;
@@ -2695,62 +2744,131 @@ const rankedApp = links.rankedApp;
 
     .profile-page :global(.bar-name) {
         overflow: hidden;
-        color: var(--ink, #efe4cc);
-        font-weight: 400;
+        color: rgba(251, 244, 232, 0.82);
+        font-weight: 500;
         letter-spacing: 0.035em;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
+    /* The figures sit together on the right and the bar takes whatever is left, so the row has no gap to
+       open up between the name and its numbers however wide the panel gets. */
+    .profile-page :global(.bar-metrics) {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 10px;
+    }
+
     .profile-page :global(.bar-track) {
         position: relative;
-        height: 8px;
+        flex: 1;
+        min-width: 62px;
+        height: 7px;
         overflow: hidden;
-        border: 1px solid rgba(112, 75, 42, 0.42);
-        border-radius: 1px;
-        background: rgba(0, 0, 0, 0.36);
+        border: 0;
+        border-radius: 999px;
+        background: rgba(239, 228, 204, 0.1);
     }
 
     .profile-page :global(.bar-fill) {
         position: absolute;
-        inset: 0;
-        border-radius: 0;
-        box-shadow: 0 0 7px currentColor;
+        inset: 0 auto 0 0;
+        border-radius: inherit;
     }
 
     .profile-page :global(.bar-pct) {
-        font-size: 0.84rem;
-        font-weight: 400;
+        min-width: 36px;
+        font-size: 0.8rem;
+        font-weight: 700;
         text-align: right;
     }
 
     .profile-page :global(.bar-games) {
+        min-width: 50px;
         color: rgba(251, 244, 232, 0.5);
         font-size: 0.8rem;
+        text-align: right;
         white-space: nowrap;
     }
 
+    /* Combos: the arena's StrategyStatCard. The win rate is carried by the card's border and wash, which is
+       why there is no track here — the lineup name and its sample size are the row's content instead. */
     .profile-page :global(.combo-row) {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto minmax(80px, 160px) 42px;
-        gap: 12px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 14px;
         align-items: center;
-        padding: 8px 12px;
-        border: 1px solid rgba(112, 75, 42, 0.42);
-        border-radius: 2px;
-        background: linear-gradient(90deg, rgba(42, 25, 13, 0.8), rgba(9, 6, 4, 0.88));
+        min-height: 68px;
+        padding: 7px 14px 7px 8px;
+        border: 1px solid rgba(239, 228, 204, 0.08);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.27);
     }
 
-    .profile-page :global(.combo-icons),
+    .profile-page :global(.combo-row--strong) {
+        border-color: rgba(70, 209, 96, 0.2);
+        background-image: linear-gradient(90deg, rgba(70, 209, 96, 0.075), rgba(0, 0, 0, 0.27) 44%);
+    }
+
+    .profile-page :global(.combo-row--weak) {
+        border-color: rgba(255, 90, 90, 0.16);
+    }
+
+    .profile-page :global(.combo-icons) {
+        display: flex;
+        align-items: center;
+        min-width: 54px;
+    }
+
     .profile-page :global(.match-icons) {
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
     }
 
+    .profile-page :global(.combo-icon) {
+        width: 54px;
+        height: 54px;
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(220, 177, 88, 0.32);
+        object-fit: cover;
+    }
+
+    /* 10 of 54px: enough to bind the portraits into one line-up, small enough that a covered creature keeps
+       more than its left edge — a portrait is framed centrally, so a narrow strip is mostly backdrop. */
+    .profile-page :global(.combo-icon--covered) {
+        margin-left: -10px;
+        filter: drop-shadow(-4px 0 5px rgba(0, 0, 0, 0.58));
+    }
+
+    .profile-page :global(.combo-text) {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .profile-page :global(.combo-name) {
+        overflow: hidden;
+        color: rgba(251, 244, 232, 0.9);
+        font-size: 0.88rem;
+        font-weight: 600;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .profile-page :global(.combo-games) {
-        color: rgba(251, 244, 232, 0.5);
+        color: rgba(251, 244, 232, 0.42);
         font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    .profile-page :global(.combo-pct) {
+        font-size: 0.88rem;
+        font-weight: 700;
+        text-align: right;
         white-space: nowrap;
     }
 
@@ -3082,28 +3200,38 @@ const rankedApp = links.rankedApp;
             grid-column: auto;
         }
 
+        /* Narrow: the name gets the row to itself and the figures drop underneath it, so neither has to be
+           squeezed. The bar keeps taking the leftover width inside that second line. */
         .profile-page :global(.bar-row) {
-            grid-template-columns: 30px minmax(0, 1fr) 40px;
+            grid-template-columns: 30px minmax(0, 1fr);
             row-gap: 6px;
         }
 
-        .profile-page :global(.bar-track) {
+        .profile-page :global(.bar-metrics) {
             grid-column: 1 / -1;
-            order: 3;
         }
 
         .profile-page :global(.bar-games) {
-            display: none;
+            min-width: 0;
         }
 
         .profile-page :global(.combo-row) {
-            grid-template-columns: minmax(0, 1fr) auto 42px;
-            gap: 7px;
+            gap: 9px;
+            padding: 7px 10px 7px 7px;
         }
 
-        .profile-page :global(.combo-row .bar-track) {
-            grid-column: 1 / -1;
-            grid-row: 2;
+        /* Two portraits' worth of width is all a narrow card can spare, so the tiles come down with it. */
+        .profile-page :global(.combo-icons) {
+            min-width: 40px;
+        }
+
+        .profile-page :global(.combo-icon) {
+            width: 40px;
+            height: 40px;
+        }
+
+        .profile-page :global(.combo-icon--covered) {
+            margin-left: -8px;
         }
 
         .profile-page :global(.match-icons) {
