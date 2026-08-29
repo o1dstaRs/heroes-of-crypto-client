@@ -61,7 +61,7 @@ const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_im
 // private art bundle. Mirror the production generator's URL-shaped values so tests exercise the same
 // contract instead of receiving bare asset keys that no browser or texture loader can resolve.
 const stubImageUrl = (key: string): string =>
-    new URL(\`../../images/\${key}.webp\`, import.meta.url).toString();
+    \`\${new URL(\`../../images/\${key}.webp\`, import.meta.url).toString()}#ci-stub\`;
 const knownImages = Object.fromEntries(
     ${JSON.stringify(knownImageKeys)}.map((key) => [key, stubImageUrl(key)]),
 ) as Record<string, string>;
