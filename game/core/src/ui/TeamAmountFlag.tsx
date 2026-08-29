@@ -1,4 +1,5 @@
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
+import { personalArmyCssColor } from "../scenes/personalArmyTint";
 import Box from "@mui/joy/Box";
 import React from "react";
 
@@ -11,7 +12,17 @@ type TeamAmountFlagProps = {
 };
 
 /** Bright team palette shared by amount flags and stack-power pips. */
+/**
+ * The flag/pip colour for a team.
+ *
+ * This is the one place the React chrome names a team's colour, so it is also where a player's PERSONAL
+ * army colour has to be honoured — otherwise their units would be tinted on the board while their stack
+ * pips and count flags in the left and top bars stayed green. The opponent is never tinted, so the two
+ * sides stay tellable apart in the queue exactly as they do on the board.
+ */
 export const getTeamFlagBackground = (teamType: TeamType): string => {
+    const personal = personalArmyCssColor(teamType);
+    if (personal) return personal;
     if (teamType === TeamVals.LOWER) return "#00d200";
     if (teamType === TeamVals.UPPER) return "#ff0000";
     return "#8b94a6";

@@ -59,6 +59,16 @@ export const refreshPersonalArmyTint = (): void => {
     }
 };
 
+/**
+ * The tint as a CSS colour, for the React chrome (sidebars, top bar), or undefined when this team is not
+ * tinted. The board draws through Pixi numbers and the panels through CSS strings, so both spellings read
+ * the SAME resolved preset — a player's colour cannot end up applied to their units but not their pips.
+ */
+export const personalArmyCssColor = (team: TeamType): string | undefined => {
+    const preset = personalArmyPresetFor(team);
+    return preset === undefined ? undefined : `#${preset.color.toString(16).padStart(6, "0")}`;
+};
+
 /** The preset to draw `team` with, or undefined to use the canonical team colour. */
 export const personalArmyPresetFor = (team: TeamType): IArmyColorPreset | undefined =>
     state === undefined

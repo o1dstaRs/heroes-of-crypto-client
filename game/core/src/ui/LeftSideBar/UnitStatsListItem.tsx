@@ -51,6 +51,7 @@ import { formatSidebarStat, useSidebarMetrics, type ISidebarMetrics } from "./si
 import { commonTooltipSx } from "./tooltipStyles";
 import { areUnitStatsPropsEqual, type UnitStatsListItemProps } from "./unitStatsMemo";
 import { hocDisplayFontFamily } from "../hocTheme";
+import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -382,12 +383,19 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     isAura,
 }) => {
     if (stackPower <= 0) return null;
+    // The team colours here are the same two the shared flag helper names, so a personal army colour is
+    // taken from it rather than re-derived — the alternative is pips that stay green in this one panel
+    // while every other surface follows the player's choice. The neutral case keeps its own paler value:
+    // this list draws unowned rows differently from the flags on purpose.
     const isLower = teamType === TeamVals.LOWER;
-    const activeColor = isLower
-        ? "rgba(0, 210, 0, 1)"
-        : teamType === TeamVals.UPPER
-          ? "rgba(255, 0, 0, 1)"
-          : "rgba(255, 255, 255, 0.85)";
+    const personalColor = personalArmyCssColor(teamType);
+    const activeColor =
+        personalColor ??
+        (isLower
+            ? "rgba(0, 210, 0, 1)"
+            : teamType === TeamVals.UPPER
+              ? "rgba(255, 0, 0, 1)"
+              : "rgba(255, 255, 255, 0.85)");
     const emptyColor = "rgba(34, 34, 34, 0.7)";
 
     return (
