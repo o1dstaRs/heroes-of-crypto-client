@@ -100,7 +100,7 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
 };
 
 const spellIconOverrides: Readonly<Record<string, string>> = {
-    "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_aura_256.webp",
+    "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
 };
 

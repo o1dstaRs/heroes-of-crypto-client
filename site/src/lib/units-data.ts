@@ -55,7 +55,7 @@ const slug = (name: string) =>
         .replace(/^_|_$/g, "");
 
 const abilityIconOverrides: Readonly<Record<string, string>> = {
-    "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_aura_256.webp",
+    "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
 };
 
