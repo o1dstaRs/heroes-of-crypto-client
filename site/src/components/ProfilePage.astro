@@ -1220,6 +1220,15 @@ const rankedApp = links.rankedApp;
             // Crest and headline are hoisted into the page header, so the commander reads as one
             // identity block instead of a card that repeats the name three rows below itself. What
             // stays here is only what the header cannot carry: the record around the standing.
+            // Their doctrine is the one they actually commit to, not a stored preference — there is
+            // no such setting. The playstyle aggregate ranks doctrines by usage over the meta window,
+            // so its head is "their doctrine"; the share is against the same window's games, which
+            // keeps a player whose history predates the stored field honest rather than certain.
+            const topDoctrine = profile.playstyle?.doctrines?.[0] ?? null;
+            const doctrineWindowGames = profile.playstyle?.games ?? 0;
+            const doctrineValue = topDoctrine
+                ? `${topDoctrine.name} · ${topDoctrine.games}/${doctrineWindowGames || topDoctrine.games} · ${topDoctrine.winRatePct}%`
+                : copy.publicDoctrineNone;
             const standingHeadline = placed
                 ? standingLabel(profile.league, profile.wealth)
                 : `${publicStateLabel(profile.state)} ${progress}`;
@@ -1238,6 +1247,7 @@ const rankedApp = links.rankedApp;
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
                     <div><dt>${escapeHtml(exitRateLabel)}</dt><dd title="${escapeHtml(exitRateTitle)}">${exitRateValue}</dd></div>
                     <div><dt>${escapeHtml(copy.publicBannedUnit)}</dt><dd>${escapeHtml(profile.rankedBan ? profile.rankedBan.name : copy.publicBanNotPicked)}</dd></div>
+                    <div><dt>${escapeHtml(copy.publicDoctrine)}</dt><dd>${escapeHtml(doctrineValue)}</dd></div>
                     ${profile.state === "recalibration" ? `<div class="ranked-standing__previous"><dt>${escapeHtml(copy.publicPreviousStanding)}</dt><dd>${escapeHtml(previous)}</dd></div>` : ""}
                 </dl>`;
         }

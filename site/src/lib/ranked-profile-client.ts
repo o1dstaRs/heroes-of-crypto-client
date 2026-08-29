@@ -87,6 +87,17 @@ export interface PlaystyleAugment {
     pickRatePct: number;
 }
 
+export interface PlaystyleDoctrine {
+    doctrineId: number;
+    name: string;
+    games: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    winRatePct: number;
+    pickRatePct: number;
+}
+
 /** How the player usually plays: favorite creatures, winning combos, artifact + augment habits. */
 export interface PlayerPlaystyle {
     games: number;
@@ -100,6 +111,8 @@ export interface PlayerPlaystyle {
     artifactsTier1: PlaystyleArtifact[];
     artifactsTier2: PlaystyleArtifact[];
     augments: PlaystyleAugment[];
+    /** Doctrines they commit to, most-played first. Empty for games recorded before it was stored. */
+    doctrines: PlaystyleDoctrine[];
 }
 
 export interface SeasonHistoryEntry {
@@ -414,6 +427,20 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
             pickRatePct: numberOr0(entry.pickRatePct),
         };
     };
+    const normalizeDoctrine = (value: unknown): PlaystyleDoctrine | null => {
+        const entry = value && typeof value === "object" ? (value as UnknownRecord) : null;
+        if (!entry) return null;
+        return {
+            doctrineId: numberOr0(entry.doctrineId),
+            name: typeof entry.name === "string" ? entry.name : "",
+            games: numberOr0(entry.games),
+            wins: numberOr0(entry.wins),
+            losses: numberOr0(entry.losses),
+            draws: numberOr0(entry.draws),
+            winRatePct: numberOr0(entry.winRatePct),
+            pickRatePct: numberOr0(entry.pickRatePct),
+        };
+    };
     const playstyle: PlayerPlaystyle | null = playstyleRow
         ? {
               games: numberOr0(playstyleRow.games),
@@ -439,6 +466,9 @@ export function normalizePublicRankedProfile(value: unknown): PublicRankedProfil
               augments: (Array.isArray(playstyleRow.augments) ? playstyleRow.augments : [])
                   .map(normalizeAugment)
                   .filter((entry): entry is PlaystyleAugment => entry !== null),
+              doctrines: (Array.isArray(playstyleRow.doctrines) ? playstyleRow.doctrines : [])
+                  .map(normalizeDoctrine)
+                  .filter((entry): entry is PlaystyleDoctrine => entry !== null),
           }
         : null;
     const recentGames = (Array.isArray(row.recentGames) ? row.recentGames : [])
