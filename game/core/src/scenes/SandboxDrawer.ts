@@ -492,10 +492,19 @@ export class SandboxDrawer {
         pulsePhase: number,
         alphaMultiplier = 1.0,
     ): void {
-        // Attack Range
+        // Shot reach of a unit selected in the sidebar.
+        //
+        // Drawn as a RECTANGLE, like the aura fields below and like the live shot-range bounds, because
+        // reach on this board is measured in cells: a circle claims the diagonal corners are out of range
+        // when they are not, and it was the last visual still speaking the pre-grid vocabulary — the
+        // "thin cyan ring" that read as leftover next to everything else. Half-extents come off the
+        // FOOTPRINT for the same reason the auras do: a 2x1 body measured from its centre would otherwise
+        // advertise half a cell of reach it does not have on its short axis.
         if (attackRange > 0) {
-            // Style: Thin white/cyan ring, distinct from active unit
-            SandboxDrawer.drawProjectedRing(g, xy, attackRange, gs, {
+            const cellSize = gs.getCellSize();
+            const extentX = attackRange + (footprint.width / 2) * cellSize - cellSize * 0.055;
+            const extentY = attackRange + (footprint.height / 2) * cellSize - cellSize * 0.055;
+            g.poly(projectedRectPoints(xy.x - extentX, xy.y - extentY, xy.x + extentX, xy.y + extentY, gs)).stroke({
                 width: 1.5,
                 color: 0x00ffff,
                 alpha: 0.5 * alphaMultiplier,
@@ -637,20 +646,5 @@ export class SandboxDrawer {
                 cornerContainer.addChild(corner);
             }
         }
-    }
-    private static drawProjectedRing(
-        g: Graphics,
-        center: HoCMath.XY,
-        radius: number,
-        gs: GridSettings,
-        style: { width: number; color: number; alpha: number },
-    ): void {
-        const segments = 72;
-        const points: HoCMath.XY[] = [];
-        for (let i = 0; i < segments; i++) {
-            const angle = (Math.PI * 2 * i) / segments;
-            points.push({ x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius });
-        }
-        g.poly(projectedPolyline(points, gs)).stroke(style);
     }
 }
