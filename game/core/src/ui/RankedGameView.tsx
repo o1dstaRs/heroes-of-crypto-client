@@ -87,7 +87,6 @@ import SandboxToggleContainer from "./RightSideBar/SandboxToggleContainer";
 import SideToggleContainer from "./RightSideBar/SideToggleContainer";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
-import { ArenaSettingsMenu } from "./ArenaSettingsMenu";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { setBattleSystemControlsActive } from "./social/systemControlsMode";
@@ -1714,12 +1713,6 @@ export const RankedGameView: React.FC<Props> = ({ gameId, userTeam, windowSize, 
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
                     {pixiReady && gameStarted && (aiToggleOn || !!myPlayer?.aiControlled) && (
                         <AiControlBadge left={aiBadgeLeft(windowSize)} />
-                    )}
-                    {/* Offered only to a player actually FIGHTING: its one setting tints their own army,
-                        and an observer or replay viewer has no own army. Anchored to the board's top-left
-                        so it clears the bottom-left badges. */}
-                    {pixiReady && !replayOnly && !replayPlaybackActive && !isObserver && viewerTeam !== undefined && (
-                        <ArenaSettingsMenu left={aiBadgeLeft(windowSize)} />
                     )}
                     {pixiReady && (replayOnly || replayPlaybackActive) && (
                         // Ranked: leaving the replay returns to the account / game-selection screen.

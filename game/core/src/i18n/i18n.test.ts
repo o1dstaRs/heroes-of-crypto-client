@@ -97,7 +97,7 @@ describe("ranked flow localization", () => {
             join(ui, "MatchmakingRoute.tsx"),
             join(ui, "RankedBanPicker.tsx"),
             join(ui, "RankedGameView.tsx"),
-            join(ui, "ArenaSettingsMenu.tsx"),
+            join(ui, "PlayerSettingsPanel.tsx"),
             join(ui, "AugmentStepPreview.tsx"),
             join(ui, "ExitReplayBadge.tsx"),
             join(ui, "RankedFinishedActions.tsx"),

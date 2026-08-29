@@ -14,6 +14,7 @@ import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
 import { ArenaChatPanel } from "./ArenaChatPanel";
+import { PlayerSettingsPanel } from "./PlayerSettingsPanel";
 import {
     clearMatchReadyAlert,
     isFreshMatchReady,
@@ -47,6 +48,7 @@ import {
     RankedNavIcon,
     RankedSearchIcon,
     SandboxNavIcon,
+    SettingsNavIcon,
     StatsPanelIcon,
 } from "./svg/navigation";
 import {
@@ -141,6 +143,7 @@ export const MatchmakingRoute: React.FC = () => {
     }, []);
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [searchStartedAt, setSearchStartedAt] = useState(0);
     const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
@@ -1071,6 +1074,35 @@ export const MatchmakingRoute: React.FC = () => {
                                         </Stack>
                                     </Tooltip>
                                 )}
+                                <Tooltip title={t("Player settings")} size="sm" variant="soft">
+                                    <Button
+                                        size="sm"
+                                        variant="outlined"
+                                        aria-label={t("Player settings")}
+                                        aria-expanded={settingsOpen}
+                                        onClick={() => setSettingsOpen(true)}
+                                        startDecorator={<SettingsNavIcon sx={{ fontSize: 22 }} />}
+                                        sx={{
+                                            minHeight: 38,
+                                            px: 1.15,
+                                            borderRadius: "10px",
+                                            color: hocColors.parchment,
+                                            bgcolor: settingsOpen ? "rgba(255,143,0,0.14)" : "rgba(0,0,0,0.3)",
+                                            borderColor: "rgba(220,177,88,0.3)",
+                                            fontSize: "0.72rem",
+                                            fontWeight: 750,
+                                            "&:hover": {
+                                                color: hocColors.gold,
+                                                bgcolor: "rgba(255,143,0,0.2)",
+                                                borderColor: hocColors.orangeBorder,
+                                            },
+                                        }}
+                                    >
+                                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                            {t("Settings")}
+                                        </Box>
+                                    </Button>
+                                </Tooltip>
                                 <Tooltip
                                     title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
                                     size="sm"
@@ -1688,6 +1720,7 @@ export const MatchmakingRoute: React.FC = () => {
                 {!needsActivation ? (
                     <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
                         <ArenaChatPanel selfUsername={user?.username} />
+                        <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
                     </Box>
                 ) : null}
             </Box>

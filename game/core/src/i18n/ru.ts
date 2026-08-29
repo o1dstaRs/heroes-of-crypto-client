@@ -803,8 +803,14 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     // variable, so they are pinned by the data-driven i18n test rather than the literal scan.
     Settings: "Настройки",
     "Your army colour": "Цвет вашей армии",
-    "Only you see this. Replays keep the true team colours.":
-        "Видно только вам. В повторах остаются настоящие цвета сторон.",
+    "Player settings": "Настройки игрока",
+    "Saved on this device only.": "Сохраняется только на этом устройстве.",
+    Appearance: "Внешний вид",
+    Audio: "Звук",
+    Gameplay: "Игровой процесс",
+    "Nothing to configure here yet.": "Здесь пока нечего настраивать.",
+    "Only you see this. Your opponent's army keeps its colour, and replays keep both.":
+        "Видно только вам. Армия соперника сохраняет свой цвет, а в повторах сохраняются оба.",
     "Team colours": "Цвета сторон",
     Amethyst: "Аметист",
     Azure: "Лазурь",
