@@ -179,7 +179,7 @@ const rankedApp = links.rankedApp;
     } from "@heroesofcrypto/common/src/artifacts/artifact_properties";
     import { getDoctrineProperties, type Doctrine } from "@heroesofcrypto/common/src/doctrines/doctrine_properties";
 
-    import { isLoggedIn, onAuthStateChange } from "../lib/auth-state";
+    import { getAuthUser, isLoggedIn, onAuthStateChange } from "../lib/auth-state";
     import { artifacts } from "../lib/artifacts-data";
     import { fetchPlayerPortal, PortalAuthError } from "../lib/portal-client";
     import { gameClientRoot } from "../lib/ranked-arena-client";
@@ -196,6 +196,7 @@ const rankedApp = links.rankedApp;
     } from "../lib/ranked-match-client";
     import {
         fetchPublicRankedProfile,
+        isPublicRankedPlayerId,
         publicRankedProfileFallbackFromSearchParams,
         rankedExitRatePct,
         type PlaystyleArtifact,
@@ -776,6 +777,29 @@ const rankedApp = links.rankedApp;
         return wealth === TOP_WEALTH ? `${name} ${tier}` : `${tier} ${name}`;
     }
 
+    /**
+     * Paint a standing into the page header: the league crest as the avatar, and the standing itself
+     * as one line under the nickname. Shared, because a commander's own profile should wear the same
+     * crest and rating as the public one — it used to show a generic logo and no standing at all.
+     */
+    function applyStandingToHeader(profile: PublicRankedProfile): void {
+        const placed = profile.state === "placed";
+        const progress = `${Math.min(profile.calibration.gamesPlayed, profile.calibration.required)} / ${profile.calibration.required}`;
+        const label = placed ? standingLabel(profile.league, profile.wealth) : publicStateLabel(profile.state);
+        if (headEmblemEl) {
+            headEmblemEl.src = leagueEmblemPath(placed ? profile.league : 0, placed ? profile.wealth : 0);
+            headEmblemEl.alt = label;
+        }
+        if (!standingLineEl) return;
+        const rating = placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden;
+        const rank = profile.leaderboardRank > 0 ? ` · #${profile.leaderboardRank}` : "";
+        // The season's own currency, so this reads right on an archived season too.
+        const seasonCurrency = profile.season?.currency ?? currentCurrency;
+        const season = profile.season ? ` · ${profile.season.name} · ${seasonCurrency.name}` : "";
+        standingLineEl.textContent = `${placed ? label : `${label} ${progress}`} · ${rating}${rank}${season}`;
+        standingLineEl.hidden = false;
+    }
+
     function publicStateLabel(state: PublicRankedProfile["state"]): string {
         if (state === "placed") return copy.publicStatePlaced;
         if (state === "recalibration") return copy.publicStateRecalibration;
@@ -1214,9 +1238,6 @@ const rankedApp = links.rankedApp;
             const previous = profile.previous
                 ? `${leagueLabel(profile.previous.league)} · ${numberFormatter.format(profile.previous.mmr)} MMR`
                 : copy.publicUnranked;
-            const emblemLabel = placed
-                ? standingLabel(profile.league, profile.wealth)
-                : publicStateLabel(profile.state);
             // Crest and headline are hoisted into the page header, so the commander reads as one
             // identity block instead of a card that repeats the name three rows below itself. What
             // stays here is only what the header cannot carry: the record around the standing.
@@ -1229,19 +1250,7 @@ const rankedApp = links.rankedApp;
             const doctrineValue = topDoctrine
                 ? `${topDoctrine.name} · ${topDoctrine.games}/${doctrineWindowGames || topDoctrine.games} · ${topDoctrine.winRatePct}%`
                 : copy.publicDoctrineNone;
-            const standingHeadline = placed
-                ? standingLabel(profile.league, profile.wealth)
-                : `${publicStateLabel(profile.state)} ${progress}`;
-            if (headEmblemEl) {
-                headEmblemEl.src = leagueEmblemPath(placed ? profile.league : 0, placed ? profile.wealth : 0);
-                headEmblemEl.alt = emblemLabel;
-            }
-            if (standingLineEl) {
-                const rating = placed ? `${numberFormatter.format(profile.mmr)} MMR` : copy.publicRatingHidden;
-                const season = profile.season ? ` · ${profile.season.name} · ${currentCurrency.name}` : "";
-                standingLineEl.textContent = `${standingHeadline} · ${rating}${season}`;
-                standingLineEl.hidden = false;
-            }
+            applyStandingToHeader(profile);
             standingEl.innerHTML = `
                 <dl class="ranked-standing__facts">
                     <div class="ranked-standing__form"><dt>${escapeHtml(copy.publicRecentForm)}</dt><dd>${recentForm(profile.recentGames.map((match) => match.result))}</dd></div>
@@ -1732,6 +1741,22 @@ const rankedApp = links.rankedApp;
         showState("content");
     }
 
+    /**
+     * The signed-in view has no standing of its own: fetchPlayerPortal returns records, rosters and
+     * gold, never the ladder. Read our own public profile instead, so "my profile" wears the same
+     * crest and rating every other commander's does rather than a generic logo. Decoration on this
+     * view — a missing id or a failed lookup simply leaves the fallback in place.
+     */
+    async function paintOwnStanding(): Promise<void> {
+        const ownId = (getAuthUser()?.in_game_id ?? "").trim();
+        if (!isPublicRankedPlayerId(ownId)) return;
+        try {
+            applyStandingToHeader(await fetchPublicRankedProfile(ownId));
+        } catch {
+            /* no standing on show is strictly better than a wrong one */
+        }
+    }
+
     async function load(): Promise<void> {
         if (publicMode) {
             configurePublicMode();
@@ -1757,6 +1782,9 @@ const rankedApp = links.rankedApp;
                 fetchSeasonCurrencyCatalog().catch(() => null),
             ]);
             render(portal, catalog);
+            // After render(): configureSelfMode() resets the header to the fallback crest, so the
+            // standing has to land on top of it rather than be undone by it.
+            void paintOwnStanding();
         } catch (error) {
             showState(error instanceof PortalAuthError ? "guest" : "error");
         }
