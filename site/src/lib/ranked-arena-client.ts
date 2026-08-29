@@ -359,12 +359,12 @@ const createErrorState = (copy: (typeof rankedArenaCopy)[keyof typeof rankedAren
     return error;
 };
 
-const createAvatar = (username: string, league: number): HTMLElement => {
+const createAvatar = (username: string, league: number, wealth = 0): HTMLElement => {
     const avatar = el("span", "ranked-arena__avatar", playerInitials(username));
     avatar.dataset.league = String(league);
     avatar.setAttribute("aria-hidden", "true");
     const emblem = el("img", "ranked-arena__avatar-league");
-    emblem.src = leagueEmblemPath(league);
+    emblem.src = leagueEmblemPath(league, wealth);
     emblem.alt = "";
     emblem.width = 24;
     emblem.height = 24;
@@ -497,7 +497,7 @@ const renderPlayerDetail = (
         el("h3", "", player.username),
         el("p", "", localizedStanding(copy, player.league, player.wealth)),
     );
-    append(identity, createAvatar(player.username, player.league), name);
+    append(identity, createAvatar(player.username, player.league, player.wealth), name);
 
     const rating = el("div", "ranked-arena__detail-rating");
     const detailGold = el("small", "ranked-arena__detail-gold");
@@ -678,7 +678,7 @@ const renderPlayers = (
             el("strong", "", player.username),
             el("small", "", localizedStanding(copy, player.league, player.wealth)),
         );
-        append(identity, createAvatar(player.username, player.league), identityText);
+        append(identity, createAvatar(player.username, player.league, player.wealth), identityText);
         const dossierId = `ranked-arena-dossier-${index + 1}`;
         row.setAttribute("aria-describedby", dossierId);
         append(
@@ -928,7 +928,7 @@ const renderGameSeat = (
           ? `${stateLabel} · ${player.aiVersion}`
           : stateLabel;
     append(identity, el("strong", "", player.username), el("span", "", meta));
-    append(seat, createAvatar(player.username, player.ranked?.league ?? 0), identity);
+    append(seat, createAvatar(player.username, player.ranked?.league ?? 0, player.ranked?.wealth ?? 0), identity);
 
     const dossierId = `ranked-arena-game-${gameIndex + 1}-seat-${index + 1}`;
     const dossier = el("span", "ranked-arena__game-dossier");
@@ -1097,7 +1097,7 @@ const renderLeaguePlayer = (
     append(
         link,
         el("span", "ranked-arena__league-rank", `#${player.position || position + 1}`),
-        createAvatar(player.username, player.league),
+        createAvatar(player.username, player.league, player.wealth),
         el("strong", "", player.username),
         el("span", "", numberFormatter.format(player.mmr)),
         createPlayerDossier(player, rankedArenaCopy[lang], dossierId, currency),

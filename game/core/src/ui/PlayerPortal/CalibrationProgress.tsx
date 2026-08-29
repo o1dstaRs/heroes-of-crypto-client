@@ -38,9 +38,10 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
     const played = Math.min(calibration.gamesPlayed, required);
 
     if (placed) {
+        const label = standingLabel(standing.wealth, standing.wealthName, standing.leagueName);
         return (
             <Stack direction="row" spacing={dense ? 1.1 : 1.75} alignItems="center">
-                <LeagueEmblem league={standing.league} label={t(standing.leagueName)} size={dense ? 54 : 82} />
+                <LeagueEmblem league={standing.league} wealth={standing.wealth} label={label} size={dense ? 54 : 82} />
                 <Stack spacing={dense ? 0.4 : 0.75} sx={{ minWidth: 0 }}>
                     <Typography level="body-xs" sx={{ color: hocColors.gold, letterSpacing: "0.12em" }}>
                         {t("RANKED STANDING")}
@@ -49,7 +50,7 @@ export const CalibrationProgress: React.FC<CalibrationProgressProps> = ({ standi
                         <Typography level={dense ? "title-md" : "title-lg"} sx={{ color: hocColors.parchment }}>
                             {/* Both halves arrive from the server in English (Ragged..Whale /
                                 Aspirant..Demigod); standingLabel() localizes each and joins them. */}
-                            {standingLabel(standing.wealth, standing.wealthName, standing.leagueName)}
+                            {label}
                         </Typography>
                         <Typography level="body-sm" sx={{ color: hocColors.muted }}>
                             {standing.mmr} {t("MMR")}
