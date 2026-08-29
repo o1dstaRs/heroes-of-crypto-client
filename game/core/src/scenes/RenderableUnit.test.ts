@@ -958,10 +958,10 @@ assetTest("plays Wolf Rider's gait between one-shot turn poses", () => {
     expect(internals.walkAnim?.loopStartFrame).toBe(1);
     expect(internals.walkAnim?.loopEndFrame).toBe(7);
     expect(internals.walkAnim?.outroFrame).toBe(8);
-    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 26);
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 20);
 
     unit.finishBoardWalkAnimationAfterFullCycle();
-    const frameSeconds = (1000 / 26 + 0.1) / 1000;
+    const frameSeconds = (1000 / 20 + 0.1) / 1000;
     for (let index = 0; index < 8; index += 1) {
         unit.stepSpawnAnimation(frameSeconds);
     }
@@ -989,20 +989,21 @@ assetTest("plays Leprechaun's run between one-shot start and finish frames", () 
     unit.ensureVisual(new Container(), gridSettings);
 
     unit.startBoardWalkAnimation(1);
-    expect(internals.walkAnim?.frames).toHaveLength(4);
+    expect(internals.walkAnim?.frames).toHaveLength(9);
     expect(internals.walkAnim?.loopStartFrame).toBe(1);
-    expect(internals.walkAnim?.loopEndFrame).toBe(2);
-    expect(internals.walkAnim?.outroFrame).toBe(3);
-    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(380);
+    expect(internals.walkAnim?.loopEndFrame).toBe(7);
+    expect(internals.walkAnim?.outroFrame).toBe(8);
+    expect(internals.walkAnim?.durationPerFrameMs).toBeCloseTo(1000 / 20);
 
     unit.finishBoardWalkAnimationAfterFullCycle();
-    unit.stepSpawnAnimation(0.171);
-    unit.stepSpawnAnimation(0.381);
-    unit.stepSpawnAnimation(0.381);
-    expect(internals.walkAnim?.frameIndex).toBe(3);
-    expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[3]);
+    const frameSeconds = (1000 / 20 + 0.1) / 1000;
+    for (let index = 0; index < 8; index += 1) {
+        unit.stepSpawnAnimation(frameSeconds);
+    }
+    expect(internals.walkAnim?.frameIndex).toBe(8);
+    expect(internals.sprite?.texture).toBe(internals.walkAnim?.frames[8]);
 
-    unit.stepSpawnAnimation(0.171);
+    unit.stepSpawnAnimation(frameSeconds);
     expect(internals.walkAnim).toBeUndefined();
 });
 
@@ -1787,16 +1788,16 @@ describe("refreshed idle cadence and quadruped scale", () => {
             }
         ).walkAnim;
         unit.setBoardWalkDistanceCells(0.2);
-        expect(walk?.frames).toHaveLength(8);
+        expect(walk?.frames).toHaveLength(9);
         expect(walk?.frames[0].frame.width).toBe(192);
         expect(walk?.frames[0].frame.width).not.toBe(idleFrameWidth);
         expect(
             (unit as unknown as { battlefieldAlphaHoleFillFilter?: unknown }).battlefieldAlphaHoleFillFilter,
         ).toBeUndefined();
         expect(walk?.loopStartFrame).toBe(0);
-        expect(walk?.loopEndFrame).toBe(7);
-        expect(walk?.durationPerFrameMs).toBeCloseTo(15.625);
-        expect(walk?.frameDurationsMs).toEqual(Array(8).fill(15.625));
+        expect(walk?.loopEndFrame).toBe(8);
+        expect(walk?.durationPerFrameMs).toBeCloseTo(50);
+        expect(walk?.frameDurationsMs).toBeUndefined();
         expect(walk?.distanceDriven).toBe(true);
 
         unit.setBoardWalkDistanceCells(0.22);

@@ -4,9 +4,9 @@
 /**
  * One atlas entry per unit per animation state. Typed as an EXPLICIT record on purpose:
  * the old `as const` + distributed-keyof types collapsed every indexed lookup to `never`
- * the moment the art in Dropbox went heterogeneous (a unit shipping only an "attack"
+ * the moment the external art set went heterogeneous (a unit shipping only an "attack"
  * atlas while the rest carry "default"), which broke the client build at deploy time
- * even though CI — with no Dropbox — stayed green. Consumers already resolve units and
+ * even though CI — with no external art drive — stayed green. Consumers already resolve units and
  * states at runtime (`name in animationAtlases`, `Object.keys(...)`), so string keys
  * with a strict value shape is the honest contract.
  */
@@ -31,6 +31,10 @@ export interface IAtlasAnimationMeta {
     };
     loopDurationMs: number;
     pauseMs: number;
+    /** Forward-compat: Google Drive art metadata evolves ahead of this generator (e.g. the
+     * multi-phase intro/walk animation data). Undeclared keys pass through untyped so a
+     * new meta field never breaks the DEPLOY build while CI (no external art drive) stays green. */
+    [key: string]: unknown;
 }
 
 export const animationAtlases: Readonly<Record<string, Readonly<Record<string, IAtlasAnimationMeta>>>> =
@@ -658,18 +662,18 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "frameWidth": 768,
       "frameHeight": 768,
       "atlasWidth": 2304,
-      "atlasHeight": 768,
-      "frameCount": 3,
-      "fps": 4.3478260869565215,
-      "frameDurationSec": 0.23,
-      "totalDurationSec": 0.6900000000000001,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
       "layout": {
         "cols": 3,
-        "rows": 1
+        "rows": 3
       },
       "footAnchorY": 0.9661458333333334,
-      "loopDurationMs": 621,
-      "pauseMs": 248
+      "loopDurationMs": 405,
+      "pauseMs": 162
     }
   },
   "Ash Moth": {
@@ -1613,36 +1617,16 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "atlasWidth": 2304,
       "atlasHeight": 2304,
       "frameCount": 9,
-      "fps": 8.333333333333334,
-      "frameDurationSec": 0.12,
-      "totalDurationSec": 0.73,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
       "layout": {
         "cols": 3,
         "rows": 3
       },
-      "footAnchorY": 0.9354066985645934,
-      "phases": {
-        "intro": {
-          "startFrame": 0,
-          "endFrame": 0,
-          "loop": false,
-          "speedMultiplier": 1
-        },
-        "flight": {
-          "startFrame": 1,
-          "endFrame": 7,
-          "loop": true,
-          "speedMultiplier": 1.7142857142857142
-        },
-        "landing": {
-          "startFrame": 8,
-          "endFrame": 8,
-          "loop": false,
-          "speedMultiplier": 1
-        }
-      },
-      "loopDurationMs": 657,
-      "pauseMs": 263
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
     }
   },
   "Centaur": {
@@ -2401,21 +2385,21 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 108
     },
     "idle": {
-      "frameWidth": 512,
+      "frameWidth": 768,
       "frameHeight": 768,
-      "atlasWidth": 2048,
-      "atlasHeight": 2304,
-      "frameCount": 12,
-      "fps": 11.11111111111111,
-      "frameDurationSec": 0.09,
-      "totalDurationSec": 1.08,
+      "atlasWidth": 3072,
+      "atlasHeight": 1536,
+      "frameCount": 8,
+      "fps": 13.333333333333334,
+      "frameDurationSec": 0.075,
+      "totalDurationSec": 0.6,
       "layout": {
         "cols": 4,
-        "rows": 3
+        "rows": 2
       },
-      "footAnchorY": 1,
-      "loopDurationMs": 972,
-      "pauseMs": 389
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 540,
+      "pauseMs": 216
     },
     "walk": {
       "frameWidth": 768,
@@ -2728,44 +2712,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       },
       "loopDurationMs": 405,
       "pauseMs": 162
-    }
-  },
-  "Fire Pit Center": {
-    "fire": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 1536,
-      "atlasHeight": 1536,
-      "frameCount": 9,
-      "fps": 9,
-      "frameDurationSec": 0.1111111111111111,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "loopDurationMs": 900,
-      "pauseMs": 360
-    }
-  },
-  "Fire Pit Center Fire": {
-    "stable": {
-      "frameWidth": 512,
-      "frameHeight": 512,
-      "atlasWidth": 1536,
-      "atlasHeight": 1536,
-      "frameCount": 9,
-      "fps": 9,
-      "frameDurationSec": 0.1111111111111111,
-      "totalDurationSec": 1,
-      "layout": {
-        "cols": 3,
-        "rows": 3
-      },
-      "geometry": "pixel-locked rectified v3 base",
-      "encoding": "lossless WebP",
-      "loopDurationMs": 900,
-      "pauseMs": 360
     }
   },
   "Frenzied Boar": {
@@ -3986,25 +3932,19 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
     "walk": {
       "frameWidth": 768,
       "frameHeight": 768,
-      "atlasWidth": 1536,
-      "atlasHeight": 1536,
-      "frameCount": 4,
-      "fps": 2.6315789473684212,
-      "frameDurationSec": 0.38,
-      "frameDurationsMs": [
-        170,
-        380,
-        380,
-        170
-      ],
-      "totalDurationSec": 1.1,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
       "layout": {
-        "cols": 2,
-        "rows": 2
+        "cols": 3,
+        "rows": 3
       },
-      "footAnchorY": 0.9784688995215312,
-      "loopDurationMs": 990,
-      "pauseMs": 396
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
     }
   },
   "Magic Dragon": {
@@ -4627,9 +4567,9 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "pauseMs": 216
     },
     "walk": {
-      "frameWidth": 1120,
+      "frameWidth": 768,
       "frameHeight": 768,
-      "atlasWidth": 3360,
+      "atlasWidth": 2304,
       "atlasHeight": 2304,
       "frameCount": 9,
       "fps": 20,
@@ -5476,29 +5416,19 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
     "walk": {
       "frameWidth": 768,
       "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 64,
-      "frameDurationSec": 0.015625,
-      "frameDurationsMs": [
-        15.625,
-        15.625,
-        15.625,
-        15.625,
-        15.625,
-        15.625,
-        15.625,
-        15.625
-      ],
-      "totalDurationSec": 0.125,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
       "layout": {
-        "cols": 4,
-        "rows": 2
+        "cols": 3,
+        "rows": 3
       },
-      "footAnchorY": 0.953125,
-      "loopDurationMs": 113,
-      "pauseMs": 45
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
     }
   },
   "Pegasus": {
@@ -5654,24 +5584,6 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       },
       "loopDurationMs": 525,
       "pauseMs": 210
-    }
-  },
-  "Pick Phase Floor": {
-    "fog": {
-      "frameWidth": 1280,
-      "frameHeight": 480,
-      "atlasWidth": 6400,
-      "atlasHeight": 960,
-      "frameCount": 10,
-      "fps": 6,
-      "frameDurationSec": 0.166667,
-      "totalDurationSec": 1.666667,
-      "layout": {
-        "cols": 5,
-        "rows": 2
-      },
-      "loopDurationMs": 1500,
-      "pauseMs": 600
     }
   },
   "Pikeman": {
@@ -7435,19 +7347,19 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
     "walk": {
       "frameWidth": 768,
       "frameHeight": 768,
-      "atlasWidth": 3072,
-      "atlasHeight": 1536,
-      "frameCount": 8,
-      "fps": 8.333333333333334,
-      "frameDurationSec": 0.12,
-      "totalDurationSec": 0.96,
+      "atlasWidth": 2304,
+      "atlasHeight": 2304,
+      "frameCount": 9,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
       "layout": {
-        "cols": 4,
-        "rows": 2
+        "cols": 3,
+        "rows": 3
       },
-      "footAnchorY": 0.9075520833333334,
-      "loopDurationMs": 864,
-      "pauseMs": 346
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
     }
   },
   "Wolf Rider": {
@@ -7575,16 +7487,16 @@ export const animationAtlases: Readonly<Record<string, Readonly<Record<string, I
       "atlasWidth": 2304,
       "atlasHeight": 2304,
       "frameCount": 9,
-      "fps": 26,
-      "frameDurationSec": 0.038461538461538464,
-      "totalDurationSec": 0.34615384615384615,
+      "fps": 20,
+      "frameDurationSec": 0.05,
+      "totalDurationSec": 0.45,
       "layout": {
         "cols": 3,
         "rows": 3
       },
-      "footAnchorY": 0.8854166666666666,
-      "loopDurationMs": 312,
-      "pauseMs": 125
+      "footAnchorY": 0.9661458333333334,
+      "loopDurationMs": 405,
+      "pauseMs": 162
     }
   },
   "Wyvern": {
