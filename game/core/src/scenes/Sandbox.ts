@@ -9658,10 +9658,18 @@ export class Sandbox extends PixiScene {
     private resolveRangeShotAim(
         attacker: RenderableUnit,
         target: Unit,
+        firedFrom: HoCMath.XY,
         replayAction?: Extract<GameAction, { type: "range_attack" }>,
     ): GridMath.IClosestSideCenter | undefined {
         if (!replayAction) {
-            const edge = optimalRangeTargetEdge(this.rangeTargetEdgeVisuals(attacker, target), attacker.getPosition());
+            // `firedFrom` is where the shot is TAKEN from, which is not always where the attacker stands
+            // right now. optimalRangeTargetEdge breaks ties on "edge-centre nearest the firing point", so
+            // handing it the live position instead made the projectile pick a different edge than the hover
+            // arrow drew — the arrow is computed from the landing cell (attackFromPos). It diverged exactly
+            // when the shooter walks before firing, and only when two edges retain the same damage, which is
+            // why the flight looked like it ignored the drawn path at random. Same footprint-centre
+            // transform as the hover so a large shooter agrees with its own preview too.
+            const edge = optimalRangeTargetEdge(this.rangeTargetEdgeVisuals(attacker, target), firedFrom);
             return edge
                 ? {
                       cell: { ...edge.cell },
@@ -9861,6 +9869,7 @@ export class Sandbox extends PixiScene {
             const aim = this.resolveRangeShotAim(
                 attacker,
                 target,
+                this.footprintCenterForAnchor(attacker, attackFrom),
                 replayAction?.type === "range_attack" ? replayAction : undefined,
             );
             // No visible edge means there is nothing legal to aim at — drop a locally-initiated shot
