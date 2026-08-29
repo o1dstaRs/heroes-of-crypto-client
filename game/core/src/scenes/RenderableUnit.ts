@@ -5883,7 +5883,7 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Arcane Ward Blessing (Squire) — board-wide, while preserving the old stack/luck projection.
+        // Arcane Ward Blessing (Squire) — board-wide and flat at 10 + the source's Luck.
         const arcaneWardBlessingAbility = this.getAbility("Arcane Ward Blessing");
         if (arcaneWardBlessingAbility) {
             this.refreshAbiltyDescription(
@@ -5891,7 +5891,7 @@ export class RenderableUnit extends Unit {
                 arcaneWardBlessingAbility
                     .getDesc()
                     .join("\n")
-                    .replace(/\{\}/g, this.calculateArcaneWardBlessingPower(_synergyAbilityPowerIncrease).toString()),
+                    .replace(/\{\}/g, this.calculateArcaneWardBlessingPower().toString()),
             );
         }
 
