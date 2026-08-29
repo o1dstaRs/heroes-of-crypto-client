@@ -935,6 +935,13 @@ export class PixiGameManager {
         // grid change might affect ideal zoom; refit
         this.fitViewToWindow();
     }
+    /** Sandbox-only refresh for the Cemetery map; ranked scenes reject it and keep server terrain. */
+    public RerollScatteredMountains(): void {
+        const scene = this.m_scene;
+        if (scene && "rerollScatteredMountains" in scene) {
+            (scene as { rerollScatteredMountains(): void }).rerollScatteredMountains();
+        }
+    }
     private lastTime = 0;
     private simAccumulator = 0;
     // Fixed-timestep simulation: advance the game a constant amount per REAL second so that

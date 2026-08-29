@@ -27,6 +27,14 @@ const MapSettingsRadioButtons: React.FC = () => {
         manager.SetGridType(newGridType);
     };
 
+    // Radio change does not fire when its already-selected option is clicked. Cemetery is deliberately a
+    // sandbox experiment surface, so another click on BARRELS means "give me another board", not a no-op.
+    const handleBarrelsClick = () => {
+        if (gridType === GridVals.BLOCK_CENTER) {
+            manager.RerollScatteredMountains();
+        }
+    };
+
     return (
         <Box
             sx={{
@@ -97,6 +105,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         <Radio
                             value={GridVals.BLOCK_CENTER}
                             label="BARRELS"
+                            onClick={handleBarrelsClick}
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {

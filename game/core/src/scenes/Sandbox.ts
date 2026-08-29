@@ -471,7 +471,7 @@ export interface SandboxSceneUnitState {
     forbiddenTargetId?: string;
     /** Remaining laps for a mechanically active Break effect. Ranked normally treats snapshot effects as
      *  display-only, but Break must exist in Unit.effects before passive/stat refresh so disabled abilities
-     *  (notably Angelic Host) stay disabled in local previews too. */
+     *  (notably Angelic Host Blessing) stay disabled in local previews too. */
     mechanicalBreakLaps?: number;
 }
 
@@ -538,10 +538,22 @@ interface PlacementBenchHitBox {
 /** Multi-hit attacks show each impact on this cadence in both live play and authoritative replays. */
 export const ATTACK_HIT_STAGGER_MS = 240;
 
-// Count, band height and art-variant count come from common (scattered_mountains.ts) rather than being
-// restated here. Sandbox rolls its own layout because it has no game id to seed from, but it must scatter
-// the SAME number of stones over the SAME band as ranked — these were local copies, so a ranked-side change
-// would have quietly left the sandbox board on the old count.
+// Ranked derives a fixed twelve-barrel layout from the game id, so every player and the server agree. The
+// offline sandbox deliberately has a separate, disposable map roll: clicking Barrels again creates 9–12 new
+// positions for quick terrain experiments without changing any ranked or replay rule.
+export const SANDBOX_BARREL_MIN_COUNT = 9;
+export const SANDBOX_BARREL_MAX_COUNT = 12;
+
+/** Build one sandbox-only layout from a fresh seed, preserving common's legal neutral band and art variants. */
+export const sandboxBarrelLayoutForSeed = (
+    seed: string,
+    count: number,
+    sideOriented: boolean,
+): ReturnType<typeof scatteredMountainsForSeed> =>
+    scatteredMountainsForSeed(seed, GridConstants.GRID_SIZE, sideOriented).slice(
+        0,
+        Math.max(SANDBOX_BARREL_MIN_COUNT, Math.min(SANDBOX_BARREL_MAX_COUNT, count)),
+    );
 
 /**
  * A chakram ricochet leg too short to fly (adjacent victim, single-cell arc) still waits this beat before
@@ -903,6 +915,9 @@ export class Sandbox extends PixiScene {
     private readonly worldRootAttachments = new Set<Container>();
     /** Tracks whether the dynamic board-overlay buffer needs one final clear after it becomes idle. */
     private gameplayGraphicsHasGeometry = false;
+    /** Sandbox-only terrain entropy; ranked installs its authoritative layout from the server instead. */
+    private sandboxBarrelLayoutSeed = HoCLib.createSecureUuid();
+    private sandboxBarrelCount = HoCLib.getRandomInt(SANDBOX_BARREL_MIN_COUNT, SANDBOX_BARREL_MAX_COUNT + 1);
     // Protected: RankedPlayScene re-arms it after a mid-turn full hydrate (the armed-spell restore).
     protected currentActiveSpell?: PixiRenderableSpell;
     private hoveredSpell?: PixiRenderableSpell;
@@ -1108,10 +1123,8 @@ export class Sandbox extends PixiScene {
         // overrides resolveSceneLogTeamFlag() to "" since it rebuilds + prefixes its own log by unit id.
         this.sc_sceneLog.setTeamFlagResolver((line) => this.resolveSceneLogTeamFlag(line));
         this.refreshVisibleStateIfNeeded();
-        // Re-install the rocks every time the mountain board is picked — including picking it again after a
-        // detour through another map. This is a DERIVATION, not a fresh draw: the layout and the barrel
-        // count both come from the fight id, so re-picking the Cemetery within one session rebuilds the
-        // same board rather than rolling a new one. A new fight id is what changes it.
+        // Install the current sandbox barrel roll after the terrain renderer exists. Later clicks on the
+        // Barrels map control explicitly replace this local roll with a fresh 9–12-barrel arrangement.
         this.rollScatteredMountains();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -6135,10 +6148,28 @@ export class Sandbox extends PixiScene {
     protected scatteredMountainsAutoRoll(): boolean {
         return true;
     }
+    /** Re-roll the local Cemetery board without touching its ranked, server-authoritative counterpart. */
+    public rerollScatteredMountains(): void {
+        const fightProperties = FightStateManager.getInstance().getFightProperties();
+        if (
+            !this.scatteredMountainsAutoRoll() ||
+            fightProperties.hasFightStarted() ||
+            fightProperties.getGridType() !== GridVals.BLOCK_CENTER
+        ) {
+            return;
+        }
+        this.randomizeSandboxBarrelLayout();
+        this.rollScatteredMountains();
+        this.gridMatrix = this.grid.getMatrix();
+        this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
+        this.refreshVisibleStateIfNeeded(true);
+    }
+    private randomizeSandboxBarrelLayout(): void {
+        this.sandboxBarrelLayoutSeed = HoCLib.createSecureUuid();
+        this.sandboxBarrelCount = HoCLib.getRandomInt(SANDBOX_BARREL_MIN_COUNT, SANDBOX_BARREL_MAX_COUNT + 1);
+    }
     /**
-     * Drop SCATTERED_MOUNTAIN_COUNT single-cell mountains at random over the neutral band, each wearing a
-     * random variant from the art pool. A no-op (and a full clear) on any board that is not Mountains.
-     *
+     * Install the current sandbox barrel roll over the neutral band, or clear it when another map is chosen.
      * The spawn lane is deliberately fixed at the four central columns for every placement preset, as the
      * Cemetery map design reserves that full-height strip between the left and right deployment fields.
      */
@@ -6324,21 +6355,15 @@ export class Sandbox extends PixiScene {
             this.dungeonVisuals?.setScatteredMountains([]);
             return;
         }
-        // The band follows the board orientation: side-oriented boards (the default everywhere now —
-        // owner call 2026-08-25) deploy on the left/right x-bands, so the neutral strip is the middle
-        // COLUMNS, full height, matching scatteredMountainsForSeed exactly. A classic board keeps the
-        // horizontal middle-rows belt between its bottom/top zones.
-        // One roll, one rule. A static game's barrels now come from the SAME seeded generator the ranked
-        // server, both seats and every replay use, keyed on this fight's own id — so a Cemetery board is
-        // built identically everywhere, and the barrel COUNT is rolled per game (9-12) exactly like the
-        // map itself rather than being a fixed number drawn locally. This block used to be a hand-copied
-        // Math.random() twin of scatteredMountainsForSeed: it re-derived the same band, the same partial
-        // Fisher-Yates and the same variant deck, which is three chances to drift from the server's idea
-        // of the same board.
+        // The band follows the board orientation: side-oriented boards deploy on the left/right x-bands,
+        // so the neutral strip is the middle COLUMNS, full height. Re-use common's seeded placement and
+        // art-variant generator, but feed it fresh sandbox-only entropy and slice its 12 legal cells down
+        // to this roll's 9–12 count. That means a second Barrels click changes the map without duplicating
+        // the placement algorithm or disturbing ranked's server-owned layout.
         const fightProperties = FightStateManager.getInstance().getFightProperties();
-        const layout = scatteredMountainsForSeed(
-            fightProperties.getId(),
-            GridConstants.GRID_SIZE,
+        const layout = sandboxBarrelLayoutForSeed(
+            this.sandboxBarrelLayoutSeed,
+            this.sandboxBarrelCount,
             fightProperties.isSideOrientedPlacement(),
         );
         this.grid.setScatteredMountains(layout.map((rock) => rock.cell));
@@ -6353,6 +6378,9 @@ export class Sandbox extends PixiScene {
         }
         FightStateManager.getInstance().getFightProperties().setGridType(gridType);
         this.grid.refreshWithNewType(FightStateManager.getInstance().getFightProperties().getGridType());
+        if (gridType === GridVals.BLOCK_CENTER) {
+            this.randomizeSandboxBarrelLayout();
+        }
         this.rollScatteredMountains();
         this.gridMatrix = this.grid.getMatrix();
         this.gridMatrixNoUnits = this.grid.getMatrixNoUnits();
@@ -7165,6 +7193,7 @@ export class Sandbox extends PixiScene {
                       caster.getCumulativeMaxHp(),
                       caster.getLuck(),
                       caster.getMagicDamageBonusPercentage(),
+                      caster.getAttackMultiplier(),
                   )
                 : [];
         const key = lines.join("\n");
