@@ -58,12 +58,15 @@ const knownImageKeys = [...imageKeys].sort();
 
 const imageImportsStub = `/* CI stub — replaced locally by scripts/generate_image_imports.js */
 // Asset-policy and portrait tests exercise the generated lookup contract without downloading the
-// private art bundle. Resolve any requested key to its production filename and report it as present.
+// private art bundle. Mirror the production generator's URL-shaped values so tests exercise the same
+// contract instead of receiving bare asset keys that no browser or texture loader can resolve.
+const stubImageUrl = (key: string): string =>
+    \`\${new URL(\`../../images/\${key}.webp\`, import.meta.url).toString()}#ci-stub\`;
 const knownImages = Object.fromEntries(
-    ${JSON.stringify(knownImageKeys)}.map((key) => [key, \`\${key}.webp\`]),
+    ${JSON.stringify(knownImageKeys)}.map((key) => [key, stubImageUrl(key)]),
 ) as Record<string, string>;
 export const images = new Proxy<Record<string, string>>(knownImages, {
-    get: (_target, key) => typeof key === "string" ? \`\${key}.webp\` : undefined,
+    get: (_target, key) => typeof key === "string" ? stubImageUrl(key) : undefined,
     has: (_target, key) => typeof key === "string",
 });
 export type ImageKey = keyof typeof images;
