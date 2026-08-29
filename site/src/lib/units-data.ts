@@ -57,6 +57,8 @@ const slug = (name: string) =>
 const abilityIconOverrides: Readonly<Record<string, string>> = {
     "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_blessing_256.webp",
     "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
+    "Angelic Host Blessing": "/assets/images/units/abilities/angelic_host_256.webp",
+    "Arrows Wingshield Blessing": "/assets/images/units/abilities/arrows_wingshield_aura_256.webp",
 };
 
 const abilityIcon = (name: string): string =>
