@@ -61,7 +61,6 @@ import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
 import { SocialDock } from "./social/SocialDock";
 import { SocialProvider } from "./social/SocialProvider";
-import { setBattleSystemControlsActive } from "./social/systemControlsMode";
 import { setPrefightMusicActive } from "./audio/prefightMusic";
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
@@ -186,11 +185,12 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
     const [aiToggleOn, setAiToggleOn] = useState(false);
     const [replayPlaybackActive, setReplayPlaybackActive] = useState(false);
 
-    // The offline sandbox owns the compact top-right system-controls medallion on every route shape.
-    useEffect(() => {
-        setBattleSystemControlsActive(true);
-        return () => setBattleSystemControlsActive(false);
-    }, []);
+    // OWNER CALL: a logged-in player keeps the full four-button dock in the BOTTOM-RIGHT corner here —
+    // bets, friends, notifications and sound — exactly as on every non-battle screen. The sandbox used to
+    // publish setBattleSystemControlsActive(true), which collapses SocialDock into the compact top-right
+    // medallion and hides those four behind a fan. Ranked still collapses it (RankedGameView), where board
+    // space is genuinely contested; the offline sandbox has room and should not make the player open a menu
+    // to reach controls that sit in the corner everywhere else.
 
     const closeSandbox = useCallback(() => {
         if (window.history.length > 1) {
