@@ -1,6 +1,6 @@
 import { Box, Button, CircularProgress, Option, Select, Sheet, Stack, Typography } from "@mui/joy";
 import { Artifact } from "@heroesofcrypto/common";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { SUPPORTED_LANGUAGES, setLanguage, t, tf, useTranslation } from "../../i18n/i18n";
@@ -9,7 +9,8 @@ import { images } from "../../generated/image_imports";
 import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
 import { LeagueTransitionReveal } from "../LeagueTransitionReveal";
-import { LanguageNavIcon, RankedNavIcon, RefreshNavIcon } from "../svg/navigation";
+import { LanguageNavIcon, RankedNavIcon, RefreshNavIcon, SettingsNavIcon } from "../svg/navigation";
+import { PlayerSettingsPanel } from "../PlayerSettingsPanel";
 import { useRankedSeason } from "../useRankedSeason";
 import { MatchHistory } from "./MatchHistory";
 import { matchReplayPath, normalizeMatchSetup } from "./matchHistoryModel";
@@ -467,6 +468,7 @@ const STRATEGY_LIST_LENGTH = 6;
 
 export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const { data, loading, error, reload } = usePlayerPortal();
     const standing = useRankedStanding(data?.total_games_played ?? 0);
     const { t, language } = useTranslation();
@@ -703,6 +705,19 @@ export const PlayerPortalPage: React.FC = () => {
                             >
                                 {t("Refresh")}
                             </Button>
+                            {/* Opens a popup instead of navigating, so it keeps the soft treatment the
+                                other in-place actions use rather than the arena's solid call to action. */}
+                            <Button
+                                fullWidth
+                                aria-haspopup="dialog"
+                                aria-expanded={settingsOpen}
+                                variant="soft"
+                                startDecorator={<SettingsNavIcon sx={{ fontSize: 22 }} />}
+                                sx={{ ...hocSoftButtonSx, minWidth: { sm: 126 }, whiteSpace: "nowrap" }}
+                                onClick={() => setSettingsOpen(true)}
+                            >
+                                {t("Settings")}
+                            </Button>
                             <Button
                                 fullWidth
                                 variant="solid"
@@ -715,6 +730,8 @@ export const PlayerPortalPage: React.FC = () => {
                         </Stack>
                     </Stack>
                 </Sheet>
+
+                <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
                 {loading && (
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 6, justifyContent: "center" }}>

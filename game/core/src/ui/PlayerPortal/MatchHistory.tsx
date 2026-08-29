@@ -138,12 +138,12 @@ const RosterStrip: React.FC<RosterStripProps> = ({ compact, creatureIds, label, 
         >
             {label}
         </Typography>
-        <Stack direction="row" spacing={0.35} sx={{ flexWrap: "wrap", minHeight: compact ? 20 : 28 }}>
+        <Stack direction="row" spacing={0.4} sx={{ flexWrap: "wrap", minHeight: compact ? 20 : 38 }}>
             {creatureIds.slice(0, 8).map((creatureId, index) => (
                 <CreatureIcon
                     key={`${label}_${creatureId}_${index}`}
                     creatureId={creatureId}
-                    size={compact ? 20 : 28}
+                    size={compact ? 20 : 38}
                 />
             ))}
             {creatureIds.length === 0 && (
@@ -244,8 +244,8 @@ const PerformanceList: React.FC<{
         <Box
             sx={{
                 display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-                columnGap: 2.5,
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(3, minmax(0, 1fr))" },
+                columnGap: { xs: 2, lg: 2.5 },
                 rowGap: 0.65,
             }}
         >
@@ -371,7 +371,7 @@ const SetupSummaryIcon: React.FC<{
     image?: string;
     roundImage?: boolean;
 }> = ({ alt = "", badge, compact, detail, fallback, image, roundImage = false }) => {
-    const size = compact ? 24 : 28;
+    const size = compact ? 24 : 32;
     return (
         <Tooltip title={detail} placement="top" size="sm" variant="soft">
             <Box
@@ -927,6 +927,43 @@ const MatchCard: React.FC<{
                                 )}
                             </Stack>
                         </Box>
+                        <Stack
+                            direction="row"
+                            spacing={1.25}
+                            alignItems="center"
+                            sx={{ display: { xs: "none", md: "flex" }, flexWrap: "wrap", flexShrink: 0, ml: 1 }}
+                        >
+                            {duration && <MetadataItem icon={<AccessTimeRoundedIcon />} label={duration} />}
+                            {laps > 0 && (
+                                <MetadataItem
+                                    icon={<LoopRoundedIcon />}
+                                    label={
+                                        laps === 1
+                                            ? tf("{count} lap", { count: laps })
+                                            : tf("{count} laps", { count: laps })
+                                    }
+                                />
+                            )}
+                            {topPlayer && (
+                                <Stack direction="row" spacing={0.45} alignItems="center" sx={{ minWidth: 0 }}>
+                                    <MilitaryTechRoundedIcon sx={{ color: hocColors.gold, fontSize: 15 }} />
+                                    <CreatureIcon creatureId={topPlayer.creature_id ?? 0} size={20} />
+                                    <Typography level="body-xs" sx={{ color: hocColors.gold, whiteSpace: "nowrap" }}>
+                                        {tf("{amount} dmg", { amount: formatMatchDamage(topPlayer.damage_dealt) })}
+                                    </Typography>
+                                </Stack>
+                            )}
+                            {kind.showsMmr && mmrDelta && (
+                                <RewardBadge label={tf("MMR {amount}", { amount: mmrDelta })} tone="rating" />
+                            )}
+                            {kind.showsGold && goldEarned > 0 && (
+                                <RewardBadge
+                                    icon={<CurrencyIcon iconSvg={rewardCurrency.iconSvg} size={13} />}
+                                    label={`${rewardCurrency.symbol} +${goldEarned}`}
+                                    tone="gold"
+                                />
+                            )}
+                        </Stack>
                         <Box sx={{ position: "relative", zIndex: 3, pointerEvents: "auto" }}>
                             <ReplayIconButton available={replayAvailable} compact={compact} onClick={onReplay} />
                         </Box>
@@ -951,7 +988,16 @@ const MatchCard: React.FC<{
                         </Box>
                     </Stack>
 
-                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mt: 0.75, flexWrap: "wrap" }}>
+                    {/* The card's top row ran title-left / buttons-right with a wide gap between them, and
+                        these chips sat on a row of their own underneath. From md they move into that gap:
+                        the header stops being mostly empty and the card loses a row. Below md the gap is
+                        not there to reclaim, so they keep their own row. */}
+                    <Stack
+                        direction="row"
+                        spacing={1.25}
+                        alignItems="center"
+                        sx={{ display: { xs: "flex", md: "none" }, mt: 0.75, flexWrap: "wrap" }}
+                    >
                         {duration && <MetadataItem icon={<AccessTimeRoundedIcon />} label={duration} />}
                         {laps > 0 && (
                             <MetadataItem
