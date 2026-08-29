@@ -14,6 +14,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 
+import { GridMath } from "@heroesofcrypto/common";
+
 import { optimalRangeTargetEdge } from "./rangeTargetEdges";
 
 /**
@@ -28,11 +30,16 @@ import { optimalRangeTargetEdge } from "./rangeTargetEdges";
  * tie-break then picks a different edge for the projectile than the arrow promised.
  */
 describe("the firing point decides the edge", () => {
+    // The candidate carries the exterior edge it came from (cell + side); neither participates in the
+    // choice — damage retention and the distance to aimPosition do — so they are filled in consistently
+    // with the aim point and left alone.
     const edge = (id: string, x: number, y: number, rangeDivisor = 1) => ({
         id,
         rangeDivisor,
         shootable: true,
         aimPosition: { x, y },
+        cell: { x: Math.sign(x), y: Math.sign(y) },
+        side: x < 0 ? GridMath.RangeAttackCellSide.LEFT : GridMath.RangeAttackCellSide.RIGHT,
     });
 
     test("two equally-good edges are separated only by which point we measure from", () => {
