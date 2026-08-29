@@ -102,64 +102,76 @@ export const RankedBanPicker: React.FC = () => {
     return (
         <>
             <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                justifyContent="center"
-                sx={{ width: "100%", maxWidth: 650, mt: 1.25 }}
+                direction={{ xs: "column", sm: "row" }}
+                spacing={{ xs: 0.75, sm: 1.5 }}
+                alignItems={{ xs: "stretch", sm: "center" }}
+                justifyContent="space-between"
+                sx={{ width: "100%", px: { xs: 1.25, sm: 1.5 }, py: { xs: 1.1, sm: 1.25 } }}
             >
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
                     Ban a unit from your drafts:
                 </Typography>
-                {creatureId > 0 ? (
-                    <Sheet
-                        variant="outlined"
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.75,
-                            px: 1,
-                            py: 0.4,
-                            borderRadius: "md",
-                            borderColor: "rgba(255,90,63,0.55)",
-                            bgcolor: "rgba(255,90,63,0.12)",
-                        }}
-                    >
-                        <CreaturePortraitImage
-                            creatureId={creatureId}
-                            alt=""
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent={{ xs: "space-between", sm: "flex-end" }}
+                    sx={{ minWidth: 0 }}
+                >
+                    {creatureId > 0 ? (
+                        <Sheet
+                            variant="outlined"
                             sx={{
-                                width: BAN_CHIP_PORTRAIT_WIDTH,
-                                height: banPortraitHeight(BAN_CHIP_PORTRAIT_WIDTH),
-                                borderRadius: 4,
-                                // The chip is a flex row; without this the name beside it can squeeze the
-                                // portrait narrower than its box and skew the crop again.
-                                flexShrink: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.75,
+                                minWidth: 0,
+                                px: 1,
+                                py: 0.4,
+                                borderRadius: "md",
+                                borderColor: "rgba(255,90,63,0.55)",
+                                bgcolor: "rgba(255,90,63,0.12)",
                             }}
-                        />
-                        <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                            {creatureName}
+                        >
+                            <CreaturePortraitImage
+                                creatureId={creatureId}
+                                alt=""
+                                sx={{
+                                    width: BAN_CHIP_PORTRAIT_WIDTH,
+                                    height: banPortraitHeight(BAN_CHIP_PORTRAIT_WIDTH),
+                                    borderRadius: 4,
+                                    // The chip is a flex row; without this the name beside it can squeeze the
+                                    // portrait narrower than its box and skew the crop again.
+                                    flexShrink: 0,
+                                }}
+                            />
+                            <Typography
+                                level="body-sm"
+                                sx={{ overflow: "hidden", color: hocColors.parchment, textOverflow: "ellipsis" }}
+                            >
+                                {creatureName}
+                            </Typography>
+                        </Sheet>
+                    ) : (
+                        <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
+                            none
                         </Typography>
-                    </Sheet>
-                ) : (
-                    <Typography level="body-sm" sx={{ color: hocColors.parchment, opacity: 0.7 }}>
-                        none
-                    </Typography>
-                )}
-                <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>
-                    {creatureId > 0 ? "Change" : "Choose"}
-                </Button>
-                {creatureId > 0 ? (
-                    <Button
-                        size="sm"
-                        variant="plain"
-                        sx={{ color: hocColors.muted }}
-                        disabled={busy}
-                        onClick={() => void choose(0)}
-                    >
-                        Clear
+                    )}
+                    <Button size="sm" variant="outlined" sx={hocSoftButtonSx} onClick={() => setOpen(true)}>
+                        {creatureId > 0 ? "Change" : "Choose"}
                     </Button>
-                ) : null}
+                    {creatureId > 0 ? (
+                        <Button
+                            size="sm"
+                            variant="plain"
+                            sx={{ color: hocColors.muted }}
+                            disabled={busy}
+                            onClick={() => void choose(0)}
+                        >
+                            Clear
+                        </Button>
+                    ) : null}
+                </Stack>
             </Stack>
 
             <Modal open={open} onClose={() => setOpen(false)}>

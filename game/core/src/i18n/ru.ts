@@ -401,6 +401,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     Rating: "Рейтинг",
     Record: "Результат",
     Rank: "Место",
+    "Ranked games": "рейтинговых игр",
     "MATCH ACCEPTED": "МАТЧ ПРИНЯТ",
     "MATCH REF": "КОД МАТЧА",
     "IN QUEUE": "В ОЧЕРЕДИ",

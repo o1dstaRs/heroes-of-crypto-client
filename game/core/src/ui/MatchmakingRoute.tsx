@@ -80,6 +80,27 @@ const STORAGE_KEY = "accessToken";
 
 const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.events);
 const rankedBackgroundUrl = new URL("../../images/pick_phase_obsidian_background.webp", import.meta.url).toString();
+const MOCK_MATCH_ID = "mock-ranked-match-2026-08-29";
+const MOCK_OPPONENT_STATS: PublicPlayerStats = {
+    playerId: "00000000-0000-4000-8000-000000000029",
+    username: "EmberWarden",
+    state: "placed",
+    mmr: 1842,
+    league: 4,
+    leagueName: "Overlord",
+    wealth: 3,
+    wealthName: "Whale",
+    standingTitle: "Overlord Whale",
+    leaderboardRank: 17,
+    wins: 142,
+    losses: 89,
+    draws: 6,
+    totalGames: 237,
+    winRatePct: 59.9,
+    winStreak: 4,
+    lossStreak: 0,
+    gold: 1330,
+};
 
 /** m:ss for a queue wait (h:mm:ss past the hour, which realistically never happens). */
 const formatQueueDuration = (totalSeconds: number): string => {
@@ -97,17 +118,23 @@ export const MatchmakingRoute: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const { t, language } = useTranslation();
     const { startGameSearch, stopGameSearch, confirmGame, getCurrentGame, user, requestCode, me } = useAuthContext();
+    // Development-only match-found preview. Pair with ?mockPortal=1 so no live queue or player is touched.
+    const mockMatchMode = isMockPortalEnabled() ? searchParams.get("mockMatch") : null;
+    const mockMatchPreview = mockMatchMode === "found" || mockMatchMode === "accepted";
+    const mockMatchAccepted = mockMatchMode === "accepted";
 
     const streamRef = useRef<CustomEventSource<MatchmakingEvent> | null>(null);
-    const acceptedGameIdRef = useRef("");
-    const pendingGameIdRef = useRef("");
+    const acceptedGameIdRef = useRef(mockMatchAccepted ? MOCK_MATCH_ID : "");
+    const pendingGameIdRef = useRef(mockMatchPreview ? MOCK_MATCH_ID : "");
     const acceptAttemptRef = useRef(0);
     /** The match we have already announced, so the repeating stream tick does not re-toast every second. */
     const alertedGameIdRef = useRef("");
     const mountedRef = useRef(true);
     const aiStartInFlightRef = useRef(false);
     const vsAiAutoStartedRef = useRef(false);
-    const [state, setState] = useState<MatchmakingState>("idle");
+    const [state, setState] = useState<MatchmakingState>(
+        mockMatchPreview ? (mockMatchAccepted ? "accepted" : "confirming") : "idle",
+    );
     const [profileSummaryOpen, setProfileSummaryOpen] = useState(false);
     // Commanders currently on the arena (queue + live games) — polled from the public mm endpoint.
     const [onlineNow, setOnlineNow] = useState<{ searching: number; playing: number; online: number }>();
@@ -141,9 +168,11 @@ export const MatchmakingRoute: React.FC = () => {
         };
     }, []);
 
-    const [pendingGameId, setPendingGameId] = useState("");
+    const [pendingGameId, setPendingGameId] = useState(mockMatchPreview ? MOCK_MATCH_ID : "");
     const [opponentPlayerId, setOpponentPlayerId] = useState("");
-    const [opponentStats, setOpponentStats] = useState<PublicPlayerStats | null>(null);
+    const [opponentStats, setOpponentStats] = useState<PublicPlayerStats | null>(
+        mockMatchPreview ? MOCK_OPPONENT_STATS : null,
+    );
     const [opponentStatsLoading, setOpponentStatsLoading] = useState(false);
     const updatePendingGameId = useCallback((gameId: string) => {
         pendingGameIdRef.current = gameId;
@@ -154,7 +183,7 @@ export const MatchmakingRoute: React.FC = () => {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [searchStartedAt, setSearchStartedAt] = useState(0);
     const [queueSize, setQueueSize] = useState<number | null>(null);
-    const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+    const [secondsRemaining, setSecondsRemaining] = useState<number | null>(mockMatchPreview ? 28 : null);
     const [error, setError] = useState("");
     const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
     // Pre-game doctrine (scouting doctrine): free to toggle until the player queues/starts; the chosen
@@ -365,6 +394,11 @@ export const MatchmakingRoute: React.FC = () => {
     }, [closeStream, getCurrentGame, navigate, me, updatePendingGameId]);
 
     useEffect(() => {
+        if (mockMatchPreview) {
+            setOpponentStats(MOCK_OPPONENT_STATS);
+            setOpponentStatsLoading(false);
+            return undefined;
+        }
         if (!opponentPlayerId) {
             setOpponentStats(null);
             setOpponentStatsLoading(false);
@@ -390,16 +424,16 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [opponentPlayerId]);
+    }, [mockMatchPreview, opponentPlayerId]);
 
     // A terminal accepted-stream failure may reconcile to the same still-unconfirmed game. Re-opening
     // here makes the restored Accept button useful: its successful retry still needs the authoritative
     // c=1 navigation frame. Ordinary confirming transitions already have a live source and are a no-op.
     useEffect(() => {
-        if (state === "confirming" && pendingGameIdRef.current && !streamRef.current) {
+        if (!mockMatchPreview && state === "confirming" && pendingGameIdRef.current && !streamRef.current) {
             openStream();
         }
-    }, [openStream, state]);
+    }, [mockMatchPreview, openStream, state]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -442,6 +476,9 @@ export const MatchmakingRoute: React.FC = () => {
     }, [isSearching]);
 
     useEffect(() => {
+        if (mockMatchPreview) {
+            return undefined;
+        }
         let cancelled = false;
 
         getCurrentGame()
@@ -466,7 +503,7 @@ export const MatchmakingRoute: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [getCurrentGame, navigate, openStream, updatePendingGameId]);
+    }, [getCurrentGame, mockMatchPreview, navigate, openStream, updatePendingGameId]);
 
     const statusText = useMemo(() => {
         if (needsActivation) {
@@ -626,6 +663,12 @@ export const MatchmakingRoute: React.FC = () => {
 
     const handleAccept = async () => {
         if (!pendingGameId) {
+            return;
+        }
+
+        if (mockMatchPreview) {
+            acceptedGameIdRef.current = pendingGameId;
+            setState("accepted");
             return;
         }
 
@@ -812,10 +855,9 @@ export const MatchmakingRoute: React.FC = () => {
                 }}
             >
                 <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={{ xs: 1.25, sm: 2 }}
-                    alignItems={{ xs: "stretch", sm: "center" }}
-                    justifyContent="space-between"
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="flex-end"
                     sx={{
                         px: { xs: 1.25, md: 1.75 },
                         py: 1.1,
@@ -826,33 +868,6 @@ export const MatchmakingRoute: React.FC = () => {
                         backdropFilter: "blur(16px)",
                     }}
                 >
-                    <Button
-                        variant="plain"
-                        onClick={() => navigate("/")}
-                        disabled={navigationLocked}
-                        title={
-                            navigationLocked ? t("Leave matchmaking before navigating away") : t("Open battle sandbox")
-                        }
-                        sx={{
-                            justifyContent: "flex-start",
-                            px: 0.5,
-                            color: hocColors.parchment,
-                            "&:hover": { bgcolor: "rgba(255,255,255,0.04)" },
-                            "&.Mui-disabled": { color: hocColors.muted },
-                        }}
-                    >
-                        <Stack direction="row" spacing={1.15} alignItems="center">
-                            <Box sx={{ textAlign: "left" }}>
-                                <Typography
-                                    level="title-md"
-                                    sx={{ color: "inherit", fontWeight: 800, lineHeight: 1.05 }}
-                                >
-                                    Heroes of Crypto
-                                </Typography>
-                            </Box>
-                        </Stack>
-                    </Button>
-
                     <Stack
                         component="nav"
                         aria-label={t("Game navigation")}
@@ -872,9 +887,14 @@ export const MatchmakingRoute: React.FC = () => {
                                 minWidth: 0,
                                 px: { xs: 0.75, sm: 1.25 },
                                 color: hocColors.gold,
+                                "& .MuiButton-startDecorator": {
+                                    mr: { xs: 0, sm: "var(--Button-gap)" },
+                                },
                             }}
                         >
-                            {t("Ranked")}
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                {t("Ranked")}
+                            </Box>
                         </Button>
                         <Button
                             aria-label={t("Lobby")}
@@ -890,6 +910,9 @@ export const MatchmakingRoute: React.FC = () => {
                                 minWidth: 0,
                                 px: { xs: 0.75, sm: 1.25 },
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
+                                "& .MuiButton-startDecorator": {
+                                    mr: { xs: 0, sm: "var(--Button-gap)" },
+                                },
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
@@ -910,6 +933,9 @@ export const MatchmakingRoute: React.FC = () => {
                                 minWidth: 0,
                                 px: { xs: 0.75, sm: 1.25 },
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
+                                "& .MuiButton-startDecorator": {
+                                    mr: { xs: 0, sm: "var(--Button-gap)" },
+                                },
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
@@ -917,6 +943,7 @@ export const MatchmakingRoute: React.FC = () => {
                             </Box>
                         </Button>
                         <Button
+                            aria-label={t("Profile")}
                             size="sm"
                             variant="plain"
                             disabled={navigationLocked}
@@ -929,9 +956,14 @@ export const MatchmakingRoute: React.FC = () => {
                                 minWidth: 0,
                                 px: { xs: 0.75, sm: 1.25 },
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
+                                "& .MuiButton-startDecorator": {
+                                    mr: { xs: 0, sm: "var(--Button-gap)" },
+                                },
                             }}
                         >
-                            {t("Profile")}
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                {t("Profile")}
+                            </Box>
                         </Button>
                         {/* Settings opens a popup rather than navigating, so it is not disabled while
                             queued the way the destination links are, and it carries a sliders mark
@@ -950,6 +982,9 @@ export const MatchmakingRoute: React.FC = () => {
                                 minWidth: 0,
                                 px: { xs: 0.75, sm: 1.25 },
                                 "&:hover": { bgcolor: hocColors.orangeSoft },
+                                "& .MuiButton-startDecorator": {
+                                    mr: { xs: 0, sm: "var(--Button-gap)" },
+                                },
                             }}
                         >
                             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>

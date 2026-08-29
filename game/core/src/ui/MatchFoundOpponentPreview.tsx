@@ -26,13 +26,18 @@ const MatchMetric: React.FC<{
     <Box
         sx={{
             minWidth: 0,
-            px: { xs: 1, sm: 1.3 },
-            py: 1,
-            textAlign: "left",
-            borderRadius: "4px",
-            bgcolor: "rgba(0,0,0,0.34)",
-            border: "1px solid rgba(220,177,88,0.18)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.025)",
+            px: { xs: 1.1, sm: 1.35 },
+            py: { xs: 1, sm: 0.35 },
+            textAlign: { xs: "left", sm: "center" },
+            borderLeft: "1px solid rgba(239,228,204,0.1)",
+            "&:first-of-type": { borderLeft: 0 },
+            "&:nth-of-type(odd)": { borderLeft: { xs: 0, sm: "1px solid rgba(239,228,204,0.1)" } },
+            "&:nth-of-type(n + 3)": {
+                borderTop: { xs: "1px solid rgba(239,228,204,0.08)", sm: 0 },
+            },
+            "&:last-of-type": {
+                gridColumn: { xs: "1 / -1", sm: "auto" },
+            },
         }}
     >
         <Typography
@@ -41,7 +46,7 @@ const MatchMetric: React.FC<{
         >
             {label}
         </Typography>
-        <Box sx={{ mt: 0.25, color: hocColors.parchment, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+        <Box sx={{ mt: 0.3, color: hocColors.parchment, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
             {children}
         </Box>
     </Box>
@@ -64,12 +69,12 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                 variant="outlined"
                 sx={{
                     width: "100%",
-                    maxWidth: 760,
+                    maxWidth: 820,
                     mt: 2.2,
-                    p: 1.5,
-                    borderRadius: "6px",
-                    borderColor: "rgba(220,177,88,0.28)",
-                    bgcolor: "rgba(8,7,6,0.72)",
+                    p: { xs: 1.5, sm: 2 },
+                    borderRadius: "12px",
+                    borderColor: "rgba(220,177,88,0.2)",
+                    bgcolor: "rgba(8,7,6,0.76)",
                 }}
             >
                 <Stack direction="row" spacing={1.4} alignItems="center">
@@ -106,6 +111,7 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
     const losses = whole(stats.losses);
     const draws = whole(stats.draws);
     const winRate = Math.max(0, Math.min(100, Number(stats.winRatePct) || 0));
+    const leaderboardRank = whole(stats.leaderboardRank);
 
     return (
         <Sheet
@@ -114,39 +120,47 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
             sx={{
                 position: "relative",
                 width: "100%",
-                maxWidth: 760,
+                maxWidth: 820,
                 mt: 2.2,
-                p: { xs: 1.4, sm: 1.8 },
                 overflow: "hidden",
-                borderRadius: "6px",
-                borderColor: accepted ? "rgba(85,216,120,0.48)" : "rgba(255,209,102,0.56)",
+                borderRadius: "14px",
+                borderColor: accepted ? "rgba(85,216,120,0.34)" : "rgba(255,209,102,0.36)",
                 background: accepted
-                    ? "linear-gradient(112deg, rgba(20,54,30,0.82), rgba(8,8,7,0.94) 54%, rgba(15,12,7,0.9))"
-                    : "linear-gradient(112deg, rgba(78,52,10,0.78), rgba(8,8,7,0.94) 54%, rgba(25,14,5,0.9))",
+                    ? "linear-gradient(118deg, rgba(19,48,28,0.82), rgba(8,8,7,0.96) 52%, rgba(14,12,8,0.92))"
+                    : "linear-gradient(118deg, rgba(58,39,12,0.78), rgba(8,8,7,0.96) 52%, rgba(22,14,7,0.92))",
                 boxShadow: accepted
-                    ? "0 16px 38px rgba(0,0,0,0.42), inset 0 1px 0 rgba(165,255,185,0.08)"
-                    : "0 16px 38px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,231,171,0.1)",
+                    ? "0 18px 44px rgba(0,0,0,0.38), inset 0 1px 0 rgba(165,255,185,0.055)"
+                    : "0 18px 44px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,231,171,0.065)",
             }}
         >
             <Box
                 aria-hidden="true"
                 sx={{
                     position: "absolute",
-                    inset: 0,
-                    pointerEvents: "none",
-                    background:
-                        "radial-gradient(circle at 12% 34%, rgba(255,215,120,0.13), transparent 28%), repeating-linear-gradient(135deg, transparent 0 18px, rgba(255,255,255,0.012) 18px 19px)",
+                    top: 0,
+                    left: { xs: 20, sm: 28 },
+                    width: 96,
+                    height: 2,
+                    borderRadius: "0 0 99px 99px",
+                    background: accepted
+                        ? "linear-gradient(90deg, #55d878, rgba(85,216,120,0.2))"
+                        : "linear-gradient(90deg, #ffd166, rgba(255,143,0,0.2))",
+                    boxShadow: accepted ? "0 0 18px rgba(85,216,120,0.34)" : "0 0 18px rgba(255,183,0,0.3)",
                 }}
             />
-            <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={{ xs: 1.3, sm: 1.8 }}
-                alignItems={{ xs: "center", sm: "stretch" }}
-                sx={{ position: "relative" }}
-            >
-                <Stack direction="row" spacing={1.35} alignItems="center" sx={{ minWidth: 0, flex: "1 1 300px" }}>
-                    <LeagueEmblem league={league} wealth={wealth} label={standing} size={94} />
-                    <Box sx={{ minWidth: 0, textAlign: "left" }}>
+            <Box
+                aria-hidden="true"
+                sx={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                    background: "radial-gradient(circle at 10% 30%, rgba(255,215,120,0.1), transparent 30%)",
+                }}
+            />
+            <Box sx={{ position: "relative", p: { xs: 1.6, sm: 2.2 } }}>
+                <Stack direction="row" spacing={{ xs: 1.25, sm: 1.8 }} alignItems="center" sx={{ minWidth: 0 }}>
+                    <LeagueEmblem league={league} wealth={wealth} label={standing} size={104} />
+                    <Box sx={{ minWidth: 0, flex: 1, textAlign: "left" }}>
                         <Typography
                             level="body-xs"
                             sx={{
@@ -154,6 +168,7 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                                 fontFamily: hocDisplayFontFamily,
                                 fontWeight: 700,
                                 letterSpacing: "0.16em",
+                                textTransform: "uppercase",
                             }}
                         >
                             {accepted ? t("MATCH ACCEPTED") : t("YOU’RE FACING")}
@@ -165,7 +180,7 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                             sx={{
                                 mt: 0.2,
                                 color: hocColors.parchment,
-                                fontSize: { xs: "1.45rem", sm: "1.75rem" },
+                                fontSize: { xs: "1.45rem", sm: "2rem" },
                                 lineHeight: 1.05,
                             }}
                         >
@@ -173,30 +188,37 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                         </Typography>
                         <Typography level="body-sm" sx={{ mt: 0.35, color: hocColors.gold, fontWeight: 700 }}>
                             {standing}
-                            {placed && whole(stats.leaderboardRank) > 0
-                                ? ` · ${t("Rank")} #${whole(stats.leaderboardRank)}`
-                                : ""}
+                        </Typography>
+                        <Typography level="body-xs" sx={{ mt: 0.45, color: hocColors.muted }}>
+                            {number.format(whole(stats.totalGames))} {t("Ranked games")} ·{" "}
+                            {winRate.toFixed(1).replace(/\.0$/, "")}% {t("Win rate").toLowerCase()}
                         </Typography>
                     </Box>
                 </Stack>
 
                 <Box
                     sx={{
-                        width: { xs: "100%", sm: "min(430px, 58%)" },
                         display: "grid",
-                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                        gap: 0.7,
+                        gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(5, minmax(0, 1fr))" },
+                        mt: { xs: 1.5, sm: 1.8 },
+                        pt: { xs: 0, sm: 1.3 },
+                        borderTop: { xs: 0, sm: "1px solid rgba(239,228,204,0.09)" },
                     }}
                 >
+                    <MatchMetric label={t("Rank")}>
+                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                            {placed && leaderboardRank > 0 ? `#${number.format(leaderboardRank)}` : "—"}
+                        </Typography>
+                    </MatchMetric>
                     <MatchMetric label={`${t("Rating")} · MMR`}>
-                        <Typography level="title-md" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
                             {placed ? number.format(whole(stats.mmr)) : t("Hidden")}
                         </Typography>
                     </MatchMetric>
                     <MatchMetric label={t(currency.name)}>
-                        <Stack direction="row" spacing={0.55} alignItems="center">
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent={{ sm: "center" }}>
                             <CurrencyIcon iconSvg={currency.iconSvg} prominent size={23} />
-                            <Typography level="title-md" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                            <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
                                 {number.format(whole(stats.gold))}
                             </Typography>
                             <Typography level="body-xs" sx={{ color: hocColors.gold, fontWeight: 800 }}>
@@ -205,17 +227,17 @@ export const MatchFoundOpponentPreview: React.FC<MatchFoundOpponentPreviewProps>
                         </Stack>
                     </MatchMetric>
                     <MatchMetric label={`${t("Record")} · W–L–D`}>
-                        <Typography level="title-md" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
                             {wins}–{losses}–{draws}
                         </Typography>
                     </MatchMetric>
                     <MatchMetric label={t("Win rate")}>
-                        <Typography level="title-md" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
+                        <Typography level="title-lg" sx={{ color: hocColors.parchment, fontWeight: 800 }}>
                             {winRate.toFixed(1).replace(/\.0$/, "")}%
                         </Typography>
                     </MatchMetric>
                 </Box>
-            </Stack>
+            </Box>
         </Sheet>
     );
 };
