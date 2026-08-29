@@ -55,6 +55,7 @@ import { AuthContext, useAuthContext } from "./auth/context/auth_context";
 import { LobbiesBrowse } from "./LobbiesBrowse";
 import { LobbyView } from "./LobbyView";
 import { LoginScreen } from "./LoginScreen/LoginScreen";
+import { startBackgroundAssetPrefetch } from "./assetPrefetch";
 import { MatchmakingRoute } from "./MatchmakingRoute";
 import { ThemeMusic } from "./audio/ThemeMusic";
 import { CurrentLobbyProvider } from "./social/CurrentLobbyContext";
@@ -794,6 +795,18 @@ const GameRoute: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => {
         setPrefightMusicActive(!!gameId && !showOverlay && routeMode !== "play");
     }, [gameId, showOverlay, routeMode]);
     useEffect(() => () => setPrefightMusicActive(false), []);
+
+    // Drafting is the one stretch of this route where the player is thinking and the network is idle, so
+    // pull the board's art down now. Without it nothing downloads until RankedGameView boots Pixi, which
+    // BLOCKS on the core tier behind a loading screen — landing a load between the draft and choosing
+    // augments. Warming the HTTP cache here means that blocking step resolves from cache instead.
+    // Best-effort and abortable: leaving the draft stops it mid-flight.
+    useEffect(() => {
+        if (!gameId || routeMode !== "pick") {
+            return undefined;
+        }
+        return startBackgroundAssetPrefetch();
+    }, [gameId, routeMode]);
     // Set once the live pick-phase SSE (already open inside PickAndBanView) reports one of the two
     // phases that hand the completed draft off to placement/play (see LIVE_PICK_PHASES in
     // common/picks/pick_sim.ts — AUGMENTS/AUGMENTS_SCOUT are last, PICK/BAN/ARTIFACT_* come first).
