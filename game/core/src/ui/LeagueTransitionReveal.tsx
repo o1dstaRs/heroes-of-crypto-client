@@ -273,7 +273,8 @@ export const LeagueTransitionReveal: React.FC<LeagueTransitionRevealProps> = ({ 
                 >
                     <LeagueEmblem
                         league={reveal.current.league}
-                        label={t(reveal.current.leagueName)}
+                        wealth={reveal.current.wealth}
+                        label={leagueTitle}
                         size={reduceMotion ? 202 : 224}
                     />
                 </Box>

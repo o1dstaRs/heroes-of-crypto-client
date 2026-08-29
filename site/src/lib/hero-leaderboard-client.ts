@@ -181,7 +181,7 @@ export function initHeroLeaderboard(): HeroLeaderboardController | null {
         const avatar = el("span", "hero-ranked__avatar", playerInitials(player.username));
         avatar.setAttribute("aria-hidden", "true");
         const leagueEmblem = el("img", "hero-ranked__league-emblem");
-        leagueEmblem.src = leagueEmblemPath(player.league);
+        leagueEmblem.src = leagueEmblemPath(player.league, player.wealth);
         leagueEmblem.alt = "";
         leagueEmblem.width = 22;
         leagueEmblem.height = 22;

@@ -1209,10 +1209,12 @@ const rankedApp = links.rankedApp;
             const seasonLine = profile.season
                 ? `<small class="ranked-standing__season">${escapeHtml(`${profile.season.name} · ${currentCurrency.name}`)}</small>`
                 : "";
-            const emblemLabel = placed ? leagueLabel(profile.league) : publicStateLabel(profile.state);
+            const emblemLabel = placed
+                ? standingLabel(profile.league, profile.wealth)
+                : publicStateLabel(profile.state);
             standingEl.innerHTML = `
                 <div class="ranked-standing__banner" data-state="${escapeHtml(profile.state)}">
-                    <img class="ranked-standing__emblem" src="${leagueEmblemPath(placed ? profile.league : 0)}" alt="${escapeHtml(emblemLabel)}" width="128" height="128" />
+                    <img class="ranked-standing__emblem" src="${leagueEmblemPath(placed ? profile.league : 0, placed ? profile.wealth : 0)}" alt="${escapeHtml(emblemLabel)}" width="128" height="128" />
                     <div class="ranked-standing__copy">
                         <span class="ranked-standing__state">${escapeHtml(publicStateLabel(profile.state))}</span>
                         <strong>${escapeHtml(placed ? standingLabel(profile.league, profile.wealth) : `${publicStateLabel(profile.state)} ${progress}`)}</strong>
