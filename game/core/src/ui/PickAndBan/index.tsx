@@ -37,6 +37,7 @@ import { usePickBanEvents } from "../context/PickBanContext";
 import { useAuthContext } from "../auth/context/auth_context";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { hocDisplayFontFamily } from "../hocTheme";
+import { ownArmyAccent } from "../ownArmyAccent";
 import { SYNERGY_KEY_TO_IMAGE, SYNERGY_NAME_TO_DESCRIPTION } from "../LeftSideBar/SynergiesConstants";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { UNIT_ID_TO_IMAGE, UNIT_ID_TO_NAME } from "../unit_ui_constants";
@@ -736,14 +737,15 @@ export const DraftStepper: React.FC<{ step: number; userTeam?: TeamType }> = ({ 
                     : (order === "lowerFirst") === (userTeam === TeamVals.LOWER);
             const marker = order === "automatic" ? "✦" : order === "both" ? "⇄" : undefined;
             // Alternating creature-pick steps no longer need a separate You/Opp row. The label itself
-            // carries that information: green when the viewer picks first, red when the opponent does.
+            // carries that information: your own army colour when you pick first, red when the opponent
+            // does — the same pair the rails below and the board itself use.
             const labelColor = done
                 ? "#c0b7a6"
                 : order === "lowerFirst" || order === "upperFirst"
                   ? youFirst === undefined
                       ? "#d8ccb4"
                       : youFirst
-                        ? "#8fcd7d"
+                        ? ownArmyAccent().label(1)
                         : "#ff9d9d"
                   : active
                     ? "#c0b7a6"
@@ -1064,7 +1066,10 @@ const CreaturePortrait: React.FC<{
 }) => {
     const selectable = state === "available" && !disabled && !!onClick;
     const unavailable = state === "banned" || state === "taken";
-    const ring = pending ? "#3B9B5C" : state === "picked" ? "#3B9B5C" : "rgba(255,255,255,0.18)";
+    // Taking a card is a statement about YOUR army, so its ring and both halos wear the colour the player
+    // chose in settings — the same one their units are about to be painted in on the board.
+    const mine = ownArmyAccent();
+    const ring = pending || state === "picked" ? mine.ring(1) : "rgba(255,255,255,0.18)";
     const config = creatureFullConfig(creatureId)?.config;
     const src = creatureImage(creatureId);
     const portrait = (
@@ -1100,20 +1105,20 @@ const CreaturePortrait: React.FC<{
                       ? "hocCommitFlash 620ms ease-out"
                       : "none",
                 "@keyframes hocCommitFlash": {
-                    "0%": { boxShadow: "0 0 0 0 rgba(143,205,125,0.9)" },
-                    "100%": { boxShadow: "0 0 0 26px rgba(143,205,125,0)" },
+                    "0%": { boxShadow: `0 0 0 0 ${mine.label(0.9)}` },
+                    "100%": { boxShadow: `0 0 0 26px ${mine.label(0)}` },
                 },
                 "@keyframes hocBanSlashCut": {
                     "0%": { backgroundPosition: "0% 0" },
                     "100%": { backgroundPosition: "100% 0" },
                 },
                 "@keyframes hocPendingGlow": {
-                    "0%, 100%": { boxShadow: "0 0 0 0 rgba(59,155,92,0.55), 0 0 10px rgba(59,155,92,0.35)" },
-                    "50%": { boxShadow: "0 0 0 6px rgba(59,155,92,0), 0 0 22px rgba(59,155,92,0.75)" },
+                    "0%, 100%": { boxShadow: `0 0 0 0 ${mine.ring(0.55)}, 0 0 10px ${mine.ring(0.35)}` },
+                    "50%": { boxShadow: `0 0 0 6px ${mine.ring(0)}, 0 0 22px ${mine.ring(0.75)}` },
                 },
                 transition: "transform 120ms ease, box-shadow 120ms ease",
                 "&:hover": selectable
-                    ? { transform: "translateY(-3px)", boxShadow: "0 0 14px rgba(120,220,150,0.6)" }
+                    ? { transform: "translateY(-3px)", boxShadow: `0 0 14px ${mine.accent(0.6)}` }
                     : undefined,
             }}
         >
@@ -2235,6 +2240,7 @@ export const SynergyDots: React.FC<{
     /** Creature clicked but not yet confirmed — its faction's badge previews the level it would light. */
     pendingId?: number;
 }> = ({ picked, tone, gameId, pendingId }) => {
+    const ownGlow = ownArmyAccent().accent(0.35);
     const variants = synergyVariantsForSeed(gameId ?? "");
     const pendingFaction = pendingId ? creatureFullConfig(pendingId)?.faction : undefined;
     return (
@@ -2279,7 +2285,7 @@ export const SynergyDots: React.FC<{
                                 opacity: shownLevel ? 1 : 0.4,
                                 filter: shownLevel ? "none" : "grayscale(1)",
                                 boxShadow: shownLevel
-                                    ? `0 0 8px ${tone === "own" ? "rgba(120,220,150,0.35)" : "rgba(226,120,150,0.3)"}`
+                                    ? `0 0 8px ${tone === "own" ? ownGlow : "rgba(226,120,150,0.3)"}`
                                     : "none",
                                 transition: "opacity 160ms ease, box-shadow 160ms ease",
                                 animation: previewing ? "hocSynergyPreview 1s ease-in-out infinite" : "none",
@@ -2390,6 +2396,9 @@ export const MyDraftBar: React.FC<{
     const t2 = artifactTier2 ? Artifact.getTier2ArtifactProperties(artifactTier2 as Artifact.Tier2Artifact) : undefined;
     // Fixed 6 slots in level order [L1,L1,L2,L2,L3,L4], filled progressively (mirrors OpponentDraftBar).
     const slots = placeIntoLevelSlots(picked);
+    // This rail is the player's OWN army, so it flies their chosen colour. The opponent's rail opposite is
+    // left alone: it is already red, and red is what their units will be painted on the board.
+    const mine = ownArmyAccent();
     return (
         <Box
             sx={{
@@ -2418,14 +2427,13 @@ export const MyDraftBar: React.FC<{
                     bgcolor: "transparent",
                     // A clean, continuous cloth tone. Removing the cropped source banner also removes its
                     // residual edge ornaments, which showed up as unrelated debris at both ends.
-                    backgroundImage:
-                        "linear-gradient(90deg, rgba(3,18,8,.65), rgba(5,31,14,.55) 50%, rgba(3,18,8,.65))",
+                    backgroundImage: mine.cloth,
                     backgroundSize: "100% 100%",
                     backgroundPosition: "center",
                     backgroundRepeat: "no-repeat",
                     backgroundBlendMode: "normal, normal",
                     border: 0,
-                    color: "#e6f5e9",
+                    color: mine.text,
                     width: "100%",
                     "&::after": {
                         content: '\"\"',
@@ -2495,7 +2503,7 @@ export const MyDraftBar: React.FC<{
                                             flex: "0 0 auto",
                                             borderRadius: "9px",
                                             overflow: "hidden",
-                                            border: "1px solid rgba(120,220,150,0.5)",
+                                            border: `1px solid ${mine.accent(0.5)}`,
                                         }}
                                     >
                                         <CreaturePortraitImage
@@ -2518,9 +2526,9 @@ export const MyDraftBar: React.FC<{
                                         borderRadius: "9px",
                                         display: "grid",
                                         placeItems: "center",
-                                        border: "1px dashed rgba(120,220,150,0.35)",
-                                        bgcolor: "rgba(120,220,150,0.05)",
-                                        color: "rgba(180,230,195,0.55)",
+                                        border: `1px dashed ${mine.accent(0.35)}`,
+                                        bgcolor: mine.accent(0.05),
+                                        color: mine.soft(0.55),
                                         fontSize: 14,
                                         fontWeight: 700,
                                     }}

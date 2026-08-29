@@ -160,7 +160,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
             `${t("The season holds")} ${quote.seasonGold.toLocaleString()} G ${t("across")} ` +
             `${quote.calibratedPlayers.toLocaleString()} ${t("calibrated players")} — ` +
             `${t("that gold spread over")} ${quote.perCalibratedPlayer} ${t(
-                "slots each sets the price. It is charged to the host and never returned; whatever you stake on the game itself is separate.",
+                "slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.",
             )}`
         );
     })();

@@ -21,17 +21,18 @@ import {
 } from "../settings/playerArmyColor";
 
 /**
- * Scene-side access to the player's PERSONAL army tint.
+ * Scene-side access to the player's PERSONAL army colours.
  *
  * Deliberately NOT in teamColors.ts. That module answers "what colour is this team", is team-fixed, and a
  * test asserts it exposes no way to tell it who is looking — the viewer-relative palette was introduced and
  * reverted twice, and keeping the two questions in separate modules is what stops them merging again. This
- * module answers a different question: "does the person at this keyboard want their OWN army drawn in a
- * colour they chose". Team identity is untouched, so the log, the results card and the opponent's units all
- * keep saying exactly what they said before.
+ * module answers a different question: "has the person at this keyboard chosen how the two armies are
+ * PAINTED". Team identity is untouched, so the fight log, the results card and match history keep naming
+ * the sides green and red exactly as they did before.
  *
- * Armed only by a LIVE ranked fight the client is playing. Replays and the sandbox clear it, so a recorded
- * match is always watched in its true team colours.
+ * The choice moves both armies at once — own units in the chosen colour, the enemy in red — so it is armed
+ * and read as one thing. Armed only by a LIVE ranked fight the client is playing; replays and the sandbox
+ * clear it, so a recorded match is always watched in its true team colours.
  */
 interface IPersonalArmyTintState {
     viewerTeam: TeamType | undefined;
@@ -60,16 +61,18 @@ export const refreshPersonalArmyTint = (): void => {
 };
 
 /**
- * The tint as a CSS colour, for the React chrome (sidebars, top bar), or undefined when this team is not
- * tinted. The board draws through Pixi numbers and the panels through CSS strings, so both spellings read
- * the SAME resolved preset — a player's colour cannot end up applied to their units but not their pips.
+ * The paint as a CSS colour, for the React chrome (sidebars, top bar), or undefined when this team keeps its
+ * team colour. The board draws through Pixi numbers and the panels through CSS strings, so both spellings
+ * read the SAME resolved preset — a player's colour cannot end up applied to their units but not their pips,
+ * and neither can the enemy's red.
  */
 export const personalArmyCssColor = (team: TeamType): string | undefined => {
     const preset = personalArmyPresetFor(team);
     return preset === undefined ? undefined : `#${preset.color.toString(16).padStart(6, "0")}`;
 };
 
-/** The preset to draw `team` with, or undefined to use the canonical team colour. */
+/** The preset to draw `team` with — the viewer's own choice, or the opponent's red — or undefined for the
+ * canonical team colour. */
 export const personalArmyPresetFor = (team: TeamType): IArmyColorPreset | undefined =>
     state === undefined
         ? undefined
@@ -94,7 +97,9 @@ export const personalArmyFlagGradient = (color: number): FillGradient | undefine
         return undefined;
     }
     // Keyed by the resolved COLOUR rather than the team: by the time the banner is drawn the caller has
-    // already decided whose colour this is, and drawBadgeFlag is handed the colour alone.
+    // already decided whose colour this is, and drawBadgeFlag is handed the colour alone. Only the PICKABLE
+    // presets are searched, so a repainted opponent misses here and falls through to the authored red
+    // banner — which is the point, that army should look exactly like the red side always has.
     const preset = ARMY_COLOR_PRESETS.find((candidate) => candidate.color === color);
     if (!preset) {
         return undefined;

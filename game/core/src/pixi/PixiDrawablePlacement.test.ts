@@ -3,7 +3,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { TeamVals } from "@heroesofcrypto/common";
 
 import { clearPersonalArmyTint, setPersonalArmyTint } from "../scenes/personalArmyTint";
-import { ARMY_COLOR_PRESETS, TEAM_DEFAULT_ARMY_COLOR_ID, writePlayerArmyColorId } from "../settings/playerArmyColor";
+import {
+    ARMY_COLOR_PRESETS,
+    OPPONENT_ARMY_COLOR,
+    TEAM_DEFAULT_ARMY_COLOR_ID,
+    writePlayerArmyColorId,
+} from "../settings/playerArmyColor";
 
 import { GridConstants, GridMath, GridSettings, PlacementPositionType } from "@heroesofcrypto/common";
 import { projectedCellPoints } from "../scenes/sandbox/BattlefieldVisualGrid";
@@ -462,16 +467,30 @@ describe("personal army tint on the placement wash", () => {
         );
     });
 
-    test("only the player's own zone is tinted", () => {
+    test("the player's own zone takes their colour and the opponent's turns red", () => {
         writePlayerArmyColorId(AMETHYST.id);
         setPersonalArmyTint(TeamVals.LOWER, true);
 
         expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
             AMETHYST.gradient[1],
         );
-        // The opponent's zone is untouched, so the two sides stay tellable apart.
         expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
-            ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
+            OPPONENT_ARMY_COLOR.color,
+        );
+    });
+
+    test("a green pick from the UPPER seat does not leave two green zones facing each other", () => {
+        const green = ARMY_COLOR_PRESETS.find((preset) => preset.id === "green")!;
+        writePlayerArmyColorId(green.id);
+        setPersonalArmyTint(TeamVals.UPPER, true);
+
+        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+            green.color,
+        );
+        // The LOWER zone opposite is the opponent's, so it is washed in the enemy's deep red instead of its
+        // own dark emerald — this is the case the whole opponent repaint exists for.
+        expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
+            OPPONENT_ARMY_COLOR.gradient[1],
         );
     });
 
@@ -492,6 +511,9 @@ describe("personal army tint on the placement wash", () => {
 
         expect(placementWashColor(PlacementPositionType.LOWER_RIGHT, "deep", GREEN_PLACEMENT_HIGHLIGHT_COLOR)).toBe(
             GREEN_PLACEMENT_HIGHLIGHT_COLOR,
+        );
+        expect(placementWashColor(PlacementPositionType.UPPER_LEFT, "bright", ENEMY_MOVEMENT_HIGHLIGHT_COLOR)).toBe(
+            ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
         );
     });
 });

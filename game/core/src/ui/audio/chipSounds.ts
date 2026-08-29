@@ -3,13 +3,11 @@
  * cache-bust. A "clack" is a short burst of band-passed noise over a rapidly-decaying thump, which
  * is close enough to two clay chips meeting that the ear fills in the felt.
  *
- * Volume rides the SAME persisted settings as the theme music (hoc:themeVolume / hoc:themeMuted,
- * plus the ?vol/?muted URL overrides handled at boot by ThemeMusic writing those keys), so a muted
- * game never suddenly clacks.
+ * Volume rides the EFFECTS level from the player's settings, which is its own setting and no longer the
+ * music's: turning the theme down (or off) leaves the chips exactly where the player put them.
  */
 
-const VOLUME_KEY = "hoc:themeVolume";
-const MUTED_KEY = "hoc:themeMuted";
+import { effectsGain } from "../../settings/audioLevels";
 
 let context: AudioContext | null = null;
 
@@ -28,21 +26,6 @@ const audioContext = (): AudioContext | null => {
         void context.resume().catch(() => undefined);
     }
     return context;
-};
-
-const settingsGain = (): number => {
-    try {
-        if (window.localStorage.getItem(MUTED_KEY) === "1") {
-            return 0;
-        }
-        const raw = Number(window.localStorage.getItem(VOLUME_KEY));
-        if (Number.isFinite(raw) && raw >= 0 && raw <= 1) {
-            return raw;
-        }
-    } catch {
-        // storage unavailable — fall through to the default
-    }
-    return 0.5;
 };
 
 /** One chip clack at `at` seconds from now. `pitch` shifts the body resonance (raises step up). */
@@ -70,7 +53,7 @@ const clack = (ctx: AudioContext, at: number, pitch: number, gainScale: number):
     osc.frequency.exponentialRampToValueAtTime(140 * pitch, t + 0.07);
 
     const gain = ctx.createGain();
-    const peak = Math.max(0.0001, settingsGain() * gainScale);
+    const peak = Math.max(0.0001, effectsGain() * gainScale);
     gain.gain.setValueAtTime(peak, t);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
 

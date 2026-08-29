@@ -225,6 +225,14 @@ const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) =>
     </Box>
 );
 
+/**
+ * One side's per-creature damage.
+ *
+ * The rows run in TWO columns from sm up. A single column stretched to half the panel put the creature
+ * name hard left and its damage hard right with several hundred pixels of nothing between them, which is
+ * what made the figures hard to associate with their unit. Two narrower columns keep each name next to
+ * its own number and halve the block's height, which is what buys the larger portrait and type below.
+ */
 const PerformanceList: React.FC<{
     label: string;
     performances: readonly PortalUnitPerformanceData[];
@@ -233,14 +241,21 @@ const PerformanceList: React.FC<{
         <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.75 }}>
             {label}
         </Typography>
-        <Stack spacing={0.65}>
+        <Box
+            sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
+                columnGap: 2.5,
+                rowGap: 0.65,
+            }}
+        >
             {performances.map((performance, index) => {
                 const creatureId = performance.creature_id ?? 0;
                 return (
                     <Stack
                         key={`${creatureId}_${index}`}
                         direction="row"
-                        spacing={0.75}
+                        spacing={1}
                         alignItems="center"
                         sx={{ minWidth: 0 }}
                     >
@@ -251,12 +266,19 @@ const PerformanceList: React.FC<{
                                 flexShrink: 0,
                             }}
                         >
-                            <CreatureIcon creatureId={creatureId} size={30} />
+                            <CreatureIcon creatureId={creatureId} size={34} />
                         </Box>
-                        <Typography level="body-xs" textColor={hocColors.mutedStrong} noWrap sx={{ flex: 1 }}>
+                        <Typography level="body-sm" textColor={hocColors.mutedStrong} noWrap sx={{ flex: 1 }}>
                             {creatureName(creatureId)}
                         </Typography>
-                        <Typography level="body-xs" sx={{ color: index === 0 ? hocColors.gold : hocColors.muted }}>
+                        <Typography
+                            level="body-sm"
+                            sx={{
+                                color: index === 0 ? hocColors.gold : hocColors.muted,
+                                fontWeight: index === 0 ? 700 : 500,
+                                whiteSpace: "nowrap",
+                            }}
+                        >
                             {tf("{amount} dmg", { amount: formatMatchDamage(performance.damage_dealt) })}
                         </Typography>
                     </Stack>
@@ -267,7 +289,7 @@ const PerformanceList: React.FC<{
                     {t("No damage data")}
                 </Typography>
             )}
-        </Stack>
+        </Box>
     </Box>
 );
 
@@ -430,11 +452,14 @@ const SetupSummaryGroup: React.FC<{
 
 const SetupSummary: React.FC<{
     compact: boolean;
+    /** Set when the build sits beside the two armies rather than stacked under them, so it drops its own
+     * top margin and lets the shared grid own the spacing. */
+    inline?: boolean;
     setup: MatchTeamSetup;
-}> = ({ compact, setup }) => {
+}> = ({ compact, inline = false, setup }) => {
     if (!setup.available) {
         return (
-            <Typography level="body-xs" textColor={hocColors.muted} sx={{ mt: 0.75 }}>
+            <Typography level="body-xs" textColor={hocColors.muted} sx={{ mt: inline ? 0 : 0.75 }}>
                 {t("Build data unavailable")}
             </Typography>
         );
@@ -443,7 +468,7 @@ const SetupSummary: React.FC<{
     const doctrine = Doctrine.getDoctrineProperties(setup.doctrine as Doctrine.Doctrine);
     const artifacts = artifactsForSetup(setup);
     return (
-        <Box sx={{ mt: compact ? 0.65 : 0.8, minWidth: 0 }}>
+        <Box sx={{ mt: inline ? 0 : compact ? 0.65 : 0.8, minWidth: 0 }}>
             <Typography
                 level="body-xs"
                 sx={{ color: hocColors.mutedStrong, mb: 0.45, fontSize: compact ? "0.6rem" : "0.66rem" }}
@@ -959,13 +984,24 @@ const MatchCard: React.FC<{
                         )}
                     </Stack>
 
+                    {/* Armies and build share ONE row from md up. Each army is six fixed-size portraits, so
+                        splitting the card into two stretched halves left the right ~40% of every row empty
+                        while the build strip sat alone underneath. Sizing the armies to their content and
+                        giving the remainder to the build fills that gap and drops a card's height by a third.
+                        Below md there is no surplus to reclaim, so the build goes back under a full-width row. */}
                     <Box
                         sx={{
                             display: "grid",
                             gridTemplateColumns: compact
                                 ? "minmax(0, 1fr) minmax(0, 1fr)"
-                                : { xs: "1fr", sm: "minmax(0, 1fr) minmax(0, 1fr)" },
-                            gap: compact ? 0.75 : 1.5,
+                                : {
+                                      xs: "1fr",
+                                      sm: "minmax(0, 1fr) minmax(0, 1fr)",
+                                      md: "max-content max-content minmax(0, 1fr)",
+                                  },
+                            alignItems: "start",
+                            columnGap: compact ? 0.75 : { xs: 1.5, md: 3 },
+                            rowGap: compact ? 0.75 : 1.5,
                             mt: 0.9,
                         }}
                     >
@@ -976,9 +1012,15 @@ const MatchCard: React.FC<{
                             label={tf("{opponent}'s army", { opponent })}
                             muted
                         />
+                        <Box
+                            sx={{
+                                minWidth: 0,
+                                gridColumn: compact ? "1 / -1" : { xs: "auto", sm: "1 / -1", md: "auto" },
+                            }}
+                        >
+                            <SetupSummary compact={compact} inline setup={playerSetup} />
+                        </Box>
                     </Box>
-
-                    <SetupSummary compact={compact} setup={playerSetup} />
                 </Box>
             </Box>
 
@@ -993,13 +1035,18 @@ const MatchCard: React.FC<{
                         py: 1.25,
                     }}
                 >
+                    {/* auto-fit with a 1fr track gave each of the six metrics an equal slice of the full
+                        1480px, so a two-character value like "3" sat alone in a 240px cell. Sizing the
+                        tracks to their content packs them into one readable stat line. */}
                     <Box
                         sx={{
                             display: "grid",
                             gridTemplateColumns: compact
                                 ? "repeat(2, minmax(0, 1fr))"
-                                : "repeat(auto-fit, minmax(min(100%, 120px), 1fr))",
-                            gap: 1.25,
+                                : "repeat(auto-fit, minmax(0, max-content))",
+                            justifyContent: compact ? "stretch" : "start",
+                            columnGap: compact ? 1.25 : 3.5,
+                            rowGap: 1.25,
                         }}
                     >
                         <Metric label={t("Battle duration")} value={duration || t("Unknown")} />

@@ -106,7 +106,11 @@ export const RankedBanPicker: React.FC = () => {
                 spacing={{ xs: 0.75, sm: 1.5 }}
                 alignItems={{ xs: "stretch", sm: "center" }}
                 justifyContent="space-between"
-                sx={{ width: "100%", px: { xs: 1.25, sm: 1.5 }, py: { xs: 1.1, sm: 1.25 } }}
+                // border-box, stated: /play renders outside any <CssBaseline />, so the document keeps the
+                // browser's content-box default. Without this, `width: 100%` measures the panel's full inner
+                // width and then ADDS the 24px of px, so the row runs 23px past the panel and the enclosing
+                // Sheet's overflow:hidden shears the right edge off the Choose button.
+                sx={{ boxSizing: "border-box", width: "100%", px: { xs: 1.25, sm: 1.5 }, py: { xs: 1.1, sm: 1.25 } }}
             >
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
                     Ban a unit from your drafts:

@@ -333,18 +333,18 @@ export const RU_TRANSLATIONS: Record<string, string> = {
 
     // ~~~ Seasonal currency / wagering ~~~
     "{currency} on the line": "{currency} на кону",
-    "Win ranked games to earn {currency} — then stake it on your matches, winner takes all.":
+    "Win ranked games to earn {currency} — then put it on your matches, winner takes all.":
         "Побеждайте в рейтинговых матчах, чтобы получать {currency}, и ставьте их на свои бои — победитель забирает всё.",
-    "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.":
+    "{currency} rides your next match. If your opponent puts in too — winner takes the pot, a tie burns it.":
         "{currency} поставлены на следующий матч. Если соперник тоже сделает ставку, победитель заберёт банк, а при ничьей он сгорит.",
-    "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.":
+    "Put {currency} on your next match. Matched amounts play as-is; if yours is lower you can call or raise when the match is found.":
         "Поставьте {currency} на следующий матч. Равные ставки играются сразу; если ваша ниже, после поиска матча её можно уравнять или повысить.",
-    "{currency} to stake": "Сколько поставить ({currency})",
-    "on the table — if your opponent stakes too, the wager opens right here.":
+    "{currency} to put": "Сколько поставить ({currency})",
+    "on the table — if your opponent puts in too, the wager opens right here.":
         "на столе — если соперник тоже поставит, пари откроется прямо здесь.",
-    "Stake {currency} on THIS match — winner takes the pot.":
+    "Put {currency} on THIS match — winner takes the pot.":
         "Поставьте {currency} на ЭТОТ матч — победитель забирает банк.",
-    "If the draft ends first, your stake rides your next match instead.":
+    "If the draft ends first, your wager rides your next match instead.":
         "Если драфт закончится раньше, ставка перейдёт на ваш следующий матч.",
     "Wager locked: {amount} {symbol} each — winner takes {pot} {symbol}":
         "Ставка зафиксирована: по {amount} {symbol}, победитель получит {pot} {symbol}",
@@ -814,10 +814,19 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Saved on this device only.": "Сохраняется только на этом устройстве.",
     Appearance: "Внешний вид",
     Audio: "Звук",
+    // The Audio section: two levels with a mute each — the music and everything else that makes a noise.
+    Music: "Музыка",
+    "Sound effects": "Звуковые эффекты",
+    Muted: "Без звука",
+    "Mute music": "Выключить музыку",
+    "Unmute music": "Включить музыку",
+    "Mute sound effects": "Выключить звуковые эффекты",
+    "Unmute sound effects": "Включить звуковые эффекты",
+    "Interface sounds, like the wager chips.": "Звуки интерфейса, например фишки ставок.",
     Gameplay: "Игровой процесс",
     "Nothing to configure here yet.": "Здесь пока нечего настраивать.",
-    "Only you see this. Your opponent's army keeps its colour, and replays keep both.":
-        "Видно только вам. Армия соперника сохраняет свой цвет, а в повторах сохраняются оба.",
+    "Only you see this. Your opponent's army turns red, and replays keep the true colours.":
+        "Видно только вам. Армия соперника становится красной, а в повторах сохраняются истинные цвета.",
     "Team colours": "Цвета сторон",
     Amethyst: "Аметист",
     Azure: "Лазурь",
@@ -847,20 +856,20 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{amount} {symbol} pool": "банк {amount} {symbol}",
     "Returns {return} {symbol} (+{profit})": "Выплата {return} {symbol} (+{profit})",
     Purse: "Баланс",
-    "Your stake": "Ваша ставка",
-    "Stake it": "Поставить",
+    Yours: "Ваша ставка",
+    Put: "Поставить",
     "Take it back": "Забрать ставку",
     "All-in": "Всё",
     "CALL to": "УРАВНЯТЬ ДО",
     "RAISE to": "ПОВЫСИТЬ ДО",
     "Could not call": "Не удалось уравнять ставку",
     "Could not raise": "Не удалось повысить ставку",
-    "Could not set the stake": "Не удалось установить ставку",
+    "Could not set the wager": "Не удалось установить ставку",
     "Opponent raised the wager to": "Соперник повысил ставку до",
     "You raised to": "Вы повысили до",
-    "You staked more — your opponent is deciding: do nothing to play":
+    "You put in more — your opponent is deciding: do nothing to play":
         "Вы поставили больше — соперник решает; ничего не делайте, чтобы играть",
-    "Your opponent staked more. Do nothing to play": "Соперник поставил больше. Ничего не делайте, чтобы играть",
+    "Your opponent put in more. Do nothing to play": "Соперник поставил больше. Ничего не делайте, чтобы играть",
     "each, call to": "с каждого, уравнять до",
     "or raise to at least": "или повысить как минимум до",
     "play for": "играть за",

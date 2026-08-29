@@ -15,11 +15,14 @@ import {
 } from "./hocTheme";
 
 /**
- * The arena's "gold on the line" box. Arms a stake for the NEXT ranked match: the gold escrows the
+ * The arena's "gold on the line" box. Arms a wager for the NEXT ranked match: the gold escrows the
  * moment it is set (so it cannot be double-spent elsewhere) and rides the queue until an opponent
- * who also staked appears — then the poker moment happens in the draft (see WagerNegotiator).
+ * who also put gold in appears — then the poker moment happens in the draft (see WagerNegotiator).
  *
- * A player with nothing to stake gets a friendly pointer instead of a dead input: gold is EARNED by
+ * The player-facing verb is PUT, never "stake": this is a web3 game, and "staking" already means locking
+ * tokens for yield. The box reads in the same poker register as the CALL/RAISE/ALL-IN controls beside it.
+ *
+ * A player with nothing to put in gets a friendly pointer instead of a dead input: gold is EARNED by
  * winning ranked games, and the box says exactly that.
  */
 
@@ -49,8 +52,8 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
     }
 
     const stake = Math.max(0, Math.floor(Number(draft) || 0));
-    const total = gold + armed; // what the player COULD stake in full
-    // Exactly what the "Stake it" button is allowed to do, so Enter in the field cannot commit gold the
+    const total = gold + armed; // what the player COULD put in, in full
+    // Exactly what the PUT button is allowed to do, so Enter in the field cannot commit gold the
     // button itself would have refused — an empty box, a zero, or more than the purse holds.
     const canStake = !busy && stake >= 1 && stake <= total;
 
@@ -70,14 +73,14 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
             setError(
                 isInsufficientSeasonCurrencyError(err)
                     ? tf("Not enough {currency}", { currency: t(currency.name) })
-                    : (err as Error).message || t("Could not set the stake"),
+                    : (err as Error).message || t("Could not set the wager"),
             );
         } finally {
             setBusy(false);
         }
     };
 
-    /* Nothing to stake and nothing armed: point at where gold comes from instead of a dead form. */
+    /* Nothing to put in and nothing armed: point at where gold comes from instead of a dead form. */
     if (total <= 0) {
         return (
             <Sheet
@@ -97,7 +100,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                 <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                     <CurrencyIcon iconSvg={currency.iconSvg} prominent size={34} />
                     <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "left" }}>
-                        {tf("Win ranked games to earn {currency} — then stake it on your matches, winner takes all.", {
+                        {tf("Win ranked games to earn {currency} — then put it on your matches, winner takes all.", {
                             currency: t(currency.name),
                         })}
                     </Typography>
@@ -155,7 +158,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                             </Stack>
                             <Typography level="body-xs" sx={{ mt: 0.35, color: hocColors.muted, lineHeight: 1.4 }}>
                                 {tf(
-                                    "{currency} rides your next match. If your opponent stakes too — winner takes the pot, a tie burns it.",
+                                    "{currency} rides your next match. If your opponent puts in too — winner takes the pot, a tie burns it.",
                                     { currency: t(currency.name) },
                                 )}
                             </Typography>
@@ -243,7 +246,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                     </Stack>
                     <Typography level="body-xs" sx={{ color: hocColors.muted, mb: 0.75 }}>
                         {tf(
-                            "Stake {currency} on your next match. Matched stakes play as-is; if yours is lower you can call or raise when the match is found.",
+                            "Put {currency} on your next match. Matched amounts play as-is; if yours is lower you can call or raise when the match is found.",
                             { currency: t(currency.name) },
                         )}
                     </Typography>
@@ -261,12 +264,12 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                         <Input
                             size="sm"
                             type="number"
-                            placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
+                            placeholder={tf("{currency} to put", { currency: t(currency.name) })}
                             value={draft}
                             slotProps={{ input: { min: 1, max: total, step: 1 } }}
                             onChange={(event) => setDraft(event.target.value)}
                             onKeyDown={(event) => {
-                                // Typing an amount and hitting Enter stakes it, same as pressing the button.
+                                // Typing an amount and hitting Enter puts it in, same as pressing the button.
                                 if (event.key === "Enter" && canStake) {
                                     event.preventDefault();
                                     void apply(stake);
@@ -308,7 +311,7 @@ export const WagerStakeBox: React.FC<{ currency: Readonly<RankedSeasonCurrency> 
                             disabled={!canStake}
                             onClick={() => void apply(stake)}
                         >
-                            {t("Stake it")}
+                            {t("Put")}
                         </Button>
                     </Box>
                 </>

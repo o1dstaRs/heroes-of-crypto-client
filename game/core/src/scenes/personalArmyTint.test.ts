@@ -8,7 +8,12 @@ import {
     refreshPersonalArmyTint,
     setPersonalArmyTint,
 } from "./personalArmyTint";
-import { ARMY_COLOR_PRESETS, TEAM_DEFAULT_ARMY_COLOR_ID, writePlayerArmyColorId } from "../settings/playerArmyColor";
+import {
+    ARMY_COLOR_PRESETS,
+    OPPONENT_ARMY_COLOR,
+    TEAM_DEFAULT_ARMY_COLOR_ID,
+    writePlayerArmyColorId,
+} from "../settings/playerArmyColor";
 
 const AMETHYST = ARMY_COLOR_PRESETS[0];
 
@@ -28,12 +33,21 @@ afterEach(() => {
 });
 
 describe("personal army tint", () => {
-    test("tints only the viewer's own army, never the opponent", () => {
+    test("paints the viewer's own army in their colour and the opponent red", () => {
         writePlayerArmyColorId(AMETHYST.id);
         setPersonalArmyTint(TeamVals.LOWER, true);
 
         expect(personalArmyPresetFor(TeamVals.LOWER)?.id).toBe(AMETHYST.id);
-        expect(personalArmyPresetFor(TeamVals.UPPER)).toBeUndefined();
+        expect(personalArmyPresetFor(TeamVals.UPPER)).toBe(OPPONENT_ARMY_COLOR);
+    });
+
+    test("an UPPER seat may fight in green, because the green side opposite turns red", () => {
+        const green = ARMY_COLOR_PRESETS.find((preset) => preset.id === "green")!;
+        writePlayerArmyColorId(green.id);
+        setPersonalArmyTint(TeamVals.UPPER, true);
+
+        expect(personalArmyPresetFor(TeamVals.UPPER)?.color).toBe(green.color);
+        expect(personalArmyPresetFor(TeamVals.LOWER)).toBe(OPPONENT_ARMY_COLOR);
     });
 
     test("a replay is watched in the true team colours", () => {
@@ -41,6 +55,7 @@ describe("personal army tint", () => {
         setPersonalArmyTint(TeamVals.LOWER, false);
 
         expect(personalArmyPresetFor(TeamVals.LOWER)).toBeUndefined();
+        expect(personalArmyPresetFor(TeamVals.UPPER)).toBeUndefined();
     });
 
     test("an observer has no own army to tint", () => {
@@ -63,19 +78,24 @@ describe("personal army tint", () => {
         clearPersonalArmyTint();
 
         expect(personalArmyPresetFor(TeamVals.LOWER)).toBeUndefined();
+        expect(personalArmyPresetFor(TeamVals.UPPER)).toBeUndefined();
     });
 
     test("a pick in the settings menu applies without re-arming the scene", () => {
         setPersonalArmyTint(TeamVals.UPPER, true);
         expect(personalArmyPresetFor(TeamVals.UPPER)).toBeUndefined();
+        expect(personalArmyPresetFor(TeamVals.LOWER)).toBeUndefined();
 
         writePlayerArmyColorId(AMETHYST.id);
         refreshPersonalArmyTint();
         expect(personalArmyPresetFor(TeamVals.UPPER)?.id).toBe(AMETHYST.id);
+        expect(personalArmyPresetFor(TeamVals.LOWER)).toBe(OPPONENT_ARMY_COLOR);
 
+        // Back to the default: both armies return to their own team colours, not just the viewer's.
         writePlayerArmyColorId(TEAM_DEFAULT_ARMY_COLOR_ID);
         refreshPersonalArmyTint();
         expect(personalArmyPresetFor(TeamVals.UPPER)).toBeUndefined();
+        expect(personalArmyPresetFor(TeamVals.LOWER)).toBeUndefined();
     });
 
     test("refreshing an unarmed scene does not arm it", () => {

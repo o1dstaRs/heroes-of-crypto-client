@@ -113,6 +113,100 @@ const formatQueueDuration = (totalSeconds: number): string => {
     return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${paddedSeconds}`;
 };
 
+/** Joy's decorator→label gap on this button, held as a constant so the fit test never depends on it. */
+const PRACTICE_LABEL_GAP = 8;
+
+/**
+ * "Practice vs AI" lives in the narrow third of the action row, where its own wording is the widest thing
+ * that has to fit. One breakpoint cannot serve both shipped languages: measured at this button's font, the
+ * English label needs ~112px of room and the Russian ("Тренировка против ИИ") ~183px, so anywhere between a
+ * 640px and a 900px viewport the English label still fits while the Russian one does not. So the button
+ * measures rather than guesses, and falls back to the bare icon exactly when the label would not fit —
+ * below `sm` the row stacks to one column and the label always fits again.
+ *
+ * The measuring copy is absolutely positioned, so hiding the real label never changes what is measured.
+ * Measuring the live label instead is what would oscillate: hide it, the button fits, show it, it does not.
+ */
+const PracticeVsAiButton: React.FC<{ loading: boolean; onClick: () => void }> = ({ loading, onClick }) => {
+    const { t, language } = useTranslation();
+    const label = t("Practice vs AI");
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const probeRef = useRef<HTMLSpanElement>(null);
+    const [labelFits, setLabelFits] = useState(true);
+
+    useEffect(() => {
+        const button = buttonRef.current;
+        const probe = probeRef.current;
+        if (!button || !probe) {
+            return undefined;
+        }
+        const measure = (): void => {
+            const style = getComputedStyle(button);
+            const decorator = button.querySelector(".MuiButton-startDecorator");
+            const room =
+                button.clientWidth -
+                parseFloat(style.paddingLeft) -
+                parseFloat(style.paddingRight) -
+                (decorator?.getBoundingClientRect().width ?? 0) -
+                PRACTICE_LABEL_GAP;
+            setLabelFits(probe.getBoundingClientRect().width <= room);
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(button);
+        // The display face is preloaded but still resolves after first paint; until it does the probe is
+        // measuring the fallback serif and can drop a label that the real face would have fitted.
+        document.fonts?.ready.then(measure).catch(() => undefined);
+        return () => observer.disconnect();
+    }, [label, language]);
+
+    return (
+        <Tooltip title={labelFits ? "" : label} variant="soft" placement="top">
+            <Button
+                ref={buttonRef}
+                fullWidth
+                variant="soft"
+                aria-label={label}
+                loading={loading}
+                disabled={loading}
+                onClick={onClick}
+                startDecorator={<PracticeAiIcon sx={{ fontSize: 24 }} />}
+                sx={{
+                    ...hocActionSoftButtonSx,
+                    minHeight: 58,
+                    fontFamily: hocDisplayFontFamily,
+                    fontSize: "0.92rem",
+                    // Collapsed with the label so the lone icon sits centred rather than off to one side.
+                    "--Button-gap": labelFits ? `${PRACTICE_LABEL_GAP}px` : "0px",
+                }}
+            >
+                <Box
+                    component="span"
+                    sx={{
+                        position: "relative",
+                        whiteSpace: "nowrap",
+                        // Only once the label is gone: the probe still measures at its natural width (an
+                        // absolutely positioned box is clipped, not resized), but it stops widening the
+                        // button's scrollable overflow, which is what turns an invisible probe into a
+                        // phantom scrollbar the first time an ancestor is given overflow: auto.
+                        ...(labelFits ? {} : { width: 0, overflow: "hidden" }),
+                    }}
+                >
+                    <Box
+                        component="span"
+                        ref={probeRef}
+                        aria-hidden
+                        sx={{ position: "absolute", visibility: "hidden", whiteSpace: "nowrap" }}
+                    >
+                        {label}
+                    </Box>
+                    {labelFits ? label : null}
+                </Box>
+            </Button>
+        </Tooltip>
+    );
+};
+
 export const MatchmakingRoute: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -1663,7 +1757,16 @@ export const MatchmakingRoute: React.FC = () => {
                                 </Sheet>
                             )}
                             {!needsActivation && (state === "idle" || state === "error" || state === "starting-ai") ? (
-                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.15}>
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        // Two thirds to the ranked queue, one third to practice. Equal halves
+                                        // read as equal offers; this screen exists for the ranked match, and
+                                        // the sizes should say which button is the point of it.
+                                        gridTemplateColumns: { xs: "1fr", sm: "2fr 1fr" },
+                                        gap: 1.15,
+                                    }}
+                                >
                                     <Button
                                         fullWidth
                                         variant="solid"
@@ -1682,23 +1785,8 @@ export const MatchmakingRoute: React.FC = () => {
                                             ? tf("Search again in {seconds}s", { seconds: penaltySeconds })
                                             : t("Find ranked opponent")}
                                     </Button>
-                                    <Button
-                                        fullWidth
-                                        variant="soft"
-                                        loading={state === "starting-ai"}
-                                        disabled={state === "starting-ai"}
-                                        onClick={handlePlayAi}
-                                        startDecorator={<PracticeAiIcon sx={{ fontSize: 24 }} />}
-                                        sx={{
-                                            ...hocActionSoftButtonSx,
-                                            minHeight: 58,
-                                            fontFamily: hocDisplayFontFamily,
-                                            fontSize: "0.92rem",
-                                        }}
-                                    >
-                                        {t("Practice vs AI")}
-                                    </Button>
-                                </Stack>
+                                    <PracticeVsAiButton loading={state === "starting-ai"} onClick={handlePlayAi} />
+                                </Box>
                             ) : null}
 
                             {/* Open lobbies live right here rather than behind a separate browse screen: a

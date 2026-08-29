@@ -295,7 +295,7 @@ const CompactStatRow: React.FC<{
             aria-label={`${label}: ${gamesLabel}, ${pct}%`}
             sx={{
                 display: "grid",
-                gridTemplateColumns: "36px minmax(0, 1fr) auto",
+                gridTemplateColumns: "36px max-content minmax(0, 1fr)",
                 alignItems: "center",
                 gap: 1,
                 minHeight: 44,
@@ -311,7 +311,12 @@ const CompactStatRow: React.FC<{
             <Typography level="body-sm" title={label} noWrap sx={{ color: "rgba(251,244,232,0.82)", fontWeight: 500 }}>
                 {label}
             </Typography>
-            <Stack direction="row" spacing={{ xs: 0.75, sm: 1 }} alignItems="center" sx={{ whiteSpace: "nowrap" }}>
+            <Stack
+                direction="row"
+                spacing={{ xs: 0.75, sm: 1 }}
+                alignItems="center"
+                sx={{ whiteSpace: "nowrap", minWidth: 0 }}
+            >
                 {badge && (
                     <Typography
                         level="body-xs"
@@ -327,7 +332,10 @@ const CompactStatRow: React.FC<{
                     aria-hidden="true"
                     sx={{
                         display: { xs: "none", sm: "block" },
-                        width: 62,
+                        // Absorbs the surplus width instead of leaving a gap between the name and the
+                        // figures: the bar becomes the row's comparison rather than a 62px token of one.
+                        width: "100%",
+                        minWidth: 62,
                         height: 7,
                         overflow: "hidden",
                         borderRadius: "999px",
@@ -448,6 +456,15 @@ const ComboRow: React.FC<{ creatureIds: number[]; games: number; wins: number }>
     );
 };
 
+/**
+ * Rows shown in each "Winning strategies" column.
+ *
+ * All three columns share one cap. They render as side-by-side lists of equal width, so letting the pairs
+ * column run longer than the combo columns did not read as extra information — it left a tall empty
+ * rectangle under the two shorter ones.
+ */
+const STRATEGY_LIST_LENGTH = 6;
+
 export const PlayerPortalPage: React.FC = () => {
     const navigate = useNavigate();
     const { data, loading, error, reload } = usePlayerPortal();
@@ -465,10 +482,10 @@ export const PlayerPortalPage: React.FC = () => {
             [...displayedCombos]
                 .filter((c) => (c.games ?? 0) >= 2)
                 .sort((a, b) => winRatePct(b.wins ?? 0, b.games ?? 0) - winRatePct(a.wins ?? 0, a.games ?? 0))
-                .slice(0, 6),
+                .slice(0, STRATEGY_LIST_LENGTH),
         [displayedCombos],
     );
-    const mostPlayedCombos = useMemo(() => [...displayedCombos].slice(0, 6), [displayedCombos]);
+    const mostPlayedCombos = useMemo(() => [...displayedCombos].slice(0, STRATEGY_LIST_LENGTH), [displayedCombos]);
     // Dense usage lists are ordered by sample size; win rate only breaks equal-game ties.
     const creatureStats = useMemo(() => playerPortalMostPlayedFirst(data?.creature_stats ?? []), [data]);
     const matches = data?.recent_matches ?? [];
@@ -486,7 +503,7 @@ export const PlayerPortalPage: React.FC = () => {
             return directPairs
                 .filter((pair) => pair.games >= 3)
                 .sort((x, y) => winRatePct(y.wins, y.games) - winRatePct(x.wins, x.games) || y.games - x.games)
-                .slice(0, 8);
+                .slice(0, STRATEGY_LIST_LENGTH);
         }
         const byPair = new Map<string, { a: number; b: number; games: number; wins: number }>();
         for (const combo of combos) {
@@ -509,7 +526,7 @@ export const PlayerPortalPage: React.FC = () => {
         return [...byPair.values()]
             .filter((pair) => pair.games >= 3)
             .sort((x, y) => winRatePct(y.wins, y.games) - winRatePct(x.wins, x.games) || y.games - x.games)
-            .slice(0, 8);
+            .slice(0, STRATEGY_LIST_LENGTH);
     }, [combos]);
     // Artifact win rates across the recent-matches window (draws excluded, empty slots skipped).
     const artifactStats = useMemo(() => {

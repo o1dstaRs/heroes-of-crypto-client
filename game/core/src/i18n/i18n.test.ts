@@ -124,7 +124,7 @@ describe("ranked flow localization", () => {
     // The army-colour presets are rendered through t(preset.label), so the literal scan above cannot see
     // them; an untranslated swatch name would otherwise ship silently.
     it("has a Russian entry for every army colour preset name", () => {
-        expect(ARMY_COLOR_PRESETS.length).toBe(10);
+        expect(ARMY_COLOR_PRESETS.length).toBe(11);
         expect(ARMY_COLOR_PRESETS.map((preset) => preset.label).filter((label) => !(label in RU_TRANSLATIONS))).toEqual(
             [],
         );

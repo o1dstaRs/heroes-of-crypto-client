@@ -4108,7 +4108,7 @@ export class RenderableUnit extends Unit {
         const teamColor =
             props.team === TeamVals.NO_TEAM
                 ? NO_TEAM_ROSTER_COLOR
-                : // A player may tint their OWN army; the opponent always keeps its team colour.
+                : // A player may repaint the armies: their OWN in a chosen colour, the enemy in red.
                   (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         const previousDrawState = this.rosterCardDrawState;
         const needsRedraw =
@@ -4507,7 +4507,7 @@ export class RenderableUnit extends Unit {
         const teamColor =
             props.team === TeamVals.NO_TEAM
                 ? NO_TEAM_ROSTER_COLOR
-                : // A player may tint their OWN army; the opponent always keeps its team colour.
+                : // A player may repaint the armies: their OWN in a chosen colour, the enemy in red.
                   (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         const parentScale = inheritedAbsoluteScale(worldRoot);
         // The board camera is deliberately flatter on Y than X. Compensate the ribbon's height so it keeps
@@ -5283,7 +5283,7 @@ export class RenderableUnit extends Unit {
         const teamColor =
             props.team === TeamVals.NO_TEAM
                 ? NO_TEAM_ROSTER_COLOR
-                : // A player may tint their OWN army; the opponent always keeps its team colour.
+                : // A player may repaint the armies: their OWN in a chosen colour, the enemy in red.
                   (personalArmyPresetFor(props.team)?.color ?? resolveTeamColor(props.team));
         this.stackPowerDrawState = {
             power,

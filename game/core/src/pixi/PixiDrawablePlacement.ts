@@ -945,8 +945,11 @@ export const placementUsesEnemyMovementWash = (position: PlacementPositionType):
 
 /**
  * The wash colour for a placement zone: the side's own green or red, unless the player at this keyboard has
- * chosen a personal army colour and this is THEIR zone. Only the colour is swapped — each side keeps its own
- * wash geometry and its opacity, so the board reads exactly as it did before.
+ * chosen a personal army colour — then THEIR zone takes it and the opponent's turns red. Only the colour is
+ * swapped; each side keeps its own wash geometry and its opacity, so the board reads as it did before.
+ *
+ * Repainting the opponent's zone is not decoration here, it is what keeps the screen legible: a player who
+ * picks green and is seated UPPER would otherwise face a green zone across a green one.
  *
  * The two authored washes are at opposite ends of the tonal range, and each side's opacity is tuned for its
  * own: the red one is bright and drawn plainly, the green one is nearly black and has its opacity scaled up

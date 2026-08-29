@@ -16,9 +16,9 @@ type TeamAmountFlagProps = {
  * The flag/pip colour for a team.
  *
  * This is the one place the React chrome names a team's colour, so it is also where a player's PERSONAL
- * army colour has to be honoured — otherwise their units would be tinted on the board while their stack
- * pips and count flags in the left and top bars stayed green. The opponent is never tinted, so the two
- * sides stay tellable apart in the queue exactly as they do on the board.
+ * army colour has to be honoured — otherwise their units would be repainted on the board while their stack
+ * pips and count flags in the left and top bars stayed green. A chosen colour moves both sides, own and
+ * enemy, so the queue and the board never disagree about which flag belongs to whom.
  */
 export const getTeamFlagBackground = (teamType: TeamType): string => {
     const personal = personalArmyCssColor(teamType);

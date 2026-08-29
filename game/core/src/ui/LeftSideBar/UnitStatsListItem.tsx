@@ -385,8 +385,9 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     if (stackPower <= 0) return null;
     // The team colours here are the same two the shared flag helper names, so a personal army colour is
     // taken from it rather than re-derived — the alternative is pips that stay green in this one panel
-    // while every other surface follows the player's choice. The neutral case keeps its own paler value:
-    // this list draws unowned rows differently from the flags on purpose.
+    // while every other surface follows the player's choice, for their own army and the repainted enemy
+    // alike. The neutral case keeps its own paler value: this list draws unowned rows differently from the
+    // flags on purpose.
     const isLower = teamType === TeamVals.LOWER;
     const personalColor = personalArmyCssColor(teamType);
     const activeColor =

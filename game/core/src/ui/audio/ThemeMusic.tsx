@@ -3,6 +3,14 @@ import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
 import { images as rawImages } from "../../generated/image_imports";
+import {
+    DEFAULT_MUSIC_VOLUME,
+    getAudioLevels,
+    getAudioLevelsServerSnapshot,
+    setMusicMuted,
+    setMusicVolume,
+    subscribeAudioLevels,
+} from "../../settings/audioLevels";
 import { isPrefightMusicActive, subscribePrefightMusic } from "./prefightMusic";
 import { createThemeMusicPlayer, type ThemeMusicPlayer } from "./themeMusicPlayer";
 import { getVolumeSlot, getVolumeSlotServerSnapshot, subscribeVolumeSlot } from "./volumeSlot";
@@ -24,11 +32,11 @@ const musicOnControlImage = images.ui_control_music_on_forged_bronze_v1;
  * The site (heroesofcrypto.io) plays the same track on mode select and profile through its own copy of this,
  * site/src/components/ThemeMusic.astro. It is a DIFFERENT ORIGIN and cannot see this localStorage, so the
  * redirect pages under /play hand the setting over in the query string; the keys and the parameter names
- * below have to match on both sides.
+ * used by settings/audioLevels have to match on both sides.
+ *
+ * The LEVEL itself is not owned here — it lives in settings/audioLevels alongside the separate one for
+ * sound effects, so this medallion and the Audio section of the player settings move the same value.
  */
-const VOLUME_KEY = "hoc:themeVolume";
-const MUTED_KEY = "hoc:themeMuted";
-const DEFAULT_VOLUME = 0.5; // "medium"
 const FADE_MS = 900;
 
 /**
@@ -64,36 +72,6 @@ const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 const shouldSing = (pathname: string): boolean =>
     SINGING_ROUTES.some((route) => pathname === route || pathname.startsWith(route));
 
-/**
- * The volume to open with: a value handed over from the site wins, then this origin's own stored setting,
- * then the medium default. Reading the URL first is what makes the setting follow the player across the
- * origin boundary — arriving with one means they just set it next door.
- */
-const readInitialSettings = (): { volume: number; muted: boolean } => {
-    let volume = DEFAULT_VOLUME;
-    let muted = false;
-    try {
-        const storedVolume = window.localStorage.getItem(VOLUME_KEY);
-        if (storedVolume !== null && Number.isFinite(Number(storedVolume))) {
-            volume = clamp01(Number(storedVolume));
-        }
-        muted = window.localStorage.getItem(MUTED_KEY) === "1";
-    } catch {
-        // Private mode / storage disabled: the default still gives the player music.
-    }
-    try {
-        const params = new URLSearchParams(window.location.search);
-        const fromUrl = params.get("vol");
-        if (fromUrl !== null && Number.isFinite(Number(fromUrl))) {
-            volume = clamp01(Number(fromUrl));
-            muted = params.get("muted") === "1";
-        }
-    } catch {
-        // Malformed query string — keep whatever was stored.
-    }
-    return { volume, muted };
-};
-
 export const ThemeMusic: React.FC = () => {
     const { pathname } = useLocation();
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -102,10 +80,17 @@ export const ThemeMusic: React.FC = () => {
     const playerRef = useRef<ThemeMusicPlayer | null>(null);
     const fadeRef = useRef<number | null>(null);
     const effectiveVolumeRef = useRef(0);
-    const initial = useRef(readInitialSettings());
+    // Whether the last pass was on a singing screen: it separates "arrived somewhere with music" (fade it
+    // in) from "the player moved a slider" (follow the handle).
+    const wasSingingRef = useRef(false);
     const [volumeExpanded, setVolumeExpanded] = useState(false);
-    const [volume, setVolume] = useState(initial.current.volume);
-    const [muted, setMuted] = useState(initial.current.muted);
+    // Shared with the Audio section of the player settings: whichever one the player reaches for, both
+    // show the same level and the track follows it live.
+    const { musicVolume: volume, musicMuted: muted } = useSyncExternalStore(
+        subscribeAudioLevels,
+        getAudioLevels,
+        getAudioLevelsServerSnapshot,
+    );
     const [prefight, setPrefight] = useState(false);
     const [needsUnlock, setNeedsUnlock] = useState(true);
     const volumeCollapseTimerRef = useRef<number | null>(null);
@@ -266,6 +251,8 @@ export const ThemeMusic: React.FC = () => {
         if (!audio || !player) {
             return;
         }
+        const arrivedOrLeft = wasSingingRef.current !== singing;
+        wasSingingRef.current = singing;
         const target = singing ? effectiveVolume : 0;
         player.setTargetVolume(target);
         if (target === 0) {
@@ -275,22 +262,18 @@ export const ThemeMusic: React.FC = () => {
         if (player.hasStarted()) {
             if (audio.paused) {
                 void player.start(target, true);
-            } else {
+            } else if (arrivedOrLeft) {
                 fadeTo(target);
+            } else {
+                // A LEVEL change, from either slider: track it as it is dragged. Fading to each step would
+                // chase the handle by most of a second, which is useless for setting a level by ear.
+                stopFade();
+                audio.volume = target;
             }
         } else {
             setNeedsUnlock(true);
         }
-    }, [singing, effectiveVolume, fadeTo]);
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem(VOLUME_KEY, String(volume));
-            window.localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
-        } catch {
-            // The choice just will not outlive the session.
-        }
-    }, [volume, muted]);
+    }, [singing, effectiveVolume, fadeTo, stopFade]);
 
     const silent = muted || volume === 0;
 
@@ -328,11 +311,11 @@ export const ThemeMusic: React.FC = () => {
                 aria-label="Toggle music"
                 onClick={() => {
                     const nextMuted = !muted;
-                    setMuted(nextMuted);
+                    setMusicMuted(nextMuted);
                     // Pressing the speaker at zero means "I want to hear it" — do not unmute into silence.
-                    const nextVolume = !nextMuted && volume === 0 ? DEFAULT_VOLUME : volume;
+                    const nextVolume = !nextMuted && volume === 0 ? DEFAULT_MUSIC_VOLUME : volume;
                     if (nextVolume !== volume) {
-                        setVolume(nextVolume);
+                        setMusicVolume(nextVolume);
                     }
                     const nextTarget = singing && !nextMuted ? nextVolume : 0;
                     const audio = audioRef.current;
@@ -406,9 +389,9 @@ export const ThemeMusic: React.FC = () => {
                         aria-orientation="vertical"
                         onChange={(event) => {
                             const next = clamp01(Number(event.target.value) / 100);
-                            setVolume(next);
+                            setMusicVolume(next);
                             if (next > 0) {
-                                setMuted(false);
+                                setMusicMuted(false);
                             }
                             const audio = audioRef.current;
                             const player = playerRef.current;

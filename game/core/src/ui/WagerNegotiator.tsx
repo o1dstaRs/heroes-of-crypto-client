@@ -128,7 +128,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
         }
         const purse = intent.gold + intent.amount;
         const draftStake = Math.max(0, Math.floor(Number(stakeDraft) || 0));
-        // Exactly what the "Stake it" button is allowed to do, so Enter in the field cannot commit gold
+        // Exactly what the PUT button is allowed to do, so Enter in the field cannot commit gold
         // the button itself would have refused.
         const canStakeHere = !busy && draftStake >= 1 && draftStake <= purse;
         const armHere = async (amount: number): Promise<void> => {
@@ -146,7 +146,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 setError(
                     isInsufficientSeasonCurrencyError(err)
                         ? tf("Not enough {currency}", { currency: t(currency.name) })
-                        : (err as Error).message || t("Could not set the stake"),
+                        : (err as Error).message || t("Could not set the wager"),
                 );
             } finally {
                 setBusy(false);
@@ -186,7 +186,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                                     </Typography>
                                 </Stack>
                                 <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                    {t("on the table — if your opponent stakes too, the wager opens right here.")}
+                                    {t("on the table — if your opponent puts in too, the wager opens right here.")}
                                 </Typography>
                             </Box>
                         </Stack>
@@ -210,7 +210,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                         <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.75 }}>
                             <CurrencyIcon iconSvg={currency.iconSvg} prominent size={30} />
                             <Typography level="body-sm" sx={{ color: hocColors.parchment }}>
-                                {tf("Stake {currency} on THIS match — winner takes the pot.", {
+                                {tf("Put {currency} on THIS match — winner takes the pot.", {
                                     currency: t(currency.name),
                                 })}
                             </Typography>
@@ -227,12 +227,12 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                             <Input
                                 size="sm"
                                 type="number"
-                                placeholder={tf("{currency} to stake", { currency: t(currency.name) })}
+                                placeholder={tf("{currency} to put", { currency: t(currency.name) })}
                                 value={stakeDraft}
                                 slotProps={{ input: { min: 1, max: purse, step: 1 } }}
                                 onChange={(event) => setStakeDraft(event.target.value)}
                                 onKeyDown={(event) => {
-                                    // Typing an amount and hitting Enter stakes it, same as the button.
+                                    // Typing an amount and hitting Enter puts it in, same as the button.
                                     if (event.key === "Enter" && canStakeHere) {
                                         event.preventDefault();
                                         void armHere(draftStake);
@@ -247,11 +247,11 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                                 disabled={!canStakeHere}
                                 onClick={() => void armHere(draftStake)}
                             >
-                                {t("Stake it")}
+                                {t("Put")}
                             </Button>
                         </Stack>
                         <Typography level="body-xs" sx={{ color: hocColors.muted, mt: 0.5 }}>
-                            {t("If the draft ends first, your stake rides your next match instead.")}
+                            {t("If the draft ends first, your wager rides your next match instead.")}
                         </Typography>
                     </>
                 )}
@@ -403,7 +403,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
 
             <Stack direction="row" spacing={0.75} sx={{ mt: 0.85, mb: 1 }}>
                 {[
-                    { label: t("Your stake"), amount: wager.myStake },
+                    { label: t("Yours"), amount: wager.myStake },
                     { label: t("Opponent"), amount: wager.opponentStake },
                 ].map(({ label, amount }) => (
                     <Sheet
@@ -467,7 +467,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
             ) : myTurn ? (
                 <>
                     <Typography level="body-sm" sx={{ color: hocColors.parchment, mb: 1 }}>
-                        {t("Your opponent staked more. Do nothing to play")} <b>{wager.amount}</b> {t("each, call to")}{" "}
+                        {t("Your opponent put in more. Do nothing to play")} <b>{wager.amount}</b> {t("each, call to")}{" "}
                         <b>{callAmount}</b> {t("or raise to at least")} <b>{minimumRaise}</b>.
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -515,7 +515,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
                 </>
             ) : (
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    {t("You staked more — your opponent is deciding: do nothing to play")} {wager.amount}{" "}
+                    {t("You put in more — your opponent is deciding: do nothing to play")} {wager.amount}{" "}
                     {t("each, call to")} {callAmount} {t("or raise to at least")} {minimumRaise}…
                 </Typography>
             )}
