@@ -8,7 +8,7 @@
  * new shape. Splitting them keeps Sandbox stable while the pick UI keeps moving.
  */
 import { Augment, HoCConstants, TeamType } from "@heroesofcrypto/common";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Box, FormControl, FormLabel, IconButton, Radio, RadioGroup, Sheet, Tooltip, Typography } from "@mui/joy";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { images } from "../../generated/image_imports";
@@ -18,6 +18,7 @@ import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionSta
 import { armorAugmentLabel } from "./augmentLabels";
 import {
     DEFAULT_SANDBOX_PANEL_EXPANSION,
+    fitSandboxPanelExpansion,
     SandboxPanel,
     SandboxPanelExpansion,
     toggleSandboxPanel,
@@ -568,15 +569,62 @@ const SandboxToggleContainer = ({
         "Placement" | "Armor" | "Might" | "Empower" | "Sniper" | "Movement" | "Synergy" | "None"
     >("Placement");
 
-    // Land directly on the compact state that fits the sidebar: Augments open, Artifacts folded. Previously
-    // both mounted open and a delayed layout measurement folded Artifacts 240ms later, so the first team click
-    // briefly showed a scrollbar and then looked as if the panel had reset itself.
+    // Both setup tools are useful side by side. Start with both open, then inspect the actual drawer once it
+    // has settled and fold Artifacts only if that content cannot fit vertically. A manual header choice always
+    // wins over this first-open default.
     const [panelExpansion, setPanelExpansion] = useState<SandboxPanelExpansion>(() => ({
         ...DEFAULT_SANDBOX_PANEL_EXPANSION,
     }));
+    const panelContainerRef = useRef<HTMLDivElement>(null);
+    const userSetPanelExpansion = useRef(false);
+    const autoFitResolved = useRef(false);
     const { artifactsOpen, augmentsOpen } = panelExpansion;
 
+    useLayoutEffect(() => {
+        if (!showArtifactPicker || autoFitResolved.current) return;
+
+        const container = panelContainerRef.current;
+        const togglerBody = container?.closest<HTMLElement>('[data-hoc-toggler-body="true"]');
+        const scrollRegion = container?.closest<HTMLElement>('[data-sandbox-scroll-region="true"]');
+        if (!container || !togglerBody || !scrollRegion) return;
+
+        // A team drawer opens over 200 ms. Measure its finished layout so closing the previously open sidebar
+        // section does not make a brief, smaller viewport collapse Artifacts unnecessarily.
+        let settleTimer: number | undefined;
+        const measureSettledLayout = () => {
+            settleTimer = undefined;
+            if (autoFitResolved.current || userSetPanelExpansion.current || togglerBody.dataset.open !== "true") {
+                return;
+            }
+
+            autoFitResolved.current = true;
+            setPanelExpansion((current) => fitSandboxPanelExpansion(current, scrollRegion));
+        };
+        const scheduleMeasurement = () => {
+            if (autoFitResolved.current || userSetPanelExpansion.current) return;
+            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(measureSettledLayout, 240);
+        };
+
+        const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleMeasurement);
+        observer?.observe(togglerBody);
+        observer?.observe(container);
+        observer?.observe(scrollRegion);
+        togglerBody.addEventListener("transitionend", scheduleMeasurement);
+        window.addEventListener("resize", scheduleMeasurement);
+        scheduleMeasurement();
+
+        return () => {
+            observer?.disconnect();
+            togglerBody.removeEventListener("transitionend", scheduleMeasurement);
+            window.removeEventListener("resize", scheduleMeasurement);
+            if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+        };
+    }, [showArtifactPicker]);
+
     const handlePanelToggle = (panel: SandboxPanel) => {
+        userSetPanelExpansion.current = true;
+        autoFitResolved.current = true;
         setPanelExpansion((current) => toggleSandboxPanel(current, panel));
     };
     // All six categories are on screen at once (the pre-#129 sidebar the owner asked back), so the
@@ -601,6 +649,7 @@ const SandboxToggleContainer = ({
 
     return (
         <Box
+            ref={panelContainerRef}
             sx={{
                 display: "flex",
                 flexDirection: "column",

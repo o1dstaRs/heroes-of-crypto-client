@@ -84,6 +84,8 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                                 height: 52,
                                 flex: "0 0 52px",
                                 boxSizing: "border-box",
+                                position: "relative",
+                                isolation: "isolate",
                                 p: 0.25,
                                 m: 0,
                                 lineHeight: 0,
@@ -94,6 +96,23 @@ const ArtifactRow: React.FC<ArtifactRowProps> = ({ title, artifacts, selectedId,
                                 outline: "none !important",
                                 cursor: "default !important",
                                 overflow: "visible",
+                                // The border itself is deliberately absent: several legacy Joy styles force
+                                // plain buttons transparent. An overlay keeps the selected gold frame above
+                                // the artwork and, unlike a real border, never changes the tile's grid size.
+                                "&::after": {
+                                    content: '""',
+                                    position: "absolute",
+                                    inset: 1,
+                                    zIndex: 1,
+                                    pointerEvents: "none",
+                                    boxSizing: "border-box",
+                                    borderRadius: "4px",
+                                    border: isSelected ? "2px solid #dcb158" : "2px solid transparent",
+                                    boxShadow: isSelected
+                                        ? "inset 0 0 3px rgba(255, 235, 173, 0.7), 0 0 6px rgba(220, 177, 88, 0.7)"
+                                        : "none",
+                                    transition: "border-color 0.16s ease, box-shadow 0.16s ease",
+                                },
                                 "& img": {
                                     display: "block",
                                     transition: "transform 0.16s ease, filter 0.16s ease",
