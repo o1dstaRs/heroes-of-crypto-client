@@ -12,12 +12,52 @@ const LEAGUE_EMBLEM_KEYS = {
     5: "league_demigod_512",
 } as const;
 
-export const leagueEmblemKey = (league: number): (typeof LEAGUE_EMBLEM_KEYS)[keyof typeof LEAGUE_EMBLEM_KEYS] => {
+const WEALTH_EMBLEM_KEYS = {
+    1: {
+        1: "wealth_aspirant_ragged_512",
+        2: "wealth_aspirant_stacked_512",
+        3: "wealth_aspirant_whale_512",
+    },
+    2: {
+        1: "wealth_vanguard_ragged_512",
+        2: "wealth_vanguard_stacked_512",
+        3: "wealth_vanguard_whale_512",
+    },
+    3: {
+        1: "wealth_marshal_ragged_512",
+        2: "wealth_marshal_stacked_512",
+        3: "wealth_marshal_whale_512",
+    },
+    4: {
+        1: "wealth_overlord_ragged_512",
+        2: "wealth_overlord_stacked_512",
+        3: "wealth_overlord_whale_512",
+    },
+    5: {
+        1: "wealth_demigod_ragged_512",
+        2: "wealth_demigod_stacked_512",
+        3: "wealth_demigod_whale_512",
+    },
+} as const;
+
+type League = keyof typeof WEALTH_EMBLEM_KEYS;
+type Wealth = 1 | 2 | 3;
+type WealthEmblemKey = {
+    [LeagueKey in League]: (typeof WEALTH_EMBLEM_KEYS)[LeagueKey][Wealth];
+}[League];
+type LeagueEmblemKey = (typeof LEAGUE_EMBLEM_KEYS)[keyof typeof LEAGUE_EMBLEM_KEYS] | WealthEmblemKey;
+
+export const leagueEmblemKey = (league: number, wealth = 0): LeagueEmblemKey => {
     const normalized = Math.trunc(Number(league));
-    return LEAGUE_EMBLEM_KEYS[normalized as keyof typeof LEAGUE_EMBLEM_KEYS] ?? LEAGUE_EMBLEM_KEYS[0];
+    const base = LEAGUE_EMBLEM_KEYS[normalized as keyof typeof LEAGUE_EMBLEM_KEYS] ?? LEAGUE_EMBLEM_KEYS[0];
+    if (base === LEAGUE_EMBLEM_KEYS[0]) {
+        return base;
+    }
+    const normalizedWealth = Math.trunc(Number(wealth));
+    return WEALTH_EMBLEM_KEYS[normalized as League]?.[normalizedWealth as Wealth] ?? base;
 };
 
-export const leagueEmblemSource = (league: number): string => images[leagueEmblemKey(league)];
+export const leagueEmblemSource = (league: number, wealth = 0): string => images[leagueEmblemKey(league, wealth)];
 
 export const leagueEmblemGlow = (league: number): string => {
     switch (Math.trunc(Number(league))) {
@@ -40,13 +80,14 @@ export interface LeagueEmblemProps {
     label: string;
     league: number;
     size?: number;
+    wealth?: number;
 }
 
-/** The clean metal crest used anywhere a player's league is shown. League 0 is calibration. */
-export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({ label, league, size = 72 }) => (
+/** A player's wealth portrait inside its league frame. League 0 is calibration. */
+export const LeagueEmblem: React.FC<LeagueEmblemProps> = ({ label, league, size = 72, wealth = 0 }) => (
     <Box
         component="img"
-        src={leagueEmblemSource(league)}
+        src={leagueEmblemSource(league, wealth)}
         alt={label}
         title={label}
         draggable={false}
