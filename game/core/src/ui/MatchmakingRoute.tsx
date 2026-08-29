@@ -888,6 +888,29 @@ export const MatchmakingRoute: React.FC = () => {
                         >
                             {t("Profile")}
                         </Button>
+                        {/* Settings opens a popup rather than navigating, so it is not disabled while
+                            queued the way the destination links are, and it carries a sliders mark
+                            instead of a place pictogram. */}
+                        <Button
+                            aria-label={t("Player settings")}
+                            aria-haspopup="dialog"
+                            aria-expanded={settingsOpen}
+                            size="sm"
+                            variant="plain"
+                            onClick={() => setSettingsOpen(true)}
+                            startDecorator={<SettingsNavIcon sx={{ fontSize: 24 }} />}
+                            sx={{
+                                color: settingsOpen ? hocColors.gold : hocColors.mutedStrong,
+                                flex: { xs: 1, sm: "0 0 auto" },
+                                minWidth: 0,
+                                px: { xs: 0.75, sm: 1.25 },
+                                "&:hover": { bgcolor: hocColors.orangeSoft },
+                            }}
+                        >
+                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                {t("Settings")}
+                            </Box>
+                        </Button>
                     </Stack>
                 </Stack>
             </Box>
@@ -1074,35 +1097,6 @@ export const MatchmakingRoute: React.FC = () => {
                                         </Stack>
                                     </Tooltip>
                                 )}
-                                <Tooltip title={t("Player settings")} size="sm" variant="soft">
-                                    <Button
-                                        size="sm"
-                                        variant="outlined"
-                                        aria-label={t("Player settings")}
-                                        aria-expanded={settingsOpen}
-                                        onClick={() => setSettingsOpen(true)}
-                                        startDecorator={<SettingsNavIcon sx={{ fontSize: 22 }} />}
-                                        sx={{
-                                            minHeight: 38,
-                                            px: 1.15,
-                                            borderRadius: "10px",
-                                            color: hocColors.parchment,
-                                            bgcolor: settingsOpen ? "rgba(255,143,0,0.14)" : "rgba(0,0,0,0.3)",
-                                            borderColor: "rgba(220,177,88,0.3)",
-                                            fontSize: "0.72rem",
-                                            fontWeight: 750,
-                                            "&:hover": {
-                                                color: hocColors.gold,
-                                                bgcolor: "rgba(255,143,0,0.2)",
-                                                borderColor: hocColors.orangeBorder,
-                                            },
-                                        }}
-                                    >
-                                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                            {t("Settings")}
-                                        </Box>
-                                    </Button>
-                                </Tooltip>
                                 <Tooltip
                                     title={profileSummaryOpen ? t("Hide player stats") : t("Show player stats")}
                                     size="sm"

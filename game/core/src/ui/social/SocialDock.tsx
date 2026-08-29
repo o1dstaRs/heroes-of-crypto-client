@@ -23,7 +23,7 @@ import { CurrencyIcon } from "../GoldCurrencyIcon";
 import { useRankedSeason } from "../useRankedSeason";
 import { ConversationPanel } from "./ConversationPanel";
 import { useCurrentLobby } from "./CurrentLobbyContext";
-import { DockPanelShell } from "./DockPanelShell";
+import { DockPanelCloseButton, DockPanelShell } from "./DockPanelShell";
 import { PredictionsPanel } from "./PredictionsPanel";
 import { getSocialDockSlot, getSocialDockSlotServerSnapshot, subscribeSocialDockSlot } from "./socialDockSlot";
 import { useSocial } from "./SocialProvider";
@@ -364,9 +364,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                     })}
                 </Stack>
             )}
-            <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
-                Close
-            </Button>
+            <DockPanelCloseButton onClose={onClose} />
         </DockPanelShell>
     );
 };
@@ -784,9 +782,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage })
                     ) : null}
                 </Stack>
             )}
-            <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
-                Close
-            </Button>
+            <DockPanelCloseButton onClose={onClose} />
         </DockPanelShell>
     );
 };

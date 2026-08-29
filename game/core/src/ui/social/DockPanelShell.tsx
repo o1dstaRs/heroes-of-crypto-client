@@ -1,11 +1,12 @@
-import { Box, Sheet } from "@mui/joy";
+import { Box, Button, Sheet } from "@mui/joy";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import React from "react";
 // react-router, NOT react-router-dom: the app mounts its Router from the former (v8), and the two
 // packages carry separate contexts — importing the dom variant here finds no Router at all.
 import { useLocation } from "react-router";
 
-import { hocPanelSx } from "../hocTheme";
+import { hocPanelSx, hocSoftButtonSx } from "../hocTheme";
+import { t } from "../../i18n/i18n";
 import {
     DOCK_BUTTON_MARKER,
     DOCK_PANEL_COLUMN_WIDTH,
@@ -156,5 +157,21 @@ export const DockPanelShell: React.FC<DockPanelShellProps> = ({ open, onClose, w
         </AnimatePresence>
     );
 };
+
+/**
+ * The footer Close button every dock panel ends with.
+ *
+ * Shared rather than written out per panel: the shell is a stretch flex column, so a Button placed
+ * directly in it spans the panel's width — but one wrapped in a Box shrinks to its own text instead.
+ * Predictions had picked up such a wrapper and its Close came out visibly smaller than the identical
+ * button on Friends and Notifications. With a single definition the three cannot drift again.
+ *
+ * Must remain a DIRECT child of DockPanelShell to keep that full width.
+ */
+export const DockPanelCloseButton: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+    <Button variant="outlined" sx={{ ...hocSoftButtonSx, mt: 1 }} onClick={onClose}>
+        {t("Close")}
+    </Button>
+);
 
 export default DockPanelShell;

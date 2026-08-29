@@ -9,34 +9,44 @@
  * -----------------------------------------------------------------------------
  */
 
-import { Box, Divider, Modal, ModalDialog, Stack, Typography } from "@mui/joy";
+import { Box, Divider, Modal, ModalClose, ModalDialog, Stack, Typography } from "@mui/joy";
 import React, { useCallback, useState } from "react";
 
 import { t, useTranslation } from "../i18n/i18n";
 import { hocColors, hocPanelSx } from "./hocTheme";
+import { TEAM_COLOR_GREEN, TEAM_COLOR_RED } from "../scenes/teamColors";
 import {
     ARMY_COLOR_PRESETS,
     TEAM_DEFAULT_ARMY_COLOR_ID,
+    armyColorPresetById,
     readPlayerArmyColorId,
     writePlayerArmyColorId,
 } from "../settings/playerArmyColor";
 
 const hex = (color: number): string => `#${color.toString(16).padStart(6, "0")}`;
 
+const SWATCH_SIDE = 38;
+
 /**
- * Player settings, opened from the arena.
+ * Player settings, opened from the arena's nav row.
  *
- * The arena is where these belong: a player sets them up before queuing, and the match then simply uses
- * them. Everything here is local to this browser — nothing is sent to the server, and nothing affects the
+ * The arena is where these belong: a player sets them up before queuing and the match then just uses
+ * them. Everything here is local to this browser — nothing reaches the server, nothing reaches the
  * opponent.
  *
- * Laid out in sections so the later ones have somewhere to land. Only Appearance has a setting today; the
- * rest say so plainly rather than showing controls that do nothing.
+ * Sectioned so later settings have somewhere to land. Only Appearance has one today; the others say so
+ * rather than showing controls that do nothing.
  */
 const SectionHeading: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <Typography
         level="body-xs"
-        sx={{ color: hocColors.gold, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}
+        sx={{
+            color: hocColors.gold,
+            fontWeight: 800,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            opacity: 0.9,
+        }}
     >
         {children}
     </Typography>
@@ -45,13 +55,64 @@ const SectionHeading: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const EmptySection: React.FC<{ title: string }> = ({ title }) => (
     <Box>
         <SectionHeading>{title}</SectionHeading>
-        <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.5)", mt: 0.4 }}>
+        <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.42)", mt: 0.5, fontStyle: "italic" }}>
             {t("Nothing to configure here yet.")}
         </Typography>
     </Box>
 );
 
-/** The army-colour picker: ten presets plus the team default. */
+/** One selectable tile. `background` carries the swatch's fill — a flat colour or the team split. */
+const ColorTile: React.FC<{
+    label: string;
+    background: string;
+    selected: boolean;
+    onSelect: () => void;
+}> = ({ label, background, selected, onSelect }) => (
+    <Box
+        component="button"
+        type="button"
+        title={label}
+        aria-label={label}
+        aria-pressed={selected}
+        onClick={onSelect}
+        sx={{
+            position: "relative",
+            width: SWATCH_SIDE,
+            height: SWATCH_SIDE,
+            p: 0,
+            borderRadius: "10px",
+            cursor: "pointer",
+            background,
+            border: selected ? `2px solid ${hocColors.gold}` : "1px solid rgba(255,255,255,0.2)",
+            boxShadow: selected ? `0 0 0 3px rgba(255,143,0,0.22)` : "none",
+            transition: "transform 120ms ease, box-shadow 120ms ease",
+            "&:hover": { transform: "translateY(-1px)", boxShadow: "0 0 0 3px rgba(255,143,0,0.14)" },
+        }}
+    >
+        {selected && (
+            // The ring alone is hard to read on the paler presets, so the choice is also stated with a
+            // mark. Both layers are drawn dark-on-light and light-on-dark by the same text shadow.
+            <Box
+                component="span"
+                aria-hidden
+                sx={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1rem",
+                    fontWeight: 900,
+                    color: "#fff",
+                    textShadow: "0 0 3px rgba(0,0,0,0.85)",
+                }}
+            >
+                ✓
+            </Box>
+        )}
+    </Box>
+);
+
 const ArmyColorSetting: React.FC = () => {
     const [selected, setSelected] = useState<string>(() => readPlayerArmyColorId());
 
@@ -60,66 +121,50 @@ const ArmyColorSetting: React.FC = () => {
         setSelected(presetId);
     }, []);
 
+    const selectedPreset = armyColorPresetById(selected);
+    const selectedLabel = selectedPreset ? t(selectedPreset.label) : t("Team colours");
+
     return (
         <Box>
             <SectionHeading>{t("Appearance")}</SectionHeading>
-            <Typography level="body-sm" sx={{ color: hocColors.parchment, fontWeight: 700, mt: 0.6 }}>
+            <Typography level="body-sm" sx={{ color: hocColors.parchment, fontWeight: 750, mt: 0.7 }}>
                 {t("Your army colour")}
             </Typography>
-            <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.62)", mt: 0.2 }}>
+            <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.58)", mt: 0.2, lineHeight: 1.45 }}>
                 {t("Only you see this. Your opponent's army keeps its colour, and replays keep both.")}
             </Typography>
-            {/* Fixed five-column grid rather than wrapping: ten presets then read as two even rows instead
-                of a nine-and-one orphan at whatever width the dialog happens to be. */}
-            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 1, mt: 1.2 }}>
-                {ARMY_COLOR_PRESETS.map((preset) => {
-                    const isSelected = selected === preset.id;
-                    return (
-                        <Box
-                            key={preset.id}
-                            component="button"
-                            type="button"
-                            title={t(preset.label)}
-                            aria-label={t(preset.label)}
-                            aria-pressed={isSelected}
-                            onClick={() => choose(preset.id)}
-                            sx={{
-                                width: "100%",
-                                height: 34,
-                                borderRadius: "9px",
-                                p: 0,
-                                cursor: "pointer",
-                                bgcolor: hex(preset.color),
-                                border: isSelected ? `2px solid ${hocColors.gold}` : "1px solid rgba(255,255,255,0.22)",
-                                boxShadow: isSelected ? `0 0 10px ${hocColors.orangeBorder}` : "none",
-                            }}
-                        />
-                    );
-                })}
-            </Box>
+            {/* Fixed six-column grid: the ten presets and the team default land as two even rows rather
+                than an eleven-item wrap that orphans a tile at the dialog's width. */}
             <Box
-                component="button"
-                type="button"
-                aria-pressed={selected === TEAM_DEFAULT_ARMY_COLOR_ID}
-                onClick={() => choose(TEAM_DEFAULT_ARMY_COLOR_ID)}
                 sx={{
-                    mt: 1.2,
-                    width: "100%",
-                    py: 0.7,
-                    borderRadius: "9px",
-                    cursor: "pointer",
-                    color: hocColors.parchment,
-                    fontWeight: 750,
-                    fontSize: "0.78rem",
-                    bgcolor: selected === TEAM_DEFAULT_ARMY_COLOR_ID ? "rgba(255,143,0,0.16)" : "rgba(0,0,0,0.3)",
-                    border:
-                        selected === TEAM_DEFAULT_ARMY_COLOR_ID
-                            ? `2px solid ${hocColors.gold}`
-                            : "1px solid rgba(220,177,88,0.3)",
+                    display: "grid",
+                    gridTemplateColumns: `repeat(6, ${SWATCH_SIDE}px)`,
+                    gap: 1,
+                    mt: 1.3,
+                    justifyContent: "space-between",
                 }}
             >
-                {t("Team colours")}
+                {ARMY_COLOR_PRESETS.map((preset) => (
+                    <ColorTile
+                        key={preset.id}
+                        label={t(preset.label)}
+                        background={hex(preset.color)}
+                        selected={selected === preset.id}
+                        onSelect={() => choose(preset.id)}
+                    />
+                ))}
+                {/* The default reads as an eleventh swatch rather than a separate button: it is the same
+                    kind of choice. Split green/red so it shows what it restores. */}
+                <ColorTile
+                    label={t("Team colours")}
+                    background={`linear-gradient(135deg, ${hex(TEAM_COLOR_GREEN)} 0 50%, ${hex(TEAM_COLOR_RED)} 50% 100%)`}
+                    selected={selected === TEAM_DEFAULT_ARMY_COLOR_ID}
+                    onSelect={() => choose(TEAM_DEFAULT_ARMY_COLOR_ID)}
+                />
             </Box>
+            <Typography level="body-xs" sx={{ color: hocColors.parchment, mt: 1, fontWeight: 700 }}>
+                {selectedLabel}
+            </Typography>
         </Box>
     );
 };
@@ -129,14 +174,15 @@ export const PlayerSettingsPanel: React.FC<{ open: boolean; onClose: () => void 
 
     return (
         <Modal open={open} onClose={onClose}>
-            <ModalDialog sx={{ ...hocPanelSx, minWidth: 340, maxWidth: 420 }}>
+            <ModalDialog sx={{ ...hocPanelSx, minWidth: 360, maxWidth: 420, gap: 0 }}>
+                <ModalClose sx={{ color: hocColors.parchment }} />
                 <Typography level="h4" sx={{ color: hocColors.parchment }}>
                     {t("Player settings")}
                 </Typography>
-                <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.6)", mb: 0.5 }}>
+                <Typography level="body-xs" sx={{ color: "rgba(239,228,204,0.55)", mt: 0.2, mb: 1.6 }}>
                     {t("Saved on this device only.")}
                 </Typography>
-                <Stack spacing={1.6} divider={<Divider sx={{ bgcolor: "rgba(220,177,88,0.2)" }} />}>
+                <Stack spacing={1.8} divider={<Divider sx={{ bgcolor: "rgba(220,177,88,0.18)" }} />} sx={{ pb: 0.5 }}>
                     <ArmyColorSetting />
                     <EmptySection title={t("Audio")} />
                     <EmptySection title={t("Gameplay")} />
