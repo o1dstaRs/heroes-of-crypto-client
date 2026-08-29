@@ -166,25 +166,13 @@ Multiple agents run on this repo **at the same time**. Rules:
 
 ## Game image assets
 
-- Creature balance, abilities, levels, factions, names, and roster changes must not alter existing portrait
-  sources, framing, mirroring, or backgrounds. Change creature portraits only when the user explicitly requests
-  a portrait change in the current task.
-- Every new file created for or used by this game must stay on local storage. This includes design concepts,
-  references, source artwork, generated images, textures, portraits, icons, sprites, animation frames, atlases,
-  audio, video, fonts, metadata, datasets, previews, screenshots, exports, backups, and intermediate work.
-  Do not save any of these files to Dropbox or another synchronized cloud folder unless the user explicitly asks.
-- Runtime game images are canonical only in the directory referenced by HOC_IMAGES_LOC. Since 2026-08 that
-  is the shared Google Drive art folder ("$HOME/Google Drive/My Drive/heroesofcrypto/images"); a machine
-  without the Drive mount may keep a local checkout at ~/Workplace/heroesofcrypto-assets/images, which is
-  also the fallback the build uses when HOC_IMAGES_LOC is unset. Animation atlases and metadata are
-  canonical only under HOC_ANIMATIONS_LOC/output. The former Dropbox folder is RETIRED: never read from or
-  write to it (stale copies there silently roll art back), and never scatter game art into any other
-  synchronized cloud folder.
-  Never add game art to game/core/public or another tracked game directory.
-- Store intermediate image-generation work under game/core/tmp/imagegen. Store final static game images as
-  compressed WebP files in the local HOC_IMAGES_LOC folder; store animation atlas WebPs and *_meta.json files
-  in the local HOC_ANIMATIONS_LOC/output folder. Static images must be valid WebP
-  files no larger than 1,766,026 bytes; animation atlas WebPs are exempt from only that size ceiling. Run
+- Runtime game images are canonical only in the Google Drive directory referenced by HOC_IMAGES_LOC
+  (normally ~/Google Drive/My Drive/heroesofcrypto/images). Animation atlases and metadata are canonical only
+  under HOC_ANIMATIONS_LOC/output (normally ~/Google Drive/My Drive/heroesofcrypto/animations/output). Never add
+  game art to game/core/public or another tracked game directory.
+- Store static game images as compressed WebP files in the images Google Drive folder; store animation atlas
+  WebPs and *_meta.json files in the animations Google Drive output folder. Every image in the static images
+  folder must be a valid WebP no larger than 120,000 bytes, including atlas-named files. Run
   bun run --cwd game/core check:image-assets (also enforced by build:images), then reference assets through
   src/generated/image_imports.ts or texAny(). Do not hard-code public image URLs such as
   /textures/foo.webp or call Assets.load() with a public image path.
@@ -192,5 +180,5 @@ Multiple agents run on this repo **at the same time**. Rules:
 - The sole tracked game-image exception is game/core/public/favicon.ico. All other tracked images belong
   under site/public. Attach gameplay review
   screenshots to the PR or issue instead of committing them.
-- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from the
-  local canonical asset directories; do not force-add them.
+- game/core/images and game/core/src/generated remain gitignored build outputs copied/generated from
+  Google Drive; do not force-add them.

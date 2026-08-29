@@ -133,12 +133,15 @@ describe("game image asset policy", () => {
         expect(generator).not.toContain("SUPPORTED_IMAGE_EXTENSIONS");
     });
 
-    test("validates the configured Dropbox image directory when explicitly requested", async () => {
+    test("validates the configured external image directory when explicitly requested", async () => {
         const imageDirectory = process.env.HOC_IMAGES_LOC;
-        // Dropbox can block on network hydration for minutes, which makes the unit suite nondeterministic.
+        // A cloud drive can block on network hydration for minutes, which makes the unit suite nondeterministic.
         // The normal asset/build workflows run check:image-assets directly; keep this duplicate integration
         // assertion available for focused diagnostics without putting external I/O on every `bun test`.
-        if (!imageDirectory || process.env.HOC_VALIDATE_DROPBOX_IMAGES !== "1") {
+        if (
+            !imageDirectory ||
+            (process.env.HOC_VALIDATE_GAME_IMAGES !== "1" && process.env.HOC_VALIDATE_DROPBOX_IMAGES !== "1")
+        ) {
             return;
         }
 

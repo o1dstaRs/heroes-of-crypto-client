@@ -43,11 +43,9 @@ bun run --cwd game/heroes-of-crypto-common build:proto
 Env variables:
 
 ```bash
-# path to the images folder containing the *.webp assets — canonically the shared Google Drive art
-# folder; the build's copy:images and check:image-assets both honor it, falling back to
-# ../heroesofcrypto-assets/images relative to the repo when unset. The old Dropbox location is retired.
-HOC_IMAGES_LOC="$HOME/Google Drive/My Drive/heroesofcrypto/images"
-HOC_ANIMATIONS_LOC=./path/to/animations
+# Canonical Google Drive game-art folders
+export HOC_IMAGES_LOC="/Users/zolotukhin/Google Drive/My Drive/heroesofcrypto/images"
+export HOC_ANIMATIONS_LOC="/Users/zolotukhin/Google Drive/My Drive/heroesofcrypto/animations"
 
 # Public Google OAuth web client ID. Use the same value in .env and .env.production.
 VITE_GOOGLE_CLIENT_ID=1234567890-example.apps.googleusercontent.com

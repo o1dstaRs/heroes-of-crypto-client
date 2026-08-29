@@ -1010,7 +1010,12 @@ const ACTIVE_TURN_FIRE_FRAME_SIZE = 192;
 const ACTIVE_TURN_FIRE_COLS = 8;
 const ACTIVE_TURN_FIRE_FRAME_COUNT = 64;
 const ACTIVE_TURN_FIRE_FRAME_MS = 1000 / 18;
-const ACTIVE_TURN_FIRE_URL = images.active_turn_blue_fire_atlas;
+// OPTIONAL lookup on purpose: the effect below is disabled and its 500 KB atlas lives in the
+// review-source Google Drive staging area (over the 120 KB static-image ceiling), so the generated image
+// manifest does not carry the key. A typed property access here made the whole client build demand
+// art the images folder deliberately does not ship (the 2026-08-22 deploy abort). Restoring the
+// effect means promoting the atlas back into the images folder — this lookup then finds it again.
+const ACTIVE_TURN_FIRE_URL = (images as Partial<Record<string, string>>).active_turn_blue_fire_atlas ?? "";
 // Prepared from the blue-fire source video. Keep the implementation/assets ready, but leave the
 // effect visually disabled until the owner asks to restore it.
 const ACTIVE_TURN_FIRE_ENABLED = false;
@@ -5878,19 +5883,16 @@ export class RenderableUnit extends Unit {
             }
         }
 
-        // Arcane Ward Blessing (Squire) — same stack-scaled + luck magic-defence projection as Warding Mane.
-        const arcaneWardAuraAbility = this.getAbility("Arcane Ward Blessing");
-        if (arcaneWardAuraAbility) {
-            const auraEffect = this.effectFactory.makeAuraEffect("Arcane Ward");
-            if (auraEffect) {
-                this.refreshAbiltyDescription(
-                    arcaneWardAuraAbility.getName(),
-                    arcaneWardAuraAbility
-                        .getDesc()
-                        .join("\n")
-                        .replace(/\{\}/g, this.calculateAuraPower(auraEffect, _synergyAbilityPowerIncrease).toString()),
-                );
-            }
+        // Arcane Ward Blessing (Squire) — board-wide, while preserving the old stack/luck projection.
+        const arcaneWardBlessingAbility = this.getAbility("Arcane Ward Blessing");
+        if (arcaneWardBlessingAbility) {
+            this.refreshAbiltyDescription(
+                arcaneWardBlessingAbility.getName(),
+                arcaneWardBlessingAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateArcaneWardBlessingPower(_synergyAbilityPowerIncrease).toString()),
+            );
         }
 
         // Flesh Shield Aura

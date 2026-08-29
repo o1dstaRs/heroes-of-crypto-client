@@ -94,14 +94,28 @@ describe("no consumer keeps a fallback art path", () => {
         expect(copyImages).toContain("$HOC_IMAGES_LOC");
         // `${HOC_IMAGES_LOC:-...}` is the exact shape that deleted the art set and copied nothing back.
         expect(copyImages).not.toContain(":-");
-        // The guard must run first, so an unset variable stops the script before rimraf/cpy touch anything.
-        expect(copyImages.indexOf("require_asset_location")).toBeLessThan(copyImages.indexOf("cpy"));
+    });
+
+    test("the guard runs BEFORE build:images deletes the art set", () => {
+        // This is the invariant that matters, and it has to be asserted where the destruction happens:
+        // build:images rimrafs images/ and only then copies. An earlier version of this test asserted the
+        // ordering inside copy:images, where indexOf returns -1 for BOTH terms once the guard moves — so a
+        // merge that dropped the guard still passed it. Assert presence first, then order.
+        const buildImages = JSON.parse(read("package.json")).scripts["build:images"] as string;
+        const guard = buildImages.indexOf("require_asset_location");
+        const destroy = buildImages.indexOf("rimraf images");
+        expect(guard).toBeGreaterThanOrEqual(0);
+        expect(destroy).toBeGreaterThanOrEqual(0);
+        expect(guard).toBeLessThan(destroy);
     });
 
     test("the image-policy checker and the atlas generator resolve through this module", () => {
         for (const script of ["scripts/check_image_asset_policy.ts", "scripts/generate_animation_atlases.js"]) {
             const source = read(script);
-            expect(source).toContain("assetLocations");
+            // CALLING it, not merely importing it: a merge left this file importing the resolver while
+            // its body read process.env directly, and a `toContain("assetLocations")` passed on the
+            // orphaned import alone.
+            expect(source).toMatch(/resolve(Images|AnimationsOutput)Location\(/);
             // Neither the missing sibling checkout nor the skip-Dropbox exclusion may come back.
             expect(source).not.toContain("heroesofcrypto-assets");
             expect(source).not.toContain('includes("Dropbox")');
