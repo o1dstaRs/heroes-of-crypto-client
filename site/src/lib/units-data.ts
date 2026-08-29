@@ -54,7 +54,13 @@ const slug = (name: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
 
-const abilityIcon = (name: string): string => `/assets/images/units/abilities/${slug(name)}_256.webp`;
+const abilityIconOverrides: Readonly<Record<string, string>> = {
+    "Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_aura_256.webp",
+    "Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
+};
+
+const abilityIcon = (name: string): string =>
+    abilityIconOverrides[name] ?? `/assets/images/units/abilities/${slug(name)}_256.webp`;
 
 // Mirrors common's MAX_UNIT_STACK_POWER (constants.ts) — the ceiling chakramBounceBudget clamps to.
 const MAX_UNIT_STACK_POWER = 5;

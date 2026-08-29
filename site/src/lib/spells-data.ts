@@ -99,6 +99,11 @@ const spellBookOverrides: Readonly<Record<string, SpellBook>> = {
     "Chaos:Empower": "Order",
 };
 
+const spellIconOverrides: Readonly<Record<string, string>> = {
+    "System:Arcane Ward Blessing": "/assets/images/units/abilities/arcane_ward_aura_256.webp",
+    "System:Warding Mane Blessing": "/assets/images/units/abilities/warding_mane_aura_256.webp",
+};
+
 const damageSpells = new Set([
     "Fire Strike",
     "Fire Wall",
@@ -367,7 +372,8 @@ export const spells: Spell[] = bookOrder
                     book: displayBook,
                     kind: spellKind(book, raw, casters.length),
                     level: raw.level,
-                    icon: `/assets/images/spells/${slug(raw.name)}_256.webp`,
+                    icon:
+                        spellIconOverrides[`${book}:${raw.name}`] ?? `/assets/images/spells/${slug(raw.name)}_256.webp`,
                     description,
                     descriptionRu: russianDescription(book, raw, description),
                     target: raw.target,
