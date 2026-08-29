@@ -135,9 +135,17 @@ const ARTIFACT_BUFF_TEXTURE: Record<string, string> = (() => {
 const buffDebuffTextureName = (name: string): string =>
     ARTIFACT_BUFF_TEXTURE[name] ?? AbilityHelper.abilityToTextureName(name);
 
-/** Angelic Host's carrier already displays the passive card; hide only its redundant beneficiary marker. */
+/**
+ * The Angel's own passives already show as ability cards, so the beneficiary marker it also receives from them
+ * is pure duplication on that one unit — hide it there and nowhere else.
+ */
+const SELF_REDUNDANT_BENEFICIARY_BUFFS: ReadonlySet<string> = new Set([
+    "Angelic Host Blessing",
+    "Arrows Wingshield Blessing",
+]);
+
 export const shouldDisplayAppliedBuff = (buffName: string, activeAbilityNames: readonly string[]): boolean =>
-    buffName !== "Angelic Host" || !activeAbilityNames.includes("Angelic Host");
+    !SELF_REDUNDANT_BENEFICIARY_BUFFS.has(buffName) || !activeAbilityNames.includes(buffName);
 
 export abstract class PixiScene {
     private sc_sceneStarted = false;

@@ -57,6 +57,29 @@ describe("PixiRenderableSpell magic-damage hover", () => {
             layer.destroy();
         }
     });
+
+    test("shows the current-lap Morale multiplier on damage and recovery spell cards", () => {
+        const hover = (faction: string, name: string, attackMultiplier: number): string => {
+            const layer = new Container();
+            const spell = new PixiRenderableSpell(
+                { spellProperties: HoCConfig.getSpellConfig(faction, name), amount: 1 },
+                layer,
+                { spell_cell_260: Texture.WHITE },
+                Texture.WHITE,
+                new Map(),
+            );
+            try {
+                return spell.getHoverInfo(5, 10, 100, 0, 0, attackMultiplier).join("\n");
+            } finally {
+                spell.destroy();
+                layer.destroy();
+            }
+        };
+
+        expect(hover("Nature", "Lightning Strike", 1.25)).toContain("dealing 1875 damage");
+        expect(hover("Life", "Heal", 0.8)).toContain("40 health points");
+        expect(hover("System", "Resurrection", 1.25)).toContain("187 total hit points");
+    });
 });
 
 describe("PixiRenderableSpell card hit area", () => {

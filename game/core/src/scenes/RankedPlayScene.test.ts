@@ -331,7 +331,7 @@ describe("ranked placement scene state", () => {
         expect(props?.applied_debuffs_powers?.length).toBe(props?.applied_debuffs?.length);
     });
 
-    test("mechanically applies and clears ranked Break before Angelic Host refresh", () => {
+    test("mechanically applies and clears ranked Break before Angelic Host Blessing refresh", () => {
         FightStateManager.getInstance().reset();
         const angelCell = { x: 2, y: 2 };
         const flyerCell = { x: 10, y: 8 };
@@ -429,21 +429,21 @@ describe("ranked placement scene state", () => {
         unitsHolder.refreshStackPowerForAllUnits();
         const stepsWhileBroken = flyer.getSteps();
         expect(angel.hasEffectActive("Break")).toBe(true);
-        expect(angel.hasAbilityActive("Angelic Host")).toBe(false);
-        expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
+        expect(angel.hasAbilityActive("Angelic Host Blessing")).toBe(false);
+        expect(flyer.hasBuffActive("Angelic Host Blessing")).toBe(false);
 
         const stateWithoutBreak = { ...angelState, mechanicalBreakLaps: undefined };
         expect(applyRankedUnitMechanicalEffects(angel, stateWithoutBreak)).toBe(true);
         unitsHolder.refreshStackPowerForAllUnits();
         expect(angel.hasEffectActive("Break")).toBe(false);
-        expect(angel.hasAbilityActive("Angelic Host")).toBe(true);
-        expect(flyer.hasBuffActive("Angelic Host")).toBe(true);
+        expect(angel.hasAbilityActive("Angelic Host Blessing")).toBe(true);
+        expect(flyer.hasBuffActive("Angelic Host Blessing")).toBe(true);
         expect(flyer.getSteps()).toBe(stepsWhileBroken + 1);
 
         // A later same-board snapshot can re-apply Break and immediately remove the movement preview bonus.
         expect(applyRankedUnitMechanicalEffects(angel, angelState)).toBe(true);
         unitsHolder.refreshStackPowerForAllUnits();
-        expect(flyer.hasBuffActive("Angelic Host")).toBe(false);
+        expect(flyer.hasBuffActive("Angelic Host Blessing")).toBe(false);
         expect(flyer.getSteps()).toBe(stepsWhileBroken);
     });
 
@@ -544,9 +544,9 @@ describe("ranked placement scene state", () => {
         expect(tiger.hasDebuffActive("Visible")).toBe(true);
     });
 
-    test("suppresses only the redundant Angelic Host beneficiary marker on its active provider", () => {
-        expect(shouldDisplayAppliedBuff("Angelic Host", ["Angelic Host"])).toBe(false);
-        expect(shouldDisplayAppliedBuff("Angelic Host", [])).toBe(true);
+    test("suppresses only the redundant Angelic Host Blessing beneficiary marker on its active provider", () => {
+        expect(shouldDisplayAppliedBuff("Angelic Host Blessing", ["Angelic Host Blessing"])).toBe(false);
+        expect(shouldDisplayAppliedBuff("Angelic Host Blessing", [])).toBe(true);
         expect(shouldDisplayAppliedBuff("Morale", ["Morale"])).toBe(true);
     });
 
@@ -718,14 +718,14 @@ describe("ranked placement scene state", () => {
                     team: TeamVals.LOWER,
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
-                    abilities: ["Arrows Wingshield Aura", "Angelic Host"], // Resurrection already spent
+                    abilities: ["Arrows Wingshield Blessing", "Angelic Host Blessing"], // Resurrection already spent
                 }),
             ]),
         );
 
         const angel = state.units.find((unit) => unit.properties.id === "angel");
-        expect(angel?.properties.abilities).toContain("Arrows Wingshield Aura");
-        expect(angel?.properties.abilities).toContain("Angelic Host");
+        expect(angel?.properties.abilities).toContain("Arrows Wingshield Blessing");
+        expect(angel?.properties.abilities).toContain("Angelic Host Blessing");
         expect(angel?.properties.abilities).not.toContain("Resurrection");
     });
 
@@ -848,7 +848,7 @@ describe("ranked placement scene state", () => {
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
                     abilities: ["Resurrection"],
-                    stolenAbilities: ["Arrows Wingshield Aura"],
+                    stolenAbilities: ["Arrows Wingshield Blessing"],
                 }),
             ]),
         );
@@ -877,7 +877,7 @@ describe("ranked placement scene state", () => {
                     team: TeamVals.UPPER,
                     name: "Angel",
                     creatureId: CreatureVals.ANGEL,
-                    abilities: ["Arrows Wingshield Aura"],
+                    abilities: ["Arrows Wingshield Blessing"],
                     stolenAbilities: ["Resurrection"],
                 }),
             ]),

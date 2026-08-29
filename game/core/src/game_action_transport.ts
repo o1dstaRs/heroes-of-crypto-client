@@ -67,7 +67,7 @@ export interface AuthoritativeUnitState {
     /**
      * The server's FINAL armor_mod / attack_mod. Ranked cannot derive these: adjustBaseStats builds them
      * from the effect/buff OBJECT arrays (Shatter Armor, Spiritual Armor, Riot, Weakness, Veteran Helm,
-     * Titan Plate, Angelic Host, the Runes ...) and the ranked client deliberately leaves those arrays
+     * Titan Plate, Angelic Host Blessing, the Runes ...) and the ranked client deliberately leaves those arrays
      * empty — it seeds only the display strings, because rebuilding the objects would double-apply stats
      * that already arrive authoritative. Without these a unit under Shatter Armor rendered its full base
      * armor, which reads as the effect not working at all.

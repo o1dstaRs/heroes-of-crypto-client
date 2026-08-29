@@ -5593,18 +5593,15 @@ export class RenderableUnit extends Unit {
             );
         }
 
-        // Arrows Wingshield Aura
-        const arrowsWingshieldAuraAbility = this.getAbility("Arrows Wingshield Aura");
-        if (arrowsWingshieldAuraAbility) {
-            const percentage =
-                Number(
-                    (
-                        this.calculateAbilityMultiplier(arrowsWingshieldAuraAbility, _synergyAbilityPowerIncrease) * 100
-                    ).toFixed(2),
-                ) - 100;
+        // Arrows Wingshield Blessing (Angel) — board-wide at 5/10/15/20/25 by stack, plus the Angel's Luck.
+        const arrowsWingshieldBlessingAbility = this.getAbility("Arrows Wingshield Blessing");
+        if (arrowsWingshieldBlessingAbility) {
             this.refreshAbiltyDescription(
-                arrowsWingshieldAuraAbility.getName(),
-                arrowsWingshieldAuraAbility.getDesc().join("\n").replace(/\{\}/g, percentage.toString()),
+                arrowsWingshieldBlessingAbility.getName(),
+                arrowsWingshieldBlessingAbility
+                    .getDesc()
+                    .join("\n")
+                    .replace(/\{\}/g, this.calculateArrowsWingshieldBlessingPower().toString()),
             );
         }
 
