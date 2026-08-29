@@ -6,6 +6,15 @@ export interface MatchmakingCurrentGame {
     abandoned?: boolean;
 }
 
+/** Accept only persisted player ids from the matchmaking stream; malformed decoration is ignored. */
+export const matchmakingOpponentId = (value: unknown): string => {
+    if (typeof value !== "string") {
+        return "";
+    }
+    const normalized = value.trim();
+    return normalized.length === 36 && !/[\u0000-\u001f\u007f]/.test(normalized) ? normalized : "";
+};
+
 export type ConfirmFailureResolution = "accepted" | "rejected" | "unknown";
 export type TerminalHandoffResolution = "navigate" | "retry-confirm" | "recover";
 

@@ -3,11 +3,23 @@ import { describe, expect, test } from "bun:test";
 import {
     isAmbiguousConfirmFailure,
     isCurrentAcceptAttempt,
+    matchmakingOpponentId,
     resolveConfirmFailure,
     resolveTerminalHandoff,
     shouldSurfaceMatchmakingStreamError,
     TERMINAL_MATCHMAKING_STREAM_ERROR,
 } from "./matchmakingAcceptTransition";
+
+describe("matchmaking opponent identity", () => {
+    test("accepts human and padded AI player ids but rejects malformed stream decoration", () => {
+        const human = "8b7f4a4e-1111-2222-3333-444444444444";
+        const ai = "ai:v0.8:ranked-00:000000000000000000";
+        expect(matchmakingOpponentId(human)).toBe(human);
+        expect(matchmakingOpponentId(ai)).toBe(ai);
+        expect(matchmakingOpponentId("short-id")).toBe("");
+        expect(matchmakingOpponentId(null)).toBe("");
+    });
+});
 
 describe("ranked match accept handoff", () => {
     test("treats a lost confirm acknowledgement as accepted when current game confirms the write", () => {

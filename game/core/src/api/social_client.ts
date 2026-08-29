@@ -463,7 +463,11 @@ export interface PublicPlayerStats {
     state?: "calibration" | "placed" | "recalibration";
     /** 0 until placed — the provisional calibration MMR is never public. */
     mmr?: number;
+    league?: number;
     leagueName?: string;
+    /** Gold third inside the league: 1 Ragged, 2 Stacked, 3 Whale (0 = unplaced). */
+    wealth?: number;
+    wealthName?: string;
     standingTitle?: string;
     leaderboardRank?: number;
     calibration?: { required: number; gamesPlayed: number };

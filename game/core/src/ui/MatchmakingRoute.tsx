@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { buildApiUrl, endpoints, HOST_MATCHMAKING_API } from "../api/axios";
 import { createVsAiGame } from "../api/vs_ai_client";
+import { fetchPublicPlayerStats, type PublicPlayerStats } from "../api/social_client";
 import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
@@ -55,18 +56,22 @@ import {
     isAcceptedMatchHandoff,
     isAmbiguousConfirmFailure,
     isCurrentAcceptAttempt,
+    matchmakingOpponentId,
     type MatchmakingCurrentGame,
     resolveConfirmFailure,
     resolveTerminalHandoff,
     shouldSurfaceMatchmakingStreamError,
     TERMINAL_MATCHMAKING_STREAM_ERROR,
 } from "./matchmakingAcceptTransition";
+import { MatchFoundOpponentPreview } from "./MatchFoundOpponentPreview";
 
 type MatchmakingEvent = {
     ps?: string;
     po?: number;
     r?: number;
     c?: number;
+    /** Recipient-specific opponent player id; older servers omit it. */
+    oi?: string;
 };
 
 type MatchmakingState = "idle" | "searching" | "confirming" | "accepted" | "starting-ai" | "error";
@@ -137,6 +142,9 @@ export const MatchmakingRoute: React.FC = () => {
     }, []);
 
     const [pendingGameId, setPendingGameId] = useState("");
+    const [opponentPlayerId, setOpponentPlayerId] = useState("");
+    const [opponentStats, setOpponentStats] = useState<PublicPlayerStats | null>(null);
+    const [opponentStatsLoading, setOpponentStatsLoading] = useState(false);
     const updatePendingGameId = useCallback((gameId: string) => {
         pendingGameIdRef.current = gameId;
         setPendingGameId(gameId);
@@ -225,11 +233,16 @@ export const MatchmakingRoute: React.FC = () => {
                 // Back to searching: nothing is waiting on the player, so stop shouting.
                 clearMatchReadyAlert();
                 alertedGameIdRef.current = "";
+                setOpponentPlayerId("");
                 setState("searching");
                 return;
             }
 
             updatePendingGameId(event.ps);
+            const nextOpponentPlayerId = matchmakingOpponentId(event.oi);
+            if (nextOpponentPlayerId) {
+                setOpponentPlayerId(nextOpponentPlayerId);
+            }
 
             if (event.r !== undefined && event.r < 0) {
                 // The window closed — whatever we were flashing is moot.
@@ -239,6 +252,7 @@ export const MatchmakingRoute: React.FC = () => {
                 acceptAttemptRef.current += 1;
                 setState("idle");
                 updatePendingGameId("");
+                setOpponentPlayerId("");
                 setSecondsRemaining(null);
                 // The found match window closed. If WE let it expire the server just set a no-accept
                 // cooldown — refresh /me so the penalty countdown renders (a no-op if we weren't at fault).
@@ -349,6 +363,34 @@ export const MatchmakingRoute: React.FC = () => {
 
         streamRef.current = source;
     }, [closeStream, getCurrentGame, navigate, me, updatePendingGameId]);
+
+    useEffect(() => {
+        if (!opponentPlayerId) {
+            setOpponentStats(null);
+            setOpponentStatsLoading(false);
+            return undefined;
+        }
+        let cancelled = false;
+        setOpponentStats(null);
+        setOpponentStatsLoading(true);
+        void fetchPublicPlayerStats(opponentPlayerId)
+            .then((stats) => {
+                if (!cancelled) {
+                    setOpponentStats(stats);
+                }
+            })
+            .catch(() => {
+                // The Accept action stays primary if the decorative public profile cannot be read.
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setOpponentStatsLoading(false);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [opponentPlayerId]);
 
     // A terminal accepted-stream failure may reconcile to the same still-unconfirmed game. Re-opening
     // here makes the restored Accept button useful: its successful retry still needs the authoritative
@@ -469,6 +511,7 @@ export const MatchmakingRoute: React.FC = () => {
         acceptedGameIdRef.current = "";
         acceptAttemptRef.current += 1;
         alertedGameIdRef.current = "";
+        setOpponentPlayerId("");
         setState("searching");
         closeStream();
         openStream();
@@ -494,6 +537,7 @@ export const MatchmakingRoute: React.FC = () => {
         acceptedGameIdRef.current = "";
         acceptAttemptRef.current += 1;
         setState("starting-ai");
+        setOpponentPlayerId("");
         closeStream();
         try {
             const game = await createVsAiGame();
@@ -574,6 +618,7 @@ export const MatchmakingRoute: React.FC = () => {
             closeStream();
             setState("idle");
             updatePendingGameId("");
+            setOpponentPlayerId("");
             setQueueSize(null);
             setSecondsRemaining(null);
         }
@@ -1309,6 +1354,16 @@ export const MatchmakingRoute: React.FC = () => {
                         >
                             {statusText}
                         </Typography>
+
+                        {(state === "confirming" || state === "accepted") && pendingGameId ? (
+                            <MatchFoundOpponentPreview
+                                accepted={state === "accepted"}
+                                currency={currency}
+                                language={language}
+                                loading={opponentStatsLoading}
+                                stats={opponentStats}
+                            />
+                        ) : null}
 
                         <Stack
                             spacing={{ xs: 1.25, md: profileSummaryOpen && !showStatusPresentation ? 0 : 1.25 }}
