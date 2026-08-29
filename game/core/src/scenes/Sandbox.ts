@@ -898,6 +898,8 @@ export class Sandbox extends PixiScene {
     private shotRangeCornerContainer?: Container;
     /** Reachable-cell sheet below tall terrain; rings and targeting previews stay in gameplayGraphics above it. */
     private movementGraphics?: Graphics;
+    /** Everything this scene parented to the app-owned world root; released in Destroy. */
+    private readonly worldRootAttachments = new Set<Container>();
     /** Tracks whether the dynamic board-overlay buffer needs one final clear after it becomes idle. */
     private gameplayGraphicsHasGeometry = false;
     // Protected: RankedPlayScene re-arms it after a mid-turn full hydrate (the armed-spell restore).
@@ -2359,8 +2361,26 @@ export class Sandbox extends PixiScene {
             obj.removeFromParent();
             worldRoot.addChild(obj);
         }
+        // The world root belongs to the pixiApp, which SURVIVES the scene: LoadGame destroys the scene and
+        // builds a new one against the same app. So everything parented here outlives its owner and keeps
+        // painting its last frame forever, while the replacement scene draws into brand-new objects that
+        // know nothing about the orphan. Remembering the attachment at the one choke point is what keeps
+        // Destroy honest — the leak reached the board because the list was kept by hand and fell behind.
+        this.worldRootAttachments.add(obj);
         if (!worldRoot.sortableChildren) worldRoot.sortableChildren = true;
         obj.zIndex = zIndex;
+    }
+    /** Detach (and release) everything this scene parented to the app-owned world root. */
+    private releaseWorldRootAttachments(): void {
+        for (const attachment of this.worldRootAttachments) {
+            attachment.removeFromParent();
+            // dungeonVisuals/combatVisuals dispose their own children just above, so anything already
+            // destroyed is skipped rather than destroyed twice.
+            if (!attachment.destroyed) {
+                attachment.destroy({ children: true });
+            }
+        }
+        this.worldRootAttachments.clear();
     }
     private attachToUnitDepthRoot(obj: Graphics | Sprite | Container | undefined, zIndex: number): void {
         if (!obj) return;
@@ -13451,6 +13471,12 @@ export class Sandbox extends PixiScene {
         // Floating damage numbers are parented to the shared worldRoot; destroy them so
         // they don't linger after the scene is replaced (e.g. on "New Battle").
         this.combatVisuals?.clear();
+        // Everything else this scene hung on that same shared root — the movement sheet, the gameplay
+        // range overlay, the placement zones and bench, the smoke/vine/fire-wall/wind/lighting layers.
+        // Without this a finished sandbox fight left its last-drawn movement area painted over the new
+        // battle's placement board, because the orphaned Graphics still rendered while the fresh scene
+        // cleared only its own.
+        this.releaseWorldRootAttachments();
         window.removeEventListener("keydown", this.handleKeyDown);
         window.removeEventListener("keyup", this.handleKeyUp);
     }
