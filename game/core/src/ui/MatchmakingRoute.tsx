@@ -15,7 +15,6 @@ import { tf, useTranslation } from "../i18n/i18n";
 import { markVsAiGame } from "../utils/aiOpponent";
 import { getPreGameDoctrine, setPreGameDoctrine } from "../utils/preGameDoctrine";
 import { ArenaChatPanel } from "./ArenaChatPanel";
-import { PlayerSettingsPanel } from "./PlayerSettingsPanel";
 import {
     clearMatchReadyAlert,
     isFreshMatchReady,
@@ -37,21 +36,14 @@ import {
     hocSoftButtonSx,
 } from "./hocTheme";
 import { DoctrineIcon } from "./DoctrineIcon";
+import { ArenaNavBar } from "./ArenaNavBar";
+import { ARENA_IDLE_WASH, arenaBackgroundUrl } from "./arenaBackdrop";
 import { getDoctrineCopy } from "./doctrineCopy";
 import { isMockPortalEnabled } from "./PlayerPortal/mockPortal";
 import { PlayerPortalSidebar } from "./PlayerPortal/PlayerPortalSidebar";
 import { useRankedSeason } from "./useRankedSeason";
 import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
-import {
-    LobbyNavIcon,
-    PracticeAiIcon,
-    ProfileNavIcon,
-    RankedNavIcon,
-    RankedSearchIcon,
-    SandboxNavIcon,
-    SettingsNavIcon,
-    StatsPanelIcon,
-} from "./svg/navigation";
+import { PracticeAiIcon, RankedSearchIcon, StatsPanelIcon } from "./svg/navigation";
 import {
     isAcceptedMatchHandoff,
     isAmbiguousConfirmFailure,
@@ -79,7 +71,6 @@ type MatchmakingState = "idle" | "searching" | "confirming" | "accepted" | "star
 const STORAGE_KEY = "accessToken";
 
 const matchEventUrl = () => buildApiUrl(HOST_MATCHMAKING_API, endpoints.mm.events);
-const rankedBackgroundUrl = new URL("../../images/pick_phase_obsidian_background.webp", import.meta.url).toString();
 const MOCK_MATCH_ID = "mock-ranked-match-2026-08-29";
 const MOCK_OPPONENT_STATS: PublicPlayerStats = {
     playerId: "00000000-0000-4000-8000-000000000029",
@@ -274,7 +265,6 @@ export const MatchmakingRoute: React.FC = () => {
     }, []);
     // When this tab entered the queue — the fallback anchor for the "time in queue" readout while
     // the server's own enqueue timestamp is still in flight.
-    const [settingsOpen, setSettingsOpen] = useState(false);
     const [searchStartedAt, setSearchStartedAt] = useState(0);
     const [queueSize, setQueueSize] = useState<number | null>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(mockMatchPreview ? 28 : null);
@@ -901,7 +891,7 @@ export const MatchmakingRoute: React.FC = () => {
                 overflowY: "auto",
                 bgcolor: "#050504",
                 color: hocColors.parchment,
-                backgroundImage: `url(${rankedBackgroundUrl})`,
+                backgroundImage: `url(${arenaBackgroundUrl})`,
                 backgroundPosition: "center",
                 backgroundSize: "cover",
                 backgroundRepeat: "no-repeat",
@@ -933,161 +923,16 @@ export const MatchmakingRoute: React.FC = () => {
                     background:
                         state === "confirming"
                             ? "radial-gradient(circle at 34% 58%, rgba(255,209,102,0.2), transparent 38%), radial-gradient(circle at 78% 35%, rgba(255,143,0,0.12), transparent 32%), linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.38))"
-                            : "radial-gradient(circle at 28% 35%, rgba(255,143,0,0.1), transparent 31%), radial-gradient(circle at 88% 8%, rgba(220,177,88,0.07), transparent 24%), linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.45))",
+                            : ARENA_IDLE_WASH,
                     transition: "background 320ms ease",
                 }}
             />
 
-            <Box
-                component="header"
-                sx={{
-                    position: "relative",
-                    zIndex: 1,
-                    width: profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))",
-                    mx: "auto",
-                    pt: { xs: 2, md: 2.5 },
-                }}
-            >
-                <Stack
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="flex-end"
-                    sx={{
-                        px: { xs: 1.25, md: 1.75 },
-                        py: 1.1,
-                        borderRadius: "16px",
-                        bgcolor: "rgba(9,6,4,0.78)",
-                        border: "1px solid rgba(239,228,204,0.1)",
-                        boxShadow: "0 12px 34px rgba(0,0,0,0.34)",
-                        backdropFilter: "blur(16px)",
-                    }}
-                >
-                    <Stack
-                        component="nav"
-                        aria-label={t("Game navigation")}
-                        direction="row"
-                        spacing={0.5}
-                        sx={{ width: { xs: "100%", sm: "auto" }, pb: { xs: 0.25, sm: 0 } }}
-                    >
-                        <Button
-                            aria-label={t("Ranked Arena")}
-                            size="sm"
-                            variant="soft"
-                            aria-current="page"
-                            startDecorator={<RankedNavIcon sx={{ fontSize: 24 }} />}
-                            sx={{
-                                ...hocSoftButtonSx,
-                                flex: { xs: 1, sm: "0 0 auto" },
-                                minWidth: 0,
-                                px: { xs: 0.75, sm: 1.25 },
-                                color: hocColors.gold,
-                                "& .MuiButton-startDecorator": {
-                                    mr: { xs: 0, sm: "var(--Button-gap)" },
-                                },
-                            }}
-                        >
-                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                {t("Ranked")}
-                            </Box>
-                        </Button>
-                        <Button
-                            aria-label={t("Lobby")}
-                            size="sm"
-                            variant="plain"
-                            disabled={navigationLocked}
-                            onClick={() => navigate("/lobbies")}
-                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
-                            startDecorator={<LobbyNavIcon sx={{ fontSize: 24 }} />}
-                            sx={{
-                                color: hocColors.mutedStrong,
-                                flex: { xs: 1, sm: "0 0 auto" },
-                                minWidth: 0,
-                                px: { xs: 0.75, sm: 1.25 },
-                                "&:hover": { bgcolor: hocColors.orangeSoft },
-                                "& .MuiButton-startDecorator": {
-                                    mr: { xs: 0, sm: "var(--Button-gap)" },
-                                },
-                            }}
-                        >
-                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                {t("Lobby")}
-                            </Box>
-                        </Button>
-                        <Button
-                            aria-label={t("Sandbox")}
-                            size="sm"
-                            variant="plain"
-                            disabled={navigationLocked}
-                            onClick={() => navigate("/")}
-                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
-                            startDecorator={<SandboxNavIcon sx={{ fontSize: 24 }} />}
-                            sx={{
-                                color: hocColors.mutedStrong,
-                                flex: { xs: 1, sm: "0 0 auto" },
-                                minWidth: 0,
-                                px: { xs: 0.75, sm: 1.25 },
-                                "&:hover": { bgcolor: hocColors.orangeSoft },
-                                "& .MuiButton-startDecorator": {
-                                    mr: { xs: 0, sm: "var(--Button-gap)" },
-                                },
-                            }}
-                        >
-                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                {t("Sandbox")}
-                            </Box>
-                        </Button>
-                        <Button
-                            aria-label={t("Profile")}
-                            size="sm"
-                            variant="plain"
-                            disabled={navigationLocked}
-                            onClick={() => navigate("/portal")}
-                            title={navigationLocked ? t("Leave matchmaking before navigating away") : undefined}
-                            startDecorator={<ProfileNavIcon sx={{ fontSize: 24 }} />}
-                            sx={{
-                                color: hocColors.mutedStrong,
-                                flex: { xs: 1, sm: "0 0 auto" },
-                                minWidth: 0,
-                                px: { xs: 0.75, sm: 1.25 },
-                                "&:hover": { bgcolor: hocColors.orangeSoft },
-                                "& .MuiButton-startDecorator": {
-                                    mr: { xs: 0, sm: "var(--Button-gap)" },
-                                },
-                            }}
-                        >
-                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                {t("Profile")}
-                            </Box>
-                        </Button>
-                        {/* Settings opens a popup rather than navigating, so it is not disabled while
-                            queued the way the destination links are, and it carries a sliders mark
-                            instead of a place pictogram. */}
-                        <Button
-                            aria-label={t("Player settings")}
-                            aria-haspopup="dialog"
-                            aria-expanded={settingsOpen}
-                            size="sm"
-                            variant="plain"
-                            onClick={() => setSettingsOpen(true)}
-                            startDecorator={<SettingsNavIcon sx={{ fontSize: 24 }} />}
-                            sx={{
-                                color: settingsOpen ? hocColors.gold : hocColors.mutedStrong,
-                                flex: { xs: 1, sm: "0 0 auto" },
-                                minWidth: 0,
-                                px: { xs: 0.75, sm: 1.25 },
-                                "&:hover": { bgcolor: hocColors.orangeSoft },
-                                "& .MuiButton-startDecorator": {
-                                    mr: { xs: 0, sm: "var(--Button-gap)" },
-                                },
-                            }}
-                        >
-                            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-                                {t("Settings")}
-                            </Box>
-                        </Button>
-                    </Stack>
-                </Stack>
-            </Box>
+            <ArenaNavBar
+                current="ranked"
+                locked={navigationLocked}
+                width={profileSummaryOpen ? "min(1480px, calc(100% - 32px))" : "min(1040px, calc(100% - 32px))"}
+            />
 
             <Box
                 role="main"
@@ -1892,7 +1737,6 @@ export const MatchmakingRoute: React.FC = () => {
                 {!needsActivation ? (
                     <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
                         <ArenaChatPanel selfUsername={user?.username} />
-                        <PlayerSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
                     </Box>
                 ) : null}
             </Box>

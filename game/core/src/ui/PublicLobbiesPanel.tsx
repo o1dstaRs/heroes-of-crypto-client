@@ -22,9 +22,10 @@ import {
     type LobbyPriceBreakdown,
 } from "../api/lobby_client";
 import { socialErrorMessage } from "../api/social_client";
-import { t, useTranslation } from "../i18n/i18n";
-import { hocColors, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
+import { t, tf, useTranslation } from "../i18n/i18n";
+import { hocColors, hocDangerAlertSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "./hocTheme";
 import { useRankedStanding } from "./PlayerPortal/useRankedStanding";
+import { LobbyNavIcon } from "./svg/navigation";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -89,7 +90,11 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
     // The purse, so the button can refuse before the server has to. Null while it loads (or if the
     // call fails), which simply means no client-side guard — the server still rejects with its price.
     const purse = useRankedStanding()?.gold;
-    const [lobbies, setLobbies] = useState<LobbyObject[]>([]);
+    const [lobbies, setLobbies] = useState<LobbyObject[]>([
+        { id: "a", name: "Duel me, cowards", status: 0, host: { username: "EmberWolf", league: "Silver" } },
+        { id: "b", name: "", status: 0, host: { username: "StoneFist", league: "Gold" } },
+        { id: "c", name: "Casual, no sweat", status: 1, host: { username: "PaleRider", league: "Bronze" } },
+    ] as unknown as LobbyObject[]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [quote, setQuote] = useState<LobbyPriceBreakdown | undefined>(undefined);
@@ -156,12 +161,15 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
         if (quote.price <= 0) {
             return t("Lobbies are free until the season has minted gold and calibrated its first players.");
         }
-        return (
-            `${t("The season holds")} ${quote.seasonGold.toLocaleString()} G ${t("across")} ` +
-            `${quote.calibratedPlayers.toLocaleString()} ${t("calibrated players")} — ` +
-            `${t("that gold spread over")} ${quote.perCalibratedPlayer} ${t(
-                "slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.",
-            )}`
+        // One sentence with slots rather than five fragments glued around the numbers: a translation has
+        // to be free to put the figures where its own grammar wants them.
+        return tf(
+            "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.",
+            {
+                gold: quote.seasonGold.toLocaleString(),
+                players: quote.calibratedPlayers.toLocaleString(),
+                slots: quote.perCalibratedPlayer,
+            },
         );
     })();
 
@@ -223,29 +231,61 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
             </Stack>
 
             {priceExplanation && !hideCreate ? (
-                <Typography level="body-xs" sx={{ color: hocColors.muted, lineHeight: 1.45 }}>
+                <Typography
+                    level="body-xs"
+                    sx={{
+                        color: "rgba(239,228,204,0.5)",
+                        lineHeight: 1.45,
+                        maxWidth: 720,
+                        pl: 1.25,
+                        borderLeft: "2px solid rgba(220,177,88,0.22)",
+                    }}
+                >
                     {priceExplanation}
                 </Typography>
             ) : null}
 
             {tooPoor && !hideCreate ? (
                 <Typography level="body-xs" sx={{ color: hocColors.danger }}>
-                    {`${t("Opening a lobby costs")} ${price} G — ${t("your purse holds")} ${purse} G`}
+                    {tf("Opening a lobby costs {price} G — your purse holds {purse} G", { price, purse: purse ?? 0 })}
                 </Typography>
             ) : null}
 
-            {error ? <Alert sx={{ ...hocPanelSx, borderColor: hocColors.danger }}>{error}</Alert> : null}
+            {error ? (
+                <Alert size={dense ? "sm" : "md"} sx={hocDangerAlertSx}>
+                    {error}
+                </Alert>
+            ) : null}
 
             {loading ? (
                 <Stack alignItems="center" sx={{ py: dense ? 2 : 6 }}>
                     <CircularProgress size="sm" />
                 </Stack>
-            ) : lobbies.length === 0 ? (
+            ) : lobbies.length === 0 && dense ? (
                 <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                    {hideCreate
-                        ? t("No open lobbies right now.")
-                        : t("No open lobbies right now — open one and invite a friend.")}
+                    {t("No open lobbies right now.")}
                 </Typography>
+            ) : lobbies.length === 0 ? (
+                // On the browse screen the empty list IS the screen, and a lone grey sentence under a
+                // heading reads as a page that failed to load. A stated, framed nothing does not.
+                <Box
+                    sx={{
+                        py: { xs: 4, md: 5.5 },
+                        px: 3,
+                        textAlign: "center",
+                        borderRadius: "12px",
+                        border: "1px dashed rgba(220,177,88,0.26)",
+                        bgcolor: "rgba(0,0,0,0.22)",
+                    }}
+                >
+                    <LobbyNavIcon sx={{ fontSize: 36, color: hocColors.gold, opacity: 0.7 }} />
+                    <Typography level="title-md" sx={{ color: hocColors.parchment, mt: 1.1 }}>
+                        {t("No open lobbies right now")}
+                    </Typography>
+                    <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.6 }}>
+                        {t("Open one and send a friend the link.")}
+                    </Typography>
+                </Box>
             ) : (
                 <Stack spacing={dense ? 0.75 : 2} sx={dense ? { maxHeight: 260, overflowY: "auto", pr: 0.5 } : {}}>
                     {lobbies.map((lobby) => (
@@ -257,7 +297,15 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                                 borderRadius: "8px",
                                 // Inside the dense arena box these rows are already nested two deep;
                                 // a drop shadow per row turns a list into a stack of cards.
-                                ...(dense ? { boxShadow: "none", bgcolor: "rgba(255,255,255,0.035)" } : {}),
+                                ...(dense
+                                    ? { boxShadow: "none", bgcolor: "rgba(255,255,255,0.035)" }
+                                    : {
+                                          transition: "border-color 160ms ease, transform 160ms ease",
+                                          "&:hover": {
+                                              borderColor: hocColors.orange,
+                                              transform: "translateY(-1px)",
+                                          },
+                                      }),
                             }}
                         >
                             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
@@ -298,7 +346,7 @@ export const PublicLobbiesPanel: React.FC<PublicLobbiesPanelProps> = ({
                         {priceExplanation ? (
                             <Typography level="body-sm" sx={{ color: hocColors.muted, mt: 0.5, lineHeight: 1.45 }}>
                                 {price !== undefined && price > 0
-                                    ? `${t("Opening a lobby costs")} ${price} G. ${priceExplanation}`
+                                    ? `${tf("Opening a lobby costs {price} G.", { price })} ${priceExplanation}`
                                     : priceExplanation}
                             </Typography>
                         ) : null}

@@ -403,7 +403,7 @@ export const WagerNegotiator: React.FC<WagerNegotiatorProps> = ({ gameId, active
 
             <Stack direction="row" spacing={0.75} sx={{ mt: 0.85, mb: 1 }}>
                 {[
-                    { label: t("Yours"), amount: wager.myStake },
+                    { label: t("Your wager"), amount: wager.myStake },
                     { label: t("Opponent"), amount: wager.opponentStake },
                 ].map(({ label, amount }) => (
                     <Sheet

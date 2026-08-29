@@ -1150,11 +1150,13 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
                 }
             />
             {/* Custom-game lobbies: browse/create and the lobby room (ready-up + start).
-                LoginScreen uses wagmi hooks, so the unauthenticated fallback must sit inside WalletProvider. */}
+                LoginScreen uses wagmi hooks, so the unauthenticated fallback must sit inside WalletProvider.
+                The browser takes the same dev-only preview flag as the arena and the portal (?mockPortal=1),
+                so its chrome can be looked at without an account; the room still needs a real lobby. */}
             <Route
                 path="/lobbies"
                 element={
-                    activated ? (
+                    activated || isMockPortalEnabled() ? (
                         <LobbiesBrowse />
                     ) : (
                         <WalletProvider>

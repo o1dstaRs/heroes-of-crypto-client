@@ -95,6 +95,9 @@ describe("ranked flow localization", () => {
         const ui = join(import.meta.dir, "..", "ui");
         const keys = literalKeysAcross([
             join(ui, "MatchmakingRoute.tsx"),
+            join(ui, "ArenaNavBar.tsx"),
+            join(ui, "LobbiesBrowse.tsx"),
+            join(ui, "PublicLobbiesPanel.tsx"),
             join(ui, "RankedBanPicker.tsx"),
             join(ui, "RankedGameView.tsx"),
             join(ui, "PlayerSettingsPanel.tsx"),

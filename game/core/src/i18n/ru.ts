@@ -856,7 +856,7 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "{amount} {symbol} pool": "банк {amount} {symbol}",
     "Returns {return} {symbol} (+{profit})": "Выплата {return} {symbol} (+{profit})",
     Purse: "Баланс",
-    Yours: "Ваша ставка",
+    "Your wager": "Ваша ставка",
     Put: "Поставить",
     "Take it back": "Забрать ставку",
     "All-in": "Всё",
@@ -889,7 +889,39 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Home screen": "Главный экран",
     "Starting…": "Запуск…",
 
+    // ~~~ Custom games: the lobby browser and the room it opens ~~~
+    "Custom games": "Свои игры",
+    "PLAY A FRIEND": "ИГРА С ДРУГОМ",
+    "Open a room, send a friend the link, and play outside the ranked queue.":
+        "Откройте комнату, отправьте другу ссылку и играйте вне рейтингового поиска.",
+    "Open lobbies": "Открытые лобби",
     "No open lobbies right now.": "Открытых лобби сейчас нет.",
+    "No open lobbies right now": "Открытых лобби сейчас нет",
+    "Open one and send a friend the link.": "Откройте своё и отправьте другу ссылку.",
+    "Create lobby": "Создать лобби",
+    "Create a lobby": "Создание лобби",
+    Create: "Создать",
+    Join: "Присоединиться",
+    Player: "Игрок",
+    Open: "Открыто",
+    Full: "Заполнено",
+    Starting: "Запускается",
+    "In game": "В игре",
+    "Lobby name (optional)": "Название лобби (необязательно)",
+    "Private (join by link + PIN)": "Приватное (вход по ссылке и PIN)",
+    "4-digit PIN": "4-значный PIN",
+    "A private lobby needs a 4-digit PIN": "Для приватного лобби нужен 4-значный PIN",
+    "Failed to load lobbies": "Не удалось загрузить лобби",
+    "Failed to create lobby": "Не удалось создать лобби",
+    "non-refundable": "без возврата",
+    "Free while the season has minted no gold": "Бесплатно, пока в сезоне не отчеканено золото",
+    "Lobbies are free until the season has minted gold and calibrated its first players.":
+        "Лобби бесплатны, пока сезон не отчеканит золото и не откалибрует первых игроков.",
+    "The season holds {gold} G across {players} calibrated players — that gold spread over {slots} slots each sets the price. It is charged to the host and never returned; whatever you put on the game itself is separate.":
+        "В сезоне {gold} G на {players} откалиброванных игроков — это золото, разделённое на {slots} слотов для каждого, и задаёт цену. Она списывается с создателя и не возвращается; то, что вы ставите на саму игру, — отдельно.",
+    "Opening a lobby costs {price} G.": "Открытие лобби стоит {price} G.",
+    "Opening a lobby costs {price} G — your purse holds {purse} G":
+        "Открытие лобби стоит {price} G — в вашем кошельке {purse} G",
 
     // ~~~ Arena chat ~~~
     "Arena chat": "Чат арены",
