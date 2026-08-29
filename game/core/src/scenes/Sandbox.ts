@@ -2550,6 +2550,13 @@ export class Sandbox extends PixiScene {
         return renderableUnit;
     }
     protected hydrateSceneState(snapshot: SandboxSceneState): void {
+        // Carry the INSPECTED unit across the rebuild. A hydrate tears the board down and recreates every
+        // RenderableUnit, so a shift-selected stack loses its card and its ring even though the player never
+        // dismissed it. That is invisible in live play, where a full hydrate is occasional — but a REPLAY
+        // hydrates twice per replayed action (previousState, then stateAfter), so an inspection survives at
+        // most one action before the sidebar snaps back to whoever is acting. Only the id is kept: the unit
+        // object itself is destroyed below, and the replacement is looked up after the rebuild.
+        const inspectedUnitId = this.currentShiftedUnit?.getId();
         // Preserve the mountains' battered state across the reset below. reset()+setGridType() re-inits
         // both mountains to full HP, so without carrying the prior (or snapshotted) hit counts a mountain
         // sprang back to full on the next hydrate — e.g. the turn after it was struck, or during replay.
@@ -2841,6 +2848,36 @@ export class Sandbox extends PixiScene {
         } else {
             this.sc_visibleStateUpdateNeeded = true;
         }
+        // AFTER activation: handleNextUnitActivation pushes the acting unit into the sidebar, and its own
+        // "never override a shift-select" guard cannot help here because currentShiftedUnit was cleared
+        // during the teardown above.
+        this.restoreInspectedUnit(inspectedUnitId);
+    }
+    /**
+     * Re-open the stack the player was inspecting, on its rebuilt instance.
+     *
+     * Silently gives up when the unit is gone from the new state (it died, or the snapshot predates it) —
+     * there is nothing to show, and forcing a card for a stack that is no longer on the board would be
+     * worse than closing it.
+     */
+    private restoreInspectedUnit(inspectedUnitId: string | undefined): void {
+        if (!inspectedUnitId) {
+            return;
+        }
+        const unit = this.unitsHolder.getAllUnits().get(inspectedUnitId) as RenderableUnit | undefined;
+        if (!unit || unit.isDead()) {
+            return;
+        }
+        this.currentShiftedUnit = unit;
+        if (this.selectedBoardUnit && this.selectedBoardUnit !== unit) {
+            this.selectedBoardUnit.setBoardSelected(false);
+        }
+        this.selectedBoardUnit = unit;
+        unit.setBoardSelected(true);
+        const props = unit.getUnitProperties();
+        this.sc_selectedUnitProperties = props;
+        this.setSelectedUnitProperties(props);
+        this.sc_unitPropertiesUpdateNeeded = true;
     }
     private createRenderableUnitFromSceneState(unitState: SandboxSceneUnitState, summoned = false): RenderableUnit {
         const base = Unit.createUnit(
